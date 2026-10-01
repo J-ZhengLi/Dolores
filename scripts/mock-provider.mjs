@@ -31,13 +31,15 @@ const server = createServer(async (request, response) => {
   response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   let closed = false;
   response.on('close', () => { closed = true; });
-  const text = input === 'slow'
+  const text = input === 'markdown'
+    ? '# A small Rust example\n\n**Readable replies**, `inline code`, and Unicode: 你好.\n\n- Stream the answer\n- Keep the source\n\n| Feature | Result |\n| --- | --- |\n| Markdown | Native widgets |\n| Code | Select and copy |\n\n```rust\nfn main() {\n    println!("Hello, Dolores — 你好!"); // a long code line scrolls horizontally inside its own block without widening the conversation\n}\n```\n\nRICH_END'
+    : input === 'slow'
     ? 'This is a deliberately slow response from the local test server. Stop it to check cancellation.'
     : 'Hello from the Dolores local test server. 你好！\n\nStreaming, conversation storage, and your desktop connection are working. This is a fixture response, not a language model.';
   for (const word of text.match(/.{1,12}/gs) ?? []) {
     if (closed) return;
     response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: word }, finish_reason: null }] })}\n\n`);
-    await setTimeout(input === 'slow' ? 500 : 25);
+    await setTimeout(input === 'slow' ? 500 : input === 'markdown' ? 75 : 25);
     if (input === 'truncated') { response.end(); return; }
   }
   response.end('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');

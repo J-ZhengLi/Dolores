@@ -7,6 +7,9 @@ import 'package:file_selector/file_selector.dart';
 
 import 'bridge.dart';
 import 'chat.dart';
+import 'composer_controller.dart';
+import 'reply_content.dart';
+import 'rich_composer.dart';
 import 'theme.dart';
 export 'theme.dart' show Palette;
 
@@ -48,7 +51,7 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final input = TextEditingController();
+  final input = ComposerController();
   final focus = FocusNode();
   final scroll = ScrollController();
   ChatController get chat => widget.chat;
@@ -69,6 +72,7 @@ class _ChatPageState extends State<ChatPage> {
   void _changed() {
     if (!mounted) return;
     if (input.text != chat.draft) {
+      input.clearHistory();
       input.value = TextEditingValue(
         text: chat.draft,
         selection: TextSelection.collapsed(offset: chat.draft.length),
@@ -86,9 +90,13 @@ class _ChatPageState extends State<ChatPage> {
       });
       return;
     }
+    _followReply();
+  }
+
+  void _followReply() {
     if (following) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && scroll.hasClients) {
+        if (mounted && following && scroll.hasClients) {
           scroll.jumpTo(scroll.position.maxScrollExtent);
         }
       });
@@ -338,9 +346,11 @@ class _ChatPageState extends State<ChatPage> {
     String role,
     String text, {
     bool streaming = false,
+    Key? key,
   }) {
     final user = role == 'user';
     return Padding(
+      key: key,
       padding: const EdgeInsets.only(bottom: 32),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,10 +404,17 @@ class _ChatPageState extends State<ChatPage> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                SelectableText(
-                  text.isEmpty && streaming ? 'Thinking…' : text,
-                  style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
-                ),
+                if (user || text.isEmpty)
+                  SelectableText(
+                    text.isEmpty && streaming ? 'Thinking…' : text,
+                    style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
+                  )
+                else
+                  ReplyContent(
+                    text: text,
+                    streaming: streaming,
+                    onRendered: _followReply,
+                  ),
               ],
             ),
           ),
@@ -407,44 +424,50 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget welcome(Palette p) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: p.soft,
-              borderRadius: BorderRadius.circular(18),
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: p.soft,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(
+                Icons.all_inclusive_rounded,
+                size: 35,
+                color: p.accent,
+              ),
             ),
-            child: Icon(Icons.all_inclusive_rounded, size: 35, color: p.accent),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Hello. I’m Dolores.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Georgia',
-              fontSize: 30,
-              color: p.text,
+            const SizedBox(height: 24),
+            Text(
+              'Hello. I’m Dolores.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontSize: 30,
+                color: p.text,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'A quiet space to think things through.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 15, color: p.muted),
-          ),
-          const SizedBox(height: 28),
-          if (!chat.configured)
-            OutlinedButton.icon(
-              onPressed: chat.loading ? null : settings,
-              icon: const Icon(Icons.tune, size: 17),
-              label: const Text('Connect a model'),
+            const SizedBox(height: 14),
+            Text(
+              'A quiet space to think things through.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15, color: p.muted),
             ),
-        ],
+            const SizedBox(height: 28),
+            if (!chat.configured)
+              OutlinedButton.icon(
+                onPressed: chat.loading ? null : settings,
+                icon: const Icon(Icons.tune, size: 17),
+                label: const Text('Connect a model'),
+              ),
+          ],
+        ),
       ),
     ),
   );
@@ -510,83 +533,50 @@ class _ChatPageState extends State<ChatPage> {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 6, 8, 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Focus(
-                  onKeyEvent: (_, event) {
-                    if (event is KeyDownEvent &&
-                        event.logicalKey == LogicalKeyboardKey.enter &&
-                        !HardwareKeyboard.instance.isShiftPressed &&
-                        input.value.composing.isCollapsed) {
-                      unawaited(chat.send());
-                      return KeyEventResult.handled;
-                    }
-                    return KeyEventResult.ignored;
-                  },
-                  child: TextField(
-                    key: const Key('composer'),
-                    controller: input,
-                    focusNode: focus,
-                    readOnly: chat.busy || chat.changing || chat.loading,
-                    minLines: 1,
-                    maxLines: 6,
-                    keyboardType: TextInputType.multiline,
-                    style: TextStyle(fontSize: 14, height: 1.6, color: p.text),
-                    onChanged: (value) {
-                      chat.draft = value;
-                      setState(() {});
-                    },
-                    decoration: InputDecoration(
-                      hintText: chat.configured
-                          ? 'Message Dolores…'
-                          : 'Connect a model to begin…',
-                      hintStyle: TextStyle(color: p.muted),
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          child: RichComposer(
+            key: const Key('composer'),
+            controller: input,
+            focusNode: focus,
+            readOnly: chat.busy || chat.changing || chat.loading,
+            hint: chat.configured
+                ? 'Message Dolores…'
+                : 'Connect a model to begin…',
+            onChanged: (value) {
+              chat.draft = value;
+              setState(() {});
+            },
+            onSend: () => unawaited(chat.send()),
+            trailing: Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: IconButton.filled(
+                  key: const Key('send'),
+                  tooltip: chat.busy ? 'Stop response' : 'Send message',
+                  onPressed: chat.busy
+                      ? (chat.stopping ? null : chat.stop)
+                      : (chat.loading ||
+                                chat.changing ||
+                                !chat.configured ||
+                                chat.draft.trim().isEmpty
+                            ? null
+                            : chat.send),
+                  style: IconButton.styleFrom(
+                    backgroundColor: p.accent,
+                    foregroundColor: p.bg,
+                    disabledBackgroundColor: p.soft,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
                     ),
+                  ),
+                  iconSize: 18,
+                  icon: Icon(
+                    chat.busy ? Icons.stop_rounded : Icons.arrow_upward_rounded,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: IconButton.filled(
-                    key: const Key('send'),
-                    tooltip: chat.busy ? 'Stop response' : 'Send message',
-                    onPressed: chat.busy
-                        ? (chat.stopping ? null : chat.stop)
-                        : (chat.loading ||
-                                  chat.changing ||
-                                  !chat.configured ||
-                                  chat.draft.trim().isEmpty
-                              ? null
-                              : chat.send),
-                    style: IconButton.styleFrom(
-                      backgroundColor: p.accent,
-                      foregroundColor: p.bg,
-                      disabledBackgroundColor: p.soft,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                    ),
-                    iconSize: 18,
-                    icon: Icon(
-                      chat.busy
-                          ? Icons.stop_rounded
-                          : Icons.arrow_upward_rounded,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -636,7 +626,7 @@ class _ChatPageState extends State<ChatPage> {
         ),
       const SizedBox(height: 12),
       Text(
-        'Enter to send · Shift+Enter for a new line',
+        'Enter to send · Shift+Enter for a new line · Ctrl/⌘+Enter from code',
         style: TextStyle(fontSize: 11, color: p.muted),
       ),
     ],
@@ -800,19 +790,29 @@ class _ChatPageState extends State<ChatPage> {
                                   0,
                                 ),
                                 children: [
-                                  for (final item in chat.messages)
+                                  for (final (index, item)
+                                      in chat.messages.indexed)
                                     message(
                                       p,
                                       item['role'] as String,
                                       item['content'] as String,
+                                      key: ValueKey(
+                                        '${chat.session}:${item['id'] ?? index}',
+                                      ),
                                     ),
                                   if (chat.busy) ...[
-                                    message(p, 'user', chat.pendingInput),
+                                    message(
+                                      p,
+                                      'user',
+                                      chat.pendingInput,
+                                      key: const ValueKey('pending-user'),
+                                    ),
                                     message(
                                       p,
                                       'assistant',
                                       chat.partial,
                                       streaming: true,
+                                      key: const ValueKey('pending-assistant'),
                                     ),
                                   ],
                                 ],

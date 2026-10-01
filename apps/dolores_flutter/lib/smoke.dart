@@ -10,7 +10,10 @@ import 'package:path/path.dart' as path;
 
 import 'bridge.dart';
 import 'chat.dart';
+import 'code_syntax.dart';
+import 'rich_composer.dart';
 import 'main.dart';
+import 'reply_content.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -163,11 +166,129 @@ Future<void> _run(
       'The selected chat model is used in the real provider request',
       checks,
     );
+    chat.newChat();
+    chat.draft = 'markdown';
+    await chat.send();
+    await waitUntil(() => chat.partial.contains('```rust'));
+    await screenshot(capture, output, 'partial-code');
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null && chat.messages.last['content'].endsWith('RICH_END'),
+      'Markdown and code stream through the real provider without losing source',
+      checks,
+    );
+    final richId = chat.session!;
+    chat.newChat();
+    await chat.select(richId);
+    check(
+      chat.messages.length == 2 &&
+          chat.messages.last['content'].contains('```rust'),
+      'Rich reply reload preserves its original Markdown source',
+      checks,
+    );
     await screenshot(capture, output, 'conversation-light');
+    var codeBlocks = 0, tables = 0;
+    void inspectRich(Element element) {
+      if (element.widget is ReplyCodeBlock) codeBlocks++;
+      if (element.widget is Table) tables++;
+      element.visitChildren(inspectRich);
+    }
+
+    inspectRich(capture.currentContext! as Element);
+    check(
+      codeBlocks == 1 && tables == 1,
+      'Actual release renders native code and table widgets',
+      checks,
+    );
     runApp(
       DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.dark),
     );
     await screenshot(capture, output, 'conversation-dark');
+    const composerSource =
+        '# Example\n\n```rust\nfn main() {\n    let x = 1;\n    println!("{x} 世界!");\n}\n```';
+    chat.draft = composerSource;
+    await chat.selectModel('dolores-mock');
+    await screenshot(capture, output, 'composer-dark');
+    TextField? heading, code;
+    BuildContext? composerFieldContext;
+    RichComposer? composer;
+    void inspectComposer(Element element) {
+      if (element.widget is RichComposer) {
+        composer = element.widget as RichComposer;
+      }
+      if (element.widget is TextField) {
+        final field = element.widget as TextField;
+        if (field.key == const Key('composer-field-0')) {
+          heading = field;
+          composerFieldContext = element;
+        }
+        if (field.key == const Key('composer-field-1')) code = field;
+      }
+      element.visitChildren(inspectComposer);
+    }
+
+    inspectComposer(capture.currentContext! as Element);
+    check(
+      composer?.controller.text == composerSource &&
+          heading?.controller?.text == 'Example' &&
+          heading?.style?.fontSize == 24 &&
+          code?.controller is CodeSyntaxController &&
+          !code!.controller!.text.contains('```'),
+      'Native composer renders an editable heading and syntax-colored code card with hidden markers',
+      checks,
+    );
+    final darkComposerContext = composerFieldContext!;
+    if (!darkComposerContext.mounted) {
+      throw StateError('Composer unmounted before selection check');
+    }
+    Actions.invoke(
+      darkComposerContext,
+      const SelectAllTextIntent(SelectionChangedCause.keyboard),
+    );
+    await screenshot(capture, output, 'composer-selected-dark');
+    check(
+      heading!.controller!.selection ==
+              TextSelection(
+                baseOffset: 0,
+                extentOffset: heading!.controller!.text.length,
+              ) &&
+          code!.controller!.selection ==
+              TextSelection(
+                baseOffset: 0,
+                extentOffset: code!.controller!.text.length,
+              ) &&
+          composer!.controller.text == composerSource,
+      'Native Select All highlights heading and code without changing canonical Markdown',
+      checks,
+    );
+    heading!.controller!.selection = const TextSelection.collapsed(offset: 0);
+    runApp(
+      DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.light),
+    );
+    await screenshot(capture, output, 'composer-light');
+    inspectComposer(capture.currentContext! as Element);
+    final lightComposerContext = composerFieldContext!;
+    if (!lightComposerContext.mounted) {
+      throw StateError('Composer unmounted before light selection check');
+    }
+    Actions.invoke(
+      lightComposerContext,
+      const SelectAllTextIntent(SelectionChangedCause.keyboard),
+    );
+    await screenshot(capture, output, 'composer-selected-light');
+    heading!.controller!.selection = const TextSelection.collapsed(offset: 0);
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.length == 4 &&
+          chat.messages[2]['content'] == composerSource,
+      'The original fenced input is sent and stored without decoration changes',
+      checks,
+    );
+    runApp(
+      DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.dark),
+    );
     // Capture the normal settings component in the same application's overlay.
     final element = capture.currentContext! as Element;
     BuildContext? pageContext;

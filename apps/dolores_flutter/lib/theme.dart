@@ -5,6 +5,8 @@ abstract final class UiTokens {
   static const sidebarWidth = 252.0;
   static const drawerBreakpoint = 760.0;
   static const contentWidth = 824.0;
+  static const codeFont = 'Consolas';
+  static const codeFontFallback = ['Menlo', 'DejaVu Sans Mono', 'monospace'];
 }
 
 class Palette {
@@ -20,6 +22,10 @@ class Palette {
   Color get soft => Color(dark ? 0xff2a3552 : 0xffe5ebf8);
   Color get errorSurface => Color(dark ? 0xff3b262b : 0xfffbecec);
   Color get errorText => Color(dark ? 0xffffb5bb : 0xff9c3030);
+  Color get syntaxKeyword => Color(dark ? 0xffff9ccc : 0xff963464);
+  Color get syntaxName => Color(dark ? 0xffc8a4ff : 0xff6940a5);
+  Color get syntaxString => Color(dark ? 0xff93d69b : 0xff28743d);
+  Color get syntaxValue => Color(dark ? 0xffffae78 : 0xff985221);
 }
 
 ThemeData doloresTheme(bool dark) {
