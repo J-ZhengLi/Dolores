@@ -1,11 +1,90 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Dolores local desktop IPC",
+    "title": "Dolores desktop shell contracts",
     "version": "0.1.0",
-    "description": "No HTTP API. x-tauri-commands describes local IPC commands; channels are native Tauri channels, not JSON HTTP streams."
+    "description": "No HTTP API. Selected Flutter shell uses the in-process C ABI in x-flutter-ffi. x-tauri-commands describes alternative Tauri IPC; Iced uses internal Rust events."
   },
   "paths": {},
+  "x-flutter-ffi": {
+    "abiVersion": 1,
+    "transport": "in-process C ABI, UTF-8 JSON",
+    "call": {
+      "symbol": "dolores_call",
+      "signature": "char *(const uint8_t *input, size_t length)",
+      "maxRequestBytes": 131072,
+      "result": "{ok:true,result:any} or {ok:false,error:string}"
+    },
+    "free": {
+      "symbol": "dolores_free",
+      "signature": "void(char *result)",
+      "ownership": "Free each live dolores_call result exactly once; null allowed."
+    },
+    "commands": {
+      "bootstrap": {
+        "arguments": {},
+        "result": "{sessions,preferences:{baseUrl,model},enabledModels:string[],configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
+      },
+      "messages": {
+        "arguments": { "session": "string" },
+        "result": "Message[0..80]"
+      },
+      "delete": { "arguments": { "session": "string" }, "result": "null" },
+      "configure": {
+        "arguments": {
+          "preferences": "{baseUrl:string,model:string}",
+          "apiKey": "string|null; optional; null/omitted reuses active/saved key only for same endpoint, or empty if none",
+          "rememberConnection": "boolean; optional; default false; true stores key in OS credential store",
+          "enabledModels": "string[]; optional; 1..32 valid IDs including active model; defaults to [preferences.model]"
+        },
+        "result": "null"
+      },
+      "recoverConnection": {
+        "arguments": {},
+        "result": "null; reload saved connection; failure clears provider and sets connectionWarning"
+      },
+      "listModels": {
+        "arguments": {"baseUrl": "string; validated endpoint prefix", "apiKey": "string|null; optional; same-endpoint reuse only"},
+        "result": "string[]; sorted unique valid IDs from GET <baseUrl>/models; 20-second timeout, 1 MiB response and 512-entry caps; no configuration changes"
+      },
+      "selectModel": {
+        "arguments": {"model": "string; must be enabled"},
+        "result": "null; persist active model/metadata atomically, preserve key and history"
+      },
+      "forgetConnection": {
+        "arguments": {},
+        "result": "null; deletes saved key/reference and active connection, preserves history/preferences"
+      },
+      "start": {
+        "arguments": {
+          "id": "u64",
+          "session": "string|null",
+          "input": "string"
+        },
+        "result": "null; reservation acknowledged"
+      },
+      "poll": {
+        "arguments": { "id": "u64" },
+        "result": "Event[0..32]; stale IDs return []"
+      },
+      "cancel": {
+        "arguments": { "id": "u64" },
+        "result": "null; stale IDs are a no-op"
+      },
+      "shutdown": {
+        "arguments": {},
+        "result": "null; cancels active run, preserves process-wide engine"
+      }
+    },
+    "events": [
+      "{type:started,id,session}",
+      "{type:delta,id,text}",
+      "{type:done,id,answer}",
+      "{type:done,id,error}"
+    ],
+    "busy": "Only poll, cancel and shutdown are accepted until the terminal event is drained.",
+    "documentation": "flutter/flutter-api.md"
+  },
   "x-tauri-commands": {
     "bootstrap": {
       "arguments": {},
@@ -93,7 +172,7 @@
           },
           "model": {
             "type": "string",
-            "description": "Nonblank and at most 200 UTF-8 bytes."
+            "description": "Nonblank, at most 200 UTF-8 bytes, no control characters."
           }
         }
       },
@@ -102,7 +181,7 @@
         "required": ["id", "kind", "apiVersion"],
         "properties": {
           "id": { "type": "string" },
-          "kind": { "enum": ["provider", "storage"] },
+          "kind": { "enum": ["provider", "storage", "credentials"] },
           "apiVersion": { "const": 1 }
         }
       },

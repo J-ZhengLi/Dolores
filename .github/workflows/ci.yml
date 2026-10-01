@@ -22,10 +22,61 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Linux desktop libraries
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libayatana-appindicator3-dev librsvg2-dev patchelf
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libayatana-appindicator3-dev librsvg2-dev patchelf libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libdbus-1-dev
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: cargo fmt --all -- --check
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - run: pnpm desktop:build
+      - run: pnpm desktop:iced:build
+      - run: cargo check -p dolores-native --features smoke --locked
+      - run: pnpm desktop:web:build
+  flutter-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    env:
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux Flutter libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev libdbus-1-dev
+      - name: Flutter SDK 3.47.5
+        shell: bash
+        run: |
+          git clone --depth 1 --branch 3.47.5 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Flutter widget tests and analysis
+        working-directory: apps/dolores_flutter
+        run: |
+          flutter --no-version-check --suppress-analytics pub get
+          flutter --no-version-check --suppress-analytics analyze
+          flutter --no-version-check --suppress-analytics test
+      - run: cargo test -p dolores-flutter-bridge --locked
+      - run: cargo build -p dolores-flutter-bridge --release --locked
+      - name: Windows Flutter bundle
+        if: runner.os == 'Windows'
+        working-directory: apps/dolores_flutter
+        shell: pwsh
+        run: |
+          flutter --no-version-check --suppress-analytics build windows --release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Copy-Item ../../target/release/dolores_flutter_bridge.dll build/windows/x64/runner/Release/
+      - name: Linux Flutter bundle
+        if: runner.os == 'Linux'
+        working-directory: apps/dolores_flutter
+        run: |
+          flutter --no-version-check --suppress-analytics build linux --release
+          cp ../../target/release/libdolores_flutter_bridge.so build/linux/x64/release/bundle/lib/
+      - name: macOS Flutter bundle (unsigned)
+        if: runner.os == 'macOS'
+        working-directory: apps/dolores_flutter
+        run: |
+          flutter --no-version-check --suppress-analytics build macos --release
+          cp ../../target/release/libdolores_flutter_bridge.dylib build/macos/Build/Products/Release/dolores_flutter.app/Contents/Frameworks/

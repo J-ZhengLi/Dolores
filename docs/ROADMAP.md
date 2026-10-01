@@ -5,7 +5,12 @@ Build one usable brick at a time. Each new brick needs a small design decision, 
 | Brick | Usable result | Acceptance boundary |
 | --- | --- | --- |
 | 1 — Conversation foundation | Desktop chat, replaceable provider/storage ports, OpenAI-compatible text streaming, stop, SQLite history, system theme | Local build and mock endpoint proof; live provider and OS checks recorded separately. |
-| 1.1 — Resource decision | Compare Tauri with a small native Rust UI using the same core; finalize the desktop shell | First Windows webview observation is 421.80 MiB summed working set / 189.34 MiB private bytes, above the provisional working-set budget. Test comparable release builds on representative hardware; record the tradeoff before advancing. |
+| 1.1 — Resource decision | Working Iced/software UI reuses core/plugins; default development shell selected, Tauri retained | Windows release/controller/renderer comparison completed. Settled native idle near 30 MiB versus over 400 MiB webview working set. Low-end, input/accessibility and transient CPU acceptance remain gaps. |
+| 1.2 — Flutter selection | Styled Flutter desktop chat sharing the Rust core/plugins through FFI; selected default | Windows build and visual/resource comparison completed; user selected Flutter. Cross-platform and low-end acceptance remain open. |
+| 2.1 — Remembered connections | OS credential plugin, restart restoration, recovery retry, forget without history loss | Windows native-vault and separate-process authorization/restart checks; locked/missing vault and endpoint-binding tests. No plaintext fallback. |
+| 2.1.1 — Model discovery and picker | Fetch models, enable a subset, switch beside the composer; manual fallback | Bounded authenticated listing, subset/active-model persistence, real selected-model request, restart and exclusion during generation. |
+| 2.2 — History browsing and export (next) | Browse beyond the current 100-session/40-turn view and export a chosen conversation | Stable ordering/pagination, complete export, bounded UI memory; history must not be silently truncated. |
+| 2.3 — Rich conversation (planned) | Markdown/code presentation, model discovery, usage/context visibility | Rendering safety, server compatibility and accounting accuracy. Scope each feature separately. |
 | 2 — Reliable workspace | OS credential storage, history pagination/export, Markdown/code, model discovery, usage accounting, context budgeting, retry guidance | Restart/recovery, secret storage, long-session behavior, Windows/macOS/Linux CI and measured release baseline. |
 | 3 — Tools and bounded agent loop | Tool plugin port, explicit approval policy, visible tool results, max iterations/time/cost, filesystem read tools first | Deterministic tool protocol tests and prompt-injection cases; approval cannot be bypassed by model text. |
 | 4 — Memory with provenance | User preferences and session summaries; inspect/edit/delete, source references, retrieval budget | Test usefulness, correction and deletion; secrets never enter memory by default. |
@@ -13,8 +18,8 @@ Build one usable brick at a time. Each new brick needs a small design decision, 
 | 6 — Plugin ecosystem | External protocol, capability declarations, version negotiation, install/enable/disable lifecycle | Crash, timeout, compatibility and resource tests. State what is isolated and what is not. |
 | 7 — Evaluate and improve | Local feedback, task traces, regression suite, compare memory/skill versions | Promote a change only when measured success improves without violating safety/resource budgets. |
 
-Brick 1 is the scope of the initial implementation. Learning, tool execution and third-party plugin loading are planned capabilities, not current features. Later bricks are intentionally not built before their decisions and acceptance boundaries are agreed.
+Bricks 1, 1.1, 1.2, 2.1 and 2.1.1 are implemented. Brick 2 remains in progress. Learning, tools and third-party plugin loading are planned capabilities. Flutter is selected; unverified platforms and hardware are not labeled accepted.
 
 ## Next iteration
 
-Complete brick 1.1 before adding feature weight: compare native and webview shells, then verify the chosen shell with the user's endpoint and representative hardware. Use those results to refine brick 2. The current functional build is available for review, but resource and cross-platform acceptance are open.
+Next: brick 2.2, history browsing and export. Carry forward keyboard/IME/system-theme UAT, live-model verification, cross-platform CI and representative 2-core/4-GiB measurements. Flutter's earlier 224.36 MiB working set exceeds the provisional target; resource acceptance remains open. Keep each iteration small and update acceptance from evidence; the supplied CI matrix has not been executed.

@@ -3,6 +3,14 @@ import { createServer } from 'node:http';
 import { setTimeout } from 'node:timers/promises';
 
 const server = createServer(async (request, response) => {
+  if (request.method === 'GET' && request.url === '/v1/models') {
+    if (request.headers.authorization && request.headers.authorization !== 'Bearer dolores-generated-restart-test') {
+      response.writeHead(401).end(); return;
+    }
+    response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      object: 'list', data: [{ id: 'dolores-mock', object: 'model' }, { id: 'dolores-fast', object: 'model' }],
+    })); return;
+  }
   if (request.method !== 'POST' || request.url !== '/v1/chat/completions') {
     response.writeHead(404).end(); return;
   }
@@ -15,6 +23,10 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (input === 'model-check' && payload.model !== 'dolores-fast') { response.writeHead(400).end(); return; }
+  if (input === 'credential-check' && request.headers.authorization !== 'Bearer dolores-generated-restart-test') {
+    response.writeHead(401).end(); return;
+  }
   if (input === 'fail') { response.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'fixture-private-error-body' } })); return; }
   response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   let closed = false;

@@ -38,11 +38,26 @@ pub struct Session {
     pub updated_at: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionPreferences {
     pub base_url: String,
     pub model: String,
+}
+
+/// Nonsecret metadata. The optional ID references a key in a credential plugin.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RememberedConnection {
+    pub preferences: ConnectionPreferences,
+    pub credential_id: Option<String>,
+}
+
+pub trait CredentialStore: Send + Sync {
+    fn descriptor(&self) -> PluginDescriptor;
+    fn read(&self, id: &str) -> Result<Option<String>, String>;
+    fn write(&self, id: &str, secret: &str) -> Result<(), String>;
+    fn delete(&self, id: &str) -> Result<(), String>;
 }
 
 impl Default for ConnectionPreferences {
@@ -57,6 +72,12 @@ impl Default for ConnectionPreferences {
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
     fn descriptor(&self) -> PluginDescriptor;
+    async fn list_models(&self) -> Result<Vec<String>, String> {
+        Err("This provider does not support model discovery. Add a model manually.".into())
+    }
+    fn with_model(&self, _: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
+        Err("This provider does not support switching models.".into())
+    }
     async fn stream(
         &self,
         messages: Vec<Message>,
@@ -74,6 +95,27 @@ pub trait SessionStore: Send + Sync {
     fn commit_turn(&self, id: &str, user: &str, assistant: &str) -> Result<(), String>;
     fn preferences(&self) -> Result<ConnectionPreferences, String>;
     fn save_preferences(&self, preferences: &ConnectionPreferences) -> Result<(), String>;
+    fn remembered_connection(&self) -> Result<Option<RememberedConnection>, String> {
+        Ok(None)
+    }
+    fn model_choices(&self, _: &str) -> Result<Vec<String>, String> {
+        Ok(Vec::new())
+    }
+    fn save_connection_models(
+        &self,
+        _: &ConnectionPreferences,
+        _: Option<&RememberedConnection>,
+        _: &[String],
+    ) -> Result<(), String> {
+        Err("This storage plugin does not support model choices.".into())
+    }
+    fn save_connection(
+        &self,
+        _: &ConnectionPreferences,
+        _: Option<&RememberedConnection>,
+    ) -> Result<(), String> {
+        Err("This storage plugin does not support remembered connections.".into())
+    }
 }
 
 pub fn prepare_context(history: Vec<Message>, input: &str) -> Result<Vec<Message>, String> {

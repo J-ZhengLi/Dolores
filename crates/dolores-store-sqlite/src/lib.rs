@@ -1,5 +1,6 @@
 use dolores_core::{
-    ConnectionPreferences, Message, PluginDescriptor, Role, Session, SessionStore, HISTORY_LIMIT,
+    ConnectionPreferences, Message, PluginDescriptor, RememberedConnection, Role, Session,
+    SessionStore, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{
@@ -32,7 +33,16 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id, id);
             CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, model TEXT NOT NULL);
-            PRAGMA user_version = 1;").map_err(storage_error)?;
+            CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);").map_err(storage_error)?;
+        let version: i64 = connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .map_err(storage_error)?;
+        if version < 3 {
+            connection
+                .pragma_update(None, "user_version", 3)
+                .map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -151,11 +161,112 @@ impl SessionStore for SqliteStore {
         self.lock()?.execute("INSERT INTO preferences(id,base_url,model) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,model=excluded.model", params![preferences.base_url,preferences.model]).map_err(storage_error)?;
         Ok(())
     }
+    fn remembered_connection(&self) -> Result<Option<RememberedConnection>, String> {
+        let data: Option<String> = self
+            .lock()?
+            .query_row(
+                "SELECT data FROM remembered_connection WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        data.map(|data| serde_json::from_str(&data).map_err(storage_error))
+            .transpose()
+    }
+    fn save_connection(
+        &self,
+        preferences: &ConnectionPreferences,
+        remembered: Option<&RememberedConnection>,
+    ) -> Result<(), String> {
+        self.save_connection_models(
+            preferences,
+            remembered,
+            std::slice::from_ref(&preferences.model),
+        )
+    }
+    fn model_choices(&self, base_url: &str) -> Result<Vec<String>, String> {
+        let data: Option<String> = self
+            .lock()?
+            .query_row(
+                "SELECT models FROM model_choices WHERE id=1 AND base_url=?1",
+                [base_url],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        data.map(|data| serde_json::from_str(&data).map_err(storage_error))
+            .transpose()
+            .map(|models| models.unwrap_or_default())
+    }
+    fn save_connection_models(
+        &self,
+        preferences: &ConnectionPreferences,
+        remembered: Option<&RememberedConnection>,
+        models: &[String],
+    ) -> Result<(), String> {
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction().map_err(storage_error)?;
+        transaction.execute("INSERT INTO preferences(id,base_url,model) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,model=excluded.model", params![preferences.base_url, preferences.model]).map_err(storage_error)?;
+        let data = serde_json::to_string(models).map_err(storage_error)?;
+        transaction.execute("INSERT INTO model_choices(id,base_url,models) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,models=excluded.models", params![preferences.base_url, data]).map_err(storage_error)?;
+        match remembered {
+            Some(record) => {
+                let data = serde_json::to_string(record).map_err(storage_error)?;
+                transaction.execute("INSERT INTO remembered_connection(id,data) VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET data=excluded.data", [data]).map_err(storage_error)?;
+            }
+            None => {
+                transaction
+                    .execute("DELETE FROM remembered_connection WHERE id=1", [])
+                    .map_err(storage_error)?;
+            }
+        }
+        transaction.commit().map_err(storage_error)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn connection_metadata_and_preferences_commit_together_and_migrate_legacy_database() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("legacy.db");
+        let legacy = Connection::open(&path).unwrap();
+        legacy.execute_batch("CREATE TABLE preferences(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT NOT NULL,model TEXT NOT NULL); INSERT INTO preferences VALUES(1,'http://localhost:1234/v1','old'); PRAGMA user_version=1;").unwrap();
+        drop(legacy);
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(store.preferences().unwrap().model, "old");
+        assert!(store.remembered_connection().unwrap().is_none());
+        let preferences = ConnectionPreferences {
+            base_url: "https://example.com/v1".into(),
+            model: "new".into(),
+        };
+        let saved = RememberedConnection {
+            preferences: preferences.clone(),
+            credential_id: None,
+        };
+        store.lock().unwrap().execute_batch("CREATE TRIGGER reject_remember BEFORE INSERT ON remembered_connection BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store.save_connection(&preferences, Some(&saved)).is_err());
+        assert_eq!(store.preferences().unwrap().model, "old");
+        store
+            .lock()
+            .unwrap()
+            .execute_batch("DROP TRIGGER reject_remember;")
+            .unwrap();
+        store.save_connection(&preferences, Some(&saved)).unwrap();
+        drop(store);
+        let reopened = SqliteStore::open(&path).unwrap();
+        assert_eq!(reopened.preferences().unwrap(), preferences);
+        assert_eq!(
+            reopened
+                .remembered_connection()
+                .unwrap()
+                .unwrap()
+                .preferences,
+            preferences
+        );
+    }
     #[test]
     fn turn_is_atomic_and_survives_restart_and_delete_cascades() {
         let directory = tempfile::tempdir().unwrap();

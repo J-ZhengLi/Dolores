@@ -16,15 +16,17 @@ pub struct OpenAiProvider {
     api_key: String,
 }
 
-pub fn validate_preferences(preferences: &ConnectionPreferences) -> Result<Url, String> {
-    if preferences.model.trim().is_empty() || preferences.model.len() > 200 {
+pub fn validate_model(model: &str) -> Result<(), String> {
+    if model.trim().is_empty() || model.len() > 200 || model.chars().any(char::is_control) {
         return Err("Enter a model ID (up to 200 bytes).".into());
     }
-    if preferences.base_url.len() > 2048 {
+    Ok(())
+}
+pub fn validate_base_url(base_url: &str) -> Result<Url, String> {
+    if base_url.len() > 2048 {
         return Err("Endpoint URL is too long.".into());
     }
-    let mut url = Url::parse(preferences.base_url.trim())
-        .map_err(|_| "Enter a valid endpoint URL.".to_string())?;
+    let url = Url::parse(base_url.trim()).map_err(|_| "Enter a valid endpoint URL.".to_string())?;
     if !url.username().is_empty()
         || url.password().is_some()
         || url.query().is_some()
@@ -43,6 +45,11 @@ pub fn validate_preferences(preferences: &ConnectionPreferences) -> Result<Url, 
     if url.scheme() != "https" && !(url.scheme() == "http" && local) {
         return Err("Use HTTPS, or HTTP with a loopback address for a local model.".into());
     }
+    Ok(url)
+}
+pub fn validate_preferences(preferences: &ConnectionPreferences) -> Result<Url, String> {
+    validate_model(&preferences.model)?;
+    let mut url = validate_base_url(&preferences.base_url)?;
     let path = format!("{}/chat/completions", url.path().trim_end_matches('/'));
     url.set_path(&path);
     Ok(url)
@@ -121,6 +128,75 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
+        validate_model(model)?;
+        Ok(std::sync::Arc::new(Self {
+            client: self.client.clone(),
+            endpoint: self.endpoint.clone(),
+            model: model.trim().into(),
+            api_key: self.api_key.clone(),
+        }))
+    }
+    async fn list_models(&self) -> Result<Vec<String>, String> {
+        let mut endpoint = self.endpoint.clone();
+        let prefix = endpoint
+            .path()
+            .strip_suffix("/chat/completions")
+            .ok_or("Invalid model endpoint.")?;
+        endpoint.set_path(&format!("{prefix}/models"));
+        let mut request = self.client.get(endpoint).timeout(Duration::from_secs(20));
+        if !self.api_key.is_empty() {
+            request = request.bearer_auth(&self.api_key);
+        }
+        let mut response = request
+            .send()
+            .await
+            .map_err(|_| "Could not fetch models. Check the endpoint or add a model manually.")?;
+        if !response.status().is_success() {
+            return Err(match response.status().as_u16() {
+                401 | 403 => "Model listing denied. Check your key and permissions.".into(),
+                404 | 405 | 501 => {
+                    "This server does not support model listing. Add a model manually.".into()
+                }
+                429 => "Model listing rate limited. Try again later.".into(),
+                status => {
+                    format!("Could not list models (HTTP {status}). Add a model manually or retry.")
+                }
+            });
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|_| "Model listing was interrupted. Try again.")?
+        {
+            if bytes.len() + chunk.len() > MAX_FRAME_BYTES {
+                return Err("Model list exceeds the 1 MiB limit. Add a model manually.".into());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let value: Value = serde_json::from_slice(&bytes)
+            .map_err(|_| "Server returned an invalid model list. Add a model manually.")?;
+        let data = value
+            .get("data")
+            .and_then(Value::as_array)
+            .ok_or("Server returned an invalid model list. Add a model manually.")?;
+        if data.len() > 512 {
+            return Err(
+                "Server returned too many models (limit 512). Add a model manually.".into(),
+            );
+        }
+        let models: std::collections::BTreeSet<String> = data
+            .iter()
+            .filter_map(|item| item.get("id").and_then(Value::as_str))
+            .filter(|id| validate_model(id).is_ok())
+            .map(|id| id.trim().to_string())
+            .collect();
+        if models.is_empty() {
+            return Err("No usable models were listed. Add a model manually.".into());
+        }
+        Ok(models.into_iter().collect())
+    }
     fn descriptor(&self) -> PluginDescriptor {
         PluginDescriptor {
             id: "dolores.provider.openai-compatible",
@@ -328,6 +404,43 @@ mod tests {
         let body: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
         assert_eq!(body["stream"], true);
         assert_eq!(body["messages"][0]["content"], "hi");
+    }
+    #[tokio::test]
+    async fn discovers_sorted_unique_models_with_auth_without_a_model_name() {
+        let (base_url, server) = server("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"data\":[{\"id\":\"z-model\"},{\"id\":\"a-model\"},{\"id\":\"z-model\"},{\"id\":\"\"},{\"id\":12}]}").await;
+        let provider = OpenAiProvider::new(
+            &ConnectionPreferences {
+                base_url,
+                model: "discovery".into(),
+            },
+            "test-key".into(),
+        )
+        .unwrap();
+        assert_eq!(
+            provider.list_models().await.unwrap(),
+            vec!["a-model", "z-model"]
+        );
+        let request = server.await.unwrap();
+        assert!(request.starts_with("GET /v1/models "));
+        assert!(request
+            .to_ascii_lowercase()
+            .contains("authorization: bearer test-key"));
+    }
+    #[tokio::test]
+    async fn listing_errors_are_sanitized_and_do_not_follow_redirects() {
+        for response in [
+            "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\nfixture-secret-denial",
+            "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\nfixture-secret-denial",
+            "HTTP/1.1 302 Found\r\nLocation: https://example.com/v1/models\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nnot-json",
+            "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n{\"data\":[]}",
+        ] {
+            let (base_url, server) = server(response).await;
+            let provider = OpenAiProvider::new(&ConnectionPreferences { base_url, model: "discovery".into() }, "test-key".into()).unwrap();
+            let error = provider.list_models().await.unwrap_err();
+            assert!(!error.contains("fixture-secret-denial") && !error.contains("test-key"));
+            server.await.unwrap();
+        }
     }
     #[tokio::test]
     async fn rejects_truncated_and_business_error_streams() {

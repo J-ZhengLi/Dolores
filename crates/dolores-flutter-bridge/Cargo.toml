@@ -1,0 +1,25 @@
+[package]
+name = "dolores-flutter-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+dolores-core = { path = "../dolores-core" }
+dolores-provider-openai = { path = "../dolores-provider-openai" }
+dolores-store-sqlite = { path = "../dolores-store-sqlite" }
+dolores-credentials = { path = "../dolores-credentials" }
+directories = "6"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+tempfile = "3"
+rusqlite = { version = "0.32", features = ["bundled"] }

@@ -1,6 +1,7 @@
 [workspace]
-members = ["crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "src-tauri"]
+members = ["crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "crates/dolores-credentials", "crates/dolores-native", "crates/dolores-flutter-bridge", "src-tauri"]
 resolver = "2"
+default-members = ["crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "crates/dolores-credentials", "crates/dolores-flutter-bridge"]
 
 [workspace.package]
 version = "0.1.0"
