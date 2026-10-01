@@ -1,0 +1,15 @@
+node_modules/
+dist/
+target/
+src-tauri/gen/
+.env
+.env.*
+!.env.example
+output/
+.playwright-cli/
+*.db
+*.db-shm
+*.db-wal
+
+# Private machine reports and audit backups never belong in public history.
+docs/benchmarks/

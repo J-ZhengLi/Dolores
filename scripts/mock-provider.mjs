@@ -1,0 +1,37 @@
+// Local validation fixture; never a production model provider or app sidecar.
+import { createServer } from 'node:http';
+import { setTimeout } from 'node:timers/promises';
+
+const server = createServer(async (request, response) => {
+  if (request.method !== 'POST' || request.url !== '/v1/chat/completions') {
+    response.writeHead(404).end(); return;
+  }
+  let body = '';
+  for await (const chunk of request) {
+    body += chunk;
+    if (Buffer.byteLength(body) > 256 * 1024) { response.writeHead(413).end(); return; }
+  }
+  let payload;
+  try { payload = JSON.parse(body); }
+  catch { response.writeHead(400).end(); return; }
+  const input = payload.messages?.at(-1)?.content ?? '';
+  if (input === 'fail') { response.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'fixture-private-error-body' } })); return; }
+  response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+  let closed = false;
+  response.on('close', () => { closed = true; });
+  const text = input === 'slow'
+    ? 'This is a deliberately slow response from the local test server. Stop it to check cancellation.'
+    : 'Hello from the Dolores local test server. 你好！\n\nStreaming, conversation storage, and your desktop connection are working. This is a fixture response, not a language model.';
+  for (const word of text.match(/.{1,12}/gs) ?? []) {
+    if (closed) return;
+    response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: word }, finish_reason: null }] })}\n\n`);
+    await setTimeout(input === 'slow' ? 500 : 25);
+    if (input === 'truncated') { response.end(); return; }
+  }
+  response.end('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
+});
+
+server.listen(19421, '127.0.0.1', () => {
+  console.log('Dolores test endpoint: http://127.0.0.1:19421/v1 — model: dolores-mock');
+  console.log('Send "slow" to test stop, "fail" for denial, "truncated" for interruption.');
+});

@@ -1,0 +1,140 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dolores local desktop IPC",
+    "version": "0.1.0",
+    "description": "No HTTP API. x-tauri-commands describes local IPC commands; channels are native Tauri channels, not JSON HTTP streams."
+  },
+  "paths": {},
+  "x-tauri-commands": {
+    "bootstrap": {
+      "arguments": {},
+      "result": { "$ref": "#/components/schemas/Bootstrap" }
+    },
+    "create_session": {
+      "arguments": {},
+      "result": { "$ref": "#/components/schemas/Session" }
+    },
+    "get_messages": {
+      "arguments": { "sessionId": { "type": "string", "format": "uuid" } },
+      "result": {
+        "type": "array",
+        "maxItems": 80,
+        "items": { "$ref": "#/components/schemas/Message" }
+      }
+    },
+    "delete_session": {
+      "arguments": { "sessionId": { "type": "string", "format": "uuid" } },
+      "result": { "type": "null" }
+    },
+    "configure_connection": {
+      "arguments": {
+        "preferences": { "$ref": "#/components/schemas/Preferences" },
+        "apiKey": {
+          "type": "string",
+          "writeOnly": true,
+          "description": "Required argument, may be empty; at most 4096 UTF-8 bytes, no CR/LF; replaces the in-memory credential."
+        }
+      },
+      "result": { "type": "null" }
+    },
+    "generate": {
+      "arguments": {
+        "sessionId": { "type": "string", "format": "uuid" },
+        "runId": { "type": "string", "format": "uuid" },
+        "input": {
+          "type": "string",
+          "description": "Nonblank, at most 16384 UTF-8 bytes."
+        },
+        "onEvent": { "x-tauri-type": "Channel<DeltaEvent>" }
+      },
+      "result": { "type": "null" },
+      "channel": { "$ref": "#/components/schemas/DeltaEvent" }
+    },
+    "cancel_run": {
+      "arguments": { "runId": { "type": "string", "format": "uuid" } },
+      "result": { "type": "null" }
+    }
+  },
+  "x-error-result": {
+    "type": "string",
+    "description": "Invocation rejection with a user-facing error; no stable error codes in v1."
+  },
+  "components": {
+    "schemas": {
+      "Message": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": { "enum": ["user", "assistant", "system"] },
+          "content": { "type": "string" }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": ["id", "title", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "updatedAt": {
+            "type": "integer",
+            "description": "Unix milliseconds."
+          }
+        }
+      },
+      "Preferences": {
+        "type": "object",
+        "required": ["baseUrl", "model"],
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "At most 2048 UTF-8 bytes; HTTPS or HTTP loopback, no userinfo/query/fragment."
+          },
+          "model": {
+            "type": "string",
+            "description": "Nonblank and at most 200 UTF-8 bytes."
+          }
+        }
+      },
+      "Plugin": {
+        "type": "object",
+        "required": ["id", "kind", "apiVersion"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["provider", "storage"] },
+          "apiVersion": { "const": 1 }
+        }
+      },
+      "Bootstrap": {
+        "type": "object",
+        "required": ["sessions", "preferences", "connected", "plugins"],
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/Session" }
+          },
+          "preferences": { "$ref": "#/components/schemas/Preferences" },
+          "connected": {
+            "type": "boolean",
+            "description": "Configured, not network-tested."
+          },
+          "plugins": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Plugin" }
+          }
+        }
+      },
+      "DeltaEvent": {
+        "type": "object",
+        "description": "First event has an empty delta acknowledging native run reservation; subsequent events contain ordered plain text.",
+        "required": ["runId", "delta"],
+        "properties": {
+          "runId": { "type": "string", "format": "uuid" },
+          "delta": { "type": "string" }
+        }
+      }
+    }
+  }
+}

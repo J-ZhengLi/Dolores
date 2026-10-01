@@ -1,0 +1,8 @@
+node_modules
+dist
+target
+output
+.playwright-cli
+src-tauri/gen
+pnpm-lock.yaml
+Cargo.lock
