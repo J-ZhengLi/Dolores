@@ -1,6 +1,6 @@
 use dolores_core::{
     ConnectionPreferences, Message, PluginDescriptor, RememberedConnection, Role, Session,
-    SessionStore, HISTORY_LIMIT,
+    SessionStore, TurnMetadata, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 mod history;
@@ -33,6 +33,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, updated_at INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id, id);
+            CREATE TABLE IF NOT EXISTS turn_metadata (message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, data TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS sessions_order ON sessions(updated_at DESC, id ASC);
             CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, model TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
@@ -40,9 +41,9 @@ impl SqliteStore {
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(storage_error)?;
-        if version < 3 {
+        if version < 4 {
             connection
-                .pragma_update(None, "user_version", 3)
+                .pragma_update(None, "user_version", 4)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -120,8 +121,12 @@ impl SessionStore for SqliteStore {
         Ok(session)
     }
     fn messages(&self, id: &str) -> Result<Vec<Message>, String> {
+        self.context_history(id).map(|(messages, _)| messages)
+    }
+    fn context_history(&self, id: &str) -> Result<(Vec<Message>, Option<u64>), String> {
         let connection = self.lock()?;
-        let exists: bool = connection
+        let snapshot = connection.unchecked_transaction().map_err(storage_error)?;
+        let exists: bool = snapshot
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1)",
                 [id],
@@ -131,7 +136,17 @@ impl SessionStore for SqliteStore {
         if !exists {
             return Err("Conversation no longer exists.".into());
         }
-        let mut statement = connection.prepare("SELECT role,content FROM (SELECT id,role,content FROM messages WHERE session_id=?1 ORDER BY id DESC LIMIT ?2) ORDER BY id ASC").map_err(storage_error)?;
+        let count: u64 = snapshot
+            .query_row(
+                "SELECT COUNT(*) FROM messages WHERE session_id=?1",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !count.is_multiple_of(2) {
+            return Err("Stored conversation has an incomplete turn.".into());
+        }
+        let mut statement = snapshot.prepare("SELECT role,content FROM (SELECT id,role,content FROM messages WHERE session_id=?1 ORDER BY id DESC LIMIT ?2) ORDER BY id ASC").map_err(storage_error)?;
         let rows = statement
             .query_map(params![id, HISTORY_LIMIT as i64], |row| {
                 let role: String = row.get(0)?;
@@ -146,7 +161,10 @@ impl SessionStore for SqliteStore {
                 })
             })
             .map_err(storage_error)?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(storage_error)
+        Ok((
+            rows.collect::<Result<Vec<_>, _>>().map_err(storage_error)?,
+            Some(count / 2),
+        ))
     }
     fn delete(&self, id: &str) -> Result<(), String> {
         self.lock()?
@@ -155,35 +173,21 @@ impl SessionStore for SqliteStore {
         Ok(())
     }
     fn commit_turn(&self, id: &str, user: &str, assistant: &str) -> Result<(), String> {
-        let mut connection = self.lock()?;
-        let transaction = connection.transaction().map_err(storage_error)?;
-        transaction.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user',?2),(?1,'assistant',?3)", params![id,user,assistant]).map_err(storage_error)?;
-        let title: String = user
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-            .chars()
-            .take(48)
-            .collect();
-        transaction.execute("UPDATE sessions SET title=CASE WHEN (SELECT COUNT(*) FROM messages WHERE session_id=?1)=2 THEN ?2 ELSE title END,updated_at=?3 WHERE id=?1", params![id,title,now()]).map_err(storage_error)?;
-        transaction.commit().map_err(storage_error)
+        self.save_turn(id, user, assistant, None)
+    }
+    fn commit_turn_metadata(
+        &self,
+        id: &str,
+        user: &str,
+        assistant: &str,
+        metadata: &TurnMetadata,
+    ) -> Result<(), String> {
+        self.save_turn(id, user, assistant, Some(metadata))
     }
     fn preferences(&self) -> Result<ConnectionPreferences, String> {
-        self.lock()?
-            .query_row(
-                "SELECT base_url,model FROM preferences WHERE id=1",
-                [],
-                |row| {
-                    Ok(ConnectionPreferences {
-                        base_url: row.get(0)?,
-                        model: row.get(1)?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(storage_error)
-            .map(|p| p.unwrap_or_default())
+        self.read_preferences()
     }
+
     fn save_preferences(&self, preferences: &ConnectionPreferences) -> Result<(), String> {
         self.lock()?.execute("INSERT INTO preferences(id,base_url,model) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,model=excluded.model", params![preferences.base_url,preferences.model]).map_err(storage_error)?;
         Ok(())
@@ -252,9 +256,156 @@ impl SessionStore for SqliteStore {
     }
 }
 
+impl SqliteStore {
+    fn save_turn(
+        &self,
+        id: &str,
+        user: &str,
+        assistant: &str,
+        metadata: Option<&TurnMetadata>,
+    ) -> Result<(), String> {
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction().map_err(storage_error)?;
+        transaction.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user',?2),(?1,'assistant',?3)", params![id,user,assistant]).map_err(storage_error)?;
+        if let Some(metadata) = metadata {
+            let data = serde_json::to_string(metadata).map_err(storage_error)?;
+            transaction
+                .execute(
+                    "INSERT INTO turn_metadata(message_id,data) VALUES(?1,?2)",
+                    params![transaction.last_insert_rowid(), data],
+                )
+                .map_err(storage_error)?;
+        }
+        let title: String = user
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .take(48)
+            .collect();
+        transaction.execute("UPDATE sessions SET title=CASE WHEN (SELECT COUNT(*) FROM messages WHERE session_id=?1)=2 THEN ?2 ELSE title END,updated_at=?3 WHERE id=?1", params![id,title,now()]).map_err(storage_error)?;
+        transaction.commit().map_err(storage_error)
+    }
+    fn read_preferences(&self) -> Result<ConnectionPreferences, String> {
+        self.lock()?
+            .query_row(
+                "SELECT base_url,model FROM preferences WHERE id=1",
+                [],
+                |row| {
+                    Ok(ConnectionPreferences {
+                        base_url: row.get(0)?,
+                        model: row.get(1)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(storage_error)
+            .map(|p| p.unwrap_or_default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn usage_and_context_survive_restart_export_and_atomic_failure() {
+        use dolores_core::{ContextSummary, ExportFormat, TokenUsage};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("usage.db");
+        let store = SqliteStore::open(&path).unwrap();
+        store.create("session").unwrap();
+        store.commit_turn("session", "legacy", "no usage").unwrap();
+        let metadata = TurnMetadata {
+            model: "fixture".into(),
+            usage: Some(TokenUsage {
+                input_tokens: Some(0),
+                output_tokens: Some(4),
+                total_tokens: None,
+                ..TokenUsage::default()
+            }),
+            context: ContextSummary::from_messages(
+                &dolores_core::prepare_context(store.messages("session").unwrap(), "next").unwrap(),
+                Some(1),
+            ),
+        };
+        store.lock().unwrap().execute_batch("CREATE TRIGGER reject_usage BEFORE INSERT ON turn_metadata BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store
+            .commit_turn_metadata("session", "next", "reply", &metadata)
+            .is_err());
+        assert_eq!(store.messages("session").unwrap().len(), 2);
+        store
+            .lock()
+            .unwrap()
+            .execute_batch("DROP TRIGGER reject_usage;")
+            .unwrap();
+        store
+            .commit_turn_metadata("session", "next", "reply", &metadata)
+            .unwrap();
+        drop(store);
+        let store = SqliteStore::open(&path).unwrap();
+        let page = store.messages_page("session", None, false, 80).unwrap();
+        assert!(page.items[1].metadata.is_none());
+        assert_eq!(page.items[3].metadata.as_ref(), Some(&metadata));
+        let mut output = Vec::new();
+        store
+            .export_conversation("session", ExportFormat::Json, &mut output)
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        assert!(json["messages"][1].get("metadata").is_none());
+        assert_eq!(json["messages"][3]["metadata"]["usage"]["inputTokens"], 0);
+        assert!(json["messages"][3]["metadata"]["usage"]["totalTokens"].is_null());
+        let mut markdown = Vec::new();
+        store
+            .export_conversation("session", ExportFormat::Markdown, &mut markdown)
+            .unwrap();
+        let markdown = String::from_utf8(markdown).unwrap();
+        assert!(
+            markdown.contains("Request usage and context:")
+                && markdown.contains("\"inputTokens\":0")
+        );
+        store.delete("session").unwrap();
+        let count: i64 = store
+            .lock()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM turn_metadata", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+    #[test]
+    fn version_three_history_migrates_without_rewriting_legacy_turns() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("legacy.db");
+        let old = Connection::open(&path).unwrap();
+        old.execute_batch("CREATE TABLE sessions(id TEXT PRIMARY KEY,title TEXT NOT NULL,updated_at INTEGER NOT NULL); CREATE TABLE messages(id INTEGER PRIMARY KEY,session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,role TEXT NOT NULL,content TEXT NOT NULL); INSERT INTO sessions VALUES('legacy','Original title',1); INSERT INTO messages VALUES(1,'legacy','user','Original question'),(2,'legacy','assistant','Original answer'); PRAGMA user_version=3;").unwrap();
+        drop(old);
+        let store = SqliteStore::open(&path).unwrap();
+        let page = store.messages_page("legacy", None, false, 80).unwrap();
+        assert_eq!(page.items.len(), 2);
+        assert_eq!(page.items[1].id, 2);
+        assert_eq!(page.items[1].content, "Original answer");
+        assert!(page.items[1].metadata.is_none());
+        let version: i64 = store
+            .lock()
+            .unwrap()
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 4);
+        assert_eq!(store.list().unwrap()[0].title, "Original title");
+    }
+    #[test]
+    fn context_snapshot_counts_all_saved_turns_without_loading_all_history() {
+        let store = SqliteStore::open(Path::new(":memory:")).unwrap();
+        store.create("long").unwrap();
+        for i in 0..63 {
+            store
+                .commit_turn("long", &format!("u{i}"), "reply")
+                .unwrap();
+        }
+        let (history, count) = store.context_history("long").unwrap();
+        assert_eq!(history.len(), 80);
+        assert_eq!(count, Some(63));
+        assert_eq!(history[0].content, "u23");
+    }
     #[test]
     fn connection_metadata_and_preferences_commit_together_and_migrate_legacy_database() {
         let directory = tempfile::tempdir().unwrap();

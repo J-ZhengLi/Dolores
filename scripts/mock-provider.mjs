@@ -42,7 +42,11 @@ const server = createServer(async (request, response) => {
     await setTimeout(input === 'slow' ? 500 : input === 'markdown' ? 75 : 25);
     if (input === 'truncated') { response.end(); return; }
   }
-  response.end('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
+  response.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+  if (payload.stream_options?.include_usage && input !== 'no-usage') {
+    response.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 64, completion_tokens: 32, total_tokens: 96, prompt_tokens_details: { cached_tokens: 0 } } })}\n\n`);
+  }
+  response.end('data: [DONE]\n\n');
 });
 
 server.listen(19421, '127.0.0.1', () => {

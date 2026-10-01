@@ -10,6 +10,8 @@ import 'chat.dart';
 import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'rich_composer.dart';
+import 'usage_details.dart';
+import 'inspector.dart';
 import 'theme.dart';
 export 'theme.dart' show Palette;
 
@@ -347,6 +349,7 @@ class _ChatPageState extends State<ChatPage> {
     String text, {
     bool streaming = false,
     Key? key,
+    Map<String, dynamic>? metadata,
   }) {
     final user = role == 'user';
     return Padding(
@@ -415,6 +418,7 @@ class _ChatPageState extends State<ChatPage> {
                     streaming: streaming,
                     onRendered: _followReply,
                   ),
+                if (!user && !streaming) UsageDetails(metadata: metadata),
               ],
             ),
           ),
@@ -519,6 +523,7 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
       Container(
+        key: const Key('composer-frame'),
         decoration: BoxDecoration(
           color: p.surface,
           border: Border.all(color: p.border),
@@ -533,101 +538,130 @@ class _ChatPageState extends State<ChatPage> {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 6, 8, 8),
-          child: RichComposer(
-            key: const Key('composer'),
-            controller: input,
-            focusNode: focus,
-            readOnly: chat.busy || chat.changing || chat.loading,
-            hint: chat.configured
-                ? 'Message Dolores…'
-                : 'Connect a model to begin…',
-            onChanged: (value) {
-              chat.draft = value;
-              setState(() {});
-            },
-            onSend: () => unawaited(chat.send()),
-            trailing: Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: SizedBox(
-                width: 36,
-                height: 36,
-                child: IconButton.filled(
-                  key: const Key('send'),
-                  tooltip: chat.busy ? 'Stop response' : 'Send message',
-                  onPressed: chat.busy
-                      ? (chat.stopping ? null : chat.stop)
-                      : (chat.loading ||
-                                chat.changing ||
-                                !chat.configured ||
-                                chat.draft.trim().isEmpty
-                            ? null
-                            : chat.send),
-                  style: IconButton.styleFrom(
-                    backgroundColor: p.accent,
-                    foregroundColor: p.bg,
-                    disabledBackgroundColor: p.soft,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                  ),
-                  iconSize: 18,
-                  icon: Icon(
-                    chat.busy ? Icons.stop_rounded : Icons.arrow_upward_rounded,
-                  ),
-                ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RichComposer(
+                key: const Key('composer'),
+                controller: input,
+                focusNode: focus,
+                readOnly: chat.busy || chat.changing || chat.loading,
+                hint: chat.configured
+                    ? 'Message Dolores…'
+                    : 'Connect a model to begin…',
+                onChanged: (value) {
+                  chat.draft = value;
+                  chat.invalidateContextPreview();
+                  setState(() {});
+                },
+                onSend: () => unawaited(chat.send()),
+                trailing: const SizedBox.shrink(),
               ),
-            ),
-          ),
-        ),
-      ),
-      if (chat.configured && chat.enabledModels.isNotEmpty)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: PopupMenuButton<String>(
-            key: const Key('chat-model-picker'),
-            tooltip: 'Choose model',
-            enabled: !chat.busy && !chat.changing && !chat.loading,
-            initialValue: chat.model,
-            onSelected: chat.selectModel,
-            itemBuilder: (_) => [
-              for (final model in chat.enabledModels)
-                PopupMenuItem(
-                  value: model,
-                  child: SizedBox(
-                    width: 240,
-                    child: Text(
-                      model,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              Row(
+                key: const Key('composer-actions'),
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.auto_awesome_outlined, size: 14, color: p.muted),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      chat.model,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: p.muted, fontSize: 12),
+                  if (chat.configured && chat.enabledModels.isNotEmpty)
+                    Flexible(
+                      child: PopupMenuButton<String>(
+                        key: const Key('chat-model-picker'),
+                        tooltip: 'Choose model',
+                        enabled: !chat.busy && !chat.changing && !chat.loading,
+                        initialValue: chat.model,
+                        onSelected: chat.selectModel,
+                        itemBuilder: (_) => [
+                          for (final model in chat.enabledModels)
+                            PopupMenuItem(
+                              value: model,
+                              child: SizedBox(
+                                width: 240,
+                                child: Text(
+                                  model,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                        ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_outlined,
+                                size: 14,
+                                color: p.muted,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  chat.model,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: p.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.expand_more, size: 16, color: p.muted),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ContextIndicator(
+                    summary: chat.contextSummary,
+                    basis: chat.contextBasis,
+                    onPressed: chat.busy || chat.changing || chat.loading
+                        ? null
+                        : () async {
+                            final summary = await chat.previewContext();
+                            if (mounted && summary != null) {
+                              await showContextPreview(context, summary);
+                            }
+                          },
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: IconButton.filled(
+                      key: const Key('send'),
+                      tooltip: chat.busy ? 'Stop response' : 'Send message',
+                      onPressed: chat.busy
+                          ? (chat.stopping ? null : chat.stop)
+                          : (chat.loading ||
+                                    chat.changing ||
+                                    !chat.configured ||
+                                    chat.draft.trim().isEmpty
+                                ? null
+                                : chat.send),
+                      style: IconButton.styleFrom(
+                        backgroundColor: p.accent,
+                        foregroundColor: p.bg,
+                        disabledBackgroundColor: p.soft,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                      ),
+                      iconSize: 18,
+                      icon: Icon(
+                        chat.busy
+                            ? Icons.stop_rounded
+                            : Icons.arrow_upward_rounded,
+                      ),
                     ),
                   ),
-                  Icon(Icons.expand_more, size: 16, color: p.muted),
                 ],
               ),
-            ),
+            ],
           ),
         ),
-      const SizedBox(height: 12),
-      Text(
-        'Enter to send · Shift+Enter for a new line · Ctrl/⌘+Enter from code',
-        style: TextStyle(fontSize: 11, color: p.muted),
       ),
     ],
   );
@@ -668,7 +702,7 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 200),
+                    constraints: BoxConstraints(maxWidth: narrow ? 140 : 200),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -685,6 +719,14 @@ class _ChatPageState extends State<ChatPage> {
                         style: TextStyle(fontSize: 11, color: p.muted),
                       ),
                     ),
+                  ),
+                  IconButton(
+                    key: const Key('chat-trajectory'),
+                    tooltip: 'Chat trajectory and log',
+                    onPressed: chat.loading || chat.changing
+                        ? null
+                        : () => showTrajectory(context, chat),
+                    icon: const Icon(Icons.timeline, size: 20),
                   ),
                   if (chat.session != null)
                     PopupMenuButton<String>(
@@ -796,6 +838,8 @@ class _ChatPageState extends State<ChatPage> {
                                       p,
                                       item['role'] as String,
                                       item['content'] as String,
+                                      metadata: (item['metadata'] as Map?)
+                                          ?.cast<String, dynamic>(),
                                       key: ValueKey(
                                         '${chat.session}:${item['id'] ?? index}',
                                       ),

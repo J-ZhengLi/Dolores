@@ -4,6 +4,22 @@ import 'package:flutter/foundation.dart';
 
 import 'bridge.dart';
 
+class RequestLog {
+  final int run;
+  String? session;
+  final String model, label;
+  final DateTime time;
+  final int elapsedMs;
+  RequestLog(
+    this.run,
+    this.session,
+    this.model,
+    this.label,
+    this.time,
+    this.elapsedMs,
+  );
+}
+
 class _ViewState {
   final String draft;
   final double scroll;
@@ -37,6 +53,55 @@ class ChatController extends ChangeNotifier {
   int viewRevision = 0;
   double scrollOffset = 0;
   final _views = <String, _ViewState>{};
+  // Lifecycle only: no duplicate prompts, token chunks, credentials or HTTP payloads.
+  final requestLogs = <RequestLog>[];
+  final _clock = Stopwatch();
+  String _requestModel = '';
+  bool _firstDelta = false;
+  bool _terminal = false;
+  Map<String, dynamic>? contextSummary;
+  String? contextBasis;
+
+  void invalidateContextPreview() {
+    if (contextBasis == 'Next message preview') {
+      contextSummary = null;
+      contextBasis = null;
+    }
+  }
+
+  void _record(String label) {
+    requestLogs.add(
+      RequestLog(
+        _run,
+        session,
+        _requestModel,
+        label,
+        DateTime.now(),
+        _clock.elapsedMilliseconds,
+      ),
+    );
+    if (requestLogs.length > 200) requestLogs.removeAt(0);
+  }
+
+  Future<Map<String, dynamic>?> inspectHistory({
+    int? cursor,
+    bool newer = false,
+  }) async {
+    if (busy || changing || loading || session == null) return null;
+    changing = true;
+    _notify();
+    try {
+      return (await bridge.call({
+        'command': 'messagesPage',
+        'session': session,
+        'cursor': cursor,
+        'newer': newer,
+      }) as Map).cast<String, dynamic>();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
 
   void rememberScroll(double offset) => scrollOffset = offset;
   void _rememberView() {
@@ -58,6 +123,30 @@ class ChatController extends ChangeNotifier {
     messages = (page['items'] as List).cast<Map<String, dynamic>>();
     messagesOlder = page['hasOlder'] == true;
     messagesNewer = page['hasNewer'] == true;
+  }
+
+  Future<Map<String, dynamic>?> previewContext() async {
+    if (busy || changing || loading) return null;
+    changing = true;
+    _notify();
+    try {
+      final result = await bridge.call({
+        'command': 'context',
+        'session': session,
+        'input': draft,
+      });
+      error = null;
+      final report = (result as Map).cast<String, dynamic>();
+      contextSummary = Map.of(report)..remove('messages');
+      contextBasis = 'Next message preview';
+      return report;
+    } catch (failure) {
+      error = failure.toString();
+      return null;
+    } finally {
+      changing = false;
+      _notify();
+    }
   }
 
   Future<void> initialize() async {
@@ -189,6 +278,8 @@ class ChatController extends ChangeNotifier {
     if (busy || changing) return;
     _rememberView();
     session = null;
+    contextSummary = null;
+    contextBasis = null;
     messages = [];
     messagesOlder = messagesNewer = false;
     draft = _views['']?.draft ?? '';
@@ -212,6 +303,15 @@ class ChatController extends ChangeNotifier {
       });
       session = id;
       _setMessages(history);
+      contextSummary = null;
+      contextBasis = null;
+      if (!messagesNewer &&
+          messages.isNotEmpty &&
+          messages.last['metadata']?['context'] is Map) {
+        contextSummary = (messages.last['metadata']['context'] as Map)
+            .cast<String, dynamic>();
+        contextBasis = 'Last saved request';
+      }
       draft = state?.draft ?? '';
       scrollOffset = state?.scroll ?? double.infinity;
       viewRevision++;
@@ -322,6 +422,11 @@ class ChatController extends ChangeNotifier {
         viewRevision++;
       }
       _views.remove(id);
+      requestLogs.removeWhere((event) => event.session == id);
+      if (session == null) {
+        contextSummary = null;
+        contextBasis = null;
+      }
       await refresh();
       error = null;
     } catch (failure) {
@@ -350,6 +455,13 @@ class ChatController extends ChangeNotifier {
     partial = '';
     error = null;
     final id = ++_run;
+    _requestModel = model;
+    _firstDelta = false;
+    _terminal = false;
+    _clock
+      ..reset()
+      ..start();
+    _record('Request submitted');
     _notify();
     try {
       await bridge.call({
@@ -372,6 +484,7 @@ class ChatController extends ChangeNotifier {
   Future<void> stop() async {
     if (!busy) return;
     stopping = true;
+    _record('Stop requested');
     _notify();
     try {
       await bridge.call({'command': 'cancel', 'id': _run});
@@ -399,13 +512,30 @@ class ChatController extends ChangeNotifier {
         switch (event['type']) {
           case 'started':
             session = event['session'] as String;
+            for (final record in requestLogs.where(
+              (record) => record.run == id,
+            )) {
+              record.session = session;
+            }
+            contextSummary = (event['context'] as Map?)
+                ?.cast<String, dynamic>();
+            contextBasis = 'Current request';
+            _record('Context prepared');
           case 'delta':
+            if (!_firstDelta) {
+              _record('First response text');
+              _firstDelta = true;
+            }
             partial += event['text'] as String;
           case 'done':
             changing = true;
             if (event['error'] != null) {
               _failed(event['error'] as String);
             } else {
+              _record('Reply saved');
+              _terminal = true;
+              _clock.stop();
+              contextBasis = 'Last saved request';
               busy = false;
               stopping = false;
               pendingInput = '';
@@ -433,6 +563,18 @@ class ChatController extends ChangeNotifier {
   }
 
   void _failed(String failure) {
+    _record(
+      _terminal
+          ? 'History refresh failed'
+          : stopping
+          ? 'Request stopped'
+          : 'Request failed',
+    );
+    _terminal = true;
+    if (contextBasis == 'Current request') {
+      contextBasis = 'Last attempted request';
+    }
+    _clock.stop();
     error = failure;
     draft = pendingInput;
     pendingInput = '';

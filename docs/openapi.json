@@ -104,7 +104,7 @@
           "cursor": "positive i64|null; optional",
           "newer": "boolean; optional/default false; true requires cursor"
         },
-        "result": "{items:{id:i64,role:user|assistant,content:string}[0..80],hasOlder:boolean,hasNewer:boolean}; chronological id order; no cursor loads latest; older/newer excludes cursor"
+        "result": "{items:{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[0..80],hasOlder:boolean,hasNewer:boolean}; chronological id order; no cursor loads latest; older/newer excludes cursor"
       },
       "export": {
         "arguments": {
@@ -113,10 +113,17 @@
           "format": "markdown|json"
         },
         "result": "{messageCount:u64}; complete read snapshot streamed to sibling temporary file, synced and published without replacement; no partial destination on write failure; existing files rejected"
+      },
+      "context": {
+        "arguments": {
+          "session": "string|null; optional; null previews a new conversation without creating it",
+          "input": "string; empty allowed; at most 16384 UTF-8 bytes"
+        },
+        "result": "ContextSummary & {messages:{role:system|user|assistant,content:string}[0..82]}; exact prepared sequence including system and final draft (empty allowed), at most 131072 UTF-8 content bytes; independent of viewed page; no network, writes, credentials or HTTP envelope"
       }
     },
     "events": [
-      "{type:started,id,session}",
+      "{type:started,id,session,context:ContextSummary}",
       "{type:delta,id,text}",
       "{type:done,id,answer}",
       "{type:done,id,error}"
@@ -126,7 +133,13 @@
     "exportSchema": {
       "exportVersion": 1,
       "session": "Session",
-      "messages": "{id:i64,role:user|assistant,content:string}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences"
+      "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
+    },
+    "accounting": {
+      "schemaVersion": 4,
+      "metadata": "Completed assistant messages may carry {model,usage:TokenUsage|null,context:ContextSummary}; old messages omit metadata. Text and metadata commit together; delete cascades both.",
+      "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
+      "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
     }
   },
   "x-tauri-commands": {
@@ -354,7 +367,138 @@
             "type": "string"
           }
         }
+      },
+      "TokenUsage": {
+        "type": "object",
+        "properties": {
+          "inputTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "outputTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "totalTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "cachedInputTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reasoningTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "inputTokens",
+          "outputTokens",
+          "totalTokens",
+          "cachedInputTokens",
+          "reasoningTokens"
+        ]
+      },
+      "ContextSummary": {
+        "type": "object",
+        "properties": {
+          "includedTurns": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "savedTurns": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "omittedTurns": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "textBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxTextBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxTurns": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "includedTurns",
+          "savedTurns",
+          "omittedTurns",
+          "textBytes",
+          "maxTextBytes",
+          "maxTurns"
+        ]
+      },
+      "TurnMetadata": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "usage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "$ref": "#/components/schemas/ContextSummary"
+          }
+        },
+        "required": [
+          "model",
+          "usage",
+          "context"
+        ]
       }
     }
+  },
+  "x-provider-chat": {
+    "method": "POST",
+    "path": "<baseUrl>/chat/completions",
+    "body": "{model,messages:[{role,content}],stream:true,max_tokens:2048,stream_options:{include_usage:true}}",
+    "response": "text/event-stream; usage may arrive in an empty-choices chunk before [DONE]; last valid snapshot replaces, never sums prior snapshots",
+    "compatibility": "Retry once without stream_options only after HTTP 400/422 with an <=8192-byte JSON error explicitly naming stream_options/include_usage as unsupported/unknown/unrecognized/unexpected/not permitted. Never retry denial, generic validation, transport or stream failures. Error bodies are not surfaced.",
+    "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create"
   }
 }

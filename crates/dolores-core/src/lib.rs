@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+mod accounting;
+pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 
 pub const MAX_INPUT_BYTES: usize = 16 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 128 * 1024;
@@ -58,6 +60,8 @@ pub struct StoredMessage {
     pub id: i64,
     pub role: Role,
     pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<TurnMetadata>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -113,6 +117,16 @@ pub trait ModelProvider: Send + Sync {
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
     ) -> Result<(), String>;
+    /// Backward-compatible optional accounting capability for provider plugins.
+    async fn stream_with_usage(
+        &self,
+        messages: Vec<Message>,
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<Option<TokenUsage>, String> {
+        self.stream(messages, output, cancel).await?;
+        Ok(None)
+    }
 }
 
 pub trait SessionStore: Send + Sync {
@@ -122,6 +136,18 @@ pub trait SessionStore: Send + Sync {
     fn messages(&self, id: &str) -> Result<Vec<Message>, String>;
     fn delete(&self, id: &str) -> Result<(), String>;
     fn commit_turn(&self, id: &str, user: &str, assistant: &str) -> Result<(), String>;
+    fn context_history(&self, id: &str) -> Result<(Vec<Message>, Option<u64>), String> {
+        Ok((self.messages(id)?, None))
+    }
+    fn commit_turn_metadata(
+        &self,
+        id: &str,
+        user: &str,
+        assistant: &str,
+        _: &TurnMetadata,
+    ) -> Result<(), String> {
+        self.commit_turn(id, user, assistant)
+    }
     fn preferences(&self) -> Result<ConnectionPreferences, String>;
     fn save_preferences(&self, preferences: &ConnectionPreferences) -> Result<(), String>;
     fn sessions_page(
@@ -176,6 +202,11 @@ pub fn prepare_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
     if input.trim().is_empty() {
         return Err("Write a message first.".into());
     }
+    preview_context(history, input)
+}
+
+/// Same context selection as sending, but an empty draft can be inspected.
+pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message>, String> {
     if input.len() > MAX_INPUT_BYTES {
         return Err("Message exceeds the 16 KiB limit.".into());
     }
@@ -214,16 +245,28 @@ pub async fn stream_reply(
     output: mpsc::Sender<String>,
     cancel: CancellationToken,
 ) -> Result<String, String> {
+    Ok(stream_reply_with_usage(provider, messages, output, cancel)
+        .await?
+        .answer)
+}
+
+pub async fn stream_reply_with_usage(
+    provider: &dyn ModelProvider,
+    messages: Vec<Message>,
+    output: mpsc::Sender<String>,
+    cancel: CancellationToken,
+) -> Result<Reply, String> {
     let (sender, mut receiver) = mpsc::channel(32);
-    let request = provider.stream(messages, sender, cancel.clone());
+    let request = provider.stream_with_usage(messages, sender, cancel.clone());
     tokio::pin!(request);
     let mut finished = false;
     let mut answer = String::new();
+    let mut usage = None;
     loop {
         tokio::select! {
             biased;
             _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
-            result = &mut request, if !finished => { result?; finished = true; }
+            result = &mut request, if !finished => { usage = result?; finished = true; }
             delta = receiver.recv() => match delta {
                 Some(delta) => {
                     if answer.len() + delta.len() > MAX_OUTPUT_BYTES { return Err("Response exceeds the 128 KiB limit.".into()); }
@@ -233,14 +276,14 @@ pub async fn stream_reply(
                         result = output.send(delta) => result.map_err(|_| "Conversation window closed.".to_string())?,
                     }
                 }
-                None => { if !finished { request.await?; } break; }
+                None => { if !finished { usage = request.await?; } break; }
             }
         }
     }
     if answer.trim().is_empty() {
         return Err("The model returned no text.".into());
     }
-    Ok(answer)
+    Ok(Reply { answer, usage })
 }
 
 #[cfg(test)]

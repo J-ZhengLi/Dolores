@@ -3,8 +3,8 @@ mod connection;
 mod export;
 use connection::ConnectionManager;
 use dolores_core::{
-    prepare_context, stream_reply, ConnectionPreferences, CredentialStore, ModelProvider,
-    SessionStore,
+    prepare_context, preview_context, stream_reply_with_usage, ConnectionPreferences,
+    ContextSummary, CredentialStore, ModelProvider, SessionStore, TurnMetadata,
 };
 use dolores_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -21,6 +21,12 @@ struct Run {
     id: u64,
     cancel: CancellationToken,
     events: mpsc::Receiver<Value>,
+}
+struct TurnRequest {
+    id: u64,
+    session: Option<String>,
+    input: String,
+    model: String,
 }
 struct Engine {
     runtime: Runtime,
@@ -52,6 +58,10 @@ enum Command {
     },
     Messages {
         session: String,
+    },
+    Context {
+        session: Option<String>,
+        input: String,
     },
     Delete {
         session: String,
@@ -183,6 +193,16 @@ impl Engine {
                 json!({"messageCount": export::save(self.store.as_ref(), &session, &path, format)?}),
             ),
             Command::Messages { session } => Ok(json!(self.store.messages(&session)?)),
+            Command::Context { session, input } => {
+                let (history, count) = match session {
+                    Some(session) => self.store.context_history(&session)?,
+                    None => (vec![], Some(0)),
+                };
+                let messages = preview_context(history, &input)?;
+                let mut report = json!(ContextSummary::from_messages(&messages, count));
+                report["messages"] = json!(messages);
+                Ok(report)
+            }
             Command::Delete { session } => {
                 self.store.delete(&session)?;
                 Ok(Value::Null)
@@ -246,6 +266,7 @@ impl Engine {
                     .provider
                     .clone()
                     .ok_or("Set up a model connection first.")?;
+                let model = self.store.preferences()?.model;
                 let cancel = CancellationToken::new();
                 let (output, events) = mpsc::channel(32);
                 *active = Some(Run {
@@ -255,8 +276,19 @@ impl Engine {
                 });
                 let store = self.store.clone();
                 self.runtime.spawn(async move {
-                    let result =
-                        execute(store, provider, session, input, cancel, id, &output).await;
+                    let result = execute(
+                        store,
+                        provider,
+                        TurnRequest {
+                            id,
+                            session,
+                            input,
+                            model,
+                        },
+                        cancel,
+                        &output,
+                    )
+                    .await;
                     let event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer}),
                         Err(error) => json!({"type":"done", "id":id, "error":error}),
@@ -279,33 +311,39 @@ async fn blocking<T: Send + 'static>(
 async fn execute(
     store: Arc<dyn SessionStore>,
     provider: Arc<dyn ModelProvider>,
-    session: Option<String>,
-    input: String,
+    request: TurnRequest,
     cancel: CancellationToken,
-    id: u64,
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
+    let TurnRequest {
+        id,
+        session,
+        input,
+        model,
+    } = request;
     if cancel.is_cancelled() {
         return Err(stopped());
     }
     let reader = store.clone();
-    let (session, history) = blocking(move || {
+    let (session, history, count) = blocking(move || {
         let session = match session {
             Some(id) => id,
             None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
         };
-        Ok((session.clone(), reader.messages(&session)?))
+        let (history, count) = reader.context_history(&session)?;
+        Ok((session, history, count))
     })
     .await?;
+    let context = prepare_context(history, &input)?;
+    let summary = ContextSummary::from_messages(&context, count);
     forward(
         output,
-        json!({"type":"started", "id":id, "session":session}),
+        json!({"type":"started", "id":id, "session":session, "context":summary}),
         &cancel,
     )
     .await?;
-    let context = prepare_context(history, &input)?;
     let (sender, mut receiver) = mpsc::channel(32);
-    let request = stream_reply(provider.as_ref(), context, sender, cancel.clone());
+    let request = stream_reply_with_usage(provider.as_ref(), context, sender, cancel.clone());
     tokio::pin!(request);
     let answer = loop {
         tokio::select! {
@@ -326,10 +364,15 @@ async fn execute(
     if cancel.is_cancelled() {
         return Err(stopped());
     }
-    let saved = answer.clone();
+    let saved = answer.answer.clone();
+    let metadata = TurnMetadata {
+        model,
+        usage: answer.usage,
+        context: summary,
+    };
     // Once the complete-pair transaction starts, completion wins over late Stop.
-    blocking(move || store.commit_turn(&session, &input, &saved)).await?;
-    Ok(answer)
+    blocking(move || store.commit_turn_metadata(&session, &input, &saved, &metadata)).await?;
+    Ok(answer.answer)
 }
 fn stopped() -> String {
     "Response stopped. Your message was not saved.".into()
@@ -440,6 +483,75 @@ mod tests {
             }
             Ok(())
         }
+        async fn stream_with_usage(
+            &self,
+            messages: Vec<Message>,
+            output: mpsc::Sender<String>,
+            cancel: CancellationToken,
+        ) -> Result<Option<dolores_core::TokenUsage>, String> {
+            self.stream(messages, output, cancel).await?;
+            Ok(Some(dolores_core::TokenUsage {
+                input_tokens: Some(0),
+                output_tokens: Some(96),
+                ..Default::default()
+            }))
+        }
+    }
+    #[test]
+    fn context_preview_uses_latest_saved_history_and_does_not_create_or_mutate_sessions() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let engine = Engine::new(
+            store.clone(),
+            Arc::new(connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        let empty = engine
+            .call(Command::Context {
+                session: None,
+                input: "".into(),
+            })
+            .unwrap();
+        assert_eq!(empty["savedTurns"], 0);
+        assert!(store.list().unwrap().is_empty());
+        store.create("long").unwrap();
+        for n in 0..61 {
+            store
+                .commit_turn("long", &format!("u{n}"), "reply")
+                .unwrap();
+        }
+        let context = engine
+            .call(Command::Context {
+                session: Some("long".into()),
+                input: "你好".into(),
+            })
+            .unwrap();
+        assert_eq!(context["includedTurns"], 40);
+        assert_eq!(context["savedTurns"], 61);
+        assert_eq!(context["omittedTurns"], 21);
+        let prepared = context["messages"].as_array().unwrap();
+        assert_eq!(prepared.len(), 82);
+        assert_eq!(prepared[1]["content"], "u21");
+        assert_eq!(prepared.last().unwrap()["content"], "你好");
+        assert_eq!(prepared[0]["role"], "system");
+        assert_eq!(
+            prepared
+                .iter()
+                .map(|m| m["content"].as_str().unwrap().len())
+                .sum::<usize>(),
+            context["textBytes"].as_u64().unwrap() as usize
+        );
+        assert!(engine
+            .call(Command::Context {
+                session: Some("missing".into()),
+                input: "".into()
+            })
+            .is_err());
+        assert!(engine
+            .call(Command::Context {
+                session: None,
+                input: "x".repeat(dolores_core::MAX_INPUT_BYTES + 1)
+            })
+            .is_err());
     }
     #[test]
     fn bridge_null_and_invalid_json_return_owned_error_envelopes() {
@@ -465,6 +577,12 @@ mod tests {
             )
             .unwrap();
             engine.connection.lock().unwrap().provider = Some(Arc::new(Fixture { hang, fail }));
+            store
+                .save_preferences(&ConnectionPreferences {
+                    base_url: "http://localhost/v1".into(),
+                    model: "fixture".into(),
+                })
+                .unwrap();
             engine
                 .call(Command::Start {
                     id: 7,
@@ -475,6 +593,12 @@ mod tests {
             assert!(engine
                 .call(Command::Delete {
                     session: "anything".into()
+                })
+                .is_err());
+            assert!(engine
+                .call(Command::Context {
+                    session: None,
+                    input: "".into()
                 })
                 .is_err());
             assert_eq!(engine.call(Command::Poll { id: 6 }).unwrap(), json!([]));
@@ -540,6 +664,13 @@ mod tests {
                 assert_eq!(done["answer"], answer);
                 assert_eq!(messages.len(), 2);
                 assert_eq!(messages[1].content, answer);
+                let page = store
+                    .messages_page(&sessions[0].id, None, false, 80)
+                    .unwrap();
+                let metadata = page.items[1].metadata.as_ref().unwrap();
+                assert_eq!(metadata.model, "fixture");
+                assert_eq!(metadata.usage.as_ref().unwrap().input_tokens, Some(0));
+                assert_eq!(metadata.context.included_turns, 0);
             }
             assert!(engine.call(Command::Bootstrap).is_ok());
         }

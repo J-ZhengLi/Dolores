@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use dolores_core::{ConnectionPreferences, Message, ModelProvider, PluginDescriptor};
+use dolores_core::{ConnectionPreferences, Message, ModelProvider, PluginDescriptor, TokenUsage};
 use futures_util::StreamExt;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -8,6 +8,81 @@ use tokio_util::sync::CancellationToken;
 use url::{Host, Url};
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
+
+fn reported_usage(value: &Value) -> Option<TokenUsage> {
+    let value = value.get("usage")?.as_object()?;
+    let number = |key: &str| {
+        value
+            .get(key)
+            .and_then(Value::as_u64)
+            .filter(|n| *n <= 9_007_199_254_740_991)
+    };
+    let detail = |key: &str, field: &str| {
+        value
+            .get(key)
+            .and_then(|v| v.get(field))
+            .and_then(Value::as_u64)
+            .filter(|n| *n <= 9_007_199_254_740_991)
+    };
+    let usage = TokenUsage {
+        input_tokens: number("prompt_tokens"),
+        output_tokens: number("completion_tokens"),
+        total_tokens: number("total_tokens"),
+        cached_input_tokens: detail("prompt_tokens_details", "cached_tokens"),
+        reasoning_tokens: detail("completion_tokens_details", "reasoning_tokens"),
+    };
+    (usage != TokenUsage::default()).then_some(usage)
+}
+
+// Retry only an explicit pre-stream parameter rejection, never a transport,
+// authorization, generic validation or mid-stream failure. Never surface bodies.
+async fn usage_option_rejected(
+    response: &mut reqwest::Response,
+    cancel: &CancellationToken,
+) -> Result<bool, String> {
+    if !matches!(response.status().as_u16(), 400 | 422) {
+        return Ok(false);
+    }
+    let mut bytes = Vec::new();
+    loop {
+        let chunk = tokio::select! {
+            _ = cancel.cancelled() => return Err("Response stopped.".into()),
+            chunk = response.chunk() => chunk,
+        };
+        match chunk {
+            Ok(Some(chunk)) if bytes.len() + chunk.len() <= 8192 => bytes.extend_from_slice(&chunk),
+            Ok(None) => break,
+            _ => return Ok(false),
+        }
+    }
+    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
+        return Ok(false);
+    };
+    let parameter = value
+        .pointer("/error/param")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let message = value
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let named = parameter == "stream_options"
+        || parameter == "stream_options.include_usage"
+        || message.contains("stream_options")
+        || message.contains("include_usage");
+    Ok(named
+        && [
+            "unsupported",
+            "not supported",
+            "unknown",
+            "unrecognized",
+            "unexpected",
+            "not permitted",
+        ]
+        .iter()
+        .any(|word| message.contains(word)))
+}
 
 pub struct OpenAiProvider {
     client: reqwest::Client,
@@ -210,13 +285,35 @@ impl ModelProvider for OpenAiProvider {
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
     ) -> Result<(), String> {
-        let mut request = self.client.post(self.endpoint.clone()).json(&json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": 2048 }));
-        if !self.api_key.is_empty() {
-            request = request.bearer_auth(&self.api_key);
-        }
-        let response = tokio::select! {
-            _ = cancel.cancelled() => return Err("Response stopped.".into()),
-            result = request.send() => result.map_err(|_| "Could not reach the model. Check the endpoint and whether the server is running.".to_string())?,
+        self.stream_with_usage(messages, output, cancel)
+            .await
+            .map(|_| ())
+    }
+    async fn stream_with_usage(
+        &self,
+        messages: Vec<Message>,
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<Option<TokenUsage>, String> {
+        let mut include_usage = true;
+        let response = loop {
+            let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": 2048 });
+            if include_usage {
+                body["stream_options"] = json!({"include_usage":true});
+            }
+            let mut request = self.client.post(self.endpoint.clone()).json(&body);
+            if !self.api_key.is_empty() {
+                request = request.bearer_auth(&self.api_key);
+            }
+            let mut response = tokio::select! {
+                _ = cancel.cancelled() => return Err("Response stopped.".into()),
+                result = request.send() => result.map_err(|_| "Could not reach the model. Check the endpoint and whether the server is running.".to_string())?,
+            };
+            if include_usage && usage_option_rejected(&mut response, &cancel).await? {
+                include_usage = false;
+                continue;
+            }
+            break response;
         };
         if !response.status().is_success() {
             return Err(match response.status().as_u16() {
@@ -239,6 +336,7 @@ impl ModelProvider for OpenAiProvider {
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
         let mut finished = false;
+        let mut usage = None;
         loop {
             let chunk = tokio::select! {
                 _ = cancel.cancelled() => return Err("Response stopped.".into()),
@@ -249,12 +347,15 @@ impl ModelProvider for OpenAiProvider {
                 "Connection interrupted before the response finished.".to_string()
             })?)? {
                 if data == "[DONE]" {
-                    return Ok(());
+                    return Ok(usage);
                 }
                 let value: Value = serde_json::from_str(&data)
                     .map_err(|_| "Provider returned a malformed stream.".to_string())?;
                 if value.get("error").is_some() {
                     return Err("Provider reported an error while streaming.".into());
+                }
+                if let Some(reported) = reported_usage(&value) {
+                    usage = Some(reported);
                 }
                 let Some(choice) = value
                     .get("choices")
@@ -286,7 +387,7 @@ impl ModelProvider for OpenAiProvider {
             }
         }
         if finished && decoder.buffer.is_empty() {
-            Ok(())
+            Ok(usage)
         } else {
             Err("Connection ended before the response finished.".into())
         }
@@ -340,37 +441,132 @@ mod tests {
             .is_err());
     }
     async fn server(response: &'static str) -> (String, tokio::task::JoinHandle<String>) {
+        sequence_server(vec![response.to_string()]).await
+    }
+    async fn sequence_server(responses: Vec<String>) -> (String, tokio::task::JoinHandle<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let task = tokio::spawn(async move {
-            let (mut socket, _) = listener.accept().await.unwrap();
-            let mut bytes = Vec::new();
-            loop {
-                let mut chunk = [0u8; 4096];
-                let count = socket.read(&mut chunk).await.unwrap();
-                if count == 0 {
-                    break;
-                }
-                bytes.extend_from_slice(&chunk[..count]);
-                if let Some(index) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
-                    let headers = String::from_utf8_lossy(&bytes[..index]);
-                    let length: usize = headers
-                        .lines()
-                        .find_map(|line| {
-                            line.to_ascii_lowercase()
-                                .strip_prefix("content-length: ")
-                                .map(|n| n.parse().unwrap())
-                        })
-                        .unwrap_or(0);
-                    if bytes.len() >= index + 4 + length {
+            let mut requests = Vec::new();
+            for response in responses {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut bytes = Vec::new();
+                loop {
+                    let mut chunk = [0u8; 4096];
+                    let count = socket.read(&mut chunk).await.unwrap();
+                    if count == 0 {
                         break;
                     }
+                    bytes.extend_from_slice(&chunk[..count]);
+                    if let Some(index) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&bytes[..index]);
+                        let length: usize = headers
+                            .lines()
+                            .find_map(|line| {
+                                line.to_ascii_lowercase()
+                                    .strip_prefix("content-length: ")
+                                    .map(|n| n.parse().unwrap())
+                            })
+                            .unwrap_or(0);
+                        if bytes.len() >= index + 4 + length {
+                            break;
+                        }
+                    }
                 }
+                socket.write_all(response.as_bytes()).await.unwrap();
+                requests.push(String::from_utf8(bytes).unwrap());
             }
-            socket.write_all(response.as_bytes()).await.unwrap();
-            String::from_utf8(bytes).unwrap()
+            requests.join("\nREQUEST\n")
         });
         (format!("http://{address}/v1"), task)
+    }
+    #[tokio::test]
+    async fn usage_only_final_chunk_preserves_zero_and_partial_counts_without_summing() {
+        let response = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}],\"usage\":null}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":0,\"total_tokens\":12,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":0,\"total_tokens\":12,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\ndata: [DONE]\n\n";
+        let (base_url, server) = server(response).await;
+        let provider = OpenAiProvider::new(
+            &ConnectionPreferences {
+                base_url,
+                model: "fixture".into(),
+            },
+            String::new(),
+        )
+        .unwrap();
+        let (tx, mut rx) = mpsc::channel(32);
+        let usage = provider
+            .stream_with_usage(vec![], tx, CancellationToken::new())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(usage.input_tokens, Some(12));
+        assert_eq!(usage.output_tokens, Some(0));
+        assert_eq!(usage.total_tokens, Some(12));
+        assert_eq!(usage.cached_input_tokens, Some(0));
+        assert_eq!(usage.reasoning_tokens, None);
+        assert_eq!(rx.recv().await.as_deref(), Some("hello"));
+        assert!(rx.recv().await.is_none());
+        let request = server.await.unwrap();
+        let body: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(body["stream_options"]["include_usage"], true);
+    }
+    #[test]
+    fn absent_invalid_and_partial_usage_never_become_invented_totals() {
+        for value in [
+            json!({}),
+            json!({"usage":null}),
+            json!({"usage":{"prompt_tokens":-1,"completion_tokens":"4","total_tokens":1.5}}),
+            json!({"usage":{"total_tokens":9_007_199_254_740_992_u64}}),
+        ] {
+            assert!(reported_usage(&value).is_none());
+        }
+        let usage =
+            reported_usage(&json!({"usage":{"prompt_tokens":0,"completion_tokens":-1}})).unwrap();
+        assert_eq!(usage.input_tokens, Some(0));
+        assert!(usage.output_tokens.is_none() && usage.total_tokens.is_none());
+    }
+    #[tokio::test]
+    async fn explicitly_unsupported_usage_option_retries_once_before_streaming() {
+        let (base_url, server) = sequence_server(vec![
+            "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n{\"error\":{\"param\":\"stream_options\",\"message\":\"Unsupported parameter: stream_options\"}}".into(),
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: [DONE]\n\n".into(),
+        ]).await;
+        let provider = OpenAiProvider::new(
+            &ConnectionPreferences {
+                base_url,
+                model: "fixture".into(),
+            },
+            String::new(),
+        )
+        .unwrap();
+        let (tx, mut rx) = mpsc::channel(32);
+        assert!(provider
+            .stream_with_usage(vec![], tx, CancellationToken::new())
+            .await
+            .unwrap()
+            .is_none());
+        assert_eq!(rx.recv().await.as_deref(), Some("hello"));
+        let requests = server.await.unwrap();
+        let bodies: Vec<Value> = requests
+            .split("\nREQUEST\n")
+            .map(|request| serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap())
+            .collect();
+        assert_eq!(bodies.len(), 2);
+        assert!(bodies[0].get("stream_options").is_some());
+        assert!(bodies[1].get("stream_options").is_none());
+    }
+    #[tokio::test]
+    async fn generic_validation_and_denial_are_not_retried_or_exposed() {
+        for response in [
+            "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n{\"error\":{\"message\":\"fixture-secret: invalid model\"}}",
+            "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n{\"error\":{\"message\":\"Unsupported stream_options fixture-secret\"}}",
+        ] {
+            let (base_url, server) = server(response).await;
+            let provider = OpenAiProvider::new(&ConnectionPreferences { base_url, model: "fixture".into() }, String::new()).unwrap();
+            let (tx, _rx) = mpsc::channel(32);
+            let error = provider.stream_with_usage(vec![], tx, CancellationToken::new()).await.unwrap_err();
+            assert!(!error.contains("fixture-secret") && !error.contains("Could not reach"));
+            server.await.unwrap();
+        }
     }
     #[tokio::test]
     async fn streams_from_real_http_and_sends_expected_contract() {
@@ -446,6 +642,7 @@ mod tests {
     async fn rejects_truncated_and_business_error_streams() {
         for body in [
             "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\ndata: {\"usage\":{\"prompt_tokens\":12},\"choices\":[]}\n\n",
             "data: {\"error\":{\"message\":\"secret\"}}\n\n",
         ] {
             let response: &'static str = Box::leak(format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}").into_boxed_str());

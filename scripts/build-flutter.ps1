@@ -44,6 +44,18 @@ try {
             if ($dependenciesExit) { throw 'Flutter dependencies failed.' }
         }
         if ($LASTEXITCODE) { throw 'Flutter dependencies failed.' }
+        # Release asset targets share build/flutter_assets across entry points.
+        # A cached icon subset can otherwise survive new Dart IconData usages,
+        # leaving visible controls blank. Rebuild only the generated asset stage;
+        # keep code/compiler caches and icon tree shaking enabled.
+        $assetCache = Join-Path (Get-Location).Path '.dart_tool/flutter_build'
+        if (Test-Path -LiteralPath $assetCache) {
+            Get-ChildItem -LiteralPath $assetCache -Directory | ForEach-Object {
+                Get-ChildItem -LiteralPath $_.FullName -Filter 'release_bundle_windows*_assets.stamp' -File | ForEach-Object {
+                    Remove-Item -LiteralPath $_.FullName
+                }
+            }
+        }
         if ($CMake) {
             $cmakeExecutable = (Resolve-Path -LiteralPath $CMake).Path
             # Flutter writes the same generated configuration before checking

@@ -14,6 +14,8 @@ import 'code_syntax.dart';
 import 'rich_composer.dart';
 import 'main.dart';
 import 'reply_content.dart';
+import 'usage_details.dart';
+import 'inspector.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,6 +101,16 @@ Future<void> _run(
       chat.messages.length == 2 &&
           chat.messages.last['content'].contains('你好！'),
       'Unicode stream saved as a complete turn',
+      checks,
+    );
+    final savedUsage = chat.messages.last['metadata']?['usage'];
+    check(
+      savedUsage?['inputTokens'] == 64 &&
+          savedUsage?['outputTokens'] == 32 &&
+          savedUsage?['totalTokens'] == 96 &&
+          savedUsage?['cachedInputTokens'] == 0 &&
+          savedUsage?['reasoningTokens'] == null,
+      'Final usage-only SSE chunk survives the bridge and SQLite reload with zero and unavailable details intact',
       checks,
     );
     final id = chat.session!;
@@ -304,9 +316,194 @@ Future<void> _run(
     if (pageContext == null || !pageContext!.mounted) {
       throw StateError('Conversation view unavailable.');
     }
+    final smokePageContext = pageContext!;
+    final contextPreview = await chat.previewContext();
+    check(
+      contextPreview?['savedTurns'] == 2 &&
+          contextPreview?['includedTurns'] == 2 &&
+          contextPreview?['omittedTurns'] == 0,
+      'On-demand context preview uses saved latest turns without changing draft or history',
+      checks,
+    );
+    check(
+      (contextPreview?['messages'] as List?)?.length == 6 &&
+          contextPreview?['messages'][0]['role'] == 'system' &&
+          contextPreview?['messages'][3]['content'] == composerSource &&
+          contextPreview?['messages'][5]['content'] == chat.draft,
+      'Context inspector receives exact system, recent exchanges and draft in request order',
+      checks,
+    );
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before context capture');
+    }
+    unawaited(showContextPreview(smokePageContext, contextPreview!));
+    await screenshot(capture, output, 'context-dark');
+    final boxes = <String, Rect>{};
+    var helpVisible = false;
+    ListTile? systemDisclosure;
+    void inspectContext(Element element) {
+      final key = element.widget.key;
+      for (final name in [
+        'composer-frame',
+        'chat-model-picker',
+        'context-preview',
+        'send',
+      ]) {
+        if (key == Key(name)) {
+          final box = element.findRenderObject();
+          if (box is RenderBox && box.hasSize) {
+            boxes[name] = box.localToGlobal(Offset.zero) & box.size;
+          }
+        }
+      }
+      if (element.widget is Text &&
+          ((element.widget as Text).data ?? '').contains('Enter to send')) {
+        helpVisible = true;
+      }
+      if (element.widget is ListTile) {
+        final tile = element.widget as ListTile;
+        if (tile.title is Text &&
+            (tile.title as Text).data == 'System instructions') {
+          systemDisclosure = tile;
+        }
+      }
+      element.visitChildren(inspectContext);
+    }
+
+    inspectContext(capture.currentContext! as Element);
+    check(
+      !helpVisible &&
+          boxes.length == 4 &&
+          boxes['composer-frame']!.contains(
+            boxes['chat-model-picker']!.center,
+          ) &&
+          boxes['composer-frame']!.contains(boxes['context-preview']!.center) &&
+          boxes['context-preview']!.left >= boxes['chat-model-picker']!.right &&
+          boxes['send']!.left >= boxes['context-preview']!.right,
+      'Model picker, context ring and Send appear in order inside the composer with no bottom help label',
+      checks,
+    );
+    systemDisclosure?.onTap?.call();
+    await screenshot(capture, output, 'context-expanded-dark');
+    var exactSystemVisible = false;
+    void inspectSystemText(Element element) {
+      if (element.widget is SelectableText &&
+          (element.widget as SelectableText).data ==
+              contextPreview['messages'][0]['content']) {
+        exactSystemVisible = true;
+      }
+      element.visitChildren(inspectSystemText);
+    }
+
+    inspectSystemText(capture.currentContext! as Element);
+    check(
+      exactSystemVisible,
+      'Context disclosure renders the exact selectable system instruction',
+      checks,
+    );
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable after context capture');
+    }
+    Navigator.of(smokePageContext).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before trajectory capture');
+    }
+    unawaited(showTrajectory(smokePageContext, chat));
+    await screenshot(capture, output, 'trajectory-dark');
+    SegmentedButton<int>? trajectoryTabs;
+    var savedReplyVisible = false;
+    void inspectTrajectory(Element element) {
+      if (element.widget is SegmentedButton<int>) {
+        trajectoryTabs = element.widget as SegmentedButton<int>;
+      }
+      if (element.widget is Text &&
+          ((element.widget as Text).data ?? '').contains(
+            'dolores-fast · Saved',
+          )) {
+        savedReplyVisible = true;
+      }
+      element.visitChildren(inspectTrajectory);
+    }
+
+    inspectTrajectory(capture.currentContext! as Element);
+    check(
+      savedReplyVisible && chat.messages.length == 4,
+      'Independent trajectory page displays saved reply provenance without changing the main transcript',
+      checks,
+    );
+    trajectoryTabs!.onSelectionChanged!({1});
+    await screenshot(capture, output, 'trajectory-log-dark');
+    var savedLogVisible = false;
+    void inspectLog(Element element) {
+      if (element.widget is Text &&
+          (element.widget as Text).data == 'Reply saved') {
+        savedLogVisible = true;
+      }
+      element.visitChildren(inspectLog);
+    }
+
+    inspectLog(capture.currentContext! as Element);
+    check(
+      savedLogVisible && chat.requestLogs.length <= 200,
+      'Trajectory log displays coalesced real request lifecycle with bounded retention',
+      checks,
+    );
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable after trajectory capture');
+    }
+    Navigator.of(smokePageContext).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    TextButton? usageAction;
+    var usageActions = 0;
+    void inspectUsage(Element element) {
+      if (element.widget is UsageDetails) {
+        usageActions++;
+        void findAction(Element child) {
+          if (child.widget is TextButton) {
+            usageAction = child.widget as TextButton;
+          }
+          child.visitChildren(findAction);
+        }
+
+        element.visitChildren(findAction);
+      } else {
+        element.visitChildren(inspectUsage);
+      }
+    }
+
+    inspectUsage(capture.currentContext! as Element);
+    check(
+      usageActions == 2 &&
+          usageAction?.onPressed != null &&
+          chat.messages[1]['metadata']['model'] == 'dolores-fast' &&
+          chat.messages[3]['metadata']['model'] == 'dolores-mock',
+      'Native usage actions retain each reply model after model switching',
+      checks,
+    );
+    usageAction!.onPressed!();
+    await screenshot(capture, output, 'usage-details-dark');
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable after usage capture');
+    }
+    Navigator.of(smokePageContext).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    chat.newChat();
+    chat.draft = 'no-usage';
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null && chat.messages.last['metadata']['usage'] == null,
+      'A provider omitting usage still saves the complete turn with unavailable accounting',
+      checks,
+    );
+    await screenshot(capture, output, 'usage-unavailable-dark');
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before settings capture');
+    }
     unawaited(
       showDialog<void>(
-        context: pageContext!,
+        context: smokePageContext,
         builder: (_) => ConnectionDialog(chat: chat),
       ),
     );
