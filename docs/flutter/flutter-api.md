@@ -1,5 +1,15 @@
 # Flutter bridge contract
 
+## History pagination and complete export (brick 2.2)
+
+Bootstrap's `sessions` and additive `sessionPage` expose the same first 50 entries. `sessionsPage` returns `{items,hasOlder,hasNewer}` using a cursor `{updatedAt,id}` from the first or last displayed row. Order is `updatedAt DESC, id ASC`, including deterministic timestamp ties. Older is the default; newer requires a cursor and returns the preceding page in the same display order. Boundaries are exclusive. A deleted boundary still works. Session updates can reorder entries: this is live browsing, not a multi-request snapshot; refresh returns the newest page.
+
+`messagesPage` returns chronological `{id,role,content}` entries, up to 80. With no cursor it loads the latest page. A positive message ID selects older (`id < cursor`) or newer (`id > cursor`) rows; newer requires a cursor. Missing sessions return `Conversation no longer exists.` UI pages replace each other and expose both direction flags, while `messages` retains its legacy bounded context behavior. No messages are deleted by paging. The default SQLite plugin supports page limits 1–100 sessions / 1–80 messages internally; the Flutter commands always use 50 / 80. Queries use a consistent read transaction for items and direction flags. The session ordering index is additive; the schema remains version 3.
+
+`export` writes the whole saved conversation, independent of the displayed page or provider context. Formats are `markdown` and `json`; the absolute destination must end in `.md` or `.json` respectively (case-insensitive). The destination must not exist. Export streams rows from a consistent SQLite read transaction through a buffered writer into a temporary file in the selected folder, syncs it, then publishes without replacing an existing file. Failed writes drop the temporary file and leave no partial destination. A crash may leave an unreferenced temporary file; directory durability and no-clobber publication atomicity are platform/filesystem dependent. A raced/existing destination is never overwritten. Folder/permission/I/O errors are user-facing and exclude secrets.
+
+JSON shape: `{exportVersion:1,session:{id,title,updatedAt},messages:[{id,role,content}]}`. `updatedAt` is Unix milliseconds; messages are chronological. This is an export format, not an implemented import API. It contains no connection metadata or credentials. Markdown uses role headings with literal text fences sized to preserve embedded backticks, including the title. Saved conversations may themselves contain sensitive text; the user chooses their output file. All history/export commands share the generation exclusion rule. Canceling the native Save dialog sends no export command. UI view state keeps only the 20 most recently visited drafts/scroll positions in process memory, not across restart.
+
 The selected Flutter shell loads the bundled Rust library in the same process with `dart:ffi`. There is no HTTP server, Node sidecar, or third-party plugin ABI. All calls run in one Dart worker isolate. SQLite and secure storage stay off the UI isolate; Rust runs generation on two Tokio workers with at most two blocking workers.
 
 ## C ABI v1 and memory ownership
@@ -14,8 +24,11 @@ The engine initializes once per process, on the first valid command. It uses an 
 
 | `command` | Additional fields | Successful `result` |
 | --- | --- | --- |
-| `bootstrap` | None | `{sessions, preferences: {baseUrl, model}, enabledModels, configured, rememberConnection, hasSavedKey, connectionWarning, plugins}`; plugins lists storage and credentials |
+| `bootstrap` | None | `{sessions, sessionPage, preferences: {baseUrl, model}, enabledModels, configured, rememberConnection, hasSavedKey, connectionWarning, plugins}`; sessions/sessionPage contain the initial 50-row page; plugins lists storage and credentials |
 | `messages` | `session: string` | Chronological array of `{role, content}`, at most 80 messages |
+| `sessionsPage` | `cursor: {updatedAt: i64, id: string} or null` (optional), `newer: bool` (default false) | `{items: Session[0..50], hasOlder, hasNewer}` |
+| `messagesPage` | `session: string`, `cursor: positive i64 or null` (optional), `newer: bool` (default false) | `{items: [{id, role, content}][0..80], hasOlder, hasNewer}` |
+| `export` | `session: string`, `path: absolute string`, `format: markdown or json` | `{messageCount: u64}`; complete saved conversation in a new file |
 | `delete` | `session: string` | `null`; cascades saved messages |
 | `configure` | `preferences: {baseUrl, model}`, `apiKey: string or null` (optional), `rememberConnection: bool` (optional, default false), `enabledModels: string[]` (optional, defaults to active model) | `null`; validates, saves preferences/choices and optionally a secure key; no network request |
 | `listModels` | `baseUrl: string`, `apiKey: string or null` (optional) | Sorted unique model ID array; draft discovery makes a GET request without changing configuration |

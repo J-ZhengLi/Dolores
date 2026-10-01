@@ -3,6 +3,7 @@ use dolores_core::{
     SessionStore, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
+mod history;
 use std::{
     path::Path,
     sync::{Mutex, MutexGuard},
@@ -32,6 +33,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, updated_at INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id, id);
+            CREATE INDEX IF NOT EXISTS sessions_order ON sessions(updated_at DESC, id ASC);
             CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, model TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);").map_err(storage_error)?;
@@ -53,6 +55,31 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn sessions_page(
+        &self,
+        cursor: Option<dolores_core::SessionCursor>,
+        newer: bool,
+        limit: usize,
+    ) -> Result<dolores_core::HistoryPage<Session>, String> {
+        self.read_sessions_page(cursor, newer, limit)
+    }
+    fn messages_page(
+        &self,
+        id: &str,
+        cursor: Option<i64>,
+        newer: bool,
+        limit: usize,
+    ) -> Result<dolores_core::HistoryPage<dolores_core::StoredMessage>, String> {
+        self.read_messages_page(id, cursor, newer, limit)
+    }
+    fn export_conversation(
+        &self,
+        id: &str,
+        format: dolores_core::ExportFormat,
+        output: &mut dyn std::io::Write,
+    ) -> Result<u64, String> {
+        self.write_export(id, format, output)
+    }
     fn descriptor(&self) -> PluginDescriptor {
         PluginDescriptor {
             id: "dolores.store.sqlite",

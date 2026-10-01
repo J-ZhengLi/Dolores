@@ -1,5 +1,7 @@
 # Dolores
 
+History browsing keeps one conversation-list page and one message page in memory. Use Older/Newer to reach all saved chats and messages, or Latest to return to the newest messages. The conversation header exports complete Markdown or JSON to a new file through the native Save dialog. Drafts and scroll positions restore for the 20 most recently visited views during the current launch. [UI.md](docs/UI.md) is the shared visual contract, backed by Flutter's `lib/theme.dart`; system light/dark mode remains the default.
+
 A lightweight desktop agent harness, inspired by the gradual awakening of Dolores in *Westworld*. Start with conversation; add tools, memory, reusable skills and evaluation one brick at a time.
 
 **Current bricks:** Flutter desktop, Rust core, system theme, OpenAI-compatible streaming chat, cancellation, SQLite history and replaceable provider/storage/credential interfaces. Remember connections using the OS credential store, restore them after restart, retry recovery, or forget them while keeping conversations. Learning and external plugin loading are on the roadmap.

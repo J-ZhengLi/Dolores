@@ -1,5 +1,6 @@
 //! C ABI for the selected Flutter shell. No server or subprocess.
 mod connection;
+mod export;
 use connection::ConnectionManager;
 use dolores_core::{
     prepare_context, stream_reply, ConnectionPreferences, CredentialStore, ModelProvider,
@@ -33,6 +34,22 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
     Bootstrap,
+    SessionsPage {
+        cursor: Option<dolores_core::SessionCursor>,
+        #[serde(default)]
+        newer: bool,
+    },
+    MessagesPage {
+        session: String,
+        cursor: Option<i64>,
+        #[serde(default)]
+        newer: bool,
+    },
+    Export {
+        session: String,
+        path: PathBuf,
+        format: dolores_core::ExportFormat,
+    },
     Messages {
         session: String,
     },
@@ -143,10 +160,28 @@ impl Engine {
                     .connection
                     .lock()
                     .map_err(|_| "Connection unavailable.")?;
+                let page = self.store.sessions_page(None, false, 50)?;
                 Ok(
-                    json!({"sessions":self.store.list()?,"preferences":self.store.preferences()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"sessions":page.items,"sessionPage":page,"preferences":self.store.preferences()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
+            Command::SessionsPage { cursor, newer } => {
+                Ok(json!(self.store.sessions_page(cursor, newer, 50)?))
+            }
+            Command::MessagesPage {
+                session,
+                cursor,
+                newer,
+            } => Ok(json!(self
+                .store
+                .messages_page(&session, cursor, newer, 80)?)),
+            Command::Export {
+                session,
+                path,
+                format,
+            } => Ok(
+                json!({"messageCount": export::save(self.store.as_ref(), &session, &path, format)?}),
+            ),
             Command::Messages { session } => Ok(json!(self.store.messages(&session)?)),
             Command::Delete { session } => {
                 self.store.delete(&session)?;
@@ -452,6 +487,20 @@ mod tests {
                 .call(Command::ListModels {
                     base_url: "http://localhost:19421/v1".into(),
                     api_key: None
+                })
+                .is_err());
+            assert!(engine
+                .call(Command::MessagesPage {
+                    session: "anything".into(),
+                    cursor: None,
+                    newer: false
+                })
+                .is_err());
+            assert!(engine
+                .call(Command::Export {
+                    session: "anything".into(),
+                    path: directory.path().join("busy.json"),
+                    format: dolores_core::ExportFormat::Json
                 })
                 .is_err());
             // Give the producer time to fill its bounded queue, then cancel it.

@@ -3,7 +3,8 @@ param(
     [string]$CMake = '',
     [string]$Generator = 'Visual Studio 18 2026',
     [switch]$Smoke,
-    [switch]$RestartSmoke
+    [switch]$RestartSmoke,
+    [switch]$HistorySmoke
 )
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path "$PSScriptRoot/..").Path
@@ -19,18 +20,29 @@ if ($FlutterSdk) {
 }
 $env:FLUTTER_SUPPRESS_ANALYTICS = 'true'
 $env:DART_SUPPRESS_ANALYTICS = 'true'
-if ($Smoke -and $RestartSmoke) { throw 'Choose one diagnostic entry point.' }
+if (@($Smoke, $RestartSmoke, $HistorySmoke).Where({ $_ }).Count -gt 1) { throw 'Choose one diagnostic entry point.' }
 if (!$CMake -and (Test-Path "$workspace/output/toolchains/cmake-4.4.3-windows-x86_64/bin/cmake.exe")) {
     $CMake = "$workspace/output/toolchains/cmake-4.4.3-windows-x86_64/bin/cmake.exe"
 }
-$entry = if ($Smoke) { 'lib/smoke.dart' } elseif ($RestartSmoke) { 'lib/restart_smoke.dart' } else { 'lib/main.dart' }
+$entry = if ($Smoke) { 'lib/smoke.dart' } elseif ($RestartSmoke) { 'lib/restart_smoke.dart' } elseif ($HistorySmoke) { 'lib/history_smoke.dart' } else { 'lib/main.dart' }
 Push-Location $workspace
 try {
     & rtk proxy cargo build -p dolores-flutter-bridge --release --locked
     if ($LASTEXITCODE) { throw 'Rust bridge build failed.' }
     Push-Location 'apps/dolores_flutter'
     try {
-        & rtk proxy $flutter --no-version-check --suppress-analytics pub get
+        try {
+            $ErrorActionPreference = 'Continue'
+            $dependencies = (& rtk proxy $flutter --no-version-check --suppress-analytics pub get 2>&1 | ForEach-Object { $_.ToString() } | Out-String)
+            $dependenciesExit = $LASTEXITCODE
+        } finally { $ErrorActionPreference = 'Stop' }
+        if ($dependenciesExit -and $dependencies -match 'Building with plugins requires symlink support') {
+            & "$PSScriptRoot/flutter-plugin-junctions.ps1" -AppDirectory (Get-Location).Path
+            & rtk proxy $flutter --no-version-check --suppress-analytics pub get
+        } else {
+            Write-Output $dependencies
+            if ($dependenciesExit) { throw 'Flutter dependencies failed.' }
+        }
         if ($LASTEXITCODE) { throw 'Flutter dependencies failed.' }
         if ($CMake) {
             $cmakeExecutable = (Resolve-Path -LiteralPath $CMake).Path

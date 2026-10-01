@@ -2,7 +2,19 @@
 
 Flutter is the selected default. Its earlier Windows working-set measurement exceeds the provisional 150 MiB target; choosing it does not establish performance acceptance. **Release acceptance remains open** for representative hardware, sustained interaction/startup, real keyboard/IME input, screen-reader support and other platforms. This is not yet a self-learning agent.
 
-## Brick 2.1.1 — model discovery and selection
+## Brick 2.2 — history browsing, export and shared UI contract
+
+Implemented bounded keyset browsing beyond the old 100-session/40-turn view: one 50-session sidebar page and one 80-message transcript page, explicit Older/Newer/Latest controls, and complete Markdown/JSON export through the native Save dialog integration. Draft/page/scroll state restores for the 20 most recently visited views during the current launch. Export streams a consistent full-conversation snapshot into a new file and never replaces an existing file. Provider context remains bounded independently of browsing. `UI.md` now states the visual contract, with the shared palette, dimensions and Material theme in Flutter's `theme.dart`.
+
+Validation: 32 Rust workspace tests and eight Flutter tests pass; analysis and workspace all-target Clippy are clean. New storage tests cover 137 tied-timestamp sessions, both pagination directions, deleted boundaries, invalid page sizes, 123-turn history after reopening, complete Unicode/Markdown/JSON export, and writer failures. Bridge export checks cover existing destinations and errors after writing begins without partial publication. Controller/widget checks cover bounded page replacement, draft/view restoration, failures, canceled export, generation exclusion, export menu, compact layout and theme reuse.
+
+Thirteen actual release renderer/controller/FFI/SQLite checks pass at each of the wide/compact sizes. An isolated legacy database reaches all 137 conversations and all 246 saved messages, exports both endpoints of the full history, preserves view state, rejects replacement, and sends from an earlier page using the latest bounded provider context. Nine existing streaming/model-selection regression checks also pass. Both themes and the compact history controls were visually inspected. The normal release was rebuilt and the native file-selector library is bundled. The Windows build helper's generated-only junction fallback works without system/SDK changes.
+
+Normal release observation: one visible window on the Windows development machine, 50 sidebar entries/80 short messages loaded from the isolated 137-chat database, eight seconds settling and five samples: **231.48 MiB working set / 240.61 MiB private bytes, 0% of one core across the four idle intervals**. This single observation is not a paired comparison, peak/export measurement or low-end acceptance; the provisional 150 MiB target remains unmet. No idle paging/export timer was added.
+
+Evidence: private local benchmark report (excluded from Git). Native Save dialog pointer/keyboard interaction, OS theme/IME/accessibility, macOS/Linux sandbox export and low-end hardware remain unverified. macOS user-selected file access and outbound-network entitlements are configured but not validated here. Brick 2.3 starts next with Markdown/code rendering.
+
+## Brick 2.1.1 — retained model discovery and selection
 
 The Flutter connection dialog fetches a searchable model list and enables a chosen subset, with manual IDs as a fallback. The composer picker changes the active model without discarding the conversation/draft or re-entering a key. Choices and the active model persist; remembered credentials continue to restore after restart.
 
@@ -27,7 +39,7 @@ Implemented a replaceable OS credentials port/plugin, restart restoration, Remem
 | Default build | Root Flutter build helper successfully builds the normal Windows release with bundled Rust library |
 | Normal release observation | One visible window, two complete fixture turns and reconnect guidance: 216.56 MiB working set / 228.91 MiB private bytes, five settled samples averaging 0.30% of one logical core; this is not a paired comparison or low-end acceptance |
 
-Evidence: private local benchmark report (excluded from Git). Reproduce with the Flutter app's [instructions](../apps/dolores_flutter/README.md). The OS vault and SQLite have separate transactions: interrupted/failed cleanup may leave an unreferenced secure entry; failures are reported and never trigger plaintext storage. Locked-vault tests use an injected deterministic implementation; Windows lock/unlock UI, macOS Keychain, Linux Secret Service, real hosted providers and CI are not verified locally. History remains unencrypted. Brick 2.2 is next; the rest of brick 2 is not yet implemented.
+Evidence: private local benchmark report (excluded from Git). Reproduce with the Flutter app's [instructions](../apps/dolores_flutter/README.md). The OS vault and SQLite have separate transactions: interrupted/failed cleanup may leave an unreferenced secure entry; failures are reported and never trigger plaintext storage. Locked-vault tests use an injected deterministic implementation; Windows lock/unlock UI, macOS Keychain, Linux Secret Service, real hosted providers and CI are not verified locally. History remains unencrypted. This retained record predates brick 2.2; see the current history acceptance above.
 
 ## Brick 1.2 — retained Flutter trial
 

@@ -4,6 +4,13 @@ import 'package:flutter/foundation.dart';
 
 import 'bridge.dart';
 
+class _ViewState {
+  final String draft;
+  final double scroll;
+  final int? cursor;
+  _ViewState(this.draft, this.scroll, this.cursor);
+}
+
 class ChatController extends ChangeNotifier {
   final ChatBridge bridge;
   ChatController(this.bridge);
@@ -25,6 +32,34 @@ class ChatController extends ChangeNotifier {
   bool _disposed = false;
   int _run = 0;
   Timer? _timer;
+  bool sessionsOlder = false, sessionsNewer = false;
+  bool messagesOlder = false, messagesNewer = false;
+  int viewRevision = 0;
+  double scrollOffset = 0;
+  final _views = <String, _ViewState>{};
+
+  void rememberScroll(double offset) => scrollOffset = offset;
+  void _rememberView() {
+    final key = session ?? '';
+    _views.remove(key);
+    _views[key] = _ViewState(
+      draft,
+      scrollOffset,
+      messagesNewer && messages.isNotEmpty
+          ? (messages.last['id'] as int) + 1
+          : null,
+    );
+    while (_views.length > 20) {
+      _views.remove(_views.keys.first);
+    }
+  }
+
+  void _setMessages(dynamic page) {
+    messages = (page['items'] as List).cast<Map<String, dynamic>>();
+    messagesOlder = page['hasOlder'] == true;
+    messagesNewer = page['hasNewer'] == true;
+  }
+
   Future<void> initialize() async {
     try {
       await bridge.open();
@@ -41,6 +76,8 @@ class ChatController extends ChangeNotifier {
   Future<void> refresh() async {
     final state = await bridge.call({'command': 'bootstrap'});
     sessions = (state['sessions'] as List).cast<Map<String, dynamic>>();
+    sessionsOlder = state['sessionPage']?['hasOlder'] == true;
+    sessionsNewer = state['sessionPage']?['hasNewer'] == true;
     baseUrl = state['preferences']['baseUrl'] as String;
     model = state['preferences']['model'] as String;
     enabledModels =
@@ -150,23 +187,120 @@ class ChatController extends ChangeNotifier {
 
   void newChat() {
     if (busy || changing) return;
+    _rememberView();
     session = null;
     messages = [];
+    messagesOlder = messagesNewer = false;
+    draft = _views['']?.draft ?? '';
+    scrollOffset = 0;
+    viewRevision++;
     error = null;
     _notify();
   }
 
   Future<void> select(String id) async {
     if (busy || changing) return;
+    _rememberView();
     changing = true;
     _notify();
     try {
-      final history = await bridge.call({'command': 'messages', 'session': id});
+      final state = _views[id];
+      final history = await bridge.call({
+        'command': 'messagesPage',
+        'session': id,
+        'cursor': state?.cursor,
+      });
       session = id;
-      messages = (history as List).cast<Map<String, dynamic>>();
+      _setMessages(history);
+      draft = state?.draft ?? '';
+      scrollOffset = state?.scroll ?? double.infinity;
+      viewRevision++;
       error = null;
     } catch (failure) {
       error = failure.toString();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  Future<void> browseSessions({required bool newer}) async {
+    if (busy || changing || loading) return;
+    changing = true;
+    _notify();
+    try {
+      final edge = sessions.isEmpty
+          ? null
+          : (newer ? sessions.first : sessions.last);
+      final page = await bridge.call({
+        'command': 'sessionsPage',
+        'newer': newer && edge != null,
+        'cursor': edge == null
+            ? null
+            : {'id': edge['id'], 'updatedAt': edge['updatedAt']},
+      });
+      sessions = (page['items'] as List).cast<Map<String, dynamic>>();
+      sessionsOlder = page['hasOlder'] == true;
+      sessionsNewer = page['hasNewer'] == true;
+      error = null;
+    } catch (failure) {
+      error = failure.toString();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  Future<void> browseMessages({
+    required bool newer,
+    bool latest = false,
+  }) async {
+    if (busy || changing || session == null) return;
+    changing = true;
+    _notify();
+    try {
+      final edge = messages.isEmpty
+          ? null
+          : (newer ? messages.last : messages.first);
+      final page = await bridge.call({
+        'command': 'messagesPage',
+        'session': session,
+        'cursor': latest ? null : edge?['id'],
+        'newer': !latest && newer && edge != null,
+      });
+      _setMessages(page);
+      scrollOffset = latest ? double.infinity : 0;
+      viewRevision++;
+      error = null;
+    } catch (failure) {
+      error = failure.toString();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  Future<int?> exportConversation(
+    String format,
+    Future<String?> Function() choosePath,
+  ) async {
+    if (busy || changing || loading || session == null) return null;
+    changing = true;
+    _notify();
+    try {
+      final path = await choosePath();
+      if (path == null || _disposed) return null;
+      final result = await bridge.call({
+        'command': 'export',
+        'session': session,
+        'path': path,
+        'format': format,
+      });
+      error = null;
+      return result['messageCount'] as int;
+    } catch (failure) {
+      error = failure.toString();
+      return null;
     } finally {
       changing = false;
       _notify();
@@ -182,7 +316,12 @@ class ChatController extends ChangeNotifier {
       if (session == id) {
         session = null;
         messages = [];
+        messagesOlder = messagesNewer = false;
+        draft = '';
+        scrollOffset = 0;
+        viewRevision++;
       }
+      _views.remove(id);
       await refresh();
       error = null;
     } catch (failure) {
@@ -199,6 +338,10 @@ class ChatController extends ChangeNotifier {
       error = 'Set up a model connection first.';
       _notify();
       return;
+    }
+    if (messagesNewer) {
+      await browseMessages(newer: false, latest: true);
+      if (messagesNewer || error != null) return;
     }
     busy = true;
     stopping = false;
@@ -263,17 +406,16 @@ class ChatController extends ChangeNotifier {
             if (event['error'] != null) {
               _failed(event['error'] as String);
             } else {
-              messages.addAll([
-                {'role': 'user', 'content': pendingInput},
-                {'role': 'assistant', 'content': event['answer'] as String},
-              ]);
-              if (messages.length > 80) {
-                messages = messages.sublist(messages.length - 80);
-              }
               busy = false;
               stopping = false;
               pendingInput = '';
               partial = '';
+              _setMessages(
+                await bridge.call({
+                  'command': 'messagesPage',
+                  'session': session,
+                }),
+              );
             }
             await refresh();
             changing = false;

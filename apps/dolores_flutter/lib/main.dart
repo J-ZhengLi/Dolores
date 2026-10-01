@@ -3,28 +3,18 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_selector/file_selector.dart';
 
 import 'bridge.dart';
 import 'chat.dart';
+import 'theme.dart';
+export 'theme.dart' show Palette;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final chat = ChatController(NativeBridge());
   runApp(DoloresApp(chat: chat));
   unawaited(chat.initialize());
-}
-
-class Palette {
-  final bool dark;
-  const Palette(this.dark);
-  Color get bg => Color(dark ? 0xff191b20 : 0xfffaf9f7);
-  Color get sidebar => Color(dark ? 0xff15171b : 0xfff1f0ed);
-  Color get surface => Color(dark ? 0xff22252b : 0xffffffff);
-  Color get text => Color(dark ? 0xffe4e6eb : 0xff292b30);
-  Color get muted => Color(dark ? 0xffa0a6b2 : 0xff676d76);
-  Color get border => Color(dark ? 0xff353941 : 0xffdedfdf);
-  Color get accent => Color(dark ? 0xff9cb6ff : 0xff345fca);
-  Color get soft => Color(dark ? 0xff2a3552 : 0xffe5ebf8);
 }
 
 class DoloresApp extends StatelessWidget {
@@ -37,54 +27,12 @@ class DoloresApp extends StatelessWidget {
     this.themeMode = ThemeMode.system,
     this.captureKey,
   });
-  ThemeData _theme(bool dark) {
-    final p = Palette(dark);
-    return ThemeData(
-      useMaterial3: true,
-      brightness: dark ? Brightness.dark : Brightness.light,
-      scaffoldBackgroundColor: p.bg,
-      fontFamily: 'Segoe UI',
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: p.accent,
-        brightness: dark ? Brightness.dark : Brightness.light,
-        surface: p.surface,
-      ),
-      textTheme: TextTheme(
-        bodyMedium: TextStyle(fontSize: 14, height: 1.55, color: p.text),
-      ),
-      dividerColor: p.border,
-      tooltipTheme: const TooltipThemeData(
-        waitDuration: Duration(milliseconds: 600),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: p.surface,
-        contentPadding: const EdgeInsets.all(14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: p.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: p.border),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: p.text,
-          textStyle: const TextStyle(fontSize: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Dolores',
     debugShowCheckedModeBanner: false,
-    theme: _theme(false),
-    darkTheme: _theme(true),
+    theme: doloresTheme(false),
+    darkTheme: doloresTheme(true),
     themeMode: themeMode,
     builder: (context, child) =>
         RepaintBoundary(key: captureKey, child: child!),
@@ -105,6 +53,7 @@ class _ChatPageState extends State<ChatPage> {
   final scroll = ScrollController();
   ChatController get chat => widget.chat;
   bool following = true;
+  int seenRevision = -1;
   @override
   void initState() {
     super.initState();
@@ -112,7 +61,9 @@ class _ChatPageState extends State<ChatPage> {
     input.text = chat.draft;
     scroll.addListener(() {
       if (scroll.hasClients) following = scroll.position.extentAfter < 80;
+      if (scroll.hasClients) chat.rememberScroll(scroll.offset);
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _changed());
   }
 
   void _changed() {
@@ -124,6 +75,17 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
     setState(() {});
+    if (seenRevision != chat.viewRevision) {
+      seenRevision = chat.viewRevision;
+      final offset = chat.scrollOffset;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && scroll.hasClients) {
+          scroll.jumpTo(offset.clamp(0, scroll.position.maxScrollExtent));
+          following = scroll.position.extentAfter < 80;
+        }
+      });
+      return;
+    }
     if (following) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && scroll.hasClients) {
@@ -150,8 +112,29 @@ class _ChatPageState extends State<ChatPage> {
     if (mounted) focus.requestFocus();
   }
 
+  Future<void> exportChat(String format) async {
+    final count = await chat.exportConversation(format, () async {
+      final extension = format == 'json' ? 'json' : 'md';
+      final result = await getSaveLocation(
+        suggestedName: 'dolores-${chat.session}.$extension',
+        acceptedTypeGroups: [
+          XTypeGroup(
+            label: format == 'json' ? 'JSON' : 'Markdown',
+            extensions: [extension],
+            uniformTypeIdentifiers: ['public.text'],
+          ),
+        ],
+      );
+      return result?.path;
+    });
+    if (mounted && count != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Exported $count messages.')));
+    }
+  }
+
   Widget sidebar(Palette p) => Container(
-    width: 252,
+    width: UiTokens.sidebarWidth,
     color: p.sidebar,
     child: SafeArea(
       child: Padding(
@@ -203,7 +186,7 @@ class _ChatPageState extends State<ChatPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 28, 0, 12),
               child: Text(
-                'RECENT',
+                'CONVERSATIONS',
                 style: TextStyle(
                   color: p.muted,
                   fontSize: 11,
@@ -298,6 +281,31 @@ class _ChatPageState extends State<ChatPage> {
                 },
               ),
             ),
+            if (chat.sessionsOlder || chat.sessionsNewer)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      key: const Key('newer-chats'),
+                      onPressed:
+                          !chat.sessionsNewer || chat.busy || chat.changing
+                          ? null
+                          : () => chat.browseSessions(newer: true),
+                      child: const Text('Newer'),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextButton(
+                      key: const Key('older-chats'),
+                      onPressed:
+                          !chat.sessionsOlder || chat.busy || chat.changing
+                          ? null
+                          : () => chat.browseSessions(newer: false),
+                      child: const Text('Older'),
+                    ),
+                  ),
+                ],
+              ),
             Divider(color: p.border),
             const SizedBox(height: 8),
             TextButton.icon(
@@ -479,15 +487,12 @@ class _ChatPageState extends State<ChatPage> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: p.dark ? const Color(0xff3b262b) : const Color(0xfffbecec),
+            color: p.errorSurface,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             chat.error!,
-            style: TextStyle(
-              color: p.dark ? const Color(0xffffb5bb) : const Color(0xff9c3030),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: p.errorText, fontSize: 13),
           ),
         ),
       Container(
@@ -641,7 +646,7 @@ class _ChatPageState extends State<ChatPage> {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     return LayoutBuilder(
       builder: (_, constraints) {
-        final narrow = constraints.maxWidth < 760;
+        final narrow = constraints.maxWidth < UiTokens.drawerBreakpoint;
         final body = Column(
           children: [
             Container(
@@ -691,7 +696,88 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
+                  if (chat.session != null)
+                    PopupMenuButton<String>(
+                      key: const Key('export-chat'),
+                      tooltip: 'Export complete conversation',
+                      enabled: !chat.busy && !chat.changing && !chat.loading,
+                      onSelected: exportChat,
+                      icon: const Icon(Icons.file_download_outlined, size: 20),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'markdown',
+                          child: Text('Export Markdown'),
+                        ),
+                        PopupMenuItem(
+                          value: 'json',
+                          child: Text('Export JSON'),
+                        ),
+                      ],
+                    ),
                 ],
+              ),
+            ),
+            Align(
+              alignment: Alignment.center,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: UiTokens.contentWidth,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: narrow ? 24 : 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (chat.messagesOlder || chat.messagesNewer)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                chat.messagesNewer
+                                    ? 'Earlier messages'
+                                    : 'Latest messages',
+                                style: TextStyle(color: p.muted, fontSize: 12),
+                              ),
+                              TextButton(
+                                key: const Key('older-messages'),
+                                onPressed:
+                                    !chat.messagesOlder ||
+                                        chat.busy ||
+                                        chat.changing
+                                    ? null
+                                    : () => chat.browseMessages(newer: false),
+                                child: const Text('Older'),
+                              ),
+                              TextButton(
+                                key: const Key('newer-messages'),
+                                onPressed:
+                                    !chat.messagesNewer ||
+                                        chat.busy ||
+                                        chat.changing
+                                    ? null
+                                    : () => chat.browseMessages(newer: true),
+                                child: const Text('Newer'),
+                              ),
+                              if (chat.messagesNewer)
+                                TextButton(
+                                  key: const Key('latest-messages'),
+                                  onPressed: chat.busy || chat.changing
+                                      ? null
+                                      : () => chat.browseMessages(
+                                          newer: false,
+                                          latest: true,
+                                        ),
+                                  child: const Text('Latest'),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
             Expanded(
@@ -702,7 +788,9 @@ class _ChatPageState extends State<ChatPage> {
                         : Align(
                             alignment: Alignment.topCenter,
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 824),
+                              constraints: const BoxConstraints(
+                                maxWidth: UiTokens.contentWidth,
+                              ),
                               child: ListView(
                                 controller: scroll,
                                 padding: EdgeInsets.fromLTRB(
@@ -735,7 +823,9 @@ class _ChatPageState extends State<ChatPage> {
             Align(
               alignment: Alignment.bottomCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 824),
+                constraints: const BoxConstraints(
+                  maxWidth: UiTokens.contentWidth,
+                ),
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     narrow ? 24 : 40,
@@ -750,7 +840,9 @@ class _ChatPageState extends State<ChatPage> {
           ],
         );
         return Scaffold(
-          drawer: narrow ? Drawer(width: 252, child: sidebar(p)) : null,
+          drawer: narrow
+              ? Drawer(width: UiTokens.sidebarWidth, child: sidebar(p))
+              : null,
           body: Row(
             children: [
               if (!narrow) ...[

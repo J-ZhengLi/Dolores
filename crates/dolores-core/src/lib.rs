@@ -38,6 +38,35 @@ pub struct Session {
     pub updated_at: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCursor {
+    pub updated_at: i64,
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryPage<T> {
+    pub items: Vec<T>,
+    pub has_older: bool,
+    pub has_newer: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StoredMessage {
+    pub id: i64,
+    pub role: Role,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ExportFormat {
+    Markdown,
+    Json,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionPreferences {
@@ -95,6 +124,31 @@ pub trait SessionStore: Send + Sync {
     fn commit_turn(&self, id: &str, user: &str, assistant: &str) -> Result<(), String>;
     fn preferences(&self) -> Result<ConnectionPreferences, String>;
     fn save_preferences(&self, preferences: &ConnectionPreferences) -> Result<(), String>;
+    fn sessions_page(
+        &self,
+        _: Option<SessionCursor>,
+        _: bool,
+        _: usize,
+    ) -> Result<HistoryPage<Session>, String> {
+        Err("This storage plugin does not support history browsing.".into())
+    }
+    fn messages_page(
+        &self,
+        _: &str,
+        _: Option<i64>,
+        _: bool,
+        _: usize,
+    ) -> Result<HistoryPage<StoredMessage>, String> {
+        Err("This storage plugin does not support history browsing.".into())
+    }
+    fn export_conversation(
+        &self,
+        _: &str,
+        _: ExportFormat,
+        _: &mut dyn std::io::Write,
+    ) -> Result<u64, String> {
+        Err("This storage plugin does not support conversation export.".into())
+    }
     fn remembered_connection(&self) -> Result<Option<RememberedConnection>, String> {
         Ok(None)
     }

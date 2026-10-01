@@ -23,13 +23,20 @@
     "commands": {
       "bootstrap": {
         "arguments": {},
-        "result": "{sessions,preferences:{baseUrl,model},enabledModels:string[],configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
+        "result": "{sessions:Session[0..50],sessionPage:{items:Session[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
       },
       "messages": {
-        "arguments": { "session": "string" },
+        "arguments": {
+          "session": "string"
+        },
         "result": "Message[0..80]"
       },
-      "delete": { "arguments": { "session": "string" }, "result": "null" },
+      "delete": {
+        "arguments": {
+          "session": "string"
+        },
+        "result": "null"
+      },
       "configure": {
         "arguments": {
           "preferences": "{baseUrl:string,model:string}",
@@ -44,11 +51,16 @@
         "result": "null; reload saved connection; failure clears provider and sets connectionWarning"
       },
       "listModels": {
-        "arguments": {"baseUrl": "string; validated endpoint prefix", "apiKey": "string|null; optional; same-endpoint reuse only"},
+        "arguments": {
+          "baseUrl": "string; validated endpoint prefix",
+          "apiKey": "string|null; optional; same-endpoint reuse only"
+        },
         "result": "string[]; sorted unique valid IDs from GET <baseUrl>/models; 20-second timeout, 1 MiB response and 512-entry caps; no configuration changes"
       },
       "selectModel": {
-        "arguments": {"model": "string; must be enabled"},
+        "arguments": {
+          "model": "string; must be enabled"
+        },
         "result": "null; persist active model/metadata atomically, preserve key and history"
       },
       "forgetConnection": {
@@ -64,16 +76,43 @@
         "result": "null; reservation acknowledged"
       },
       "poll": {
-        "arguments": { "id": "u64" },
+        "arguments": {
+          "id": "u64"
+        },
         "result": "Event[0..32]; stale IDs return []"
       },
       "cancel": {
-        "arguments": { "id": "u64" },
+        "arguments": {
+          "id": "u64"
+        },
         "result": "null; stale IDs are a no-op"
       },
       "shutdown": {
         "arguments": {},
         "result": "null; cancels active run, preserves process-wide engine"
+      },
+      "sessionsPage": {
+        "arguments": {
+          "cursor": "{updatedAt:i64,id:string}|null; optional",
+          "newer": "boolean; optional/default false; true requires cursor"
+        },
+        "result": "{items:Session[0..50],hasOlder:boolean,hasNewer:boolean}; updatedAt descending, id ascending; cursor excluded; newer query reverses internally to return same display order"
+      },
+      "messagesPage": {
+        "arguments": {
+          "session": "string",
+          "cursor": "positive i64|null; optional",
+          "newer": "boolean; optional/default false; true requires cursor"
+        },
+        "result": "{items:{id:i64,role:user|assistant,content:string}[0..80],hasOlder:boolean,hasNewer:boolean}; chronological id order; no cursor loads latest; older/newer excludes cursor"
+      },
+      "export": {
+        "arguments": {
+          "session": "string",
+          "path": "absolute string path with .md or .json extension matching format; destination must not exist",
+          "format": "markdown|json"
+        },
+        "result": "{messageCount:u64}; complete read snapshot streamed to sibling temporary file, synced and published without replacement; no partial destination on write failure; existing files rejected"
       }
     },
     "events": [
@@ -83,56 +122,102 @@
       "{type:done,id,error}"
     ],
     "busy": "Only poll, cancel and shutdown are accepted until the terminal event is drained.",
-    "documentation": "flutter/flutter-api.md"
+    "documentation": "flutter/flutter-api.md",
+    "exportSchema": {
+      "exportVersion": 1,
+      "session": "Session",
+      "messages": "{id:i64,role:user|assistant,content:string}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences"
+    }
   },
   "x-tauri-commands": {
     "bootstrap": {
       "arguments": {},
-      "result": { "$ref": "#/components/schemas/Bootstrap" }
+      "result": {
+        "$ref": "#/components/schemas/Bootstrap"
+      }
     },
     "create_session": {
       "arguments": {},
-      "result": { "$ref": "#/components/schemas/Session" }
+      "result": {
+        "$ref": "#/components/schemas/Session"
+      }
     },
     "get_messages": {
-      "arguments": { "sessionId": { "type": "string", "format": "uuid" } },
+      "arguments": {
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
       "result": {
         "type": "array",
         "maxItems": 80,
-        "items": { "$ref": "#/components/schemas/Message" }
+        "items": {
+          "$ref": "#/components/schemas/Message"
+        }
       }
     },
     "delete_session": {
-      "arguments": { "sessionId": { "type": "string", "format": "uuid" } },
-      "result": { "type": "null" }
+      "arguments": {
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "result": {
+        "type": "null"
+      }
     },
     "configure_connection": {
       "arguments": {
-        "preferences": { "$ref": "#/components/schemas/Preferences" },
+        "preferences": {
+          "$ref": "#/components/schemas/Preferences"
+        },
         "apiKey": {
           "type": "string",
           "writeOnly": true,
           "description": "Required argument, may be empty; at most 4096 UTF-8 bytes, no CR/LF; replaces the in-memory credential."
         }
       },
-      "result": { "type": "null" }
+      "result": {
+        "type": "null"
+      }
     },
     "generate": {
       "arguments": {
-        "sessionId": { "type": "string", "format": "uuid" },
-        "runId": { "type": "string", "format": "uuid" },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "runId": {
+          "type": "string",
+          "format": "uuid"
+        },
         "input": {
           "type": "string",
           "description": "Nonblank, at most 16384 UTF-8 bytes."
         },
-        "onEvent": { "x-tauri-type": "Channel<DeltaEvent>" }
+        "onEvent": {
+          "x-tauri-type": "Channel<DeltaEvent>"
+        }
       },
-      "result": { "type": "null" },
-      "channel": { "$ref": "#/components/schemas/DeltaEvent" }
+      "result": {
+        "type": "null"
+      },
+      "channel": {
+        "$ref": "#/components/schemas/DeltaEvent"
+      }
     },
     "cancel_run": {
-      "arguments": { "runId": { "type": "string", "format": "uuid" } },
-      "result": { "type": "null" }
+      "arguments": {
+        "runId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "result": {
+        "type": "null"
+      }
     }
   },
   "x-error-result": {
@@ -143,18 +228,38 @@
     "schemas": {
       "Message": {
         "type": "object",
-        "required": ["role", "content"],
+        "required": [
+          "role",
+          "content"
+        ],
         "properties": {
-          "role": { "enum": ["user", "assistant", "system"] },
-          "content": { "type": "string" }
+          "role": {
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "content": {
+            "type": "string"
+          }
         }
       },
       "Session": {
         "type": "object",
-        "required": ["id", "title", "updatedAt"],
+        "required": [
+          "id",
+          "title",
+          "updatedAt"
+        ],
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "title": { "type": "string" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
           "updatedAt": {
             "type": "integer",
             "description": "Unix milliseconds."
@@ -163,7 +268,10 @@
       },
       "Preferences": {
         "type": "object",
-        "required": ["baseUrl", "model"],
+        "required": [
+          "baseUrl",
+          "model"
+        ],
         "properties": {
           "baseUrl": {
             "type": "string",
@@ -178,40 +286,73 @@
       },
       "Plugin": {
         "type": "object",
-        "required": ["id", "kind", "apiVersion"],
+        "required": [
+          "id",
+          "kind",
+          "apiVersion"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "kind": { "enum": ["provider", "storage", "credentials"] },
-          "apiVersion": { "const": 1 }
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "provider",
+              "storage",
+              "credentials"
+            ]
+          },
+          "apiVersion": {
+            "const": 1
+          }
         }
       },
       "Bootstrap": {
         "type": "object",
-        "required": ["sessions", "preferences", "connected", "plugins"],
+        "required": [
+          "sessions",
+          "preferences",
+          "connected",
+          "plugins"
+        ],
         "properties": {
           "sessions": {
             "type": "array",
             "maxItems": 100,
-            "items": { "$ref": "#/components/schemas/Session" }
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            }
           },
-          "preferences": { "$ref": "#/components/schemas/Preferences" },
+          "preferences": {
+            "$ref": "#/components/schemas/Preferences"
+          },
           "connected": {
             "type": "boolean",
             "description": "Configured, not network-tested."
           },
           "plugins": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Plugin" }
+            "items": {
+              "$ref": "#/components/schemas/Plugin"
+            }
           }
         }
       },
       "DeltaEvent": {
         "type": "object",
         "description": "First event has an empty delta acknowledging native run reservation; subsequent events contain ordered plain text.",
-        "required": ["runId", "delta"],
+        "required": [
+          "runId",
+          "delta"
+        ],
         "properties": {
-          "runId": { "type": "string", "format": "uuid" },
-          "delta": { "type": "string" }
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "delta": {
+            "type": "string"
+          }
         }
       }
     }
