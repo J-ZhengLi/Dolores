@@ -220,7 +220,7 @@
     },
     "folderTools": {
       "default": "enabled automatically for project and temporary chats, disabled for explicit side and legacy chats; working folder persists per session",
-      "approval": "Each valid operation requires a run-bound single-use decision. Allow once/Deny gates listing, scanning and reading; Apply once/Deny gates the reviewed local edit diff. Denials match name,target,query,diff within a run. Local edit snapshot preparation does not write or share the snapshot with the provider. Stop/timeout/shutdown clear pending approvals. Create once/Deny gates the complete new-file addition; an occupied path is never replaced.",
+      "approval": "Each valid operation requires a run-bound single-use decision. Allow once/Deny gates listing, scanning and reading; Apply once/Deny gates the reviewed local edit diff. Denials match name,target,query,diff within a run. Local edit snapshot preparation does not write or share the snapshot with the provider. Stop/timeout/shutdown clear pending approvals. Create once/Deny gates the complete new-file addition; an occupied path is never replaced. Run once/Deny gates the exact executable and literal argument preview; command denials additionally bind command invocation/executable.",
       "limits": {
         "modelCalls": 4,
         "toolCalls": 4,
@@ -240,14 +240,15 @@
         "createDiffBytes": 16384
       },
       "timeout": "min(configured timeoutSeconds,300) for the whole model/tool/approval phase, excluding initial preparation and final persistence; OS filesystem calls cannot be forcibly interrupted",
-      "paths": "Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret.",
-      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient. Public intermediate commentary is retained separately as optional agent.steps, shared with the provider alongside its calls and included in complete exports only on success. Optional tool.diff persists/exports the local reviewed edit on success; it is not a filesystem transaction or rollback record.",
+      "paths": "File-tool policy: Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret. Commands instead use user permissions, may access outside the folder/network, and are not sandboxed.",
+      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient. Public intermediate commentary is retained separately as optional agent.steps, shared with the provider alongside its calls and included in complete exports only on success. Optional tool.diff persists/exports the local reviewed edit on success; it is not a filesystem transaction or rollback record. Optional ToolRecord.command keeps program/literal args, excludes automatic absolute executable/root, and survives completed history/export. Command effects are outside the file-change journal and may remain after failure/Stop.",
       "names": [
         "read_text_file",
         "list_folder",
         "search_text",
         "edit_text_file",
-        "create_text_file"
+        "create_text_file",
+        "run_command"
       ],
       "listing": {
         "arguments": "{path:string}; required; additional fields rejected; . for root or direct relative folder",
@@ -286,6 +287,30 @@
         "preview": "Complete literal addition, /dev/null before header and missing-newline markers; call/target/diff-bound Create once/Deny. Preparation never writes.",
         "publication": "Exclusive staged file, flush, durable intent, cancellation/direct-parent/absence checks, then no-overwrite hard-link publication. Existing entry always refused; unsupported filesystems fail with no rename fallback. Cleanup owned staging name only.",
         "result": "status created; JSON {applied:true,created:true,bytesBefore:0,bytesAfter,changeId,journalStatus:applied|pending}; unjournaled alternate registration omits changeId/journalStatus. Applied effects remain after later chat failure or deletion."
+      },
+      "commands": {
+        "arguments": "{program:string,args:string[]}; both required, no extra fields/NUL; at most 32 arguments, each <=1024 UTF-8 bytes and serialized JSON <=4096 bytes.",
+        "programs": [
+          "git",
+          "node",
+          "python",
+          "python3",
+          "cargo",
+          "rustc",
+          "dart"
+        ],
+        "resolution": "Direct installed executables from absolute PATH entries outside project descendants; Windows .exe only, no shell/batch expansion; metadata rechecked after exact approval.",
+        "preview": "Local-only ToolRequest.command {invocation:{program,args},executable:absolute path}; full saved working folder shown locally. One-use exact call/target/preview binding.",
+        "result": "Status completed; content JSON {exitCode:integer|null,reason:completed|timedOut|outputLimit|processError,stdout,stderr,truncated,lossyUtf8,outputError}; actual nonzero exits preserved. Public ToolRecord.command {program,args} omits automatic local executable/root.",
+        "limits": {
+          "seconds": 30,
+          "combinedRawOutputBytes": 8192,
+          "resultBytes": 16384,
+          "preparedPlans": 4
+        },
+        "environment": "Closed stdin; rebuilt PATH/SystemRoot/WINDIR/TEMP/TMP/HOME/USERPROFILE/APPDATA/LOCALAPPDATA/LANG/LC_ALL/LC_CTYPE/TZ plus CI=1,NO_COLOR=1,TERM=dumb,GIT_TERMINAL_PROMPT=0,PYTHONUTF8=1. No arbitrary inherited secrets, but user files remain accessible.",
+        "effects": "User-account permissions, no elevation/sandbox; may access/change outside folder/network and run interpreter/build hooks. Effects are not journaled/reverted and remain after later Stop/model/save failure. Literal args/output shared with provider and saved/exported on completed reply.",
+        "cleanup": "Windows hidden suspended creation assigned to kill-on-close Job before resume, only three pipe handles inherited; assignment failure refuses launch. Unix new process group; deliberate detachment/external launching outside guarantee. Completion/timeout/output limit/cancel/dropped invocation clean up active processes. No idle workers; command CPU/memory not capped."
       }
     },
     "workingSessions": {
@@ -734,12 +759,13 @@
               "list_folder",
               "search_text",
               "edit_text_file",
-              "create_text_file"
+              "create_text_file",
+              "run_command"
             ]
           },
           "target": {
             "type": "string",
-            "description": "Resolved relative path, at most 1024 UTF-8 bytes; never absolute root"
+            "description": "Resolved relative file target or command program ID, at most 1024 UTF-8 bytes; never automatic absolute working root."
           },
           "query": {
             "type": "string",
@@ -748,6 +774,10 @@
           "diff": {
             "type": "string",
             "description": "Optional replacement/creation literal unified diff; at most 16384 UTF-8 bytes; required for write approval, old records omit it."
+          },
+          "command": {
+            "$ref": "#/components/schemas/CommandPreview",
+            "description": "Required only for command approval; omitted on file/legacy records."
           }
         }
       },
@@ -769,7 +799,7 @@
           },
           "target": {
             "type": "string",
-            "description": "Relative target or fixed blocked-path label; at most 1024 UTF-8 bytes"
+            "description": "Relative file target, command program ID or fixed blocked label; at most 1024 UTF-8 bytes."
           },
           "status": {
             "enum": [
@@ -784,7 +814,7 @@
           },
           "content": {
             "type": "string",
-            "description": "At most 16384 UTF-8 bytes; literal file content or fixed local refusal/error"
+            "description": "At most 16384 UTF-8 bytes; literal file content, bounded JSON operation result, or fixed local refusal/error."
           },
           "query": {
             "type": "string",
@@ -793,6 +823,10 @@
           "diff": {
             "type": "string",
             "description": "Optional replacement/creation literal unified diff; at most 16384 UTF-8 bytes; required for write approval, old records omit it."
+          },
+          "command": {
+            "$ref": "#/components/schemas/CommandSpec",
+            "description": "Command only; no automatic resolved executable/root. Optional on legacy records."
           }
         }
       },
@@ -971,6 +1005,51 @@
           "afterExists": {
             "type": "boolean",
             "description": "Explicit existence, independent of zero byte count. Schema-7 replacements migrate true."
+          }
+        }
+      },
+      "CommandSpec": {
+        "type": "object",
+        "required": [
+          "program",
+          "args"
+        ],
+        "properties": {
+          "program": {
+            "enum": [
+              "git",
+              "node",
+              "python",
+              "python3",
+              "cargo",
+              "rustc",
+              "dart"
+            ]
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "description": "At most 1024 UTF-8 bytes; no NUL."
+            }
+          }
+        },
+        "description": "Literal reviewed invocation; complete serialized JSON <=4096 UTF-8 bytes; public records omit resolved executable and saved working root."
+      },
+      "CommandPreview": {
+        "type": "object",
+        "required": [
+          "invocation",
+          "executable"
+        ],
+        "properties": {
+          "invocation": {
+            "$ref": "#/components/schemas/CommandSpec"
+          },
+          "executable": {
+            "type": "string",
+            "description": "Resolved absolute executable, local approval only; not automatically sent to provider or exported."
           }
         }
       }

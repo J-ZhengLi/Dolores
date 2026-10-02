@@ -12,6 +12,7 @@ String toolLabel(dynamic name) => switch (name) {
   'search_text' => 'Text search',
   'edit_text_file' => 'File edit',
   'create_text_file' => 'File creation',
+  'run_command' => 'Command',
   _ => 'File read',
 };
 
@@ -22,6 +23,18 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'run_command') {
+      final outcome = switch (result['reason']) {
+        'timedOut' => 'Stopped at the time limit',
+        'outputLimit' => 'Stopped at the output limit',
+        'processError' => 'Process status unavailable',
+        _ => 'Exited ${result['exitCode'] ?? 'with unavailable status'}',
+      };
+      return '$outcome${result['truncated'] == true ? ' · Output shortened' : ''}'
+          '${result['lossyUtf8'] == true ? '\nSome bytes could not be displayed as UTF-8.' : ''}'
+          '${result['outputError'] == true ? '\nSome output could not be read.' : ''}'
+          '\n\nStandard output:\n${result['stdout'] ?? ''}\n\nStandard error:\n${result['stderr'] ?? ''}';
+    }
     if (record['name'] == 'create_text_file' && result['applied'] == true) {
       return 'Created one file · ${result['bytesAfter']} bytes'
           '${result['journalStatus'] == 'pending' ? '\nLocal intent saved; its receipt needs a check in Changes.' : ''}';
@@ -60,11 +73,13 @@ class ToolApprovalCard extends StatelessWidget {
     final name = request['name'];
     final editing = name == 'edit_text_file';
     final creating = name == 'create_text_file';
+    final running = name == 'run_command';
     final title = switch (name) {
       'list_folder' => 'Allow a folder listing?',
       'search_text' => 'Allow a text search?',
       'edit_text_file' => 'Apply this file change?',
       'create_text_file' => 'Create this file?',
+      'run_command' => 'Run this command?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
@@ -74,6 +89,8 @@ class ToolApprovalCard extends StatelessWidget {
         'Scan up to 64 text files and 256 KiB under this folder? Matching snippets are shared with ${chat.model} and kept with a completed reply. Reading a whole file needs another decision.',
       'edit_text_file' => 'Review the diff before applying this one change. Local before and after snapshots are saved in Changes, even if the reply stops or fails. A changed file needs a fresh preview.',
       'create_text_file' => 'Review the complete addition. Create one small text file in an existing folder; an occupied path is never replaced. A local snapshot is saved in Changes, even if the reply stops or fails. Removing it later needs another review.',
+      'run_command' =>
+        'Runs with your permissions. It can access or change files outside this folder and use the network. Command changes are not recorded in Changes and may remain after Stop. Output is shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB output.',
       _ =>
         'Share this file’s text with ${chat.model}? This allows one read. File contents are also kept with a completed reply.',
     };
@@ -93,7 +110,7 @@ class ToolApprovalCard extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: editing || creating ? 270 : 180,
+              maxHeight: editing || creating || running ? 270 : 180,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -114,6 +131,57 @@ class ToolApprovalCard extends StatelessWidget {
                     'Folder: ${chat.workspaceKind == 'temporary' ? 'Temporary workspace' : path.basename(chat.workspaceRoot ?? '')}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
+                  if (running) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      disclosure,
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                  ],
+                  if (running && request['command'] is Map) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Working folder',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    SelectableText(
+                      chat.workspaceRoot ?? '',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text('Executable', style: TextStyle(fontSize: 11)),
+                    SelectableText(
+                      '${request['command']['executable']}',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Arguments (each line is one literal value)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    SelectableText(
+                      ((request['command']['invocation']['args'] as List)
+                              .isEmpty
+                          ? 'No arguments'
+                          : (request['command']['invocation']['args'] as List)
+                                .asMap()
+                                .entries
+                                .map(
+                                  (e) => '${e.key + 1}. ${jsonEncode(e.value)}',
+                                )
+                                .join('\n')),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                   if (request['query'] is String) ...[
                     const SizedBox(height: 6),
                     const Text(
@@ -130,10 +198,11 @@ class ToolApprovalCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 6),
-                  Text(
-                    disclosure,
-                    style: TextStyle(color: p.muted, fontSize: 12),
-                  ),
+                  if (!running)
+                    Text(
+                      disclosure,
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
                   if ((editing || creating) && request['diff'] is String) ...[
                     const SizedBox(height: 8),
                     EditDiff(
@@ -163,6 +232,8 @@ class ToolApprovalCard extends StatelessWidget {
                 child: Text(
                   chat.decidingTool
                       ? 'Sending decision…'
+                      : running
+                      ? 'Run once'
                       : creating
                       ? 'Create once'
                       : editing
@@ -213,6 +284,18 @@ class ToolRecords extends StatelessWidget {
               ),
               childrenPadding: const EdgeInsets.all(12),
               children: [
+                if (record['command'] is Map)
+                  SelectableText(
+                    key: PageStorageKey(
+                      'tool-command-${record['callId']}-${record['name']}-${record['target']}',
+                    ),
+                    '${record['command']['program']}\n${(record['command']['args'] as List).asMap().entries.map((e) => '${e.key + 1}. ${jsonEncode(e.value)}').join('\n')}',
+                    style: TextStyle(
+                      color: p.muted,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
                 if (record['query'] is String)
                   SelectableText(
                     key: PageStorageKey(

@@ -132,6 +132,7 @@ impl ToolPlugin for ReadTextFile {
             target,
             query: None,
             diff: None,
+            command: None,
         })
     }
     async fn invoke(

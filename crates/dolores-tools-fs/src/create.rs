@@ -157,6 +157,7 @@ impl ToolPlugin for CreateTextFile {
             target: args.path,
             query: None,
             diff: Some(diff),
+            command: None,
         };
         let mut plans = self
             .plans

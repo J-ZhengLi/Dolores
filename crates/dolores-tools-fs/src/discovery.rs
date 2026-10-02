@@ -383,6 +383,7 @@ impl ToolPlugin for Discover {
             target: self.resolve_scope(&args.path)?,
             query: args.query,
             diff: None,
+            command: None,
         })
     }
     async fn invoke(

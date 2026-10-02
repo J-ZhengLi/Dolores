@@ -1,5 +1,7 @@
 # Dolores architecture
 
+Brick 3.8 adds `dolores-tools-command` as a separately compiled tool plugin registered only by the selected Flutter host. It resolves an installed executable, binds literal arguments to one local approval, then runs with closed stdin and a filtered environment. A blocking task and two bounded pipe readers exist only during execution; output/time and cancellation cleanup are explicit. Commands have user-account permissions, not folder confinement, and their effects are outside the file-change journal. Windows uses suspended creation followed by Job assignment before execution; Unix uses process groups, with platform acceptance still open. Schema 8 is unchanged. See [command design](design/approved-commands.md).
+
 Brick 3.5 adds a compiled single-file edit plugin to the selected shell's existing folder registry. Bounded local plans bind the snapshot/diff to one approval, then stage and atomically replace through the held parent directory capability. Changed-byte/permission checks are optimistic. File effects are independent of conversation persistence; this brick has no rollback or durable failed-run journal. It reuses the existing blocking pool and introduces no dependency or migration. See [design](design/approved-edits.md).
 
 Status: Flutter selected by the user on 2026-10-01 after the working visual/resource comparison. Iced and Tauri remain available as alternatives. Platform, accessibility and low-end release acceptance remain open.
@@ -22,6 +24,7 @@ Brick 3.4 adds an optional streaming-tool provider method with a legacy default.
 | Models | OpenAI-compatible provider plugin | Local or hosted endpoints through one adapter; compatibility is tested against the chat-completions subset, not assumed for every vendor. |
 | Folder tools | Compiled folder plugins, saved working-directory capability and per-operation approval | Bounded reads/listing/search and reviewed exact edits, explicit results/diffs; native plugin code remains trusted. |
 | Folder discovery | Approved shallow listing and bounded literal text search | Shared directory capability, separate query/scope decisions and partial results; no index or background scanning. |
+| Command tools | Separate compiled plugin, reviewed direct executable and literal arguments | Working directory plus user permissions; 30-second/8-KiB bounds and active process cleanup, no sandbox or automatic change journal. |
 | Extensions | Typed Rust interfaces and explicit built-in registration | Start with replaceable provider/storage plugins. External executable/WASM plugins require a later protocol and permission design. |
 | Learning | Reviewed memories and skills, then outcome evaluation | Learn reusable behavior without silently rewriting instructions or running generated code. Not implemented in brick 1. |
 
@@ -30,8 +33,10 @@ flowchart TB
   Flutter[Flutter UI] -->|worker isolate C ABI| Bridge[Rust host]
   Bridge --> Core[Dolores core: bounded chat and tool loop]
   Bridge --> Approval[Run-bound user approval]
-  Core --> Tools[Tool port: folder read/list/search plugins]
+  Core --> Tools[Tool port: folder read/list/search/edit/create plugins]
   Tools --> Folder[Chosen directory capability]
+  Core --> Command[Tool port: approved command plugin]
+  Command --> Process[Bounded process with user permissions]
   Bridge --> Credentials[Credential port: OS vault plugin]
   Native[Alternative Iced host] --> Core
   UI[Alternative Svelte UI] -->|commands + ordered channel| Host[Tauri host]
@@ -61,7 +66,7 @@ Third-party native code is not sandboxed by these interfaces. Tauri capabilities
 Brick 3.3 replaces Flutter's launch-wide tools toggle with typed `SessionWorkspace`/`WorkspaceKind` and optional storage ports. SQLite schema 6 atomically stores immutable per-chat folder associations and a bounded recent-project list. The host validates project folders or creates unique app-managed temporary folders; side/legacy chats have no folder. Each run obtains tools from its saved association, never the last visited chat. Folder paths are private host state and are excluded from automatic provider context and exports. Conversation deletion preserves all working files. Initial temporary-folder creation is lazy, and no index, cleanup scheduler or idle polling is added. See [working sessions](design/working-sessions.md); this supersedes the launch-only scope in the historical brick 3.1 decision.
 
 - No resident local model, Python runtime, Node sidecar, vector database, background scheduler, idle polling, telemetry, or automatic downloads in the app.
-- Flutter's Rust host uses two async workers and at most two blocking workers. A Dart worker serializes storage and native calls. Polling runs only during generation; there is no application idle timer. Scrolling, startup, GPU/system memory and low-end responsiveness need separate checks.
+- Flutter's Rust host uses two async workers and at most two blocking workers. A Dart worker serializes storage and native calls. Command execution occupies a blocking task plus two bounded pipe reader threads until cleanup; its subprocess resource usage is not capped by harness memory targets. Polling runs only during generation; there is no application idle timer. Scrolling, startup, GPU/system memory and low-end responsiveness need separate checks.
 - One active generation, a 32-item text queue, a maximum 1 MiB SSE frame, a maximum 128 KiB answer, a fixed 10-second connect timeout and a configurable whole-provider-response deadline (default 180 seconds, range 1–900).
 - User messages up to 16 KiB, newest 40 complete turns, and at most 128 KiB of request context. The byte budget is not a tokenizer or a guarantee of fitting every model's context window.
 - Flutter replaces bounded pages of 50 sessions/80 messages and exports complete saved history. Context always uses the latest saved complete turns, independently of the viewed page.

@@ -1270,6 +1270,7 @@ dependencies = [
  "dolores-credentials",
  "dolores-provider-openai",
  "dolores-store-sqlite",
+ "dolores-tools-command",
  "dolores-tools-fs",
  "rusqlite",
  "serde",
@@ -1322,6 +1323,21 @@ dependencies = [
  "rusqlite",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "dolores-tools-command"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "dolores-core",
+ "libc",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

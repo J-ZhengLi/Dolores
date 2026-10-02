@@ -52,6 +52,14 @@ class ToolBridge implements ChatBridge {
             'request': {
               'callId': 'file-one',
               'name': tool,
+              if (tool == 'run_command')
+                'command': {
+                  'invocation': {
+                    'program': 'node',
+                    'args': ['--version', 'a b', ''],
+                  },
+                  'executable': 'C:/Runtime/node.exe',
+                },
               'target':
                   [
                     'read_text_file',
@@ -76,6 +84,11 @@ class ToolBridge implements ChatBridge {
         final record = {
           'callId': 'file-one',
           'name': tool,
+          if (tool == 'run_command')
+            'command': {
+              'program': 'node',
+              'args': ['--version', 'a b', ''],
+            },
           'target':
               [
                 'read_text_file',
@@ -98,6 +111,16 @@ class ToolBridge implements ChatBridge {
               : 'denied',
           'content': !allowed
               ? 'User denied this read'
+              : tool == 'run_command'
+              ? jsonEncode({
+                  'exitCode': 7,
+                  'reason': 'completed',
+                  'stdout': '# Output <script>literal</script> 世界',
+                  'stderr': 'diagnostic',
+                  'truncated': true,
+                  'lossyUtf8': false,
+                  'outputError': false,
+                })
               : tool == 'create_text_file'
               ? (editConflict
                     ? 'Target already exists. No file was created.'
@@ -304,6 +327,63 @@ void _editTests() {
 
 void main() {
   _editTests();
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Command review in compact ${dark ? 'dark' : 'light'} shows exact arguments, permissions and explicit Run once',
+      (tester) async {
+        compact(tester);
+        final bridge = ToolBridge()..tool = 'run_command';
+        final chat = ready(bridge);
+        await tester.pumpWidget(
+          DoloresApp(
+            chat: chat,
+            themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          ),
+        );
+        await chat.send();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        expect(find.text('Run this command?'), findsOneWidget);
+        expect(find.text('Run once'), findsOneWidget);
+        expect(find.text('C:/Runtime/node.exe'), findsOneWidget);
+        expect(find.text('C:/chosen/project'), findsOneWidget);
+        expect(find.text('1. "--version"\n2. "a b"\n3. ""'), findsOneWidget);
+        expect(find.textContaining('outside this folder'), findsOneWidget);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'approveTool'),
+          isEmpty,
+        );
+        await tester.tap(find.text('Deny'));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        expect(
+          chat.messages.last['metadata']['agent']['tools'].single['status'],
+          'denied',
+        );
+        chat.draft = 'Run again';
+        await chat.send();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Run once'));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('.').last);
+        await tester.tap(find.text('.').last);
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Exited 7 · Output shortened'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('# Output <script>literal</script> 世界'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      },
+    );
+  }
   for (final dark in [false, true]) {
     testWidgets(
       'Creation in compact ${dark ? 'dark' : 'light'} theme requires an explicit decision and shows its result',

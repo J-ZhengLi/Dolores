@@ -81,6 +81,7 @@ mod tests {
                     target: "readme.txt".into(),
                     query: None,
                     diff: None,
+                    command: None,
                 };
                 tokio::time::timeout(
                     std::time::Duration::from_millis(150),

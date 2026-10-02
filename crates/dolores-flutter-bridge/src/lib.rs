@@ -430,7 +430,9 @@ impl Engine {
                             session: session.clone().unwrap(),
                             reverts: None,
                         });
-                        dolores_tools_fs::journaled_folder_tools(&root, journal)
+                        let mut plugins = dolores_tools_fs::journaled_folder_tools(&root, journal)?;
+                        plugins.push(Arc::new(dolores_tools_command::RunCommand::new(&root)?));
+                        Ok::<_, String>(plugins)
                     })
                     .transpose()?
                     .unwrap_or_default();

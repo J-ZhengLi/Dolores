@@ -26,12 +26,17 @@ const server = createServer(async (request, response) => {
   if (Array.isArray(payload.tools)) {
     const last = payload.messages?.at(-1);
     const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
-    if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'create_text_file,edit_text_file,list_folder,read_text_file,search_text') {
+    if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'create_text_file,edit_text_file,list_folder,read_text_file,run_command,search_text') {
       response.writeHead(400).end(); return;
     }
     let message, finish;
     if (!prompt.startsWith('tool-')) {
       message = {role:'assistant',content:'Hello from your working folder. The folder tools are available.'}; finish='stop';
+    } else if (prompt.startsWith('tool-command') && last?.role !== 'tool') {
+      const script = prompt === 'tool-command-slow' ? "require('fs').writeFileSync('command-started.txt','ok');setTimeout(()=>require('fs').writeFileSync('command-late.txt','bad'),10000)"
+        : prompt === 'tool-command-output' ? "process.stdout.write('x'.repeat(65536));setTimeout(()=>{},10000)"
+        : "require('fs').writeFileSync('command-proof.txt','validated 世界');process.stdout.write('Checked 世界');process.stderr.write('diagnostic');process.exitCode=7";
+      message = {role:'assistant',content:null,tool_calls:[{id:'command-one',type:'function',function:{name:'run_command',arguments:JSON.stringify({program:'node',args:['-e',script]})}}]}; finish='tool_calls';
     } else if (prompt.startsWith('tool-create') && last?.role !== 'tool') {
       message = {role:'assistant',content:null,tool_calls:[{id:'create-one',type:'function',function:{name:'create_text_file',arguments:JSON.stringify({path:prompt === 'tool-create-empty' ? 'empty.txt' : 'created.txt',content:prompt === 'tool-create-empty' ? '' : '# Created with approval\r\nHello 世界.\r\n'})}}]}; finish='tool_calls';
     } else if (prompt.startsWith('tool-edit') && last?.role !== 'tool') {
@@ -61,9 +66,12 @@ const server = createServer(async (request, response) => {
     } else if (last?.role === 'tool' && prompt !== 'tool-loop') {
       const previous = payload.messages.at(-2);
       if (previous?.tool_calls?.at(-1)?.id !== last.tool_call_id) { response.writeHead(400).end(); return; }
+      const resultText = prompt === 'tool-command-output'
+        ? `Command stopped: ${JSON.parse(last.content).reason}. Output was shortened.`
+        : `The approved file says: ${last.content}`;
       message = { role: 'assistant', content: last.content.includes('User denied')
         ? 'The file read was denied. No file contents were used.'
-        : `The approved file says: ${last.content}` };
+        : resultText };
       finish = 'stop';
     } else {
       const number = payload.messages.filter(message => message.role === 'tool').length;

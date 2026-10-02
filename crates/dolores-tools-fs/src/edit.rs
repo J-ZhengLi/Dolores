@@ -313,6 +313,7 @@ impl ToolPlugin for EditTextFile {
             target: args.path.clone(),
             query: None,
             diff: Some(preview),
+            command: None,
         };
         let mut plans = self
             .plans
@@ -406,6 +407,7 @@ impl RevertPlan {
                     target: target.into(),
                     query: None,
                     diff: Some(preview),
+                    command: None,
                 },
                 parent,
                 filename: filename.into(),

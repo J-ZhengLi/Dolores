@@ -1,0 +1,182 @@
+use super::*;
+fn call(script: &str) -> ToolCall {
+    ToolCall {
+        id: "one".into(),
+        name: "run_command".into(),
+        arguments: json!({"program":"node","args":["-e",script]}).to_string(),
+    }
+}
+async fn invoke(tool: &RunCommand, script: &str) -> serde_json::Value {
+    let request = tool.prepare(&call(script)).unwrap();
+    serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap()
+}
+#[tokio::test]
+async fn literal_arguments_unicode_cwd_filtered_environment_and_nonzero_exit_are_retained() {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let args = vec!["", "a b", "a\"b", "trailing\\", "$(ignored);&|>", "世界"];
+    let script="const fs=require('fs');fs.writeFileSync('proof.txt','世界');process.stdout.write(JSON.stringify(process.argv.slice(1)));process.stderr.write('stderr 世界');process.exitCode=7";
+    let request=tool.prepare(&ToolCall{arguments:json!({"program":"node","args":std::iter::once("-e").chain(std::iter::once(script)).chain(args.iter().copied()).collect::<Vec<_>>()} ).to_string(),..call("")}).unwrap();
+    assert!(!dir.path().join("proof.txt").exists());
+    assert_eq!(request.command.as_ref().unwrap().invocation.args.len(), 8);
+    let output: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Vec<String>>(output["stdout"].as_str().unwrap()).unwrap(),
+        args
+    );
+    assert_eq!(output["exitCode"], 7);
+    assert_eq!(output["reason"], "completed");
+    assert_eq!(output["stderr"], "stderr 世界");
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("proof.txt")).unwrap(),
+        "世界"
+    );
+    assert!(tool
+        .invoke(&request, CancellationToken::new())
+        .await
+        .is_err());
+    let env = environment();
+    assert!(env
+        .iter()
+        .all(|(k, _)| !k.ends_with("API_KEY") && !k.ends_with("TOKEN")));
+}
+#[tokio::test]
+async fn invalid_unknown_tampered_and_cancelled_requests_never_execute() {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    for arguments in [
+        json!({"program":"cmd","args":["/c","echo unsafe"]}),
+        json!({"program":"./node","args":[]}),
+        json!({"program":"node","args":[],"approved":true}),
+        json!({"program":"node","args":["\0"]}),
+        json!({"program":"node","args":vec!["a";33]}),
+    ] {
+        assert!(tool
+            .prepare(&ToolCall {
+                arguments: arguments.to_string(),
+                ..call("")
+            })
+            .is_err());
+    }
+    let mut request = tool
+        .prepare(&call("require('fs').writeFileSync('bad','bad')"))
+        .unwrap();
+    request
+        .command
+        .as_mut()
+        .unwrap()
+        .invocation
+        .args
+        .push("changed".into());
+    assert!(tool
+        .invoke(&request, CancellationToken::new())
+        .await
+        .is_err());
+    let request = tool
+        .prepare(&ToolCall {
+            id: "two".into(),
+            ..call("require('fs').writeFileSync('bad','bad')")
+        })
+        .unwrap();
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    assert!(tool.invoke(&request, cancel).await.is_err());
+    assert!(!dir.path().join("bad").exists());
+}
+#[tokio::test]
+async fn timeout_and_output_budget_stop_processes_and_keep_json_bounded() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut tool = RunCommand::new(dir.path()).unwrap();
+    tool.deadline = Duration::from_millis(150);
+    let value = invoke(
+        &tool,
+        "setTimeout(()=>require('fs').writeFileSync('late','bad'),800)",
+    )
+    .await;
+    assert_eq!(value["reason"], "timedOut");
+    assert!(value["exitCode"].is_null());
+    std::thread::sleep(Duration::from_millis(850));
+    assert!(!dir.path().join("late").exists());
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let value = invoke(
+        &tool,
+        "process.stdout.write(Buffer.alloc(65536,0));setTimeout(()=>{},10000)",
+    )
+    .await;
+    assert_eq!(value["reason"], "outputLimit");
+    assert_eq!(value["truncated"], true);
+    assert!(value.to_string().len() <= MAX_TOOL_BYTES);
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let value = invoke(&tool, "process.stdout.write(Buffer.from([255,254]))").await;
+    assert_eq!(value["lossyUtf8"], true);
+}
+#[tokio::test]
+async fn stop_and_dropped_invocation_kill_child_and_grandchild_without_late_writes() {
+    for abort in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let tool = Arc::new(RunCommand::new(dir.path()).unwrap());
+        let child = "setTimeout(()=>require('fs').writeFileSync('late','bad'),1200)";
+        let script=format!("require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'inherit'}});require('fs').writeFileSync('started','ok');setTimeout(()=>{{}},10000)",serde_json::to_string(child).unwrap());
+        let request = tool.prepare(&call(&script)).unwrap();
+        let cancel = CancellationToken::new();
+        let copy = tool.clone();
+        let token = cancel.clone();
+        let task = tokio::spawn(async move { copy.invoke(&request, token).await });
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !dir.path().join("started").exists() && Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(dir.path().join("started").exists());
+        if abort {
+            task.abort();
+            let _ = task.await;
+        } else {
+            cancel.cancel();
+            assert!(task.await.unwrap().is_err());
+        }
+        tokio::time::sleep(Duration::from_millis(1400)).await;
+        assert!(!dir.path().join("late").exists());
+    }
+}
+#[test]
+fn path_resolution_refuses_project_shadow_and_relative_entries() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = resolve(&dir.path().canonicalize().unwrap(), "node").unwrap();
+    assert!(!file.starts_with(dir.path()));
+    assert!(
+        resolve(file.parent().unwrap(), "node").is_err()
+            || resolve(file.parent().unwrap(), "node").unwrap() != file
+    );
+}
+
+#[tokio::test]
+async fn parent_completion_closes_descendants_and_does_not_hang_on_inherited_pipes() {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let child = "setTimeout(()=>require('fs').writeFileSync('late','bad'),1200)";
+    let script = format!(
+        "require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'inherit'}});process.stdout.write('parent done');process.exit(0)",
+        serde_json::to_string(child).unwrap()
+    );
+    let started = Instant::now();
+    let result = invoke(&tool, &script).await;
+    assert!(started.elapsed() < Duration::from_secs(2));
+    assert_eq!(result["exitCode"], 0);
+    assert_eq!(result["stdout"], "parent done");
+    assert_eq!(result["outputError"], false);
+    assert_eq!(result["truncated"], false);
+    tokio::time::sleep(Duration::from_millis(1400)).await;
+    assert!(!dir.path().join("late").exists());
+}

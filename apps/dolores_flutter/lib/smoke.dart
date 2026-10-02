@@ -823,7 +823,9 @@ Future<void> _run(
       'Only the applied edit creates an independent folder change record',
       checks,
     );
-    void press(String label, {bool key = false}) {
+    Future<void> press(String label, {bool key = false}) async {
+      // Controller completion precedes the rendered frame enabling its controls.
+      await WidgetsBinding.instance.endOfFrame;
       VoidCallback? callback;
       void visit(Element element) {
         final widget = element.widget;
@@ -850,11 +852,11 @@ Future<void> _run(
       callback!();
     }
 
-    press('workspace-changes', key: true);
+    await press('workspace-changes', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 400));
-    press('change-$changeId', key: true);
+    await press('change-$changeId', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    press('review-revert', key: true);
+    await press('review-revert', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     check(
       await editFile.readAsString() != originalText && chat.changing,
@@ -862,16 +864,16 @@ Future<void> _run(
       checks,
     );
     await screenshot(capture, output, 'changes-revert-dark');
-    press('Cancel');
+    await press('Cancel');
     await Future<void>.delayed(const Duration(milliseconds: 150));
     check(
       await editFile.readAsString() != originalText,
       'Cancelling a revert preview preserves the applied file',
       checks,
     );
-    press('review-revert', key: true);
+    await press('review-revert', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    press('apply-revert', key: true);
+    await press('apply-revert', key: true);
     await waitUntil(
       () => !File(editFile.path).readAsStringSync().contains('Updated with'),
     );
@@ -889,7 +891,7 @@ Future<void> _run(
       checks,
     );
     await screenshot(capture, output, 'changes-result-dark');
-    press('Close');
+    await press('Close');
     await waitUntil(() => !chat.changing);
     final createdFile = File(path.join(workspace.path, 'created.txt'));
     chat.newChat();
@@ -961,23 +963,23 @@ Future<void> _run(
       'Approved creation publishes exact Unicode and line endings with existence-aware journal metadata',
       checks,
     );
-    press('workspace-changes', key: true);
+    await press('workspace-changes', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    press('change-$creationId', key: true);
+    await press('change-$creationId', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    press('review-revert', key: true);
+    await press('review-revert', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 150));
     await screenshot(capture, output, 'created-file-removal-dark');
-    press('Cancel');
+    await press('Cancel');
     await Future<void>.delayed(const Duration(milliseconds: 150));
     check(
       await createdFile.exists(),
       'Cancelling creation removal preserves the created file',
       checks,
     );
-    press('review-revert', key: true);
+    await press('review-revert', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    press('apply-revert', key: true);
+    await press('apply-revert', key: true);
     await waitUntil(() => !createdFile.existsSync());
     await Future<void>.delayed(const Duration(milliseconds: 150));
     final removalPage = await chat.bridge.call({
@@ -990,7 +992,7 @@ Future<void> _run(
       'Remove once consumes the reviewed creation and records a separate removal',
       checks,
     );
-    press('Close');
+    await press('Close');
     await waitUntil(() => !chat.changing);
     chat.newChat();
     await proposeCreation('tool-create-empty');
@@ -1006,6 +1008,96 @@ Future<void> _run(
           await emptyFile.length() == 0 &&
           emptyPage['items'][0]['beforeExists'] == false,
       'Empty-file creation is distinct from an absent file',
+      checks,
+    );
+    chat.newChat();
+    final commandFile = File(path.join(workspace.path, 'command-proof.txt'));
+    Future<void> proposeCommand([String prompt = 'tool-command']) async {
+      chat.draft = prompt;
+      await chat.send();
+      await waitUntil(
+        () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+      );
+    }
+
+    await proposeCommand();
+    check(
+      chat.toolApproval?['name'] == 'run_command' &&
+          chat.toolApproval?['command']['invocation']['program'] == 'node' &&
+          !await commandFile.exists(),
+      'Command approval shows a resolved executable and literal arguments before execution',
+      checks,
+    );
+    await screenshot(capture, output, 'command-approval-dark');
+    await chat.decideTool(false);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      !await commandFile.exists() &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'denied',
+      'Denied commands never execute',
+      checks,
+    );
+    await proposeCommand();
+    await chat.stop();
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      !await commandFile.exists() && chat.messages.length == 2,
+      'Stop at command approval neither executes nor saves a partial turn',
+      checks,
+    );
+    await proposeCommand();
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    final commandSession = chat.session!;
+    chat.newChat();
+    await chat.select(commandSession);
+    final commandRecord = chat.messages.last['metadata']['agent']['tools'][0];
+    final commandResult = jsonDecode(commandRecord['content'] as String);
+    check(
+      await commandFile.readAsString() == 'validated 世界' &&
+          commandResult['exitCode'] == 7 &&
+          commandResult['stdout'] == 'Checked 世界' &&
+          commandResult['stderr'] == 'diagnostic' &&
+          commandRecord['command']['program'] == 'node' &&
+          !commandRecord['command'].containsKey('executable'),
+      'Run once preserves Unicode output, stderr, nonzero exit and arguments on reload without persisting executable paths',
+      checks,
+    );
+    final commandJournal = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': commandSession,
+    });
+    check(
+      commandJournal['items'].length == emptyPage['items'].length,
+      'Command file effects remain separate from the reviewed file-change journal',
+      checks,
+    );
+    await proposeCommand('tool-command-output');
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    final shortened = jsonDecode(
+      chat.messages.last['metadata']['agent']['tools'][0]['content'] as String,
+    );
+    check(
+      shortened['reason'] == 'outputLimit' && shortened['truncated'] == true,
+      'Command output limit stops execution and labels shortened output',
+      checks,
+    );
+    await proposeCommand('tool-command-slow');
+    await chat.decideTool(true);
+    final startedFile = File(path.join(workspace.path, 'command-started.txt'));
+    await waitUntil(
+      () => startedFile.existsSync() || (!chat.busy && !chat.changing),
+    );
+    await chat.stop();
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      await startedFile.exists() &&
+          !await File(path.join(workspace.path, 'command-late.txt')).exists() &&
+          chat.draft == 'tool-command-slow' &&
+          chat.messages.length == 6,
+      'Stop during command execution restores the draft without saving a partial turn while retaining prior file effects',
       checks,
     );
     chat.newChat();

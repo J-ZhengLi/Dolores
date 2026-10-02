@@ -123,6 +123,7 @@ impl ToolPlugin for Read {
             target: "readme".into(),
             query: None,
             diff: None,
+            command: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
@@ -133,6 +134,82 @@ impl ToolPlugin for Read {
 struct Approval {
     allow: bool,
     count: AtomicUsize,
+}
+
+struct CommandMock;
+#[async_trait]
+impl ToolPlugin for CommandMock {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "run_command".into(),
+            description: "command".into(),
+            parameters: json!({}),
+        }
+    }
+    fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+        let invocation: CommandSpec = serde_json::from_str(&call.arguments).unwrap();
+        Ok(ToolRequest {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            target: invocation.program.clone(),
+            query: None,
+            diff: None,
+            command: Some(CommandPreview {
+                invocation,
+                executable: "/runtime/node".into(),
+            }),
+        })
+    }
+    async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+        panic!("Denied commands cannot execute")
+    }
+}
+#[tokio::test]
+async fn command_denial_binds_exact_arguments_and_public_records_omit_executable() {
+    let provider = Scripted {
+        calls: Mutex::new(
+            [
+                ("one", "--version"),
+                ("two", "--version"),
+                ("three", "--help"),
+            ]
+            .iter()
+            .map(|(id, arg)| ToolCall {
+                id: (*id).into(),
+                name: "run_command".into(),
+                arguments: json!({"program":"node","args":[arg]}).to_string(),
+            })
+            .collect(),
+        ),
+        loop_forever: false,
+    };
+    let plugins: Vec<Arc<dyn ToolPlugin>> = vec![Arc::new(CommandMock)];
+    let approval = Approval {
+        allow: false,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &plugins,
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(approval.count.load(Ordering::SeqCst), 2);
+    assert!(reply.summary.tools.iter().all(|r| r.status == "denied"));
+    assert_eq!(
+        reply.summary.tools[2].command.as_ref().unwrap().args,
+        vec!["--help"]
+    );
+    assert!(!serde_json::to_string(&reply.summary)
+        .unwrap()
+        .contains("/runtime/node"));
+    let legacy:ToolRecord=serde_json::from_value(json!({"callId":"legacy","name":"read_text_file","target":"note","status":"read","content":"text"})).unwrap();
+    assert!(legacy.command.is_none());
 }
 
 struct DiscoveryMock {
@@ -155,6 +232,7 @@ impl ToolPlugin for DiscoveryMock {
             target: ".".into(),
             query: args["query"].as_str().map(str::to_owned),
             diff: None,
+            command: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
