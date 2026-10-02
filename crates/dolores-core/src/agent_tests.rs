@@ -122,6 +122,7 @@ impl ToolPlugin for Read {
             name: call.name.clone(),
             target: "readme".into(),
             query: None,
+            diff: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
@@ -153,6 +154,7 @@ impl ToolPlugin for DiscoveryMock {
             name: call.name.clone(),
             target: ".".into(),
             query: args["query"].as_str().map(str::to_owned),
+            diff: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {

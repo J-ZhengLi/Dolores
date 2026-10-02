@@ -1,5 +1,7 @@
 # Dolores architecture
 
+Brick 3.5 adds a compiled single-file edit plugin to the selected shell's existing folder registry. Bounded local plans bind the snapshot/diff to one approval, then stage and atomically replace through the held parent directory capability. Changed-byte/permission checks are optimistic. File effects are independent of conversation persistence; this brick has no rollback or durable failed-run journal. It reuses the existing blocking pool and introduces no dependency or migration. See [design](design/approved-edits.md).
+
 Status: Flutter selected by the user on 2026-10-01 after the working visual/resource comparison. Iced and Tauri remain available as alternatives. Platform, accessibility and low-end release acceptance remain open.
 
 Flutter 3.47.5 widgets call a bundled Rust library through a small C ABI on a worker isolate; no sidecar/server is added. Rust networking remains asynchronous and bounded. Brick 2.1 adds remembered connections through a separate OS credential plugin, restart restoration and retry/forget controls. See [the bridge contract](flutter/flutter-api.md) and [build instructions](../apps/dolores_flutter/README.md).
@@ -18,7 +20,7 @@ Brick 3.4 adds an optional streaming-tool provider method with a legacy default.
 | Persistence | SQLite via a storage plugin | Transactional local history, no database service; synchronous small operations run away from the UI thread. |
 | Credentials | OS vault via a credentials plugin | Explicit native backends; no plaintext fallback. Nonsecret references are transactional in SQLite, with best-effort cross-store cleanup. |
 | Models | OpenAI-compatible provider plugin | Local or hosted endpoints through one adapter; compatibility is tested against the chat-completions subset, not assumed for every vendor. |
-| Folder tools | Compiled read-only plugin, user-selected directory capability and per-read approval | Opt-in launch-only authority, bounded UTF-8 reads, explicit result records; native plugin code remains trusted. |
+| Folder tools | Compiled folder plugins, saved working-directory capability and per-operation approval | Bounded reads/listing/search and reviewed exact edits, explicit results/diffs; native plugin code remains trusted. |
 | Folder discovery | Approved shallow listing and bounded literal text search | Shared directory capability, separate query/scope decisions and partial results; no index or background scanning. |
 | Extensions | Typed Rust interfaces and explicit built-in registration | Start with replaceable provider/storage plugins. External executable/WASM plugins require a later protocol and permission design. |
 | Learning | Reviewed memories and skills, then outcome evaluation | Learn reusable behavior without silently rewriting instructions or running generated code. Not implemented in brick 1. |

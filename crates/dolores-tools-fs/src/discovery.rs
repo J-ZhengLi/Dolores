@@ -87,6 +87,7 @@ impl Discover {
     fn execute(&self, request: &ToolRequest, cancel: &CancellationToken) -> Result<String, String> {
         checkpoint(cancel)?;
         if request.name != self.name()
+            || request.diff.is_some()
             || self.resolve_scope(&request.target)? != request.target
             || (self.search && !request.query.as_deref().is_some_and(valid_query))
             || (!self.search && request.query.is_some())
@@ -381,6 +382,7 @@ impl ToolPlugin for Discover {
             name: call.name.clone(),
             target: self.resolve_scope(&args.path)?,
             query: args.query,
+            diff: None,
         })
     }
     async fn invoke(

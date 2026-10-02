@@ -11,6 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 class ToolBridge implements ChatBridge {
   bool streamText = false;
+  bool editConflict = false;
+  static const editDiff =
+      '--- before\n+++ after\n@@ -1,1 +1,1 @@\n-File text 世界\n+# New text <script>literal</script>\n';
   String tool = 'read_text_file';
   String query = '世界.*';
   final commands = <Map<String, dynamic>>[];
@@ -49,8 +52,11 @@ class ToolBridge implements ChatBridge {
             'request': {
               'callId': 'file-one',
               'name': tool,
-              'target': tool == 'read_text_file' ? 'readme.txt' : '.',
+              'target': tool == 'read_text_file' || tool == 'edit_text_file'
+                  ? 'readme.txt'
+                  : '.',
               if (tool == 'search_text') 'query': query,
+              if (tool == 'edit_text_file') 'diff': editDiff,
             },
           },
         ]);
@@ -64,13 +70,28 @@ class ToolBridge implements ChatBridge {
         final record = {
           'callId': 'file-one',
           'name': tool,
-          'target': tool == 'read_text_file' ? 'readme.txt' : '.',
+          'target': tool == 'read_text_file' || tool == 'edit_text_file'
+              ? 'readme.txt'
+              : '.',
           if (tool == 'search_text') 'query': query,
+          if (tool == 'edit_text_file') 'diff': editDiff,
           'status': allowed
-              ? (tool == 'read_text_file' ? 'read' : 'completed')
+              ? (tool == 'read_text_file'
+                    ? 'read'
+                    : tool == 'edit_text_file'
+                    ? (editConflict ? 'error' : 'edited')
+                    : 'completed')
               : 'denied',
           'content': !allowed
               ? 'User denied this read'
+              : tool == 'edit_text_file'
+              ? (editConflict
+                    ? 'File changed since preview. No edit was applied.'
+                    : jsonEncode({
+                        'applied': true,
+                        'bytesBefore': 15,
+                        'bytesAfter': 36,
+                      }))
               : tool == 'read_text_file'
               ? 'File text 世界'
               : jsonEncode(
@@ -164,7 +185,103 @@ void compact(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+void _editTests() {
+  testWidgets(
+    'Edit approval shows a literal colored diff in both compact themes and applies only on explicit decision',
+    (tester) async {
+      compact(tester);
+      for (final dark in [false, true]) {
+        final bridge = ToolBridge()..tool = 'edit_text_file';
+        final chat = ready(bridge);
+        await tester.pumpWidget(
+          DoloresApp(
+            chat: chat,
+            themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          ),
+        );
+        await chat.send();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        expect(find.text('Apply this file change?'), findsOneWidget);
+        expect(
+          find.byKey(const Key('edit-diff-approval-file-one')),
+          findsOneWidget,
+        );
+        expect(find.text('Apply once'), findsOneWidget);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'approveTool'),
+          isEmpty,
+        );
+        final rich = tester
+            .widgetList<SelectableText>(find.byType(SelectableText))
+            .where((w) => w.textSpan?.toPlainText() == ToolBridge.editDiff)
+            .single;
+        expect(
+          rich.textSpan!.children!.whereType<TextSpan>().any(
+            (s) => s.text!.contains('+# New text <script>literal</script>'),
+          ),
+          isTrue,
+        );
+        await tester.tap(find.byKey(const Key('allow-tool')));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        final record = chat.messages.last['metadata']['agent']['tools'].single;
+        expect(record['status'], 'edited');
+        expect(record['diff'], ToolBridge.editDiff);
+        await tester.ensureVisible(find.text('readme.txt'));
+        await tester.tap(find.text('readme.txt'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Applied one file change · 15 → 36 bytes'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('edit-diff-record-file-one')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      }
+    },
+  );
+  testWidgets(
+    'Changed-file results retain the reviewed diff and Stop at an edit approval never grants permission',
+    (tester) async {
+      final bridge = ToolBridge()
+        ..tool = 'edit_text_file'
+        ..editConflict = true;
+      final chat = ready(bridge);
+      await chat.send();
+      await tester.pump(const Duration(milliseconds: 100));
+      await chat.decideTool(true);
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        chat.messages.last['metadata']['agent']['tools'].single['content'],
+        'File changed since preview. No edit was applied.',
+      );
+      chat.draft = 'Another change';
+      await chat.send();
+      await tester.pump(const Duration(milliseconds: 100));
+      final before = bridge.commands
+          .where((c) => c['command'] == 'approveTool')
+          .length;
+      await chat.stop();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        bridge.commands.where((c) => c['command'] == 'approveTool').length,
+        before,
+      );
+      expect(chat.messages.length, 2);
+      expect(chat.draft, 'Another change');
+      expect(chat.toolApproval, isNull);
+      chat.dispose();
+    },
+  );
+}
+
 void main() {
+  _editTests();
   testWidgets(
     'Streamed public text stays visible at approval and saved progress stays separate from the final answer',
     (tester) async {

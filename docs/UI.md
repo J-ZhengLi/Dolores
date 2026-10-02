@@ -1,5 +1,7 @@
 # Universal UI style
 
+File edits use the shared approval card with Apply this file change?, a selectable literal unified diff and Apply once/Deny below a bounded 270-pixel review area. The diff independently scrolls in both directions within 180 pixels. Removed/added lines reuse error-text/syntax-string tokens; no new palette or font is introduced. The card explains changed-file refusal and that applied edits remain if the reply stops/fails. Saved chat/trajectory cards show File edit · edited, readable byte counts and the same diff. Controls remain disabled during a pending decision or Stop.
+
 Working chats stream current public model text before/after approval. Earlier commentary uses an expandable Agent progress row above the final reply, with bounded selectable text in chat/trajectory and a Not saved label while transient. Text resets between calls; commentary never replaces or duplicates the final answer. Existing palette, typography, approval controls and composer footer order remain.
 
 This file is the UI design contract for new Dolores features. Keep one contract here rather than a competing THEME.md. Flutter's semantic colors and shared layout dimensions live in `apps/dolores_flutter/lib/theme.dart`; the shared Material theme is defined there too. Reuse existing tokens before adding a new one. A deliberate restyle updates this contract and the shared implementation together, with light/dark and compact captures reviewed. Routine feature work does not introduce a new palette, font family, layout scale or decorative effect.

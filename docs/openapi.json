@@ -186,7 +186,7 @@
     },
     "folderTools": {
       "default": "enabled automatically for project and temporary chats, disabled for explicit side and legacy chats; working folder persists per session",
-      "approval": "Each valid operation requires a run-bound single-use Allow once/Deny before listing, scanning or reading. Denials match tool, resolved scope and exact query within a run. Search approval allows bounded scanning/snippets but never a subsequent full read. Stop/timeout/shutdown clear pending approvals.",
+      "approval": "Each valid operation requires a run-bound single-use decision. Allow once/Deny gates listing, scanning and reading; Apply once/Deny gates the reviewed local edit diff. Denials match name,target,query,diff within a run. Local edit snapshot preparation does not write or share the snapshot with the provider. Stop/timeout/shutdown clear pending approvals.",
       "limits": {
         "modelCalls": 4,
         "toolCalls": 4,
@@ -199,15 +199,18 @@
         "streamWireBytes": 2097152,
         "streamFrameBytes": 262144,
         "streamDataFrames": 4096,
-        "incompleteFrameBufferBytes": 1048576
+        "incompleteFrameBufferBytes": 1048576,
+        "editFileBytes": 16384,
+        "editDiffBytes": 16384
       },
       "timeout": "min(configured timeoutSeconds,300) for the whole model/tool/approval phase, excluding initial preparation and final persistence; OS filesystem calls cannot be forcibly interrupted",
       "paths": "Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret.",
-      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient. Public intermediate commentary is retained separately as optional agent.steps, shared with the provider alongside its calls and included in complete exports only on success.",
+      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient. Public intermediate commentary is retained separately as optional agent.steps, shared with the provider alongside its calls and included in complete exports only on success. Optional tool.diff persists/exports the local reviewed edit on success; it is not a filesystem transaction or rollback record.",
       "names": [
         "read_text_file",
         "list_folder",
-        "search_text"
+        "search_text",
+        "edit_text_file"
       ],
       "listing": {
         "arguments": "{path:string}; required; additional fields rejected; . for root or direct relative folder",
@@ -232,8 +235,15 @@
         },
         "result": "JSON string {matches:[{path,line,text}],inspectedEntries,attemptedFiles,scannedFiles,skippedFiles,skippedEntries,bytesRead,truncated}; root-relative paths, one-based lines, partial coverage when limits reached; skipped/excluded files may contain omitted matches"
       },
-      "discoveryExclusions": "Skip symlink/junction entries and reject alias scopes; common credential/VCS path filter plus node_modules,target,build,dist,.dart_tool,.venv,venv,__pycache__; regular UTF-8 text without NUL only; no background index. Filename filtering cannot detect every secret.",
-      "streaming": "Working chats stream public modelText by call number; 128-KiB public text budget across all calls. Indexed function arguments assemble within fixed limits and require a matching complete finish before local approval. One explicit pre-stream unsupported-usage retry only; no tool-free/nonstreaming fallback. Legacy provider plugins can delegate streaming to their completed tool_turn."
+      "discoveryExclusions": "Skip symlink/junction entries and reject alias scopes; common credential/VCS path filter plus node_modules,target,build,dist,.dart_tool,.venv,venv,__pycache__; regular UTF-8 text without NUL only; no background index. Filename filtering cannot detect every secret. Internal .dolores-edit-* staged names are excluded from all folder tools.",
+      "streaming": "Working chats stream public modelText by call number; 128-KiB public text budget across all calls. Indexed function arguments assemble within fixed limits and require a matching complete finish before local approval. One explicit pre-stream unsupported-usage retry only; no tool-free/nonstreaming fallback. Legacy provider plugins can delegate streaming to their completed tool_turn.",
+      "editing": {
+        "arguments": "{path:string,old_text:string,new_text:string}; all required, no extra fields. One exact nonempty unique match, including overlapping-match refusal, replaced in an existing writable UTF-8 file. Direct relative paths only; no aliases/credential/VCS paths, NUL/binary, creation/deletion or shell.",
+        "preview": "Local unified diff with real line numbers, three context lines and missing-newline markers; bound to one call ID and exact preview. At most four prepared plans per run. Optional ToolRequest.diff and ToolRecord.diff each at most 16384 UTF-8 bytes.",
+        "publication": "Recheck bytes and ordinary permissions, exclusive-create staged file beside target, preserve ordinary permissions, flush, recheck and observe Stop before atomic replacement. Cleanup only owned staged file on failure. Optimistic checks, not a cross-program compare-and-swap guarantee; no universal ACL/xattr preservation claim.",
+        "result": "status edited; content JSON {applied:true,bytesBefore,bytesAfter}. Conflict status error with fixed File changed since preview. No edit was applied. message.",
+        "effects": "Applied file changes remain after later Stop/timeout/model/save failure. History metadata is saved only with a completed pair. No durable failed-run edit journal or rollback in this brick."
+      }
     },
     "workingSessions": {
       "schemaVersion": 6,
@@ -670,7 +680,8 @@
             "enum": [
               "read_text_file",
               "list_folder",
-              "search_text"
+              "search_text",
+              "edit_text_file"
             ]
           },
           "target": {
@@ -680,6 +691,10 @@
           "query": {
             "type": "string",
             "description": "Search only; nonblank case-sensitive literal single-line text, at most 256 UTF-8 bytes; no controls/regex. Omitted for legacy/read/listing records."
+          },
+          "diff": {
+            "type": "string",
+            "description": "Optional edit-only literal unified diff; at most 16384 UTF-8 bytes; old records omit it."
           }
         }
       },
@@ -709,7 +724,8 @@
               "completed",
               "denied",
               "blocked",
-              "error"
+              "error",
+              "edited"
             ]
           },
           "content": {
@@ -719,6 +735,10 @@
           "query": {
             "type": "string",
             "description": "Search only; nonblank case-sensitive literal single-line text, at most 256 UTF-8 bytes; no controls/regex. Omitted for legacy/read/listing records."
+          },
+          "diff": {
+            "type": "string",
+            "description": "Optional edit-only literal unified diff; at most 16384 UTF-8 bytes; old records omit it."
           }
         }
       },

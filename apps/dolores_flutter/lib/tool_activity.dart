@@ -5,18 +5,25 @@ import 'package:path/path.dart' as path;
 
 import 'chat.dart';
 import 'theme.dart';
+import 'edit_diff.dart';
 
 String toolLabel(dynamic name) => switch (name) {
   'list_folder' => 'Folder listing',
   'search_text' => 'Text search',
+  'edit_text_file' => 'File edit',
   _ => 'File read',
 };
 
 String toolResultText(dynamic record) {
   final content = '${record['content']}';
-  if (record['status'] != 'completed') return content;
+  if (record['status'] != 'completed' && record['status'] != 'edited') {
+    return content;
+  }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'edit_text_file' && result['applied'] == true) {
+      return 'Applied one file change · ${result['bytesBefore']} → ${result['bytesAfter']} bytes';
+    }
     final partial = result['truncated'] == true ? ' · Partial results' : '';
     if (record['name'] == 'list_folder') {
       final entries = result['entries'] as List;
@@ -45,9 +52,11 @@ class ToolApprovalCard extends StatelessWidget {
     if (request == null) return const SizedBox.shrink();
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     final name = request['name'];
+    final editing = name == 'edit_text_file';
     final title = switch (name) {
       'list_folder' => 'Allow a folder listing?',
       'search_text' => 'Allow a text search?',
+      'edit_text_file' => 'Apply this file change?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
@@ -55,6 +64,7 @@ class ToolApprovalCard extends StatelessWidget {
         'Share up to 100 file and folder names with ${chat.model}? This allows one listing. Results are kept with a completed reply.',
       'search_text' =>
         'Scan up to 64 text files and 256 KiB under this folder? Matching snippets are shared with ${chat.model} and kept with a completed reply. Reading a whole file needs another decision.',
+      'edit_text_file' => 'Review the diff before applying this one change. A changed file needs a fresh preview. Applied edits remain if the reply stops or fails; this diff is kept with a completed reply.',
       _ =>
         'Share this file’s text with ${chat.model}? This allows one read. File contents are also kept with a completed reply.',
     };
@@ -73,7 +83,7 @@ class ToolApprovalCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 180),
+            constraints: BoxConstraints(maxHeight: editing ? 270 : 180),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,6 +123,13 @@ class ToolApprovalCard extends StatelessWidget {
                     disclosure,
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
+                  if (editing && request['diff'] is String) ...[
+                    const SizedBox(height: 8),
+                    EditDiff(
+                      source: request['diff'] as String,
+                      identity: 'approval-${request['callId']}',
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -133,7 +150,11 @@ class ToolApprovalCard extends StatelessWidget {
                     ? null
                     : () => chat.decideTool(true),
                 child: Text(
-                  chat.decidingTool ? 'Sending decision…' : 'Allow once',
+                  chat.decidingTool
+                      ? 'Sending decision…'
+                      : editing
+                      ? 'Apply once'
+                      : 'Allow once',
                 ),
               ),
             ],
@@ -203,6 +224,13 @@ class ToolRecords extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (record['diff'] is String) ...[
+                  const SizedBox(height: 8),
+                  EditDiff(
+                    source: record['diff'] as String,
+                    identity: 'record-${record['callId']}',
+                  ),
+                ],
               ],
             ),
           ),

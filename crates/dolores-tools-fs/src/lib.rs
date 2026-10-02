@@ -6,6 +6,7 @@ use serde_json::json;
 use std::{io::Read, path::Path, sync::Arc};
 use tokio_util::sync::CancellationToken;
 mod discovery;
+mod edit;
 
 /// Explicit built-in registration; all tools share the same directory handle.
 pub fn folder_tools(root: &Path) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
@@ -13,7 +14,8 @@ pub fn folder_tools(root: &Path) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
     Ok(vec![
         Arc::new(read.clone()),
         Arc::new(discovery::Discover::new(read.clone(), false)),
-        Arc::new(discovery::Discover::new(read, true)),
+        Arc::new(discovery::Discover::new(read.clone(), true)),
+        Arc::new(edit::EditTextFile::new(read)),
     ])
 }
 
@@ -42,6 +44,7 @@ fn valid_path(path: &str) -> bool {
                 )
                 && name != ".env"
                 && !name.starts_with(".env.")
+                && !name.starts_with(".dolores-edit-")
         })
 }
 impl ReadTextFile {
@@ -104,6 +107,7 @@ impl ToolPlugin for ReadTextFile {
             name: call.name.clone(),
             target,
             query: None,
+            diff: None,
         })
     }
     async fn invoke(
@@ -111,7 +115,7 @@ impl ToolPlugin for ReadTextFile {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        if request.name != "read_text_file" || request.query.is_some() {
+        if request.name != "read_text_file" || request.query.is_some() || request.diff.is_some() {
             return Err("Approved file path changed.".into());
         }
         let directory = self.directory.clone();

@@ -98,7 +98,7 @@ Future<void> _run(
     chat.newChat(kind: 'side');
     chat.draft = 'hello';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 2 &&
           chat.messages.last['content'].contains('你好！'),
@@ -120,7 +120,7 @@ Future<void> _run(
     await chat.send();
     await waitUntil(() => chat.partial.isNotEmpty);
     await chat.stop();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 2 &&
           chat.draft == 'slow' &&
@@ -130,7 +130,7 @@ Future<void> _run(
     );
     chat.draft = 'fail';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 2 &&
           chat.draft == 'fail' &&
@@ -140,7 +140,7 @@ Future<void> _run(
     );
     chat.draft = 'truncated';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 2 &&
           chat.draft == 'truncated' &&
@@ -150,7 +150,7 @@ Future<void> _run(
     );
     chat.draft = 'slow';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 4 &&
           chat.messages.last['content'].endsWith('check cancellation.'),
@@ -174,7 +174,7 @@ Future<void> _run(
       checks,
     );
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null && chat.messages.length == 6,
       'The selected chat model is used in the real provider request',
@@ -185,7 +185,7 @@ Future<void> _run(
     await chat.send();
     await waitUntil(() => chat.partial.contains('```rust'));
     await screenshot(capture, output, 'partial-code');
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null && chat.messages.last['content'].endsWith('RICH_END'),
       'Markdown and code stream through the real provider without losing source',
@@ -292,7 +292,7 @@ Future<void> _run(
     await screenshot(capture, output, 'composer-selected-light');
     heading!.controller!.selection = const TextSelection.collapsed(offset: 0);
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.length == 4 &&
@@ -493,7 +493,7 @@ Future<void> _run(
     chat.newChat(kind: 'side');
     chat.draft = 'no-usage';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null && chat.messages.last['metadata']['usage'] == null,
       'A provider omitting usage still saves the complete turn with unavailable accounting',
@@ -519,7 +519,7 @@ Future<void> _run(
     );
     chat.draft = 'slow';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 2 &&
           chat.draft == 'slow' &&
@@ -585,7 +585,7 @@ Future<void> _run(
       checks,
     );
     retryAction!.onPressed!();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.length == 4 &&
@@ -610,13 +610,17 @@ Future<void> _run(
     chat.newChat();
     chat.draft = 'tool-read';
     await chat.send();
-    await waitUntil(() => chat.partial.isNotEmpty || !chat.busy);
+    await waitUntil(
+      () => chat.partial.isNotEmpty || (!chat.busy && !chat.changing),
+    );
     check(
       chat.busy && chat.toolApproval == null && chat.toolRecords.isEmpty,
       'Agent public text streams before tool arguments finish without granting access',
       checks,
     );
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     check(
       chat.busy &&
           chat.toolApproval?['target'] == 'readme.txt' &&
@@ -642,7 +646,9 @@ Future<void> _run(
     );
     allowTool!.onPressed!();
     await waitUntil(
-      () => chat.modelStep == 2 && chat.partial.isNotEmpty || !chat.busy,
+      () =>
+          chat.modelStep == 2 && chat.partial.isNotEmpty ||
+          (!chat.busy && !chat.changing),
     );
     check(
       chat.busy &&
@@ -651,7 +657,7 @@ Future<void> _run(
       'Final agent text streams in its own step while earlier commentary stays separate',
       checks,
     );
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.length == 2 &&
@@ -683,7 +689,7 @@ Future<void> _run(
     );
     chat.draft = 'tool-stream-incomplete';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error != null &&
           chat.toolApproval == null &&
@@ -695,9 +701,11 @@ Future<void> _run(
     );
     chat.draft = 'tool-stream-slow';
     await chat.send();
-    await waitUntil(() => chat.partial.isNotEmpty || !chat.busy);
+    await waitUntil(
+      () => chat.partial.isNotEmpty || (!chat.busy && !chat.changing),
+    );
     await chat.stop();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.toolApproval == null &&
           chat.toolRecords.isEmpty &&
@@ -707,11 +715,99 @@ Future<void> _run(
       'Stop during streamed arguments restores the draft and preserves complete history',
       checks,
     );
+    // Keep edit checks in a separate chat so existing read-history assertions
+    // retain their two-turn fixture.
+    final readSession = chat.session!;
+    final editFile = File(path.join(workspace.path, 'readme.txt'));
+    final originalText = await editFile.readAsString();
+    chat.newChat();
+    chat.draft = 'tool-edit';
+    await chat.send();
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
+    check(
+      chat.toolApproval?['name'] == 'edit_text_file' &&
+          (chat.toolApproval?['diff'] as String?)?.contains(
+                '-Hello from an approved workspace file.',
+              ) ==
+              true &&
+          await editFile.readAsString() == originalText,
+      'File edit previews the exact local diff and leaves the file unchanged before approval',
+      checks,
+    );
+    await screenshot(capture, output, 'edit-approval-dark');
+    await chat.decideTool(false);
+    await waitUntil(() => (!chat.busy && !chat.changing));
+    check(
+      await editFile.readAsString() == originalText &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'denied',
+      'Deny a file edit keeps bytes untouched and retains the reviewed diff',
+      checks,
+    );
+    chat.draft = 'tool-edit';
+    await chat.send();
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
+    await editFile.writeAsString('External change while approval is pending.');
+    await chat.decideTool(true);
+    await waitUntil(() => (!chat.busy && !chat.changing));
+    check(
+      await editFile.readAsString() ==
+              'External change while approval is pending.' &&
+          chat.messages.last['metadata']['agent']['tools'][0]['content'] ==
+              'File changed since preview. No edit was applied.',
+      'A file changed during approval is not overwritten and gets an explicit conflict result',
+      checks,
+    );
+    await editFile.writeAsString(originalText);
+    chat.draft = 'tool-edit';
+    await chat.send();
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
+    await chat.stop();
+    await waitUntil(() => (!chat.busy && !chat.changing));
+    check(
+      await editFile.readAsString() == originalText &&
+          chat.messages.length == 4 &&
+          chat.draft == 'tool-edit',
+      'Stop at an edit approval never writes or saves a partial turn',
+      checks,
+    );
+    chat.draft = 'tool-edit';
+    await chat.send();
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
+    await chat.decideTool(true);
+    await waitUntil(() => (!chat.busy && !chat.changing));
+    final editedSession = chat.session!;
+    chat.newChat();
+    await chat.select(editedSession);
+    check(
+      await editFile.readAsString() == 'Updated with an approved edit. 世界.' &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'edited' &&
+          (chat.messages.last['metadata']['agent']['tools'][0]['diff']
+                  as String)
+              .contains('+Updated with an approved edit.'),
+      'An explicitly approved edit changes one file and reload restores its diff and result',
+      checks,
+    );
+    await screenshot(capture, output, 'edit-result-dark');
+    await editFile.writeAsString(originalText);
+    chat.newChat();
+    await chat.select(readSession);
     chat.draft = 'tool-deny';
     await chat.send();
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     await chat.decideTool(false);
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.length == 4 &&
@@ -723,9 +819,11 @@ Future<void> _run(
     );
     chat.draft = 'tool-stop';
     await chat.send();
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     await chat.stop();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 4 &&
           chat.draft == 'tool-stop' &&
@@ -736,7 +834,7 @@ Future<void> _run(
     chat.newChat();
     chat.draft = 'tool-escape';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
@@ -765,7 +863,9 @@ Future<void> _run(
     chat.newChat();
     chat.draft = 'tool-discovery';
     await chat.send();
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     check(
       chat.toolApproval?['name'] == 'list_folder' && chat.toolRecords.isEmpty,
       'Folder listing waits for approval before sharing names',
@@ -774,7 +874,9 @@ Future<void> _run(
     await screenshot(capture, output, 'listing-approval-dark');
     await chat.decideTool(true);
     await waitUntil(
-      () => chat.toolApproval?['name'] == 'search_text' || !chat.busy,
+      () =>
+          chat.toolApproval?['name'] == 'search_text' ||
+          (!chat.busy && !chat.changing),
     );
     check(
       chat.busy &&
@@ -787,7 +889,9 @@ Future<void> _run(
     await screenshot(capture, output, 'search-approval-dark');
     await chat.decideTool(true);
     await waitUntil(
-      () => chat.toolApproval?['name'] == 'read_text_file' || !chat.busy,
+      () =>
+          chat.toolApproval?['name'] == 'read_text_file' ||
+          (!chat.busy && !chat.changing),
     );
     check(
       chat.busy &&
@@ -797,7 +901,7 @@ Future<void> _run(
       checks,
     );
     await chat.decideTool(true);
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.length == 2 &&
@@ -821,13 +925,17 @@ Future<void> _run(
     );
     chat.draft = 'tool-search-deny';
     await chat.send();
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     await chat.decideTool(true);
     await waitUntil(
-      () => chat.toolApproval?['name'] == 'search_text' || !chat.busy,
+      () =>
+          chat.toolApproval?['name'] == 'search_text' ||
+          (!chat.busy && !chat.changing),
     );
     await chat.decideTool(false);
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.messages.length == 4 &&
@@ -839,13 +947,17 @@ Future<void> _run(
     );
     chat.draft = 'tool-search-stop';
     await chat.send();
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     await chat.decideTool(true);
     await waitUntil(
-      () => chat.toolApproval?['name'] == 'search_text' || !chat.busy,
+      () =>
+          chat.toolApproval?['name'] == 'search_text' ||
+          (!chat.busy && !chat.changing),
     );
     await chat.stop();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.messages.length == 4 &&
           chat.draft == 'tool-search-stop' &&
@@ -858,7 +970,9 @@ Future<void> _run(
     chat.newChat(kind: 'temporary');
     chat.draft = 'tool-list-deny';
     await chat.send();
-    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await waitUntil(
+      () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+    );
     final temporarySession = chat.session!;
     final temporaryRoot = chat.workspaceRoot!;
     check(
@@ -871,11 +985,11 @@ Future<void> _run(
     );
     await screenshot(capture, output, 'temporary-approval-dark');
     await chat.decideTool(false);
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     chat.newChat(kind: 'temporary');
     chat.draft = 'workspace-hello';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => (!chat.busy && !chat.changing));
     check(
       chat.error == null &&
           chat.workspaceRoot != temporaryRoot &&

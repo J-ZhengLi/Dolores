@@ -1,5 +1,11 @@
 # Flutter bridge contract
 
+## Reviewed file edits (brick 3.5)
+
+Working chats now advertise four tools, adding `edit_text_file {path,old_text,new_text}`. Preparation reads a bounded local snapshot for one exact unique replacement, producing `ToolRequest.diff`; Apply once must match the current run/call/preview. No write occurs on preparation, Deny or Stop before publication. Direct existing writable UTF-8 files only; file/diff limits are 16 KiB, arguments 4 KiB. Scope is the saved immutable folder. Bytes and ordinary permissions are rechecked before staged atomic replacement; a changed file returns a fixed conflict without overwriting. Checks are optimistic against concurrent external writers.
+
+`ToolRecord.diff` is optional and successful edits use `status:edited` with JSON `{applied:true,bytesBefore,bytesAfter}`. Chat/trajectory and full exports retain the local diff with successful history; old records/schema 6 remain valid. Denials include `(name,target,query,diff)`. Applied file changes remain even if later Stop/model/save fails; failed-run cards are transient, not a durable journal. No new command or approval field granting permission is added. See [design](../design/approved-edits.md). Historical three-tool/read-only descriptions below are superseded.
+
 ## Streaming agent progress (brick 3.4)
 
 Working chats use streamed function calls. `modelStep` starts a call, followed by `{type:modelText,id,number,text}` deltas for public text. Flutter replaces active text at the next step, retaining earlier commentary as transient progress. Events expose no partial arguments and cannot approve tools. Valid completed calls still produce `toolApproval` then `toolResult`. Final text arrives through `modelText` without duplicate `delta`; side chats retain `delta`. `done` follows complete-pair persistence. Run and step IDs exclude stale text.

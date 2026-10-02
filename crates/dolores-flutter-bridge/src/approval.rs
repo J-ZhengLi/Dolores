@@ -80,6 +80,7 @@ mod tests {
                     name: "read_text_file".into(),
                     target: "readme.txt".into(),
                     query: None,
+                    diff: None,
                 };
                 tokio::time::timeout(
                     std::time::Duration::from_millis(150),
