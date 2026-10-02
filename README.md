@@ -1,6 +1,6 @@
 # Dolores
 
-**Project skills:** add standard `.agents/skills/<name>/SKILL.md` files to a working folder, open Project skills, review the exact text, then Activate skill. Versioned snapshots are shared by chats in that folder, with Disable, reviewed rollback and Forget. File changes take effect only after review; tools retain separate approval. See [skill design](docs/design/project-skills.md).
+**Skills:** add standard `.agents/skills/<name>/SKILL.md` files to a working folder, or `~/.agents/skills/<name>/SKILL.md` for global skills. Open Skills, choose Project or Global, review the exact text, then Activate skill. Global snapshots apply to all chats, including side chats; an active project skill overrides a global skill with the same name. Both scopes support Disable, reviewed rollback and Forget. File changes take effect only after review; tools retain separate approval. See [skill design](docs/design/project-skills.md).
 
 History browsing keeps one conversation-list page and one message page in memory. Use Older/Newer to reach all saved chats and messages, or Latest to return to the newest messages. The conversation header exports complete Markdown or JSON to a new file through the native Save dialog. Drafts and scroll positions restore for the 20 most recently visited views during the current launch. [UI.md](docs/UI.md) is the shared visual contract, backed by Flutter's `lib/theme.dart`; system light/dark mode remains the default.
 

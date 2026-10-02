@@ -12,7 +12,10 @@ mod discovery;
 mod edit;
 mod instructions;
 mod skills;
-pub use skills::{project_skill_catalog, read_project_skill, SkillCatalog};
+pub use skills::{
+    global_skill_catalog, global_skills_target, project_skill_catalog, read_global_skill,
+    read_project_skill, SkillCatalog,
+};
 #[cfg(test)]
 mod journal_tests;
 mod remove_created;

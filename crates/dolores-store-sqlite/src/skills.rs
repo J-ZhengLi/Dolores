@@ -1,9 +1,12 @@
 use super::{now, storage_error, SqliteStore};
 use dolores_core::{
-    valid_skill_name, ProjectSkill, SkillDocument, SkillVersion, MAX_ACTIVE_SKILLS,
+    valid_skill_name, ProjectSkill, SkillDocument, SkillScope, SkillVersion, MAX_ACTIVE_SKILLS,
     MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS,
 };
 use rusqlite::{params, Connection};
+
+// Disjoint from all absolute project roots. Global activation is local to this app's data directory.
+pub(super) const GLOBAL_ROOT: &str = "@global-skills";
 
 fn read(connection: &Connection, root: &str) -> Result<Vec<ProjectSkill>, String> {
     let mut query = connection
@@ -18,26 +21,33 @@ fn read(connection: &Connection, root: &str) -> Result<Vec<ProjectSkill>, String
     for value in values {
         let (name, data) = value.map_err(storage_error)?;
         let skill: ProjectSkill = serde_json::from_str(&data)
-            .map_err(|_| "Saved project skills could not be read. Review Skills.")?;
+            .map_err(|_| "Saved skills could not be read. Review Skills.")?;
         skill.validate()?;
-        if name != skill.name {
-            return Err("Saved project skills have mismatched identities.".into());
+        if name != skill.name
+            || skill.scope
+                != if root == GLOBAL_ROOT {
+                    SkillScope::Global
+                } else {
+                    SkillScope::Project
+                }
+        {
+            return Err("Saved skills have mismatched identities.".into());
         }
         result.push(skill);
     }
     if result.len() > MAX_SAVED_SKILLS {
-        return Err("Saved project skills exceed the folder limit.".into());
+        return Err("Saved skills exceed the limit for their scope.".into());
     }
     Ok(result)
 }
 fn validate_root(root: &str) -> Result<(), String> {
-    if !std::path::Path::new(root).is_absolute() {
+    if root != GLOBAL_ROOT && !std::path::Path::new(root).is_absolute() {
         return Err("Project skills need an absolute working folder.".into());
     }
     Ok(())
 }
 fn changed() -> String {
-    "Project skill changed after review. Refresh Skills and review it again.".into()
+    "Skill changed after review. Refresh Skills and review it again.".into()
 }
 impl SqliteStore {
     pub(super) fn read_skills(&self, root: &str) -> Result<Vec<ProjectSkill>, String> {
@@ -75,8 +85,7 @@ impl SqliteStore {
         }
         if previous.is_none() && skills.len() >= MAX_SAVED_SKILLS {
             return Err(
-                "Project skills allow 12 saved entries per folder. Forget an unused entry first."
-                    .into(),
+                "Skills allow 12 saved entries per scope. Forget an unused entry first.".into(),
             );
         }
         let others: Vec<_> = skills
@@ -91,7 +100,7 @@ impl SqliteStore {
                 + document.text.len()
                 > MAX_SKILL_BYTES
         {
-            return Err("Project skills allow three active entries and 8 KiB combined. Disable or shorten a skill first.".into());
+            return Err("Skills allow three active entries and 8 KiB combined per scope. Disable or shorten a skill first.".into());
         }
         let mut versions = previous.map(|s| s.versions.clone()).unwrap_or_default();
         let version = versions
@@ -108,6 +117,11 @@ impl SqliteStore {
             versions.remove(0);
         }
         let value = ProjectSkill {
+            scope: if root == GLOBAL_ROOT {
+                SkillScope::Global
+            } else {
+                SkillScope::Project
+            },
             name: document.name.clone(),
             revision: previous
                 .map_or(Some(1), |s| s.revision.checked_add(1))
@@ -146,7 +160,7 @@ impl SqliteStore {
                 .map_err(storage_error)?;
         } else {
             if !value.enabled {
-                return Err("Project skill is already disabled. Refresh Skills.".into());
+                return Err("Skill is already disabled. Refresh Skills.".into());
             }
             value.enabled = false;
             value.revision = value.revision.checked_add(1).ok_or_else(changed)?;
@@ -168,6 +182,51 @@ impl SqliteStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn global_records_are_independent_persistent_and_use_the_same_version_guards() {
+        use dolores_core::SessionStore;
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("state.db");
+        let root = temp.path().to_str().unwrap();
+        let doc = SkillDocument {
+            name: "review".into(),
+            description: "Review".into(),
+            text: "Global text".into(),
+        };
+        {
+            let store = SqliteStore::open(&file).unwrap();
+            let global = store.activate_global_skill(&doc, None, None).unwrap();
+            assert_eq!(global.scope, SkillScope::Global);
+            assert!(store.activate_global_skill(&doc, None, None).is_err());
+            let project = store
+                .activate_project_skill(root, &doc, None, None)
+                .unwrap();
+            assert_eq!(project.scope, SkillScope::Project);
+            assert!(store.project_skills(GLOBAL_ROOT).is_err());
+            assert!(store
+                .activate_project_skill(GLOBAL_ROOT, &doc, Some(1), None)
+                .is_err());
+            assert!(store
+                .disable_project_skill(GLOBAL_ROOT, "review", 1)
+                .is_err());
+            assert!(store
+                .forget_project_skill(GLOBAL_ROOT, "review", 1)
+                .is_err());
+            store.disable_global_skill("review", 1).unwrap();
+            assert!(store.project_skills(root).unwrap()[0].enabled);
+            assert!(store.forget_global_skill("review", 1).is_err());
+        }
+        let store = SqliteStore::open(&file).unwrap();
+        let saved = store.global_skills().unwrap().remove(0);
+        assert_eq!(saved.revision, 2);
+        assert!(!saved.enabled);
+        let restored = store.activate_global_skill(&doc, Some(2), Some(1)).unwrap();
+        assert_eq!(restored.current().rollback_from, Some(1));
+        assert_eq!(restored.current().version, 2);
+        store.forget_global_skill("review", 3).unwrap();
+        assert!(store.global_skills().unwrap().is_empty());
+        assert_eq!(store.project_skills(root).unwrap().len(), 1);
+    }
     use dolores_core::SessionStore;
     fn doc(name: &str, text: &str) -> SkillDocument {
         SkillDocument {

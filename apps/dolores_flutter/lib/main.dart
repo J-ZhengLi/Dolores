@@ -671,12 +671,10 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
-                  if (chat.session != null &&
-                      chat.workspaceRoot != null &&
-                      constraints.maxWidth >= 480)
+                  if (chat.session != null && constraints.maxWidth >= 480)
                     IconButton(
                       key: const Key('project-skills'),
-                      tooltip: 'Project skills',
+                      tooltip: 'Skills',
                       onPressed: chat.busy || chat.loading || chat.changing
                           ? null
                           : () => showSkills(context, chat),
@@ -738,11 +736,10 @@ class _ChatPageState extends State<ChatPage> {
                         size: 20,
                       ),
                       itemBuilder: (_) => [
-                        if (constraints.maxWidth < 480 &&
-                            chat.workspaceRoot != null)
+                        if (constraints.maxWidth < 480)
                           const PopupMenuItem(
                             value: 'skills',
-                            child: Text('Project skills'),
+                            child: Text('Skills'),
                           ),
                         const PopupMenuItem(
                           value: 'markdown',

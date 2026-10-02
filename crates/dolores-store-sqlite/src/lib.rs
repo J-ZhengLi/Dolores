@@ -105,7 +105,27 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn global_skills(&self) -> Result<Vec<dolores_core::ProjectSkill>, String> {
+        self.read_skills(skills::GLOBAL_ROOT)
+    }
+    fn activate_global_skill(
+        &self,
+        document: &dolores_core::SkillDocument,
+        revision: Option<u32>,
+        rollback: Option<u32>,
+    ) -> Result<dolores_core::ProjectSkill, String> {
+        self.activate_skill(skills::GLOBAL_ROOT, document, revision, rollback)
+    }
+    fn disable_global_skill(&self, name: &str, revision: u32) -> Result<(), String> {
+        self.mutate_skill(skills::GLOBAL_ROOT, name, revision, false)
+    }
+    fn forget_global_skill(&self, name: &str, revision: u32) -> Result<(), String> {
+        self.mutate_skill(skills::GLOBAL_ROOT, name, revision, true)
+    }
     fn project_skills(&self, root: &str) -> Result<Vec<dolores_core::ProjectSkill>, String> {
+        if !std::path::Path::new(root).is_absolute() {
+            return Err("Project skills need an absolute working folder.".into());
+        }
         self.read_skills(root)
     }
     fn activate_project_skill(
@@ -115,12 +135,21 @@ impl SessionStore for SqliteStore {
         revision: Option<u32>,
         rollback: Option<u32>,
     ) -> Result<dolores_core::ProjectSkill, String> {
+        if !std::path::Path::new(root).is_absolute() {
+            return Err("Project skills need an absolute working folder.".into());
+        }
         self.activate_skill(root, document, revision, rollback)
     }
     fn disable_project_skill(&self, root: &str, name: &str, revision: u32) -> Result<(), String> {
+        if !std::path::Path::new(root).is_absolute() {
+            return Err("Project skills need an absolute working folder.".into());
+        }
         self.mutate_skill(root, name, revision, false)
     }
     fn forget_project_skill(&self, root: &str, name: &str, revision: u32) -> Result<(), String> {
+        if !std::path::Path::new(root).is_absolute() {
+            return Err("Project skills need an absolute working folder.".into());
+        }
         self.mutate_skill(root, name, revision, true)
     }
     fn automatic_memory_policy(&self) -> Result<dolores_core::AutomaticMemoryPolicy, String> {

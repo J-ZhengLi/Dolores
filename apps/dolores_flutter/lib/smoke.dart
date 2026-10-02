@@ -655,6 +655,34 @@ Future<void> _run(
       }
 
       visit(capture.currentContext! as Element);
+      // Skills use a lazy scrolling body. Build offscreen rows before invoking
+      // their diagnostic callbacks; this does not simulate OS pointer input.
+      if (callback == null &&
+          key &&
+          (label.startsWith('review-skill-') ||
+              label.startsWith('saved-skill-') ||
+              label.startsWith('skill-version-'))) {
+        ScrollController? controller;
+        void findSkills(Element element) {
+          final widget = element.widget;
+          if (widget is ListView && widget.key == const Key('skills-scroll')) {
+            controller = widget.controller;
+          }
+          element.visitChildren(findSkills);
+        }
+
+        findSkills(capture.currentContext! as Element);
+        final scroll = controller;
+        if (scroll != null && scroll.hasClients) {
+          for (double offset = 0; callback == null; offset += 160) {
+            final end = scroll.position.maxScrollExtent;
+            scroll.jumpTo(offset.clamp(0, end));
+            await WidgetsBinding.instance.endOfFrame;
+            visit(capture.currentContext! as Element);
+            if (offset >= end) break;
+          }
+        }
+      }
       if (callback == null) {
         throw StateError('Missing enabled diagnostic control: $label');
       }
@@ -1043,6 +1071,33 @@ Future<void> _run(
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await press('project-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
+    final globalDirectory = Directory(
+      path.join(output.path, 'global-skills', 'review'),
+    );
+    await globalDirectory.create(recursive: true);
+    final globalFile = File(path.join(globalDirectory.path, 'SKILL.md'));
+    const globalSkill =
+        '---\nname: review\ndescription: Shared review instructions\n---\nGLOBAL_REVIEW_ONLY';
+    await globalFile.writeAsString(globalSkill);
+    await press('Global');
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('review-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'global-skills-review-light');
+    await press('activate-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    final combinedSkills = (await chat.previewContext())!;
+    check(
+      combinedSkills['skills'].length == 1 &&
+          combinedSkills['skillEntries'][0]['document']['text'] == skillOne,
+      'An active project skill overrides a same-name global snapshot',
+      checks,
+    );
+    await press('project-skills', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'skills-list-light');
     await press('saved-skill-review', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await screenshot(capture, output, 'skills-saved-light');
@@ -1055,11 +1110,47 @@ Future<void> _run(
     await press('Close');
     await waitUntil(() => !chat.changing);
     check(
-      (await chat.previewContext())!['skills'] == null &&
+      (await chat.previewContext())!['skills'][0]['scope'] == 'global' &&
           await skillFile.readAsString() == skillTwo,
-      'Disable and Forget remove future skill retrieval while preserving the source file',
+      'Disabling and forgetting a project skill reveals the global version without changing files',
       checks,
     );
+    final projectSkillSession = chat.session!;
+    final sideSkillSession =
+        (await chat.bridge.call({
+              'command': 'createSession',
+              'kind': 'side',
+            }))['session']['id']
+            as String;
+    await chat.select(sideSkillSession);
+    check(
+      (await chat.previewContext())!['skillEntries'][0]['document']['text'] ==
+              globalSkill &&
+          chat.workspaceRoot == null,
+      'Side chats inherit global snapshots while remaining without working-folder tools',
+      checks,
+    );
+    await press('project-skills', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'global-skills-side-list-light');
+    await press('saved-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'global-skills-side-light');
+    await press('disable-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('saved-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('forget-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    check(
+      (await chat.previewContext())!['skills'] == null &&
+          await globalFile.readAsString() == globalSkill,
+      'Global Disable and Forget exclude future retrieval and preserve global files',
+      checks,
+    );
+    await chat.select(projectSkillSession);
     runApp(
       DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.dark),
     );

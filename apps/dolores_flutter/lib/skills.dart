@@ -6,12 +6,16 @@ import 'inspector.dart';
 import 'theme.dart';
 
 Future<void> showSkills(BuildContext context, ChatController chat) =>
-    chat.inspectLocalChanges(() async {
+    chat.inspectLocalSettings(() async {
+      if (chat.session == null) return;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) =>
-            SkillsInspector(bridge: chat.bridge, session: chat.session!),
+        builder: (_) => SkillsInspector(
+          bridge: chat.bridge,
+          session: chat.session!,
+          hasProject: chat.workspaceRoot != null,
+        ),
       );
       chat.invalidateContext();
     });
@@ -19,10 +23,12 @@ Future<void> showSkills(BuildContext context, ChatController chat) =>
 class SkillsInspector extends StatefulWidget {
   final ChatBridge bridge;
   final String session;
+  final bool hasProject;
   const SkillsInspector({
     super.key,
     required this.bridge,
     required this.session,
+    this.hasProject = true,
   });
   @override
   State<SkillsInspector> createState() => _SkillsInspectorState();
@@ -32,6 +38,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   Map<String, dynamic>? catalog, review;
   String? error, notice;
   bool busy = false;
+  late String scope;
   final _scroll = ScrollController();
   Future<dynamic> _call(
     String command, [
@@ -39,11 +46,13 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   ]) => widget.bridge.call({
     'command': command,
     'session': widget.session,
+    'scope': scope,
     ...args,
   });
   @override
   void initState() {
     super.initState();
+    scope = widget.hasProject ? 'project' : 'global';
     _list();
   }
 
@@ -72,6 +81,14 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   }
 
   Future<void> _list() => _act(_loadList);
+  Future<void> _changeScope(String value) => _act(() async {
+    setState(() {
+      scope = value;
+      notice = null;
+      catalog = null;
+    });
+    await _loadList();
+  });
   Future<void> _loadReview(String name, int? version) async {
     if (review != null && mounted) {
       setState(() => review = {...review!, 'token': null});
@@ -107,7 +124,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
       'revision': review!['revision'],
     });
     notice = forget
-        ? 'Saved versions forgotten. The project file is unchanged.'
+        ? 'Saved versions forgotten. The source file is unchanged.'
         : 'Skill disabled. Saved versions remain available.';
     await _loadList();
   });
@@ -129,25 +146,50 @@ class _SkillsInspectorState extends State<SkillsInspector> {
     return PopScope(
       canPop: !busy,
       child: InspectorFrame(
-        title: 'Project skills',
-        subtitle: '.agents/skills · reviewed instructions for this folder',
+        title: 'Skills',
+        subtitle: scope == 'global'
+            ? '~/.agents/skills · shared across all chats'
+            : '.agents/skills · this working folder',
         canClose: !busy,
         child: Column(
           children: [
             if (busy) const LinearProgressIndicator(minHeight: 2),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'project',
+                    label: const Text('Project'),
+                    enabled: widget.hasProject,
+                  ),
+                  const ButtonSegment(value: 'global', label: Text('Global')),
+                ],
+                selected: {scope},
+                onSelectionChanged: busy
+                    ? null
+                    : (values) => _changeScope(values.single),
+              ),
+            ),
             Expanded(
               child: ListView(
                 key: const Key('skills-scroll'),
                 controller: _scroll,
                 padding: const EdgeInsets.all(20),
                 children: [
-                  const Text(
-                    'Choose a skill, review its text, then activate it for chats in this folder. Activation shares the text with your model and saves it locally. Each tool still needs your approval.',
+                  Text(
+                    'Choose a skill, review its text, then activate it ${scope == 'global' ? 'for all chats, including side chats' : 'for chats in this folder'}. Activation shares the text with your model and saves it locally. Each tool still needs your approval.',
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Active skills use saved versions. File changes wait for a new review. References and scripts are not loaded or run automatically. Up to 3 active skills, 8 KiB combined; 5 recent versions per skill.',
-                    style: TextStyle(color: p.muted, fontSize: 12),
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text('Limits and resources'),
+                    children: [
+                      Text(
+                        'Active skills use saved versions. File changes wait for a new review. Project skills override active global skills with the same name. Up to 3 active skills and 8 KiB per scope; 5 recent versions per skill. References and scripts require approved tools within the working folder; global resources outside it are unavailable.',
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
+                    ],
                   ),
                   if (notice != null)
                     Padding(
@@ -163,6 +205,13 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                       ),
                     ),
                   const SizedBox(height: 16),
+                  if (catalog?['directory'] is String) ...[
+                    SelectableText(
+                      catalog!['directory'] as String,
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (document != null) ...[
                     Text(
                       document['name'] as String,
@@ -239,10 +288,10 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                         'Partial list: directory scan limit reached. Saved skills are still shown.',
                       ),
                     if (items.isEmpty && !busy) ...[
-                      const Text('No project skills yet.'),
+                      Text('No $scope skills yet.'),
                       const SizedBox(height: 8),
-                      const SelectableText(
-                        'Add .agents/skills/<skill-name>/SKILL.md in this folder, then Refresh. Use YAML name and description, followed by Markdown instructions.',
+                      SelectableText(
+                        'Add ${scope == 'global' ? '~/' : ''}.agents/skills/<skill-name>/SKILL.md ${scope == 'global' ? 'under your home directory' : 'in this folder'}, then Refresh. Use YAML name and description, followed by Markdown instructions.',
                       ),
                     ],
                     for (final item in items)
@@ -265,6 +314,11 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                                     ? 'Available · not reviewed'
                                     : '${item['enabled'] == true ? 'Enabled' : 'Disabled'} · version ${item['version']}',
                               ),
+                              if (item['overridden'] == true &&
+                                  item['enabled'] == true)
+                                const Text(
+                                  'Overridden here by the active project skill.',
+                                ),
                               if (item['description'] != null)
                                 Text(
                                   item['description'] as String,

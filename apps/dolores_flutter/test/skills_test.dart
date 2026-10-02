@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dolores_flutter/bridge.dart';
+import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/skills.dart';
 import 'package:dolores_flutter/inspector.dart';
 import 'package:dolores_flutter/theme.dart';
@@ -93,7 +94,29 @@ class SkillBridge implements ChatBridge {
   }
 }
 
-Future<void> open(WidgetTester tester, SkillBridge bridge, bool dark) async {
+class ScopedSkillBridge implements ChatBridge {
+  final project = SkillBridge(), global = SkillBridge();
+  final commands = <Map<String, dynamic>>[];
+  @override
+  Future<void> open() async {}
+  @override
+  Future<void> close() async {}
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    commands.add(command);
+    final scope = command['scope'] as String? ?? 'project';
+    final result = await (scope == 'global' ? global : project).call(command);
+    if (result is Map) return {...result, 'scope': scope};
+    return result;
+  }
+}
+
+Future<void> open(
+  WidgetTester tester,
+  ChatBridge bridge,
+  bool dark, {
+  bool hasProject = true,
+}) async {
   tester.view.physicalSize = const Size(390, 700);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -106,7 +129,11 @@ Future<void> open(WidgetTester tester, SkillBridge bridge, bool dark) async {
           builder: (context) => TextButton(
             onPressed: () => showDialog<void>(
               context: context,
-              builder: (_) => SkillsInspector(bridge: bridge, session: 'chat'),
+              builder: (_) => SkillsInspector(
+                bridge: bridge,
+                session: 'chat',
+                hasProject: hasProject,
+              ),
             ),
             child: const Text('Open'),
           ),
@@ -136,6 +163,91 @@ Future<void> press(WidgetTester tester, String key) async {
 }
 
 void main() {
+  testWidgets(
+    'side-chat Skills action opens without a working folder and locks chat changes',
+    (tester) async {
+      final bridge = ScopedSkillBridge();
+      final chat = ChatController(bridge)
+        ..session = 'chat'
+        ..workspaceKind = 'side'
+        ..loading = false;
+      addTearDown(chat.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: doloresTheme(true),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showSkills(context, chat),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(chat.changing, isTrue);
+      expect(find.byType(SkillsInspector), findsOneWidget);
+      expect(
+        tester
+            .widget<SegmentedButton<String>>(
+              find.byType(SegmentedButton<String>),
+            )
+            .selected,
+        {'global'},
+      );
+      chat.newChat();
+      expect(chat.session, 'chat');
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(chat.changing, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('global and project tabs keep activation and disable scoped', (
+    tester,
+  ) async {
+    final bridge = ScopedSkillBridge();
+    await open(tester, bridge, true);
+    await tester.tap(find.text('Global'));
+    await tester.pumpAndSettle();
+    await press(tester, 'review-skill-review');
+    await press(tester, 'activate-skill');
+    expect(bridge.global.enabled, isTrue);
+    expect(bridge.project.enabled, isFalse);
+    await tester.tap(find.text('Project'));
+    await tester.pumpAndSettle();
+    await press(tester, 'review-skill-review');
+    await press(tester, 'activate-skill');
+    expect(bridge.project.enabled, isTrue);
+    await press(tester, 'disable-skill');
+    expect(bridge.project.enabled, isFalse);
+    expect(bridge.global.enabled, isTrue);
+    expect(
+      bridge.commands
+          .where((c) => c['command'] == 'disableSkill')
+          .single['scope'],
+      'project',
+    );
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('side chats open global skills with project selection disabled', (
+    tester,
+  ) async {
+    final bridge = ScopedSkillBridge();
+    await open(tester, bridge, false, hasProject: false);
+    final selector = tester.widget<SegmentedButton<String>>(
+      find.byType(SegmentedButton<String>),
+    );
+    expect(selector.selected, {'global'});
+    expect(selector.segments.first.enabled, isFalse);
+    await press(tester, 'review-skill-review');
+    await press(tester, 'activate-skill');
+    expect(bridge.global.enabled, isTrue);
+    expect(bridge.commands.every((c) => c['scope'] == 'global'), isTrue);
+    expect(tester.takeException(), isNull);
+  });
   for (final dark in [false, true]) {
     testWidgets(
       'compact literal review, explicit activation and missing-source rollback ${dark ? 'dark' : 'light'}',
@@ -264,11 +376,11 @@ void main() {
       ),
     );
     await tester.scrollUntilVisible(
-      find.text('Project skills · reviewed snapshots'),
+      find.text('Skills · reviewed snapshots'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Project skills · reviewed snapshots'));
+    await tester.tap(find.text('Skills · reviewed snapshots'));
     await tester.pumpAndSettle();
     expect(find.text('Exact reviewed body'), findsOneWidget);
     expect(tester.takeException(), isNull);

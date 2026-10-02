@@ -52,6 +52,7 @@ struct Engine {
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
     skill_review: Mutex<Option<skills::SkillReview>>,
+    global_skills_directory: Option<PathBuf>,
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
 }
@@ -62,11 +63,15 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 enum Command {
     ProjectSkills {
         session: String,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
     },
     ReviewSkill {
         session: String,
         name: String,
         version: Option<u32>,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
     },
     ActivateSkill {
         session: String,
@@ -76,11 +81,15 @@ enum Command {
         session: String,
         name: String,
         revision: u32,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
     },
     ForgetSkill {
         session: String,
         name: String,
         revision: u32,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
     },
     CancelSkillReview {
         token: String,
@@ -303,6 +312,7 @@ impl Engine {
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
             skill_review: Mutex::new(None),
+            global_skills_directory: None,
             memory_review: Arc::new(Mutex::new(None)),
             summary_review: Arc::new(Mutex::new(None)),
         })
@@ -381,23 +391,26 @@ impl Engine {
         }
         match command {
             Command::ReviewSummary { session } => self.review_summary(&session),
-            Command::ProjectSkills { session } => self.project_skills(&session),
+            Command::ProjectSkills { session, scope } => self.scoped_skills(&session, scope),
             Command::ReviewSkill {
                 session,
                 name,
                 version,
-            } => self.review_skill(&session, &name, version),
+                scope,
+            } => self.review_scoped_skill(&session, &name, version, scope),
             Command::ActivateSkill { session, token } => self.activate_skill(&session, &token),
             Command::DisableSkill {
                 session,
                 name,
                 revision,
-            } => self.mutate_skill(&session, &name, revision, false),
+                scope,
+            } => self.mutate_scoped_skill(&session, &name, revision, false, scope),
             Command::ForgetSkill {
                 session,
                 name,
                 revision,
-            } => self.mutate_skill(&session, &name, revision, true),
+                scope,
+            } => self.mutate_scoped_skill(&session, &name, revision, true, scope),
             Command::CancelSkillReview { token } => self.cancel_skill_review(&token),
             Command::GenerateSummary { id, session, token } => {
                 self.generate_summary(&mut active, id, session, token)
@@ -562,10 +575,15 @@ impl Engine {
                     .collect();
                 report["memoryEntries"] = json!(used);
                 report["sessionSummary"] = json!(session_summary);
-                report["skillEntries"] = json!(skills
-                    .iter()
-                    .filter(|s| s.enabled)
-                    .map(|s| s.current())
+                report["skillEntries"] = json!(dolores_core::effective_skills(&skills)
+                    .into_iter()
+                    .map(|s| {
+                        let mut value = json!(s.current());
+                        if s.scope == dolores_core::SkillScope::Global {
+                            value["scope"] = json!(s.scope);
+                        }
+                        value
+                    })
                     .collect::<Vec<_>>());
                 Ok(report)
             }
@@ -981,6 +999,20 @@ fn initialize() -> Result<Engine, String> {
         credentials,
     )?;
     engine.workspace_directory = Some(directory.join("workspaces"));
+    engine.global_skills_directory = Some(match std::env::var_os("DOLORES_GLOBAL_SKILLS_DIR") {
+        Some(value) => {
+            let path = PathBuf::from(value);
+            if !path.is_absolute() {
+                return Err("DOLORES_GLOBAL_SKILLS_DIR must be absolute.".into());
+            }
+            path
+        }
+        None => directories::BaseDirs::new()
+            .ok_or("No user home directory.")?
+            .home_dir()
+            .join(".agents")
+            .join("skills"),
+    });
     Ok(engine)
 }
 fn reply(input: &[u8]) -> Value {

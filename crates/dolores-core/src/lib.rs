@@ -13,8 +13,9 @@ mod automatic_memory;
 mod instructions;
 mod skills;
 pub use skills::{
-    prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument, SkillSource,
-    SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS,
+    effective_skills, prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument,
+    SkillScope, SkillSource, SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES,
+    MAX_SKILL_VERSIONS,
 };
 mod memory;
 mod memory_suggestions;
@@ -191,6 +192,23 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn global_skills(&self) -> Result<Vec<ProjectSkill>, String> {
+        Ok(vec![])
+    }
+    fn activate_global_skill(
+        &self,
+        _: &SkillDocument,
+        _: Option<u32>,
+        _: Option<u32>,
+    ) -> Result<ProjectSkill, String> {
+        Err("This storage plugin does not support global skills.".into())
+    }
+    fn disable_global_skill(&self, _: &str, _: u32) -> Result<(), String> {
+        Err("This storage plugin does not support global skills.".into())
+    }
+    fn forget_global_skill(&self, _: &str, _: u32) -> Result<(), String> {
+        Err("This storage plugin does not support global skills.".into())
+    }
     fn project_skills(&self, _: &str) -> Result<Vec<ProjectSkill>, String> {
         Ok(vec![])
     }

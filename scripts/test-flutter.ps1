@@ -10,11 +10,13 @@ $exe = Join-Path $workspace 'apps/dolores_flutter/build/windows/x64/runner/Relea
 $oldData = $env:DOLORES_DATA_DIR
 $oldSmoke = $env:DOLORES_SMOKE_DIR
 $oldProvider = $env:DOLORES_SMOKE_PROVIDER
+$oldSkills = $env:DOLORES_GLOBAL_SKILLS_DIR
 $process = $null
 try {
     $env:DOLORES_DATA_DIR = $data
     $env:DOLORES_SMOKE_DIR = $directory
     $env:DOLORES_SMOKE_PROVIDER = $FixtureUrl
+    $env:DOLORES_GLOBAL_SKILLS_DIR = Join-Path $directory 'global-skills'
     $startArguments = @{ FilePath = $exe; WorkingDirectory = [IO.Path]::GetDirectoryName($exe); WindowStyle = 'Hidden'; PassThru = $true }
     if ($Compact) { $startArguments.ArgumentList = '--compact' }
     $process = Start-Process @startArguments
@@ -35,4 +37,5 @@ try {
     $env:DOLORES_DATA_DIR = $oldData
     $env:DOLORES_SMOKE_DIR = $oldSmoke
     $env:DOLORES_SMOKE_PROVIDER = $oldProvider
+    $env:DOLORES_GLOBAL_SKILLS_DIR = $oldSkills
 }

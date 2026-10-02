@@ -34,11 +34,36 @@ fn skills_dir(root: &Path) -> Result<Dir, String> {
     }
     Ok(dir)
 }
+/// Only the explicitly configured global collection boundary may be a link.
+pub fn global_skills_target(root: &Path) -> Result<std::path::PathBuf, String> {
+    if !root.is_absolute() {
+        return Err("Global skills need an absolute directory.".into());
+    }
+    let target = std::fs::canonicalize(root).map_err(|_| {
+        "Global skills directory is unavailable. Add ~/.agents/skills, then Refresh."
+    })?;
+    if !target.is_dir() {
+        return Err("Global skills need a directory.".into());
+    }
+    Ok(target)
+}
+fn open_collection(root: &Path, global: bool) -> Result<Dir, String> {
+    if !global {
+        return skills_dir(root);
+    }
+    Dir::open_ambient_dir(global_skills_target(root)?, cap_std::ambient_authority())
+        .map_err(|_| "Global skills directory is unavailable.".into())
+}
 pub fn project_skill_catalog(root: &Path) -> Result<SkillCatalog, String> {
-    let dir = skills_dir(root)?;
+    catalog(open_collection(root, false)?)
+}
+pub fn global_skill_catalog(root: &Path) -> Result<SkillCatalog, String> {
+    catalog(open_collection(root, true)?)
+}
+fn catalog(dir: Dir) -> Result<SkillCatalog, String> {
     let entries = dir
         .entries()
-        .map_err(|_| "Project skill names could not be read.")?;
+        .map_err(|_| "Skill names could not be read.")?;
     let mut names = vec![];
     let mut partial = false;
     for (index, entry) in entries.enumerate() {
@@ -46,7 +71,7 @@ pub fn project_skill_catalog(root: &Path) -> Result<SkillCatalog, String> {
             partial = true;
             break;
         }
-        let entry = entry.map_err(|_| "Project skill names could not be read.")?;
+        let entry = entry.map_err(|_| "Skill names could not be read.")?;
         let name = entry.file_name();
         let Some(name) = name.to_str() else { continue };
         if !valid_skill_name(name) || !super::valid_path(&format!(".agents/skills/{name}/SKILL.md"))
@@ -55,7 +80,7 @@ pub fn project_skill_catalog(root: &Path) -> Result<SkillCatalog, String> {
         }
         let info = dir
             .symlink_metadata(name)
-            .map_err(|_| "Project skill names changed; refresh Skills.")?;
+            .map_err(|_| "Skill names changed; refresh Skills.")?;
         if info.is_dir()
             && !info.file_type().is_symlink()
             && dir.canonicalize(name).ok().as_deref() == Some(Path::new(name))
@@ -139,22 +164,33 @@ fn parse(name: &str, text: String) -> Result<SkillDocument, String> {
     Ok(document)
 }
 pub fn read_project_skill(root: &Path, name: &str) -> Result<SkillDocument, String> {
+    read_skill(root, name, false)
+}
+pub fn read_global_skill(root: &Path, name: &str) -> Result<SkillDocument, String> {
+    read_skill(root, name, true)
+}
+fn read_skill(root: &Path, name: &str, global: bool) -> Result<SkillDocument, String> {
     if !valid_skill_name(name) || !super::valid_path(&format!(".agents/skills/{name}/SKILL.md")) {
-        return Err("Project skill name is invalid.".into());
+        return Err("Skill name is invalid.".into());
     }
-    let dir = skills_dir(root)?;
+    let target = if global {
+        Some(global_skills_target(root)?)
+    } else {
+        None
+    };
+    let dir = open_collection(root, global)?;
     let info = dir
         .symlink_metadata(name)
-        .map_err(|_| "Project skill directory is missing.")?;
+        .map_err(|_| "Skill directory is missing.")?;
     if !info.is_dir()
         || info.file_type().is_symlink()
         || dir.canonicalize(name).ok().as_deref() != Some(Path::new(name))
     {
-        return Err("Project skill directories cannot be links.".into());
+        return Err("Individual skill directories cannot be links.".into());
     }
     let dir = dir
         .open_dir(name)
-        .map_err(|_| "Project skill directory is unavailable.")?;
+        .map_err(|_| "Skill directory is unavailable.")?;
     let info = dir
         .symlink_metadata("SKILL.md")
         .map_err(|_| "SKILL.md is missing or unreadable.")?;
@@ -191,15 +227,16 @@ pub fn read_project_skill(root: &Path, name: &str) -> Result<SkillDocument, Stri
     let text = String::from_utf8(bytes).map_err(|_| "SKILL.md is not UTF-8 text.")?;
     let document = parse(name, text)?;
     // Re-resolve from the root to detect replacement/link changes during reading.
-    let current = skills_dir(root)?;
-    if current.canonicalize(name).ok().as_deref() != Some(Path::new(name))
+    let current = open_collection(root, global)?;
+    if (global && Some(global_skills_target(root)?) != target)
+        || current.canonicalize(name).ok().as_deref() != Some(Path::new(name))
         || dir
             .symlink_metadata("SKILL.md")
             .map_err(|_| "SKILL.md changed; review it again.")?
             .file_type()
             .is_symlink()
     {
-        return Err("Project skill path changed; review it again.".into());
+        return Err("Skill path changed; review it again.".into());
     }
     Ok(document)
 }
@@ -258,6 +295,23 @@ mod tests {
             .unwrap()
             .names
             .contains(&"linked".into()));
+        let boundary = root.join("global-skills");
+        symlink(root.join(".agents/skills"), &boundary).unwrap();
+        assert!(!global_skill_catalog(&boundary)
+            .unwrap()
+            .names
+            .contains(&"linked".into()));
+        assert!(read_global_skill(&boundary, "review").is_err());
+        std::fs::remove_file(root.join(".agents/skills/review/SKILL.md")).unwrap();
+        std::fs::write(
+            root.join(".agents/skills/review/SKILL.md"),
+            "---\nname: review\ndescription: Review\n---\nGlobal body",
+        )
+        .unwrap();
+        assert_eq!(
+            read_global_skill(&boundary, "review").unwrap().description,
+            "Review"
+        );
     }
     #[cfg(windows)]
     #[test]
@@ -299,5 +353,20 @@ mod tests {
         std::fs::create_dir(nested.path().join(".agents")).unwrap();
         link(&nested.path().join(".agents").join("skills"), &skills);
         assert!(read_project_skill(nested.path(), "review").is_err());
+        let global = other.path().join("global-skills");
+        link(&global, &skills);
+        assert_eq!(
+            read_global_skill(&global, "review").unwrap().description,
+            "Review"
+        );
+        assert!(!global_skill_catalog(&global)
+            .unwrap()
+            .names
+            .contains(&"linked".into()));
+        assert!(read_global_skill(&global, "linked").is_err());
+        assert_eq!(
+            global_skills_target(&global).unwrap(),
+            std::fs::canonicalize(&skills).unwrap()
+        );
     }
 }

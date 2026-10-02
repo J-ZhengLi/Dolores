@@ -1,4 +1,4 @@
-"""Frozen native skill activation, wire/approval, export and separate-process restart."""
+"""Frozen project/global skills, wire/approval, export and separate-process restart."""
 import argparse
 import ctypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,6 +19,7 @@ if not fixture.is_absolute() or not fixture.resolve().is_relative_to(root / "out
     raise SystemExit("Use an absolute isolated directory under output/.")
 if args.stage == "save": fixture.mkdir(parents=True, exist_ok=False)
 os.environ["DOLORES_DATA_DIR"] = str(fixture / "data")
+os.environ["DOLORES_GLOBAL_SKILLS_DIR"] = str(fixture / "global-skills")
 bundle = root / "apps/dolores_flutter/build/windows/x64/runner/Release"
 loader = os.add_dll_directory(str(bundle)) if os.name == "nt" else None
 native = ctypes.CDLL(str(bundle / ("dolores_flutter_bridge.dll" if os.name == "nt" else "lib/libdolores_flutter_bridge.so")))
@@ -136,7 +137,45 @@ if args.stage=="save":
         assert ".agents/skills/review/SKILL.md" in json.dumps(exported)
         call("delete",session=session)
         assert call("context",session=same,input="next")["skills"][0]["version"]==4
-        state_file.write_text(json.dumps({"session":same,"first":first,"root":str(folder)}))
+        global_directory=fixture/"global-skills/review"; global_directory.mkdir(parents=True)
+        global_file=global_directory/"SKILL.md"; global_first=source_text("GLOBAL_SYNTHETIC_ONLY")
+        global_file.write_text(global_first,encoding="utf-8",newline="")
+        assert call("projectSkills",session=side,scope="global")["items"][0]["revision"] is None
+        assert not call("context",session=side,input="hello").get("skills")
+        review=call("reviewSkill",session=side,name="review",scope="global")
+        global_file.write_text(source_text("Changed global source"),newline="")
+        assert not envelope("activateSkill",session=side,token=review["token"])["ok"]
+        global_file.write_text(global_first,newline="")
+        review=call("reviewSkill",session=side,name="review",scope="global")
+        global_active=call("activateSkill",session=side,token=review["token"])
+        assert global_active["scope"]=="global"
+        project_preview=call("context",session=same,input="hello")
+        assert len(project_preview["skills"])==1 and "GLOBAL_SYNTHETIC_ONLY" not in project_preview["messages"][0]["content"]
+        assert call("projectSkills",session=same,scope="global")["items"][0]["overridden"]
+        side_preview=call("context",session=side,input="hello")
+        assert side_preview["skillEntries"][0]["document"]["text"]==global_first
+        assert side_preview["skills"][0]["scope"]=="global" and not side_preview["tools"]
+        assert str(global_directory) not in json.dumps(side_preview)
+        assert call("context",session=other,input="hello")["skills"]==side_preview["skills"]
+        call("start",id=3,session=side,input="hello"); finish(3)
+        assert requests[-1]["messages"]==side_preview["messages"] and "tools" not in requests[-1]
+        side_reply=call("messagesPage",session=side)["items"][-1]
+        assert side_reply["metadata"]["context"]["skills"]==side_preview["skills"]
+        call("export",session=side,path=str(fixture/"global-export.json"),format="json")
+        assert '"scope": "global"' in json.dumps(json.loads((fixture/"global-export.json").read_text()))
+        global_file.write_text(source_text("GLOBAL_VERSION_TWO"),newline="")
+        review=call("reviewSkill",session=side,name="review",scope="global")
+        call("activateSkill",session=side,token=review["token"])
+        review=call("reviewSkill",session=side,name="review",scope="global",version=1)
+        rolled=call("activateSkill",session=side,token=review["token"])
+        assert rolled["versions"][-1]["rollbackFrom"]==1 and "GLOBAL_VERSION_TWO" in global_file.read_text()
+        global_file.unlink()
+        call("disableSkill",session=side,name="review",scope="global",revision=3)
+        assert not call("context",session=side,input="next").get("skills")
+        assert call("context",session=same,input="next")["skills"][0]["version"]==4
+        review=call("reviewSkill",session=side,name="review",scope="global",version=3)
+        call("activateSkill",session=side,token=review["token"])
+        state_file.write_text(json.dumps({"session":same,"side":side,"globalFirst":global_first,"first":first,"root":str(folder)}))
         print(json.dumps({"ok":True,"stage":"save","httpRequests":len(requests)}))
     finally: server.shutdown(); server.server_close()
 else:
@@ -147,6 +186,13 @@ else:
     assert preview["skillEntries"][0]["document"]["text"]==state["first"]
     saved=call("projectSkills",session=session)["items"][0]
     assert saved["enabled"] and not saved["sourceAvailable"] and saved["revision"]==5
+    global_preview=call("context",session=state["side"],input="next")
+    assert global_preview["skillEntries"][0]["scope"]=="global" and global_preview["skillEntries"][0]["document"]["text"]==state["globalFirst"]
+    assert global_preview["skills"][0]["version"]==4 and global_preview["skills"][0]["rollbackFrom"]==3
+    global_saved=call("projectSkills",session=state["side"],scope="global")["items"][0]
+    assert global_saved["revision"]==5 and not global_saved["sourceAvailable"]
+    call("forgetSkill",session=state["side"],name="review",scope="global",revision=5)
+    assert not call("context",session=state["side"],input="next").get("skills")
     call("forgetSkill",session=session,name="review",revision=5)
     assert not call("context",session=session,input="next").get("skills")
     with sqlite3.connect(fixture/"data/dolores.db") as db:
