@@ -26,11 +26,35 @@ const server = createServer(async (request, response) => {
   if (payload.stream === false && Array.isArray(payload.tools)) {
     const last = payload.messages?.at(-1);
     const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
-    if (payload.tools.length !== 1 || payload.tools[0]?.function?.name !== 'read_text_file') {
+    if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'list_folder,read_text_file,search_text') {
       response.writeHead(400).end(); return;
     }
     let message, finish;
-    if (last?.role === 'tool' && prompt !== 'tool-loop') {
+    if (!prompt.startsWith('tool-')) {
+      message = {role:'assistant',content:'Hello from your working folder. The folder tools are available.'}; finish='stop';
+    } else if (prompt.startsWith('tool-discovery') || prompt.startsWith('tool-search') || prompt === 'tool-list-deny') {
+      const number = payload.messages.filter(message => message.role === 'tool').length;
+      const previous = payload.messages.at(-2);
+      if (last?.role === 'tool' && previous?.tool_calls?.at(-1)?.id !== last.tool_call_id) { response.writeHead(400).end(); return; }
+      if (last?.role === 'tool' && last.content.includes('User denied')) {
+        message = { role: 'assistant', content: 'The folder operation was denied. No additional file contents were used.' }; finish = 'stop';
+      } else if (number === 3) {
+        message = { role: 'assistant', content: `Discovered and read the approved note: ${last.content}` }; finish = 'stop';
+      } else {
+        let name, args;
+        if (number === 0) { name = 'list_folder'; args = { path: '.' }; }
+        else if (number === 1) {
+          const listing = JSON.parse(last.content);
+          if (!listing.entries.some(entry => entry.path === 'docs' && entry.kind === 'folder')) { response.writeHead(400).end(); return; }
+          name = 'search_text'; args = { path: 'docs', query: '世界.*' };
+        } else {
+          const search = JSON.parse(last.content);
+          if (search.matches?.[0]?.path !== 'docs/notes.txt') { response.writeHead(400).end(); return; }
+          name = 'read_text_file'; args = { path: search.matches[0].path };
+        }
+        message = { role: 'assistant', content: null, tool_calls: [{ id: `discovery-${number}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }; finish = 'tool_calls';
+      }
+    } else if (last?.role === 'tool' && prompt !== 'tool-loop') {
       const previous = payload.messages.at(-2);
       if (previous?.tool_calls?.at(-1)?.id !== last.tool_call_id) { response.writeHead(400).end(); return; }
       message = { role: 'assistant', content: last.content.includes('User denied')

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'support/workspaces.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
@@ -10,6 +13,7 @@ class FakeBridge implements ChatBridge {
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
     commands.add(command);
+    if (command['command'] == 'createSession') return createdWorkspace(command);
     return null;
   }
 
@@ -224,8 +228,10 @@ void main() {
       expect(bridge.commands, isEmpty);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
-      expect(bridge.commands.first['command'], 'start');
-      expect(bridge.commands.first['input'], startsWith('hello'));
+      expect(
+        bridge.commands.singleWhere((c) => c['command'] == 'start')['input'],
+        startsWith('hello'),
+      );
       await tester.tap(find.byKey(const Key('send')));
       await tester.pump();
       expect(bridge.commands.last['command'], 'cancel');

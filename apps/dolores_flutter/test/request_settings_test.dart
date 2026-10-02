@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'support/workspaces.dart';
+
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
@@ -27,6 +29,8 @@ class SettingsBridge implements ChatBridge {
   Future<dynamic> call(Map<String, dynamic> command) async {
     commands.add(command);
     switch (command['command']) {
+      case 'createSession':
+        return createdWorkspace(command);
       case 'bootstrap':
         return {
           'sessions': <Map<String, dynamic>>[],

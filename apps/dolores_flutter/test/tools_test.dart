@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'support/workspaces.dart';
 
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -7,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class ToolBridge implements ChatBridge {
+  String tool = 'read_text_file';
+  String query = '世界.*';
   final commands = <Map<String, dynamic>>[];
   final queue = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> messages = [];
@@ -21,6 +26,10 @@ class ToolBridge implements ChatBridge {
     commands.add(command);
     final id = command['id'];
     switch (command['command']) {
+      case 'createSession':
+        return createdWorkspace(command);
+      case 'workspace':
+        return {'kind': 'project', 'root': 'C:/chosen/project'};
       case 'start':
         input = command['input'];
         queue.addAll([
@@ -31,8 +40,9 @@ class ToolBridge implements ChatBridge {
             'id': id,
             'request': {
               'callId': 'file-one',
-              'name': 'read_text_file',
-              'target': 'readme.txt',
+              'name': tool,
+              'target': tool == 'read_text_file' ? 'readme.txt' : '.',
+              if (tool == 'search_text') 'query': query,
             },
           },
         ]);
@@ -45,10 +55,39 @@ class ToolBridge implements ChatBridge {
         final allowed = command['allow'] == true;
         final record = {
           'callId': 'file-one',
-          'name': 'read_text_file',
-          'target': 'readme.txt',
-          'status': allowed ? 'read' : 'denied',
-          'content': allowed ? 'File text 世界' : 'User denied this read',
+          'name': tool,
+          'target': tool == 'read_text_file' ? 'readme.txt' : '.',
+          if (tool == 'search_text') 'query': query,
+          'status': allowed
+              ? (tool == 'read_text_file' ? 'read' : 'completed')
+              : 'denied',
+          'content': !allowed
+              ? 'User denied this read'
+              : tool == 'read_text_file'
+              ? 'File text 世界'
+              : jsonEncode(
+                  tool == 'list_folder'
+                      ? {
+                          'entries': [
+                            {'path': 'docs', 'kind': 'folder'},
+                          ],
+                          'skippedEntries': 2,
+                          'truncated': true,
+                        }
+                      : {
+                          'matches': [
+                            {
+                              'path': 'docs/notes.txt',
+                              'line': 2,
+                              'text': 'Find 世界.* here',
+                            },
+                          ],
+                          'scannedFiles': 3,
+                          'skippedFiles': 1,
+                          'skippedEntries': 2,
+                          'truncated': true,
+                        },
+                ),
         };
         messages = [
           {'id': 1, 'role': 'user', 'content': input},
@@ -99,6 +138,7 @@ ChatController ready(ToolBridge bridge) => ChatController(bridge)
   ..configured = true
   ..model = 'fixture'
   ..draft = 'Read readme'
+  ..workspaceKind = 'project'
   ..workspaceRoot = 'C:/chosen/project';
 void compact(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 740);
@@ -108,6 +148,86 @@ void compact(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets(
+    'Discovery approvals disclose scan/query and saved cards show partial coverage in both compact themes',
+    (tester) async {
+      compact(tester);
+      for (final dark in [false, true]) {
+        for (final tool in ['list_folder', 'search_text']) {
+          for (final allow in [false, true]) {
+            final bridge = ToolBridge()..tool = tool;
+            final chat = ready(bridge);
+            await tester.pumpWidget(
+              DoloresApp(
+                chat: chat,
+                themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+              ),
+            );
+            await chat.send();
+            await tester.pump(const Duration(milliseconds: 100));
+            await tester.pumpAndSettle();
+            expect(
+              find.text(
+                tool == 'list_folder'
+                    ? 'Allow a folder listing?'
+                    : 'Allow a text search?',
+              ),
+              findsOneWidget,
+            );
+            expect(
+              bridge.commands.where((c) => c['command'] == 'approveTool'),
+              isEmpty,
+            );
+            if (tool == 'search_text') {
+              expect(find.text('世界.*'), findsOneWidget);
+              expect(
+                find.textContaining('Scan up to 64 text files'),
+                findsOneWidget,
+              );
+            }
+            await tester.tap(
+              find.byKey(Key(allow ? 'allow-tool' : 'deny-tool')),
+            );
+            await tester.pump(const Duration(milliseconds: 250));
+            await tester.pumpAndSettle();
+            expect(chat.busy, isFalse);
+            expect(
+              chat.messages.last['metadata']['agent']['tools'].single['name'],
+              tool,
+            );
+            if (tool == 'search_text') {
+              expect(
+                chat
+                    .messages
+                    .last['metadata']['agent']['tools']
+                    .single['query'],
+                '世界.*',
+              );
+            }
+            final label =
+                '${tool == 'list_folder' ? 'Folder listing' : 'Text search'} · ${allow ? 'completed' : 'denied'}';
+            await tester.ensureVisible(find.text(label));
+            await tester.tap(find.text(label));
+            await tester.pumpAndSettle();
+            if (allow) {
+              expect(find.textContaining('Partial results'), findsOneWidget);
+              expect(
+                find.textContaining(
+                  tool == 'list_folder' ? 'docs/' : 'docs/notes.txt:2',
+                ),
+                findsOneWidget,
+              );
+            } else {
+              expect(find.text('User denied this read'), findsOneWidget);
+            }
+            expect(tester.takeException(), isNull);
+            await tester.pumpWidget(const SizedBox());
+            chat.dispose();
+          }
+        }
+      }
+    },
+  );
   testWidgets(
     'Allow and Deny stay explicit and saved results are inspectable in both compact themes',
     (tester) async {
@@ -132,7 +252,8 @@ void main() {
             bridge.commands.where((c) => c['command'] == 'approveTool'),
             isEmpty,
           );
-          expect(bridge.commands.first['workspace'], 'C:/chosen/project');
+          expect(bridge.commands.first['path'], 'C:/chosen/project');
+          expect(bridge.commands.first['command'], 'createSession');
           await tester.tap(find.byKey(Key(allow ? 'allow-tool' : 'deny-tool')));
           await tester.pump(const Duration(milliseconds: 250));
           await tester.pumpAndSettle();
@@ -209,7 +330,7 @@ void main() {
       chat.dispose();
     },
   );
-  test('Folder choice is launch-only, cancel preserves state and generation excludes changes', () async {
+  test('Opening a project creates a bound chat, cancellation and generation exclude changes', () async {
     final bridge = ToolBridge();
     final chat = ChatController(bridge)
       ..loading = false
@@ -219,8 +340,12 @@ void main() {
     await chat.chooseToolFolder(() async => 'C:/chosen/project');
     await chat.chooseToolFolder(() async => null);
     expect(chat.workspaceRoot, 'C:/chosen/project');
-    expect(chat.draft, 'Keep draft');
-    expect(bridge.commands, isEmpty);
+    expect(chat.draft, '');
+    expect(chat.workspaceKind, 'project');
+    expect(
+      bridge.commands.where((c) => c['command'] == 'createSession'),
+      hasLength(1),
+    );
     chat.busy = true;
     chat.disableTools();
     await chat.chooseToolFolder(
@@ -230,6 +355,7 @@ void main() {
     chat.busy = false;
     chat.disableTools();
     expect(chat.workspaceRoot, isNull);
+    expect(chat.workspaceKind, 'side');
     expect(ChatController(ToolBridge()).workspaceRoot, isNull);
   });
 }

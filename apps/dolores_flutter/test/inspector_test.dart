@@ -74,7 +74,7 @@ void main() {
         'Reply saved',
         'History refresh failed',
       ]);
-      expect(chat.contextBasis, 'Last saved request');
+      expect(chat.contextBasis, 'Saved agent input');
     },
   );
   testWidgets(

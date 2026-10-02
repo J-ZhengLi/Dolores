@@ -121,6 +121,7 @@ impl ToolPlugin for Read {
             call_id: call.id.clone(),
             name: call.name.clone(),
             target: "readme".into(),
+            query: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
@@ -131,6 +132,106 @@ impl ToolPlugin for Read {
 struct Approval {
     allow: bool,
     count: AtomicUsize,
+}
+
+struct DiscoveryMock {
+    name: &'static str,
+}
+#[async_trait]
+impl ToolPlugin for DiscoveryMock {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: self.name.into(),
+            description: "discovery".into(),
+            parameters: json!({}),
+        }
+    }
+    fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+        let args: serde_json::Value = serde_json::from_str(&call.arguments).unwrap();
+        Ok(ToolRequest {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            target: ".".into(),
+            query: args["query"].as_str().map(str::to_owned),
+        })
+    }
+    async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+        panic!("Denied scans must not run")
+    }
+}
+#[tokio::test]
+async fn denial_cache_is_scoped_to_tool_folder_and_exact_query_and_records_keep_the_query() {
+    for repeated in [false, true] {
+        let calls = vec![
+            ToolCall {
+                id: "first".into(),
+                name: if repeated {
+                    "search_text"
+                } else {
+                    "list_folder"
+                }
+                .into(),
+                arguments: if repeated {
+                    json!({"path":".","query":"one"})
+                } else {
+                    json!({"path":"."})
+                }
+                .to_string(),
+            },
+            ToolCall {
+                id: "second".into(),
+                name: "search_text".into(),
+                arguments: json!({"path":".","query":"one"}).to_string(),
+            },
+            ToolCall {
+                id: "third".into(),
+                name: "search_text".into(),
+                arguments: json!({"path":".","query":"two"}).to_string(),
+            },
+        ];
+        let provider = Scripted {
+            calls: Mutex::new(calls),
+            loop_forever: false,
+        };
+        let plugins: Vec<Arc<dyn ToolPlugin>> = vec![
+            Arc::new(DiscoveryMock {
+                name: "list_folder",
+            }),
+            Arc::new(DiscoveryMock {
+                name: "search_text",
+            }),
+        ];
+        let approval = Approval {
+            allow: false,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let reply = run_agent(
+            &provider,
+            context(),
+            &plugins,
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.summary.model_calls, 4);
+        assert_eq!(
+            approval.count.load(Ordering::SeqCst),
+            if repeated { 2 } else { 3 }
+        );
+        assert_eq!(reply.summary.tools[1].query.as_deref(), Some("one"));
+        assert_eq!(reply.summary.tools[2].query.as_deref(), Some("two"));
+        assert!(reply
+            .summary
+            .tools
+            .iter()
+            .all(|record| record.status == "denied"));
+        // Old schema-5 tool records remain readable without a query.
+        let legacy: ToolRecord=serde_json::from_value(json!({"callId":"old","name":"read_text_file","target":"readme","status":"read","content":"old text"})).unwrap();
+        assert!(legacy.query.is_none());
+    }
 }
 #[async_trait]
 impl ToolApproval for Approval {

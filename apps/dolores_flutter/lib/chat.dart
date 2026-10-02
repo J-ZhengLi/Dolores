@@ -31,6 +31,68 @@ class ChatController extends ChangeNotifier {
   final ChatBridge bridge;
   ChatController(this.bridge);
   String? workspaceRoot;
+  String workspaceKind = 'temporary';
+  List<Map<String, dynamic>> projects = [];
+  String get workspaceLabel => workspaceKind == 'project'
+      ? projects
+                .where((p) => p['root'] == workspaceRoot)
+                .map((p) => p['name'] as String)
+                .firstOrNull ??
+            'Project'
+      : workspaceKind == 'side'
+      ? 'Side chat'
+      : 'Temporary workspace';
+  void _setWorkspace(dynamic value) {
+    final data = (value as Map?)?.cast<String, dynamic>();
+    workspaceKind = data?['kind'] as String? ?? 'side';
+    workspaceRoot = data?['root'] as String?;
+  }
+
+  Future<void> _ensureWorkingSession() async {
+    if (session != null) return;
+    final result = await bridge.call({
+      'command': 'createSession',
+      'kind': workspaceKind,
+      if (workspaceKind == 'project') 'path': workspaceRoot,
+    });
+    if (_disposed) return;
+    session = result['session']['id'] as String;
+    _setWorkspace(result['workspace']);
+    sessions.insert(0, {
+      ...(result['session'] as Map).cast<String, dynamic>(),
+      'workspace': result['workspace'],
+    });
+    if (sessions.length > 50) {
+      sessions.removeLast();
+      sessionsOlder = true;
+    }
+  }
+
+  Future<void> openProject(String root) async {
+    if (busy || changing || loading) return;
+    changing = true;
+    _notify();
+    try {
+      final result = await bridge.call({
+        'command': 'createSession',
+        'kind': 'project',
+        'path': root,
+      });
+      if (_disposed) return;
+      _rememberView();
+      session = result['session']['id'] as String;
+      _setWorkspace(result['workspace']);
+      _clearConversation();
+      await refresh();
+      error = null;
+    } catch (failure) {
+      error = failure.toString();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
   Map<String, dynamic>? toolApproval;
   final toolRecords = <Map<String, dynamic>>[];
   bool decidingTool = false;
@@ -41,10 +103,8 @@ class ChatController extends ChangeNotifier {
     _notify();
     try {
       final folder = await choose();
-      if (!_disposed && folder != null) {
-        workspaceRoot = folder;
-        invalidateContextPreview();
-      }
+      changing = false;
+      if (!_disposed && folder != null) await openProject(folder);
     } catch (_) {
       if (!_disposed) error = 'Could not open the folder picker.';
     } finally {
@@ -55,9 +115,7 @@ class ChatController extends ChangeNotifier {
 
   void disableTools() {
     if (busy || changing || loading) return;
-    workspaceRoot = null;
-    invalidateContextPreview();
-    _notify();
+    newChat(kind: 'side');
   }
 
   Future<void> decideTool(bool allow) async {
@@ -198,7 +256,7 @@ class ChatController extends ChangeNotifier {
         'command': 'context',
         'session': session,
         'input': draft,
-        if (workspaceRoot != null) 'tools': true,
+        if (workspaceKind != 'side') 'tools': true,
       });
       error = null;
       final report = (result as Map).cast<String, dynamic>();
@@ -230,6 +288,8 @@ class ChatController extends ChangeNotifier {
   Future<void> refresh() async {
     final state = await bridge.call({'command': 'bootstrap'});
     sessions = (state['sessions'] as List).cast<Map<String, dynamic>>();
+    projects = ((state['projects'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
     sessionsOlder = state['sessionPage']?['hasOlder'] == true;
     sessionsNewer = state['sessionPage']?['hasNewer'] == true;
     baseUrl = state['preferences']['baseUrl'] as String;
@@ -362,19 +422,35 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  void newChat() {
+  void _clearConversation() {
+    toolRecords.clear();
+    toolApproval = null;
+    contextSummary = null;
+    contextBasis = null;
+    messages = [];
+    messagesOlder = messagesNewer = false;
+    draft = '';
+    scrollOffset = 0;
+    viewRevision++;
+  }
+
+  void newChat({String? kind}) {
     if (!busy && !changing) {
       toolRecords.clear();
       toolApproval = null;
     }
     if (busy || changing) return;
     _rememberView();
+    final nextKind =
+        kind ?? (workspaceKind == 'project' ? 'project' : 'temporary');
+    if (nextKind != 'project') workspaceRoot = null;
+    workspaceKind = nextKind;
     session = null;
     contextSummary = null;
     contextBasis = null;
     messages = [];
     messagesOlder = messagesNewer = false;
-    draft = _views['']?.draft ?? '';
+    draft = '';
     scrollOffset = 0;
     viewRevision++;
     error = null;
@@ -388,12 +464,17 @@ class ChatController extends ChangeNotifier {
     _notify();
     try {
       final state = _views[id];
+      final workspace = await bridge.call({
+        'command': 'workspace',
+        'session': id,
+      });
       final history = await bridge.call({
         'command': 'messagesPage',
         'session': id,
         'cursor': state?.cursor,
       });
       session = id;
+      _setWorkspace(workspace);
       toolRecords.clear();
       toolApproval = null;
       _setMessages(history);
@@ -511,6 +592,8 @@ class ChatController extends ChangeNotifier {
       await bridge.call({'command': 'delete', 'session': id});
       if (session == id) {
         session = null;
+        workspaceKind = 'temporary';
+        workspaceRoot = null;
         messages = [];
         messagesOlder = messagesNewer = false;
         draft = '';
@@ -540,6 +623,20 @@ class ChatController extends ChangeNotifier {
       _notify();
       return;
     }
+    if (session == null) {
+      changing = true;
+      _notify();
+      try {
+        await _ensureWorkingSession();
+      } catch (failure) {
+        error = failure.toString();
+        changing = false;
+        _notify();
+        return;
+      }
+      changing = false;
+    }
+    if (_disposed) return;
     if (messagesNewer) {
       await browseMessages(newer: false, latest: true);
       if (messagesNewer || error != null) return;
@@ -570,7 +667,6 @@ class ChatController extends ChangeNotifier {
         'id': id,
         'session': session,
         'input': pendingInput,
-        if (workspaceRoot != null) 'workspace': workspaceRoot,
       });
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});

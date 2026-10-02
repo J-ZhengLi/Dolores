@@ -3,6 +3,7 @@ mod approval;
 mod connection;
 mod export;
 mod recovery;
+mod workspace;
 use approval::{ApprovalSlot, RunApproval};
 use connection::ConnectionManager;
 use dolores_core::{
@@ -32,7 +33,7 @@ struct TurnRequest {
     input: String,
     model: String,
     settings: Option<RequestSettings>,
-    tool: Option<Arc<dyn dolores_core::ToolPlugin>>,
+    tools: Vec<Arc<dyn dolores_core::ToolPlugin>>,
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
@@ -40,6 +41,7 @@ struct Engine {
     store: Arc<dyn SessionStore>,
     connection: Mutex<ConnectionManager>,
     active: Mutex<Option<Run>>,
+    workspace_directory: Option<PathBuf>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
@@ -47,6 +49,13 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
     Bootstrap,
+    CreateSession {
+        kind: dolores_core::WorkspaceKind,
+        path: Option<PathBuf>,
+    },
+    Workspace {
+        session: String,
+    },
     SessionsPage {
         cursor: Option<dolores_core::SessionCursor>,
         #[serde(default)]
@@ -119,6 +128,19 @@ enum Command {
     Shutdown,
 }
 impl Engine {
+    fn session_page(
+        &self,
+        cursor: Option<dolores_core::SessionCursor>,
+        newer: bool,
+    ) -> Result<Value, String> {
+        let page = self.store.sessions_page(cursor, newer, 50)?;
+        let mut value = json!(page);
+        for item in value["items"].as_array_mut().unwrap() {
+            let id = item["id"].as_str().unwrap();
+            item["workspace"] = json!(self.store.workspace(id)?);
+        }
+        Ok(value)
+    }
     fn new(
         store: Arc<dyn SessionStore>,
         credentials: Arc<dyn CredentialStore>,
@@ -139,6 +161,7 @@ impl Engine {
             store,
             connection: Mutex::new(connection),
             active: Mutex::new(None),
+            workspace_directory: None,
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -214,14 +237,14 @@ impl Engine {
                     .connection
                     .lock()
                     .map_err(|_| "Connection unavailable.")?;
-                let page = self.store.sessions_page(None, false, 50)?;
+                let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"sessions":page.items,"sessionPage":page,"preferences":self.store.preferences()?,"requestSettings":self.store.request_settings()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.request_settings()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
-            Command::SessionsPage { cursor, newer } => {
-                Ok(json!(self.store.sessions_page(cursor, newer, 50)?))
-            }
+            Command::CreateSession { kind, path } => self.create_working_session(kind, path),
+            Command::Workspace { session } => Ok(json!(self.store.workspace(&session)?)),
+            Command::SessionsPage { cursor, newer } => self.session_page(cursor, newer),
             Command::MessagesPage {
                 session,
                 cursor,
@@ -242,6 +265,10 @@ impl Engine {
                 input,
                 tools,
             } => {
+                let tools = match session.as_ref() {
+                    Some(id) => self.store.workspace(id)?.root.is_some(),
+                    None => tools,
+                };
                 let (history, count) = match session {
                     Some(session) => self.store.context_history(&session)?,
                     None => (vec![], Some(0)),
@@ -325,12 +352,6 @@ impl Engine {
                 workspace,
             } => {
                 prepare_context(vec![], &input)?;
-                let tool = workspace
-                    .map(|root| {
-                        dolores_tools_fs::ReadTextFile::new(&root)
-                            .map(|tool| Arc::new(tool) as Arc<dyn dolores_core::ToolPlugin>)
-                    })
-                    .transpose()?;
                 let provider = self
                     .connection
                     .lock()
@@ -338,6 +359,37 @@ impl Engine {
                     .provider
                     .clone()
                     .ok_or("Set up a model connection first.")?;
+                let session = match session {
+                    Some(id) => Some(id),
+                    None => {
+                        let kind = if workspace.is_some() {
+                            dolores_core::WorkspaceKind::Project
+                        } else {
+                            dolores_core::WorkspaceKind::Temporary
+                        };
+                        let created = self.create_working_session(kind, workspace.clone())?;
+                        Some(created["session"]["id"].as_str().unwrap().to_owned())
+                    }
+                };
+                // Legacy callers can choose a folder when starting a new chat.
+                // A saved workspace is authoritative and cannot be redirected per request.
+                let saved = session
+                    .as_ref()
+                    .map(|id| self.store.workspace(id))
+                    .transpose()?;
+                if let (Some(saved), Some(root)) = (&saved, &workspace) {
+                    if saved.root.as_ref() != Some(&workspace::canonical_folder(root)?) {
+                        return Err(
+                            "This chat uses a different working folder. Start a new project chat."
+                                .into(),
+                        );
+                    }
+                }
+                let workspace = saved.and_then(|s| s.root).map(PathBuf::from).or(workspace);
+                let tools = workspace
+                    .map(|root| dolores_tools_fs::folder_tools(&root))
+                    .transpose()?
+                    .unwrap_or_default();
                 let model = self.store.preferences()?.model;
                 let settings = provider.request_settings();
                 let cancel = CancellationToken::new();
@@ -365,7 +417,7 @@ impl Engine {
                             input,
                             model,
                             settings,
-                            tool,
+                            tools,
                             approval: Some(approval),
                         },
                         cancel,
@@ -404,7 +456,7 @@ async fn execute(
         input,
         model,
         settings,
-        tool,
+        tools,
         approval,
     } = request;
     if cancel.is_cancelled() {
@@ -421,7 +473,7 @@ async fn execute(
     })
     .await?;
     let context = prepare_context(history, &input)?;
-    let context = if tool.is_some() {
+    let context = if !tools.is_empty() {
         dolores_core::prepare_agent_context(context)?
     } else {
         context
@@ -433,11 +485,11 @@ async fn execute(
         &cancel,
     )
     .await?;
-    if let Some(tool) = tool {
+    if !tools.is_empty() {
         let approval = approval.ok_or("Tool approval is unavailable.")?;
         let running = async {
             let (events, mut receiver) = mpsc::channel(32);
-            let plugins = [tool];
+            let plugins = tools;
             let request = dolores_core::run_agent(
                 provider.as_ref(),
                 context,
@@ -575,10 +627,12 @@ fn initialize() -> Result<Engine, String> {
     };
     std::fs::create_dir_all(&directory).map_err(|_| "Could not create the data directory.")?;
     let credentials = Arc::new(dolores_credentials::OsCredentialStore::new(&directory)?);
-    Engine::new(
+    let mut engine = Engine::new(
         Arc::new(SqliteStore::open(&directory.join("dolores.db"))?),
         credentials,
-    )
+    )?;
+    engine.workspace_directory = Some(directory.join("workspaces"));
+    Ok(engine)
 }
 fn reply(input: &[u8]) -> Value {
     let result = serde_json::from_slice::<Command>(input)
@@ -843,7 +897,7 @@ mod tests {
                         max_output_tokens: 2048,
                         timeout_seconds: 1,
                     }),
-                    tool: None,
+                    tools: vec![],
                     approval: None,
                 },
                 CancellationToken::new(),
@@ -884,10 +938,13 @@ mod tests {
                     model: "fixture".into(),
                 })
                 .unwrap();
+            store
+                .create_workspace_session("side", &dolores_core::SessionWorkspace::default())
+                .unwrap();
             engine
                 .call(Command::Start {
                     id: 7,
-                    session: None,
+                    session: Some("side".into()),
                     input: "user".into(),
                     workspace: None,
                 })

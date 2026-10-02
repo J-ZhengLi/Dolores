@@ -79,6 +79,7 @@ mod tests {
                     call_id: "one".into(),
                     name: "read_text_file".into(),
                     target: "readme.txt".into(),
+                    query: None,
                 };
                 tokio::time::timeout(
                     std::time::Duration::from_millis(150),

@@ -14,8 +14,8 @@ import 'usage_details.dart';
 import 'inspector.dart';
 import 'request_settings.dart';
 import 'tool_activity.dart';
-
-import 'package:path/path.dart' as path;
+import 'workspace_picker.dart';
+import 'chat_sidebar.dart';
 
 import 'theme.dart';
 export 'theme.dart' show Palette;
@@ -61,6 +61,7 @@ class _ChatPageState extends State<ChatPage> {
   final input = ComposerController();
   final focus = FocusNode();
   final scroll = ScrollController();
+  final shell = GlobalKey<ScaffoldState>();
   ChatController get chat => widget.chat;
   bool following = true;
   int seenRevision = -1;
@@ -135,6 +136,14 @@ class _ChatPageState extends State<ChatPage> {
     if (mounted) focus.requestFocus();
   }
 
+  Future<void> openProject() async {
+    await chat.chooseToolFolder(() => getDirectoryPath());
+    if (mounted && chat.error == null) {
+      shell.currentState?.closeDrawer();
+      focus.requestFocus();
+    }
+  }
+
   Future<void> exportChat(String format) async {
     final count = await chat.exportConversation(format, () async {
       final extension = format == 'json' ? 'json' : 'md';
@@ -156,242 +165,34 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Widget sidebar(Palette p) => Container(
-    width: UiTokens.sidebarWidth,
-    color: p.sidebar,
-    child: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 28, 18, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 0, 32),
-              child: Row(
-                children: [
-                  Icon(Icons.all_inclusive_rounded, size: 27, color: p.accent),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Dolores',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Georgia',
-                        fontSize: 26,
-                        letterSpacing: -0.8,
-                        color: p.text,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton.icon(
-              key: const Key('new-chat'),
-              onPressed: chat.busy || chat.changing || chat.loading
-                  ? null
-                  : () {
-                      chat.newChat();
-                      focus.requestFocus();
-                    },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('New conversation'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: p.text,
-                side: BorderSide(color: p.border),
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 28, 0, 12),
-              child: Text(
-                'CONVERSATIONS',
-                style: TextStyle(
-                  color: p.muted,
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: chat.sessions.length,
-                itemBuilder: (_, index) {
-                  final item = chat.sessions[index], id = item['id'] as String;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Material(
-                      color: chat.session == id ? p.soft : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: chat.busy || chat.changing
-                            ? null
-                            : () => chat.select(id),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 12),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.chat_bubble_outline_rounded,
-                                size: 16,
-                                color: p.muted,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  item['title'] as String,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13, color: p.text),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Delete conversation',
-                                iconSize: 16,
-                                onPressed: chat.busy || chat.changing
-                                    ? null
-                                    : () async {
-                                        final confirmed =
-                                            await showDialog<bool>(
-                                              context: context,
-                                              builder: (_) => AlertDialog(
-                                                title: const Text(
-                                                  'Delete conversation?',
-                                                ),
-                                                content: const Text(
-                                                  'This removes its saved messages.',
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                          context,
-                                                          false,
-                                                        ),
-                                                    child: const Text('Keep'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                          context,
-                                                          true,
-                                                        ),
-                                                    child: const Text('Delete'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                        if (confirmed == true) {
-                                          await chat.delete(id);
-                                        }
-                                      },
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  color: p.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (chat.sessionsOlder || chat.sessionsNewer)
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      key: const Key('newer-chats'),
-                      onPressed:
-                          !chat.sessionsNewer || chat.busy || chat.changing
-                          ? null
-                          : () => chat.browseSessions(newer: true),
-                      child: const Text('Newer'),
-                    ),
-                  ),
-                  Expanded(
-                    child: TextButton(
-                      key: const Key('older-chats'),
-                      onPressed:
-                          !chat.sessionsOlder || chat.busy || chat.changing
-                          ? null
-                          : () => chat.browseSessions(newer: false),
-                      child: const Text('Older'),
-                    ),
-                  ),
-                ],
-              ),
-            Divider(color: p.border),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              key: const Key('connection'),
-              onPressed: chat.busy || chat.changing || chat.loading
-                  ? null
-                  : settings,
-              icon: const Icon(Icons.tune, size: 18),
-              label: const Text('Model connection'),
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.all(12),
-              ),
-            ),
-            TextButton.icon(
-              key: const Key('request-settings'),
-              onPressed: chat.busy || chat.changing || chat.loading
-                  ? null
-                  : requestSettings,
-              icon: const Icon(Icons.timer_outlined, size: 18),
-              label: const Text('Request settings'),
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.all(12),
-              ),
-            ),
-            TextButton.icon(
-              key: const Key('tool-folder'),
-              onPressed: chat.busy || chat.changing || chat.loading
-                  ? null
-                  : () => chat.chooseToolFolder(() => getDirectoryPath()),
-              icon: const Icon(Icons.folder_open_outlined, size: 18),
-              label: Text(
-                chat.workspaceRoot == null
-                    ? 'Folder tools'
-                    : 'Tools: ${path.basename(chat.workspaceRoot!)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.all(12),
-              ),
-            ),
-            if (chat.workspaceRoot != null)
-              TextButton(
-                key: const Key('disable-tools'),
-                onPressed: chat.busy || chat.changing || chat.loading
-                    ? null
-                    : chat.disableTools,
-                child: const Text('Disable folder tools'),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
-              child: Text(
-                'A little more awake, every day.',
-                style: TextStyle(fontSize: 11, color: p.muted),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+  Widget sidebar(Palette p) => ChatSidebar(
+    chat: chat,
+    onNewTemporary: () {
+      chat.newChat(kind: 'temporary');
+      shell.currentState?.closeDrawer();
+      focus.requestFocus();
+    },
+    onNewSide: () {
+      chat.newChat(kind: 'side');
+      shell.currentState?.closeDrawer();
+      focus.requestFocus();
+    },
+    onOpenProject: openProject,
+    onProject: (root) async {
+      await chat.openProject(root);
+      if (mounted && chat.error == null) {
+        shell.currentState?.closeDrawer();
+        focus.requestFocus();
+      }
+    },
+    onSelect: (id) async {
+      await chat.select(id);
+      if (mounted && chat.error == null) {
+        shell.currentState?.closeDrawer();
+      }
+    },
+    onConnection: settings,
+    onRequestSettings: requestSettings,
   );
 
   Widget message(
@@ -504,7 +305,9 @@ class _ChatPageState extends State<ChatPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Hello. I’m Dolores.',
+              chat.workspaceKind == 'side'
+                  ? 'A little space to think.'
+                  : 'What are we working on?',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'Georgia',
@@ -514,11 +317,24 @@ class _ChatPageState extends State<ChatPage> {
             ),
             const SizedBox(height: 14),
             Text(
-              'A quiet space to think things through.',
+              chat.workspaceKind == 'project'
+                  ? 'Work with files in ${chat.workspaceLabel}.'
+                  : chat.workspaceKind == 'side'
+                  ? 'A conversation without file access.'
+                  : 'Start here, or open a project. Your working folder is ready when you send.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 15, color: p.muted),
             ),
             const SizedBox(height: 28),
+            if (chat.workspaceKind != 'project')
+              TextButton.icon(
+                key: const Key('welcome-open-project'),
+                onPressed: chat.busy || chat.changing || chat.loading
+                    ? null
+                    : openProject,
+                icon: const Icon(Icons.folder_open_outlined, size: 18),
+                label: const Text('Open project…'),
+              ),
             if (!chat.configured)
               OutlinedButton.icon(
                 onPressed: chat.loading ? null : settings,
@@ -808,33 +624,11 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   Expanded(
-                    child: Text(
-                      'Conversation',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: p.text,
-                      ),
-                    ),
-                  ),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: narrow ? 140 : 200),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: p.border),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        chat.configured ? chat.model : 'No model connected',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11, color: p.muted),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: WorkspacePicker(
+                        chat: chat,
+                        onOpenProject: openProject,
                       ),
                     ),
                   ),
@@ -1002,6 +796,7 @@ class _ChatPageState extends State<ChatPage> {
           ],
         );
         return Scaffold(
+          key: shell,
           drawer: narrow
               ? Drawer(width: UiTokens.sidebarWidth, child: sidebar(p))
               : null,

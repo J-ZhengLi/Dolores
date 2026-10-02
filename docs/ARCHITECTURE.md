@@ -17,6 +17,7 @@ Dolores is a local desktop agent harness. Its long-term purpose is to improve th
 | Credentials | OS vault via a credentials plugin | Explicit native backends; no plaintext fallback. Nonsecret references are transactional in SQLite, with best-effort cross-store cleanup. |
 | Models | OpenAI-compatible provider plugin | Local or hosted endpoints through one adapter; compatibility is tested against the chat-completions subset, not assumed for every vendor. |
 | Folder tools | Compiled read-only plugin, user-selected directory capability and per-read approval | Opt-in launch-only authority, bounded UTF-8 reads, explicit result records; native plugin code remains trusted. |
+| Folder discovery | Approved shallow listing and bounded literal text search | Shared directory capability, separate query/scope decisions and partial results; no index or background scanning. |
 | Extensions | Typed Rust interfaces and explicit built-in registration | Start with replaceable provider/storage plugins. External executable/WASM plugins require a later protocol and permission design. |
 | Learning | Reviewed memories and skills, then outcome evaluation | Learn reusable behavior without silently rewriting instructions or running generated code. Not implemented in brick 1. |
 
@@ -25,7 +26,7 @@ flowchart TB
   Flutter[Flutter UI] -->|worker isolate C ABI| Bridge[Rust host]
   Bridge --> Core[Dolores core: bounded chat and tool loop]
   Bridge --> Approval[Run-bound user approval]
-  Core --> Tools[Tool port: approved text-file plugin]
+  Core --> Tools[Tool port: folder read/list/search plugins]
   Tools --> Folder[Chosen directory capability]
   Bridge --> Credentials[Credential port: OS vault plugin]
   Native[Alternative Iced host] --> Core
@@ -39,6 +40,8 @@ flowchart TB
   Future[Later: more tools, memory, skills, evaluation] -.-> Core
 ```
 
+Brick 3.2 explicitly registers listing, search and read plugins sharing the selected directory handle. Search/listing add optional query provenance and a completed status to extensible tool records; old records and schema 5 remain compatible. Their scan/result budgets and exclusions live in the filesystem plugin, while the core owns distinct `(tool,target,query)` denial decisions and the existing run budget. Flutter discloses scan scope before approval and displays selectable results with partial coverage. No service, index, dependency or worker is added. See [folder discovery](design/folder-discovery.md).
+
 The core has no desktop framework, UI, HTTP, SQLite or keyring dependency. Each host assembles plugins. Networking belongs to the provider plugin. Flutter remembers secrets only in OS secure storage when requested; alternative hosts retain memory-only keys. All share `dev.dolores.desktop` and the database format; `DOLORES_DATA_DIR` selects an isolated absolute directory. History is unencrypted. Concurrent runs from separate hosts are outside the per-host guard's boundary.
 
 ## Boundaries and lifecycle
@@ -50,6 +53,8 @@ Run lifecycle: idle → validate → load bounded context → stream → atomica
 Third-party native code is not sandboxed by these interfaces. Tauri capabilities control access from the webview to commands, not native plugin behavior. Any later external plugin requires API version negotiation, explicit activation, declared capabilities, cancellation, resource budgets, and an accurately described isolation boundary.
 
 ## Resource policy
+
+Brick 3.3 replaces Flutter's launch-wide tools toggle with typed `SessionWorkspace`/`WorkspaceKind` and optional storage ports. SQLite schema 6 atomically stores immutable per-chat folder associations and a bounded recent-project list. The host validates project folders or creates unique app-managed temporary folders; side/legacy chats have no folder. Each run obtains tools from its saved association, never the last visited chat. Folder paths are private host state and are excluded from automatic provider context and exports. Conversation deletion preserves all working files. Initial temporary-folder creation is lazy, and no index, cleanup scheduler or idle polling is added. See [working sessions](design/working-sessions.md); this supersedes the launch-only scope in the historical brick 3.1 decision.
 
 - No resident local model, Python runtime, Node sidecar, vector database, background scheduler, idle polling, telemetry, or automatic downloads in the app.
 - Flutter's Rust host uses two async workers and at most two blocking workers. A Dart worker serializes storage and native calls. Polling runs only during generation; there is no application idle timer. Scrolling, startup, GPU/system memory and low-end responsiveness need separate checks.

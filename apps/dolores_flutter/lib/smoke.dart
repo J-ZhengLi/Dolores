@@ -95,6 +95,7 @@ Future<void> _run(
       '',
       models: models,
     );
+    chat.newChat(kind: 'side');
     chat.draft = 'hello';
     await chat.send();
     await waitUntil(() => !chat.busy);
@@ -179,7 +180,7 @@ Future<void> _run(
       'The selected chat model is used in the real provider request',
       checks,
     );
-    chat.newChat();
+    chat.newChat(kind: 'side');
     chat.draft = 'markdown';
     await chat.send();
     await waitUntil(() => chat.partial.contains('```rust'));
@@ -489,7 +490,7 @@ Future<void> _run(
     }
     Navigator.of(smokePageContext).pop();
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    chat.newChat();
+    chat.newChat(kind: 'side');
     chat.draft = 'no-usage';
     await chat.send();
     await waitUntil(() => !chat.busy);
@@ -707,8 +708,179 @@ Future<void> _run(
       'Repeated tool requests stop at the fixed model-call budget and never save a partial turn',
       checks,
     );
-    chat.disableTools();
+    await Directory(path.join(workspace.path, 'docs')).create();
+    await File(path.join(workspace.path, 'docs', 'notes.txt')).writeAsString(
+      'Find 世界.* here\nFull approved note, including its second line.',
+    );
     chat.newChat();
+    chat.draft = 'tool-discovery';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    check(
+      chat.toolApproval?['name'] == 'list_folder' && chat.toolRecords.isEmpty,
+      'Folder listing waits for approval before sharing names',
+      checks,
+    );
+    await screenshot(capture, output, 'listing-approval-dark');
+    await chat.decideTool(true);
+    await waitUntil(
+      () => chat.toolApproval?['name'] == 'search_text' || !chat.busy,
+    );
+    check(
+      chat.busy &&
+          chat.toolApproval?['target'] == 'docs' &&
+          chat.toolApproval?['query'] == '世界.*' &&
+          chat.toolRecords.length == 1,
+      'Search approval names its folder and exact literal query before scanning',
+      checks,
+    );
+    await screenshot(capture, output, 'search-approval-dark');
+    await chat.decideTool(true);
+    await waitUntil(
+      () => chat.toolApproval?['name'] == 'read_text_file' || !chat.busy,
+    );
+    check(
+      chat.busy &&
+          chat.toolApproval?['target'] == 'docs/notes.txt' &&
+          chat.toolRecords.length == 2,
+      'A search hit requests separate full-file approval with a root-relative path',
+      checks,
+    );
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.length == 2 &&
+          chat.messages.last['content'].contains('second line') &&
+          chat.messages.last['metadata']['agent']['modelCalls'] == 4 &&
+          chat.messages.last['metadata']['agent']['tools'].length == 3,
+      'Approved listing search and read complete through four real model calls with saved provenance',
+      checks,
+    );
+    final discoverySession = chat.session!;
+    await screenshot(capture, output, 'discovery-result-dark');
+    chat.newChat();
+    await chat.select(discoverySession);
+    final savedSearch = chat.messages.last['metadata']['agent']['tools'][1];
+    check(
+      savedSearch['query'] == '世界.*' &&
+          jsonDecode(savedSearch['content'])['matches'][0]['path'] ==
+              'docs/notes.txt',
+      'Reload preserves search query and Unicode matching-line provenance',
+      checks,
+    );
+    chat.draft = 'tool-search-deny';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await chat.decideTool(true);
+    await waitUntil(
+      () => chat.toolApproval?['name'] == 'search_text' || !chat.busy,
+    );
+    await chat.decideTool(false);
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.length == 4 &&
+          chat.messages.last['metadata']['agent']['tools'][1]['status'] ==
+              'denied' &&
+          !chat.messages.last['content'].contains('second line'),
+      'Deny search sends a refusal without scanning text or granting a full read',
+      checks,
+    );
+    chat.draft = 'tool-search-stop';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await chat.decideTool(true);
+    await waitUntil(
+      () => chat.toolApproval?['name'] == 'search_text' || !chat.busy,
+    );
+    await chat.stop();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.messages.length == 4 &&
+          chat.draft == 'tool-search-stop' &&
+          chat.toolApproval == null,
+      'Stop before a folder search restores the draft and preserves saved history',
+      checks,
+    );
+    final projectSession = chat.session!;
+    final projectRoot = chat.workspaceRoot!;
+    chat.newChat(kind: 'temporary');
+    chat.draft = 'tool-list-deny';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    final temporarySession = chat.session!;
+    final temporaryRoot = chat.workspaceRoot!;
+    check(
+      chat.workspaceKind == 'temporary' &&
+          temporaryRoot != projectRoot &&
+          Directory(temporaryRoot).existsSync() &&
+          chat.toolApproval?['name'] == 'list_folder',
+      'Default temporary workspace advertises all tools and waits for listing approval without a folder toggle',
+      checks,
+    );
+    await screenshot(capture, output, 'temporary-approval-dark');
+    await chat.decideTool(false);
+    await waitUntil(() => !chat.busy);
+    chat.newChat(kind: 'temporary');
+    chat.draft = 'workspace-hello';
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.workspaceRoot != temporaryRoot &&
+          chat.messages.last['metadata']['agent']['modelCalls'] == 1,
+      'A second temporary chat owns a different folder and ordinary prompts use the tool-enabled agent',
+      checks,
+    );
+    await chat.select(temporarySession);
+    check(
+      chat.workspaceRoot == temporaryRoot && chat.workspaceKind == 'temporary',
+      'Reload restores the exact temporary working folder',
+      checks,
+    );
+    await chat.select(projectSession);
+    check(
+      chat.workspaceRoot == projectRoot &&
+          chat.workspaceKind == 'project' &&
+          chat.projects.any((p) => p['root'] == projectRoot),
+      'Project selection restores its persisted root and recent project entry',
+      checks,
+    );
+    await screenshot(capture, output, 'project-workspace-dark');
+    ScaffoldState? sidebarShell;
+    void findShell(Element element) {
+      if (element is StatefulElement && element.state is ScaffoldState) {
+        sidebarShell = element.state as ScaffoldState;
+      }
+      element.visitChildren(findShell);
+    }
+
+    findShell(capture.currentContext! as Element);
+    if (sidebarShell?.hasDrawer == true) {
+      sidebarShell!.openDrawer();
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+    }
+    void toggleSection(String key) {
+      void findButton(Element element) {
+        if (element.widget is TextButton && element.widget.key == Key(key)) {
+          (element.widget as TextButton).onPressed?.call();
+        }
+        element.visitChildren(findButton);
+      }
+
+      findButton(capture.currentContext! as Element);
+    }
+
+    toggleSection('section-projects');
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    toggleSection('section-recents');
+    await screenshot(capture, output, 'sidebar-collapsed-dark');
+    toggleSection('section-projects');
+    toggleSection('section-recents');
+    sidebarShell?.closeDrawer();
+    chat.newChat(kind: 'side');
+    await screenshot(capture, output, 'side-chat-dark');
     if (!smokePageContext.mounted) {
       throw StateError('Smoke page was closed.');
     }

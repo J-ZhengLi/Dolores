@@ -4,6 +4,7 @@ use dolores_core::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 mod history;
+mod workspace;
 use std::{
     path::Path,
     sync::{Mutex, MutexGuard},
@@ -38,13 +39,15 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, model TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);").map_err(storage_error)?;
+            CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
+            CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);").map_err(storage_error)?;
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(storage_error)?;
-        if version < 5 {
+        if version < 6 {
             connection
-                .pragma_update(None, "user_version", 5)
+                .pragma_update(None, "user_version", 6)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -57,6 +60,19 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn workspace(&self, id: &str) -> Result<dolores_core::SessionWorkspace, String> {
+        self.read_workspace(id)
+    }
+    fn projects(&self) -> Result<Vec<dolores_core::Project>, String> {
+        self.read_projects()
+    }
+    fn create_workspace_session(
+        &self,
+        id: &str,
+        workspace: &dolores_core::SessionWorkspace,
+    ) -> Result<Session, String> {
+        self.save_workspace_session(id, workspace)
+    }
     fn request_settings(&self) -> Result<RequestSettings, String> {
         let data: Option<String> = self
             .lock()?
@@ -455,7 +471,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 5);
+        assert_eq!(version, 6);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

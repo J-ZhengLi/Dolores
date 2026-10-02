@@ -5,9 +5,11 @@ use tokio_util::sync::CancellationToken;
 mod accounting;
 mod agent;
 mod request_settings;
+mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 pub use agent::*;
 pub use request_settings::RequestSettings;
+pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
 
 pub const MAX_INPUT_BYTES: usize = 16 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 128 * 1024;
@@ -148,6 +150,15 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn workspace(&self, _: &str) -> Result<SessionWorkspace, String> {
+        Ok(SessionWorkspace::default())
+    }
+    fn projects(&self) -> Result<Vec<Project>, String> {
+        Ok(vec![])
+    }
+    fn create_workspace_session(&self, _: &str, _: &SessionWorkspace) -> Result<Session, String> {
+        Err("This storage plugin does not support working folders.".into())
+    }
     fn descriptor(&self) -> PluginDescriptor;
     fn list(&self) -> Result<Vec<Session>, String>;
     fn create(&self, id: &str) -> Result<Session, String>;

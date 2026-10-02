@@ -1,4 +1,7 @@
 import 'package:dolores_flutter/bridge.dart';
+
+import 'support/workspaces.dart';
+
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/code_syntax.dart';
 import 'package:dolores_flutter/composer_controller.dart';
@@ -22,6 +25,7 @@ class _Bridge implements ChatBridge {
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
     commands.add(command);
+    if (command['command'] == 'createSession') return createdWorkspace(command);
     return command['command'] == 'poll' ? [] : null;
   }
 
@@ -737,7 +741,10 @@ void main() {
       expect(chat.draft, source);
       await tester.tap(find.byKey(const Key('send')));
       await tester.pump();
-      expect(bridge.commands.first['input'], source);
+      expect(
+        bridge.commands.singleWhere((c) => c['command'] == 'start')['input'],
+        source,
+      );
       chat.dispose();
     },
   );
@@ -836,7 +843,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
-      expect(bridge.commands.first['command'], 'start');
+      expect(
+        bridge.commands.where((c) => c['command'] == 'start'),
+        hasLength(1),
+      );
       chat.dispose();
     },
   );

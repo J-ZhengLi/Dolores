@@ -5,7 +5,19 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{io::Read, path::Path, sync::Arc};
 use tokio_util::sync::CancellationToken;
+mod discovery;
 
+/// Explicit built-in registration; all tools share the same directory handle.
+pub fn folder_tools(root: &Path) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    let read = ReadTextFile::new(root)?;
+    Ok(vec![
+        Arc::new(read.clone()),
+        Arc::new(discovery::Discover::new(read.clone(), false)),
+        Arc::new(discovery::Discover::new(read, true)),
+    ])
+}
+
+#[derive(Clone)]
 pub struct ReadTextFile {
     directory: Arc<Dir>,
 }
@@ -91,6 +103,7 @@ impl ToolPlugin for ReadTextFile {
             call_id: call.id.clone(),
             name: call.name.clone(),
             target,
+            query: None,
         })
     }
     async fn invoke(
@@ -98,7 +111,7 @@ impl ToolPlugin for ReadTextFile {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        if request.name != "read_text_file" {
+        if request.name != "read_text_file" || request.query.is_some() {
             return Err("Approved file path changed.".into());
         }
         let directory = self.directory.clone();
@@ -205,8 +218,8 @@ mod tests {
         bad.arguments = r#"{"path":"readme.txt","approved":true}"#.into();
         assert!(tool.prepare(&bad).is_err());
     }
-    #[test]
-    fn directory_capability_rejects_outside_symlink_resolution() {
+    #[tokio::test]
+    async fn directory_capability_rejects_outside_symlink_resolution() {
         let root = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
         std::fs::write(outside.path().join("secret"), "outside").unwrap();
@@ -228,5 +241,35 @@ mod tests {
         std::os::unix::fs::symlink(outside.path(), root.path().join("escape")).unwrap();
         let tool = ReadTextFile::new(root.path()).unwrap();
         assert!(tool.prepare(&call("escape/secret")).is_err());
+        let tools = folder_tools(root.path()).unwrap();
+        for tool in [&tools[1], &tools[2]] {
+            let query = (tool.spec().name == "search_text").then(|| "outside".to_string());
+            let args = if let Some(query) = &query {
+                json!({"path":"escape","query":query})
+            } else {
+                json!({"path":"escape"})
+            };
+            let named = ToolCall {
+                id: "outside".into(),
+                name: tool.spec().name,
+                arguments: args.to_string(),
+            };
+            assert!(tool.prepare(&named).is_err());
+            let args = if let Some(query) = &query {
+                json!({"path":".","query":query})
+            } else {
+                json!({"path":"."})
+            };
+            let named = ToolCall {
+                id: "inside".into(),
+                name: tool.spec().name,
+                arguments: args.to_string(),
+            };
+            let result = tool
+                .invoke(&tool.prepare(&named).unwrap(), CancellationToken::new())
+                .await
+                .unwrap();
+            assert!(!result.contains("secret") && !result.contains("escape"));
+        }
     }
 }

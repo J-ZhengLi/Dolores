@@ -23,7 +23,7 @@
     "commands": {
       "bootstrap": {
         "arguments": {},
-        "result": "{sessions:Session[0..50],sessionPage:{items:Session[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],requestSettings:RequestSettings,configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
+        "result": "{sessions:LocalSession[0..50],sessionPage:{items:LocalSession[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],projects:Project[],requestSettings:RequestSettings,configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
       },
       "messages": {
         "arguments": {
@@ -72,9 +72,9 @@
           "id": "u64",
           "session": "string|null",
           "input": "string",
-          "workspace": "absolute folder string|null; optional; enables approved read-only tools for this run, never remembered or sent to provider"
+          "workspace": "absolute folder string|null; legacy optional; new session creates project, existing session must match immutable saved root"
         },
-        "result": "null; reservation acknowledged"
+        "result": "null; tools follow saved workspace, no session creates temporary working chat; side chats remain streaming; unavailable folders fail"
       },
       "poll": {
         "arguments": {
@@ -97,7 +97,7 @@
           "cursor": "{updatedAt:i64,id:string}|null; optional",
           "newer": "boolean; optional/default false; true requires cursor"
         },
-        "result": "{items:Session[0..50],hasOlder:boolean,hasNewer:boolean}; updatedAt descending, id ascending; cursor excluded; newer query reverses internally to return same display order"
+        "result": "{items:LocalSession[0..50],hasOlder:boolean,hasNewer:boolean}"
       },
       "messagesPage": {
         "arguments": {
@@ -121,7 +121,7 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes",
           "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
-        "result": "ContextSummary & {messages:{role:system|user|assistant,content:string}[0..82]}; exact prepared sequence including system and final draft (empty allowed), at most 131072 UTF-8 content bytes; independent of viewed page; no network, writes, credentials or HTTP envelope"
+        "result": "ContextSummary plus messages; existing session derives tools from stored workspace, tools flag only for unbound draft; no mutation/network"
       },
       "setRequestSettings": {
         "arguments": {
@@ -138,6 +138,19 @@
           "allow": "boolean"
         },
         "result": "null; consumes matching approval once; stale/repeated/mismatched/stopped decisions rejected"
+      },
+      "createSession": {
+        "arguments": {
+          "kind": "project|temporary|side; required",
+          "path": "absolute folder string; required for project, rejected for temporary/side"
+        },
+        "result": "{session:Session,workspace:SessionWorkspace}; atomic local creation, no provider request"
+      },
+      "workspace": {
+        "arguments": {
+          "session": "string; required"
+        },
+        "result": "SessionWorkspace; legacy side, missing session rejected"
       }
     },
     "events": [
@@ -157,8 +170,8 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 5,
-      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema stays 5.",
+      "schemaVersion": 6,
+      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid.",
       "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
     },
@@ -171,10 +184,8 @@
       "recovery": "Manual actions only; never automatic failure retry. Retry sends the current edited draft. Guidance uses fixed local strings and does not expose raw provider bodies."
     },
     "folderTools": {
-      "name": "read_text_file",
-      "arguments": "{path:string}; additional fields rejected",
-      "default": "disabled; selected folder is launch-only",
-      "approval": "Every valid read requires a run-bound single-use Allow once/Deny. Denied targets are not prompted again in the same run. Stop/timeout/shutdown clear pending approvals.",
+      "default": "enabled automatically for project and temporary chats, disabled for explicit side and legacy chats; working folder persists per session",
+      "approval": "Each valid operation requires a run-bound single-use Allow once/Deny before listing, scanning or reading. Denials match tool, resolved scope and exact query within a run. Search approval allows bounded scanning/snippets but never a subsequent full read. Stop/timeout/shutdown clear pending approvals.",
       "limits": {
         "modelCalls": 4,
         "toolCalls": 4,
@@ -187,7 +198,44 @@
       },
       "timeout": "min(configured timeoutSeconds,300) for the whole model/tool/approval phase, excluding initial preparation and final persistence; OS filesystem calls cannot be forcibly interrupted",
       "paths": "Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret.",
-      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient."
+      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient.",
+      "names": [
+        "read_text_file",
+        "list_folder",
+        "search_text"
+      ],
+      "listing": {
+        "arguments": "{path:string}; required; additional fields rejected; . for root or direct relative folder",
+        "limits": {
+          "inspectedEntries": 512,
+          "returnedEntries": 100,
+          "resultBytes": 16384
+        },
+        "result": "JSON string {entries:[{path,kind:file|folder}],inspectedEntries,skippedEntries,truncated}; root-relative paths, sorted bounded inspected subset, not necessarily globally first names"
+      },
+      "search": {
+        "arguments": "{path:string,query:string}; required; additional fields rejected; . for root or direct relative folder; nonblank single-line literal case-sensitive query, at most 256 UTF-8 bytes, no controls/regex",
+        "limits": {
+          "subfolderLevels": 4,
+          "inspectedEntries": 256,
+          "attemptedFileReads": 64,
+          "totalReadBytes": 262144,
+          "fileBytes": 16384,
+          "matchingLines": 30,
+          "snippetUnicodeCharacters": 240,
+          "resultBytes": 16384
+        },
+        "result": "JSON string {matches:[{path,line,text}],inspectedEntries,attemptedFiles,scannedFiles,skippedFiles,skippedEntries,bytesRead,truncated}; root-relative paths, one-based lines, partial coverage when limits reached; skipped/excluded files may contain omitted matches"
+      },
+      "discoveryExclusions": "Skip symlink/junction entries and reject alias scopes; common credential/VCS path filter plus node_modules,target,build,dist,.dart_tool,.venv,venv,__pycache__; regular UTF-8 text without NUL only; no background index. Filename filtering cannot detect every secret."
+    },
+    "workingSessions": {
+      "schemaVersion": 6,
+      "temporary": "distinct app-data/workspaces/<session id> directory created on first send; persisted across restart, not auto-erased",
+      "binding": "immutable per conversation; saved root authoritative; missing folder never falls back",
+      "privacy": "absolute roots are local host/UI state, excluded from automatic provider context and exports",
+      "delete": "association cascades, working files and recent projects preserved",
+      "newChat": "sidebar New chat starts temporary; project + creates project chat; menu offers explicit side mode"
     }
   },
   "x-tauri-commands": {
@@ -613,11 +661,19 @@
             "maxLength": 128
           },
           "name": {
-            "const": "read_text_file"
+            "enum": [
+              "read_text_file",
+              "list_folder",
+              "search_text"
+            ]
           },
           "target": {
             "type": "string",
             "description": "Resolved relative path, at most 1024 UTF-8 bytes; never absolute root"
+          },
+          "query": {
+            "type": "string",
+            "description": "Search only; nonblank case-sensitive literal single-line text, at most 256 UTF-8 bytes; no controls/regex. Omitted for legacy/read/listing records."
           }
         }
       },
@@ -644,6 +700,7 @@
           "status": {
             "enum": [
               "read",
+              "completed",
               "denied",
               "blocked",
               "error"
@@ -652,6 +709,10 @@
           "content": {
             "type": "string",
             "description": "At most 16384 UTF-8 bytes; literal file content or fixed local refusal/error"
+          },
+          "query": {
+            "type": "string",
+            "description": "Search only; nonblank case-sensitive literal single-line text, at most 256 UTF-8 bytes; no controls/regex. Omitted for legacy/read/listing records."
           }
         }
       },
@@ -691,6 +752,63 @@
             }
           }
         }
+      },
+      "SessionWorkspace": {
+        "type": "object",
+        "required": [
+          "kind",
+          "root"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "project",
+              "temporary",
+              "side"
+            ]
+          },
+          "root": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Canonical absolute private local path; null only for side mode"
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "required": [
+          "root",
+          "name"
+        ],
+        "properties": {
+          "root": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "LocalSession": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Session"
+          },
+          {
+            "type": "object",
+            "required": [
+              "workspace"
+            ],
+            "properties": {
+              "workspace": {
+                "$ref": "#/components/schemas/SessionWorkspace"
+              }
+            }
+          }
+        ]
       }
     }
   },

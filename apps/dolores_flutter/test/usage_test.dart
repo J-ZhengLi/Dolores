@@ -93,6 +93,7 @@ void main() {
       ..loading = false
       ..configured = true
       ..session = 'long'
+      ..workspaceKind = 'side'
       ..draft = '你好'
       ..messagesNewer = true
       ..messages = [

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'support/workspaces.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -32,6 +35,8 @@ class HistoryBridge implements ChatBridge {
     commands.add(command);
     if (fail) throw StateError('Storage unavailable.');
     switch (command['command']) {
+      case 'createSession':
+        return createdWorkspace(command);
       case 'bootstrap':
         return {
           'sessions': sessionItems(0),
