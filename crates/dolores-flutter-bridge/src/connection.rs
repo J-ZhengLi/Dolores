@@ -1,6 +1,6 @@
 use dolores_core::{
-    ConnectionPreferences, CredentialStore, ModelProvider, RememberedConnection, RequestSettings,
-    SessionStore,
+    ConnectionPreferences, CredentialStore, ModelContexts, ModelProvider, RememberedConnection,
+    RequestSettings, SessionStore,
 };
 use dolores_provider_openai::{validate_base_url, validate_model, OpenAiProvider};
 use serde::{Deserialize, Serialize};
@@ -70,11 +70,14 @@ impl ConnectionManager {
             Some(id) => self.read_key(id, &preferences.base_url)?,
             None => String::new(),
         };
-        let provider = Arc::new(OpenAiProvider::with_settings(
-            &preferences,
-            key.clone(),
-            self.store.request_settings()?,
-        )?);
+        let provider = Arc::new(
+            OpenAiProvider::with_settings(
+                &preferences,
+                key.clone(),
+                self.store.request_settings()?,
+            )?
+            .with_context_window(self.context_window(&preferences)?),
+        );
         self.active_key = Some(key);
         self.active_base_url = Some(preferences.base_url.clone());
         self.has_key = saved.credential_id.is_some();
@@ -111,12 +114,29 @@ impl ConnectionManager {
         remember: bool,
         models: Option<Vec<String>>,
     ) -> Result<(), String> {
+        self.configure_model_contexts(preferences, api_key, remember, models, None)
+    }
+    pub fn configure_model_contexts(
+        &mut self,
+        preferences: ConnectionPreferences,
+        api_key: Option<String>,
+        remember: bool,
+        models: Option<Vec<String>>,
+        contexts: Option<ModelContexts>,
+    ) -> Result<(), String> {
         let mut preferences = preferences;
         preferences.model = preferences.model.trim().to_string();
         let models = validate_choices(
             models.unwrap_or_else(|| vec![preferences.model.clone()]),
             &preferences.model,
         )?;
+        if let Some(contexts) = &contexts {
+            dolores_core::validate_model_contexts(contexts, &models)?;
+        }
+        let window = match &contexts {
+            Some(contexts) => contexts.get(&preferences.model).copied().flatten(),
+            None => self.context_window(&preferences)?,
+        };
         let old = self.store.remembered_connection()?;
         let key = match api_key {
             Some(key) => key,
@@ -128,11 +148,14 @@ impl ConnectionManager {
             },
         };
         // Validate before any credential or preference write.
-        let provider = Arc::new(OpenAiProvider::with_settings(
-            &preferences,
-            key.clone(),
-            self.store.request_settings()?,
-        )?);
+        let provider = Arc::new(
+            OpenAiProvider::with_settings(
+                &preferences,
+                key.clone(),
+                self.store.request_settings()?,
+            )?
+            .with_context_window(window),
+        );
         let id = if remember && !key.is_empty() {
             Some(uuid::Uuid::new_v4().to_string())
         } else {
@@ -150,10 +173,18 @@ impl ConnectionManager {
             preferences: preferences.clone(),
             credential_id: id.clone(),
         });
-        if let Err(error) = self
-            .store
-            .save_connection_models(&preferences, saved.as_ref(), &models)
-        {
+        let result = match &contexts {
+            Some(contexts) => self.store.save_connection_model_contexts(
+                &preferences,
+                saved.as_ref(),
+                &models,
+                contexts,
+            ),
+            None => self
+                .store
+                .save_connection_models(&preferences, saved.as_ref(), &models),
+        };
+        if let Err(error) = result {
             if let Some(id) = &id {
                 if self.credentials.delete(id).is_err() {
                     return Err("Connection was not saved. A new secure entry could not be removed; check your OS credential store.".into());
@@ -182,6 +213,18 @@ impl ConnectionManager {
         }
         Ok(models)
     }
+    pub fn model_contexts(&self) -> Result<ModelContexts, String> {
+        self.store
+            .model_contexts(&self.store.preferences()?.base_url)
+    }
+    fn context_window(&self, preferences: &ConnectionPreferences) -> Result<Option<u32>, String> {
+        Ok(self
+            .store
+            .model_contexts(&preferences.base_url)?
+            .get(&preferences.model)
+            .copied()
+            .flatten())
+    }
     pub fn update_request_settings(&mut self, settings: RequestSettings) -> Result<(), String> {
         settings.validate()?;
         let provider = match self.active_key.as_ref() {
@@ -193,11 +236,10 @@ impl ConnectionManager {
                             .into(),
                     );
                 }
-                Some(Arc::new(OpenAiProvider::with_settings(
-                    &preferences,
-                    key.clone(),
-                    settings,
-                )?) as Arc<dyn ModelProvider>)
+                Some(Arc::new(
+                    OpenAiProvider::with_settings(&preferences, key.clone(), settings)?
+                        .with_context_window(self.context_window(&preferences)?),
+                ) as Arc<dyn ModelProvider>)
             }
             None => None,
         };
@@ -246,11 +288,9 @@ impl ConnectionManager {
         if !models.contains(&model) {
             return Err("Enable this model in Model connection first.".into());
         }
-        let provider = self
-            .provider
-            .as_ref()
-            .ok_or("Reconnect your model first.")?
-            .with_model(&model)?;
+        if self.provider.is_none() {
+            return Err("Reconnect your model first.".into());
+        }
         let mut preferences = self.store.preferences()?;
         if self.active_base_url.as_deref() != Some(preferences.base_url.as_str()) {
             return Err("Connection settings changed. Reconnect before switching models.".into());
@@ -263,6 +303,16 @@ impl ConnectionManager {
             return Err("Connection settings changed. Reconnect before switching models.".into());
         }
         preferences.model = model;
+        let provider = Arc::new(
+            OpenAiProvider::with_settings(
+                &preferences,
+                self.active_key
+                    .clone()
+                    .ok_or("Reconnect your model first.")?,
+                self.store.request_settings()?,
+            )?
+            .with_context_window(self.context_window(&preferences)?),
+        );
         if let Some(record) = &mut saved {
             record.preferences = preferences.clone();
         }
@@ -659,5 +709,123 @@ mod tests {
             .unwrap();
         assert!(manager.provider.is_some());
         assert!(store.remembered_connection().unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn model_contexts_switch_restore_prune_and_failed_save_are_atomic() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test.db");
+        let store = Arc::new(SqliteStore::open(&path).unwrap());
+        let vault = Arc::new(MemoryCredentials::default());
+        let prefs = preferences("https://example.com/v1");
+        let models = vec!["fixture".into(), "other".into()];
+        let contexts = ModelContexts::from([
+            ("fixture".into(), Some(32768)),
+            ("other".into(), Some(8192)),
+        ]);
+        let mut manager = ConnectionManager::new(store.clone(), vault.clone());
+        manager
+            .configure_model_contexts(
+                prefs.clone(),
+                Some("old-key".into()),
+                true,
+                Some(models.clone()),
+                Some(contexts.clone()),
+            )
+            .unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().context_window_tokens(),
+            Some(32768)
+        );
+        let before = store
+            .remembered_connection()
+            .unwrap()
+            .unwrap()
+            .credential_id;
+        manager.select_model("other".into()).unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().context_window_tokens(),
+            Some(8192)
+        );
+        manager
+            .update_request_settings(RequestSettings {
+                max_output_tokens: 128,
+                ..RequestSettings::default()
+            })
+            .unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().context_window_tokens(),
+            Some(8192)
+        );
+        assert_eq!(
+            store
+                .remembered_connection()
+                .unwrap()
+                .unwrap()
+                .credential_id,
+            before
+        );
+        let mut restarted =
+            ConnectionManager::new(Arc::new(SqliteStore::open(&path).unwrap()), vault.clone());
+        restarted.recover().unwrap();
+        assert_eq!(
+            restarted.provider.as_ref().unwrap().context_window_tokens(),
+            Some(8192)
+        );
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.execute_batch("CREATE TRIGGER refuse_context BEFORE INSERT ON model_contexts BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;").unwrap();
+        assert!(manager
+            .configure_model_contexts(
+                prefs.clone(),
+                Some("new-key".into()),
+                true,
+                Some(models.clone()),
+                Some(ModelContexts::from([("fixture".into(), Some(65536))]))
+            )
+            .is_err());
+        assert_eq!(store.preferences().unwrap().model, "other");
+        assert_eq!(store.model_contexts(&prefs.base_url).unwrap(), contexts);
+        assert_eq!(vault.values.lock().unwrap().len(), 1);
+        assert_eq!(
+            manager.provider.as_ref().unwrap().context_window_tokens(),
+            Some(8192)
+        );
+        db.execute_batch("DROP TRIGGER refuse_context;").unwrap();
+        assert!(manager
+            .configure_model_contexts(
+                prefs.clone(),
+                None,
+                true,
+                Some(models.clone()),
+                Some(ModelContexts::from([("fixture".into(), Some(0))]))
+            )
+            .is_err());
+        assert_eq!(vault.values.lock().unwrap().len(), 1);
+        manager
+            .configure_model_contexts(
+                prefs.clone(),
+                None,
+                true,
+                Some(vec!["fixture".into()]),
+                Some(ModelContexts::from([("fixture".into(), None)])),
+            )
+            .unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().context_window_tokens(),
+            Some(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)
+        );
+        assert!(!store
+            .model_contexts(&prefs.base_url)
+            .unwrap()
+            .contains_key("other"));
+        manager
+            .configure(
+                preferences("https://different.example/v1"),
+                Some("".into()),
+                false,
+            )
+            .unwrap();
+        assert!(manager.model_contexts().unwrap().is_empty());
+        assert!(store.model_contexts(&prefs.base_url).unwrap().is_empty());
     }
 }

@@ -443,6 +443,7 @@ class _ChatPageState extends State<ChatPage> {
                       if ([
                         'timeout',
                         'outputLimit',
+                        'contextLimit',
                       ].contains(chat.activeRecovery!['kind']))
                         TextButton(
                           key: const Key('failure-request-settings'),
@@ -455,6 +456,7 @@ class _ChatPageState extends State<ChatPage> {
                         'network',
                         'access',
                         'configuration',
+                        'contextLimit',
                       ].contains(chat.activeRecovery!['kind']))
                         TextButton(
                           key: const Key('failure-connection'),
@@ -860,6 +862,19 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
   String? error;
   bool fetching = false, manual = false;
   bool clearKey = false;
+  late String? contextModel = widget.chat.model.isEmpty
+      ? null
+      : widget.chat.model;
+  bool contextEndpointChanged = false;
+  final contextInputs = <String, TextEditingController>{};
+  TextEditingController contextInput(String id) => contextInputs.putIfAbsent(
+    id,
+    () => TextEditingController(
+      text: contextEndpointChanged
+          ? ''
+          : widget.chat.modelContexts[id]?.toString() ?? '',
+    ),
+  );
   bool get working => saving || fetching;
   String? get requestKey =>
       !clearKey &&
@@ -871,6 +886,12 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
     setState(() {
       available = [];
       selected.clear();
+      contextModel = null;
+      contextEndpointChanged = true;
+      for (final input in contextInputs.values) {
+        input.dispose();
+      }
+      contextInputs.clear();
       search.clear();
       error = null;
     });
@@ -922,6 +943,9 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
     manualModel.dispose();
     search.dispose();
     keyInput.dispose();
+    for (final input in contextInputs.values) {
+      input.dispose();
+    }
     super.dispose();
   }
 
@@ -931,6 +955,18 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
       error = null;
     });
     try {
+      final contexts = <String, int?>{};
+      for (final id in selected) {
+        final text = contextInput(id).text.trim();
+        final tokens = int.tryParse(text);
+        if (text.isNotEmpty &&
+            (tokens == null || tokens < 1024 || tokens > 16777216)) {
+          throw FormatException(
+            'Context window for $id must be a whole number between 1024 and 16777216 tokens, or blank.',
+          );
+        }
+        contexts[id] = text.isEmpty ? null : tokens;
+      }
       await widget.chat.configure(
         url.text,
         selected.contains(widget.chat.model)
@@ -939,12 +975,15 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
         requestKey,
         remember: remember,
         models: selected.toList(),
+        contexts: contexts,
       );
       if (mounted) Navigator.pop(context);
     } catch (failure) {
       if (mounted) {
         setState(() {
-          error = failure.toString();
+          error = failure is FormatException
+              ? failure.message
+              : failure.toString();
           saving = false;
         });
       }
@@ -1138,6 +1177,49 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                     ),
                   ],
                 ),
+              if (selected.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(
+                    'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
+                  ),
+                  initialValue: selected.contains(contextModel)
+                      ? contextModel
+                      : selected.first,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Model settings',
+                  ),
+                  items: [
+                    for (final id in selected)
+                      DropdownMenuItem(
+                        value: id,
+                        child: Text(id, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: working
+                      ? null
+                      : (id) => setState(() => contextModel = id),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('context-window'),
+                  controller: contextInput(
+                    selected.contains(contextModel)
+                        ? contextModel!
+                        : selected.first,
+                  ),
+                  enabled: !working,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Context window (tokens)',
+                    hintText: '131072 (128K default)',
+                    helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
+                    helperMaxLines: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               CheckboxListTile(
                 key: const Key('remember-connection'),
                 contentPadding: EdgeInsets.zero,

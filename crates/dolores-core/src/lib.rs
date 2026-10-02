@@ -6,11 +6,13 @@ mod accounting;
 mod agent;
 mod change;
 mod request_settings;
+mod token_context;
 mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 pub use agent::*;
 pub use change::*;
 pub use request_settings::RequestSettings;
+pub use token_context::*;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
 
 pub const MAX_INPUT_BYTES: usize = 16 * 1024;
@@ -143,6 +145,9 @@ pub trait ModelProvider: Send + Sync {
     fn request_settings(&self) -> Option<RequestSettings> {
         None
     }
+    fn context_window_tokens(&self) -> Option<u32> {
+        None
+    }
     fn descriptor(&self) -> PluginDescriptor;
     async fn list_models(&self) -> Result<Vec<String>, String> {
         Err("This provider does not support model discovery. Add a model manually.".into())
@@ -246,6 +251,18 @@ pub trait SessionStore: Send + Sync {
     }
     fn model_choices(&self, _: &str) -> Result<Vec<String>, String> {
         Ok(Vec::new())
+    }
+    fn model_contexts(&self, _: &str) -> Result<ModelContexts, String> {
+        Ok(ModelContexts::new())
+    }
+    fn save_connection_model_contexts(
+        &self,
+        _: &ConnectionPreferences,
+        _: Option<&RememberedConnection>,
+        _: &[String],
+        _: &ModelContexts,
+    ) -> Result<(), String> {
+        Err("This storage plugin does not support model context windows.".into())
     }
     fn save_connection_models(
         &self,

@@ -8,9 +8,6 @@ import 'usage_details.dart';
 import 'tool_activity.dart';
 import 'model_steps.dart';
 
-String _bytes(int n) =>
-    n < 1024 ? '$n B' : '${(n / 1024).toStringAsFixed(1)} KiB';
-
 Future<void> showContextPreview(
   BuildContext context,
   Map<String, dynamic> report,
@@ -88,13 +85,16 @@ class ContextIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
-    final used = summary?['textBytes'], limit = summary?['maxTextBytes'];
+    final tokens = summary?['tokens'] as Map?;
+    final reported = summary?['reportedTokens'];
+    final used = reported ?? tokens?['inputTokens'],
+        limit = tokens?['contextWindowTokens'];
     final value = used is int && limit is int && limit > 0
         ? (used / limit).clamp(0.0, 1.0)
         : null;
     final label = value == null
-        ? 'Inspect next message context · usage not inspected'
-        : 'Inspect next message context · $basis: ${(value * 100).toStringAsFixed(1)}% of app text budget';
+        ? 'Inspect next message context · ${used is int ? '${formatTokens(used)} tokens · context window not set' : 'usage not inspected'}'
+        : 'Inspect next message context · $basis: ${(value * 100).toStringAsFixed(1)}% of model context window · ${reported is int ? 'Provider reported' : 'Estimated'} ${formatTokens(used)} tokens';
     return IconButton(
       key: const Key('context-preview'),
       tooltip: label,
@@ -141,20 +141,32 @@ class ContextInspector extends StatelessWidget {
       'Conversation history',
       'Draft message',
     ];
-    final colors = [p.syntaxName, p.accent, p.syntaxString];
-    final counts = groups
-        .map(
-          (group) => group.fold<int>(
-            0,
-            (sum, m) => sum + utf8.encode(m['content'] as String).length,
-          ),
-        )
-        .toList();
-    final used = report['textBytes'] as int? ?? 0;
-    final limit = report['maxTextBytes'] as int? ?? 131072;
+    final colors = [
+      p.syntaxName,
+      p.accent,
+      p.syntaxString,
+      p.syntaxValue,
+      p.muted,
+    ];
+    final tokens = report['tokens'] as Map?;
+    final counts = [
+      for (final key in [
+        'systemTokens',
+        'historyTokens',
+        'draftTokens',
+        'toolTokens',
+        'framingTokens',
+      ])
+        tokens?[key] as int? ?? 0,
+    ];
+    final used = tokens?['inputTokens'] as int?;
+    final limit = tokens?['contextWindowTokens'] as int?;
+    final value = used != null && limit != null && limit > 0
+        ? used / limit
+        : null;
     return InspectorFrame(
       title: 'Context for your next message',
-      subtitle: 'Exact prepared text · local preview',
+      subtitle: 'Estimated tokens · local preview',
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -162,7 +174,7 @@ class ContextInspector extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${(used / limit * 100).toStringAsFixed(1)}%',
+                value == null ? '—' : '${(value * 100).toStringAsFixed(1)}%',
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w600,
@@ -171,7 +183,7 @@ class ContextInspector extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '${_bytes(used)} / ${_bytes(limit)}\nApp text budget',
+                  '${formatTokens(used)} / ${formatTokens(limit)} tokens\n${limit == null ? 'Context window not set for this model' : 'Model context window · ${report['model'] ?? ''}'}',
                   style: TextStyle(color: p.muted, fontSize: 12),
                 ),
               ),
@@ -193,7 +205,7 @@ class ContextInspector extends StatelessWidget {
                           child: const SizedBox.expand(),
                         ),
                       ),
-                  if (limit > used)
+                  if (limit != null && used != null && limit > used)
                     Expanded(
                       flex: limit - used,
                       child: ColoredBox(
@@ -206,7 +218,7 @@ class ContextInspector extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          for (var i = 0; i < groups.length; i++)
+          for (var i = 0; i < counts.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
@@ -222,18 +234,28 @@ class ContextInspector extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      labels[i],
+                      [...labels, 'Tool definitions', 'Message framing'][i],
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
                   Text(
-                    messages.isEmpty ? 'Unavailable' : _bytes(counts[i]),
+                    tokens == null
+                        ? 'Unavailable'
+                        : '${formatTokens(counts[i])} tokens',
                     style: TextStyle(fontSize: 12, color: p.muted),
                   ),
                 ],
               ),
             ),
           const SizedBox(height: 14),
+          Text(
+            'Response reserved: ${formatTokens(tokens?['reservedOutputTokens'])} tokens',
+          ),
+          if (limit != null)
+            Text(
+              'Input allowance: ${formatTokens(tokens?['maxInputTokens'])} tokens · 5% headroom',
+            ),
+          const SizedBox(height: 8),
           Text(
             'Recent turns included: ${report['includedTurns'] ?? 'Unavailable'}',
           ),
@@ -243,7 +265,7 @@ class ContextInspector extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Latest ${report['maxTurns'] ?? 40} complete turns at most. Older turns stay saved. The model’s token window is unavailable.',
+            'Latest complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved. ${limit == null ? 'Set this model’s context window in Model connection. ' : ''}Token counts are approximate; your provider may count differently.',
             style: TextStyle(color: p.muted, fontSize: 12),
           ),
           const SizedBox(height: 20),
@@ -252,6 +274,18 @@ class ContextInspector extends StatelessWidget {
               label: labels[i],
               messages: groups[i],
               color: colors[i],
+            ),
+          if (report['tools'] is List && (report['tools'] as List).isNotEmpty)
+            _ContextGroup(
+              label: 'Tool definitions',
+              messages: [
+                for (final tool in report['tools'] as List)
+                  {
+                    'role': tool['name'],
+                    'content': const JsonEncoder.withIndent('  ').convert(tool),
+                  },
+              ],
+              color: colors[3],
             ),
         ],
       ),

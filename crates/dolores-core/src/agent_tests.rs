@@ -6,6 +6,124 @@ use std::sync::{
     Mutex,
 };
 
+struct BudgetProvider {
+    calls: AtomicUsize,
+}
+#[async_trait]
+impl ModelProvider for BudgetProvider {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "budget-fixture",
+            kind: "provider",
+            api_version: 1,
+        }
+    }
+    fn context_window_tokens(&self) -> Option<u32> {
+        Some(1024)
+    }
+    fn request_settings(&self) -> Option<crate::RequestSettings> {
+        Some(crate::RequestSettings {
+            max_output_tokens: 128,
+            ..Default::default()
+        })
+    }
+    async fn stream(
+        &self,
+        _: Vec<Message>,
+        _: mpsc::Sender<String>,
+        _: CancellationToken,
+    ) -> Result<(), String> {
+        unreachable!()
+    }
+    async fn tool_turn(
+        &self,
+        _: &[AgentMessage],
+        _: &[ToolSpec],
+        _: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(AgentTurn {
+            content: String::new(),
+            calls: vec![ToolCall {
+                id: "read1".into(),
+                name: "read_text_file".into(),
+                arguments: r#"{"path":"readme"}"#.into(),
+            }],
+            usage: None,
+        })
+    }
+}
+struct LargeRead {
+    large_schema: bool,
+    effects: AtomicUsize,
+}
+#[async_trait]
+impl ToolPlugin for LargeRead {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: "read_text_file".into(),
+            description: if self.large_schema {
+                "x".repeat(4000)
+            } else {
+                "Read".into()
+            },
+            parameters: json!({}),
+        }
+    }
+    fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+        Read {
+            count: AtomicUsize::new(0),
+        }
+        .prepare(call)
+    }
+    async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+        self.effects.fetch_add(1, Ordering::SeqCst);
+        Ok("x".repeat(4000))
+    }
+}
+#[tokio::test]
+async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_model_call() {
+    for large_schema in [false, true] {
+        let provider = BudgetProvider {
+            calls: AtomicUsize::new(0),
+        };
+        let read = Arc::new(LargeRead {
+            large_schema,
+            effects: AtomicUsize::new(0),
+        });
+        let plugins: Vec<Arc<dyn ToolPlugin>> = vec![read.clone()];
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let error = run_agent(
+            &provider,
+            context(),
+            &plugins,
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .err()
+        .unwrap();
+        assert!(error.contains("context budget"));
+        assert_eq!(
+            provider.calls.load(Ordering::SeqCst),
+            if large_schema { 0 } else { 1 }
+        );
+        assert_eq!(
+            approval.count.load(Ordering::SeqCst),
+            if large_schema { 0 } else { 1 }
+        );
+        assert_eq!(
+            read.effects.load(Ordering::SeqCst),
+            if large_schema { 0 } else { 1 }
+        );
+    }
+}
+
 #[test]
 fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     let context = vec![

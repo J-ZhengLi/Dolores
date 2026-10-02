@@ -38,6 +38,7 @@ impl OpenAiProvider {
                 "Could not reach the model. Check the endpoint and whether the server is running."
             })?;
             if !response.status().is_success() {
+                crate::check_context_limit(&mut response, &cancel).await?;
                 return Err(match response.status().as_u16() {
                     401 | 403 => "Model access denied. Check your API key and permissions.".into(),
                     429 => "Model rate limit reached. Try again later.".into(),

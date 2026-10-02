@@ -5,6 +5,13 @@ import 'theme.dart';
 String _counter(dynamic value) =>
     value is int && value >= 0 ? '$value' : 'Unavailable';
 
+String formatTokens(dynamic value) => value is int && value >= 0
+    ? value.toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+        (m) => '${m[1]},',
+      )
+    : 'Unknown';
+
 Widget contextDetails(
   Map<String, dynamic> summary, {
   bool preview = false,
@@ -17,14 +24,22 @@ Widget contextDetails(
     Text('Older turns left out: ${_counter(summary['omittedTurns'])}'),
     const SizedBox(height: 12),
     Text(
-      'Text ${preview ? 'to send' : 'sent'}: ${_counter(summary['textBytes'])} bytes',
+      'Estimated input tokens: ${_counter(summary['tokens']?['inputTokens'])}',
     ),
     Text(
-      'App limits: ${_counter(summary['maxTurns'])} recent turns · ${_counter(summary['maxTextBytes'])} text bytes',
+      'Model context window: ${_counter(summary['tokens']?['contextWindowTokens'])} tokens',
     ),
+    if (summary['tokens'] is Map) ...[
+      Text(
+        'Response reserved: ${_counter(summary['tokens']['reservedOutputTokens'])} tokens',
+      ),
+      Text(
+        'Input allowance: ${_counter(summary['tokens']['maxInputTokens'])} tokens',
+      ),
+    ],
     const SizedBox(height: 12),
     const Text(
-      'Includes your message and system instructions. Older turns remain saved. These are app limits, not the model’s token window.',
+      'Includes instructions, messages, advertised tools and approximate framing. Older turns remain saved. Estimates are separate from provider-reported usage; legacy context estimates are unavailable.',
     ),
   ],
 );

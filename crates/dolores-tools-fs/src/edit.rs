@@ -259,14 +259,17 @@ impl EditTextFile {
         Ok(result.to_string())
     }
 }
-#[async_trait]
-impl ToolPlugin for EditTextFile {
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
+pub fn edit_spec() -> ToolSpec {
+    ToolSpec {
             name:"edit_text_file".into(),
             description:"Replace one exact, unique old_text occurrence with new_text in an existing writable UTF-8 file under the working folder. Relative direct paths only, files up to 16 KiB. The user must review the local diff and approve once before writing. No creation, deletion, shell, aliases or VCS/credential files. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
             parameters:json!({"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string","minLength":1},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}),
         }
+}
+#[async_trait]
+impl ToolPlugin for EditTextFile {
+    fn spec(&self) -> ToolSpec {
+        edit_spec()
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         if call.name != "edit_text_file" || call.arguments.len() > 4096 {

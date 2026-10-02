@@ -100,14 +100,17 @@ impl ReadTextFile {
         Ok(canonical)
     }
 }
-#[async_trait]
-impl ToolPlugin for ReadTextFile {
-    fn spec(&self) -> ToolSpec {
-        ToolSpec {
+pub fn read_spec() -> ToolSpec {
+    ToolSpec {
             name:"read_text_file".into(),
             description:"Read a UTF-8 text file under the user's chosen folder. Use a relative path with forward slashes. Each read requires user approval. Maximum 16 KiB; no binary, secret or VCS files.".into(),
             parameters:json!({"type":"object","properties":{"path":{"type":"string","description":"Relative file path"}},"required":["path"],"additionalProperties":false}),
         }
+}
+#[async_trait]
+impl ToolPlugin for ReadTextFile {
+    fn spec(&self) -> ToolSpec {
+        read_spec()
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         #[derive(Deserialize)]
@@ -190,6 +193,17 @@ impl ToolPlugin for ReadTextFile {
             result = read => result.map_err(|_| "File read task failed.".to_string())?,
         }
     }
+}
+
+/// Advertised schemas without opening or reading a working folder.
+pub fn folder_tool_specs() -> Vec<ToolSpec> {
+    vec![
+        read_spec(),
+        discovery::discovery_spec(false),
+        discovery::discovery_spec(true),
+        edit::edit_spec(),
+        create::create_spec(),
+    ]
 }
 
 #[cfg(test)]

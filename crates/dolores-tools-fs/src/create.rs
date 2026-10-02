@@ -131,10 +131,13 @@ impl CreateTextFile {
         Ok(result.to_string())
     }
 }
+pub fn create_spec() -> ToolSpec {
+    ToolSpec{name:"create_text_file".into(),description:"Create one small UTF-8 text file at a direct relative path under an existing working-folder directory. Requires review of the complete addition and one user approval. Never overwrites existing files, directories or aliases. No directory creation, secret/VCS paths or shell. Content and JSON must fit the 4 KiB argument budget; file/diff cap 16 KiB. Empty files are allowed. Applied creation remains if the later reply fails.".into(),parameters:json!({"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false})}
+}
 #[async_trait]
 impl ToolPlugin for CreateTextFile {
     fn spec(&self) -> ToolSpec {
-        ToolSpec{name:"create_text_file".into(),description:"Create one small UTF-8 text file at a direct relative path under an existing working-folder directory. Requires review of the complete addition and one user approval. Never overwrites existing files, directories or aliases. No directory creation, secret/VCS paths or shell. Content and JSON must fit the 4 KiB argument budget; file/diff cap 16 KiB. Empty files are allowed. Applied creation remains if the later reply fails.".into(),parameters:json!({"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false})}
+        create_spec()
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         if call.name != "create_text_file" || call.arguments.len() > 4096 {

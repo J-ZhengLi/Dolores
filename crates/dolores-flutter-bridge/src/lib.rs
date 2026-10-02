@@ -118,6 +118,8 @@ enum Command {
         remember: bool,
         #[serde(rename = "enabledModels")]
         enabled_models: Option<Vec<String>>,
+        #[serde(rename = "modelContexts")]
+        model_contexts: Option<dolores_core::ModelContexts>,
     },
     ListModels {
         #[serde(rename = "baseUrl")]
@@ -273,7 +275,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.request_settings()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.request_settings()?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -313,8 +315,33 @@ impl Engine {
                 } else {
                     messages
                 };
-                let mut report = json!(ContextSummary::from_messages(&messages, count));
+                let mut specs = if tools {
+                    dolores_tools_fs::folder_tool_specs()
+                } else {
+                    vec![]
+                };
+                if tools {
+                    specs.push(dolores_tools_command::command_spec());
+                }
+                let preferences = self.store.preferences()?;
+                let window = self
+                    .store
+                    .model_contexts(&preferences.base_url)?
+                    .get(&preferences.model)
+                    .copied()
+                    .flatten();
+                let (messages, tokens) = dolores_core::prepare_token_context(
+                    messages,
+                    &specs,
+                    Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),
+                    self.store.request_settings()?,
+                )?;
+                let mut summary = ContextSummary::from_messages(&messages, count);
+                summary.tokens = Some(tokens);
+                let mut report = json!(summary);
                 report["messages"] = json!(messages);
+                report["tools"] = json!(specs);
+                report["model"] = json!(preferences.model);
                 Ok(report)
             }
             Command::Delete { session } => {
@@ -335,14 +362,23 @@ impl Engine {
                 api_key,
                 remember,
                 enabled_models,
+                model_contexts,
             } => {
                 let _runtime = self.runtime.enter();
                 let mut connection = self
                     .connection
                     .lock()
                     .map_err(|_| "Connection unavailable.")?;
-                if let Some(models) = enabled_models {
-                    connection.configure_models(preferences, api_key, remember, Some(models))?;
+                if model_contexts.is_some() {
+                    connection.configure_model_contexts(
+                        preferences,
+                        api_key,
+                        remember,
+                        enabled_models,
+                        model_contexts,
+                    )?;
+                } else if enabled_models.is_some() {
+                    connection.configure_models(preferences, api_key, remember, enabled_models)?;
                 } else {
                     connection.configure(preferences, api_key, remember)?;
                 }
@@ -524,7 +560,15 @@ async fn execute(
     } else {
         context
     };
-    let summary = ContextSummary::from_messages(&context, count);
+    let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
+    let (context, tokens) = dolores_core::prepare_token_context(
+        context,
+        &specs,
+        provider.context_window_tokens(),
+        settings.unwrap_or_default(),
+    )?;
+    let mut summary = ContextSummary::from_messages(&context, count);
+    summary.tokens = Some(tokens);
     forward(
         output,
         json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings}),
@@ -721,6 +765,114 @@ mod tests {
     struct Fixture {
         hang: bool,
         fail: bool,
+    }
+    struct CapturingBudgetFixture(Mutex<Vec<Message>>);
+    #[async_trait]
+    impl ModelProvider for CapturingBudgetFixture {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "budget",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        fn context_window_tokens(&self) -> Option<u32> {
+            Some(1024)
+        }
+        fn request_settings(&self) -> Option<RequestSettings> {
+            Some(RequestSettings {
+                max_output_tokens: 128,
+                ..Default::default()
+            })
+        }
+        async fn stream(
+            &self,
+            messages: Vec<Message>,
+            output: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            *self.0.lock().unwrap() = messages;
+            output
+                .send("Complete reply".into())
+                .await
+                .map_err(|_| "closed".into())
+        }
+    }
+    #[test]
+    fn token_preview_matches_sent_history_and_saved_snapshot_without_mutating_old_turns() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let engine = Engine::new(
+            store.clone(),
+            Arc::new(connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        let preferences = ConnectionPreferences {
+            base_url: "http://localhost/v1".into(),
+            model: "budget".into(),
+        };
+        store
+            .save_connection_model_contexts(
+                &preferences,
+                None,
+                &["budget".into()],
+                &dolores_core::ModelContexts::from([("budget".into(), Some(1024))]),
+            )
+            .unwrap();
+        store
+            .save_request_settings(&RequestSettings {
+                max_output_tokens: 128,
+                ..Default::default()
+            })
+            .unwrap();
+        store.create("side").unwrap();
+        for n in 0..10 {
+            store
+                .commit_turn("side", &format!("{n}{}", "x".repeat(400)), &"a".repeat(400))
+                .unwrap();
+        }
+        let preview = engine
+            .call(Command::Context {
+                session: Some("side".into()),
+                input: "draft".into(),
+                tools: false,
+            })
+            .unwrap();
+        assert!(preview["includedTurns"].as_u64().unwrap() < 10);
+        let provider = Arc::new(CapturingBudgetFixture(Mutex::new(vec![])));
+        let (output, _receiver) = mpsc::channel(32);
+        engine
+            .runtime
+            .block_on(execute(
+                store.clone(),
+                provider.clone(),
+                TurnRequest {
+                    id: 1,
+                    session: Some("side".into()),
+                    input: "draft".into(),
+                    model: "budget".into(),
+                    settings: provider.request_settings(),
+                    tools: vec![],
+                    approval: None,
+                },
+                CancellationToken::new(),
+                &output,
+            ))
+            .unwrap();
+        assert_eq!(preview["messages"], json!(*provider.0.lock().unwrap()));
+        let history = store.messages_page("side", None, false, 80).unwrap();
+        let metadata = history.items.last().unwrap().metadata.as_ref().unwrap();
+        assert_eq!(preview["tokens"], json!(metadata.context.tokens));
+        assert_eq!(store.context_history("side").unwrap().1, Some(11));
+        assert!(history.items[1].metadata.is_none());
+        let tool_preview = engine.call(Command::Context {
+            session: None,
+            input: "".into(),
+            tools: true,
+        });
+        assert!(
+            tool_preview.is_err(),
+            "Fixed tool definitions must not fit this intentionally small allowance"
+        );
     }
     #[async_trait]
     impl ModelProvider for Fixture {

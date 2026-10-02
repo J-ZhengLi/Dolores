@@ -94,6 +94,7 @@ Future<void> _run(
       'dolores-mock',
       '',
       models: models,
+      contexts: {'dolores-mock': 32768, 'dolores-fast': 16384},
     );
     chat.newChat(kind: 'side');
     chat.draft = 'hello';
@@ -320,6 +321,16 @@ Future<void> _run(
     }
     final smokePageContext = pageContext!;
     final contextPreview = await chat.previewContext();
+    check(
+      contextPreview?['tokens']?['contextWindowTokens'] ==
+              chat.modelContexts[chat.model] &&
+          contextPreview?['tokens']?['inputTokens'] is int &&
+          contextPreview?['tokens']?['framingTokens'] > 0 &&
+          contextPreview?['tokens']?['reservedOutputTokens'] ==
+              chat.requestSettings['maxOutputTokens'],
+      'Context preview uses selected model capacity, estimated framing and response reservation',
+      checks,
+    );
     check(
       contextPreview?['savedTurns'] == 2 &&
           contextPreview?['includedTurns'] == 2 &&
@@ -1356,6 +1367,27 @@ Future<void> _run(
       ),
     );
     await screenshot(capture, output, 'settings-dark');
+    Element? windowField;
+    void findWindowField(Element element) {
+      if (element.widget.key == const Key('context-window')) {
+        windowField = element;
+      } else {
+        element.visitChildren(findWindowField);
+      }
+    }
+
+    (capture.currentContext! as Element).visitChildren(findWindowField);
+    if (windowField == null) {
+      throw StateError('Model context window field unavailable');
+    }
+    await Scrollable.ensureVisible(windowField!, alignment: 1);
+    await screenshot(capture, output, 'model-window-dark');
+    check(
+      (windowField!.widget as TextField).controller!.text ==
+          (chat.modelContexts[chat.model]?.toString() ?? ''),
+      'Model settings opens the active model capacity and scrolls it into view in the native release',
+      checks,
+    );
     await File(path.join(output.path, 'report.json')).writeAsString(
       jsonEncode({
         'ok': true,

@@ -203,7 +203,7 @@ impl OpenAiProvider {
         let specs: Vec<_> = tools.iter().map(|s| json!({"type":"function","function":{"name":s.name,"description":s.description,"parameters":s.parameters}})).collect();
         let mut body = json!({"model":self.model,"messages":messages,"tools":specs,"tool_choice":"auto","parallel_tool_calls":false,"stream":true,"max_tokens":self.settings.max_output_tokens,"stream_options":{"include_usage":true}});
         let mut include_usage = true;
-        let response = loop {
+        let mut response = loop {
             let mut request = self.client.post(self.endpoint.clone()).json(&body);
             if !self.api_key.is_empty() {
                 request = request.bearer_auth(&self.api_key);
@@ -219,6 +219,7 @@ impl OpenAiProvider {
             break response;
         };
         if !response.status().is_success() {
+            crate::check_context_limit(&mut response, &cancel).await?;
             return Err(match response.status().as_u16() {
                 401 | 403 => "Model access denied. Check your API key and permissions.".into(),
                 429 => "Model rate limit reached. Try again later.".into(),

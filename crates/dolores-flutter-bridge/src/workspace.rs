@@ -155,6 +155,7 @@ mod tests {
                 api_key: Some(String::new()),
                 remember: false,
                 enabled_models: None,
+                model_contexts: None,
             })
             .unwrap();
         assert!(engine

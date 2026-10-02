@@ -201,6 +201,7 @@ class ChatController extends ChangeNotifier {
   bool _firstDelta = false;
   bool _terminal = false;
   Map<String, dynamic>? contextSummary;
+  Map<String, int?> modelContexts = {};
   String? contextBasis;
 
   void invalidateContextPreview() {
@@ -266,6 +267,37 @@ class ChatController extends ChangeNotifier {
     messagesNewer = page['hasNewer'] == true;
   }
 
+  void _restoreContext() {
+    if (messagesNewer || messages.isEmpty) return;
+    final metadata = messages.last['metadata'] as Map?;
+    if (metadata?['context'] is! Map) return;
+    if (metadata?['model'] is String && metadata!['model'] != model) {
+      contextSummary = null;
+      contextBasis = null;
+      return;
+    }
+    final summary = Map<String, dynamic>.from(metadata!['context'] as Map);
+    if (summary['tokens'] is Map &&
+        summary['tokens']['contextWindowTokens'] !=
+            (modelContexts[model] ?? 131072)) {
+      contextSummary = null;
+      contextBasis = null;
+      return;
+    }
+    final calls = metadata['agent']?['usageByCall'] as List?;
+    final usage = calls != null && calls.isNotEmpty
+        ? calls.last
+        : metadata['usage'];
+    final total = usage?['totalTokens'];
+    if (total is int && total >= 0) summary['reportedTokens'] = total;
+    contextSummary = summary;
+    contextBasis = total is int
+        ? 'Last model call'
+        : metadata['agent'] == null
+        ? 'Last saved request'
+        : 'Saved agent input';
+  }
+
   Future<Map<String, dynamic>?> previewContext() async {
     if (busy || changing || loading) return null;
     changing = true;
@@ -279,7 +311,9 @@ class ChatController extends ChangeNotifier {
       });
       error = null;
       final report = (result as Map).cast<String, dynamic>();
-      contextSummary = Map.of(report)..remove('messages');
+      contextSummary = Map.of(report)
+        ..remove('messages')
+        ..remove('tools');
       contextBasis = 'Next message preview';
       return report;
     } catch (failure) {
@@ -316,6 +350,8 @@ class ChatController extends ChangeNotifier {
     enabledModels =
         ((state['enabledModels'] as List?) ?? (model.isEmpty ? [] : [model]))
             .cast<String>();
+    modelContexts = ((state['modelContexts'] as Map?) ?? {})
+        .cast<String, int?>();
     configured = state['configured'] as bool;
     rememberConnection = state['rememberConnection'] == true;
     hasSavedKey = state['hasSavedKey'] == true;
@@ -339,6 +375,8 @@ class ChatController extends ChangeNotifier {
       // The acknowledged command changed only these settings. A second
       // bootstrap read could fail after a successful save and misreport it.
       requestSettings = Map.of(settings);
+      contextSummary = null;
+      contextBasis = null;
     } finally {
       changing = false;
       _notify();
@@ -351,6 +389,7 @@ class ChatController extends ChangeNotifier {
     String? key, {
     bool remember = false,
     List<String>? models,
+    Map<String, int?>? contexts,
   }) async {
     if (busy || changing) throw StateError('Finish the current action first.');
     changing = true;
@@ -362,8 +401,11 @@ class ChatController extends ChangeNotifier {
         'apiKey': key,
         'rememberConnection': remember,
         'enabledModels': ?models,
+        'modelContexts': ?contexts,
       });
       await refresh();
+      contextSummary = null;
+      contextBasis = null;
       error = null;
     } finally {
       changing = false;
@@ -395,6 +437,8 @@ class ChatController extends ChangeNotifier {
     try {
       await bridge.call({'command': 'selectModel', 'model': value});
       await refresh();
+      contextSummary = null;
+      contextBasis = null;
       error = null;
     } catch (failure) {
       error = failure.toString();
@@ -502,15 +546,7 @@ class ChatController extends ChangeNotifier {
       _setMessages(history);
       contextSummary = null;
       contextBasis = null;
-      if (!messagesNewer &&
-          messages.isNotEmpty &&
-          messages.last['metadata']?['context'] is Map) {
-        contextSummary = (messages.last['metadata']['context'] as Map)
-            .cast<String, dynamic>();
-        contextBasis = messages.last['metadata']?['agent'] == null
-            ? 'Last saved request'
-            : 'Saved agent input';
-      }
+      _restoreContext();
       draft = state?.draft ?? '';
       scrollOffset = state?.scroll ?? double.infinity;
       viewRevision++;
@@ -806,6 +842,7 @@ class ChatController extends ChangeNotifier {
                   'session': session,
                 }),
               );
+              _restoreContext();
             }
             await refresh();
             changing = false;

@@ -23,7 +23,7 @@
     "commands": {
       "bootstrap": {
         "arguments": {},
-        "result": "{sessions:LocalSession[0..50],sessionPage:{items:LocalSession[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],projects:Project[],requestSettings:RequestSettings,configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
+        "result": "{sessions:LocalSession[0..50],sessionPage:{items:LocalSession[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],modelContexts:map<string,integer|null>,projects:Project[],requestSettings:RequestSettings,configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
       },
       "messages": {
         "arguments": {
@@ -42,7 +42,8 @@
           "preferences": "{baseUrl:string,model:string}",
           "apiKey": "string|null; optional; null/omitted reuses active/saved key only for same endpoint, or empty if none",
           "rememberConnection": "boolean; optional; default false; true stores key in OS credential store",
-          "enabledModels": "string[]; optional; 1..32 valid IDs including active model; defaults to [preferences.model]"
+          "enabledModels": "string[]; optional; 1..32 valid IDs including active model; defaults to [preferences.model]",
+          "modelContexts": "map<string,integer|null>; optional; enabled model IDs only, max32; integer1024..16777216, blank/null/missing uses131072"
         },
         "result": "null"
       },
@@ -121,7 +122,7 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes",
           "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
-        "result": "ContextSummary plus messages; existing session derives tools from stored workspace, tools flag only for unbound draft; no mutation/network"
+        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network/folder reads"
       },
       "setRequestSettings": {
         "arguments": {
@@ -205,10 +206,11 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 8,
+      "schemaVersion": 9,
       "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
-      "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
-      "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
+      "context": "Content bytes remain internal resource guards. Optional tokens:TokenContext estimates instructions/history/draft/function schemas/framing using ceil(UTF8bytes/4). Per-model raw capacity defaults131072; input allowance floor(window*0.95)-reservedOutputTokens. Newest whole turns retained, mandatory overflow fails, later tool-call/result growth checked before each call. Old metadata lacks tokens; reported TokenUsage stays separate.",
+      "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals.",
+      "modelContexts": "Schema9 stores current-endpoint overrides atomically with connection/models/remembered metadata. Model/settings switches preserve capacity; blank/null/missing defaults131072; no provider-capacity inference."
     },
     "requestControls": {
       "defaults": {
@@ -322,7 +324,7 @@
       "newChat": "sidebar New chat starts temporary; project + creates project chat; menu offers explicit side mode"
     },
     "changeJournal": {
-      "schemaVersion": 8,
+      "schemaVersion": 9,
       "scope": "saved canonical working folder, retained independently of chat deletion; 20 summary rows per page and one detail",
       "snapshots": "private unencrypted before/after UTF-8 snapshots, each <=16384 bytes; not automatically sent to provider or included in conversation exports; old edits not backfilled. Explicit beforeExists/afterExists distinguishes absent from existing empty files; schema-7 edits migrate true/true unchanged.",
       "publication": "FULL-synchronous pending intent before replacement; intent failure prevents write; receipt failure preserves applied result with journalStatus pending; no automatic reconciliation or rollback. Creation uses hard-link publication without overwriting. Local reversal of a creation removes only matching saved bytes after a separate approval; receipt failure reports actual removal with pending status.",
@@ -643,6 +645,9 @@
           "maxTurns": {
             "type": "integer",
             "minimum": 0
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenContext"
           }
         },
         "required": [
@@ -728,7 +733,8 @@
               "outputLimit",
               "storage",
               "provider",
-              "unknown"
+              "unknown",
+              "contextLimit"
             ]
           },
           "retryable": {
@@ -1052,6 +1058,76 @@
             "description": "Resolved absolute executable, local approval only; not automatically sent to provider or exported."
           }
         }
+      },
+      "TokenContext": {
+        "type": "object",
+        "properties": {
+          "inputTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "systemTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "historyTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "draftTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "toolTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "framingTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reservedOutputTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "headroomTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimator": {
+            "type": "string",
+            "enum": [
+              "utf8-div4-v1"
+            ]
+          },
+          "contextWindowTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "maxInputTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        },
+        "required": [
+          "inputTokens",
+          "systemTokens",
+          "historyTokens",
+          "draftTokens",
+          "toolTokens",
+          "framingTokens",
+          "reservedOutputTokens",
+          "headroomTokens",
+          "estimator",
+          "contextWindowTokens",
+          "maxInputTokens"
+        ]
       }
     }
   },

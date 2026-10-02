@@ -1,6 +1,6 @@
 use dolores_core::{
-    ConnectionPreferences, Message, PluginDescriptor, RememberedConnection, RequestSettings, Role,
-    Session, SessionStore, TurnMetadata, HISTORY_LIMIT,
+    ConnectionPreferences, Message, ModelContexts, PluginDescriptor, RememberedConnection,
+    RequestSettings, Role, Session, SessionStore, TurnMetadata, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 #[cfg(test)]
@@ -42,6 +42,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, model TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS model_contexts (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
             CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
@@ -60,6 +61,11 @@ impl SqliteStore {
             }
             connection
                 .pragma_update(None, "user_version", 8)
+                .map_err(storage_error)?;
+        }
+        if version < 9 {
+            connection
+                .pragma_update(None, "user_version", 9)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -306,8 +312,65 @@ impl SessionStore for SqliteStore {
         remembered: Option<&RememberedConnection>,
         models: &[String],
     ) -> Result<(), String> {
+        self.save_model_configuration(preferences, remembered, models, None)
+    }
+    fn model_contexts(&self, base_url: &str) -> Result<ModelContexts, String> {
+        let data: Option<String> = self
+            .lock()?
+            .query_row(
+                "SELECT data FROM model_contexts WHERE id=1 AND base_url=?1",
+                [base_url],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        data.map(|data| serde_json::from_str(&data).map_err(storage_error))
+            .transpose()
+            .map(|contexts| contexts.unwrap_or_default())
+    }
+    fn save_connection_model_contexts(
+        &self,
+        preferences: &ConnectionPreferences,
+        remembered: Option<&RememberedConnection>,
+        models: &[String],
+        contexts: &ModelContexts,
+    ) -> Result<(), String> {
+        dolores_core::validate_model_contexts(contexts, models)?;
+        self.save_model_configuration(preferences, remembered, models, Some(contexts))
+    }
+}
+
+impl SqliteStore {
+    fn save_model_configuration(
+        &self,
+        preferences: &ConnectionPreferences,
+        remembered: Option<&RememberedConnection>,
+        models: &[String],
+        contexts: Option<&ModelContexts>,
+    ) -> Result<(), String> {
         let mut connection = self.lock()?;
         let transaction = connection.transaction().map_err(storage_error)?;
+        let contexts = match contexts {
+            Some(contexts) => contexts.clone(),
+            None => {
+                let data: Option<String> = transaction
+                    .query_row(
+                        "SELECT data FROM model_contexts WHERE id=1 AND base_url=?1",
+                        [&preferences.base_url],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(storage_error)?;
+                let mut contexts: ModelContexts = data
+                    .map(|data| serde_json::from_str(&data).map_err(storage_error))
+                    .transpose()?
+                    .unwrap_or_default();
+                contexts.retain(|id, _| models.contains(id));
+                contexts
+            }
+        };
+        let data = serde_json::to_string(&contexts).map_err(storage_error)?;
+        transaction.execute("INSERT INTO model_contexts(id,base_url,data) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,data=excluded.data", params![preferences.base_url, data]).map_err(storage_error)?;
         transaction.execute("INSERT INTO preferences(id,base_url,model) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,model=excluded.model", params![preferences.base_url, preferences.model]).map_err(storage_error)?;
         let data = serde_json::to_string(models).map_err(storage_error)?;
         transaction.execute("INSERT INTO model_choices(id,base_url,models) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,models=excluded.models", params![preferences.base_url, data]).map_err(storage_error)?;
@@ -499,7 +562,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 8);
+        assert_eq!(version, 9);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

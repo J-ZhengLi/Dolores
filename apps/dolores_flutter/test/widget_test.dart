@@ -28,6 +28,7 @@ class ConnectionBridge extends FakeBridge {
   String? warning = 'Unlock secure storage and retry.';
   String activeModel = 'fixture';
   List<String> choices = ['fixture'];
+  Map<String, int?> contexts = {};
   bool listingFails = false;
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
@@ -45,6 +46,7 @@ class ConnectionBridge extends FakeBridge {
           'hasSavedKey': savedKey,
           'connectionWarning': warning,
           'enabledModels': choices,
+          'modelContexts': contexts,
         };
       case 'recoverConnection':
         configured = true;
@@ -61,6 +63,9 @@ class ConnectionBridge extends FakeBridge {
             (command['enabledModels'] as List?)?.cast<String>() ??
             [activeModel];
         configured = true;
+        contexts =
+            (command['modelContexts'] as Map?)?.cast<String, int?>() ??
+            contexts;
         remembered = command['rememberConnection'] == true;
         warning = null;
       case 'listModels':

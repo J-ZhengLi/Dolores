@@ -78,11 +78,19 @@ void main() {
     },
   );
   testWidgets(
-    'Circle is static when unknown and labels the app budget when known',
+    'Circle uses token capacity rather than bytes and distinguishes reported usage',
     (tester) async {
       for (final summary in [
         null,
-        {'textBytes': 65536, 'maxTextBytes': 131072},
+        {
+          'textBytes': 65536,
+          'maxTextBytes': 131072,
+          'tokens': {'inputTokens': 500, 'contextWindowTokens': 1000},
+        },
+        {
+          'reportedTokens': 500,
+          'tokens': {'inputTokens': 250, 'contextWindowTokens': 1000},
+        },
       ]) {
         await tester.pumpWidget(
           MaterialApp(
@@ -104,9 +112,19 @@ void main() {
           contains(
             summary == null
                 ? 'not inspected'
-                : 'Last saved request: 50.0% of app text budget',
+                : 'Last saved request: 50.0% of model context window',
           ),
         );
+        if (summary != null) {
+          expect(
+            ring.semanticsLabel,
+            contains(
+              summary['reportedTokens'] == null
+                  ? 'Estimated'
+                  : 'Provider reported',
+            ),
+          );
+        }
       }
     },
   );
@@ -136,12 +154,28 @@ void main() {
             (n, m) => n + utf8.encode(m['content']!).length,
           ),
           'messages': messages,
+          'tokens': {
+            'inputTokens': 40,
+            'contextWindowTokens': 131072,
+            'systemTokens': 8,
+            'historyTokens': 8,
+            'draftTokens': 5,
+            'toolTokens': 0,
+            'framingTokens': 19,
+            'reservedOutputTokens': 2048,
+            'maxInputTokens': 122470,
+          },
         };
         await tester.pumpWidget(
           MaterialApp(
             theme: doloresTheme(dark),
             home: ContextInspector(report: report),
           ),
+        );
+        await tester.scrollUntilVisible(
+          find.text('Older turns left out: 7'),
+          120,
+          scrollable: find.byType(Scrollable).first,
         );
         expect(find.text('Older turns left out: 7'), findsOneWidget);
         final systemGroup = find.byKey(

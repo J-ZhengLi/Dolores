@@ -354,17 +354,20 @@ fn entries(
     result.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(result)
 }
+pub fn discovery_spec(search: bool) -> ToolSpec {
+    let mut parameters = json!({"type":"object","properties":{"path":{"type":"string","description":"Relative folder, or '.' for the chosen root"}},"required":["path"],"additionalProperties":false});
+    if search {
+        parameters["properties"]["query"] = json!({"type":"string","description":"Case-sensitive literal single-line text, 1-256 UTF-8 bytes; no regex"});
+        parameters["required"] = json!(["path", "query"]);
+    }
+    ToolSpec { name:if search { "search_text" } else { "list_folder" }.into(),parameters,description:if search {
+            "Search bounded UTF-8 text files below an approved relative folder. Requires a separate user decision before scanning/sharing snippets. At most 4 levels, 256 entries, 64 files, 256 KiB read, 16 KiB per file and 30 matches. Results may be partial; full reads need another approval."
+        } else { "List a single approved folder level. Requires user approval before sharing names. At most 512 inspected entries, 100 results and 16 KiB output; excludes links, common secret and generated/dependency paths. Results may be partial." }.into() }
+}
 #[async_trait]
 impl ToolPlugin for Discover {
     fn spec(&self) -> ToolSpec {
-        let mut parameters = json!({"type":"object","properties":{"path":{"type":"string","description":"Relative folder, or '.' for the chosen root"}},"required":["path"],"additionalProperties":false});
-        if self.search {
-            parameters["properties"]["query"] = json!({"type":"string","description":"Case-sensitive literal single-line text, 1-256 UTF-8 bytes; no regex"});
-            parameters["required"] = json!(["path", "query"]);
-        }
-        ToolSpec { name:self.name().into(),parameters,description:if self.search {
-            "Search bounded UTF-8 text files below an approved relative folder. Requires a separate user decision before scanning/sharing snippets. At most 4 levels, 256 entries, 64 files, 256 KiB read, 16 KiB per file and 30 matches. Results may be partial; full reads need another approval."
-        } else { "List a single approved folder level. Requires user approval before sharing names. At most 512 inspected entries, 100 results and 16 KiB output; excludes links, common secret and generated/dependency paths. Results may be partial." }.into() }
+        discovery_spec(self.search)
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         if call.name != self.name() {

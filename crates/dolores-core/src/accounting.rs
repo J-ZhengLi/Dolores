@@ -21,6 +21,8 @@ pub struct ContextSummary {
     pub text_bytes: usize,
     pub max_text_bytes: usize,
     pub max_turns: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<crate::TokenContext>,
 }
 
 impl ContextSummary {
@@ -33,6 +35,7 @@ impl ContextSummary {
             text_bytes: messages.iter().map(|m| m.content.len()).sum(),
             max_text_bytes: MAX_CONTEXT_BYTES,
             max_turns: HISTORY_LIMIT / 2,
+            tokens: None,
         }
     }
 }

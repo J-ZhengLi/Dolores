@@ -12,6 +12,7 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error.contains("context budget") || error.starts_with("Context window leaves no input room.") || error.starts_with("Model context limit reached.") => ("contextLimit", false, "Review this model’s context window in Model connection, reduce the output token limit, or start a new chat with a shorter message. Already applied tool effects remain."),
         "Response stopped." | "Response stopped. Your message was not saved." => ("stopped", false, "Your draft is restored. Send it when you are ready."),
         "Model request timed out. Adjust the request timeout or try again." => ("timeout", true, "Your message was not saved. Increase the timeout for a slow model, or retry the current draft."),
         "Agent run timed out while working or waiting for approval. Your message was not saved." => ("timeout", true, "Your message was not saved. Increase the timeout or retry the current draft, then review each file request."),
@@ -57,6 +58,9 @@ mod tests {
             !advice("Model request failed (HTTP 400). Check your connection settings.").retryable
         );
         assert_eq!(advice("Response stopped.").kind, "stopped");
+        let context = advice("Message, instructions and tools exceed the model context budget. Shorten your message, increase the context window, or reduce the output token limit.");
+        assert_eq!(context.kind, "contextLimit");
+        assert!(!context.retryable);
         assert_eq!(advice("Agent run timed out while working or waiting for approval. Your message was not saved.").kind, "timeout");
         assert!(advice("Agent run timed out while working or waiting for approval. Your message was not saved.").retryable);
         assert!(

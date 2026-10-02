@@ -12,6 +12,53 @@ mod agent;
 mod agent_stream;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
+const CONTEXT_LIMIT_ERROR: &str = "Model context limit reached. Check this model’s context window, shorten the message, or start a new chat.";
+
+fn is_context_limit(value: &Value) -> bool {
+    [value.pointer("/error/code"), value.pointer("/error/type")]
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .any(|code| {
+            matches!(
+                code,
+                "context_length_exceeded"
+                    | "context_window_exceeded"
+                    | "max_context_length_exceeded"
+            )
+        })
+}
+async fn request_error_json(
+    response: &mut reqwest::Response,
+    cancel: &CancellationToken,
+) -> Result<Option<Value>, String> {
+    if !matches!(response.status().as_u16(), 400 | 413 | 422) {
+        return Ok(None);
+    }
+    let mut bytes = Vec::new();
+    loop {
+        let chunk = tokio::select! { _=cancel.cancelled()=>return Err("Response stopped.".into()), chunk=response.chunk()=>chunk };
+        match chunk {
+            Ok(Some(chunk)) if bytes.len() + chunk.len() <= 8192 => bytes.extend_from_slice(&chunk),
+            Ok(None) => break,
+            _ => return Ok(None),
+        }
+    }
+    Ok(serde_json::from_slice(&bytes).ok())
+}
+async fn check_context_limit(
+    response: &mut reqwest::Response,
+    cancel: &CancellationToken,
+) -> Result<(), String> {
+    if request_error_json(response, cancel)
+        .await?
+        .as_ref()
+        .is_some_and(is_context_limit)
+    {
+        return Err(CONTEXT_LIMIT_ERROR.into());
+    }
+    Ok(())
+}
 
 fn reported_usage(value: &Value) -> Option<TokenUsage> {
     let value = value.get("usage")?.as_object()?;
@@ -44,24 +91,15 @@ async fn usage_option_rejected(
     response: &mut reqwest::Response,
     cancel: &CancellationToken,
 ) -> Result<bool, String> {
+    let Some(value) = request_error_json(response, cancel).await? else {
+        return Ok(false);
+    };
+    if is_context_limit(&value) {
+        return Err(CONTEXT_LIMIT_ERROR.into());
+    }
     if !matches!(response.status().as_u16(), 400 | 422) {
         return Ok(false);
     }
-    let mut bytes = Vec::new();
-    loop {
-        let chunk = tokio::select! {
-            _ = cancel.cancelled() => return Err("Response stopped.".into()),
-            chunk = response.chunk() => chunk,
-        };
-        match chunk {
-            Ok(Some(chunk)) if bytes.len() + chunk.len() <= 8192 => bytes.extend_from_slice(&chunk),
-            Ok(None) => break,
-            _ => return Ok(false),
-        }
-    }
-    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
-        return Ok(false);
-    };
     let parameter = value
         .pointer("/error/param")
         .and_then(Value::as_str)
@@ -94,6 +132,7 @@ pub struct OpenAiProvider {
     model: String,
     api_key: String,
     settings: RequestSettings,
+    context_window: Option<u32>,
 }
 
 pub fn validate_model(model: &str) -> Result<(), String> {
@@ -160,7 +199,12 @@ impl OpenAiProvider {
             model: preferences.model.trim().into(),
             api_key,
             settings,
+            context_window: Some(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),
         })
+    }
+    pub fn with_context_window(mut self, tokens: Option<u32>) -> Self {
+        self.context_window = Some(tokens.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS));
+        self
     }
 }
 
@@ -237,6 +281,9 @@ impl ModelProvider for OpenAiProvider {
     fn request_settings(&self) -> Option<RequestSettings> {
         Some(self.settings)
     }
+    fn context_window_tokens(&self) -> Option<u32> {
+        self.context_window
+    }
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;
         Ok(std::sync::Arc::new(Self {
@@ -245,6 +292,11 @@ impl ModelProvider for OpenAiProvider {
             model: model.trim().into(),
             api_key: self.api_key.clone(),
             settings: self.settings,
+            context_window: if model.trim() == self.model {
+                self.context_window
+            } else {
+                Some(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)
+            },
         }))
     }
     async fn list_models(&self) -> Result<Vec<String>, String> {
@@ -346,7 +398,7 @@ impl OpenAiProvider {
         cancel: CancellationToken,
     ) -> Result<Option<TokenUsage>, String> {
         let mut include_usage = true;
-        let response = loop {
+        let mut response = loop {
             let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": self.settings.max_output_tokens });
             if include_usage {
                 body["stream_options"] = json!({"include_usage":true});
@@ -366,6 +418,7 @@ impl OpenAiProvider {
             break response;
         };
         if !response.status().is_success() {
+            check_context_limit(&mut response, &cancel).await?;
             return Err(match response.status().as_u16() {
                 401 | 403 => "Model access denied. Check your API key and permissions.".into(),
                 404 => "Model endpoint not found. Check the base URL and model ID.".into(),
@@ -574,6 +627,48 @@ mod tests {
         let body: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
         assert_eq!(body["max_tokens"], 4096);
         assert_eq!(body["model"], "second");
+    }
+    #[tokio::test]
+    async fn context_defaults_and_named_provider_overflow_are_sanitized_without_retry() {
+        for mode in 0..3 {
+            let body = r#"{"error":{"code":"context_length_exceeded","message":"private provider diagnostic"}}"#;
+            let response=format!("HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body);
+            let (base_url, server) = sequence_server(vec![response]).await;
+            let provider = OpenAiProvider::new(
+                &ConnectionPreferences {
+                    base_url,
+                    model: "test".into(),
+                },
+                "".into(),
+            )
+            .unwrap()
+            .with_context_window(Some(8192));
+            assert_eq!(
+                provider
+                    .with_model("other")
+                    .unwrap()
+                    .context_window_tokens(),
+                Some(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)
+            );
+            assert_eq!(
+                provider.with_model("test").unwrap().context_window_tokens(),
+                Some(8192)
+            );
+            let (sender, _receiver) = mpsc::channel(32);
+            let cancel = CancellationToken::new();
+            let error = match mode {
+                0 => provider.stream(vec![], sender, cancel).await.err().unwrap(),
+                1 => provider
+                    .stream_tool_turn(&[], &[], sender, cancel)
+                    .await
+                    .err()
+                    .unwrap(),
+                _ => provider.tool_turn(&[], &[], cancel).await.err().unwrap(),
+            };
+            assert_eq!(error, CONTEXT_LIMIT_ERROR);
+            assert!(!error.contains("private"));
+            assert!(!server.await.unwrap().contains("\nREQUEST\n"));
+        }
     }
     #[tokio::test]
     async fn deadline_covers_waiting_for_headers_and_usage_compatibility_attempt_together() {

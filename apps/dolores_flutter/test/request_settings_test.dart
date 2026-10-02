@@ -63,7 +63,11 @@ class SettingsBridge implements ChatBridge {
               'error': 'Request failed.',
               'recovery': {
                 'kind': kind,
-                'retryable': !['access', 'stopped'].contains(kind),
+                'retryable': ![
+                  'access',
+                  'stopped',
+                  'contextLimit',
+                ].contains(kind),
                 'guidance': 'Your draft is restored; choose an action.',
               },
             } else
@@ -267,10 +271,10 @@ void main() {
     },
   );
   testWidgets(
-    'Access denial offers connection settings and Stop does not offer a failure retry',
+    'Access and context limits offer settings while Stop has no failure retry',
     (tester) async {
       compact(tester);
-      for (final kind in ['access', 'stopped']) {
+      for (final kind in ['access', 'stopped', 'contextLimit']) {
         final bridge = SettingsBridge()..kind = kind;
         final chat = ChatController(bridge)
           ..loading = false
@@ -284,7 +288,13 @@ void main() {
         expect(find.byKey(const Key('retry-message')), findsNothing);
         expect(
           find.byKey(const Key('failure-connection')),
-          kind == 'access' ? findsOneWidget : findsNothing,
+          kind == 'access' || kind == 'contextLimit'
+              ? findsOneWidget
+              : findsNothing,
+        );
+        expect(
+          find.byKey(const Key('failure-request-settings')),
+          kind == 'contextLimit' ? findsOneWidget : findsNothing,
         );
         expect(chat.draft, 'unsent');
         expect(tester.takeException(), isNull);

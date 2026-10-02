@@ -193,7 +193,13 @@ pub async fn run_agent(
     if specs.is_empty() || specs.len() > 8 || specs.iter().any(|s| !names.insert(s.name.clone())) {
         return Err("Tool registration is invalid.".into());
     }
-    let mut messages: Vec<_> = prepare_agent_context(context)?
+    let (context, _) = crate::prepare_token_context(
+        prepare_agent_context(context)?,
+        &specs,
+        provider.context_window_tokens(),
+        provider.request_settings().unwrap_or_default(),
+    )?;
+    let mut messages: Vec<_> = context
         .into_iter()
         .map(|m| AgentMessage {
             role: serde_json::to_value(m.role)
@@ -219,6 +225,15 @@ pub async fn run_agent(
         let bytes = serde_json::to_vec(&messages).map_err(|_| "Could not prepare tool context.")?;
         if bytes.len() > MAX_CONTEXT_BYTES {
             return Err("Tool context exceeds the 128 KiB limit.".into());
+        }
+        let tokens = crate::estimate_agent_tokens(&messages, &specs)?;
+        if crate::input_token_allowance(
+            provider.context_window_tokens(),
+            provider.request_settings().unwrap_or_default(),
+        )?
+        .is_some_and(|limit| tokens > limit)
+        {
+            return Err("Tool results exceed the model context budget. Start a new chat or increase the context window. Your message was not saved; already applied tool effects remain.".into());
         }
         emit(&events, AgentEvent::ModelStep { number }, &cancel).await?;
         let (text, mut receiver) = mpsc::channel(32);
