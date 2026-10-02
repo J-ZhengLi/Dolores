@@ -3,6 +3,7 @@ use dolores_core::{
     RequestSettings, Role, Session, SessionStore, TurnMetadata, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
+mod automatic_memory;
 #[cfg(test)]
 mod change_tests;
 mod changes;
@@ -50,6 +51,8 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS memory_preferences (id TEXT PRIMARY KEY, root TEXT NOT NULL, data TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS memory_scope ON memory_preferences(root,id);
             CREATE TABLE IF NOT EXISTS session_summaries (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS automatic_memory_policy (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS automatic_memory_attempts (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, message_id INTEGER NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
             CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
@@ -85,9 +88,9 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 11)
                 .map_err(storage_error)?;
         }
-        if version < 12 {
+        if version < 13 {
             connection
-                .pragma_update(None, "user_version", 12)
+                .pragma_update(None, "user_version", 13)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -100,6 +103,37 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn automatic_memory_policy(&self) -> Result<dolores_core::AutomaticMemoryPolicy, String> {
+        self.auto_policy()
+    }
+    fn set_automatic_memory_policy(
+        &self,
+        enabled: bool,
+        revision: u32,
+    ) -> Result<dolores_core::AutomaticMemoryPolicy, String> {
+        self.write_auto_policy(enabled, revision)
+    }
+    fn automatic_memory_attempt(
+        &self,
+        session: &str,
+    ) -> Result<Option<dolores_core::AutomaticMemoryAttempt>, String> {
+        self.auto_attempt(session)
+    }
+    fn claim_automatic_memory(
+        &self,
+        session: &str,
+        source: &dolores_core::MemoryMessage,
+        revision: u32,
+    ) -> Result<bool, String> {
+        self.claim_auto(session, source, revision)
+    }
+    fn finish_automatic_memory(
+        &self,
+        update: &dolores_core::AutomaticMemoryUpdate,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> Result<dolores_core::AutomaticMemoryAttempt, String> {
+        self.finish_auto(update, cancel)
+    }
     fn session_summary(
         &self,
         session: &str,
@@ -674,7 +708,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 12);
+        assert_eq!(version, 13);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Automatic preferences
+
+Memory offers Learn preferences automatically, enabled by default. Explain current-folder versus All chats scope, limited eligibility and the optional 10-second/512-token extraction. The switch returns to manual review without deleting saved entries. Label automatically learned records and keep source/quote/model/time inspectable. Existing Edit/Disable/Delete remain; edit/disable protects a record from replacement. A collapsible current-chat latest activity shows status, saved/skipped counts, date and separate reported learning usage. Trajectory shows reply saved then learning/result. Learning Stop or failure preserves the completed reply. Reuse the palette, InspectorFrame and fixed footer with a scrollable compact light/dark body; keep the composer unchanged.
+
 ## Reviewed session summaries
 
 Saved chats have a quiet Session summary action in the header beside Trajectory. Reuse the system theme and InspectorFrame. Show the current summary, covered-turn count, revision, drafting model and review time. Review next turns exposes the exact next contiguous batch through expandable literal You/Dolores rows, an explicit remaining-turn notice and the prior summary. Disclose that Generate shares those turns and that replies may quote private files. Generate draft is explicit; Stop remains available, Close stays disabled until completion, and no retry or save happens automatically. An editable draft has Save summary and Discard. Existing summaries have Edit/Delete; failed Save preserves the correction. Delete restores recent context, not a shortened transcript. The fixed wrapping footer remains reachable with a scrolling body in compact light/dark layouts. Context inspection and reply details count coverage separately from omitted raw turns; local context additionally exposes exact summary text. Keep the model/context/send composer order unchanged.

@@ -54,7 +54,9 @@ impl Engine {
             }
             items.push(item);
         }
-        Ok(json!({"items":items,"folderAvailable":root.is_some()}))
+        Ok(
+            json!({"items":items,"folderAvailable":root.is_some(),"automaticPolicy":self.store.automatic_memory_policy()?,"automaticAttempt":session.map(|s|self.store.automatic_memory_attempt(s)).transpose()?.flatten()}),
+        )
     }
     pub(super) fn save_memory(
         &self,

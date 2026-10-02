@@ -1,5 +1,15 @@
 # Flutter bridge contract
 
+## Automatic memory (brick 4.4)
+
+`setAutomaticMemory {enabled:boolean,revision:integer}` returns `{enabled,revision}` with optimistic increment. `memories {session?}` adds `automaticPolicy` and nullable `automaticAttempt:{messageId,status,note,updatedAt,saved,skipped,usage?}`. SQLite policy defaults enabled; other storage plugins default off until implementing the optional ports. Activity is one latest row/chat; time is Unix milliseconds.
+
+After successful complete-pair persistence, Start may emit `memoryUpdating {id}`, then optional `done.memoryUpdate` carrying the attempt report. Learning errors preserve successful answer/history. Stop retains the saved reply and prevents publication before its commit boundary. Shared run exclusion covers learning. Reported learning usage is separate from reply/agent usage, never fabricated or merged. No background worker or startup replay.
+
+At most one completed user message / 8 KiB, three verbatim quote preferences, 512 output tokens, 10 seconds and 8 KiB output; lower configured controls win. Model capacity/reservation/headroom apply. Extraction excludes replies/tools/guidance/summaries/draft/root/origin quotes and includes applicable existing title/text/enabled fields. The standard unsupported-usage compatibility exception remains. English/Chinese eligibility is deliberately conservative; filtering is not universal.
+
+`MemoryPreference.source` additionally accepts `automatic`; default-false `autoUpdate` records replacement eligibility. Host origin retains exact evidence. Working chats use current-folder scope; side/legacy use All chats. Same-topic replacement requires explicit correction, enabled untouched automatic entry and unchanged source/policy/preference snapshots. Edit/toggle preserves source/origin and clears `autoUpdate`. Duplicates/protected conflicts/full scopes skip writes. Candidates/report commit atomically, and claimed attempts never retry/replay. Exports retain complete history and selected-memory provenance; learning activity is local state. See [design](../design/automatic-memory.md).
+
 ## Reviewed memory suggestions (brick 4.2)
 
 | Command | Arguments | Result |

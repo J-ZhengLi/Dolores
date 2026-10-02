@@ -23,6 +23,15 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (payload.messages?.[0]?.content?.startsWith('You extract automatic preferences for Dolores.')) {
+    const source = JSON.parse(input).sources[0];
+    const result = JSON.stringify({suggestions: source.text.includes('I prefer concise examples.') ? [{title:'Response style',text:'I prefer concise examples.',messageId:source.messageId,quote:'I prefer concise examples.'}] : []});
+    response.writeHead(200, {'content-type':'text/event-stream'});
+    response.write(`data: ${JSON.stringify({choices:[{delta:{content:result},finish_reason:null}]})}\n\n`);
+    response.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+    response.write('data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":25,"total_tokens":125}}\n\n');
+    response.end('data: [DONE]\n\n'); return;
+  }
   if (payload.messages?.[0]?.content?.startsWith('You draft a session summary for Dolores.')) {
     response.writeHead(200, {'content-type':'text/event-stream'});
     response.write(`data: ${JSON.stringify({choices:[{delta:{content:'Goal: continue this conversation. Decision: keep concise examples. Next: verify the pending task.'},finish_reason:null}]})}\n\n`);

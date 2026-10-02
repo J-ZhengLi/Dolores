@@ -207,7 +207,7 @@ else:
     # Cascade behavior is independently covered in the SQLite unit tests.
     call("delete",session=session)
     with sqlite3.connect(fixture / "data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 12
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 13
         assert db.execute("SELECT count(*) FROM session_summaries").fetchone()[0] == 0
 call("shutdown")
 print(json.dumps({"ok":True,"stage":args.stage,"scope":"summary source/wire, correction, coverage, extension, cancellation, failure, atomic save, full export and restart"}))

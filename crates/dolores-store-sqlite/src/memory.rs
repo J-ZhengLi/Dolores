@@ -4,7 +4,7 @@ use rusqlite::{params, OptionalExtension};
 
 const CONFLICT: &str =
     "Memory preference changed or was deleted. Cancel, refresh and review it again.";
-fn scope_key(root: Option<&str>) -> Result<&str, String> {
+pub(super) fn scope_key(root: Option<&str>) -> Result<&str, String> {
     match root {
         Some(root) if !std::path::Path::new(root).is_absolute() => {
             Err("Memory folder scope is invalid.".into())
@@ -12,7 +12,7 @@ fn scope_key(root: Option<&str>) -> Result<&str, String> {
         _ => Ok(root.unwrap_or("")),
     }
 }
-fn decode(data: String) -> Result<MemoryPreference, String> {
+pub(super) fn decode(data: String) -> Result<MemoryPreference, String> {
     let value: MemoryPreference = serde_json::from_str(&data)
         .map_err(|_| "Saved memory preference could not be read. Review Memory before sending.")?;
     value.validate()?;
@@ -158,7 +158,7 @@ impl SqliteStore {
             .optional()
             .map_err(storage_error)?;
         let timestamp = now();
-        let (revision, created_at, origin) = match (previous, draft.revision) {
+        let (revision, created_at, origin, source) = match (previous, draft.revision) {
             (None, None) => {
                 let count: usize = tx
                     .query_row(
@@ -170,7 +170,16 @@ impl SqliteStore {
                 if count >= MAX_PREFERENCES_PER_SCOPE {
                     return Err("Memory has reached its 12-preference limit for this scope. Delete an unused preference first.".into());
                 }
-                (1, timestamp, draft.origin.clone())
+                (
+                    1,
+                    timestamp,
+                    draft.origin.clone(),
+                    if draft.origin.is_some() {
+                        "conversation".into()
+                    } else {
+                        "user".into()
+                    },
+                )
             }
             (Some(data), Some(expected)) => {
                 if draft.origin.is_some() {
@@ -184,6 +193,7 @@ impl SqliteStore {
                     expected.checked_add(1).ok_or(CONFLICT)?,
                     previous.created_at,
                     previous.origin,
+                    previous.source,
                 )
             }
             _ => return Err(CONFLICT.into()),
@@ -198,16 +208,12 @@ impl SqliteStore {
             } else {
                 MemoryScope::Folder
             },
-            source: if origin.is_some() {
-                "conversation"
-            } else {
-                "user"
-            }
-            .into(),
+            source,
             enabled: draft.enabled,
             created_at,
             updated_at: timestamp,
             origin,
+            auto_update: false,
         };
         let data = serde_json::to_string(&value).map_err(storage_error)?;
         if draft.revision.is_some() {

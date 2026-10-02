@@ -722,7 +722,56 @@ Future<void> _run(
     chat.newChat(kind: 'side');
     chat.draft = 'I prefer concise examples.';
     await chat.send();
-    await waitUntil(() => !chat.busy);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    final automaticState = await chat.bridge.call({
+      'command': 'memories',
+      'session': chat.session,
+    });
+    final learned = (automaticState['items'] as List).single;
+    check(
+      automaticState['automaticPolicy']['enabled'] == true &&
+          learned['source'] == 'automatic' &&
+          learned['text'] == 'I prefer concise examples.' &&
+          learned['origin']['quote'] == learned['text'],
+      'A saved reply automatically learns an exact user preference with provenance',
+      checks,
+    );
+    final learnedContext = (await chat.previewContext())!;
+    check(
+      learnedContext['memory']['used'][0]['source'] == 'automatic' &&
+          learnedContext['messages'][0]['content'].contains(
+            'I prefer concise examples.',
+          ),
+      'Automatic memory is used in the next inspectable context',
+      checks,
+    );
+    if (!smokePageContext.mounted) throw StateError('Memory view unavailable');
+    final automaticView = showMemory(smokePageContext, chat);
+    await screenshot(capture, output, 'automatic-memory-dark');
+    await press('Close');
+    await automaticView;
+    await chat.bridge.call({
+      'command': 'setAutomaticMemory',
+      'enabled': false,
+      'revision': automaticState['automaticPolicy']['revision'],
+    });
+    await chat.bridge.call({
+      'command': 'deleteMemory',
+      'scope': 'all',
+      'id': learned['id'],
+      'revision': learned['revision'],
+    });
+    chat.invalidateContext();
+    check(
+      (await chat.bridge.call({
+                'command': 'memories',
+                'session': chat.session,
+              }))['automaticPolicy']['enabled'] ==
+              false &&
+          (await chat.previewContext())!['memory'] == null,
+      'Automatic learning can be disabled and learned preferences deleted',
+      checks,
+    );
     final suggestionHistory = chat.messages.length;
     final suggestionSession = chat.session!;
     T? keyedWidget<T extends Widget>(String key) {

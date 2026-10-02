@@ -821,6 +821,8 @@ class ChatController extends ChangeNotifier {
               toolRecords.add((event['record'] as Map).cast<String, dynamic>());
             }
             _record('Tool result');
+          case 'memoryUpdating':
+            _record('Reply saved · learning preferences');
           case 'done':
             toolApproval = null;
             changing = true;
@@ -831,6 +833,10 @@ class ChatController extends ChangeNotifier {
               );
             } else {
               _record('Reply saved');
+              if (event['memoryUpdate'] is Map) {
+                final update = event['memoryUpdate'] as Map;
+                _record('Memory: ${update['status']} · ${update['note']}');
+              }
               _terminal = true;
               _clock.stop();
               contextBasis = workspaceRoot == null

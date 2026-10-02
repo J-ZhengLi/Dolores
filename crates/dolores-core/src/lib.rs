@@ -9,11 +9,13 @@ mod request_settings;
 mod token_context;
 mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
+mod automatic_memory;
 mod instructions;
 mod memory;
 mod memory_suggestions;
 mod summary;
 pub use agent::*;
+pub use automatic_memory::*;
 pub use change::*;
 pub use instructions::{
     prepare_instruction_context, InstructionSource, WorkspaceInstructions, MAX_INSTRUCTION_BYTES,
@@ -184,6 +186,32 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn automatic_memory_policy(&self) -> Result<AutomaticMemoryPolicy, String> {
+        Ok(AutomaticMemoryPolicy {
+            enabled: false,
+            revision: 1,
+        })
+    }
+    fn set_automatic_memory_policy(
+        &self,
+        _: bool,
+        _: u32,
+    ) -> Result<AutomaticMemoryPolicy, String> {
+        Err("This storage plugin does not support automatic memory.".into())
+    }
+    fn automatic_memory_attempt(&self, _: &str) -> Result<Option<AutomaticMemoryAttempt>, String> {
+        Ok(None)
+    }
+    fn claim_automatic_memory(&self, _: &str, _: &MemoryMessage, _: u32) -> Result<bool, String> {
+        Ok(false)
+    }
+    fn finish_automatic_memory(
+        &self,
+        _: &AutomaticMemoryUpdate,
+        _: &CancellationToken,
+    ) -> Result<AutomaticMemoryAttempt, String> {
+        Err("This storage plugin does not support automatic memory.".into())
+    }
     fn session_summary(&self, _: &str) -> Result<Option<SessionSummary>, String> {
         Ok(None)
     }

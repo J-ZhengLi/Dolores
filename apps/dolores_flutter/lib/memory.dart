@@ -42,6 +42,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       loaded = false;
   String scope = 'all';
   String? error, notice;
+  Map<String, dynamic>? automaticPolicy, automaticAttempt;
 
   @override
   void initState() {
@@ -93,11 +94,22 @@ class _MemoryInspectorState extends State<MemoryInspector> {
           .map((v) => (v as Map).cast<String, dynamic>())
           .toList();
       folderAvailable = result['folderAvailable'] == true;
+      automaticPolicy = (result['automaticPolicy'] as Map?)
+          ?.cast<String, dynamic>();
+      automaticAttempt = (result['automaticAttempt'] as Map?)
+          ?.cast<String, dynamic>();
       loaded = true;
     });
   }
 
   Future<void> _refresh() => _act(_load);
+  Future<void> _setAutomatic(bool value) => _act(() async {
+    await _call('setAutomaticMemory', {
+      'enabled': value,
+      'revision': automaticPolicy!['revision'],
+    });
+    await _load();
+  });
   void _edit([Map<String, dynamic>? item]) {
     if (busy) return;
     setState(() {
@@ -305,21 +317,27 @@ class _MemoryInspectorState extends State<MemoryInspector> {
     });
   }
 
-  Widget _origin(Map item, Palette p, {bool? available}) => Padding(
+  Widget _origin(
+    Map item,
+    Palette p, {
+    bool? available,
+    bool automatic = false,
+    bool showQuote = true,
+  }) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'From a reviewed chat · message ${item['messageId']} · ${item['model'] ?? suggestions?['model'] ?? ''}',
+          '${automatic ? 'From your message (learned automatically)' : 'From a reviewed chat'} · message ${item['messageId']} · ${item['model'] ?? suggestions?['model'] ?? ''}',
           style: TextStyle(color: p.muted, fontSize: 11),
         ),
         if (available == false)
           Text(
-            'Source message is no longer available; the reviewed quote is retained.',
+            'Source message is no longer available; the original quote is retained.',
             style: TextStyle(color: p.muted, fontSize: 11),
           ),
-        SelectableText(item['quote'] as String),
+        if (showQuote) SelectableText(item['quote'] as String),
       ],
     ),
   );
@@ -358,7 +376,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       canPop: !busy,
       child: InspectorFrame(
         title: 'Memory',
-        subtitle: 'Preferences you choose to keep',
+        subtitle: 'How Dolores remembers your preferences',
         canClose: !busy,
         child: Column(
           children: [
@@ -372,9 +390,45 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Preferences are saved only after your review. Delete or disable them to stop using them in new messages; past replies stay in your chats. Only a bounded selection is used—inspect context to see which ones.',
+                    'Delete or disable preferences to stop using them in new messages. Editing or disabling a learned preference protects it from automatic replacement; past replies keep their original context.',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
+                  if (automaticPolicy != null && !form && !sourceMode) ...[
+                    SwitchListTile(
+                      key: const Key('automatic-memory'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Learn preferences automatically'),
+                      value: automaticPolicy!['enabled'] == true,
+                      onChanged: busy ? null : _setAutomatic,
+                      subtitle: const Text(
+                        'After a saved reply, learn explicit work or response preferences from your message. Working chats use this folder; side chats use All chats. Turn off to use manual review only.',
+                      ),
+                    ),
+                    Text(
+                      'Eligible messages may use one extra model request, up to 10 seconds and 512 output tokens. No files, tools or assistant replies are used. Quoted text and common sensitive patterns are skipped; this is a conservative filter, not a complete classifier.',
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                    if (automaticAttempt != null)
+                      ExpansionTile(
+                        key: const Key('automatic-memory-attempt'),
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Latest learning activity in this chat',
+                        ),
+                        subtitle: Text(
+                          '${automaticAttempt!['status']} · ${automaticAttempt!['note']}',
+                        ),
+                        children: [
+                          Text(
+                            'Your message ${automaticAttempt!['messageId']} · ${DateTime.fromMillisecondsSinceEpoch(automaticAttempt!['updatedAt'] as int).toLocal()}',
+                          ),
+                          if (automaticAttempt!['usage'] is Map)
+                            Text(
+                              'Learning tokens: ${automaticAttempt!['usage']['inputTokens'] ?? '—'} in · ${automaticAttempt!['usage']['outputTokens'] ?? '—'} out',
+                            ),
+                        ],
+                      ),
+                  ],
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -403,6 +457,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                         editing!['origin'],
                         p,
                         available: editing!['originAvailable'] as bool?,
+                        automatic: editing!['source'] == 'automatic',
                       ),
                     DropdownButtonFormField<String>(
                       key: ValueKey('memory-scope-$scope'),
@@ -585,7 +640,11 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                 ),
                               ),
                               Text(
-                                '${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['enabled'] == true ? 'Enabled' : 'Disabled'} · ${item['origin'] is Map ? 'From a reviewed chat' : 'Added by you'}',
+                                '${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['enabled'] == true ? 'Enabled' : 'Disabled'} · ${item['source'] == 'automatic'
+                                    ? 'Learned automatically'
+                                    : item['origin'] is Map
+                                    ? 'From a reviewed chat'
+                                    : 'Added by you'}',
                                 style: TextStyle(fontSize: 11, color: p.muted),
                               ),
                               const SizedBox(height: 8),
@@ -594,6 +653,10 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                   item['origin'],
                                   p,
                                   available: item['originAvailable'] as bool?,
+                                  automatic: item['source'] == 'automatic',
+                                  showQuote:
+                                      item['source'] != 'automatic' ||
+                                      item['text'] != item['origin']['quote'],
                                 ),
                               SelectableText(
                                 item['text'] as String,

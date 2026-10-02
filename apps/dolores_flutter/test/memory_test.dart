@@ -12,6 +12,8 @@ class MemoryBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
   final items = <Map<String, dynamic>>[];
   bool folder = true, fail = false;
+  bool supportsAutomatic = false, automatic = true;
+  int policyRevision = 1;
   Completer<void>? pending;
   @override
   Future<void> open() async {}
@@ -25,7 +27,27 @@ class MemoryBridge implements ChatBridge {
         return {
           'items': items.map((v) => {...v}).toList(),
           'folderAvailable': folder,
+          if (supportsAutomatic)
+            'automaticPolicy': {
+              'enabled': automatic,
+              'revision': policyRevision,
+            },
+          if (supportsAutomatic)
+            'automaticAttempt': {
+              'messageId': 1,
+              'status': 'completed',
+              'note': '1 saved',
+              'updatedAt': 1,
+              'saved': 1,
+              'skipped': 0,
+              'usage': {'inputTokens': 100, 'outputTokens': 25},
+            },
         };
+      case 'setAutomaticMemory':
+        if (fail) throw Exception('Policy changed. Refresh Memory.');
+        automatic = command['enabled'] as bool;
+        policyRevision++;
+        return {'enabled': automatic, 'revision': policyRevision};
       case 'saveMemory':
         if (pending != null) await pending!.future;
         if (fail) {
@@ -98,6 +120,53 @@ Future<void> enter(WidgetTester tester, String key, String value) async {
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'automatic policy and learning activity are inspectable and reversible ($dark)',
+      (tester) async {
+        final bridge = MemoryBridge()..supportsAutomatic = true;
+        await open(tester, bridge, dark: dark);
+        final toggle = find.byKey(const Key('automatic-memory'));
+        await tester.ensureVisible(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(toggle).value, true);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(bridge.automatic, false);
+        expect(bridge.policyRevision, 2);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'saveMemory'),
+          isEmpty,
+        );
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('automatic-memory-attempt')),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.byKey(const Key('automatic-memory-attempt')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Learning tokens: 100 in'), findsOneWidget);
+        bridge.fail = true;
+        await tester.scrollUntilVisible(
+          toggle,
+          -100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await Scrollable.ensureVisible(tester.element(toggle), alignment: 0.5);
+        await tester.pumpAndSettle();
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SwitchListTile>(toggle).value, false);
+        await tester.scrollUntilVisible(
+          find.textContaining('Policy changed.'),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.textContaining('Policy changed.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'Close and Cancel do not create preferences; Side has only All chats',
     (tester) async {

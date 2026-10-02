@@ -58,7 +58,7 @@ Widget contextDetails(
       ),
       for (final item in summary['memory']['used'] as List)
         SelectableText(
-          '${item['title']} · ${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['origin'] is Map ? 'Reviewed chat · message ${item['origin']['messageId']}' : 'Added by you'} · revision ${item['revision']}',
+          '${item['title']} · ${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['origin'] is Map ? '${item['source'] == 'automatic' ? 'Learned automatically' : 'Reviewed chat'} · message ${item['origin']['messageId']}' : 'Added by you'} · revision ${item['revision']}',
         ),
       for (final item in summary['memory']['used'] as List)
         if (item['origin'] is Map)

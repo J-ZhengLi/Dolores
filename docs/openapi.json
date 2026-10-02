@@ -216,7 +216,7 @@
         "arguments": {
           "session": "string|null; optional; resolve folder from saved session"
         },
-        "result": "{items:MemoryPreference[0..24],folderAvailable:boolean}; All chats/current saved folder; no network; conversation items additionally expose originAvailable:boolean"
+        "result": "{items:MemoryPreference[0..24],folderAvailable:boolean,automaticPolicy:AutomaticMemoryPolicy,automaticAttempt:AutomaticMemoryAttempt|null}; current-chat latest activity; no network; originAvailable for referenced entries"
       },
       "saveMemory": {
         "arguments": {
@@ -314,6 +314,13 @@
           "token": "string"
         },
         "result": "null; matching-token idempotent discard, no writes"
+      },
+      "setAutomaticMemory": {
+        "arguments": {
+          "enabled": "boolean",
+          "revision": "integer[1..4294967295]"
+        },
+        "result": "AutomaticMemoryPolicy; global policy, optimistic revision increment; default enabled in SQLite; excluded during active run"
       }
     },
     "events": [
@@ -323,10 +330,11 @@
       "{type:toolApproval,id,request:ToolRequest}",
       "{type:toolResult,id,record:ToolRecord}",
       "{type:delta,id,text}",
-      "{type:done,id,answer}",
+      "{type:done,id,answer,memoryUpdate:AutomaticMemoryAttempt|null}; learning failure/Stop preserves successful reply",
       "{type:done,id,error,recovery:Recovery}",
       "{type:done,id,memorySuggestions:{token,items:MemorySuggestion[0..3],model,usage:TokenUsage|null,tokens:TokenContext}}; memory extraction only, no saved turns",
-      "{type:done,id,summaryDraft:{token,text,model,usage:TokenUsage|null,tokens:TokenContext}}; summary generation only, no saved turns; errors use {type:done,id,error}"
+      "{type:done,id,summaryDraft:{token,text,model,usage:TokenUsage|null,tokens:TokenContext}}; summary generation only, no saved turns; errors use {type:done,id,error}",
+      "{type:memoryUpdating,id}; after reply persistence, before done, optional tool-free learning"
     ],
     "busy": "Only poll, cancel, approveTool and shutdown are accepted until the terminal event is drained.",
     "documentation": "flutter/flutter-api.md",
@@ -336,7 +344,7 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 12,
+      "schemaVersion": 13,
       "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
       "context": "Content bytes remain internal resource guards. Optional tokens:TokenContext estimates instructions/history/draft/function schemas/framing using ceil(UTF8bytes/4). Per-model raw capacity defaults131072; input allowance floor(window*0.95)-reservedOutputTokens. Newest whole turns retained, mandatory overflow fails, later tool-call/result growth checked before each call. Old metadata lacks tokens; reported TokenUsage stays separate. Optional summary:SummarySource identifies contiguous summarized coverage separately from omitted raw turns; reviewed summary text is counted as system input. Local preview additionally exposes exact SessionSummary; stored metadata keeps provenance only.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals.",
@@ -464,7 +472,7 @@
     },
     "workspaceInstructions": "Schema 10 stores one reviewed snapshot per saved folder. Root AGENTS.md only; regular nonempty UTF-8 <=8 KiB, no NUL/links, no includes/ancestor/nested discovery. Changed/missing/unloadable enabled files refuse preview/send before a provider call; running context retains its initial snapshot. Guidance is counted and inspectable, and cannot grant tool permission. Review/enable/disable use the existing generation exclusion; no watcher/network/idle worker.",
     "manualMemory": {
-      "storage": "SQLite schema11; local plaintext preferences; source=user or explicitly reviewed conversation; no automatic memory writes",
+      "storage": "SQLite schema13; local plaintext preferences; source=user, reviewed conversation or automatic; edits/toggles preserve source/origin and protect automatic entries",
       "selection": "Complete enabled entries: folder first, newest update descending, stable ID ties; skip nonfitting entries under 4096 serialized-entry UTF-8 bytes; report omitted enabled count",
       "context": "Shared preview/send system text; counted in byte/token budgets; snapshot fixed per request; user/workspace/host policy priority; no tool approval or include expansion",
       "provenance": "Optional ContextSummary.memory retained with completed turn; no duplicate body or automatic root; deletion does not rewrite old replies/provenance; optional host MemoryOrigin retains exact source quote/model/session/message/reviewedAt in local metadata and exports; corrections/chat deletion preserve origin"
@@ -477,12 +485,28 @@
       "compatibility": "One usage-option rejection can resend the same approved text without that option under the same deadline; at most two HTTP attempts, no failed-inference/output retry"
     },
     "sessionSummaries": {
-      "schemaVersion": 12,
+      "schemaVersion": 13,
       "scope": "one reviewed summary per session, deleted with chat; same chat only, no automatic writes",
       "source": "next contiguous oldest uncovered batch, up to20 complete pairs/147456 content bytes; prior summary shared when extending; exact roles/IDs/text/prior revision atomically compared at Save",
       "retrieval": "shared preview/send snapshot, summary plus newest uncovered complete turns; full history/export retained; model capacity/output/headroom and byte guards still apply",
       "review": "source and candidate tokens5minutes; Stop/Discard/Close never save; failed Save retains correction; success consumes token; limited credential screening and no semantic accuracy guarantee",
       "provenance": "inclusive coveredThrough assistant ID, contiguous coveredTurns, revision/model/review time; no automatic root/tool metadata; later external DB changes outside supported freshness guarantee"
+    },
+    "automaticMemory": {
+      "default": "enabled globally in SQLite; off returns to manual review; legacy optional storage plugins default off",
+      "trigger": "latest completed user message after successful saved reply; conservative English/Chinese explicit preference markers; no startup backlog/replay/failed retry",
+      "limits": {
+        "sourceBytes": 8192,
+        "quoteBytes": 512,
+        "candidates": 3,
+        "outputTokens": 512,
+        "timeoutSeconds": 10,
+        "collectedBytes": 8192
+      },
+      "wire": "tool-free current model; exact user source + existing applicable title/text/enabled; excludes replies/tools/AGENTS/summaries/draft/root/origin quotes; configured capacity/reservation/headroom and lower controls apply; one explicit unsupported-usage compatibility resend only",
+      "save": "atomic claim/source/policy/all-applicable-preference snapshot; exact verbatim evidence and fixed topics; duplicates/protected conflicts/full scopes skipped; explicit correction replaces untouched enabled automatic same-topic entry; manual edit/toggle clears autoUpdate",
+      "activity": "one latest attempt per chat; reported learning usage separate from reply usage; Stop/failure preserves saved reply; interrupted publication never replays; chat deletion cascades activity but preserves preferences",
+      "limitsOfEvidence": "eligibility/credential screening and topic recognition are conservative, not universal privacy or semantic accuracy guarantees; generated preferences remain fallible and editable"
     }
   },
   "x-tauri-commands": {
@@ -1359,7 +1383,8 @@
             "type": "string",
             "enum": [
               "user",
-              "conversation"
+              "conversation",
+              "automatic"
             ]
           },
           "updatedAt": {
@@ -1414,7 +1439,8 @@
             "type": "string",
             "enum": [
               "user",
-              "conversation"
+              "conversation",
+              "automatic"
             ]
           },
           "updatedAt": {
@@ -1435,6 +1461,11 @@
           },
           "origin": {
             "$ref": "#/components/schemas/MemoryOrigin"
+          },
+          "autoUpdate": {
+            "type": "boolean",
+            "default": false,
+            "description": "True only for untouched automatically learned entries; manual edit/toggle protects against automatic replacement"
           }
         }
       },
@@ -1630,6 +1661,71 @@
           "text",
           "provenance"
         ]
+      },
+      "AutomaticMemoryPolicy": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "revision"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          }
+        }
+      },
+      "AutomaticMemoryAttempt": {
+        "type": "object",
+        "required": [
+          "messageId",
+          "status",
+          "note",
+          "updatedAt",
+          "saved",
+          "skipped"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "interrupted",
+              "skipped",
+              "completed",
+              "failed",
+              "changed",
+              "stopped"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "description": "Unix milliseconds"
+          },
+          "saved": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "usage": {
+            "$ref": "#/components/schemas/TokenUsage"
+          }
+        }
       }
     }
   },

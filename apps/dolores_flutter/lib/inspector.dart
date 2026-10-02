@@ -326,7 +326,7 @@ class ContextInspector extends StatelessWidget {
                 for (final item in (report['memoryEntries'] as List? ?? []))
                   {
                     'role':
-                        '${item['title']} · ${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['origin'] is Map ? 'Reviewed chat · message ${item['origin']['messageId']}' : 'Added by you'} · revision ${item['revision']}',
+                        '${item['title']} · ${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['origin'] is Map ? '${item['source'] == 'automatic' ? 'Learned automatically' : 'Reviewed chat'} · message ${item['origin']['messageId']}' : 'Added by you'} · revision ${item['revision']}',
                     'content': item['text'],
                   },
               ],

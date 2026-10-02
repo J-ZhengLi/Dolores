@@ -1,5 +1,6 @@
 //! C ABI for the selected Flutter shell. No server or subprocess.
 mod approval;
+mod automatic_memory;
 mod changes;
 mod connection;
 mod export;
@@ -105,6 +106,10 @@ enum Command {
     },
     Memories {
         session: Option<String>,
+    },
+    SetAutomaticMemory {
+        enabled: bool,
+        revision: u32,
     },
     SaveMemory {
         session: Option<String>,
@@ -379,6 +384,9 @@ impl Engine {
             } => self.save_memory_suggestion(&session, &token, index, scope, input),
             Command::DiscardMemoryReview { token } => self.discard_memory_review(&token),
             Command::Memories { session } => self.memories(session.as_deref()),
+            Command::SetAutomaticMemory { enabled, revision } => Ok(json!(self
+                .store
+                .set_automatic_memory_policy(enabled, revision)?)),
             Command::SaveMemory {
                 session,
                 scope,
@@ -640,6 +648,15 @@ impl Engine {
                     .unwrap_or_default();
                 let model = self.store.preferences()?.model;
                 let settings = provider.request_settings();
+                let learner = if self.store.automatic_memory_policy()?.enabled {
+                    self.connection
+                        .lock()
+                        .map_err(|_| "Connection unavailable.")?
+                        .automatic_memory_provider()
+                        .ok()
+                } else {
+                    None
+                };
                 let cancel = CancellationToken::new();
                 let (output, events) = mpsc::channel(32);
                 let approvals = Arc::new(Mutex::new(None));
@@ -656,8 +673,10 @@ impl Engine {
                 });
                 let store = self.store.clone();
                 self.runtime.spawn(async move {
+                    let learning_session = session.clone();
+                    let learning_model = model.clone();
                     let result = execute(
-                        store,
+                        store.clone(),
                         provider,
                         TurnRequest {
                             id,
@@ -668,12 +687,17 @@ impl Engine {
                             tools,
                             approval: Some(approval),
                         },
-                        cancel,
+                        cancel.clone(),
                         &output,
                     )
                     .await;
+                    let memory_update = if result.is_ok() {
+                        if let (Some(session), Some(learner)) = (learning_session, learner) {
+                            automatic_memory::learn(store, learner, &session, &learning_model, cancel.clone(), &output, id).await
+                        } else { None }
+                    } else { None };
                     let event = match result {
-                        Ok(answer) => json!({"type":"done", "id":id, "answer":answer}),
+                        Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
                     let _ = output.send(event).await;

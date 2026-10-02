@@ -1,5 +1,7 @@
 # Dolores Flutter desktop
 
+Memory learns explicit work/response preferences after saved replies, enabled by default. Inspect its switch, evidence, latest activity and separate usage in Memory; manual edits/disables protect learned entries. Folder/All chats scopes and bounded context retrieval remain. Learning failure or Stop preserves the reply. See [automatic memory](../../docs/design/automatic-memory.md).
+
 Working-folder headers offer Instructions: review the root `AGENTS.md`, then Enable instructions to share and save it for chats in that folder. Changes require re-review or Disable before sending. References are literal and every tool still needs its own approval. See the [design](../../docs/design/workspace-instructions.md).
 
 Flutter 3.47.5 / Dart 3.13.4 is the selected desktop UI, sharing Dolores's Rust core, provider, SQLite and OS credential plugins through a small bundled C ABI. No model, Node server or webview is shipped. From the root, `pnpm desktop` builds and opens the app; `pnpm desktop:build` creates the release bundle. The helper uses `FLUTTER_SDK`, the ignored local SDK or PATH. Windows users can also build without Node:

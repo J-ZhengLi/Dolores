@@ -24,6 +24,16 @@ pub struct ConnectionManager {
 }
 impl ConnectionManager {
     pub(super) fn review_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
+        self.bounded_review_provider(1024, 30)
+    }
+    pub(super) fn automatic_memory_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
+        self.bounded_review_provider(512, 10)
+    }
+    fn bounded_review_provider(
+        &self,
+        max_output: u32,
+        timeout: u32,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
         let preferences = self.store.preferences()?;
         if self.provider.is_none()
             || self.active_base_url.as_deref() != Some(preferences.base_url.as_str())
@@ -38,8 +48,8 @@ impl ConnectionManager {
                     .clone()
                     .ok_or("Reconnect your model first.")?,
                 RequestSettings {
-                    max_output_tokens: settings.max_output_tokens.min(1024),
-                    timeout_seconds: settings.timeout_seconds.min(30),
+                    max_output_tokens: settings.max_output_tokens.min(max_output),
+                    timeout_seconds: settings.timeout_seconds.min(timeout),
                 },
             )?
             .with_context_window(self.context_window(&preferences)?),
