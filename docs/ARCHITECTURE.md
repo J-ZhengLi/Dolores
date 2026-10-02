@@ -49,7 +49,7 @@ Third-party native code is not sandboxed by these interfaces. Tauri capabilities
 
 - No resident local model, Python runtime, Node sidecar, vector database, background scheduler, idle polling, telemetry, or automatic downloads in the app.
 - Flutter's Rust host uses two async workers and at most two blocking workers. A Dart worker serializes storage and native calls. Polling runs only during generation; there is no application idle timer. Scrolling, startup, GPU/system memory and low-end responsiveness need separate checks.
-- One active generation, a 32-item text queue, a maximum 1 MiB SSE frame, a maximum 128 KiB answer, a 10-second connect timeout and a 180-second request timeout.
+- One active generation, a 32-item text queue, a maximum 1 MiB SSE frame, a maximum 128 KiB answer, a fixed 10-second connect timeout and a configurable whole-provider-response deadline (default 180 seconds, range 1–900).
 - User messages up to 16 KiB, newest 40 complete turns, and at most 128 KiB of request context. The byte budget is not a tokenizer or a guarantee of fitting every model's context window.
 - Flutter replaces bounded pages of 50 sessions/80 messages and exports complete saved history. Context always uses the latest saved complete turns, independently of the viewed page.
 - Endpoint redirects are disabled. HTTPS is required except HTTP loopback for local servers. Endpoint requests occur only when the user fetches models or sends a message.
@@ -63,3 +63,5 @@ The paired Flutter trial measured 224.36 MiB working set / 229.52 MiB private by
 See [native research](research/native-shell-options.md) for rendering, APIs, IME and accessibility evidence. [Tauri architecture](https://v2.tauri.app/concept/architecture/) and [capabilities](https://v2.tauri.app/security/capabilities/) inform the alternative host. [Initial research](research/architecture-options.md) records the Hermes/DeepSeek influences.
 
 Brick 2.3.2 adds optional provider-reported usage and storage metadata capabilities with defaults for existing plugins. Flutter saves usage, original model and exact context summary atomically with completed replies. An on-demand context preview reads one SQLite snapshot and adds no idle work or provider request. The core byte/turn bounds remain unchanged and are not model-specific token budgets.
+
+Brick 2.4 adds validated nonsecret request settings through optional core ports. SQLite persists them separately from connection/credentials; Flutter's connection manager creates a replacement provider before save and activates it only after successful storage. The provider reports the actual immutable limits used for each run. A single deadline includes headers, body, queue waits and the bounded usage-compatibility attempt; local history reads and final persistence stay outside it. Manual recovery is local fixed guidance; no automatic failure retry or idle work is introduced. Alternative shells retain constructor defaults.

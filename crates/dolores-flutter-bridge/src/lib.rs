@@ -1,10 +1,11 @@
 //! C ABI for the selected Flutter shell. No server or subprocess.
 mod connection;
 mod export;
+mod recovery;
 use connection::ConnectionManager;
 use dolores_core::{
     prepare_context, preview_context, stream_reply_with_usage, ConnectionPreferences,
-    ContextSummary, CredentialStore, ModelProvider, SessionStore, TurnMetadata,
+    ContextSummary, CredentialStore, ModelProvider, RequestSettings, SessionStore, TurnMetadata,
 };
 use dolores_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -27,6 +28,7 @@ struct TurnRequest {
     session: Option<String>,
     input: String,
     model: String,
+    settings: Option<RequestSettings>,
 }
 struct Engine {
     runtime: Runtime,
@@ -62,6 +64,9 @@ enum Command {
     Context {
         session: Option<String>,
         input: String,
+    },
+    SetRequestSettings {
+        settings: RequestSettings,
     },
     Delete {
         session: String,
@@ -172,7 +177,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.store.sessions_page(None, false, 50)?;
                 Ok(
-                    json!({"sessions":page.items,"sessionPage":page,"preferences":self.store.preferences()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"sessions":page.items,"sessionPage":page,"preferences":self.store.preferences()?,"requestSettings":self.store.request_settings()?,"enabledModels":connection.model_choices()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::SessionsPage { cursor, newer } => {
@@ -205,6 +210,14 @@ impl Engine {
             }
             Command::Delete { session } => {
                 self.store.delete(&session)?;
+                Ok(Value::Null)
+            }
+            Command::SetRequestSettings { settings } => {
+                let _runtime = self.runtime.enter();
+                self.connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .update_request_settings(settings)?;
                 Ok(Value::Null)
             }
             Command::Configure {
@@ -267,6 +280,7 @@ impl Engine {
                     .clone()
                     .ok_or("Set up a model connection first.")?;
                 let model = self.store.preferences()?.model;
+                let settings = provider.request_settings();
                 let cancel = CancellationToken::new();
                 let (output, events) = mpsc::channel(32);
                 *active = Some(Run {
@@ -284,6 +298,7 @@ impl Engine {
                             session,
                             input,
                             model,
+                            settings,
                         },
                         cancel,
                         &output,
@@ -291,7 +306,7 @@ impl Engine {
                     .await;
                     let event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer}),
-                        Err(error) => json!({"type":"done", "id":id, "error":error}),
+                        Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
                     let _ = output.send(event).await;
                 });
@@ -320,6 +335,7 @@ async fn execute(
         session,
         input,
         model,
+        settings,
     } = request;
     if cancel.is_cancelled() {
         return Err(stopped());
@@ -338,29 +354,43 @@ async fn execute(
     let summary = ContextSummary::from_messages(&context, count);
     forward(
         output,
-        json!({"type":"started", "id":id, "session":session, "context":summary}),
+        json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings}),
         &cancel,
     )
     .await?;
-    let (sender, mut receiver) = mpsc::channel(32);
-    let request = stream_reply_with_usage(provider.as_ref(), context, sender, cancel.clone());
-    tokio::pin!(request);
-    let answer = loop {
-        tokio::select! {
+    // The adapter deadline alone cannot run while this host awaits a full UI
+    // queue. Bound streaming AND delivery, excluding history reads and commit.
+    let streaming = async {
+        let (sender, mut receiver) = mpsc::channel(32);
+        let request = stream_reply_with_usage(provider.as_ref(), context, sender, cancel.clone());
+        tokio::pin!(request);
+        let answer = loop {
+            tokio::select! {
+                biased;
+                _ = cancel.cancelled() => return Err(stopped()),
+                result = &mut request => break result?,
+                Some(text) = receiver.recv() => forward(output, json!({"type":"delta", "id":id, "text":text}), &cancel).await?,
+            }
+        };
+        while let Some(text) = receiver.recv().await {
+            forward(
+                output,
+                json!({"type":"delta", "id":id, "text":text}),
+                &cancel,
+            )
+            .await?;
+        }
+        Ok::<_, String>(answer)
+    };
+    let answer = match settings {
+        Some(settings) => tokio::select! {
             biased;
             _ = cancel.cancelled() => return Err(stopped()),
-            result = &mut request => break result?,
-            Some(text) = receiver.recv() => forward(output, json!({"type":"delta", "id":id, "text":text}), &cancel).await?,
-        }
+            result = tokio::time::timeout(std::time::Duration::from_secs(settings.timeout_seconds.into()), streaming) =>
+                result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.")??,
+        },
+        None => streaming.await?,
     };
-    while let Some(text) = receiver.recv().await {
-        forward(
-            output,
-            json!({"type":"delta", "id":id, "text":text}),
-            &cancel,
-        )
-        .await?;
-    }
     if cancel.is_cancelled() {
         return Err(stopped());
     }
@@ -369,6 +399,7 @@ async fn execute(
         model,
         usage: answer.usage,
         context: summary,
+        request_settings: settings,
     };
     // Once the complete-pair transaction starts, completion wins over late Stop.
     blocking(move || store.commit_turn_metadata(&session, &input, &saved, &metadata)).await?;
@@ -554,6 +585,41 @@ mod tests {
             .is_err());
     }
     #[test]
+    fn request_settings_command_is_validated_and_visible_before_connecting() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let engine = Engine::new(
+            store,
+            Arc::new(connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        assert_eq!(
+            engine.call(Command::Bootstrap).unwrap()["requestSettings"]["maxOutputTokens"],
+            2048
+        );
+        let settings = RequestSettings {
+            max_output_tokens: 4096,
+            timeout_seconds: 300,
+        };
+        engine
+            .call(Command::SetRequestSettings { settings })
+            .unwrap();
+        let state = engine.call(Command::Bootstrap).unwrap();
+        assert_eq!(state["requestSettings"]["timeoutSeconds"], 300);
+        assert_eq!(state["configured"], false);
+        assert!(engine
+            .call(Command::SetRequestSettings {
+                settings: RequestSettings {
+                    max_output_tokens: 0,
+                    ..settings
+                }
+            })
+            .is_err());
+        assert_eq!(
+            engine.call(Command::Bootstrap).unwrap()["requestSettings"]["maxOutputTokens"],
+            4096
+        );
+    }
+    #[test]
     fn bridge_null_and_invalid_json_return_owned_error_envelopes() {
         for (pointer, length) in [(std::ptr::null(), 0), (b"bad".as_ptr(), 3)] {
             let result = unsafe { dolores_call(pointer, length) };
@@ -565,6 +631,50 @@ mod tests {
                 dolores_free(result);
             }
         }
+    }
+    #[tokio::test]
+    async fn stream_deadline_still_expires_when_flutter_stops_draining_events() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        store.create("paused-window").unwrap();
+        let saved = store.clone();
+        let (output, mut events) = mpsc::channel(1);
+        let task = tokio::spawn(async move {
+            execute(
+                store,
+                Arc::new(Fixture {
+                    hang: false,
+                    fail: false,
+                }),
+                TurnRequest {
+                    id: 1,
+                    session: Some("paused-window".into()),
+                    input: "unsent".into(),
+                    model: "fixture".into(),
+                    settings: Some(RequestSettings {
+                        max_output_tokens: 2048,
+                        timeout_seconds: 1,
+                    }),
+                },
+                CancellationToken::new(),
+                &output,
+            )
+            .await
+        });
+        assert_eq!(events.recv().await.unwrap()["type"], "started");
+        tokio::time::sleep(std::time::Duration::from_millis(1300)).await;
+        let finished = task.is_finished();
+        if !finished {
+            task.abort();
+        }
+        assert!(
+            finished,
+            "A full Flutter event queue must not suspend the request deadline"
+        );
+        assert_eq!(
+            task.await.unwrap().unwrap_err(),
+            "Model request timed out. Adjust the request timeout or try again."
+        );
+        assert!(saved.messages("paused-window").unwrap().is_empty());
     }
     #[test]
     fn backpressure_cancel_failure_and_success_preserve_atomic_turns() {
@@ -602,6 +712,11 @@ mod tests {
                 })
                 .is_err());
             assert_eq!(engine.call(Command::Poll { id: 6 }).unwrap(), json!([]));
+            assert!(engine
+                .call(Command::SetRequestSettings {
+                    settings: RequestSettings::default()
+                })
+                .is_err());
             assert!(engine
                 .call(Command::SelectModel {
                     model: "other".into()

@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use dolores_core::{ConnectionPreferences, Message, ModelProvider, PluginDescriptor, TokenUsage};
+use dolores_core::{
+    ConnectionPreferences, Message, ModelProvider, PluginDescriptor, RequestSettings, TokenUsage,
+};
 use futures_util::StreamExt;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -89,6 +91,7 @@ pub struct OpenAiProvider {
     endpoint: Url,
     model: String,
     api_key: String,
+    settings: RequestSettings,
 }
 
 pub fn validate_model(model: &str) -> Result<(), String> {
@@ -132,6 +135,14 @@ pub fn validate_preferences(preferences: &ConnectionPreferences) -> Result<Url, 
 
 impl OpenAiProvider {
     pub fn new(preferences: &ConnectionPreferences, api_key: String) -> Result<Self, String> {
+        Self::with_settings(preferences, api_key, RequestSettings::default())
+    }
+    pub fn with_settings(
+        preferences: &ConnectionPreferences,
+        api_key: String,
+        settings: RequestSettings,
+    ) -> Result<Self, String> {
+        settings.validate()?;
         let endpoint = validate_preferences(preferences)?;
         if api_key.len() > 4096 || api_key.contains(['\r', '\n']) {
             return Err("Invalid API key.".into());
@@ -139,7 +150,6 @@ impl OpenAiProvider {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(180))
             .build()
             .map_err(|_| "Could not initialize the connection.".to_string())?;
         Ok(Self {
@@ -147,6 +157,7 @@ impl OpenAiProvider {
             endpoint,
             model: preferences.model.trim().into(),
             api_key,
+            settings,
         })
     }
 }
@@ -203,6 +214,9 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    fn request_settings(&self) -> Option<RequestSettings> {
+        Some(self.settings)
+    }
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;
         Ok(std::sync::Arc::new(Self {
@@ -210,6 +224,7 @@ impl ModelProvider for OpenAiProvider {
             endpoint: self.endpoint.clone(),
             model: model.trim().into(),
             api_key: self.api_key.clone(),
+            settings: self.settings,
         }))
     }
     async fn list_models(&self) -> Result<Vec<String>, String> {
@@ -295,9 +310,24 @@ impl ModelProvider for OpenAiProvider {
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
     ) -> Result<Option<TokenUsage>, String> {
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Err("Response stopped.".into()),
+            result = tokio::time::timeout(Duration::from_secs(self.settings.timeout_seconds.into()), self.stream_request(messages, output, cancel.clone())) => result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.".to_string())?,
+        }
+    }
+}
+
+impl OpenAiProvider {
+    async fn stream_request(
+        &self,
+        messages: Vec<Message>,
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<Option<TokenUsage>, String> {
         let mut include_usage = true;
         let response = loop {
-            let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": 2048 });
+            let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": self.settings.max_output_tokens });
             if include_usage {
                 body["stream_options"] = json!({"include_usage":true});
             }
@@ -307,7 +337,7 @@ impl ModelProvider for OpenAiProvider {
             }
             let mut response = tokio::select! {
                 _ = cancel.cancelled() => return Err("Response stopped.".into()),
-                result = request.send() => result.map_err(|_| "Could not reach the model. Check the endpoint and whether the server is running.".to_string())?,
+                result = request.send() => result.map_err(|failure| if failure.is_timeout() { "Model request timed out. Adjust the request timeout or try again.".to_string() } else { "Could not reach the model. Check the endpoint and whether the server is running.".to_string() })?,
             };
             if include_usage && usage_option_rejected(&mut response, &cancel).await? {
                 include_usage = false;
@@ -444,11 +474,22 @@ mod tests {
         sequence_server(vec![response.to_string()]).await
     }
     async fn sequence_server(responses: Vec<String>) -> (String, tokio::task::JoinHandle<String>) {
+        timed_server(
+            responses
+                .into_iter()
+                .map(|response| (Duration::ZERO, response))
+                .collect(),
+        )
+        .await
+    }
+    async fn timed_server(
+        responses: Vec<(Duration, String)>,
+    ) -> (String, tokio::task::JoinHandle<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let task = tokio::spawn(async move {
             let mut requests = Vec::new();
-            for response in responses {
+            for (delay, response) in responses {
                 let (mut socket, _) = listener.accept().await.unwrap();
                 let mut bytes = Vec::new();
                 loop {
@@ -473,12 +514,149 @@ mod tests {
                         }
                     }
                 }
-                socket.write_all(response.as_bytes()).await.unwrap();
+                tokio::time::sleep(delay).await;
+                // A timeout may close the peer before this scripted response.
+                let _ = socket.write_all(response.as_bytes()).await;
                 requests.push(String::from_utf8(bytes).unwrap());
             }
             requests.join("\nREQUEST\n")
         });
         (format!("http://{address}/v1"), task)
+    }
+    #[tokio::test]
+    async fn configured_output_limit_survives_model_switch_and_reaches_the_request() {
+        let response = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"reply\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+        let (base_url, server) = server(response).await;
+        let settings = RequestSettings {
+            max_output_tokens: 4096,
+            timeout_seconds: 8,
+        };
+        let provider = OpenAiProvider::with_settings(
+            &ConnectionPreferences {
+                base_url,
+                model: "first".into(),
+            },
+            String::new(),
+            settings,
+        )
+        .unwrap()
+        .with_model("second")
+        .unwrap();
+        assert_eq!(provider.request_settings(), Some(settings));
+        let (tx, _rx) = mpsc::channel(32);
+        provider
+            .stream(vec![], tx, CancellationToken::new())
+            .await
+            .unwrap();
+        let request = server.await.unwrap();
+        let body: Value = serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(body["max_tokens"], 4096);
+        assert_eq!(body["model"], "second");
+    }
+    #[tokio::test]
+    async fn deadline_covers_waiting_for_headers_and_usage_compatibility_attempt_together() {
+        let rejection =
+            r#"{"error":{"param":"stream_options","message":"unsupported stream_options"}}"#;
+        let rejected = format!("HTTP/1.1 400 Bad Request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{rejection}", rejection.len());
+        let success = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: [DONE]\n\n".to_string();
+        for fallback in [false, true] {
+            let responses = if fallback {
+                vec![
+                    (Duration::from_millis(650), rejected.clone()),
+                    (Duration::from_millis(650), success.clone()),
+                ]
+            } else {
+                vec![(Duration::from_millis(1300), success.clone())]
+            };
+            let (base_url, server) = timed_server(responses).await;
+            let provider = OpenAiProvider::with_settings(
+                &ConnectionPreferences {
+                    base_url,
+                    model: "fixture".into(),
+                },
+                String::new(),
+                RequestSettings {
+                    max_output_tokens: 2048,
+                    timeout_seconds: 1,
+                },
+            )
+            .unwrap();
+            let (tx, _rx) = mpsc::channel(32);
+            let started = tokio::time::Instant::now();
+            let error = provider
+                .stream(vec![], tx, CancellationToken::new())
+                .await
+                .unwrap_err();
+            assert!(error.starts_with("Model request timed out."));
+            assert!(
+                started.elapsed() < Duration::from_millis(1250),
+                "Compatibility must not start a fresh deadline"
+            );
+            let requests = server.await.unwrap();
+            assert_eq!(
+                requests.matches("POST ").count(),
+                if fallback { 2 } else { 1 }
+            );
+        }
+    }
+    #[tokio::test]
+    async fn whole_stream_deadline_expires_even_when_chunks_keep_arriving_and_stop_stays_prompt() {
+        for stop in [false, true] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = [0; 4096];
+                let _ = socket.read(&mut request).await;
+                socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n").await.unwrap();
+                loop {
+                    if socket
+                        .write_all(
+                            b"data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n",
+                        )
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(150)).await;
+                }
+            });
+            let provider = OpenAiProvider::with_settings(
+                &ConnectionPreferences {
+                    base_url: format!("http://{address}/v1"),
+                    model: "fixture".into(),
+                },
+                String::new(),
+                RequestSettings {
+                    max_output_tokens: 2048,
+                    timeout_seconds: 1,
+                },
+            )
+            .unwrap();
+            let (tx, mut rx) = mpsc::channel(32);
+            let cancel = CancellationToken::new();
+            let started = tokio::time::Instant::now();
+            let stream = provider.stream(vec![], tx, cancel.clone());
+            tokio::pin!(stream);
+            let result = tokio::select! {
+                result = &mut stream => result,
+                _ = tokio::time::sleep(Duration::from_millis(100)), if stop => { cancel.cancel(); stream.await },
+            };
+            assert_eq!(
+                result.unwrap_err(),
+                if stop {
+                    "Response stopped."
+                } else {
+                    "Model request timed out. Adjust the request timeout or try again."
+                }
+            );
+            assert_eq!(rx.recv().await.as_deref(), Some("partial"));
+            if stop {
+                assert!(started.elapsed() < Duration::from_millis(500));
+            }
+            server.abort();
+        }
     }
     #[tokio::test]
     async fn usage_only_final_chunk_preserves_zero_and_partial_counts_without_summing() {

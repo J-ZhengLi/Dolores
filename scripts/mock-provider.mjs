@@ -23,6 +23,7 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (input === 'limit-check' && payload.max_tokens !== 4096) { response.writeHead(400).end(); return; }
   if (input === 'model-check' && payload.model !== 'dolores-fast') { response.writeHead(400).end(); return; }
   if (input === 'credential-check' && request.headers.authorization !== 'Bearer dolores-generated-restart-test') {
     response.writeHead(401).end(); return;

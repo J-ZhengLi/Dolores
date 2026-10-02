@@ -23,7 +23,7 @@
     "commands": {
       "bootstrap": {
         "arguments": {},
-        "result": "{sessions:Session[0..50],sessionPage:{items:Session[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
+        "result": "{sessions:Session[0..50],sessionPage:{items:Session[0..50],hasOlder:boolean,hasNewer:boolean},preferences:{baseUrl,model},enabledModels:string[],requestSettings:RequestSettings,configured:boolean,rememberConnection:boolean,hasSavedKey:boolean,connectionWarning:string|null,plugins:[storage,credentials]}"
       },
       "messages": {
         "arguments": {
@@ -120,13 +120,21 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes"
         },
         "result": "ContextSummary & {messages:{role:system|user|assistant,content:string}[0..82]}; exact prepared sequence including system and final draft (empty allowed), at most 131072 UTF-8 content bytes; independent of viewed page; no network, writes, credentials or HTTP envelope"
+      },
+      "setRequestSettings": {
+        "arguments": {
+          "settings": {
+            "$ref": "#/components/schemas/RequestSettings"
+          }
+        },
+        "result": "null; validates and persists nonsecret settings, activates the replacement provider after save; no network or credential changes; rejected during generation"
       }
     },
     "events": [
-      "{type:started,id,session,context:ContextSummary}",
+      "{type:started,id,session,context:ContextSummary,requestSettings:RequestSettings|null}",
       "{type:delta,id,text}",
       "{type:done,id,answer}",
-      "{type:done,id,error}"
+      "{type:done,id,error,recovery:Recovery}"
     ],
     "busy": "Only poll, cancel and shutdown are accepted until the terminal event is drained.",
     "documentation": "flutter/flutter-api.md",
@@ -136,10 +144,18 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 4,
-      "metadata": "Completed assistant messages may carry {model,usage:TokenUsage|null,context:ContextSummary}; old messages omit metadata. Text and metadata commit together; delete cascades both.",
+      "schemaVersion": 5,
+      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both.",
       "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
+    },
+    "requestControls": {
+      "defaults": {
+        "maxOutputTokens": 2048,
+        "timeoutSeconds": 180
+      },
+      "timeout": "One whole-provider-response deadline including headers, streamed body, queue waits and bounded usage fallback; excludes history reads/final persistence. Fixed 10-second connect and 20-second discovery timeouts remain.",
+      "recovery": "Manual actions only; never automatic failure retry. Retry sends the current edited draft. Guidance uses fixed local strings and does not expose raw provider bodies."
     }
   },
   "x-tauri-commands": {
@@ -483,6 +499,9 @@
           },
           "context": {
             "$ref": "#/components/schemas/ContextSummary"
+          },
+          "requestSettings": {
+            "$ref": "#/components/schemas/RequestSettings"
           }
         },
         "required": [
@@ -490,13 +509,68 @@
           "usage",
           "context"
         ]
+      },
+      "RequestSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "maxOutputTokens",
+          "timeoutSeconds"
+        ],
+        "properties": {
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32768,
+            "default": 2048
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 900,
+            "default": 180
+          }
+        }
+      },
+      "Recovery": {
+        "type": "object",
+        "required": [
+          "kind",
+          "retryable",
+          "guidance"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "stopped",
+              "timeout",
+              "network",
+              "rateLimit",
+              "access",
+              "configuration",
+              "outputLimit",
+              "storage",
+              "provider",
+              "unknown"
+            ]
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "Manual retry action only; does not initiate a new request."
+          },
+          "guidance": {
+            "type": "string",
+            "description": "Fixed local text; never a raw provider body."
+          }
+        }
       }
     }
   },
   "x-provider-chat": {
     "method": "POST",
     "path": "<baseUrl>/chat/completions",
-    "body": "{model,messages:[{role,content}],stream:true,max_tokens:2048,stream_options:{include_usage:true}}",
+    "body": "{model,messages:[{role,content}],stream:true,max_tokens:maxOutputTokens (default 2048),stream_options:{include_usage:true}}",
     "response": "text/event-stream; usage may arrive in an empty-choices chunk before [DONE]; last valid snapshot replaces, never sums prior snapshots",
     "compatibility": "Retry once without stream_options only after HTTP 400/422 with an <=8192-byte JSON error explicitly naming stream_options/include_usage as unsupported/unknown/unrecognized/unexpected/not permitted. Never retry denial, generic validation, transport or stream failures. Error bodies are not surfaced.",
     "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create"

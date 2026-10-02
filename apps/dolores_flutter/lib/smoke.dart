@@ -16,6 +16,7 @@ import 'main.dart';
 import 'reply_content.dart';
 import 'usage_details.dart';
 import 'inspector.dart';
+import 'request_settings.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -498,6 +499,105 @@ Future<void> _run(
       checks,
     );
     await screenshot(capture, output, 'usage-unavailable-dark');
+    final earlierSettings = Map<String, dynamic>.of(
+      chat.messages.last['metadata']['requestSettings'],
+    );
+    await chat.saveRequestSettings({
+      'maxOutputTokens': 4096,
+      'timeoutSeconds': 1,
+    });
+    await chat.refresh();
+    check(
+      chat.requestSettings['maxOutputTokens'] == 4096 &&
+          chat
+                  .messages
+                  .last['metadata']['requestSettings']['maxOutputTokens'] ==
+              earlierSettings['maxOutputTokens'],
+      'Saved request controls reload while earlier reply details keep their original limits',
+      checks,
+    );
+    chat.draft = 'slow';
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.messages.length == 2 &&
+          chat.draft == 'slow' &&
+          chat.partial.isEmpty &&
+          chat.activeRecovery?['kind'] == 'timeout' &&
+          chat.activeRecovery?['retryable'] == true,
+      'Whole-response timeout restores the draft and keeps the partial reply out of history',
+      checks,
+    );
+    await screenshot(capture, output, 'timeout-recovery-dark');
+    final attempts = chat.requestLogs
+        .where((entry) => entry.label == 'Request submitted')
+        .length;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    check(
+      attempts > 0 &&
+          chat.requestLogs
+                  .where((entry) => entry.label == 'Request submitted')
+                  .length ==
+              attempts,
+      'Failure never starts an automatic retry',
+      checks,
+    );
+    await chat.saveRequestSettings({
+      'maxOutputTokens': 4096,
+      'timeoutSeconds': 8,
+    });
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before request settings capture');
+    }
+    unawaited(
+      showDialog<void>(
+        context: smokePageContext,
+        builder: (_) => RequestSettingsDialog(chat: chat),
+      ),
+    );
+    await screenshot(capture, output, 'request-settings-dark');
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable after request settings capture');
+    }
+    Navigator.of(smokePageContext).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    chat.draft = 'limit-check';
+    // Notify the normal view without changing the restored failure state.
+    await chat.saveRequestSettings({
+      'maxOutputTokens': 4096,
+      'timeoutSeconds': 8,
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    TextButton? retryAction;
+    void inspectRecovery(Element element) {
+      if (element.widget.key == const Key('retry-message') &&
+          element.widget is TextButton) {
+        retryAction = element.widget as TextButton;
+      }
+      element.visitChildren(inspectRecovery);
+    }
+
+    inspectRecovery(capture.currentContext! as Element);
+    check(
+      retryAction?.onPressed != null,
+      'Native failure card exposes an explicit Retry message action',
+      checks,
+    );
+    retryAction!.onPressed!();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.length == 4 &&
+          chat.messages[2]['content'] == 'limit-check' &&
+          chat
+                  .messages
+                  .last['metadata']['requestSettings']['maxOutputTokens'] ==
+              4096 &&
+          chat.messages.last['metadata']['requestSettings']['timeoutSeconds'] ==
+              8,
+      'Explicit retry sends the edited draft and actual max_tokens, saving the new per-request settings snapshot',
+      checks,
+    );
     if (!smokePageContext.mounted) {
       throw StateError('Page unavailable before settings capture');
     }

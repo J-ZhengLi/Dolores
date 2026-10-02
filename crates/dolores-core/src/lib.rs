@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
+mod request_settings;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
+pub use request_settings::RequestSettings;
 
 pub const MAX_INPUT_BYTES: usize = 16 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 128 * 1024;
@@ -104,6 +106,9 @@ impl Default for ConnectionPreferences {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    fn request_settings(&self) -> Option<RequestSettings> {
+        None
+    }
     fn descriptor(&self) -> PluginDescriptor;
     async fn list_models(&self) -> Result<Vec<String>, String> {
         Err("This provider does not support model discovery. Add a model manually.".into())
@@ -150,6 +155,12 @@ pub trait SessionStore: Send + Sync {
     }
     fn preferences(&self) -> Result<ConnectionPreferences, String>;
     fn save_preferences(&self, preferences: &ConnectionPreferences) -> Result<(), String>;
+    fn request_settings(&self) -> Result<RequestSettings, String> {
+        Ok(RequestSettings::default())
+    }
+    fn save_request_settings(&self, _: &RequestSettings) -> Result<(), String> {
+        Err("This storage plugin does not support request settings.".into())
+    }
     fn sessions_page(
         &self,
         _: Option<SessionCursor>,

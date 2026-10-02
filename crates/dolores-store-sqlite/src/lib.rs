@@ -1,6 +1,6 @@
 use dolores_core::{
-    ConnectionPreferences, Message, PluginDescriptor, RememberedConnection, Role, Session,
-    SessionStore, TurnMetadata, HISTORY_LIMIT,
+    ConnectionPreferences, Message, PluginDescriptor, RememberedConnection, RequestSettings, Role,
+    Session, SessionStore, TurnMetadata, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 mod history;
@@ -37,13 +37,14 @@ impl SqliteStore {
             CREATE INDEX IF NOT EXISTS sessions_order ON sessions(updated_at DESC, id ASC);
             CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, model TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);").map_err(storage_error)?;
+            CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);").map_err(storage_error)?;
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(storage_error)?;
-        if version < 4 {
+        if version < 5 {
             connection
-                .pragma_update(None, "user_version", 4)
+                .pragma_update(None, "user_version", 5)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -56,6 +57,31 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn request_settings(&self) -> Result<RequestSettings, String> {
+        let data: Option<String> = self
+            .lock()?
+            .query_row("SELECT data FROM request_settings WHERE id=1", [], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(storage_error)?;
+        let settings = data
+            .map(|data| serde_json::from_str::<RequestSettings>(&data))
+            .transpose()
+            .map_err(|_| {
+                "Saved request settings could not be read. Reset them in Request settings."
+                    .to_string()
+            })?
+            .unwrap_or_default();
+        settings.validate()?;
+        Ok(settings)
+    }
+    fn save_request_settings(&self, settings: &RequestSettings) -> Result<(), String> {
+        settings.validate()?;
+        let data = serde_json::to_string(settings).map_err(storage_error)?;
+        self.lock()?.execute("INSERT INTO request_settings(id,data) VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET data=excluded.data", [data]).map_err(storage_error)?;
+        Ok(())
+    }
     fn sessions_page(
         &self,
         cursor: Option<dolores_core::SessionCursor>,
@@ -308,6 +334,44 @@ impl SqliteStore {
 mod tests {
     use super::*;
     #[test]
+    fn request_settings_are_nonsecret_persistent_and_failed_writes_leave_previous_settings() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("settings.db");
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(
+            store.request_settings().unwrap(),
+            RequestSettings::default()
+        );
+        store.create("preserved").unwrap();
+        store
+            .commit_turn("preserved", "question", "answer")
+            .unwrap();
+        let settings = RequestSettings {
+            max_output_tokens: 4096,
+            timeout_seconds: 300,
+        };
+        store.save_request_settings(&settings).unwrap();
+        assert!(store
+            .save_request_settings(&RequestSettings {
+                max_output_tokens: 0,
+                timeout_seconds: 300
+            })
+            .is_err());
+        store.lock().unwrap().execute_batch("CREATE TRIGGER reject_settings BEFORE UPDATE ON request_settings BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store
+            .save_request_settings(&RequestSettings::default())
+            .is_err());
+        assert_eq!(store.request_settings().unwrap(), settings);
+        drop(store);
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(store.request_settings().unwrap(), settings);
+        assert_eq!(store.messages("preserved").unwrap().len(), 2);
+        // Old reply metadata decodes without pretending a historical setting.
+        let old = r#"{"model":"old","usage":null,"context":{"includedTurns":0,"savedTurns":0,"omittedTurns":0,"textBytes":200,"maxTextBytes":131072,"maxTurns":40}}"#;
+        let metadata: TurnMetadata = serde_json::from_str(old).unwrap();
+        assert!(metadata.request_settings.is_none());
+    }
+    #[test]
     fn usage_and_context_survive_restart_export_and_atomic_failure() {
         use dolores_core::{ContextSummary, ExportFormat, TokenUsage};
         let directory = tempfile::tempdir().unwrap();
@@ -317,6 +381,7 @@ mod tests {
         store.commit_turn("session", "legacy", "no usage").unwrap();
         let metadata = TurnMetadata {
             model: "fixture".into(),
+            request_settings: None,
             usage: Some(TokenUsage {
                 input_tokens: Some(0),
                 output_tokens: Some(4),
@@ -389,7 +454,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

@@ -12,6 +12,7 @@ import 'reply_content.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'inspector.dart';
+import 'request_settings.dart';
 import 'theme.dart';
 export 'theme.dart' show Palette;
 
@@ -118,6 +119,14 @@ class _ChatPageState extends State<ChatPage> {
     await showDialog<void>(
       context: context,
       builder: (_) => ConnectionDialog(chat: chat),
+    );
+    if (mounted) focus.requestFocus();
+  }
+
+  Future<void> requestSettings() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => RequestSettingsDialog(chat: chat),
     );
     if (mounted) focus.requestFocus();
   }
@@ -330,6 +339,18 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.all(12),
               ),
             ),
+            TextButton.icon(
+              key: const Key('request-settings'),
+              onPressed: chat.busy || chat.changing || chat.loading
+                  ? null
+                  : requestSettings,
+              icon: const Icon(Icons.timer_outlined, size: 18),
+              label: const Text('Request settings'),
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
               child: Text(
@@ -517,9 +538,64 @@ class _ChatPageState extends State<ChatPage> {
             color: p.errorSurface,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(
-            chat.error!,
-            style: TextStyle(color: p.errorText, fontSize: 13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                chat.error!,
+                style: TextStyle(color: p.errorText, fontSize: 13),
+              ),
+              if (chat.activeRecovery != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  chat.activeRecovery!['guidance'] as String,
+                  style: TextStyle(color: p.errorText, fontSize: 12),
+                ),
+                if (chat.activeRecovery!['kind'] != 'stopped')
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (chat.activeRecovery!['retryable'] == true)
+                        TextButton(
+                          key: const Key('retry-message'),
+                          onPressed:
+                              chat.busy ||
+                                  chat.changing ||
+                                  chat.loading ||
+                                  !chat.configured ||
+                                  chat.draft.trim().isEmpty
+                              ? null
+                              : chat.send,
+                          child: const Text('Retry message'),
+                        ),
+                      if ([
+                        'timeout',
+                        'outputLimit',
+                      ].contains(chat.activeRecovery!['kind']))
+                        TextButton(
+                          key: const Key('failure-request-settings'),
+                          onPressed: chat.busy || chat.changing
+                              ? null
+                              : requestSettings,
+                          child: const Text('Request settings'),
+                        ),
+                      if ([
+                        'network',
+                        'access',
+                        'configuration',
+                      ].contains(chat.activeRecovery!['kind']))
+                        TextButton(
+                          key: const Key('failure-connection'),
+                          onPressed: chat.busy || chat.changing
+                              ? null
+                              : settings,
+                          child: const Text('Model connection'),
+                        ),
+                    ],
+                  ),
+              ],
+            ],
           ),
         ),
       Container(

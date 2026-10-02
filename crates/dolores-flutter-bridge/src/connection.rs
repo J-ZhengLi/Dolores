@@ -1,5 +1,6 @@
 use dolores_core::{
-    ConnectionPreferences, CredentialStore, ModelProvider, RememberedConnection, SessionStore,
+    ConnectionPreferences, CredentialStore, ModelProvider, RememberedConnection, RequestSettings,
+    SessionStore,
 };
 use dolores_provider_openai::{validate_base_url, validate_model, OpenAiProvider};
 use serde::{Deserialize, Serialize};
@@ -69,7 +70,11 @@ impl ConnectionManager {
             Some(id) => self.read_key(id, &preferences.base_url)?,
             None => String::new(),
         };
-        let provider = Arc::new(OpenAiProvider::new(&preferences, key.clone())?);
+        let provider = Arc::new(OpenAiProvider::with_settings(
+            &preferences,
+            key.clone(),
+            self.store.request_settings()?,
+        )?);
         self.active_key = Some(key);
         self.active_base_url = Some(preferences.base_url.clone());
         self.has_key = saved.credential_id.is_some();
@@ -123,7 +128,11 @@ impl ConnectionManager {
             },
         };
         // Validate before any credential or preference write.
-        let provider = Arc::new(OpenAiProvider::new(&preferences, key.clone())?);
+        let provider = Arc::new(OpenAiProvider::with_settings(
+            &preferences,
+            key.clone(),
+            self.store.request_settings()?,
+        )?);
         let id = if remember && !key.is_empty() {
             Some(uuid::Uuid::new_v4().to_string())
         } else {
@@ -172,6 +181,29 @@ impl ConnectionManager {
             models.push(preferences.model);
         }
         Ok(models)
+    }
+    pub fn update_request_settings(&mut self, settings: RequestSettings) -> Result<(), String> {
+        settings.validate()?;
+        let provider = match self.active_key.as_ref() {
+            Some(key) => {
+                let preferences = self.store.preferences()?;
+                if self.active_base_url.as_deref() != Some(preferences.base_url.as_str()) {
+                    return Err(
+                        "Connection settings changed. Reconnect before changing request settings."
+                            .into(),
+                    );
+                }
+                Some(Arc::new(OpenAiProvider::with_settings(
+                    &preferences,
+                    key.clone(),
+                    settings,
+                )?) as Arc<dyn ModelProvider>)
+            }
+            None => None,
+        };
+        self.store.save_request_settings(&settings)?;
+        self.provider = provider;
+        Ok(())
     }
     pub async fn list_models(
         &self,
@@ -344,6 +376,60 @@ mod tests {
             base_url: endpoint.into(),
             model: "fixture".into(),
         }
+    }
+    #[tokio::test]
+    async fn request_settings_rebuild_active_provider_preserve_credentials_and_restore_on_restart()
+    {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let vault = Arc::new(MemoryCredentials::default());
+        let mut manager = ConnectionManager::new(store.clone(), vault.clone());
+        let settings = RequestSettings {
+            max_output_tokens: 8192,
+            timeout_seconds: 300,
+        };
+        manager.update_request_settings(settings).unwrap();
+        assert!(manager.provider.is_none());
+        manager
+            .configure_models(
+                preferences("https://example.com/v1"),
+                Some("fixture-key".into()),
+                true,
+                Some(vec!["fixture".into(), "other".into()]),
+            )
+            .unwrap();
+        let saved = store.remembered_connection().unwrap().unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().request_settings(),
+            Some(settings)
+        );
+        let updated = RequestSettings {
+            max_output_tokens: 4096,
+            timeout_seconds: 120,
+        };
+        manager.update_request_settings(updated).unwrap();
+        assert_eq!(
+            store
+                .remembered_connection()
+                .unwrap()
+                .unwrap()
+                .credential_id,
+            saved.credential_id
+        );
+        assert_eq!(vault.values.lock().unwrap().len(), 1);
+        manager.select_model("other".into()).unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().request_settings(),
+            Some(updated)
+        );
+        let mut restarted = ConnectionManager::new(store.clone(), vault.clone());
+        restarted.recover().unwrap();
+        assert_eq!(
+            restarted.provider.as_ref().unwrap().request_settings(),
+            Some(updated)
+        );
+        restarted.forget().unwrap();
+        assert_eq!(store.request_settings().unwrap(), updated);
+        assert!(vault.values.lock().unwrap().is_empty());
     }
     #[tokio::test]
     async fn model_switch_persists_choices_preserves_vault_and_handles_legacy_metadata() {

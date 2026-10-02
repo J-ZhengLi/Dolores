@@ -61,6 +61,14 @@ class UsageDetails extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('Model: ${metadata?['model'] ?? 'Unavailable'}'),
+                    if (metadata?['requestSettings'] is Map) ...[
+                      Text(
+                        'Output token limit: ${metadata!['requestSettings']['maxOutputTokens']}',
+                      ),
+                      Text(
+                        'Request timeout: ${metadata!['requestSettings']['timeoutSeconds']} seconds',
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Text('Input tokens: ${_counter(input)}'),
                     Text('Output tokens: ${_counter(output)}'),

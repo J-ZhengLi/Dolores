@@ -39,6 +39,14 @@ class ChatController extends ChangeNotifier {
       pendingInput = '',
       partial = '';
   String? session, error, connectionWarning;
+  Map<String, dynamic>? recovery;
+  String? _recoveryError;
+  Map<String, dynamic>? get activeRecovery =>
+      error == _recoveryError ? recovery : null;
+  Map<String, dynamic> requestSettings = {
+    'maxOutputTokens': 2048,
+    'timeoutSeconds': 180,
+  };
   bool rememberConnection = false, hasSavedKey = false;
   bool loading = true,
       configured = false,
@@ -176,6 +184,29 @@ class ChatController extends ChangeNotifier {
     rememberConnection = state['rememberConnection'] == true;
     hasSavedKey = state['hasSavedKey'] == true;
     connectionWarning = state['connectionWarning'] as String?;
+    requestSettings =
+        (state['requestSettings'] as Map?)?.cast<String, dynamic>() ??
+        {'maxOutputTokens': 2048, 'timeoutSeconds': 180};
+  }
+
+  Future<void> saveRequestSettings(Map<String, dynamic> settings) async {
+    if (busy || changing || loading) {
+      throw StateError('Finish the current action first.');
+    }
+    changing = true;
+    _notify();
+    try {
+      await bridge.call({
+        'command': 'setRequestSettings',
+        'settings': settings,
+      });
+      // The acknowledged command changed only these settings. A second
+      // bootstrap read could fail after a successful save and misreport it.
+      requestSettings = Map.of(settings);
+    } finally {
+      changing = false;
+      _notify();
+    }
   }
 
   Future<void> configure(
@@ -455,6 +486,8 @@ class ChatController extends ChangeNotifier {
     partial = '';
     error = null;
     final id = ++_run;
+    recovery = null;
+    _recoveryError = null;
     _requestModel = model;
     _firstDelta = false;
     _terminal = false;
@@ -530,7 +563,10 @@ class ChatController extends ChangeNotifier {
           case 'done':
             changing = true;
             if (event['error'] != null) {
-              _failed(event['error'] as String);
+              _failed(
+                event['error'] as String,
+                advice: (event['recovery'] as Map?)?.cast<String, dynamic>(),
+              );
             } else {
               _record('Reply saved');
               _terminal = true;
@@ -562,7 +598,9 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  void _failed(String failure) {
+  void _failed(String failure, {Map<String, dynamic>? advice}) {
+    recovery = _terminal ? null : advice;
+    _recoveryError = failure;
     _record(
       _terminal
           ? 'History refresh failed'

@@ -43,6 +43,8 @@ pub struct TurnMetadata {
     pub model: String,
     pub usage: Option<TokenUsage>,
     pub context: ContextSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_settings: Option<crate::RequestSettings>,
 }
 
 pub struct Reply {
