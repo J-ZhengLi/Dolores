@@ -23,7 +23,7 @@ pub struct ConnectionManager {
     active_base_url: Option<String>,
 }
 impl ConnectionManager {
-    pub(super) fn memory_suggestion_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
+    pub(super) fn review_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         let preferences = self.store.preferences()?;
         if self.provider.is_none()
             || self.active_base_url.as_deref() != Some(preferences.base_url.as_str())

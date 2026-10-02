@@ -122,7 +122,7 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes",
           "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
-        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read; memoryEntries:MemoryPreference[] in selected order; optional memory provenance; literal preference text only in local preview/system input"
+        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read; memoryEntries:MemoryPreference[] in selected order; optional memory provenance; literal preference text only in local preview/system input; optional summary:SummarySource and sessionSummary:SessionSummary|null, covered raw turns excluded from prepared history and omittedTurns"
       },
       "setRequestSettings": {
         "arguments": {
@@ -271,6 +271,49 @@
           "token": "string"
         },
         "result": "null; matching-token idempotent discard, no writes"
+      },
+      "reviewSummary": {
+        "arguments": {
+          "session": "string"
+        },
+        "result": "{token,summary:SessionSummary|null,messages:SummaryMessage[0..40],hasMore:boolean,model:string}; next contiguous oldest uncovered complete turns <=147456 content bytes, local read only"
+      },
+      "generateSummary": {
+        "arguments": {
+          "id": "u64",
+          "session": "string",
+          "token": "string; five-minute source token"
+        },
+        "result": "null; consumes source token, exact frozen source/prior validation; existing poll/cancel run; tool-free min(configured,1024 output tokens/30 seconds), 8192 output bytes, configured model capacity; no saved turns"
+      },
+      "saveSummary": {
+        "arguments": {
+          "session": "string",
+          "token": "string; five-minute generated candidate",
+          "text": "string; nonblank <=8192 UTF-8 bytes, no NUL/credential-like patterns"
+        },
+        "result": "SessionSummary; one atomic frozen-source/prior-summary comparison and replacement; successful write consumes token, failed write retains correction; later appended turns remain uncovered"
+      },
+      "correctSummary": {
+        "arguments": {
+          "session": "string",
+          "revision": "u32",
+          "text": "string; same validation as saveSummary"
+        },
+        "result": "SessionSummary; optimistic revision, preserves coverage/model, increments revision/time; no model call"
+      },
+      "deleteSummary": {
+        "arguments": {
+          "session": "string",
+          "revision": "u32"
+        },
+        "result": "null; optimistic revision, remove summary only; restore ordinary newest context"
+      },
+      "discardSummaryReview": {
+        "arguments": {
+          "token": "string"
+        },
+        "result": "null; matching-token idempotent discard, no writes"
       }
     },
     "events": [
@@ -282,7 +325,8 @@
       "{type:delta,id,text}",
       "{type:done,id,answer}",
       "{type:done,id,error,recovery:Recovery}",
-      "{type:done,id,memorySuggestions:{token,items:MemorySuggestion[0..3],model,usage:TokenUsage|null,tokens:TokenContext}}; memory extraction only, no saved turns"
+      "{type:done,id,memorySuggestions:{token,items:MemorySuggestion[0..3],model,usage:TokenUsage|null,tokens:TokenContext}}; memory extraction only, no saved turns",
+      "{type:done,id,summaryDraft:{token,text,model,usage:TokenUsage|null,tokens:TokenContext}}; summary generation only, no saved turns; errors use {type:done,id,error}"
     ],
     "busy": "Only poll, cancel, approveTool and shutdown are accepted until the terminal event is drained.",
     "documentation": "flutter/flutter-api.md",
@@ -292,9 +336,9 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 9,
+      "schemaVersion": 12,
       "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
-      "context": "Content bytes remain internal resource guards. Optional tokens:TokenContext estimates instructions/history/draft/function schemas/framing using ceil(UTF8bytes/4). Per-model raw capacity defaults131072; input allowance floor(window*0.95)-reservedOutputTokens. Newest whole turns retained, mandatory overflow fails, later tool-call/result growth checked before each call. Old metadata lacks tokens; reported TokenUsage stays separate.",
+      "context": "Content bytes remain internal resource guards. Optional tokens:TokenContext estimates instructions/history/draft/function schemas/framing using ceil(UTF8bytes/4). Per-model raw capacity defaults131072; input allowance floor(window*0.95)-reservedOutputTokens. Newest whole turns retained, mandatory overflow fails, later tool-call/result growth checked before each call. Old metadata lacks tokens; reported TokenUsage stays separate. Optional summary:SummarySource identifies contiguous summarized coverage separately from omitted raw turns; reviewed summary text is counted as system input. Local preview additionally exposes exact SessionSummary; stored metadata keeps provenance only.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals.",
       "modelContexts": "Schema9 stores current-endpoint overrides atomically with connection/models/remembered metadata. Model/settings switches preserve capacity; blank/null/missing defaults131072; no provider-capacity inference."
     },
@@ -431,6 +475,14 @@
       "review": "One ephemeral sources-or-candidates slot, bound to session/root/full text, 300-second expiry; Generate consumes source token; successful Save consumes candidate; failure preserves correction; Stop/Discard/Close save nothing",
       "storage": "Host-only conversation origin, atomic source checks and insertion, unchanged schema11; bounded quotes retained locally and in historical exports after deletion; quote excluded from retrieval system input",
       "compatibility": "One usage-option rejection can resend the same approved text without that option under the same deadline; at most two HTTP attempts, no failed-inference/output retry"
+    },
+    "sessionSummaries": {
+      "schemaVersion": 12,
+      "scope": "one reviewed summary per session, deleted with chat; same chat only, no automatic writes",
+      "source": "next contiguous oldest uncovered batch, up to20 complete pairs/147456 content bytes; prior summary shared when extending; exact roles/IDs/text/prior revision atomically compared at Save",
+      "retrieval": "shared preview/send snapshot, summary plus newest uncovered complete turns; full history/export retained; model capacity/output/headroom and byte guards still apply",
+      "review": "source and candidate tokens5minutes; Stop/Discard/Close never save; failed Save retains correction; success consumes token; limited credential screening and no semantic accuracy guarantee",
+      "provenance": "inclusive coveredThrough assistant ID, contiguous coveredTurns, revision/model/review time; no automatic root/tool metadata; later external DB changes outside supported freshness guarantee"
     }
   },
   "x-tauri-commands": {
@@ -754,6 +806,9 @@
           },
           "memory": {
             "$ref": "#/components/schemas/MemoryContext"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SummarySource"
           }
         },
         "required": [
@@ -1502,6 +1557,79 @@
             "description": "Nonblank exact source substring <=512 UTF-8 bytes, no NUL; retained locally and in exports"
           }
         }
+      },
+      "SummaryMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "content"
+        ]
+      },
+      "SummarySource": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "coveredThrough": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "coveredTurns": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "model": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "revision",
+          "coveredThrough",
+          "coveredTurns",
+          "model",
+          "updatedAt"
+        ]
+      },
+      "SessionSummary": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Nonblank <=8192 UTF-8 bytes, no NUL or credential-like patterns; reviewed fallible background"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/SummarySource"
+          }
+        },
+        "required": [
+          "text",
+          "provenance"
+        ]
       }
     }
   },

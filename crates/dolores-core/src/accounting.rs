@@ -27,6 +27,8 @@ pub struct ContextSummary {
     pub instructions: Option<crate::InstructionSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memory: Option<crate::MemoryContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<crate::SummarySource>,
 }
 
 impl ContextSummary {
@@ -42,6 +44,7 @@ impl ContextSummary {
             tokens: None,
             instructions: None,
             memory: None,
+            summary: None,
         }
     }
 }

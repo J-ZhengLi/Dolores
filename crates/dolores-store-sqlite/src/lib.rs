@@ -9,6 +9,7 @@ mod changes;
 mod history;
 mod instructions;
 mod memory;
+mod summaries;
 mod workspace;
 use std::{
     path::Path,
@@ -48,6 +49,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS workspace_instructions (root TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS memory_preferences (id TEXT PRIMARY KEY, root TEXT NOT NULL, data TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS memory_scope ON memory_preferences(root,id);
+            CREATE TABLE IF NOT EXISTS session_summaries (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
             CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
@@ -83,6 +85,11 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 11)
                 .map_err(storage_error)?;
         }
+        if version < 12 {
+            connection
+                .pragma_update(None, "user_version", 12)
+                .map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -93,6 +100,41 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn session_summary(
+        &self,
+        session: &str,
+    ) -> Result<Option<dolores_core::SessionSummary>, String> {
+        self.read_summary(session)
+    }
+    fn review_summary_batch(&self, session: &str) -> Result<dolores_core::SummaryBatch, String> {
+        self.summary_batch(session)
+    }
+    fn save_session_summary(
+        &self,
+        session: &str,
+        batch: &dolores_core::SummaryBatch,
+        text: &str,
+        model: &str,
+    ) -> Result<dolores_core::SessionSummary, String> {
+        self.write_summary(session, batch, text, model)
+    }
+    fn correct_session_summary(
+        &self,
+        session: &str,
+        revision: u32,
+        text: &str,
+    ) -> Result<dolores_core::SessionSummary, String> {
+        self.correct_summary(session, revision, text)
+    }
+    fn delete_session_summary(&self, session: &str, revision: u32) -> Result<(), String> {
+        self.remove_summary(session, revision)
+    }
+    fn summary_context_history(
+        &self,
+        session: &str,
+    ) -> Result<dolores_core::SummaryHistory, String> {
+        self.summary_history(session)
+    }
     fn memory_source_messages(
         &self,
         session: &str,
@@ -632,7 +674,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 11);
+        assert_eq!(version, 12);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

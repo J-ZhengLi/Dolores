@@ -23,6 +23,13 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (payload.messages?.[0]?.content?.startsWith('You draft a session summary for Dolores.')) {
+    response.writeHead(200, {'content-type':'text/event-stream'});
+    response.write(`data: ${JSON.stringify({choices:[{delta:{content:'Goal: continue this conversation. Decision: keep concise examples. Next: verify the pending task.'},finish_reason:null}]})}\n\n`);
+    response.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+    response.end('data: [DONE]\n\n');
+    return;
+  }
   if (payload.messages?.[0]?.content?.startsWith('You extract preference drafts for Dolores.')) {
     const sources = JSON.parse(input).sources;
     const source = sources.find(item => item.text.includes('I prefer concise examples.'));

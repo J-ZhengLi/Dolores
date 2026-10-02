@@ -21,6 +21,10 @@ Widget contextDetails(
   children: [
     Text('Recent turns included: ${_counter(summary['includedTurns'])}'),
     Text('Saved turns: ${_counter(summary['savedTurns'])}'),
+    if (summary['summary'] is Map)
+      SelectableText(
+        'Session summary: ${summary['summary']['coveredTurns']} turns covered · revision ${summary['summary']['revision']}\nDrafted by ${summary['summary']['model']}',
+      ),
     Text('Older turns left out: ${_counter(summary['omittedTurns'])}'),
     const SizedBox(height: 12),
     Text(

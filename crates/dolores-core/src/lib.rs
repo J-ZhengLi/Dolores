@@ -12,6 +12,7 @@ pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 mod instructions;
 mod memory;
 mod memory_suggestions;
+mod summary;
 pub use agent::*;
 pub use change::*;
 pub use instructions::{
@@ -20,6 +21,7 @@ pub use instructions::{
 pub use memory::*;
 pub use memory_suggestions::*;
 pub use request_settings::RequestSettings;
+pub use summary::*;
 pub use token_context::*;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
 
@@ -182,6 +184,31 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn session_summary(&self, _: &str) -> Result<Option<SessionSummary>, String> {
+        Ok(None)
+    }
+    fn review_summary_batch(&self, _: &str) -> Result<SummaryBatch, String> {
+        Err("This storage plugin does not support session summaries.".into())
+    }
+    fn save_session_summary(
+        &self,
+        _: &str,
+        _: &SummaryBatch,
+        _: &str,
+        _: &str,
+    ) -> Result<SessionSummary, String> {
+        Err("This storage plugin does not support session summaries.".into())
+    }
+    fn correct_session_summary(&self, _: &str, _: u32, _: &str) -> Result<SessionSummary, String> {
+        Err("This storage plugin does not support session summaries.".into())
+    }
+    fn delete_session_summary(&self, _: &str, _: u32) -> Result<(), String> {
+        Err("This storage plugin does not support session summaries.".into())
+    }
+    fn summary_context_history(&self, session: &str) -> Result<SummaryHistory, String> {
+        let (messages, count) = self.context_history(session)?;
+        Ok((messages, count, None))
+    }
     fn memory_source_messages(&self, _: &str) -> Result<HistoryPage<MemoryMessage>, String> {
         Err("This storage plugin does not support memory sources.".into())
     }

@@ -18,6 +18,7 @@ import 'tool_activity.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
 import 'memory.dart';
+import 'session_summary.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
 
@@ -686,6 +687,15 @@ class _ChatPageState extends State<ChatPage> {
                           ? null
                           : () => showChanges(context, chat),
                       icon: const Icon(Icons.difference_outlined, size: 20),
+                    ),
+                  if (chat.session != null)
+                    IconButton(
+                      key: const Key('chat-summary'),
+                      tooltip: 'Session summary',
+                      onPressed: chat.busy || chat.loading || chat.changing
+                          ? null
+                          : () => showSessionSummary(context, chat),
+                      icon: const Icon(Icons.summarize_outlined, size: 20),
                     ),
                   IconButton(
                     key: const Key('chat-trajectory'),

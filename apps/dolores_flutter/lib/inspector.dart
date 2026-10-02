@@ -260,12 +260,16 @@ class ContextInspector extends StatelessWidget {
             'Recent turns included: ${report['includedTurns'] ?? 'Unavailable'}',
           ),
           Text('Saved turns: ${report['savedTurns'] ?? 'Unavailable'}'),
+          if (report['summary'] is Map)
+            Text(
+              'Turns covered by summary: ${report['summary']['coveredTurns']} · revision ${report['summary']['revision']}',
+            ),
           Text(
             'Older turns left out: ${report['omittedTurns'] ?? 'Unavailable'}',
           ),
           const SizedBox(height: 8),
           Text(
-            'Latest complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved. ${limit == null ? 'Set this model’s context window in Model connection. ' : ''}Token counts are approximate; your provider may count differently.',
+            'Latest uncovered complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved; summary coverage is counted separately from turns left out. ${limit == null ? 'Set this model’s context window in Model connection. ' : ''}Token counts are approximate; your provider may count differently.',
             style: TextStyle(color: p.muted, fontSize: 12),
           ),
           const SizedBox(height: 20),
@@ -298,6 +302,18 @@ class ContextInspector extends StatelessWidget {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
+            ),
+          if (report['sessionSummary'] is Map)
+            _ContextGroup(
+              label: 'Session summary',
+              messages: [
+                {
+                  'role':
+                      'Reviewed background · revision ${report['summary']['revision']}',
+                  'content': report['sessionSummary']['text'],
+                },
+              ],
+              color: p.syntaxName,
             ),
           if (report['memory'] is Map) ...[
             Text(

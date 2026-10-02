@@ -18,6 +18,7 @@ import 'usage_details.dart';
 import 'inspector.dart';
 import 'request_settings.dart';
 import 'memory.dart';
+import 'session_summary.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -803,6 +804,57 @@ Future<void> _run(
       'id': suggestedItems[0]['id'],
       'revision': 1,
     });
+    if (!smokePageContext.mounted) throw StateError('Summary view unavailable');
+    final summaryView = showSessionSummary(smokePageContext, chat);
+    await waitUntil(
+      () =>
+          keyedWidget<ButtonStyleButton>('generate-summary')?.onPressed != null,
+    );
+    check(
+      chat.changing,
+      'Summary review locks chat changes and sends nothing until Generate',
+      checks,
+    );
+    await screenshot(capture, output, 'summary-source-dark');
+    await press('generate-summary', key: true);
+    await waitUntil(() => keyedWidget<TextField>('summary-text') != null);
+    check(
+      chat.messages.length == suggestionHistory,
+      'Generating a summary never writes conversation turns',
+      checks,
+    );
+    keyedWidget<TextField>('summary-text')!.controller!.text = 'Goal: continue the task. Decision: concise examples. Next: verify Unicode.';
+    await screenshot(capture, output, 'summary-review-dark');
+    await press('save-summary', key: true);
+    await waitUntil(
+      () => keyedWidget<ButtonStyleButton>('edit-summary')?.onPressed != null,
+    );
+    await screenshot(capture, output, 'summary-saved-dark');
+    await press('Close');
+    await summaryView;
+    final summaryPreview = (await chat.previewContext())!;
+    check(
+      summaryPreview['summary']['coveredTurns'] == 1 &&
+          summaryPreview['includedTurns'] == 0 &&
+          summaryPreview['omittedTurns'] == 0 &&
+          summaryPreview['messages'][0]['content'].contains(
+            'Next: verify Unicode.',
+          ),
+      'Saved corrected summary replaces covered history in exact next context',
+      checks,
+    );
+    await chat.bridge.call({
+      'command': 'deleteSummary',
+      'session': suggestionSession,
+      'revision': 1,
+    });
+    chat.invalidateContext();
+    check(
+      (await chat.previewContext())!['includedTurns'] == 1 &&
+          chat.messages.length == suggestionHistory,
+      'Deleting summary restores recent context while preserving complete history',
+      checks,
+    );
     final workspace = Directory(path.join(output.path, 'approved-folder'));
     await workspace.create();
     await File(path.join(workspace.path, 'readme.txt'))

@@ -7,6 +7,7 @@ mod instructions;
 mod memory;
 mod memory_suggestions;
 mod recovery;
+mod summaries;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
 use connection::ConnectionManager;
@@ -49,12 +50,38 @@ struct Engine {
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
+    summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ReviewSummary {
+        session: String,
+    },
+    GenerateSummary {
+        id: u64,
+        session: String,
+        token: String,
+    },
+    SaveSummary {
+        session: String,
+        token: String,
+        text: String,
+    },
+    CorrectSummary {
+        session: String,
+        revision: u32,
+        text: String,
+    },
+    DeleteSummary {
+        session: String,
+        revision: u32,
+    },
+    DiscardSummaryReview {
+        token: String,
+    },
     ReviewMemorySources {
         session: String,
     },
@@ -244,6 +271,7 @@ impl Engine {
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
             memory_review: Arc::new(Mutex::new(None)),
+            summary_review: Arc::new(Mutex::new(None)),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -300,6 +328,7 @@ impl Engine {
                 if let Some(run) = active.as_ref().filter(|run| run.id == id) {
                     run.cancel.cancel();
                     self.clear_memory_review()?;
+                    self.clear_summary_review()?;
                 }
                 return Ok(Value::Null);
             }
@@ -309,6 +338,7 @@ impl Engine {
                     run.cancel.cancel();
                 }
                 self.clear_memory_review()?;
+                self.clear_summary_review()?;
                 return Ok(Value::Null);
             }
             _ => {}
@@ -317,6 +347,22 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ReviewSummary { session } => self.review_summary(&session),
+            Command::GenerateSummary { id, session, token } => {
+                self.generate_summary(&mut active, id, session, token)
+            }
+            Command::SaveSummary {
+                session,
+                token,
+                text,
+            } => self.save_summary(&session, &token, &text),
+            Command::CorrectSummary {
+                session,
+                revision,
+                text,
+            } => self.correct_summary(&session, revision, &text),
+            Command::DeleteSummary { session, revision } => self.delete_summary(&session, revision),
+            Command::DiscardSummaryReview { token } => self.discard_summary_review(&token),
             Command::ReviewMemorySources { session } => self.review_memory_sources(&session),
             Command::SuggestMemories {
                 id,
@@ -400,9 +446,9 @@ impl Engine {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
                     None => tools,
                 };
-                let (history, count) = match session {
-                    Some(session) => self.store.context_history(&session)?,
-                    None => (vec![], Some(0)),
+                let (history, count, session_summary) = match session {
+                    Some(session) => self.store.summary_context_history(&session)?,
+                    None => (vec![], Some(0), None),
                 };
                 let messages = preview_context(history, &input)?;
                 let messages = if tools {
@@ -414,6 +460,8 @@ impl Engine {
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
                 let (messages, memory_context) =
                     dolores_core::prepare_memory_context(messages, memories.clone())?;
+                let messages =
+                    dolores_core::prepare_summary_context(messages, session_summary.as_ref())?;
                 let mut specs = if tools {
                     dolores_tools_fs::folder_tool_specs()
                 } else {
@@ -439,6 +487,7 @@ impl Engine {
                 summary.tokens = Some(tokens);
                 summary.instructions = guidance.map(|g| g.provenance);
                 summary.memory = memory_context;
+                dolores_core::account_summary(&mut summary, session_summary.as_ref());
                 let mut report = json!(summary);
                 report["messages"] = json!(messages);
                 report["tools"] = json!(specs);
@@ -454,11 +503,13 @@ impl Engine {
                     })
                     .collect();
                 report["memoryEntries"] = json!(used);
+                report["sessionSummary"] = json!(session_summary);
                 Ok(report)
             }
             Command::Delete { session } => {
                 self.clear_revert()?;
                 self.clear_memory_review()?;
+                self.clear_summary_review()?;
                 self.store.delete(&session)?;
                 Ok(Value::Null)
             }
@@ -537,6 +588,7 @@ impl Engine {
             } => {
                 self.clear_revert()?;
                 self.clear_memory_review()?;
+                self.clear_summary_review()?;
                 prepare_context(vec![], &input)?;
                 let provider = self
                     .connection
@@ -659,15 +711,15 @@ async fn execute(
         return Err(stopped());
     }
     let reader = store.clone();
-    let (session, history, count, guidance, memories) = blocking(move || {
+    let (session, history, count, guidance, memories, session_summary) = blocking(move || {
         let session = match session {
             Some(id) => id,
             None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
         };
-        let (history, count) = reader.context_history(&session)?;
+        let (history, count, session_summary) = reader.summary_context_history(&session)?;
         let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
         let memories = memory::preferences_for_session(reader.as_ref(), Some(&session))?;
-        Ok((session, history, count, guidance, memories))
+        Ok((session, history, count, guidance, memories, session_summary))
     })
     .await?;
     let context = prepare_context(history, &input)?;
@@ -678,6 +730,7 @@ async fn execute(
     };
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
     let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
+    let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
@@ -689,6 +742,7 @@ async fn execute(
     summary.tokens = Some(tokens);
     summary.instructions = guidance.map(|g| g.provenance);
     summary.memory = memory_context;
+    dolores_core::account_summary(&mut summary, session_summary.as_ref());
     forward(
         output,
         json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings}),

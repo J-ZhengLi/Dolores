@@ -146,7 +146,7 @@ impl Engine {
             .connection
             .lock()
             .map_err(|_| "Connection unavailable.")?
-            .memory_suggestion_provider()?;
+            .review_provider()?;
         let model = self.store.preferences()?.model;
         let settings = provider.request_settings().unwrap_or_default();
         let (prompt, tokens) = dolores_core::prepare_token_context(
@@ -278,6 +278,15 @@ async fn collect(
     prompt: Vec<dolores_core::Message>,
     cancel: CancellationToken,
 ) -> Result<(String, Option<dolores_core::TokenUsage>), String> {
+    collect_review(provider, prompt, cancel, "Memory suggestions").await
+}
+
+pub(super) async fn collect_review(
+    provider: Arc<dyn ModelProvider>,
+    prompt: Vec<dolores_core::Message>,
+    cancel: CancellationToken,
+    label: &'static str,
+) -> Result<(String, Option<dolores_core::TokenUsage>), String> {
     let (sender, mut receiver) = mpsc::channel(8);
     let request = provider.stream_with_usage(prompt, sender, cancel.clone());
     tokio::pin!(request);
@@ -292,11 +301,11 @@ async fn collect(
             break;
         }
         tokio::select! { biased;
-            _=cancel.cancelled()=>return Err("Memory suggestions stopped. Nothing was saved.".into()),
-            _=&mut timeout=>{cancel.cancel();return Err("Memory suggestions timed out. Nothing was saved. Try again with fewer messages.".into());},
+            _=cancel.cancelled()=>return Err(format!("{label} stopped. Nothing was saved.")),
+            _=&mut timeout=>{cancel.cancel();return Err(format!("{label} timed out. Nothing was saved. Try again."));},
             result=&mut request,if !finished=>{usage=result?;finished=true;},
             delta=receiver.recv(), if !closed=>match delta {
-                Some(delta)=>{if answer.len()+delta.len()>dolores_core::MAX_MEMORY_SUGGESTION_BYTES {cancel.cancel();return Err("Memory suggestions exceed the response limit. Nothing was saved.".into());} answer.push_str(&delta);},
+                Some(delta)=>{if answer.len()+delta.len()>dolores_core::MAX_MEMORY_SUGGESTION_BYTES {cancel.cancel();return Err(format!("{label} exceeded the response limit. Nothing was saved."));} answer.push_str(&delta);},
                 None=>closed=true,
             }
         }
