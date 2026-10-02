@@ -16,6 +16,7 @@ import 'changes.dart';
 import 'request_settings.dart';
 import 'tool_activity.dart';
 import 'workspace_picker.dart';
+import 'instructions.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
 
@@ -427,6 +428,14 @@ class _ChatPageState extends State<ChatPage> {
                   Wrap(
                     spacing: 8,
                     children: [
+                      if (chat.activeRecovery!['kind'] == 'instructions')
+                        TextButton(
+                          key: const Key('failure-instructions'),
+                          onPressed: chat.busy || chat.changing || chat.loading
+                              ? null
+                              : () => showInstructions(context, chat),
+                          child: const Text('Instructions'),
+                        ),
                       if (chat.activeRecovery!['retryable'] == true)
                         TextButton(
                           key: const Key('retry-message'),
@@ -647,6 +656,15 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
+                  if (chat.session != null && chat.workspaceRoot != null)
+                    IconButton(
+                      key: const Key('workspace-instructions'),
+                      tooltip: 'Workspace instructions',
+                      onPressed: chat.busy || chat.loading || chat.changing
+                          ? null
+                          : () => showInstructions(context, chat),
+                      icon: const Icon(Icons.rule_folder_outlined, size: 20),
+                    ),
                   if (chat.session != null && chat.workspaceRoot != null)
                     IconButton(
                       key: const Key('workspace-changes'),

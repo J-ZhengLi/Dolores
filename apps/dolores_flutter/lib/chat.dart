@@ -30,6 +30,12 @@ class _ViewState {
 class ChatController extends ChangeNotifier {
   final ChatBridge bridge;
   ChatController(this.bridge);
+  void invalidateContext() {
+    contextSummary = null;
+    contextBasis = null;
+    _notify();
+  }
+
   Future<void> inspectLocalChanges(Future<void> Function() inspect) async {
     if (busy ||
         changing ||

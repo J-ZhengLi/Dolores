@@ -23,6 +23,8 @@ pub struct ContextSummary {
     pub max_turns: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tokens: Option<crate::TokenContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<crate::InstructionSource>,
 }
 
 impl ContextSummary {
@@ -36,6 +38,7 @@ impl ContextSummary {
             max_text_bytes: MAX_CONTEXT_BYTES,
             max_turns: HISTORY_LIMIT / 2,
             tokens: None,
+            instructions: None,
         }
     }
 }

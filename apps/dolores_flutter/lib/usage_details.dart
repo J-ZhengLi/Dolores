@@ -41,6 +41,12 @@ Widget contextDetails(
     const Text(
       'Includes instructions, messages, advertised tools and approximate framing. Older turns remain saved. Estimates are separate from provider-reported usage; legacy context estimates are unavailable.',
     ),
+    if (summary['instructions'] is Map) ...[
+      const SizedBox(height: 12),
+      SelectableText(
+        'Workspace instructions: ${summary['instructions']['source']}\nReviewed revision: ${summary['instructions']['revision']}',
+      ),
+    ],
   ],
 );
 

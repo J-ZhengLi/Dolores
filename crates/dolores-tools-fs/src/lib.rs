@@ -10,10 +10,12 @@ mod create;
 mod create_tests;
 mod discovery;
 mod edit;
+mod instructions;
 #[cfg(test)]
 mod journal_tests;
 mod remove_created;
 pub use edit::{change_diff, file_change_diff, RevertPlan};
+pub use instructions::read_workspace_instructions;
 pub use remove_created::RemoveCreatedPlan;
 
 /// Explicit built-in registration; all tools share the same directory handle.

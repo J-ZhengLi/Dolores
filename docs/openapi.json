@@ -122,7 +122,7 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes",
           "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
-        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network/folder reads"
+        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read"
       },
       "setRequestSettings": {
         "arguments": {
@@ -186,6 +186,31 @@
           "token": "string"
         },
         "result": "null; matching plan discarded, no file mutation"
+      },
+      "reviewInstructions": {
+        "arguments": {
+          "session": "string"
+        },
+        "result": "{source:AGENTS.md,enabled:boolean,current:boolean,provenance:InstructionSource|null,text:string|null,token:string|null,problem:string|null}; one root file <=8192 UTF-8 bytes; explicit local review only"
+      },
+      "enableInstructions": {
+        "arguments": {
+          "session": "string",
+          "token": "string"
+        },
+        "result": "{enabled:true,provenance:InstructionSource}; matching single-use 300-second review and unchanged current bytes; folder-scoped atomic snapshot"
+      },
+      "disableInstructions": {
+        "arguments": {
+          "session": "string"
+        },
+        "result": "null; removes folder snapshot without file reads; history unchanged"
+      },
+      "cancelInstructionReview": {
+        "arguments": {
+          "token": "string"
+        },
+        "result": "null; matching pending token cleared; no activation"
       }
     },
     "events": [
@@ -331,7 +356,8 @@
       "revert": "local-only separate preview/approval with unpredictable one-use session/root/change-bound token, 300-second expiry; changed bytes/ordinary permissions/direct path refused; new intent and atomic original/revert receipts; no reverse-of-reverse. Preview operation is restore or remove. Original creations use Remove once; changed/missing files refused, no arbitrary model deletion or reverse-of-removal. Removal checks are optimistic, not atomic cross-process CAS.",
       "limits": "one pending plan, bounded snapshots/page/UI; growing disk retention; no idle work or new worker",
       "concurrency": "optimistic filesystem checks, not cross-process compare-and-swap; ordinary permissions only, no universal ACL/xattr guarantees"
-    }
+    },
+    "workspaceInstructions": "Schema 10 stores one reviewed snapshot per saved folder. Root AGENTS.md only; regular nonempty UTF-8 <=8 KiB, no NUL/links, no includes/ancestor/nested discovery. Changed/missing/unloadable enabled files refuse preview/send before a provider call; running context retains its initial snapshot. Guidance is counted and inspectable, and cannot grant tool permission. Review/enable/disable use the existing generation exclusion; no watcher/network/idle worker."
   },
   "x-tauri-commands": {
     "bootstrap": {
@@ -648,6 +674,9 @@
           },
           "tokens": {
             "$ref": "#/components/schemas/TokenContext"
+          },
+          "instructions": {
+            "$ref": "#/components/schemas/InstructionSource"
           }
         },
         "required": [
@@ -734,7 +763,8 @@
               "storage",
               "provider",
               "unknown",
-              "contextLimit"
+              "contextLimit",
+              "instructions"
             ]
           },
           "retryable": {
@@ -1128,6 +1158,34 @@
           "contextWindowTokens",
           "maxInputTokens"
         ]
+      },
+      "InstructionSource": {
+        "type": "object",
+        "required": [
+          "source",
+          "revision",
+          "approvedAt",
+          "textBytes"
+        ],
+        "properties": {
+          "source": {
+            "const": "AGENTS.md"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approvedAt": {
+            "type": "integer",
+            "description": "Unix milliseconds of explicit local activation"
+          },
+          "textBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8192
+          }
+        },
+        "description": "Reviewed workspace guidance provenance; no absolute root or duplicate text. Optional for legacy context metadata."
       }
     }
   },

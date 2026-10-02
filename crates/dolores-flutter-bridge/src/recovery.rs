@@ -12,6 +12,7 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error.starts_with("Workspace instructions") || error.starts_with("Saved workspace instructions") => ("instructions", false, "Open Instructions to review AGENTS.md again or disable it. Your message was not saved; your draft is restored."),
         error if error.contains("context budget") || error.starts_with("Context window leaves no input room.") || error.starts_with("Model context limit reached.") => ("contextLimit", false, "Review this model’s context window in Model connection, reduce the output token limit, or start a new chat with a shorter message. Already applied tool effects remain."),
         "Response stopped." | "Response stopped. Your message was not saved." => ("stopped", false, "Your draft is restored. Send it when you are ready."),
         "Model request timed out. Adjust the request timeout or try again." => ("timeout", true, "Your message was not saved. Increase the timeout for a slow model, or retry the current draft."),

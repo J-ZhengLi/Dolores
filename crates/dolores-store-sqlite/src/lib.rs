@@ -7,6 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 mod change_tests;
 mod changes;
 mod history;
+mod instructions;
 mod workspace;
 use std::{
     path::Path,
@@ -43,6 +44,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS remembered_connection (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_contexts (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS workspace_instructions (root TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
             CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
@@ -68,6 +70,11 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 9)
                 .map_err(storage_error)?;
         }
+        if version < 10 {
+            connection
+                .pragma_update(None, "user_version", 10)
+                .map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -78,6 +85,19 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn workspace_instructions(
+        &self,
+        root: &str,
+    ) -> Result<Option<dolores_core::WorkspaceInstructions>, String> {
+        self.read_instructions(root)
+    }
+    fn save_workspace_instructions(
+        &self,
+        root: &str,
+        value: Option<&dolores_core::WorkspaceInstructions>,
+    ) -> Result<(), String> {
+        self.save_instructions(root, value)
+    }
     fn begin_change(&self, draft: &dolores_core::ChangeDraft) -> Result<i64, String> {
         self.insert_change(draft)
     }
@@ -562,7 +582,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 9);
+        assert_eq!(version, 10);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

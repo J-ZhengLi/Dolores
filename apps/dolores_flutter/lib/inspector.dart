@@ -287,6 +287,18 @@ class ContextInspector extends StatelessWidget {
               ],
               color: colors[3],
             ),
+          if (report['instructions'] is Map)
+            Card(
+              elevation: 0,
+              color: p.surface,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SelectableText(
+                  'Workspace instructions · ${report['instructions']['source']}\nReviewed revision: ${report['instructions']['revision']}\nIncluded in System instructions above; tool approval policy is unchanged.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
         ],
       ),
     );

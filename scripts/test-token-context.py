@@ -95,7 +95,7 @@ else:
     call("selectModel", model="dolores-mock")
     assert call("context", session=expected["session"], input="")["tokens"]["contextWindowTokens"] == 1024
     with sqlite3.connect(fixture / "data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 10
         assert db.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 14
 call("shutdown")
 print("TOKEN CONTEXT " + args.stage.upper() + " PASSED")

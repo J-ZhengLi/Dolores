@@ -22,7 +22,7 @@ pub fn prepare_agent_context(mut context: Vec<Message>) -> Result<Vec<Message>, 
     {
         return Err("Tool context needs local system instructions.".into());
     }
-    if !context[0].content.ends_with(TOOL_GUIDANCE) {
+    if !context[0].content.contains(TOOL_GUIDANCE) {
         context[0].content.push_str(TOOL_GUIDANCE);
     }
     while context

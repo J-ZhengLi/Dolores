@@ -3,6 +3,7 @@ mod approval;
 mod changes;
 mod connection;
 mod export;
+mod instructions;
 mod recovery;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
@@ -44,12 +45,26 @@ struct Engine {
     active: Mutex<Option<Run>>,
     workspace_directory: Option<PathBuf>,
     revert: Mutex<Option<changes::PendingRevert>>,
+    instruction_review: Mutex<Option<instructions::PendingInstructions>>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ReviewInstructions {
+        session: String,
+    },
+    EnableInstructions {
+        session: String,
+        token: String,
+    },
+    DisableInstructions {
+        session: String,
+    },
+    CancelInstructionReview {
+        token: String,
+    },
     ChangesPage {
         session: String,
         cursor: Option<i64>,
@@ -188,6 +203,7 @@ impl Engine {
             active: Mutex::new(None),
             workspace_directory: None,
             revert: Mutex::new(None),
+            instruction_review: Mutex::new(None),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -259,6 +275,12 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ReviewInstructions { session } => self.review_instructions(&session),
+            Command::EnableInstructions { session, token } => {
+                self.enable_instructions(&session, &token)
+            }
+            Command::DisableInstructions { session } => self.disable_instructions(&session),
+            Command::CancelInstructionReview { token } => self.cancel_instruction_review(&token),
             Command::ChangesPage { session, cursor } => self.changes_page(&session, cursor),
             Command::ChangeDetails { session, change_id } => {
                 self.change_details(&session, change_id)
@@ -301,6 +323,8 @@ impl Engine {
                 input,
                 tools,
             } => {
+                let guidance =
+                    instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
                 let tools = match session.as_ref() {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
                     None => tools,
@@ -315,6 +339,8 @@ impl Engine {
                 } else {
                     messages
                 };
+                let messages =
+                    dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
                 let mut specs = if tools {
                     dolores_tools_fs::folder_tool_specs()
                 } else {
@@ -338,6 +364,7 @@ impl Engine {
                 )?;
                 let mut summary = ContextSummary::from_messages(&messages, count);
                 summary.tokens = Some(tokens);
+                summary.instructions = guidance.map(|g| g.provenance);
                 let mut report = json!(summary);
                 report["messages"] = json!(messages);
                 report["tools"] = json!(specs);
@@ -545,13 +572,14 @@ async fn execute(
         return Err(stopped());
     }
     let reader = store.clone();
-    let (session, history, count) = blocking(move || {
+    let (session, history, count, guidance) = blocking(move || {
         let session = match session {
             Some(id) => id,
             None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
         };
         let (history, count) = reader.context_history(&session)?;
-        Ok((session, history, count))
+        let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
+        Ok((session, history, count, guidance))
     })
     .await?;
     let context = prepare_context(history, &input)?;
@@ -560,6 +588,7 @@ async fn execute(
     } else {
         context
     };
+    let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
@@ -569,6 +598,7 @@ async fn execute(
     )?;
     let mut summary = ContextSummary::from_messages(&context, count);
     summary.tokens = Some(tokens);
+    summary.instructions = guidance.map(|g| g.provenance);
     forward(
         output,
         json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings}),

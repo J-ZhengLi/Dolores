@@ -1,5 +1,22 @@
 # Flutter bridge contract
 
+## Workspace instructions (brick 3.9)
+
+All commands below are local, blocked during generation, and use the existing C ABI envelope. A saved working-session folder is authoritative; Side sessions fail these commands.
+
+| Command | Arguments | Result |
+| --- | --- | --- |
+| `reviewInstructions` | `{session}` | `{source:"AGENTS.md",enabled,current,provenance:InstructionSource|null,text:string|null,token:string|null,problem:string|null}` |
+| `enableInstructions` | `{session,token}` | `{enabled:true,provenance:InstructionSource}` |
+| `disableInstructions` | `{session}` | `null` |
+| `cancelInstructionReview` | `{token}` | `null` |
+
+Review reads only the literal root `AGENTS.md`, <=8192 UTF-8 bytes, nonempty regular text with no NUL. Missing/unreadable/linked/nonregular/invalid text appears as `problem`, with no enable token. No ancestor/nested discovery, `@` expansion, remote fetch or file execution occurs. `current` is true only when the enabled snapshot matches the current text. Only one review token is held; it expires after 300 seconds and is consumed on an activation attempt, including failures. Wrong session/root/token, expired review or changed text refuses activation. Save failure leaves prior configuration intact. Cancel is idempotent for matching/absent tokens.
+
+Enable stores one folder-scoped snapshot `{provenance,text}` in additive schema 10. Disable deletes this snapshot without reading the file and preserves history. Other chats in the same folder and restarts reuse it. Deleting a chat does not disable another chat's folder guidance. `InstructionSource` is `{source:"AGENTS.md",revision:string,approvedAt:integer,textBytes:integer}`; `approvedAt` is local Unix milliseconds and `revision` is a random UUID, not a content hash. Folder roots remain local and are not added to provider input or exports; reviewed text can itself contain private information and is shared only after explicit activation.
+
+Shared preview/send validates enabled text before preparing each request, appends it to the system message with host/user precedence, and includes it in byte/token budgets. A running request keeps its initial snapshot. Changed/missing/unloadable guidance blocks new input before a provider call; `recovery.kind:"instructions"` offers manual review/disable and retains the draft. Optional `ContextSummary.instructions:InstructionSource` is included in context/started/history/export without duplicating its text in metadata. Exact next-message text remains in `context.messages[0].content`. Legacy metadata omits the field. Guidance never changes tool approval, registry, workspace capability or request limits.
+
 ## Token context and model windows (brick 2.5)
 
 Model connection adds an optional `modelContexts` map of enabled model IDs to nullable integer context-window overrides. Blank, null or missing uses **128K (131072 tokens)**; this user-selected fallback is not provider metadata. Set overrides between 1024 and 16777216 tokens. Bootstrap exposes the endpoint-scoped overrides. Connection preferences, enabled IDs, capacity overrides and remembered-key metadata save in one SQLite transaction (additive schema 9). Invalid/failed changes retain the active connection; selecting a model or editing request settings retains that model's capacity. Legacy connections use the default and legacy reply metadata has no invented token estimates.
