@@ -259,6 +259,163 @@ fn call(id: &str, path: &str) -> ToolCall {
         arguments: json!({"path":path}).to_string(),
     }
 }
+
+struct Streaming {
+    gate: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
+    failure: usize,
+}
+#[async_trait]
+impl ModelProvider for Streaming {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "stream-test",
+            kind: "provider",
+            api_version: 1,
+        }
+    }
+    async fn stream(
+        &self,
+        _: Vec<Message>,
+        _: mpsc::Sender<String>,
+        _: CancellationToken,
+    ) -> Result<(), String> {
+        unreachable!()
+    }
+    async fn stream_tool_turn(
+        &self,
+        messages: &[AgentMessage],
+        _: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        _: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        if messages.iter().any(|m| m.role == "tool") {
+            output.send("Final ".into()).await.unwrap();
+            output.send("answer".into()).await.unwrap();
+            return Ok(AgentTurn {
+                content: "Final answer".into(),
+                calls: vec![],
+                usage: None,
+            });
+        }
+        let text = if self.failure == 3 {
+            "x".repeat(MAX_OUTPUT_BYTES + 1)
+        } else {
+            "Let me read 世界.".into()
+        };
+        output.send(text.clone()).await.unwrap();
+        let gate = self.gate.lock().unwrap().take();
+        if let Some(gate) = gate {
+            gate.await.unwrap();
+        }
+        if self.failure == 1 {
+            return Err("Connection ended before the tool response finished.".into());
+        }
+        let mut request = call("stream-one", "readme");
+        if self.failure == 2 {
+            request.name = "execute_shell".into();
+        }
+        Ok(AgentTurn {
+            content: if self.failure == 4 {
+                "different text".into()
+            } else {
+                text
+            },
+            calls: vec![request],
+            usage: None,
+        })
+    }
+}
+
+#[tokio::test]
+async fn model_text_is_visible_before_completion_without_preparing_or_approving_calls() {
+    let (resume, gate) = tokio::sync::oneshot::channel();
+    let provider = Streaming {
+        gate: Mutex::new(Some(gate)),
+        failure: 0,
+    };
+    let read = Arc::new(Read {
+        count: AtomicUsize::new(0),
+    });
+    let approval = Arc::new(Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    });
+    let (events, mut receiver) = mpsc::channel(32);
+    let tool = read.clone();
+    let policy = approval.clone();
+    let task = tokio::spawn(async move {
+        run_agent(
+            &provider,
+            context(),
+            &[tool as Arc<dyn ToolPlugin>],
+            policy.as_ref(),
+            events,
+            CancellationToken::new(),
+        )
+        .await
+    });
+    assert!(matches!(
+        receiver.recv().await.unwrap(),
+        AgentEvent::ModelStep { number: 1 }
+    ));
+    assert!(
+        matches!(receiver.recv().await.unwrap(), AgentEvent::ModelText {number:1,text} if text == "Let me read 世界.")
+    );
+    assert_eq!(read.count.load(Ordering::SeqCst), 0);
+    assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    assert!(!task.is_finished());
+    resume.send(()).unwrap();
+    let reply = task.await.unwrap().unwrap();
+    assert_eq!(reply.answer, "Final answer");
+    assert_eq!(
+        reply.summary.steps,
+        vec![ModelText {
+            number: 1,
+            text: "Let me read 世界.".into()
+        }]
+    );
+    assert_eq!(read.count.load(Ordering::SeqCst), 1);
+    let mut final_text = String::new();
+    while let Some(event) = receiver.recv().await {
+        if let AgentEvent::ModelText { number: 2, text } = event {
+            final_text.push_str(&text);
+        }
+    }
+    assert_eq!(final_text, reply.answer);
+    let old: AgentSummary =
+        serde_json::from_value(json!({"modelCalls":1,"usageByCall":[null],"tools":[]})).unwrap();
+    assert!(old.steps.is_empty());
+}
+
+#[tokio::test]
+async fn partial_invalid_and_oversized_streams_cannot_run_tools() {
+    for failure in 1..=4 {
+        let provider = Streaming {
+            gate: Mutex::new(None),
+            failure,
+        };
+        let read = Arc::new(Read {
+            count: AtomicUsize::new(0),
+        });
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        assert!(run_agent(
+            &provider,
+            context(),
+            &[read.clone() as Arc<dyn ToolPlugin>],
+            &approval,
+            events,
+            CancellationToken::new()
+        )
+        .await
+        .is_err());
+        assert_eq!(read.count.load(Ordering::SeqCst), 0);
+        assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    }
+}
 #[tokio::test]
 async fn approved_data_cannot_authorize_another_read_and_denials_do_not_repeat_prompts() {
     for allow in [true, false] {

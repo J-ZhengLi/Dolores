@@ -480,7 +480,7 @@ Future<void> _run(
           usageAction?.onPressed != null &&
           chat.messages[1]['metadata']['model'] == 'dolores-fast' &&
           chat.messages[3]['metadata']['model'] == 'dolores-mock',
-      'Native usage actions retain each reply model after model switching',
+      'Native usage actions retain each reply model after model switching (visible actions: $usageActions, enabled: ${usageAction?.onPressed != null})',
       checks,
     );
     usageAction!.onPressed!();
@@ -610,6 +610,12 @@ Future<void> _run(
     chat.newChat();
     chat.draft = 'tool-read';
     await chat.send();
+    await waitUntil(() => chat.partial.isNotEmpty || !chat.busy);
+    check(
+      chat.busy && chat.toolApproval == null && chat.toolRecords.isEmpty,
+      'Agent public text streams before tool arguments finish without granting access',
+      checks,
+    );
     await waitUntil(() => chat.toolApproval != null || !chat.busy);
     check(
       chat.busy &&
@@ -635,6 +641,16 @@ Future<void> _run(
       checks,
     );
     allowTool!.onPressed!();
+    await waitUntil(
+      () => chat.modelStep == 2 && chat.partial.isNotEmpty || !chat.busy,
+    );
+    check(
+      chat.busy &&
+          chat.partial.startsWith('The approved') &&
+          chat.modelTexts.length == 1,
+      'Final agent text streams in its own step while earlier commentary stays separate',
+      checks,
+    );
     await waitUntil(() => !chat.busy);
     check(
       chat.error == null &&
@@ -655,6 +671,40 @@ Future<void> _run(
         '世界',
       ),
       'Reload preserves the bounded UTF-8 tool record',
+      checks,
+    );
+    check(
+      chat.messages.last['metadata']['agent']['steps'][0]['number'] == 1 &&
+          chat.messages.last['metadata']['agent']['steps'][0]['text']
+              .startsWith('I’ll inspect') &&
+          !chat.messages.last['content'].contains('I’ll inspect'),
+      'Reload restores public intermediate text without mixing it into the final answer',
+      checks,
+    );
+    chat.draft = 'tool-stream-incomplete';
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error != null &&
+          chat.toolApproval == null &&
+          chat.toolRecords.isEmpty &&
+          chat.messages.length == 2 &&
+          chat.draft == 'tool-stream-incomplete',
+      'Interrupted argument streaming never asks approval, reads files or saves a partial turn',
+      checks,
+    );
+    chat.draft = 'tool-stream-slow';
+    await chat.send();
+    await waitUntil(() => chat.partial.isNotEmpty || !chat.busy);
+    await chat.stop();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.toolApproval == null &&
+          chat.toolRecords.isEmpty &&
+          chat.messages.length == 2 &&
+          chat.draft == 'tool-stream-slow' &&
+          chat.partial.isEmpty,
+      'Stop during streamed arguments restores the draft and preserves complete history',
       checks,
     );
     chat.draft = 'tool-deny';

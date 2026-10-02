@@ -110,6 +110,23 @@ impl Default for ConnectionPreferences {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Optional streaming tool capability; existing provider plugins still work.
+    async fn stream_tool_turn(
+        &self,
+        messages: &[AgentMessage],
+        tools: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        let turn = self.tool_turn(messages, tools, cancel.clone()).await?;
+        if !turn.content.is_empty() {
+            tokio::select! { biased;
+                _ = cancel.cancelled() => return Err("Response stopped.".into()),
+                result = output.send(turn.content.clone()) => result.map_err(|_| "Conversation window closed.")?,
+            }
+        }
+        Ok(turn)
+    }
     async fn tool_turn(
         &self,
         _: &[AgentMessage],
@@ -117,7 +134,7 @@ pub trait ModelProvider: Send + Sync {
         _: CancellationToken,
     ) -> Result<AgentTurn, String> {
         Err(
-            "This model connection does not support tool calls. Disable folder tools to chat."
+            "This model connection does not support tool calls. Start a side chat to chat without tools."
                 .into(),
         )
     }

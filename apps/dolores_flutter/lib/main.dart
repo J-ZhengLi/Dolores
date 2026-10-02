@@ -16,6 +16,7 @@ import 'request_settings.dart';
 import 'tool_activity.dart';
 import 'workspace_picker.dart';
 import 'chat_sidebar.dart';
+import 'model_steps.dart';
 
 import 'theme.dart';
 export 'theme.dart' show Palette;
@@ -259,6 +260,10 @@ class _ChatPageState extends State<ChatPage> {
                   ],
                 ),
                 const SizedBox(height: 6),
+                if (!user && streaming && chat.modelTexts.isNotEmpty)
+                  ModelSteps(steps: chat.modelTexts, saved: false),
+                if (!user && !streaming && metadata?['agent']?['steps'] is List)
+                  ModelSteps(steps: metadata!['agent']['steps'] as List),
                 if (user || text.isEmpty)
                   SelectableText(
                     text.isEmpty && streaming ? 'Thinking…' : text,
@@ -349,6 +354,13 @@ class _ChatPageState extends State<ChatPage> {
   Widget composer(Palette p) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
+      if (!chat.busy && chat.modelTexts.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 160),
+          child: SingleChildScrollView(
+            child: ModelSteps(steps: chat.modelTexts, saved: false),
+          ),
+        ),
       if (chat.toolRecords.isNotEmpty)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 160),

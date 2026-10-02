@@ -1,5 +1,11 @@
 # Flutter bridge contract
 
+## Streaming agent progress (brick 3.4)
+
+Working chats use streamed function calls. `modelStep` starts a call, followed by `{type:modelText,id,number,text}` deltas for public text. Flutter replaces active text at the next step, retaining earlier commentary as transient progress. Events expose no partial arguments and cannot approve tools. Valid completed calls still produce `toolApproval` then `toolResult`. Final text arrives through `modelText` without duplicate `delta`; side chats retain `delta`. `done` follows complete-pair persistence. Run and step IDs exclude stale text.
+
+Successful metadata adds optional `agent.steps:[{number,text}]` for up to three intermediate calls; final text remains assistant message content. Old summaries remain readable. Chat/trajectory and both exports preserve progress; schema 6 is unchanged. Failure discards incomplete current text and restores the draft; earlier transient commentary is labeled Not saved. The 128-KiB text budget covers all agent calls. See [design](../design/streaming-agent.md). This supersedes brick 3.1's nonstreaming transport/per-call text budget.
+
 ## Working sessions (brick 3.3)
 
 The selected shell defaults sidebar New chat to a temporary working folder. Each project has a + action to start a new chat in that folder. Explicit Side mode retains streaming without tools. `createSession` validates project folders, creates distinct temporary folders under the application data directory, or creates a side session with a null root. Temporary/side reject a supplied path. Creation and workspace reads are excluded during active generation. Project creation also updates the bounded 50-entry recent-project list. Session pages and bootstrap rows add local workspace identity; the raw shared Session type used in exports and alternative shells is unchanged.

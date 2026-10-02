@@ -8,6 +8,8 @@ Dolores is a local desktop agent harness. Its long-term purpose is to improve th
 
 ## Decisions
 
+Brick 3.4 adds an optional streaming-tool provider method with a legacy default. Core forwards bounded public text by call number and saves intermediate commentary in completed metadata. The OpenAI adapter assembles indexed tool deltas behind the provider boundary; only complete validated calls enter approval. Bounded-channel delivery is included in deadlines. No migration/dependency/worker is added. See [design](design/streaming-agent.md).
+
 | Concern | Choice | Reason and cost |
 | --- | --- | --- |
 | Desktop shell | Flutter 3.47.5 + bundled Rust C ABI | Selected for visual refinement and widget flexibility; measured memory exceeds Iced and the provisional target. Alternatives remain available. |

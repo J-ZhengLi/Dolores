@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class ToolBridge implements ChatBridge {
+  bool streamText = false;
   String tool = 'read_text_file';
   String query = '世界.*';
   final commands = <Map<String, dynamic>>[];
@@ -35,6 +36,13 @@ class ToolBridge implements ChatBridge {
         queue.addAll([
           {'type': 'started', 'id': id, 'session': 'run'},
           {'type': 'modelStep', 'id': id, 'number': 1},
+          if (streamText)
+            {
+              'type': 'modelText',
+              'id': id,
+              'number': 1,
+              'text': 'Let me read 世界.',
+            },
           {
             'type': 'toolApproval',
             'id': id,
@@ -102,6 +110,10 @@ class ToolBridge implements ChatBridge {
                 'modelCalls': 2,
                 'usageByCall': [null, null],
                 'tools': [record],
+                if (streamText)
+                  'steps': [
+                    {'number': 1, 'text': 'Let me read 世界.'},
+                  ],
               },
             },
           },
@@ -109,7 +121,12 @@ class ToolBridge implements ChatBridge {
         queue.addAll([
           {'type': 'toolResult', 'id': id, 'record': record},
           {'type': 'modelStep', 'id': id, 'number': 2},
-          {'type': 'delta', 'id': id, 'text': 'Final answer'},
+          {
+            'type': streamText ? 'modelText' : 'delta',
+            'id': id,
+            'number': 2,
+            'text': 'Final answer',
+          },
           {'type': 'done', 'id': id, 'answer': 'Final answer'},
         ]);
       case 'cancel':
@@ -148,6 +165,75 @@ void compact(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets(
+    'Streamed public text stays visible at approval and saved progress stays separate from the final answer',
+    (tester) async {
+      compact(tester);
+      for (final dark in [false, true]) {
+        final bridge = ToolBridge()..streamText = true;
+        final chat = ready(bridge);
+        await tester.pumpWidget(
+          DoloresApp(
+            chat: chat,
+            themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          ),
+        );
+        await chat.send();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        expect(chat.partial, 'Let me read 世界.');
+        expect(chat.modelStep, 1);
+        expect(find.text('Allow a file read?'), findsOneWidget);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'approveTool'),
+          isEmpty,
+        );
+        await tester.tap(find.byKey(const Key('allow-tool')));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        expect(chat.busy, isFalse);
+        expect(chat.messages.last['content'], 'Final answer');
+        expect(chat.modelTexts, isEmpty);
+        expect(
+          chat.messages.last['metadata']['agent']['steps'].single['text'],
+          'Let me read 世界.',
+        );
+        await tester.ensureVisible(find.text('Agent progress'));
+        await tester.tap(find.text('Agent progress'));
+        await tester.pumpAndSettle();
+        expect(find.text('Let me read 世界.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      }
+    },
+  );
+  testWidgets(
+    'New steps replace streamed text and stale step deltas cannot alter the current answer',
+    (tester) async {
+      final bridge = ToolBridge()..streamText = true;
+      final chat = ready(bridge);
+      await chat.send();
+      await tester.pump(const Duration(milliseconds: 100));
+      bridge.queue.addAll([
+        {'type': 'modelStep', 'id': 1, 'number': 2},
+        {'type': 'modelText', 'id': 1, 'number': 1, 'text': 'STALE'},
+        {'type': 'modelText', 'id': 1, 'number': 2, 'text': 'Final '},
+        {'type': 'modelText', 'id': 1, 'number': 2, 'text': 'answer'},
+      ]);
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(chat.partial, 'Final answer');
+      expect(chat.modelTexts.single['text'], 'Let me read 世界.');
+      await chat.stop();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(chat.messages, isEmpty);
+      expect(chat.partial, isEmpty);
+      expect(chat.draft, 'Read readme');
+      chat.newChat(kind: 'side');
+      expect(chat.modelTexts, isEmpty);
+      chat.dispose();
+    },
+  );
   testWidgets(
     'Discovery approvals disclose scan/query and saved cards show partial coverage in both compact themes',
     (tester) async {

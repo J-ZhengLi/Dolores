@@ -516,12 +516,6 @@ async fn execute(
                 event["id"] = json!(id);
                 forward(output, event, &cancel).await?;
             }
-            forward(
-                output,
-                json!({"type":"delta","id":id,"text":reply.answer}),
-                &cancel,
-            )
-            .await?;
             Ok::<_, String>(reply)
         };
         let seconds = settings.unwrap_or_default().timeout_seconds.min(300);

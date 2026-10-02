@@ -23,7 +23,7 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
-  if (payload.stream === false && Array.isArray(payload.tools)) {
+  if (Array.isArray(payload.tools)) {
     const last = payload.messages?.at(-1);
     const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
     if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'list_folder,read_text_file,search_text') {
@@ -66,6 +66,39 @@ const server = createServer(async (request, response) => {
       const path = prompt === 'tool-escape' ? '../outside.txt' : 'readme.txt';
       message = { role: 'assistant', content: null, tool_calls: [{ id: `file-${number}`, type: 'function', function: { name: 'read_text_file', arguments: JSON.stringify({ path }) } }] };
       finish = 'tool_calls';
+    }
+    if (payload.stream === true) {
+      response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+      let closed = false;
+      response.on('close', () => { closed = true; });
+      const send = (delta, finish = null) => response.write(`data: ${JSON.stringify({choices:[{index:0,delta,finish_reason:finish}]})}\n\n`);
+      if (message.tool_calls) {
+        for (const part of 'I’ll inspect the requested folder or file, with your approval.'.match(/.{1,12}/gs)) {
+          if (closed) return;
+          send({content:part});
+          await setTimeout(15);
+        }
+        const call = message.tool_calls[0];
+        send({tool_calls:[{index:0,id:call.id,type:'function',function:{name:call.function.name,arguments:''}}]});
+        for (const part of call.function.arguments.match(/.{1,8}/gs)) {
+          if (closed) return;
+          send({tool_calls:[{index:0,function:{arguments:part}}]});
+          await setTimeout(prompt === 'tool-stream-slow' ? 500 : 15);
+          if (prompt === 'tool-stream-incomplete') { response.end(); return; }
+        }
+      } else {
+        for (const part of message.content.match(/.{1,12}/gs) ?? []) {
+          if (closed) return;
+          send({content:part});
+          await setTimeout(25);
+        }
+      }
+      send({}, finish);
+      if (payload.stream_options?.include_usage) {
+        response.write(`data: ${JSON.stringify({choices:[],usage:{prompt_tokens:40,completion_tokens:12,total_tokens:52}})}\n\n`);
+      }
+      response.end('data: [DONE]\n\n');
+      return;
     }
     response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
       choices: [{message, finish_reason:finish}], usage:{prompt_tokens:40, completion_tokens:12, total_tokens:52},

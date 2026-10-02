@@ -156,6 +156,7 @@
     "events": [
       "{type:started,id,session,context:ContextSummary,requestSettings:RequestSettings|null}",
       "{type:modelStep,id,number:integer[1..4]}",
+      "{type:modelText,id,number:integer[1..4],text}; working chats only, ordered by model call; no partial arguments or duplicate final delta",
       "{type:toolApproval,id,request:ToolRequest}",
       "{type:toolResult,id,record:ToolRecord}",
       "{type:delta,id,text}",
@@ -171,7 +172,7 @@
     },
     "accounting": {
       "schemaVersion": 6,
-      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid.",
+      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
       "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
     },
@@ -192,13 +193,17 @@
         "argumentBytes": 4096,
         "targetBytes": 1024,
         "resultBytes": 16384,
-        "responseBytes": 262144,
         "serializedContextBytes": 131072,
-        "modelTextBytes": 131072
+        "modelTextBytes": 131072,
+        "nonStreamingResponseBytes": 262144,
+        "streamWireBytes": 2097152,
+        "streamFrameBytes": 262144,
+        "streamDataFrames": 4096,
+        "incompleteFrameBufferBytes": 1048576
       },
       "timeout": "min(configured timeoutSeconds,300) for the whole model/tool/approval phase, excluding initial preparation and final persistence; OS filesystem calls cannot be forcibly interrupted",
       "paths": "Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret.",
-      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient.",
+      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient. Public intermediate commentary is retained separately as optional agent.steps, shared with the provider alongside its calls and included in complete exports only on success.",
       "names": [
         "read_text_file",
         "list_folder",
@@ -227,7 +232,8 @@
         },
         "result": "JSON string {matches:[{path,line,text}],inspectedEntries,attemptedFiles,scannedFiles,skippedFiles,skippedEntries,bytesRead,truncated}; root-relative paths, one-based lines, partial coverage when limits reached; skipped/excluded files may contain omitted matches"
       },
-      "discoveryExclusions": "Skip symlink/junction entries and reject alias scopes; common credential/VCS path filter plus node_modules,target,build,dist,.dart_tool,.venv,venv,__pycache__; regular UTF-8 text without NUL only; no background index. Filename filtering cannot detect every secret."
+      "discoveryExclusions": "Skip symlink/junction entries and reject alias scopes; common credential/VCS path filter plus node_modules,target,build,dist,.dart_tool,.venv,venv,__pycache__; regular UTF-8 text without NUL only; no background index. Filename filtering cannot detect every secret.",
+      "streaming": "Working chats stream public modelText by call number; 128-KiB public text budget across all calls. Indexed function arguments assemble within fixed limits and require a matching complete finish before local approval. One explicit pre-stream unsupported-usage retry only; no tool-free/nonstreaming fallback. Legacy provider plugins can delegate streaming to their completed tool_turn."
     },
     "workingSessions": {
       "schemaVersion": 6,
@@ -750,6 +756,14 @@
             "items": {
               "$ref": "#/components/schemas/ToolRecord"
             }
+          },
+          "steps": {
+            "type": "array",
+            "maxItems": 3,
+            "description": "Optional public commentary before tool calls; omitted when empty/legacy, final answer excluded.",
+            "items": {
+              "$ref": "#/components/schemas/ModelText"
+            }
           }
         }
       },
@@ -809,6 +823,24 @@
             }
           }
         ]
+      },
+      "ModelText": {
+        "type": "object",
+        "required": [
+          "number",
+          "text"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "text": {
+            "type": "string",
+            "description": "Public intermediate assistant text; hidden reasoning omitted; 131072 UTF-8 bytes across all model text including final answer."
+          }
+        }
       }
     }
   },

@@ -97,6 +97,13 @@ pub struct AgentSummary {
     pub model_calls: usize,
     pub usage_by_call: Vec<Option<TokenUsage>>,
     pub tools: Vec<ToolRecord>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<ModelText>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ModelText {
+    pub number: usize,
+    pub text: String,
 }
 pub struct AgentReply {
     pub answer: String,
@@ -106,6 +113,7 @@ pub struct AgentReply {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentEvent {
     ModelStep { number: usize },
+    ModelText { number: usize, text: String },
     ToolResult { record: ToolRecord },
 }
 
@@ -184,7 +192,9 @@ pub async fn run_agent(
         model_calls: 0,
         usage_by_call: vec![],
         tools: vec![],
+        steps: vec![],
     };
+    let mut output_bytes = 0;
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
     for number in 1..=MAX_MODEL_CALLS {
@@ -193,10 +203,42 @@ pub async fn run_agent(
             return Err("Tool context exceeds the 128 KiB limit.".into());
         }
         emit(&events, AgentEvent::ModelStep { number }, &cancel).await?;
-        let turn = tokio::select! { biased;
-            _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
-            result = provider.tool_turn(&messages, &specs, cancel.clone()) => result?,
+        let (text, mut receiver) = mpsc::channel(32);
+        let mut streamed = String::new();
+        let turn = {
+            let request = provider.stream_tool_turn(&messages, &specs, text, cancel.clone());
+            tokio::pin!(request);
+            loop {
+                tokio::select! { biased;
+                    _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
+                    result = &mut request => break result?,
+                    Some(text) = receiver.recv() => {
+                        forward_model_text(&events, number, text, &mut streamed, &mut output_bytes, &cancel).await?;
+                    }
+                }
+            }
         };
+        // The provider can finish with deltas still queued. Deliver these before
+        // preparing any calls or changing the current model step.
+        loop {
+            let text = tokio::select! { biased;
+                _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
+                text = receiver.recv() => text,
+            };
+            let Some(text) = text else { break };
+            forward_model_text(
+                &events,
+                number,
+                text,
+                &mut streamed,
+                &mut output_bytes,
+                &cancel,
+            )
+            .await?;
+        }
+        if turn.content != streamed {
+            return Err("Model stream text did not match the completed response.".into());
+        }
         summary.model_calls = number;
         summary.usage_by_call.push(turn.usage);
         if turn.content.len() > MAX_OUTPUT_BYTES {
@@ -224,6 +266,12 @@ pub async fn run_agent(
             if !names.contains(&call.name) {
                 return Err("Model requested an unavailable tool.".into());
             }
+        }
+        if !turn.content.is_empty() {
+            summary.steps.push(ModelText {
+                number,
+                text: turn.content.clone(),
+            });
         }
         messages.push(AgentMessage {
             role: "assistant".into(),
@@ -327,4 +375,23 @@ pub async fn run_agent(
         }
     }
     Err("Agent reached its model-call limit.".into())
+}
+
+async fn forward_model_text(
+    events: &mpsc::Sender<AgentEvent>,
+    number: usize,
+    text: String,
+    streamed: &mut String,
+    output_bytes: &mut usize,
+    cancel: &CancellationToken,
+) -> Result<(), String> {
+    if *output_bytes + text.len() > MAX_OUTPUT_BYTES {
+        return Err("Response exceeds the 128 KiB limit across agent calls.".into());
+    }
+    *output_bytes += text.len();
+    streamed.push_str(&text);
+    if !text.is_empty() {
+        emit(events, AgentEvent::ModelText { number, text }, cancel).await?;
+    }
+    Ok(())
 }

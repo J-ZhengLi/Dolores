@@ -41,7 +41,7 @@ impl OpenAiProvider {
                 return Err(match response.status().as_u16() {
                     401 | 403 => "Model access denied. Check your API key and permissions.".into(),
                     429 => "Model rate limit reached. Try again later.".into(),
-                    status => format!("Tool request failed (HTTP {status}). Disable folder tools or check model support."),
+                    status => format!("Tool request failed (HTTP {status}). Start a side chat or check model support."),
                 });
             }
             if !response
@@ -50,7 +50,7 @@ impl OpenAiProvider {
                 .and_then(|v| v.to_str().ok())
                 .is_some_and(|v| v.starts_with("application/json"))
             {
-                return Err("Model did not return a JSON tool response. Disable folder tools or check model support.".into());
+                return Err("Model did not return a JSON tool response. Start a side chat or check model support.".into());
             }
             let mut bytes = Vec::new();
             while let Some(chunk) = response

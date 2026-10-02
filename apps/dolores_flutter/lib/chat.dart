@@ -95,6 +95,7 @@ class ChatController extends ChangeNotifier {
 
   Map<String, dynamic>? toolApproval;
   final toolRecords = <Map<String, dynamic>>[];
+  final modelTexts = <Map<String, dynamic>>[];
   bool decidingTool = false;
   int modelStep = 0;
   Future<void> chooseToolFolder(Future<String?> Function() choose) async {
@@ -424,6 +425,7 @@ class ChatController extends ChangeNotifier {
 
   void _clearConversation() {
     toolRecords.clear();
+    modelTexts.clear();
     toolApproval = null;
     contextSummary = null;
     contextBasis = null;
@@ -437,6 +439,7 @@ class ChatController extends ChangeNotifier {
   void newChat({String? kind}) {
     if (!busy && !changing) {
       toolRecords.clear();
+      modelTexts.clear();
       toolApproval = null;
     }
     if (busy || changing) return;
@@ -476,6 +479,7 @@ class ChatController extends ChangeNotifier {
       session = id;
       _setWorkspace(workspace);
       toolRecords.clear();
+      modelTexts.clear();
       toolApproval = null;
       _setMessages(history);
       contextSummary = null;
@@ -649,6 +653,7 @@ class ChatController extends ChangeNotifier {
     error = null;
     final id = ++_run;
     toolRecords.clear();
+    modelTexts.clear();
     toolApproval = null;
     modelStep = 0;
     recovery = null;
@@ -731,8 +736,20 @@ class ChatController extends ChangeNotifier {
             }
             partial += event['text'] as String;
           case 'modelStep':
+            if (partial.isNotEmpty && modelTexts.length < 3) {
+              modelTexts.add({'number': modelStep, 'text': partial});
+            }
+            partial = '';
             modelStep = event['number'] as int;
             _record('Model call $modelStep');
+          case 'modelText':
+            if (event['number'] == modelStep) {
+              if (!_firstDelta) {
+                _record('First response text');
+                _firstDelta = true;
+              }
+              partial += event['text'] as String;
+            }
           case 'toolApproval':
             if (!stopping) {
               toolApproval = (event['request'] as Map).cast<String, dynamic>();
@@ -764,6 +781,7 @@ class ChatController extends ChangeNotifier {
               pendingInput = '';
               partial = '';
               toolRecords.clear();
+              modelTexts.clear();
               _setMessages(
                 await bridge.call({
                   'command': 'messagesPage',

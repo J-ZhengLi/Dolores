@@ -9,6 +9,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use url::{Host, Url};
 mod agent;
+mod agent_stream;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 
@@ -215,6 +216,16 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    async fn stream_tool_turn(
+        &self,
+        messages: &[dolores_core::AgentMessage],
+        tools: &[dolores_core::ToolSpec],
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<dolores_core::AgentTurn, String> {
+        self.request_stream_tool_turn(messages, tools, output, cancel)
+            .await
+    }
     async fn tool_turn(
         &self,
         messages: &[dolores_core::AgentMessage],
