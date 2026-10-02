@@ -3,7 +3,7 @@ use dolores_core::{
     valid_skill_name, ProjectSkill, SkillDocument, SkillScope, SkillVersion, MAX_ACTIVE_SKILLS,
     MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS,
 };
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 // Disjoint from all absolute project roots. Global activation is local to this app's data directory.
 pub(super) const GLOBAL_ROOT: &str = "@global-skills";
@@ -62,10 +62,87 @@ impl SqliteStore {
         revision: Option<u32>,
         rollback: Option<u32>,
     ) -> Result<ProjectSkill, String> {
+        self.activate_skill_reviewed(root, document, revision, rollback, None)
+    }
+    pub(super) fn promote_reviewed_skill(
+        &self,
+        promotion: &dolores_core::SkillPromotion,
+    ) -> Result<ProjectSkill, String> {
+        let root = match promotion.scope {
+            SkillScope::Global => GLOBAL_ROOT,
+            SkillScope::Project => promotion
+                .folder
+                .as_deref()
+                .ok_or("Project skill needs a working folder.")?,
+        };
+        let previous = promotion
+            .saved
+            .iter()
+            .find(|s| s.scope == promotion.scope && s.name == promotion.document.name);
+        self.activate_skill_reviewed(
+            root,
+            &promotion.document,
+            previous.map(|s| s.revision),
+            None,
+            Some(promotion),
+        )
+    }
+    fn activate_skill_reviewed(
+        &self,
+        root: &str,
+        document: &SkillDocument,
+        revision: Option<u32>,
+        rollback: Option<u32>,
+        promotion: Option<&dolores_core::SkillPromotion>,
+    ) -> Result<ProjectSkill, String> {
         validate_root(root)?;
         document.validate()?;
         let mut guard = self.lock()?;
         let transaction = guard.transaction().map_err(storage_error)?;
+        if let Some(promotion) = promotion {
+            promotion.evaluation.validate()?;
+            dolores_core::validate_skill_examples(&promotion.examples)?;
+            dolores_core::validate_skill_evidence(
+                &promotion.evaluation.evidence,
+                &promotion.examples,
+            )?;
+            if !promotion.evaluation.promotable() {
+                return Err(
+                    "The draft must pass every test and improve on the baseline before activation."
+                        .into(),
+                );
+            }
+            let folder: Option<String> = transaction
+                .query_row(
+                    "SELECT root FROM session_workspaces WHERE session_id=?1",
+                    [&promotion.evaluation.session],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(storage_error)?
+                .flatten();
+            if folder != promotion.folder {
+                return Err(changed());
+            }
+            let mut saved = folder
+                .as_deref()
+                .map_or(Ok(vec![]), |folder| read(&transaction, folder))?;
+            saved.extend(read(&transaction, GLOBAL_ROOT)?);
+            if saved != promotion.saved {
+                return Err(changed());
+            }
+            for source in &promotion.examples {
+                let request: String = transaction.query_row("SELECT content FROM messages WHERE session_id=?1 AND id=?2 AND role='user'", params![promotion.evaluation.session,source.user_id], |r| r.get(0)).map_err(storage_error)?;
+                let (id,response,role): (i64,String,String) = transaction.query_row("SELECT id,content,role FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id LIMIT 1", params![promotion.evaluation.session,source.user_id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(storage_error)?;
+                if id != source.message_id
+                    || role != "assistant"
+                    || request != source.request
+                    || response != source.response
+                {
+                    return Err(changed());
+                }
+            }
+        }
         let skills = read(&transaction, root)?;
         let previous = skills.iter().find(|s| s.name == document.name);
         if previous.map(|s| s.revision) != revision {
@@ -107,7 +184,13 @@ impl SqliteStore {
             .last()
             .map_or(Some(1), |v| v.version.checked_add(1))
             .ok_or_else(changed)?;
+        let evaluation = promotion.map(|p| p.evaluation.clone()).or_else(|| {
+            rollback
+                .and_then(|number| versions.iter().find(|v| v.version == number))
+                .and_then(|v| v.evaluation.clone())
+        });
         versions.push(SkillVersion {
+            evaluation,
             version,
             reviewed_at: now(),
             document: document.clone(),
@@ -182,6 +265,128 @@ impl SqliteStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tested_promotion_is_atomic_frozen_persistent_and_retains_historical_receipts_on_rollback() {
+        use dolores_core::{
+            SkillEvaluation, SkillEvidence, SkillExample, SkillPromotion, SkillTrial,
+            SkillTrialResult,
+        };
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("state.db");
+        let store = SqliteStore::open(&file).unwrap();
+        store.create("side").unwrap();
+        store
+            .commit_turn("side", "Review changes", "Use focused tests.")
+            .unwrap();
+        let rows = store.messages_page("side", None, false, 2).unwrap().items;
+        let example = SkillExample {
+            user_id: rows[0].id,
+            message_id: rows[1].id,
+            request: rows[0].content.clone(),
+            response: rows[1].content.clone(),
+        };
+        let trial = SkillTrial {
+            prompt: "Review a change".into(),
+            required: vec!["focused".into()],
+            forbidden: vec![],
+        };
+        let messages = dolores_core::preview_context(vec![], &trial.prompt).unwrap();
+        let mut proposal = SkillPromotion {
+            scope: SkillScope::Global,
+            folder: None,
+            saved: vec![],
+            examples: vec![example.clone()],
+            document: dolores_core::skill_document(
+                "review",
+                "When reviewing code",
+                "Use focused tests.",
+            )
+            .unwrap(),
+            evaluation: SkillEvaluation {
+                session: "side".into(),
+                model: "fixture".into(),
+                generated_model: "fixture".into(),
+                reviewed_at: 1,
+                settings: dolores_core::RequestSettings {
+                    max_output_tokens: 512,
+                    timeout_seconds: 10,
+                },
+                context_window_tokens: Some(131072),
+                evidence: vec![SkillEvidence {
+                    message_id: example.message_id,
+                    quote: "Use focused tests.".into(),
+                }],
+                baseline_skills: vec![],
+                results: vec![SkillTrialResult {
+                    trial,
+                    baseline_messages: messages.clone(),
+                    candidate_messages: messages,
+                    baseline: "ordinary".into(),
+                    candidate: "focused".into(),
+                    baseline_usage: None,
+                    candidate_usage: None,
+                }],
+            },
+        };
+        proposal.evaluation.results[0].baseline = "focused".into();
+        assert!(store.promote_skill(&proposal).is_err());
+        assert!(store.global_skills().unwrap().is_empty());
+        proposal.evaluation.results[0].baseline = "ordinary".into();
+        store
+            .activate_global_skill(&doc("other", "other"), None, None)
+            .unwrap();
+        assert!(store.promote_skill(&proposal).is_err());
+        store.forget_global_skill("other", 1).unwrap();
+        store
+            .lock()
+            .unwrap()
+            .execute(
+                "UPDATE messages SET role='user' WHERE id=?1",
+                [example.message_id],
+            )
+            .unwrap();
+        assert!(store.promote_skill(&proposal).is_err());
+        store
+            .lock()
+            .unwrap()
+            .execute(
+                "UPDATE messages SET role='assistant' WHERE id=?1",
+                [example.message_id],
+            )
+            .unwrap();
+        store.lock().unwrap().execute_batch("CREATE TRIGGER refuse_skill BEFORE INSERT ON project_skills BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store.promote_skill(&proposal).is_err());
+        assert!(store.global_skills().unwrap().is_empty());
+        store
+            .lock()
+            .unwrap()
+            .execute_batch("DROP TRIGGER refuse_skill")
+            .unwrap();
+        let first = store.promote_skill(&proposal).unwrap();
+        let (context, sources) = dolores_core::prepare_skill_context(
+            dolores_core::preview_context(vec![], "next").unwrap(),
+            std::slice::from_ref(&first),
+        )
+        .unwrap();
+        assert_eq!(sources[0].source, "Dolores reviewed draft: review");
+        assert!(!context[0].content.contains("Ordinary response"));
+        assert_eq!(
+            first.current().evaluation.as_ref(),
+            Some(&proposal.evaluation)
+        );
+        assert!(store.promote_skill(&proposal).is_err());
+        drop(store);
+        let store = SqliteStore::open(&file).unwrap();
+        assert_eq!(store.global_skills().unwrap()[0], first);
+        store
+            .activate_global_skill(&doc("review", "replacement"), Some(1), None)
+            .unwrap();
+        let restored = store
+            .activate_global_skill(&first.current().document, Some(2), Some(1))
+            .unwrap();
+        assert_eq!(restored.current().evaluation, first.current().evaluation);
+        assert_eq!(restored.current().rollback_from, Some(1));
+    }
     #[test]
     fn global_records_are_independent_persistent_and_use_the_same_version_guards() {
         use dolores_core::SessionStore;

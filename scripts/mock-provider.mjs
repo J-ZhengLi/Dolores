@@ -23,6 +23,17 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (payload.messages?.[0]?.content?.startsWith('You draft reusable instructions for Dolores') || input === 'skill-test') {
+    const drafting = payload.messages[0].content.startsWith('You draft reusable instructions for Dolores');
+    const source = drafting ? JSON.parse(input).examples[0] : null;
+    const text = drafting ? JSON.stringify({name:'review',description:'When reviewing synthetic work.',instructions:'Include SKILL_PASS in the review.',evidence:[{messageId:source.messageId,quote:source.response.slice(0,100)}]})
+      : payload.messages[0].content.includes('Include SKILL_PASS') ? 'SKILL_PASS' : 'Ordinary response';
+    response.writeHead(200, {'content-type':'text/event-stream'});
+    response.write(`data: ${JSON.stringify({choices:[{delta:{content:text},finish_reason:null}]})}\n\n`);
+    response.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+    response.write('data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}\n\n');
+    response.end('data: [DONE]\n\n'); return;
+  }
   if (payload.messages?.[0]?.content?.startsWith('You extract automatic preferences for Dolores.')) {
     const source = JSON.parse(input).sources[0];
     const result = JSON.stringify({suggestions: source.text.includes('I prefer concise examples.') ? [{title:'Response style',text:'I prefer concise examples.',messageId:source.messageId,quote:'I prefer concise examples.'}] : []});

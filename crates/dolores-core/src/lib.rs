@@ -11,7 +11,9 @@ mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 mod automatic_memory;
 mod instructions;
+mod skill_drafts;
 mod skills;
+pub use skill_drafts::*;
 pub use skills::{
     effective_skills, prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument,
     SkillScope, SkillSource, SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES,
@@ -46,7 +48,7 @@ pub struct PluginDescriptor {
     pub api_version: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     User,
@@ -54,7 +56,7 @@ pub enum Role {
     System,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
     pub role: Role,
     pub content: String,
@@ -192,6 +194,9 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn promote_skill(&self, _: &SkillPromotion) -> Result<ProjectSkill, String> {
+        Err("This storage plugin does not support evaluated skill promotion.".into())
+    }
     fn global_skills(&self) -> Result<Vec<ProjectSkill>, String> {
         Ok(vec![])
     }

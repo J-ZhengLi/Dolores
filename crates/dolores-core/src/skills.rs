@@ -60,6 +60,8 @@ impl SkillDocument {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillVersion {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evaluation: Option<crate::SkillEvaluation>,
     pub version: u32,
     pub reviewed_at: i64,
     pub document: SkillDocument,
@@ -91,6 +93,12 @@ impl ProjectSkill {
             return Err("Saved skills are invalid. Review Skills before sending.".into());
         }
         for version in &self.versions {
+            if let Some(evaluation) = &version.evaluation {
+                evaluation.validate()?;
+                if !evaluation.promotable() {
+                    return Err("Saved generated skill has no passing improvement check.".into());
+                }
+            }
             version.document.validate()?;
             if version.document.name != self.name
                 || version.version == 0
@@ -170,15 +178,19 @@ pub fn prepare_skill_context(
     let mut sources = vec![];
     for skill in active {
         let version = skill.current();
-        let source = format!(
-            "{}.agents/skills/{}/SKILL.md",
-            if skill.scope == SkillScope::Global {
-                "~/"
-            } else {
-                ""
-            },
-            skill.name
-        );
+        let source = if version.evaluation.is_some() {
+            format!("Dolores reviewed draft: {}", skill.name)
+        } else {
+            format!(
+                "{}.agents/skills/{}/SKILL.md",
+                if skill.scope == SkillScope::Global {
+                    "~/"
+                } else {
+                    ""
+                },
+                skill.name
+            )
+        };
         // JSON encoding preserves exact literal text and separates host framing.
         let data = serde_json::to_string(&version.document)
             .map_err(|_| "Skills could not be prepared.")?;
@@ -274,6 +286,7 @@ mod tests {
             revision: 1,
             enabled: true,
             versions: vec![SkillVersion {
+                evaluation: None,
                 version: 1,
                 reviewed_at: 1,
                 rollback_from: None,

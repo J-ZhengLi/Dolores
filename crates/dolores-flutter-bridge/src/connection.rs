@@ -29,7 +29,7 @@ impl ConnectionManager {
     pub(super) fn automatic_memory_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         self.bounded_review_provider(512, 10)
     }
-    fn bounded_review_provider(
+    pub(super) fn bounded_review_provider(
         &self,
         max_output: u32,
         timeout: u32,

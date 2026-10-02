@@ -87,7 +87,7 @@ impl Engine {
         }
         let items:Vec<_> = names.into_iter().map(|name| {
             let record = saved.iter().find(|s| s.name == name);
-            json!({"name":name,"scope":scope,"overridden":project_names.contains(&name),"enabled":record.is_some_and(|s| s.enabled),"revision":record.map(|s| s.revision),"version":record.map(|s| s.current().version),"description":record.map(|s| &s.current().document.description),"sourceAvailable":catalog.as_ref().is_ok_and(|c| c.sources.contains(&name))})
+            json!({"name":name,"scope":scope,"generated":record.is_some_and(|s| s.current().evaluation.is_some()),"overridden":project_names.contains(&name),"enabled":record.is_some_and(|s| s.enabled),"revision":record.map(|s| s.revision),"version":record.map(|s| s.current().version),"description":record.map(|s| &s.current().document.description),"sourceAvailable":catalog.as_ref().is_ok_and(|c| c.sources.contains(&name))})
         }).collect();
         Ok(
             json!({"items":items,"scope":scope,"directory":root,"partial":catalog.as_ref().is_ok_and(|c| c.partial),"problem":catalog.err()}),
@@ -140,8 +140,18 @@ impl Engine {
             current.clone()?
         };
         let token = uuid::Uuid::new_v4().to_string();
+        let evaluation = version
+            .and_then(|number| {
+                saved
+                    .as_ref()?
+                    .versions
+                    .iter()
+                    .find(|v| v.version == number)
+            })
+            .and_then(|v| v.evaluation.as_ref());
         let versions:Vec<_> = saved.iter().flat_map(|s| &s.versions).map(|v| json!({"version":v.version,"reviewedAt":v.reviewed_at,"rollbackFrom":v.rollback_from})).collect();
-        let response = json!({"scope":scope,"token":token,"document":document,"enabled":saved.as_ref().is_some_and(|s| s.enabled),"revision":saved.as_ref().map(|s| s.revision),"activeVersion":saved.as_ref().map(|s| s.current().version),"versions":versions,"reviewVersion":version,"sourceMatches":current.as_ref().ok()==Some(&document),"alreadyActive":saved.as_ref().is_some_and(|s| s.enabled && s.current().document==document),"problem":current.err()});
+        let generated = evaluation.is_some();
+        let response = json!({"scope":scope,"token":token,"document":document,"evaluation":evaluation,"generated":generated,"enabled":saved.as_ref().is_some_and(|s| s.enabled),"revision":saved.as_ref().map(|s| s.revision),"activeVersion":saved.as_ref().map(|s| s.current().version),"versions":versions,"reviewVersion":version,"sourceMatches":current.as_ref().ok()==Some(&document),"alreadyActive":saved.as_ref().is_some_and(|s| s.enabled && s.current().document==document),"problem":if generated {None} else {current.err()}});
         *self
             .skill_review
             .lock()

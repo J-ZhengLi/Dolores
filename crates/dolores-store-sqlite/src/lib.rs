@@ -105,6 +105,12 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn promote_skill(
+        &self,
+        promotion: &dolores_core::SkillPromotion,
+    ) -> Result<dolores_core::ProjectSkill, String> {
+        self.promote_reviewed_skill(promotion)
+    }
     fn global_skills(&self) -> Result<Vec<dolores_core::ProjectSkill>, String> {
         self.read_skills(skills::GLOBAL_ROOT)
     }

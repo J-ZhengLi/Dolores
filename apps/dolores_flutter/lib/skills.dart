@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'bridge.dart';
 import 'chat.dart';
 import 'inspector.dart';
+import 'skill_draft.dart';
 import 'theme.dart';
 
 Future<void> showSkills(BuildContext context, ChatController chat) =>
@@ -81,6 +82,22 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   }
 
   Future<void> _list() => _act(_loadList);
+  Future<void> _draft() => _act(() async {
+    final promoted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SkillDraftInspector(
+        bridge: widget.bridge,
+        session: widget.session,
+        scope: scope,
+      ),
+    );
+    if (!mounted) return;
+    if (promoted == true) {
+      notice = 'Tested skill activated for future messages.';
+    }
+    await _loadList();
+  });
   Future<void> _changeScope(String value) => _act(() async {
     setState(() {
       scope = value;
@@ -231,7 +248,12 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                         'Reviewing saved version ${review!['reviewVersion']}. Activation records a new version; the source file stays unchanged.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
-                    if (review!['sourceMatches'] != true)
+                    if (review!['generated'] == true)
+                      const Text(
+                        'Drafted and tested in Dolores. Stored locally; no source file was created.',
+                      ),
+                    if (review!['sourceMatches'] != true &&
+                        review!['generated'] != true)
                       const Text(
                         'The reviewed snapshot differs from the current file, or the file is unavailable.',
                       ),
@@ -241,6 +263,10 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                     const SizedBox(height: 8),
+                    if (review!['evaluation'] is Map)
+                      SkillEvaluationView(
+                        evaluation: review!['evaluation'] as Map,
+                      ),
                     Card(
                       elevation: 0,
                       color: p.surface,
@@ -325,12 +351,17 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                 ),
+                              if (item['generated'] == true)
+                                const Text(
+                                  'Drafted and tested · saved locally',
+                                ),
                               Wrap(
                                 spacing: 8,
                                 children: [
                                   TextButton(
                                     key: Key('review-skill-${item['name']}'),
-                                    onPressed: busy
+                                    onPressed:
+                                        busy || item['sourceAvailable'] == false
                                         ? null
                                         : () => _select(item['name'] as String),
                                     child: const Text('Review file'),
@@ -363,6 +394,12 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  if (review == null)
+                    TextButton(
+                      key: const Key('draft-skill'),
+                      onPressed: busy ? null : _draft,
+                      child: const Text('Draft from chat'),
+                    ),
                   if (review != null)
                     TextButton(
                       key: const Key('skills-back'),

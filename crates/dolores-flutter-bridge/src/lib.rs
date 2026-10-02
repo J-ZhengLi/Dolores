@@ -8,6 +8,7 @@ mod instructions;
 mod memory;
 mod memory_suggestions;
 mod recovery;
+mod skill_drafts;
 mod skills;
 mod summaries;
 mod workspace;
@@ -52,6 +53,7 @@ struct Engine {
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
     skill_review: Mutex<Option<skills::SkillReview>>,
+    skill_draft_review: Arc<Mutex<Option<skill_drafts::DraftReview>>>,
     global_skills_directory: Option<PathBuf>,
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
@@ -61,6 +63,31 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ReviewSkillExamples {
+        session: String,
+        scope: dolores_core::SkillScope,
+    },
+    GenerateSkillDraft {
+        id: u64,
+        session: String,
+        token: String,
+        #[serde(rename = "messageIds")]
+        message_ids: Vec<i64>,
+    },
+    EvaluateSkillDraft {
+        id: u64,
+        session: String,
+        token: String,
+        draft: dolores_core::SkillDraft,
+        trials: Vec<dolores_core::SkillTrial>,
+    },
+    PromoteSkillDraft {
+        session: String,
+        token: String,
+    },
+    DiscardSkillDraft {
+        token: String,
+    },
     ProjectSkills {
         session: String,
         #[serde(default)]
@@ -312,6 +339,7 @@ impl Engine {
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
             skill_review: Mutex::new(None),
+            skill_draft_review: Arc::new(Mutex::new(None)),
             global_skills_directory: None,
             memory_review: Arc::new(Mutex::new(None)),
             summary_review: Arc::new(Mutex::new(None)),
@@ -390,6 +418,26 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ReviewSkillExamples { session, scope } => {
+                self.review_skill_examples(&session, scope)
+            }
+            Command::GenerateSkillDraft {
+                id,
+                session,
+                token,
+                message_ids,
+            } => self.generate_skill_draft(&mut active, id, session, token, message_ids),
+            Command::EvaluateSkillDraft {
+                id,
+                session,
+                token,
+                draft,
+                trials,
+            } => self.evaluate_skill_draft(&mut active, id, session, token, draft, trials),
+            Command::PromoteSkillDraft { session, token } => {
+                self.promote_skill_draft(&session, &token)
+            }
+            Command::DiscardSkillDraft { token } => self.discard_skill_draft(&token),
             Command::ReviewSummary { session } => self.review_summary(&session),
             Command::ProjectSkills { session, scope } => self.scoped_skills(&session, scope),
             Command::ReviewSkill {

@@ -1150,6 +1150,161 @@ Future<void> _run(
       'Global Disable and Forget exclude future retrieval and preserve global files',
       checks,
     );
+    chat.draft = 'Review synthetic work';
+    await chat.send();
+    await waitUntil(() => !chat.busy && !chat.changing);
+    final draftMessageCount = chat.messages.length;
+    await press('project-skills', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('draft-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    CheckboxListTile? sourceChoice;
+    void findDraftChoice(Element element) {
+      if (element.widget is CheckboxListTile) {
+        sourceChoice ??= element.widget as CheckboxListTile;
+      }
+      element.visitChildren(findDraftChoice);
+    }
+
+    findDraftChoice(capture.currentContext! as Element);
+    check(
+      sourceChoice?.value == false && sourceChoice?.onChanged != null,
+      'Skill draft sources require explicit selection and keep chat changes locked',
+      checks,
+    );
+    sourceChoice!.onChanged!(true);
+    await screenshot(capture, output, 'skill-draft-sources-light');
+    await press('generate-skill-draft', key: true);
+    bool draftFieldExists(String key) {
+      var found = false;
+      void visit(Element element) {
+        if (element.widget is TextField && element.widget.key == Key(key)) {
+          found = true;
+        }
+        element.visitChildren(visit);
+      }
+
+      visit(capture.currentContext! as Element);
+      return found;
+    }
+
+    await waitUntil(() => draftFieldExists('draft-skill-name'));
+    check(
+      ((await chat.bridge.call({
+                'command': 'projectSkills',
+                'session': chat.session,
+                'scope': 'global',
+              }))['items']
+              as List)
+          .every((item) => item['revision'] == null),
+      'Generated skill remains an unsaved editable draft',
+      checks,
+    );
+    Future<void> setDraftField(String key, String value) async {
+      TextField? field;
+      ScrollController? controller;
+      void visit(Element element) {
+        if (element.widget is TextField && element.widget.key == Key(key)) {
+          field = element.widget as TextField;
+        }
+        if (element.widget is ListView &&
+            element.widget.key == const Key('skill-draft-scroll')) {
+          controller = (element.widget as ListView).controller;
+        }
+        element.visitChildren(visit);
+      }
+
+      visit(capture.currentContext! as Element);
+      for (double offset = 0; field == null; offset += 180) {
+        final scroll = controller;
+        if (scroll == null || !scroll.hasClients) break;
+        final end = scroll.position.maxScrollExtent;
+        scroll.jumpTo(offset.clamp(0, end));
+        await WidgetsBinding.instance.endOfFrame;
+        visit(capture.currentContext! as Element);
+        if (offset >= end) break;
+      }
+      if (field == null) throw StateError('Missing draft field: $key');
+      field!.controller!.text = value;
+      field!.onChanged?.call(value);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+
+    await screenshot(capture, output, 'skill-draft-edit-light');
+    await setDraftField('skill-test-prompt-0', 'skill-test');
+    await setDraftField('skill-test-required-0', 'SKILL_PASS');
+    Future<void> scrollDraftToEnd() async {
+      void visit(Element element) {
+        if (element.widget is ListView &&
+            element.widget.key == const Key('skill-draft-scroll')) {
+          final scroll = (element.widget as ListView).controller;
+          if (scroll != null && scroll.hasClients) {
+            scroll.jumpTo(scroll.position.maxScrollExtent);
+          }
+        }
+        element.visitChildren(visit);
+      }
+
+      await WidgetsBinding.instance.endOfFrame;
+      visit(capture.currentContext! as Element);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+
+    await scrollDraftToEnd();
+    await screenshot(capture, output, 'skill-draft-tests-light');
+    await press('evaluate-skill-draft', key: true);
+    bool canPromote() {
+      var enabled = false;
+      void visit(Element element) {
+        if (element.widget is FilledButton &&
+            element.widget.key == const Key('promote-skill-draft')) {
+          enabled = (element.widget as FilledButton).onPressed != null;
+        }
+        element.visitChildren(visit);
+      }
+
+      visit(capture.currentContext! as Element);
+      return enabled;
+    }
+
+    await waitUntil(canPromote);
+    check(
+      canPromote(),
+      'Frozen baseline/candidate response comparison gates explicit promotion',
+      checks,
+    );
+    await scrollDraftToEnd();
+    await screenshot(capture, output, 'skill-draft-passing-light');
+    await setDraftField('skill-test-forbidden-0', 'FAIL');
+    check(
+      !canPromote(),
+      'Editing a tested draft invalidates its activation action',
+      checks,
+    );
+    await press('evaluate-skill-draft', key: true);
+    await waitUntil(canPromote);
+    await press('promote-skill-draft', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await press('saved-skill-review', key: true);
+    await screenshot(capture, output, 'skill-draft-receipt-light');
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    final draftedContext = (await chat.previewContext())!;
+    check(
+      draftedContext['skillEntries'][0]['evaluation']['results'][0]['candidate'] ==
+              'SKILL_PASS' &&
+          chat.messages.length == draftMessageCount &&
+          await globalFile.readAsString() == globalSkill,
+      'Tested skill retains its receipt and enters future context without changing transcript or source files',
+      checks,
+    );
+    await chat.bridge.call({
+      'command': 'forgetSkill',
+      'session': chat.session,
+      'scope': 'global',
+      'name': 'review',
+      'revision': 1,
+    });
     await chat.select(projectSkillSession);
     runApp(
       DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.dark),
