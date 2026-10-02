@@ -891,6 +891,123 @@ Future<void> _run(
     await screenshot(capture, output, 'changes-result-dark');
     press('Close');
     await waitUntil(() => !chat.changing);
+    final createdFile = File(path.join(workspace.path, 'created.txt'));
+    chat.newChat();
+    Future<void> proposeCreation([String prompt = 'tool-create']) async {
+      chat.draft = prompt;
+      await chat.send();
+      await waitUntil(
+        () => chat.toolApproval != null || (!chat.busy && !chat.changing),
+      );
+    }
+
+    await proposeCreation();
+    check(
+      chat.toolApproval?['name'] == 'create_text_file' &&
+          (chat.toolApproval?['diff'] as String?)?.startsWith(
+                '--- /dev/null',
+              ) ==
+              true &&
+          !await createdFile.exists(),
+      'Creation shows the complete addition without creating a file before approval',
+      checks,
+    );
+    await screenshot(capture, output, 'create-approval-dark');
+    await chat.decideTool(false);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      !await createdFile.exists() &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'denied',
+      'Denied creation leaves the destination absent',
+      checks,
+    );
+    await proposeCreation();
+    await chat.stop();
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      !await createdFile.exists() && chat.messages.length == 2,
+      'Stopping at creation approval neither creates a file nor saves a partial turn',
+      checks,
+    );
+    await proposeCreation();
+    await createdFile.writeAsString('External occupied path.');
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      await createdFile.readAsString() == 'External occupied path.' &&
+          chat.messages.last['metadata']['agent']['tools'][0]['content'] ==
+              'Target already exists. No file was created.',
+      'Creation refuses a destination occupied while awaiting approval',
+      checks,
+    );
+    await createdFile.delete(); // Isolated fixture only, never a model removal.
+    await proposeCreation();
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    final creationSession = chat.session!;
+    final creationPage = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': creationSession,
+    });
+    final creationId = creationPage['items'][0]['id'];
+    check(
+      await createdFile.readAsString() ==
+              '# Created with approval\r\nHello 世界.\r\n' &&
+          creationPage['items'][0]['beforeExists'] == false &&
+          creationPage['items'][0]['afterExists'] == true &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'created',
+      'Approved creation publishes exact Unicode and line endings with existence-aware journal metadata',
+      checks,
+    );
+    press('workspace-changes', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    press('change-$creationId', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    press('review-revert', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await screenshot(capture, output, 'created-file-removal-dark');
+    press('Cancel');
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    check(
+      await createdFile.exists(),
+      'Cancelling creation removal preserves the created file',
+      checks,
+    );
+    press('review-revert', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    press('apply-revert', key: true);
+    await waitUntil(() => !createdFile.existsSync());
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final removalPage = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': creationSession,
+    });
+    check(
+      removalPage['items'][0]['afterExists'] == false &&
+          removalPage['items'][0]['reverts'] == creationId,
+      'Remove once consumes the reviewed creation and records a separate removal',
+      checks,
+    );
+    press('Close');
+    await waitUntil(() => !chat.changing);
+    chat.newChat();
+    await proposeCreation('tool-create-empty');
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    final emptyFile = File(path.join(workspace.path, 'empty.txt'));
+    final emptyPage = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': chat.session,
+    });
+    check(
+      await emptyFile.exists() &&
+          await emptyFile.length() == 0 &&
+          emptyPage['items'][0]['beforeExists'] == false,
+      'Empty-file creation is distinct from an absent file',
+      checks,
+    );
     chat.newChat();
     await chat.select(readSession);
     chat.draft = 'tool-deny';

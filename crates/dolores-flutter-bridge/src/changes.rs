@@ -1,6 +1,6 @@
 use super::Engine;
-use dolores_core::{ChangeSnapshot, WorkspaceJournal};
-use dolores_tools_fs::RevertPlan;
+use dolores_core::{ChangeJournal, ChangeSnapshot, WorkspaceJournal};
+use dolores_tools_fs::{RemoveCreatedPlan, RevertPlan};
 use serde_json::{json, Value};
 use std::{
     path::Path,
@@ -14,7 +14,32 @@ pub(super) struct PendingRevert {
     root: String,
     change_id: i64,
     created: Instant,
-    plan: RevertPlan,
+    plan: ReversePlan,
+}
+
+enum ReversePlan {
+    Restore(RevertPlan),
+    Remove(RemoveCreatedPlan),
+}
+impl ReversePlan {
+    fn diff(&self) -> &str {
+        match self {
+            Self::Restore(plan) => plan.diff(),
+            Self::Remove(plan) => plan.diff(),
+        }
+    }
+    fn operation(&self) -> &str {
+        match self {
+            Self::Restore(_) => "restore",
+            Self::Remove(_) => "remove",
+        }
+    }
+    fn apply(self, journal: Arc<dyn ChangeJournal>) -> Result<String, String> {
+        match self {
+            Self::Restore(plan) => plan.apply(journal),
+            Self::Remove(plan) => plan.apply(journal),
+        }
+    }
 }
 
 impl Engine {
@@ -47,7 +72,9 @@ impl Engine {
     pub(super) fn change_details(&self, session: &str, id: i64) -> Result<Value, String> {
         let entry = self.scoped_change(session, id)?;
         Ok(
-            json!({"change":entry.change,"diff":dolores_tools_fs::change_diff(&entry.before,&entry.after)}),
+            json!({"change":entry.change,"diff":dolores_tools_fs::file_change_diff(
+                entry.change.before_exists.then_some(entry.before.as_str()),
+                entry.change.after_exists.then_some(entry.after.as_str()))}),
         )
     }
     pub(super) fn preview_revert(&self, session: &str, id: i64) -> Result<Value, String> {
@@ -58,14 +85,22 @@ impl Engine {
         {
             return Err("This change can no longer be reverted.".into());
         }
-        let plan = RevertPlan::preview(
-            Path::new(&entry.root),
-            &entry.change.target,
-            &entry.after,
-            &entry.before,
-        )?;
+        let plan = match (entry.change.before_exists, entry.change.after_exists) {
+            (true, true) => ReversePlan::Restore(RevertPlan::preview(
+                Path::new(&entry.root),
+                &entry.change.target,
+                &entry.after,
+                &entry.before,
+            )?),
+            (false, true) => ReversePlan::Remove(RemoveCreatedPlan::preview(
+                Path::new(&entry.root),
+                &entry.change.target,
+                &entry.after,
+            )?),
+            _ => return Err("This change can no longer be reverted.".into()),
+        };
         let token = uuid::Uuid::new_v4().to_string();
-        let response = json!({"token":token,"target":entry.change.target,"diff":plan.diff()});
+        let response = json!({"token":token,"target":entry.change.target,"diff":plan.diff(),"operation":plan.operation()});
         *self.revert.lock().map_err(|_| "Revert is unavailable.")? = Some(PendingRevert {
             token,
             session: session.into(),
@@ -137,6 +172,8 @@ mod tests {
                 target: "note".into(),
                 before: "before 世界\r\n".into(),
                 after: "after 世界\r\n".into(),
+                before_exists: true,
+                after_exists: true,
                 reverts: None,
             })
             .unwrap();
@@ -247,5 +284,65 @@ mod tests {
         assert_eq!(page.items.len(), 2);
         assert_eq!(page.items[0].reverts, Some(id));
         assert_eq!(page.items[1].status, "reverted");
+    }
+
+    #[test]
+    fn created_empty_file_removal_is_scoped_reviewed_cancelable_and_single_use() {
+        for content in ["", "new 世界\r\n"] {
+            let dir = tempfile::tempdir().unwrap();
+            let (engine, store, _) = setup(dir.path());
+            let root = store.workspace("chat").unwrap().root.unwrap();
+            let id = store
+                .begin_change(&ChangeDraft {
+                    root,
+                    session: "chat".into(),
+                    target: "new".into(),
+                    before: String::new(),
+                    after: content.into(),
+                    before_exists: false,
+                    after_exists: true,
+                    reverts: None,
+                })
+                .unwrap();
+            store.finish_change(id, true).unwrap();
+            let file = dir.path().join("new");
+            std::fs::write(&file, content).unwrap();
+            let detail = engine.change_details("chat", id).unwrap();
+            assert_eq!(detail["change"]["beforeExists"], false);
+            assert!(detail["diff"]
+                .as_str()
+                .unwrap()
+                .starts_with("--- /dev/null"));
+            let preview = engine.preview_revert("chat", id).unwrap();
+            assert_eq!(preview["operation"], "remove");
+            assert!(preview["diff"].as_str().unwrap().contains("+++ /dev/null"));
+            assert!(file.exists());
+            engine
+                .cancel_revert(preview["token"].as_str().unwrap())
+                .unwrap();
+            assert!(engine
+                .apply_revert("chat", preview["token"].as_str().unwrap())
+                .is_err());
+            let preview = engine.preview_revert("chat", id).unwrap();
+            std::fs::write(&file, "external").unwrap();
+            assert!(engine
+                .apply_revert("chat", preview["token"].as_str().unwrap())
+                .is_err());
+            assert_eq!(std::fs::read_to_string(&file).unwrap(), "external");
+            std::fs::write(&file, content).unwrap();
+            let preview = engine.preview_revert("chat", id).unwrap();
+            let result = engine
+                .apply_revert("chat", preview["token"].as_str().unwrap())
+                .unwrap();
+            assert_eq!(result["removed"], true);
+            assert!(!file.exists());
+            assert!(engine.preview_revert("chat", id).is_err());
+            let removal = store
+                .change_snapshot(result["changeId"].as_i64().unwrap())
+                .unwrap()
+                .change;
+            assert!(removal.before_exists && !removal.after_exists && removal.reverts == Some(id));
+            assert!(engine.preview_revert("chat", removal.id).is_err());
+        }
     }
 }

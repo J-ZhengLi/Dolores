@@ -8,6 +8,8 @@ fn draft(root: &str) -> ChangeDraft {
         target: "note".into(),
         before: "before 世界".into(),
         after: "after 世界".into(),
+        before_exists: true,
+        after_exists: true,
         reverts: None,
     }
 }
@@ -100,4 +102,47 @@ fn revert_receipts_are_atomic_bound_and_rollback_to_pending_on_failure() {
     invalid.root = "project".into();
     invalid.after = "x".repeat(dolores_core::MAX_TOOL_BYTES + 1);
     assert!(store.begin_change(&invalid).is_err());
+}
+
+#[test]
+fn schema_seven_migrates_existing_edits_and_empty_creation_removal_survives_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("journal.db");
+    let legacy = Connection::open(&db).unwrap();
+    legacy.execute_batch("CREATE TABLE file_changes (id INTEGER PRIMARY KEY, root TEXT NOT NULL, session_id TEXT NOT NULL, target TEXT NOT NULL, created_at INTEGER NOT NULL, status TEXT NOT NULL, reverts INTEGER REFERENCES file_changes(id), before_text TEXT NOT NULL, after_text TEXT NOT NULL);
+        INSERT INTO file_changes VALUES(1,'project','chat','old',1,'applied',NULL,'before','after'); PRAGMA user_version=7;").unwrap();
+    drop(legacy);
+    let store = SqliteStore::open(&db).unwrap();
+    let legacy = store.change_snapshot(1).unwrap();
+    assert!(legacy.change.before_exists && legacy.change.after_exists);
+    assert_eq!(
+        (legacy.before.as_str(), legacy.after.as_str()),
+        ("before", "after")
+    );
+    bind(&store, "project");
+    let mut creation = draft("project");
+    creation.target = "empty".into();
+    creation.before.clear();
+    creation.after.clear();
+    creation.before_exists = false;
+    let original = store.begin_change(&creation).unwrap();
+    store.finish_change(original, true).unwrap();
+    let mut removal = creation;
+    removal.before_exists = true;
+    removal.after_exists = false;
+    assert!(store.begin_change(&removal).is_err()); // Arbitrary deletion is unsupported.
+    removal.reverts = Some(original);
+    let reverse = store.begin_change(&removal).unwrap();
+    store.finish_change(reverse, true).unwrap();
+    drop(store);
+    let store = SqliteStore::open(&db).unwrap();
+    let created = store.change_snapshot(original).unwrap().change;
+    assert_eq!(created.status, "reverted");
+    assert!(!created.before_exists && created.after_exists);
+    let removed = store.change_snapshot(reverse).unwrap().change;
+    assert!(removed.before_exists && !removed.after_exists);
+    assert_eq!((removed.bytes_before, removed.bytes_after), (0, 0));
+    assert!(store.begin_change(&removal).is_err());
+    store.delete("chat").unwrap();
+    assert_eq!(store.changes_page("project", None).unwrap().items.len(), 3);
 }

@@ -1,5 +1,7 @@
 # Local change journal and reviewed revert — brick 3.6
 
+Brick 3.7 extends this journal to new-file creation and separately reviewed removal. Schema 8 adds explicit existence flags, including empty files; original creations use Remove once instead of restoring empty text. The original replacement flow below remains valid. See [current creation and removal design](approved-creation.md) for publication, migration and concurrency boundaries.
+
 Working chats in the selected Flutter host record each approved file replacement independently of the reply. The header's Changes action shows records for that saved working folder, newest first, and offers a separate review and Revert once decision. Side chats have no Changes action. Another chat in the same project can inspect the same journal after the original chat is deleted.
 
 ## Plugin boundaries and persistence

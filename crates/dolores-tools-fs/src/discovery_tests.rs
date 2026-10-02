@@ -29,7 +29,7 @@ async fn discovery_keeps_root_relative_paths_unicode_and_literal_query_binding()
     .unwrap();
     std::fs::write(root.path().join("top.txt"), "Other content").unwrap();
     let tools = folder_tools(root.path()).unwrap();
-    assert_eq!(tools.len(), 4);
+    assert_eq!(tools.len(), 5);
     let listing = execute(tools[1].as_ref(), json!({"path":"docs"})).await;
     assert_eq!(listing["entries"][0]["path"], "docs/notes.txt");
     let result = execute(tools[2].as_ref(), json!({"path":"docs","query":"世界.*"})).await;

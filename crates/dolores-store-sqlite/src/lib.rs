@@ -51,9 +51,15 @@ impl SqliteStore {
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(storage_error)?;
-        if version < 7 {
+        if version < 8 {
+            for column in ["before_exists", "after_exists"] {
+                let exists: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('file_changes') WHERE name=?1)", [column], |row| row.get(0)).map_err(storage_error)?;
+                if !exists {
+                    connection.execute_batch(&format!("ALTER TABLE file_changes ADD COLUMN {column} INTEGER NOT NULL DEFAULT 1 CHECK({column} IN (0,1));")).map_err(storage_error)?;
+                }
+            }
             connection
-                .pragma_update(None, "user_version", 7)
+                .pragma_update(None, "user_version", 8)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -493,7 +499,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

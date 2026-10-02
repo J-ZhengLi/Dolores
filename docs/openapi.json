@@ -171,14 +171,14 @@
           "session": "string",
           "changeId": "i64"
         },
-        "result": "{token:string,target:string,diff:string}; original pending/applied edit only, saved folder and current after snapshot must match; no write"
+        "result": "{token:string,target:string,diff:string,operation:restore|remove}; original pending/applied replacement or creation only, saved folder/current after snapshot must match; no write"
       },
       "applyRevert": {
         "arguments": {
           "session": "string",
           "token": "string"
         },
-        "result": "{applied:true,bytesBefore,bytesAfter,changeId:i64,journalStatus:applied|pending}; one-use bound preview, 5-minute expiry; failure consumes token"
+        "result": "{applied:true,bytesBefore,bytesAfter,changeId:i64,journalStatus:applied|pending,removed?:true}; one-use bound preview, 5-minute expiry; failure consumes token; removed true only for reversal of a creation"
       },
       "cancelRevert": {
         "arguments": {
@@ -205,7 +205,7 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 7,
+      "schemaVersion": 8,
       "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
       "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
@@ -220,7 +220,7 @@
     },
     "folderTools": {
       "default": "enabled automatically for project and temporary chats, disabled for explicit side and legacy chats; working folder persists per session",
-      "approval": "Each valid operation requires a run-bound single-use decision. Allow once/Deny gates listing, scanning and reading; Apply once/Deny gates the reviewed local edit diff. Denials match name,target,query,diff within a run. Local edit snapshot preparation does not write or share the snapshot with the provider. Stop/timeout/shutdown clear pending approvals.",
+      "approval": "Each valid operation requires a run-bound single-use decision. Allow once/Deny gates listing, scanning and reading; Apply once/Deny gates the reviewed local edit diff. Denials match name,target,query,diff within a run. Local edit snapshot preparation does not write or share the snapshot with the provider. Stop/timeout/shutdown clear pending approvals. Create once/Deny gates the complete new-file addition; an occupied path is never replaced.",
       "limits": {
         "modelCalls": 4,
         "toolCalls": 4,
@@ -235,7 +235,9 @@
         "streamDataFrames": 4096,
         "incompleteFrameBufferBytes": 1048576,
         "editFileBytes": 16384,
-        "editDiffBytes": 16384
+        "editDiffBytes": 16384,
+        "createFileBytes": 16384,
+        "createDiffBytes": 16384
       },
       "timeout": "min(configured timeoutSeconds,300) for the whole model/tool/approval phase, excluding initial preparation and final persistence; OS filesystem calls cannot be forcibly interrupted",
       "paths": "Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret.",
@@ -244,7 +246,8 @@
         "read_text_file",
         "list_folder",
         "search_text",
-        "edit_text_file"
+        "edit_text_file",
+        "create_text_file"
       ],
       "listing": {
         "arguments": "{path:string}; required; additional fields rejected; . for root or direct relative folder",
@@ -277,10 +280,16 @@
         "publication": "Recheck bytes and ordinary permissions, exclusive-create staged file beside target, preserve ordinary permissions, flush, recheck and observe Stop before atomic replacement. Cleanup only owned staged file on failure. Optimistic checks, not a cross-program compare-and-swap guarantee; no universal ACL/xattr preservation claim.",
         "result": "status edited; content JSON {applied:true,bytesBefore,bytesAfter,changeId:i64,journalStatus:applied|pending}. Journaled selected host includes changeId and journalStatus; alternative unjournaled registrations omit these fields. Conflict has fixed no-edit-applied message.",
         "effects": "Applied files and independent folder journal survive later Stop/timeout/model/save failure and deleted chats. Intent failure prevents write; receipt failure is honest pending. Completed conversation metadata/export remains separate. Explicit local reviewed revert added in brick 3.6."
+      },
+      "creation": {
+        "arguments": "{path:string,content:string}; both required, no extra fields; direct relative path under an existing directory. Complete UTF-8 text including empty files, within the 4096-byte JSON argument cap and 16384-byte file/diff caps. Secret/VCS/device/alias paths excluded; no mkdir.",
+        "preview": "Complete literal addition, /dev/null before header and missing-newline markers; call/target/diff-bound Create once/Deny. Preparation never writes.",
+        "publication": "Exclusive staged file, flush, durable intent, cancellation/direct-parent/absence checks, then no-overwrite hard-link publication. Existing entry always refused; unsupported filesystems fail with no rename fallback. Cleanup owned staging name only.",
+        "result": "status created; JSON {applied:true,created:true,bytesBefore:0,bytesAfter,changeId,journalStatus:applied|pending}; unjournaled alternate registration omits changeId/journalStatus. Applied effects remain after later chat failure or deletion."
       }
     },
     "workingSessions": {
-      "schemaVersion": 7,
+      "schemaVersion": 8,
       "temporary": "distinct app-data/workspaces/<session id> directory created on first send; persisted across restart, not auto-erased",
       "binding": "immutable per conversation; saved root authoritative; missing folder never falls back",
       "privacy": "absolute roots are local host/UI state, excluded from automatic provider context and exports",
@@ -288,11 +297,11 @@
       "newChat": "sidebar New chat starts temporary; project + creates project chat; menu offers explicit side mode"
     },
     "changeJournal": {
-      "schemaVersion": 7,
+      "schemaVersion": 8,
       "scope": "saved canonical working folder, retained independently of chat deletion; 20 summary rows per page and one detail",
-      "snapshots": "private unencrypted before/after UTF-8 snapshots, each <=16384 bytes; not automatically sent to provider or included in conversation exports; old edits not backfilled",
-      "publication": "FULL-synchronous pending intent before replacement; intent failure prevents write; receipt failure preserves applied result with journalStatus pending; no automatic reconciliation or rollback",
-      "revert": "local-only separate preview/approval with unpredictable one-use session/root/change-bound token, 300-second expiry; changed bytes/ordinary permissions/direct path refused; new intent and atomic original/revert receipts; no reverse-of-reverse",
+      "snapshots": "private unencrypted before/after UTF-8 snapshots, each <=16384 bytes; not automatically sent to provider or included in conversation exports; old edits not backfilled. Explicit beforeExists/afterExists distinguishes absent from existing empty files; schema-7 edits migrate true/true unchanged.",
+      "publication": "FULL-synchronous pending intent before replacement; intent failure prevents write; receipt failure preserves applied result with journalStatus pending; no automatic reconciliation or rollback. Creation uses hard-link publication without overwriting. Local reversal of a creation removes only matching saved bytes after a separate approval; receipt failure reports actual removal with pending status.",
+      "revert": "local-only separate preview/approval with unpredictable one-use session/root/change-bound token, 300-second expiry; changed bytes/ordinary permissions/direct path refused; new intent and atomic original/revert receipts; no reverse-of-reverse. Preview operation is restore or remove. Original creations use Remove once; changed/missing files refused, no arbitrary model deletion or reverse-of-removal. Removal checks are optimistic, not atomic cross-process CAS.",
       "limits": "one pending plan, bounded snapshots/page/UI; growing disk retention; no idle work or new worker",
       "concurrency": "optimistic filesystem checks, not cross-process compare-and-swap; ordinary permissions only, no universal ACL/xattr guarantees"
     }
@@ -724,7 +733,8 @@
               "read_text_file",
               "list_folder",
               "search_text",
-              "edit_text_file"
+              "edit_text_file",
+              "create_text_file"
             ]
           },
           "target": {
@@ -737,7 +747,7 @@
           },
           "diff": {
             "type": "string",
-            "description": "Optional edit-only literal unified diff; at most 16384 UTF-8 bytes; old records omit it."
+            "description": "Optional replacement/creation literal unified diff; at most 16384 UTF-8 bytes; required for write approval, old records omit it."
           }
         }
       },
@@ -768,7 +778,8 @@
               "denied",
               "blocked",
               "error",
-              "edited"
+              "edited",
+              "created"
             ]
           },
           "content": {
@@ -781,7 +792,7 @@
           },
           "diff": {
             "type": "string",
-            "description": "Optional edit-only literal unified diff; at most 16384 UTF-8 bytes; old records omit it."
+            "description": "Optional replacement/creation literal unified diff; at most 16384 UTF-8 bytes; required for write approval, old records omit it."
           }
         }
       },
@@ -914,7 +925,9 @@
           "status",
           "reverts",
           "bytesBefore",
-          "bytesAfter"
+          "bytesAfter",
+          "beforeExists",
+          "afterExists"
         ],
         "properties": {
           "id": {
@@ -950,6 +963,14 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 16384
+          },
+          "beforeExists": {
+            "type": "boolean",
+            "description": "Explicit existence, independent of zero byte count. Schema-7 replacements migrate true."
+          },
+          "afterExists": {
+            "type": "boolean",
+            "description": "Explicit existence, independent of zero byte count. Schema-7 replacements migrate true."
           }
         }
       }

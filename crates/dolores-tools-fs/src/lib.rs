@@ -5,11 +5,16 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{io::Read, path::Path, sync::Arc};
 use tokio_util::sync::CancellationToken;
+mod create;
+#[cfg(test)]
+mod create_tests;
 mod discovery;
 mod edit;
 #[cfg(test)]
 mod journal_tests;
-pub use edit::{change_diff, RevertPlan};
+mod remove_created;
+pub use edit::{change_diff, file_change_diff, RevertPlan};
+pub use remove_created::RemoveCreatedPlan;
 
 /// Explicit built-in registration; all tools share the same directory handle.
 pub fn folder_tools(root: &Path) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
@@ -30,10 +35,11 @@ fn registered_tools(
         Arc::new(read.clone()),
         Arc::new(discovery::Discover::new(read.clone(), false)),
         Arc::new(discovery::Discover::new(read.clone(), true)),
-        Arc::new(match journal {
-            Some(journal) => edit::EditTextFile::journaled(read, journal),
-            None => edit::EditTextFile::new(read),
+        Arc::new(match journal.clone() {
+            Some(journal) => edit::EditTextFile::journaled(read.clone(), journal),
+            None => edit::EditTextFile::new(read.clone()),
         }),
+        Arc::new(create::CreateTextFile::new(read, journal)),
     ])
 }
 

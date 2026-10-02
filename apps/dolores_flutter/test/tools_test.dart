@@ -52,11 +52,17 @@ class ToolBridge implements ChatBridge {
             'request': {
               'callId': 'file-one',
               'name': tool,
-              'target': tool == 'read_text_file' || tool == 'edit_text_file'
+              'target':
+                  [
+                    'read_text_file',
+                    'edit_text_file',
+                    'create_text_file',
+                  ].contains(tool)
                   ? 'readme.txt'
                   : '.',
               if (tool == 'search_text') 'query': query,
-              if (tool == 'edit_text_file') 'diff': editDiff,
+              if (['edit_text_file', 'create_text_file'].contains(tool))
+                'diff': editDiff,
             },
           },
         ]);
@@ -70,20 +76,36 @@ class ToolBridge implements ChatBridge {
         final record = {
           'callId': 'file-one',
           'name': tool,
-          'target': tool == 'read_text_file' || tool == 'edit_text_file'
+          'target':
+              [
+                'read_text_file',
+                'edit_text_file',
+                'create_text_file',
+              ].contains(tool)
               ? 'readme.txt'
               : '.',
           if (tool == 'search_text') 'query': query,
-          if (tool == 'edit_text_file') 'diff': editDiff,
+          if (['edit_text_file', 'create_text_file'].contains(tool))
+            'diff': editDiff,
           'status': allowed
               ? (tool == 'read_text_file'
                     ? 'read'
                     : tool == 'edit_text_file'
                     ? (editConflict ? 'error' : 'edited')
+                    : tool == 'create_text_file'
+                    ? (editConflict ? 'error' : 'created')
                     : 'completed')
               : 'denied',
           'content': !allowed
               ? 'User denied this read'
+              : tool == 'create_text_file'
+              ? (editConflict
+                    ? 'Target already exists. No file was created.'
+                    : jsonEncode({
+                        'applied': true,
+                        'created': true,
+                        'bytesAfter': 0,
+                      }))
               : tool == 'edit_text_file'
               ? (editConflict
                     ? 'File changed since preview. No edit was applied.'
@@ -282,6 +304,61 @@ void _editTests() {
 
 void main() {
   _editTests();
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Creation in compact ${dark ? 'dark' : 'light'} theme requires an explicit decision and shows its result',
+      (tester) async {
+        compact(tester);
+        final bridge = ToolBridge()..tool = 'create_text_file';
+        final chat = ready(bridge);
+        await tester.pumpWidget(
+          DoloresApp(
+            chat: chat,
+            themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          ),
+        );
+        await chat.send();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        expect(find.text('Create this file?'), findsOneWidget);
+        expect(find.text('Create once'), findsOneWidget);
+        expect(
+          find.byKey(const Key('edit-diff-approval-file-one')),
+          findsOneWidget,
+        );
+        expect(
+          bridge.commands.where((c) => c['command'] == 'approveTool'),
+          isEmpty,
+        );
+        await tester.tap(find.text('Deny'));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        expect(
+          chat.messages.last['metadata']['agent']['tools'].single['status'],
+          'denied',
+        );
+        chat.draft = 'Create again';
+        await chat.send();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Create once'));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        expect(
+          chat.messages.last['metadata']['agent']['tools'].single['status'],
+          'created',
+        );
+        final cards = find.text('readme.txt');
+        await tester.ensureVisible(cards.last);
+        await tester.tap(cards.last);
+        await tester.pumpAndSettle();
+        expect(find.text('Created one file · 0 bytes'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      },
+    );
+  }
   testWidgets(
     'Streamed public text stays visible at approval and saved progress stays separate from the final answer',
     (tester) async {

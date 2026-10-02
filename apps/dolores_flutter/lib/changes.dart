@@ -110,10 +110,13 @@ class _ChangesInspectorState extends State<ChangesInspector> {
     setState(() => preview = null); // Approval is consumed even on failure.
     final result = await _call('applyRevert', {'token': token});
     if (!mounted) return;
+    final action = result['removed'] == true
+        ? 'Created file removed'
+        : 'File reverted';
     setState(
       () => notice = result['journalStatus'] == 'pending'
-          ? 'File reverted. Its receipt needs a check; the local intent was saved.'
-          : 'File reverted. A separate change record was saved.',
+          ? '$action. Its receipt needs a check; the local intent was saved.'
+          : '$action. A separate change record was saved.',
     );
     cursor = null;
     await _page();
@@ -133,10 +136,16 @@ class _ChangesInspectorState extends State<ChangesInspector> {
     'reverted' => 'Reverted',
     _ => 'Needs check',
   };
+  String _kind(Map value) => value['beforeExists'] == false
+      ? 'Created'
+      : value['afterExists'] == false
+      ? 'Removed'
+      : 'Edited';
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     final change = detail?['change'] as Map?;
+    final removing = preview?['operation'] == 'remove';
     final canRevert =
         change != null &&
         change['reverts'] == null &&
@@ -144,7 +153,11 @@ class _ChangesInspectorState extends State<ChangesInspector> {
     return PopScope(
       canPop: !busy,
       child: InspectorFrame(
-        title: preview == null ? 'Changes' : 'Revert this change?',
+        title: preview == null
+            ? 'Changes'
+            : removing
+            ? 'Remove this created file?'
+            : 'Revert this change?',
         subtitle: 'This working folder · Local records survive chat deletion',
         canClose: !busy,
         child: Padding(
@@ -171,8 +184,10 @@ class _ChangesInspectorState extends State<ChangesInspector> {
                     if (preview != null) ...[
                       SelectableText('${preview!['target']}'),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Restore the saved text only if the file still matches this preview. This creates another local record.',
+                      Text(
+                        removing
+                            ? 'Remove this file only if it still matches the saved creation. This creates another local record. Removal cannot be reversed here.'
+                            : 'Restore the saved text only if the file still matches this preview. This creates another local record.',
                       ),
                       const SizedBox(height: 12),
                       EditDiff(
@@ -191,7 +206,9 @@ class _ChangesInspectorState extends State<ChangesInspector> {
                           FilledButton(
                             key: const Key('apply-revert'),
                             onPressed: busy ? null : _apply,
-                            child: const Text('Revert once'),
+                            child: Text(
+                              removing ? 'Remove once' : 'Revert once',
+                            ),
                           ),
                         ],
                       ),
@@ -212,13 +229,16 @@ class _ChangesInspectorState extends State<ChangesInspector> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '${_status(item['status'])}${item['reverts'] == null ? '' : ' · Revert'} · ${item['bytesBefore']} → ${item['bytesAfter']} bytes\n${DateTime.fromMillisecondsSinceEpoch(item['createdAt'] as int).toLocal()}',
+                            '${_kind(item)} · ${_status(item['status'])}${item['reverts'] == null ? '' : ' · Revert'} · ${item['bytesBefore']} → ${item['bytesAfter']} bytes\n${DateTime.fromMillisecondsSinceEpoch(item['createdAt'] as int).toLocal()}',
                           ),
                           onTap: busy ? null : () => _select(item['id'] as int),
                         ),
                       if (detail != null) ...[
                         const Divider(),
                         SelectableText('${change!['target']}'),
+                        Text(
+                          '${_kind(change)} · ${change['bytesAfter']} bytes after change',
+                        ),
                         if (change['status'] == 'pending')
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 8),

@@ -1,5 +1,7 @@
 # Dolores API
 
+Brick 3.7 adds `create_text_file {path,content}`, a complete addition diff and Create once/Deny. It refuses an occupied destination and requires an existing direct parent. Schema 8 records explicit before/after existence; `previewRevert` adds `operation:restore|remove`, and a recorded creation can be separately removed through Changes. No new bridge command or network route is added. See [creation design](design/approved-creation.md) and the current bridge contract.
+
 Brick 3.6 adds local `changesPage`, `changeDetails`, `previewRevert`, `applyRevert` and `cancelRevert` commands in the selected Flutter host. Schema 7 stores folder-bound snapshots and write-ahead intents independently of chats. Revert is local, separately reviewed and guarded against changed files; pending receipts explicitly represent uncertain completion. No network route or model tool is added. See [journal design](design/change-journal.md) and the bridge contract.
 
 Brick 3.5 adds `edit_text_file` to working chats and optional `diff` in approval/result records; status `edited` identifies an applied replacement. No new bridge command, HTTP route or schema migration is added. The local contract and filesystem-effect boundaries are documented in [approved edits](design/approved-edits.md) and `openapi.json`.

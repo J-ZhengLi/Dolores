@@ -9,6 +9,7 @@ class JournalBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
   bool conflict = false, reverted = false;
   String status = 'applied';
+  bool creation = false, empty = false;
   @override
   Future<void> open() async {}
   @override
@@ -24,6 +25,12 @@ class JournalBridge implements ChatBridge {
       'reverts': null,
       'bytesBefore': 10,
       'bytesAfter': 9,
+      if (creation) ...{
+        'beforeExists': false,
+        'afterExists': true,
+        'bytesBefore': 0,
+        'bytesAfter': empty ? 0 : 9,
+      },
     };
     switch (command['command']) {
       case 'changesPage':
@@ -40,6 +47,7 @@ class JournalBridge implements ChatBridge {
       case 'previewRevert':
         return {
           'token': 'one-use',
+          'operation': creation ? 'remove' : 'restore',
           'target': change['target'],
           'diff': '--- before\n+++ after\n-after 世界\n+before 世界',
         };
@@ -48,7 +56,11 @@ class JournalBridge implements ChatBridge {
           throw Exception('File changed since preview. No edit was applied.');
         }
         reverted = true;
-        return {'applied': true, 'journalStatus': 'applied'};
+        return {
+          'applied': true,
+          'removed': creation,
+          'journalStatus': 'applied',
+        };
       default:
         return null;
     }
@@ -100,6 +112,40 @@ Future<void> select(WidgetTester tester) async {
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Empty creation in compact ${dark ? 'dark' : 'light'} theme needs separate removal approval',
+      (tester) async {
+        final bridge = JournalBridge()
+          ..creation = true
+          ..empty = true;
+        await open(tester, bridge, dark: dark);
+        expect(find.textContaining('Created · Applied'), findsOneWidget);
+        await select(tester);
+        await tester.tap(find.byKey(const Key('review-revert')));
+        await tester.pumpAndSettle();
+        expect(find.text('Remove this created file?'), findsOneWidget);
+        expect(find.text('Remove once'), findsOneWidget);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'applyRevert'),
+          isEmpty,
+        );
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(bridge.commands.last['command'], 'cancelRevert');
+        await tester.tap(find.byKey(const Key('review-revert')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Remove once'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Created file removed.'), findsOneWidget);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'applyRevert').length,
+          1,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final dark in [false, true]) {
     testWidgets(
       'compact ${dark ? 'dark' : 'light'} review requires a separate revert decision',

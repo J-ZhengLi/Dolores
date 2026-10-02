@@ -11,13 +11,19 @@ fn summary(row: &Row<'_>) -> rusqlite::Result<FileChange> {
         reverts: row.get(4)?,
         bytes_before: row.get(5)?,
         bytes_after: row.get(6)?,
+        before_exists: row.get(7)?,
+        after_exists: row.get(8)?,
     })
 }
-const COLUMNS: &str = "id,created_at,target,status,reverts,length(CAST(before_text AS BLOB)),length(CAST(after_text AS BLOB))";
+const COLUMNS: &str = "id,created_at,target,status,reverts,length(CAST(before_text AS BLOB)),length(CAST(after_text AS BLOB)),before_exists,after_exists";
 
 impl SqliteStore {
     pub(super) fn insert_change(&self, draft: &ChangeDraft) -> Result<i64, String> {
-        if draft.before == draft.after
+        if (draft.before == draft.after && draft.before_exists == draft.after_exists)
+            || (!draft.before_exists && !draft.before.is_empty())
+            || (!draft.after_exists && !draft.after.is_empty())
+            || (!draft.before_exists && !draft.after_exists)
+            || (!draft.after_exists && draft.reverts.is_none())
             || draft.before.len() > dolores_core::MAX_TOOL_BYTES
             || draft.after.len() > dolores_core::MAX_TOOL_BYTES
             || draft.root.len() > 32768
@@ -41,12 +47,12 @@ impl SqliteStore {
             return Err("Working folder no longer belongs to this chat.".into());
         }
         if let Some(id) = draft.reverts {
-            let matches: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM file_changes WHERE id=?1 AND root=?2 AND target=?3 AND reverts IS NULL AND status IN ('pending','applied') AND before_text=?4 AND after_text=?5)", params![id,draft.root,draft.target,draft.after,draft.before], |r| r.get(0)).map_err(storage_error)?;
+            let matches: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM file_changes WHERE id=?1 AND root=?2 AND target=?3 AND reverts IS NULL AND status IN ('pending','applied') AND before_text=?4 AND after_text=?5 AND before_exists=?6 AND after_exists=?7)", params![id,draft.root,draft.target,draft.after,draft.before,draft.after_exists,draft.before_exists], |r| r.get(0)).map_err(storage_error)?;
             if !matches {
                 return Err("This change can no longer be reverted.".into());
             }
         }
-        tx.execute("INSERT INTO file_changes(root,session_id,target,created_at,status,reverts,before_text,after_text) VALUES(?1,?2,?3,?4,'pending',?5,?6,?7)", params![draft.root,draft.session,draft.target,now(),draft.reverts,draft.before,draft.after]).map_err(storage_error)?;
+        tx.execute("INSERT INTO file_changes(root,session_id,target,created_at,status,reverts,before_text,after_text,before_exists,after_exists) VALUES(?1,?2,?3,?4,'pending',?5,?6,?7,?8,?9)", params![draft.root,draft.session,draft.target,now(),draft.reverts,draft.before,draft.after,draft.before_exists,draft.after_exists]).map_err(storage_error)?;
         let id = tx.last_insert_rowid();
         tx.commit().map_err(storage_error)?;
         Ok(id)
@@ -108,9 +114,9 @@ impl SqliteStore {
                 |r| {
                     Ok(ChangeSnapshot {
                         change: summary(r)?,
-                        root: r.get(7)?,
-                        before: r.get(8)?,
-                        after: r.get(9)?,
+                        root: r.get(9)?,
+                        before: r.get(10)?,
+                        after: r.get(11)?,
                     })
                 },
             )

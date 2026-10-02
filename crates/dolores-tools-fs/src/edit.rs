@@ -15,7 +15,7 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 const CHANGED: &str = "File changed since preview. No edit was applied.";
-static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+pub(super) static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
 pub struct EditTextFile {
     read: ReadTextFile,
@@ -38,14 +38,14 @@ struct Arguments {
     new_text: String,
 }
 
-fn checkpoint(cancel: &CancellationToken) -> Result<(), String> {
+pub(super) fn checkpoint(cancel: &CancellationToken) -> Result<(), String> {
     if cancel.is_cancelled() {
         Err("Response stopped.".into())
     } else {
         Ok(())
     }
 }
-fn snapshot(directory: &Dir, path: &str) -> Result<(String, Permissions), String> {
+pub(super) fn snapshot(directory: &Dir, path: &str) -> Result<(String, Permissions), String> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(unix)]
@@ -118,9 +118,23 @@ pub fn change_diff(before: &str, after: &str) -> String {
     result
 }
 
-struct TempFile<'a> {
-    parent: &'a Dir,
-    name: String,
+pub fn file_change_diff(before: Option<&str>, after: Option<&str>) -> String {
+    let diff = change_diff(before.unwrap_or_default(), after.unwrap_or_default());
+    let diff = if before.is_none() {
+        diff.replacen("--- before", "--- /dev/null", 1)
+    } else {
+        diff
+    };
+    if after.is_none() {
+        diff.replacen("+++ after", "+++ /dev/null", 1)
+    } else {
+        diff
+    }
+}
+
+pub(super) struct TempFile<'a> {
+    pub(super) parent: &'a Dir,
+    pub(super) name: String,
 }
 impl Drop for TempFile<'_> {
     fn drop(&mut self) {
@@ -135,7 +149,7 @@ impl EditTextFile {
             journal: None,
         }
     }
-    fn direct_path(&self, path: &str) -> Result<(), String> {
+    pub(super) fn direct_path(&self, path: &str) -> Result<(), String> {
         if self.read.resolve(path)? != path {
             return Err("Only direct file paths can be edited.".into());
         }

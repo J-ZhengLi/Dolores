@@ -26,12 +26,14 @@ const server = createServer(async (request, response) => {
   if (Array.isArray(payload.tools)) {
     const last = payload.messages?.at(-1);
     const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
-    if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'edit_text_file,list_folder,read_text_file,search_text') {
+    if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'create_text_file,edit_text_file,list_folder,read_text_file,search_text') {
       response.writeHead(400).end(); return;
     }
     let message, finish;
     if (!prompt.startsWith('tool-')) {
       message = {role:'assistant',content:'Hello from your working folder. The folder tools are available.'}; finish='stop';
+    } else if (prompt.startsWith('tool-create') && last?.role !== 'tool') {
+      message = {role:'assistant',content:null,tool_calls:[{id:'create-one',type:'function',function:{name:'create_text_file',arguments:JSON.stringify({path:prompt === 'tool-create-empty' ? 'empty.txt' : 'created.txt',content:prompt === 'tool-create-empty' ? '' : '# Created with approval\r\nHello 世界.\r\n'})}}]}; finish='tool_calls';
     } else if (prompt.startsWith('tool-edit') && last?.role !== 'tool') {
       message = { role:'assistant', content:null, tool_calls:[{id:'edit-one',type:'function',function:{name:'edit_text_file',arguments:JSON.stringify({path:'readme.txt',old_text:'Hello from an approved workspace file.',new_text:'Updated with an approved edit.'})}}] }; finish='tool_calls';
     } else if (prompt.startsWith('tool-discovery') || prompt.startsWith('tool-search') || prompt === 'tool-list-deny') {
