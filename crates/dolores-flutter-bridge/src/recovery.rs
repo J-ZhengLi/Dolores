@@ -14,6 +14,9 @@ pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
         "Response stopped." | "Response stopped. Your message was not saved." => ("stopped", false, "Your draft is restored. Send it when you are ready."),
         "Model request timed out. Adjust the request timeout or try again." => ("timeout", true, "Your message was not saved. Increase the timeout for a slow model, or retry the current draft."),
+        "Agent run timed out while working or waiting for approval. Your message was not saved." => ("timeout", true, "Your message was not saved. Increase the timeout or retry the current draft, then review each file request."),
+        "Agent reached its tool or model-call limit. Your message was not saved." | "Agent reached its model-call limit." | "Tool context exceeds the 128 KiB limit." => ("outputLimit", false, "The agent run reached its local budget. Narrow the task or disable folder tools before sending again."),
+        error if error.starts_with("Tool request failed (HTTP ") || error == "Model did not return a JSON tool response. Disable folder tools or check model support." => ("configuration", false, "Disable folder tools or choose a model that supports Chat Completions function calls."),
         "Could not reach the model. Check the endpoint and whether the server is running." | "Connection interrupted before the response finished." | "Connection ended before the response finished." => ("network", true, "Your message was not saved. Check the connection, then retry the current draft."),
         "Model rate limit reached. Try again later." => ("rateLimit", true, "Wait before retrying the current draft. Dolores will not retry automatically."),
         "Model access denied. Check your API key and permissions." => ("access", false, "Check the API key and permissions in Model connection. Your draft is restored."),
@@ -54,6 +57,17 @@ mod tests {
             !advice("Model request failed (HTTP 400). Check your connection settings.").retryable
         );
         assert_eq!(advice("Response stopped.").kind, "stopped");
+        assert_eq!(advice("Agent run timed out while working or waiting for approval. Your message was not saved.").kind, "timeout");
+        assert!(advice("Agent run timed out while working or waiting for approval. Your message was not saved.").retryable);
+        assert!(
+            !advice("Agent reached its tool or model-call limit. Your message was not saved.")
+                .retryable
+        );
+        assert_eq!(
+            advice("Tool request failed (HTTP 400). Disable folder tools or check model support.")
+                .kind,
+            "configuration"
+        );
         assert!(!advice("Model access denied. Check your API key and permissions.").retryable);
         let unknown = advice("foreign plugin detail");
         assert_eq!(unknown.kind, "unknown");

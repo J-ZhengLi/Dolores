@@ -382,6 +382,7 @@ mod tests {
         let metadata = TurnMetadata {
             model: "fixture".into(),
             request_settings: None,
+            agent: None,
             usage: Some(TokenUsage {
                 input_tokens: Some(0),
                 output_tokens: Some(4),

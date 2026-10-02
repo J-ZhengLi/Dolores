@@ -16,13 +16,17 @@ Dolores is a local desktop agent harness. Its long-term purpose is to improve th
 | Persistence | SQLite via a storage plugin | Transactional local history, no database service; synchronous small operations run away from the UI thread. |
 | Credentials | OS vault via a credentials plugin | Explicit native backends; no plaintext fallback. Nonsecret references are transactional in SQLite, with best-effort cross-store cleanup. |
 | Models | OpenAI-compatible provider plugin | Local or hosted endpoints through one adapter; compatibility is tested against the chat-completions subset, not assumed for every vendor. |
+| Folder tools | Compiled read-only plugin, user-selected directory capability and per-read approval | Opt-in launch-only authority, bounded UTF-8 reads, explicit result records; native plugin code remains trusted. |
 | Extensions | Typed Rust interfaces and explicit built-in registration | Start with replaceable provider/storage plugins. External executable/WASM plugins require a later protocol and permission design. |
 | Learning | Reviewed memories and skills, then outcome evaluation | Learn reusable behavior without silently rewriting instructions or running generated code. Not implemented in brick 1. |
 
 ```mermaid
 flowchart TB
   Flutter[Flutter UI] -->|worker isolate C ABI| Bridge[Rust host]
-  Bridge --> Core[Dolores core: bounded chat run]
+  Bridge --> Core[Dolores core: bounded chat and tool loop]
+  Bridge --> Approval[Run-bound user approval]
+  Core --> Tools[Tool port: approved text-file plugin]
+  Tools --> Folder[Chosen directory capability]
   Bridge --> Credentials[Credential port: OS vault plugin]
   Native[Alternative Iced host] --> Core
   UI[Alternative Svelte UI] -->|commands + ordered channel| Host[Tauri host]
@@ -32,7 +36,7 @@ flowchart TB
   Provider --> Compatible[OpenAI-compatible plugin]
   Store --> SQLite[SQLite plugin]
   Compatible --> Model[Local or hosted model endpoint]
-  Future[Later: tools, policy, memory, skills, evaluation] -.-> Core
+  Future[Later: more tools, memory, skills, evaluation] -.-> Core
 ```
 
 The core has no desktop framework, UI, HTTP, SQLite or keyring dependency. Each host assembles plugins. Networking belongs to the provider plugin. Flutter remembers secrets only in OS secure storage when requested; alternative hosts retain memory-only keys. All share `dev.dolores.desktop` and the database format; `DOLORES_DATA_DIR` selects an isolated absolute directory. History is unencrypted. Concurrent runs from separate hosts are outside the per-host guard's boundary.
@@ -65,3 +69,5 @@ See [native research](research/native-shell-options.md) for rendering, APIs, IME
 Brick 2.3.2 adds optional provider-reported usage and storage metadata capabilities with defaults for existing plugins. Flutter saves usage, original model and exact context summary atomically with completed replies. An on-demand context preview reads one SQLite snapshot and adds no idle work or provider request. The core byte/turn bounds remain unchanged and are not model-specific token budgets.
 
 Brick 2.4 adds validated nonsecret request settings through optional core ports. SQLite persists them separately from connection/credentials; Flutter's connection manager creates a replacement provider before save and activates it only after successful storage. The provider reports the actual immutable limits used for each run. A single deadline includes headers, body, queue waits and the bounded usage-compatibility attempt; local history reads and final persistence stay outside it. Manual recovery is local fixed guidance; no automatic failure retry or idle work is introduced. Alternative shells retain constructor defaults.
+
+Brick 3.1 adds optional `ModelProvider::tool_turn`, typed `ToolPlugin`/`ToolApproval` ports and an explicit registry in the core. Flutter registers only `dolores-tools-fs` when the user chooses a folder. A single-use channel connects each validated call to the user's decision; model/file text has no route to that channel. Tool preparation/read work uses the existing blocking pool. The loop permits four model calls/four tools, bounded responses/results/context and a whole-phase timeout including approvals. Filesystem cancellation stops waiting but cannot preempt an OS call already running. Final text, per-call usage and bounded tool records persist atomically as extensible schema-5 metadata. Approved text is sent to the configured provider and included in exports; folder roots and approvals are not remembered. Plain chat stays streamed, tool calls use bounded JSON. No cost/pricing budget or external-loader isolation is claimed. See [the design](design/tools-first-brick.md).

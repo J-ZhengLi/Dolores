@@ -8,6 +8,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use url::{Host, Url};
+mod agent;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 
@@ -214,6 +215,14 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    async fn tool_turn(
+        &self,
+        messages: &[dolores_core::AgentMessage],
+        tools: &[dolores_core::ToolSpec],
+        cancel: CancellationToken,
+    ) -> Result<dolores_core::AgentTurn, String> {
+        self.request_tool_turn(messages, tools, cancel).await
+    }
     fn request_settings(&self) -> Option<RequestSettings> {
         Some(self.settings)
     }
@@ -473,7 +482,9 @@ mod tests {
     async fn server(response: &'static str) -> (String, tokio::task::JoinHandle<String>) {
         sequence_server(vec![response.to_string()]).await
     }
-    async fn sequence_server(responses: Vec<String>) -> (String, tokio::task::JoinHandle<String>) {
+    pub(super) async fn sequence_server(
+        responses: Vec<String>,
+    ) -> (String, tokio::task::JoinHandle<String>) {
         timed_server(
             responses
                 .into_iter()

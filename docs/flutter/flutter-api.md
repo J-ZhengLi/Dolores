@@ -26,7 +26,7 @@ The engine initializes once per process, on the first valid command. It uses an 
 | --- | --- | --- |
 | `bootstrap` | None | `{sessions, sessionPage, preferences: {baseUrl, model}, enabledModels, configured, rememberConnection, hasSavedKey, connectionWarning, plugins}`; sessions/sessionPage contain the initial 50-row page; plugins lists storage and credentials |
 | `messages` | `session: string` | Chronological array of `{role, content}`, at most 80 messages |
-| `context` | `session: string or null` (optional), `input: string` (empty allowed) | Summary fields plus `messages:[{role:system or user or assistant,content:string}]`; exact bounded prepared sequence, local read only |
+| `context` | `session: string or null` (optional), `input: string` (empty allowed), `tools: bool` (default false) | Summary fields plus `messages:[{role:system or user or assistant,content:string}]`; exact bounded initial sequence, with local tool guidance when enabled; local read only |
 | `sessionsPage` | `cursor: {updatedAt: i64, id: string} or null` (optional), `newer: bool` (default false) | `{items: Session[0..50], hasOlder, hasNewer}` |
 | `messagesPage` | `session: string`, `cursor: positive i64 or null` (optional), `newer: bool` (default false) | `{items: [{id, role, content, metadata?}][0..80], hasOlder, hasNewer}` |
 | `export` | `session: string`, `path: absolute string`, `format: markdown or json` | `{messageCount: u64}`; complete saved conversation in a new file |
@@ -36,12 +36,27 @@ The engine initializes once per process, on the first valid command. It uses an 
 | `selectModel` | `model: string` | `null`; switches to an enabled model, saving active model/metadata together without rotating the key |
 | `recoverConnection` | None | `null`; reloads saved settings/key; failures clear the active connection and set a warning |
 | `forgetConnection` | None | `null`; removes the saved key/reference and active connection, preserving preferences/history |
-| `start` | `id: u64`, `session: string or null`, `input: string` | `null`; reserves the run before asynchronous preparation |
+| `start` | `id: u64`, `session: string or null`, `input: string`, `workspace: absolute folder string or null` (optional) | `null`; reserves the run before asynchronous preparation; workspace enables approved read-only tools for this run |
+| `approveTool` | `id: u64`, `callId: string`, `allow: bool` | `null`; consumes the matching active approval once; stale, stopped, repeated or mismatched decisions are rejected |
 | `poll` | `id: u64` | At most 32 run events; stale/missing run returns `[]` |
 | `cancel` | `id: u64` | `null`; stale/missing run is a no-op |
 | `shutdown` | None | `null`; cancels the current run and drops its receiver |
 
-Dart uses small, monotonically increasing run IDs. One run is active at a time, including the interval until its terminal event is drained. While active, only `poll`, `cancel` and `shutdown` are accepted; other commands fail with `Stop the current response first.`
+Dart uses small, monotonically increasing run IDs. One run is active at a time, including the interval until its terminal event is drained. While active, only `poll`, `cancel`, `approveTool` and `shutdown` are accepted; other commands fail with `Stop the current response first.`
+
+## Approved folder tools (brick 3.1)
+
+Folder tools is a native folder-selection action in the sidebar. Canceling it preserves the previous selection and sends no command. The absolute folder stays in Flutter memory for this launch; `start.workspace` opens a native directory capability. No path is retained in connection preferences, bootstrap, successful turn metadata or exports, or sent to the provider. Tools are disabled without a folder. The compiled plugin is trusted native code, not an external plugin sandbox.
+
+The only advertised function is `read_text_file` with arguments `{path:string}` and no additional fields. It accepts relative forward-slash paths of at most 1024 UTF-8 bytes. It rejects traversal/absolute/control-character paths, Windows device names, common credential/VCS names (`.git`, `.ssh`, `.aws`, `.env`/`.env.*`, `dolores.db`, `id_rsa`, `id_ed25519`), and outside-directory symlink/junction resolution. Names are revalidated after resolution and before reading. Only regular UTF-8 files up to 16384 bytes without NULs are read. The name filter does not detect every possible secret; the user must inspect the target before allowing it. File contents may change between approval and reading.
+
+Additional ordered run events are `{type:modelStep,id,number}`, `{type:toolApproval,id,request:{callId,name,target}}`, and `{type:toolResult,id,record:{callId,name,target,status,content}}`. Targets are resolved relative names, not absolute folder paths. Status is `read`, `denied`, `blocked` or `error`; denied/blocked/error content uses fixed local messages. Each valid read waits for Allow once or Deny. A denial suppresses repeated prompts for that target within the run, without granting access. A decision must match both the current run and pending call; Stop, timeout and shutdown discard pending approvals. Model arguments, file text and provider error bodies cannot authorize access. While waiting, polling slows to 200 ms; no polling runs when idle.
+
+Tool mode uses non-streaming Chat Completions function calls and a maximum of four model calls/four tool calls. Arguments are limited to 4096 bytes, JSON responses to 262144 bytes, individual result text to 16384 bytes, serialized message context and each model text to 131072 bytes. The initial context appends local guidance to the existing system message and trims complete old pairs if necessary. Its preview/started/saved context summary describes the initial request before file results. Later call contexts include bounded results and are checked independently; the ring is not a cumulative model token window. `max_tokens` applies to each call. Each response has the configured provider deadline; the host additionally bounds the entire model/tool/approval phase to `min(timeoutSeconds,300)` seconds. Initial folder opening/history preparation and final atomic persistence are outside this phase. Filesystem tasks use the two-worker blocking pool; cancellation stops waiting, but cannot forcibly interrupt an OS filesystem operation already running.
+
+Only the final answer is emitted as `delta` and saved. Successful metadata adds `agent:{modelCalls,usageByCall:[TokenUsage|null],tools:[ToolRecord]}`. Its top-level `usage` is null; no sum or price is inferred. Approved file contents are shared with the selected provider and retained unencrypted in the successful reply's metadata and full JSON/Markdown exports. Schema 5 already stores extensible metadata; legacy records omit `agent`. Final text, metadata and user message commit together. Stop, failure and loop exhaustion never save partial pairs; their transient result cards remain visible until the next run/view, with no durable failed-run audit claim. Saved cards are expandable in both chat and trajectory.
+
+Unsupported/malformed tools, reused call IDs, incomplete responses, context exhaustion and loop exhaustion fail with local guidance without retry/fallback. Disable folder tools to return to ordinary streamed chat. There are no write, shell, listing/search, remembered approval, pricing limits or external tool-loader capabilities in this brick. Iced/Tauri retain plain chat.
 
 ## Remembering and recovery
 

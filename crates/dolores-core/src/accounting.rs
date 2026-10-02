@@ -45,6 +45,8 @@ pub struct TurnMetadata {
     pub context: ContextSummary,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_settings: Option<crate::RequestSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<crate::AgentSummary>,
 }
 
 pub struct Reply {

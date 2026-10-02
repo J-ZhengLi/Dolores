@@ -71,7 +71,8 @@
         "arguments": {
           "id": "u64",
           "session": "string|null",
-          "input": "string"
+          "input": "string",
+          "workspace": "absolute folder string|null; optional; enables approved read-only tools for this run, never remembered or sent to provider"
         },
         "result": "null; reservation acknowledged"
       },
@@ -117,7 +118,8 @@
       "context": {
         "arguments": {
           "session": "string|null; optional; null previews a new conversation without creating it",
-          "input": "string; empty allowed; at most 16384 UTF-8 bytes"
+          "input": "string; empty allowed; at most 16384 UTF-8 bytes",
+          "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
         "result": "ContextSummary & {messages:{role:system|user|assistant,content:string}[0..82]}; exact prepared sequence including system and final draft (empty allowed), at most 131072 UTF-8 content bytes; independent of viewed page; no network, writes, credentials or HTTP envelope"
       },
@@ -128,15 +130,26 @@
           }
         },
         "result": "null; validates and persists nonsecret settings, activates the replacement provider after save; no network or credential changes; rejected during generation"
+      },
+      "approveTool": {
+        "arguments": {
+          "id": "u64; current active run",
+          "callId": "string; matching pending request",
+          "allow": "boolean"
+        },
+        "result": "null; consumes matching approval once; stale/repeated/mismatched/stopped decisions rejected"
       }
     },
     "events": [
       "{type:started,id,session,context:ContextSummary,requestSettings:RequestSettings|null}",
+      "{type:modelStep,id,number:integer[1..4]}",
+      "{type:toolApproval,id,request:ToolRequest}",
+      "{type:toolResult,id,record:ToolRecord}",
       "{type:delta,id,text}",
       "{type:done,id,answer}",
       "{type:done,id,error,recovery:Recovery}"
     ],
-    "busy": "Only poll, cancel and shutdown are accepted until the terminal event is drained.",
+    "busy": "Only poll, cancel, approveTool and shutdown are accepted until the terminal event is drained.",
     "documentation": "flutter/flutter-api.md",
     "exportSchema": {
       "exportVersion": 1,
@@ -145,7 +158,7 @@
     },
     "accounting": {
       "schemaVersion": 5,
-      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both.",
+      "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema stays 5.",
       "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
     },
@@ -156,6 +169,25 @@
       },
       "timeout": "One whole-provider-response deadline including headers, streamed body, queue waits and bounded usage fallback; excludes history reads/final persistence. Fixed 10-second connect and 20-second discovery timeouts remain.",
       "recovery": "Manual actions only; never automatic failure retry. Retry sends the current edited draft. Guidance uses fixed local strings and does not expose raw provider bodies."
+    },
+    "folderTools": {
+      "name": "read_text_file",
+      "arguments": "{path:string}; additional fields rejected",
+      "default": "disabled; selected folder is launch-only",
+      "approval": "Every valid read requires a run-bound single-use Allow once/Deny. Denied targets are not prompted again in the same run. Stop/timeout/shutdown clear pending approvals.",
+      "limits": {
+        "modelCalls": 4,
+        "toolCalls": 4,
+        "argumentBytes": 4096,
+        "targetBytes": 1024,
+        "resultBytes": 16384,
+        "responseBytes": 262144,
+        "serializedContextBytes": 131072,
+        "modelTextBytes": 131072
+      },
+      "timeout": "min(configured timeoutSeconds,300) for the whole model/tool/approval phase, excluding initial preparation and final persistence; OS filesystem calls cannot be forcibly interrupted",
+      "paths": "Relative forward slashes; regular UTF-8 files only; rejects traversal/absolute/control/device/credential/VCS names, binary/NUL/oversized content and outside symlink/junction targets; capability-relative resolution/open after approval. The name filter does not identify every possible secret.",
+      "persistence": "Successful final answer and agent metadata commit with the user message; no partial pairs on Stop/failure/exhaustion. Approved contents are shared with the provider and retained in unencrypted metadata/export. Failed-run cards remain transient."
     }
   },
   "x-tauri-commands": {
@@ -502,6 +534,9 @@
           },
           "requestSettings": {
             "$ref": "#/components/schemas/RequestSettings"
+          },
+          "agent": {
+            "$ref": "#/components/schemas/AgentSummary"
           }
         },
         "required": [
@@ -564,6 +599,98 @@
             "description": "Fixed local text; never a raw provider body."
           }
         }
+      },
+      "ToolRequest": {
+        "type": "object",
+        "required": [
+          "callId",
+          "name",
+          "target"
+        ],
+        "properties": {
+          "callId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "name": {
+            "const": "read_text_file"
+          },
+          "target": {
+            "type": "string",
+            "description": "Resolved relative path, at most 1024 UTF-8 bytes; never absolute root"
+          }
+        }
+      },
+      "ToolRecord": {
+        "type": "object",
+        "required": [
+          "callId",
+          "name",
+          "target",
+          "status",
+          "content"
+        ],
+        "properties": {
+          "callId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "description": "Relative target or fixed blocked-path label; at most 1024 UTF-8 bytes"
+          },
+          "status": {
+            "enum": [
+              "read",
+              "denied",
+              "blocked",
+              "error"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "description": "At most 16384 UTF-8 bytes; literal file content or fixed local refusal/error"
+          }
+        }
+      },
+      "AgentSummary": {
+        "type": "object",
+        "required": [
+          "modelCalls",
+          "usageByCall",
+          "tools"
+        ],
+        "properties": {
+          "modelCalls": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "usageByCall": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TokenUsage"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "tools": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/ToolRecord"
+            }
+          }
+        }
       }
     }
   },
@@ -574,5 +701,14 @@
     "response": "text/event-stream; usage may arrive in an empty-choices chunk before [DONE]; last valid snapshot replaces, never sums prior snapshots",
     "compatibility": "Retry once without stream_options only after HTTP 400/422 with an <=8192-byte JSON error explicitly naming stream_options/include_usage as unsupported/unknown/unrecognized/unexpected/not permitted. Never retry denial, generic validation, transport or stream failures. Error bodies are not surfaced.",
     "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create"
+  },
+  "x-provider-tools": {
+    "method": "POST",
+    "path": "<baseUrl>/chat/completions",
+    "body": "{model,messages,stream:false,max_tokens:maxOutputTokens,tools:[{type:function,function:{name,description,parameters}}],tool_choice:auto,parallel_tool_calls:false}; no stream_options",
+    "messages": "Initial system/history/user, then assistant tool_calls:[{id,type:function,function:{name,arguments}}], followed by tool messages {role:tool,content,tool_call_id:id}; local approval/policy runs before tool content is shared",
+    "response": "application/json; bounded choices[0].message with content/tool_calls, usage and finish_reason stop|tool_calls; malformed/incomplete/output-limited responses fail",
+    "compatibility": "No tool fallback or automatic failure retry. Ordinary chat stays SSE.",
+    "source": "https://developers.openai.com/api/docs/guides/function-calling"
   }
 }

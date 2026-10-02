@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
+mod agent;
 mod request_settings;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
+pub use agent::*;
 pub use request_settings::RequestSettings;
 
 pub const MAX_INPUT_BYTES: usize = 16 * 1024;
@@ -106,6 +108,17 @@ impl Default for ConnectionPreferences {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    async fn tool_turn(
+        &self,
+        _: &[AgentMessage],
+        _: &[ToolSpec],
+        _: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        Err(
+            "This model connection does not support tool calls. Disable folder tools to chat."
+                .into(),
+        )
+    }
     fn request_settings(&self) -> Option<RequestSettings> {
         None
     }

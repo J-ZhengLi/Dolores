@@ -30,6 +30,62 @@ class _ViewState {
 class ChatController extends ChangeNotifier {
   final ChatBridge bridge;
   ChatController(this.bridge);
+  String? workspaceRoot;
+  Map<String, dynamic>? toolApproval;
+  final toolRecords = <Map<String, dynamic>>[];
+  bool decidingTool = false;
+  int modelStep = 0;
+  Future<void> chooseToolFolder(Future<String?> Function() choose) async {
+    if (busy || changing || loading) return;
+    changing = true;
+    _notify();
+    try {
+      final folder = await choose();
+      if (!_disposed && folder != null) {
+        workspaceRoot = folder;
+        invalidateContextPreview();
+      }
+    } catch (_) {
+      if (!_disposed) error = 'Could not open the folder picker.';
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  void disableTools() {
+    if (busy || changing || loading) return;
+    workspaceRoot = null;
+    invalidateContextPreview();
+    _notify();
+  }
+
+  Future<void> decideTool(bool allow) async {
+    final request = toolApproval;
+    if (!busy || stopping || decidingTool || request == null) return;
+    decidingTool = true;
+    _notify();
+    try {
+      await bridge.call({
+        'command': 'approveTool',
+        'id': _run,
+        'callId': request['callId'],
+        'allow': allow,
+      });
+      if (!_disposed && identical(toolApproval, request)) {
+        toolApproval = null;
+        _record(allow ? 'Tool allowed' : 'Tool denied');
+      }
+    } catch (_) {
+      // A terminal/Stop event can invalidate this one-use decision. Keep
+      // polling the run instead of replacing its failure/restoration state.
+      if (!_disposed && identical(toolApproval, request)) toolApproval = null;
+    } finally {
+      decidingTool = false;
+      _notify();
+    }
+  }
+
   List<Map<String, dynamic>> sessions = [];
   List<Map<String, dynamic>> messages = [];
   List<String> enabledModels = [];
@@ -142,6 +198,7 @@ class ChatController extends ChangeNotifier {
         'command': 'context',
         'session': session,
         'input': draft,
+        if (workspaceRoot != null) 'tools': true,
       });
       error = null;
       final report = (result as Map).cast<String, dynamic>();
@@ -306,6 +363,10 @@ class ChatController extends ChangeNotifier {
   }
 
   void newChat() {
+    if (!busy && !changing) {
+      toolRecords.clear();
+      toolApproval = null;
+    }
     if (busy || changing) return;
     _rememberView();
     session = null;
@@ -333,6 +394,8 @@ class ChatController extends ChangeNotifier {
         'cursor': state?.cursor,
       });
       session = id;
+      toolRecords.clear();
+      toolApproval = null;
       _setMessages(history);
       contextSummary = null;
       contextBasis = null;
@@ -341,7 +404,9 @@ class ChatController extends ChangeNotifier {
           messages.last['metadata']?['context'] is Map) {
         contextSummary = (messages.last['metadata']['context'] as Map)
             .cast<String, dynamic>();
-        contextBasis = 'Last saved request';
+        contextBasis = messages.last['metadata']?['agent'] == null
+            ? 'Last saved request'
+            : 'Saved agent input';
       }
       draft = state?.draft ?? '';
       scrollOffset = state?.scroll ?? double.infinity;
@@ -486,6 +551,9 @@ class ChatController extends ChangeNotifier {
     partial = '';
     error = null;
     final id = ++_run;
+    toolRecords.clear();
+    toolApproval = null;
+    modelStep = 0;
     recovery = null;
     _recoveryError = null;
     _requestModel = model;
@@ -502,6 +570,7 @@ class ChatController extends ChangeNotifier {
         'id': id,
         'session': session,
         'input': pendingInput,
+        if (workspaceRoot != null) 'workspace': workspaceRoot,
       });
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});
@@ -532,7 +601,10 @@ class ChatController extends ChangeNotifier {
   void _schedule(int id) {
     if (!_disposed && busy && id == _run) {
       // Bounded active polling only; zero idle timers.
-      _timer = Timer(const Duration(milliseconds: 25), () => _poll(id));
+      _timer = Timer(
+        Duration(milliseconds: toolApproval == null ? 25 : 200),
+        () => _poll(id),
+      );
     }
   }
 
@@ -552,7 +624,9 @@ class ChatController extends ChangeNotifier {
             }
             contextSummary = (event['context'] as Map?)
                 ?.cast<String, dynamic>();
-            contextBasis = 'Current request';
+            contextBasis = workspaceRoot == null
+                ? 'Current request'
+                : 'Initial agent input';
             _record('Context prepared');
           case 'delta':
             if (!_firstDelta) {
@@ -560,7 +634,22 @@ class ChatController extends ChangeNotifier {
               _firstDelta = true;
             }
             partial += event['text'] as String;
+          case 'modelStep':
+            modelStep = event['number'] as int;
+            _record('Model call $modelStep');
+          case 'toolApproval':
+            if (!stopping) {
+              toolApproval = (event['request'] as Map).cast<String, dynamic>();
+              _record('Tool requested');
+            }
+          case 'toolResult':
+            toolApproval = null;
+            if (toolRecords.length < 4) {
+              toolRecords.add((event['record'] as Map).cast<String, dynamic>());
+            }
+            _record('Tool result');
           case 'done':
+            toolApproval = null;
             changing = true;
             if (event['error'] != null) {
               _failed(
@@ -571,11 +660,14 @@ class ChatController extends ChangeNotifier {
               _record('Reply saved');
               _terminal = true;
               _clock.stop();
-              contextBasis = 'Last saved request';
+              contextBasis = workspaceRoot == null
+                  ? 'Last saved request'
+                  : 'Saved agent input';
               busy = false;
               stopping = false;
               pendingInput = '';
               partial = '';
+              toolRecords.clear();
               _setMessages(
                 await bridge.call({
                   'command': 'messagesPage',
@@ -599,6 +691,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void _failed(String failure, {Map<String, dynamic>? advice}) {
+    toolApproval = null;
     recovery = _terminal ? null : advice;
     _recoveryError = failure;
     _record(
@@ -611,6 +704,8 @@ class ChatController extends ChangeNotifier {
     _terminal = true;
     if (contextBasis == 'Current request') {
       contextBasis = 'Last attempted request';
+    } else if (contextBasis == 'Initial agent input') {
+      contextBasis = 'Last attempted agent input';
     }
     _clock.stop();
     error = failure;

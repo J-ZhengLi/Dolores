@@ -1,7 +1,9 @@
 //! C ABI for the selected Flutter shell. No server or subprocess.
+mod approval;
 mod connection;
 mod export;
 mod recovery;
+use approval::{ApprovalSlot, RunApproval};
 use connection::ConnectionManager;
 use dolores_core::{
     prepare_context, preview_context, stream_reply_with_usage, ConnectionPreferences,
@@ -22,6 +24,7 @@ struct Run {
     id: u64,
     cancel: CancellationToken,
     events: mpsc::Receiver<Value>,
+    approvals: ApprovalSlot,
 }
 struct TurnRequest {
     id: u64,
@@ -29,6 +32,8 @@ struct TurnRequest {
     input: String,
     model: String,
     settings: Option<RequestSettings>,
+    tool: Option<Arc<dyn dolores_core::ToolPlugin>>,
+    approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
     runtime: Runtime,
@@ -64,6 +69,8 @@ enum Command {
     Context {
         session: Option<String>,
         input: String,
+        #[serde(default)]
+        tools: bool,
     },
     SetRequestSettings {
         settings: RequestSettings,
@@ -95,6 +102,13 @@ enum Command {
         id: u64,
         session: Option<String>,
         input: String,
+        workspace: Option<PathBuf>,
+    },
+    ApproveTool {
+        id: u64,
+        #[serde(rename = "callId")]
+        call_id: String,
+        allow: bool,
     },
     Poll {
         id: u64,
@@ -152,6 +166,31 @@ impl Engine {
                 }
                 return Ok(json!(events));
             }
+            Command::ApproveTool { id, call_id, allow } => {
+                let run = active
+                    .as_ref()
+                    .filter(|run| run.id == id)
+                    .ok_or("Tool request is no longer waiting.")?;
+                let mut slot = run
+                    .approvals
+                    .lock()
+                    .map_err(|_| "Tool approval is unavailable.")?;
+                if slot
+                    .as_ref()
+                    .is_none_or(|pending| pending.call_id != call_id)
+                {
+                    return Err("Tool request is no longer waiting.".into());
+                }
+                if run.cancel.is_cancelled() {
+                    return Err(stopped());
+                }
+                slot.take()
+                    .unwrap()
+                    .reply
+                    .send(allow)
+                    .map_err(|_| "Tool request is no longer waiting.")?;
+                return Ok(Value::Null);
+            }
             Command::Cancel { id } => {
                 if let Some(run) = active.as_ref().filter(|run| run.id == id) {
                     run.cancel.cancel();
@@ -198,12 +237,21 @@ impl Engine {
                 json!({"messageCount": export::save(self.store.as_ref(), &session, &path, format)?}),
             ),
             Command::Messages { session } => Ok(json!(self.store.messages(&session)?)),
-            Command::Context { session, input } => {
+            Command::Context {
+                session,
+                input,
+                tools,
+            } => {
                 let (history, count) = match session {
                     Some(session) => self.store.context_history(&session)?,
                     None => (vec![], Some(0)),
                 };
                 let messages = preview_context(history, &input)?;
+                let messages = if tools {
+                    dolores_core::prepare_agent_context(messages)?
+                } else {
+                    messages
+                };
                 let mut report = json!(ContextSummary::from_messages(&messages, count));
                 report["messages"] = json!(messages);
                 Ok(report)
@@ -270,8 +318,19 @@ impl Engine {
                     .forget()?;
                 Ok(Value::Null)
             }
-            Command::Start { id, session, input } => {
+            Command::Start {
+                id,
+                session,
+                input,
+                workspace,
+            } => {
                 prepare_context(vec![], &input)?;
+                let tool = workspace
+                    .map(|root| {
+                        dolores_tools_fs::ReadTextFile::new(&root)
+                            .map(|tool| Arc::new(tool) as Arc<dyn dolores_core::ToolPlugin>)
+                    })
+                    .transpose()?;
                 let provider = self
                     .connection
                     .lock()
@@ -283,10 +342,17 @@ impl Engine {
                 let settings = provider.request_settings();
                 let cancel = CancellationToken::new();
                 let (output, events) = mpsc::channel(32);
+                let approvals = Arc::new(Mutex::new(None));
+                let approval = Arc::new(RunApproval {
+                    id,
+                    pending: approvals.clone(),
+                    output: output.clone(),
+                });
                 *active = Some(Run {
                     id,
                     cancel: cancel.clone(),
                     events,
+                    approvals,
                 });
                 let store = self.store.clone();
                 self.runtime.spawn(async move {
@@ -299,6 +365,8 @@ impl Engine {
                             input,
                             model,
                             settings,
+                            tool,
+                            approval: Some(approval),
                         },
                         cancel,
                         &output,
@@ -336,6 +404,8 @@ async fn execute(
         input,
         model,
         settings,
+        tool,
+        approval,
     } = request;
     if cancel.is_cancelled() {
         return Err(stopped());
@@ -351,6 +421,11 @@ async fn execute(
     })
     .await?;
     let context = prepare_context(history, &input)?;
+    let context = if tool.is_some() {
+        dolores_core::prepare_agent_context(context)?
+    } else {
+        context
+    };
     let summary = ContextSummary::from_messages(&context, count);
     forward(
         output,
@@ -358,6 +433,70 @@ async fn execute(
         &cancel,
     )
     .await?;
+    if let Some(tool) = tool {
+        let approval = approval.ok_or("Tool approval is unavailable.")?;
+        let running = async {
+            let (events, mut receiver) = mpsc::channel(32);
+            let plugins = [tool];
+            let request = dolores_core::run_agent(
+                provider.as_ref(),
+                context,
+                &plugins,
+                approval.as_ref(),
+                events,
+                cancel.clone(),
+            );
+            tokio::pin!(request);
+            let reply = loop {
+                tokio::select! { biased;
+                    _ = cancel.cancelled() => return Err(stopped()),
+                    result = &mut request => break result?,
+                    Some(event) = receiver.recv() => {
+                        let mut event = serde_json::to_value(event).map_err(|_| "Tool event is unavailable.")?;
+                        event["id"] = json!(id);
+                        forward(output, event, &cancel).await?;
+                    }
+                }
+            };
+            while let Some(event) = receiver.recv().await {
+                let mut event =
+                    serde_json::to_value(event).map_err(|_| "Tool event is unavailable.")?;
+                event["id"] = json!(id);
+                forward(output, event, &cancel).await?;
+            }
+            forward(
+                output,
+                json!({"type":"delta","id":id,"text":reply.answer}),
+                &cancel,
+            )
+            .await?;
+            Ok::<_, String>(reply)
+        };
+        let seconds = settings.unwrap_or_default().timeout_seconds.min(300);
+        let reply = tokio::select! { biased;
+            _ = cancel.cancelled() => return Err(stopped()),
+            result = tokio::time::timeout(std::time::Duration::from_secs(seconds.into()), running) => match result {
+                Ok(reply) => reply?,
+                Err(_) => {
+                    cancel.cancel();
+                    return Err("Agent run timed out while working or waiting for approval. Your message was not saved.".into());
+                }
+            },
+        };
+        if cancel.is_cancelled() {
+            return Err(stopped());
+        }
+        let saved = reply.answer.clone();
+        let metadata = TurnMetadata {
+            model,
+            usage: None,
+            context: summary,
+            request_settings: settings,
+            agent: Some(reply.summary),
+        };
+        blocking(move || store.commit_turn_metadata(&session, &input, &saved, &metadata)).await?;
+        return Ok(reply.answer);
+    }
     // The adapter deadline alone cannot run while this host awaits a full UI
     // queue. Bound streaming AND delivery, excluding history reads and commit.
     let streaming = async {
@@ -400,6 +539,7 @@ async fn execute(
         usage: answer.usage,
         context: summary,
         request_settings: settings,
+        agent: None,
     };
     // Once the complete-pair transaction starts, completion wins over late Stop.
     blocking(move || store.commit_turn_metadata(&session, &input, &saved, &metadata)).await?;
@@ -540,6 +680,7 @@ mod tests {
             .call(Command::Context {
                 session: None,
                 input: "".into(),
+                tools: false,
             })
             .unwrap();
         assert_eq!(empty["savedTurns"], 0);
@@ -554,6 +695,7 @@ mod tests {
             .call(Command::Context {
                 session: Some("long".into()),
                 input: "你好".into(),
+                tools: false,
             })
             .unwrap();
         assert_eq!(context["includedTurns"], 40);
@@ -574,13 +716,15 @@ mod tests {
         assert!(engine
             .call(Command::Context {
                 session: Some("missing".into()),
-                input: "".into()
+                input: "".into(),
+                tools: false,
             })
             .is_err());
         assert!(engine
             .call(Command::Context {
                 session: None,
-                input: "x".repeat(dolores_core::MAX_INPUT_BYTES + 1)
+                input: "x".repeat(dolores_core::MAX_INPUT_BYTES + 1),
+                tools: false,
             })
             .is_err());
     }
@@ -620,6 +764,51 @@ mod tests {
         );
     }
     #[test]
+    fn approval_commands_reject_stale_wrong_call_and_repeated_decisions() {
+        let engine = Engine::new(
+            Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap()),
+            Arc::new(connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        let (reply, mut decision) = tokio::sync::oneshot::channel();
+        let pending = Arc::new(Mutex::new(Some(approval::PendingApproval {
+            call_id: "one".into(),
+            reply,
+        })));
+        let (_output, events) = mpsc::channel(4);
+        *engine.active.lock().unwrap() = Some(Run {
+            id: 7,
+            cancel: CancellationToken::new(),
+            events,
+            approvals: pending.clone(),
+        });
+        for (id, call_id) in [(6, "one"), (7, "wrong")] {
+            assert!(engine
+                .call(Command::ApproveTool {
+                    id,
+                    call_id: call_id.into(),
+                    allow: true
+                })
+                .is_err());
+            assert!(pending.lock().unwrap().is_some());
+        }
+        engine
+            .call(Command::ApproveTool {
+                id: 7,
+                call_id: "one".into(),
+                allow: false,
+            })
+            .unwrap();
+        assert!(!decision.try_recv().unwrap());
+        assert!(engine
+            .call(Command::ApproveTool {
+                id: 7,
+                call_id: "one".into(),
+                allow: true
+            })
+            .is_err());
+    }
+    #[test]
     fn bridge_null_and_invalid_json_return_owned_error_envelopes() {
         for (pointer, length) in [(std::ptr::null(), 0), (b"bad".as_ptr(), 3)] {
             let result = unsafe { dolores_call(pointer, length) };
@@ -654,6 +843,8 @@ mod tests {
                         max_output_tokens: 2048,
                         timeout_seconds: 1,
                     }),
+                    tool: None,
+                    approval: None,
                 },
                 CancellationToken::new(),
                 &output,
@@ -698,6 +889,7 @@ mod tests {
                     id: 7,
                     session: None,
                     input: "user".into(),
+                    workspace: None,
                 })
                 .unwrap();
             assert!(engine
@@ -708,7 +900,8 @@ mod tests {
             assert!(engine
                 .call(Command::Context {
                     session: None,
-                    input: "".into()
+                    input: "".into(),
+                    tools: false,
                 })
                 .is_err());
             assert_eq!(engine.call(Command::Poll { id: 6 }).unwrap(), json!([]));

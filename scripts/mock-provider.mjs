@@ -23,6 +23,30 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (payload.stream === false && Array.isArray(payload.tools)) {
+    const last = payload.messages?.at(-1);
+    const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
+    if (payload.tools.length !== 1 || payload.tools[0]?.function?.name !== 'read_text_file') {
+      response.writeHead(400).end(); return;
+    }
+    let message, finish;
+    if (last?.role === 'tool' && prompt !== 'tool-loop') {
+      const previous = payload.messages.at(-2);
+      if (previous?.tool_calls?.at(-1)?.id !== last.tool_call_id) { response.writeHead(400).end(); return; }
+      message = { role: 'assistant', content: last.content.includes('User denied')
+        ? 'The file read was denied. No file contents were used.'
+        : `The approved file says: ${last.content}` };
+      finish = 'stop';
+    } else {
+      const number = payload.messages.filter(message => message.role === 'tool').length;
+      const path = prompt === 'tool-escape' ? '../outside.txt' : 'readme.txt';
+      message = { role: 'assistant', content: null, tool_calls: [{ id: `file-${number}`, type: 'function', function: { name: 'read_text_file', arguments: JSON.stringify({ path }) } }] };
+      finish = 'tool_calls';
+    }
+    response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      choices: [{message, finish_reason:finish}], usage:{prompt_tokens:40, completion_tokens:12, total_tokens:52},
+    })); return;
+  }
   if (input === 'limit-check' && payload.max_tokens !== 4096) { response.writeHead(400).end(); return; }
   if (input === 'model-check' && payload.model !== 'dolores-fast') { response.writeHead(400).end(); return; }
   if (input === 'credential-check' && request.headers.authorization !== 'Bearer dolores-generated-restart-test') {

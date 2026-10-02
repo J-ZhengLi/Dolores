@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'chat.dart';
 import 'theme.dart';
 import 'usage_details.dart';
+import 'tool_activity.dart';
 
 String _bytes(int n) =>
     n < 1024 ? '$n B' : '${(n / 1024).toStringAsFixed(1)} KiB';
@@ -506,7 +507,14 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
                                   message['content'] as String,
                                 ),
                               ),
-                              if (assistant) UsageDetails(metadata: metadata),
+                              if (assistant) ...[
+                                if (metadata?['agent']?['tools'] is List)
+                                  ToolRecords(
+                                    records:
+                                        metadata!['agent']['tools'] as List,
+                                  ),
+                                UsageDetails(metadata: metadata),
+                              ],
                             ],
                           ),
                         );

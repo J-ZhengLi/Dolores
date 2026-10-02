@@ -601,6 +601,117 @@ Future<void> _run(
     if (!smokePageContext.mounted) {
       throw StateError('Page unavailable before settings capture');
     }
+    final workspace = Directory(path.join(output.path, 'approved-folder'));
+    await workspace.create();
+    await File(path.join(workspace.path, 'readme.txt'))
+        .writeAsString('Hello from an approved workspace file. 世界.');
+    await chat.chooseToolFolder(() async => workspace.path);
+    chat.newChat();
+    chat.draft = 'tool-read';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    check(
+      chat.busy &&
+          chat.toolApproval?['target'] == 'readme.txt' &&
+          chat.toolRecords.isEmpty,
+      'Real function-call response waits for a user decision before reading file contents',
+      checks,
+    );
+    await screenshot(capture, output, 'tool-approval-dark');
+    FilledButton? allowTool;
+    void inspectApproval(Element element) {
+      if (element.widget.key == const Key('allow-tool') &&
+          element.widget is FilledButton) {
+        allowTool = element.widget as FilledButton;
+      }
+      element.visitChildren(inspectApproval);
+    }
+
+    inspectApproval(capture.currentContext! as Element);
+    check(
+      allowTool?.onPressed != null,
+      'Native Allow once control is enabled for the current request',
+      checks,
+    );
+    allowTool!.onPressed!();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.length == 2 &&
+          chat.messages.last['content'].contains('approved workspace file') &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'read' &&
+          chat.messages.last['metadata']['agent']['modelCalls'] == 2,
+      'Approved file read reaches the real model as a tool message and persists a complete reply with tool provenance',
+      checks,
+    );
+    final toolSession = chat.session!;
+    await screenshot(capture, output, 'tool-result-dark');
+    chat.newChat();
+    await chat.select(toolSession);
+    check(
+      chat.messages.last['metadata']['agent']['tools'][0]['content'].contains(
+        '世界',
+      ),
+      'Reload preserves the bounded UTF-8 tool record',
+      checks,
+    );
+    chat.draft = 'tool-deny';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await chat.decideTool(false);
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.length == 4 &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'denied' &&
+          !chat.messages.last['content'].contains('approved workspace file'),
+      'Deny continues using a refusal tool result without reading or sharing the file',
+      checks,
+    );
+    chat.draft = 'tool-stop';
+    await chat.send();
+    await waitUntil(() => chat.toolApproval != null || !chat.busy);
+    await chat.stop();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.messages.length == 4 &&
+          chat.draft == 'tool-stop' &&
+          chat.toolApproval == null,
+      'Stop while awaiting approval restores the draft without saving a turn',
+      checks,
+    );
+    chat.newChat();
+    chat.draft = 'tool-escape';
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    check(
+      chat.error == null &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'blocked',
+      'Outside-folder request is blocked without an approval or file read',
+      checks,
+    );
+    chat.newChat();
+    chat.draft = 'tool-loop';
+    await chat.send();
+    while (chat.busy) {
+      if (chat.toolApproval != null) await chat.decideTool(false);
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+    check(
+      chat.error?.contains('limit') == true &&
+          chat.draft == 'tool-loop' &&
+          chat.messages.isEmpty,
+      'Repeated tool requests stop at the fixed model-call budget and never save a partial turn',
+      checks,
+    );
+    chat.disableTools();
+    chat.newChat();
+    if (!smokePageContext.mounted) {
+      throw StateError('Smoke page was closed.');
+    }
     unawaited(
       showDialog<void>(
         context: smokePageContext,

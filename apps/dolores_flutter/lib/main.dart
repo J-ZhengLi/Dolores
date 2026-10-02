@@ -13,6 +13,10 @@ import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'inspector.dart';
 import 'request_settings.dart';
+import 'tool_activity.dart';
+
+import 'package:path/path.dart' as path;
+
 import 'theme.dart';
 export 'theme.dart' show Palette;
 
@@ -351,6 +355,32 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.all(12),
               ),
             ),
+            TextButton.icon(
+              key: const Key('tool-folder'),
+              onPressed: chat.busy || chat.changing || chat.loading
+                  ? null
+                  : () => chat.chooseToolFolder(() => getDirectoryPath()),
+              icon: const Icon(Icons.folder_open_outlined, size: 18),
+              label: Text(
+                chat.workspaceRoot == null
+                    ? 'Folder tools'
+                    : 'Tools: ${path.basename(chat.workspaceRoot!)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
+            if (chat.workspaceRoot != null)
+              TextButton(
+                key: const Key('disable-tools'),
+                onPressed: chat.busy || chat.changing || chat.loading
+                    ? null
+                    : chat.disableTools,
+                child: const Text('Disable folder tools'),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
               child: Text(
@@ -411,7 +441,7 @@ class _ChatPageState extends State<ChatPage> {
                     if (streaming) ...[
                       const SizedBox(width: 10),
                       Text(
-                        'Writing…',
+                        chat.workspaceRoot == null ? 'Writing…' : 'Working…',
                         style: TextStyle(fontSize: 11, color: p.muted),
                       ),
                     ],
@@ -439,7 +469,11 @@ class _ChatPageState extends State<ChatPage> {
                     streaming: streaming,
                     onRendered: _followReply,
                   ),
-                if (!user && !streaming) UsageDetails(metadata: metadata),
+                if (!user && !streaming) ...[
+                  if (metadata?['agent']?['tools'] is List)
+                    ToolRecords(records: metadata!['agent']['tools'] as List),
+                  UsageDetails(metadata: metadata),
+                ],
               ],
             ),
           ),
@@ -499,6 +533,14 @@ class _ChatPageState extends State<ChatPage> {
   Widget composer(Palette p) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
+      if (chat.toolRecords.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 160),
+          child: SingleChildScrollView(
+            child: ToolRecords(records: chat.toolRecords),
+          ),
+        ),
+      if (chat.toolApproval != null) ToolApprovalCard(chat: chat),
       if (chat.connectionWarning != null)
         Container(
           key: const Key('connection-warning'),

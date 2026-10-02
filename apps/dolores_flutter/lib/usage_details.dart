@@ -38,7 +38,9 @@ class UsageDetails extends StatelessWidget {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     final usage = metadata?['usage'] as Map?;
     final input = usage?['inputTokens'], output = usage?['outputTokens'];
-    final label = usage == null
+    final label = metadata?['agent'] is Map
+        ? 'Run details · ${metadata!['agent']['modelCalls']} model calls'
+        : usage == null
         ? 'Usage unavailable'
         : 'Tokens: ${_counter(input)} in · ${_counter(output)} out';
     return Align(
@@ -70,15 +72,32 @@ class UsageDetails extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    Text('Input tokens: ${_counter(input)}'),
-                    Text('Output tokens: ${_counter(output)}'),
-                    Text('Total tokens: ${_counter(usage?['totalTokens'])}'),
-                    Text(
-                      'Cached input tokens: ${_counter(usage?['cachedInputTokens'])}',
-                    ),
-                    Text(
-                      'Reasoning tokens: ${_counter(usage?['reasoningTokens'])}',
-                    ),
+                    if (metadata?['agent'] is Map) ...[
+                      const Text(
+                        'Usage is shown per model call; no run total is inferred.',
+                      ),
+                      for (final (i, usage)
+                          in (metadata!['agent']['usageByCall'] as List)
+                              .indexed)
+                        Text(
+                          'Call ${i + 1}: ${_counter(usage?['inputTokens'])} in · ${_counter(usage?['outputTokens'])} out · ${_counter(usage?['totalTokens'])} total · ${_counter(usage?['cachedInputTokens'])} cached · ${_counter(usage?['reasoningTokens'])} reasoning',
+                        ),
+                      const Text(
+                        'Context below describes the initial request before tool results.',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (metadata?['agent'] is! Map) ...[
+                      Text('Input tokens: ${_counter(input)}'),
+                      Text('Output tokens: ${_counter(output)}'),
+                      Text('Total tokens: ${_counter(usage?['totalTokens'])}'),
+                      Text(
+                        'Cached input tokens: ${_counter(usage?['cachedInputTokens'])}',
+                      ),
+                      Text(
+                        'Reasoning tokens: ${_counter(usage?['reasoningTokens'])}',
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     const Text(
                       'Reported by the provider. Cached and reasoning tokens are breakdowns, not additional totals. Missing values are unavailable; no token estimates or prices are added.',
