@@ -151,6 +151,40 @@
           "session": "string; required"
         },
         "result": "SessionWorkspace; legacy side, missing session rejected"
+      },
+      "changesPage": {
+        "arguments": {
+          "session": "string",
+          "cursor": "i64|null; optional"
+        },
+        "result": "{items:FileChange[0..20],hasOlder:boolean,hasNewer:boolean}; descending ID, exclusive older cursor; no snapshots/root"
+      },
+      "changeDetails": {
+        "arguments": {
+          "session": "string",
+          "changeId": "i64"
+        },
+        "result": "{change:FileChange,diff:string}; local forward diff, no raw snapshots/root"
+      },
+      "previewRevert": {
+        "arguments": {
+          "session": "string",
+          "changeId": "i64"
+        },
+        "result": "{token:string,target:string,diff:string}; original pending/applied edit only, saved folder and current after snapshot must match; no write"
+      },
+      "applyRevert": {
+        "arguments": {
+          "session": "string",
+          "token": "string"
+        },
+        "result": "{applied:true,bytesBefore,bytesAfter,changeId:i64,journalStatus:applied|pending}; one-use bound preview, 5-minute expiry; failure consumes token"
+      },
+      "cancelRevert": {
+        "arguments": {
+          "token": "string"
+        },
+        "result": "null; matching plan discarded, no file mutation"
       }
     },
     "events": [
@@ -171,7 +205,7 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 6,
+      "schemaVersion": 7,
       "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
       "context": "UTF-8 content bytes including system and current user message; excludes JSON/role overhead. Max 131072 bytes and 40 saved complete turns; not a model token-window guarantee. savedTurns/omittedTurns may be null for plugins without total-count support.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals."
@@ -241,17 +275,26 @@
         "arguments": "{path:string,old_text:string,new_text:string}; all required, no extra fields. One exact nonempty unique match, including overlapping-match refusal, replaced in an existing writable UTF-8 file. Direct relative paths only; no aliases/credential/VCS paths, NUL/binary, creation/deletion or shell.",
         "preview": "Local unified diff with real line numbers, three context lines and missing-newline markers; bound to one call ID and exact preview. At most four prepared plans per run. Optional ToolRequest.diff and ToolRecord.diff each at most 16384 UTF-8 bytes.",
         "publication": "Recheck bytes and ordinary permissions, exclusive-create staged file beside target, preserve ordinary permissions, flush, recheck and observe Stop before atomic replacement. Cleanup only owned staged file on failure. Optimistic checks, not a cross-program compare-and-swap guarantee; no universal ACL/xattr preservation claim.",
-        "result": "status edited; content JSON {applied:true,bytesBefore,bytesAfter}. Conflict status error with fixed File changed since preview. No edit was applied. message.",
-        "effects": "Applied file changes remain after later Stop/timeout/model/save failure. History metadata is saved only with a completed pair. No durable failed-run edit journal or rollback in this brick."
+        "result": "status edited; content JSON {applied:true,bytesBefore,bytesAfter,changeId:i64,journalStatus:applied|pending}. Journaled selected host includes changeId and journalStatus; alternative unjournaled registrations omit these fields. Conflict has fixed no-edit-applied message.",
+        "effects": "Applied files and independent folder journal survive later Stop/timeout/model/save failure and deleted chats. Intent failure prevents write; receipt failure is honest pending. Completed conversation metadata/export remains separate. Explicit local reviewed revert added in brick 3.6."
       }
     },
     "workingSessions": {
-      "schemaVersion": 6,
+      "schemaVersion": 7,
       "temporary": "distinct app-data/workspaces/<session id> directory created on first send; persisted across restart, not auto-erased",
       "binding": "immutable per conversation; saved root authoritative; missing folder never falls back",
       "privacy": "absolute roots are local host/UI state, excluded from automatic provider context and exports",
       "delete": "association cascades, working files and recent projects preserved",
       "newChat": "sidebar New chat starts temporary; project + creates project chat; menu offers explicit side mode"
+    },
+    "changeJournal": {
+      "schemaVersion": 7,
+      "scope": "saved canonical working folder, retained independently of chat deletion; 20 summary rows per page and one detail",
+      "snapshots": "private unencrypted before/after UTF-8 snapshots, each <=16384 bytes; not automatically sent to provider or included in conversation exports; old edits not backfilled",
+      "publication": "FULL-synchronous pending intent before replacement; intent failure prevents write; receipt failure preserves applied result with journalStatus pending; no automatic reconciliation or rollback",
+      "revert": "local-only separate preview/approval with unpredictable one-use session/root/change-bound token, 300-second expiry; changed bytes/ordinary permissions/direct path refused; new intent and atomic original/revert receipts; no reverse-of-reverse",
+      "limits": "one pending plan, bounded snapshots/page/UI; growing disk retention; no idle work or new worker",
+      "concurrency": "optimistic filesystem checks, not cross-process compare-and-swap; ordinary permissions only, no universal ACL/xattr guarantees"
     }
   },
   "x-tauri-commands": {
@@ -859,6 +902,54 @@
           "text": {
             "type": "string",
             "description": "Public intermediate assistant text; hidden reasoning omitted; 131072 UTF-8 bytes across all model text including final answer."
+          }
+        }
+      },
+      "FileChange": {
+        "type": "object",
+        "required": [
+          "id",
+          "createdAt",
+          "target",
+          "status",
+          "reverts",
+          "bytesBefore",
+          "bytesAfter"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "target": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "applied",
+              "notApplied",
+              "reverted"
+            ]
+          },
+          "reverts": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "bytesBefore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16384
+          },
+          "bytesAfter": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16384
           }
         }
       }

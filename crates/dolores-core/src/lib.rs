@@ -4,10 +4,12 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
 mod agent;
+mod change;
 mod request_settings;
 mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 pub use agent::*;
+pub use change::*;
 pub use request_settings::RequestSettings;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
 
@@ -167,6 +169,18 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn begin_change(&self, _: &ChangeDraft) -> Result<i64, String> {
+        Err("This storage plugin does not support the change journal.".into())
+    }
+    fn finish_change(&self, _: i64, _: bool) -> Result<(), String> {
+        Err("This storage plugin does not support the change journal.".into())
+    }
+    fn changes_page(&self, _: &str, _: Option<i64>) -> Result<HistoryPage<FileChange>, String> {
+        Err("This storage plugin does not support the change journal.".into())
+    }
+    fn change_snapshot(&self, _: i64) -> Result<ChangeSnapshot, String> {
+        Err("This storage plugin does not support the change journal.".into())
+    }
     fn workspace(&self, _: &str) -> Result<SessionWorkspace, String> {
         Ok(SessionWorkspace::default())
     }

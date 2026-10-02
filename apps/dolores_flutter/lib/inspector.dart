@@ -22,11 +22,13 @@ Future<void> showContextPreview(
 class InspectorFrame extends StatelessWidget {
   final String title, subtitle;
   final Widget child;
+  final bool canClose;
   const InspectorFrame({
     super.key,
     required this.title,
     required this.subtitle,
     required this.child,
+    this.canClose = true,
   });
 
   @override
@@ -62,7 +64,7 @@ class InspectorFrame extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: canClose ? () => Navigator.pop(context) : null,
                     child: const Text('Close'),
                   ),
                 ],

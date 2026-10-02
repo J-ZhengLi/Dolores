@@ -22,7 +22,8 @@ String toolResultText(dynamic record) {
   try {
     final result = jsonDecode(content) as Map;
     if (record['name'] == 'edit_text_file' && result['applied'] == true) {
-      return 'Applied one file change · ${result['bytesBefore']} → ${result['bytesAfter']} bytes';
+      return 'Applied one file change · ${result['bytesBefore']} → ${result['bytesAfter']} bytes'
+          '${result['journalStatus'] == 'pending' ? '\nLocal intent saved; its receipt needs a check in Changes.' : ''}';
     }
     final partial = result['truncated'] == true ? ' · Partial results' : '';
     if (record['name'] == 'list_folder') {
@@ -64,7 +65,7 @@ class ToolApprovalCard extends StatelessWidget {
         'Share up to 100 file and folder names with ${chat.model}? This allows one listing. Results are kept with a completed reply.',
       'search_text' =>
         'Scan up to 64 text files and 256 KiB under this folder? Matching snippets are shared with ${chat.model} and kept with a completed reply. Reading a whole file needs another decision.',
-      'edit_text_file' => 'Review the diff before applying this one change. A changed file needs a fresh preview. Applied edits remain if the reply stops or fails; this diff is kept with a completed reply.',
+      'edit_text_file' => 'Review the diff before applying this one change. Local before and after snapshots are saved in Changes, even if the reply stops or fails. A changed file needs a fresh preview.',
       _ =>
         'Share this file’s text with ${chat.model}? This allows one read. File contents are also kept with a completed reply.',
     };

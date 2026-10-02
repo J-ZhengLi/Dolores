@@ -3,6 +3,9 @@ use dolores_core::{
     Session, SessionStore, TurnMetadata, HISTORY_LIMIT,
 };
 use rusqlite::{params, Connection, OptionalExtension};
+#[cfg(test)]
+mod change_tests;
+mod changes;
 mod history;
 mod workspace;
 use std::{
@@ -41,13 +44,16 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
-            CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);").map_err(storage_error)?;
+            CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS file_changes (id INTEGER PRIMARY KEY, root TEXT NOT NULL, session_id TEXT NOT NULL, target TEXT NOT NULL, created_at INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','applied','notApplied','reverted')), reverts INTEGER REFERENCES file_changes(id), before_text TEXT NOT NULL, after_text TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS file_changes_folder ON file_changes(root, id DESC);
+            PRAGMA synchronous = FULL;").map_err(storage_error)?;
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(storage_error)?;
-        if version < 6 {
+        if version < 7 {
             connection
-                .pragma_update(None, "user_version", 6)
+                .pragma_update(None, "user_version", 7)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -60,6 +66,22 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn begin_change(&self, draft: &dolores_core::ChangeDraft) -> Result<i64, String> {
+        self.insert_change(draft)
+    }
+    fn finish_change(&self, id: i64, applied: bool) -> Result<(), String> {
+        self.complete_change(id, applied)
+    }
+    fn changes_page(
+        &self,
+        root: &str,
+        cursor: Option<i64>,
+    ) -> Result<dolores_core::HistoryPage<dolores_core::FileChange>, String> {
+        self.read_changes(root, cursor)
+    }
+    fn change_snapshot(&self, id: i64) -> Result<dolores_core::ChangeSnapshot, String> {
+        self.read_change(id)
+    }
     fn workspace(&self, id: &str) -> Result<dolores_core::SessionWorkspace, String> {
         self.read_workspace(id)
     }
@@ -471,7 +493,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 6);
+        assert_eq!(version, 7);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

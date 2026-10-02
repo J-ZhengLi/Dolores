@@ -1,5 +1,7 @@
 # Brick 3.5 — Reviewed single-file edits
 
+Brick 3.6 adds independent local snapshots, durable intent and reviewed revert to the selected Flutter host; it supersedes this brick's lack of a durable journal. See [change journal](change-journal.md). The edit validation and optimistic concurrency limits below still apply.
+
 Working project/temporary chats register `edit_text_file` alongside read/list/search. Its arguments are `{path,old_text,new_text}` with no extra fields. One exact, nonempty, unique match is replaced in an existing writable UTF-8 file. Overlapping/repeated matches, NUL/binary text, aliases and common credential/VCS paths fail preparation. The existing 4-KiB argument and 1024-byte relative-path limits apply; original/replacement files and the displayed diff each stay within 16 KiB. This brick does not create/delete/rename files or run commands.
 
 Preparation reads a bounded local snapshot and holds its parent directory capability. It produces a unified diff with real line numbers, three context lines and explicit missing-newline markers. This local preview is shown before writing; no model text or tool argument grants permission. Each prepared plan is keyed by call ID, bounded by the four-tool run budget and consumed once. Approval binds name, target and the exact preview. Denials include the diff in their identity, so a different proposal requires a separate decision.

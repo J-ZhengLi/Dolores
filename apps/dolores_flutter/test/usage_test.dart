@@ -49,6 +49,58 @@ class UsageBridge implements ChatBridge {
 
 void main() {
   testWidgets(
+    'compact lazy transcript exposes each reply model when scrolled into view',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final chat = ChatController(UsageBridge())
+        ..loading = false
+        ..messages = [
+          {'id': 1, 'role': 'user', 'content': 'First request'},
+          {
+            'id': 2,
+            'role': 'assistant',
+            'content': List.filled(80, 'First answer line').join('\n'),
+            'metadata': {...metadata, 'model': 'earlier'},
+          },
+          {'id': 3, 'role': 'user', 'content': 'Second request'},
+          {
+            'id': 4,
+            'role': 'assistant',
+            'content': List.filled(80, 'Second answer line').join('\n'),
+            'metadata': {...metadata, 'model': 'later'},
+          },
+        ];
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      await tester.pumpAndSettle();
+      final models = <String>{};
+      ScrollableState? transcript;
+      void inspect() {
+        for (final element in find.byType(UsageDetails).evaluate()) {
+          models.add('${(element.widget as UsageDetails).metadata?['model']}');
+          transcript = element.findAncestorStateOfType<ScrollableState>();
+        }
+      }
+
+      inspect();
+      expect(find.byType(UsageDetails).evaluate().length, lessThan(2));
+      expect(transcript, isNotNull);
+      final position = transcript!.position;
+      position.jumpTo(position.minScrollExtent);
+      await tester.pumpAndSettle();
+      inspect();
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      inspect();
+      expect(models, {'earlier', 'later'});
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
+  testWidgets(
     'Usage shows reported zero and missing fields in both compact themes',
     (tester) async {
       tester.view.physicalSize = const Size(390, 800);

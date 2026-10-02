@@ -1,5 +1,6 @@
 //! C ABI for the selected Flutter shell. No server or subprocess.
 mod approval;
+mod changes;
 mod connection;
 mod export;
 mod recovery;
@@ -42,12 +43,34 @@ struct Engine {
     connection: Mutex<ConnectionManager>,
     active: Mutex<Option<Run>>,
     workspace_directory: Option<PathBuf>,
+    revert: Mutex<Option<changes::PendingRevert>>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ChangesPage {
+        session: String,
+        cursor: Option<i64>,
+    },
+    ChangeDetails {
+        session: String,
+        #[serde(rename = "changeId")]
+        change_id: i64,
+    },
+    PreviewRevert {
+        session: String,
+        #[serde(rename = "changeId")]
+        change_id: i64,
+    },
+    ApplyRevert {
+        session: String,
+        token: String,
+    },
+    CancelRevert {
+        token: String,
+    },
     Bootstrap,
     CreateSession {
         kind: dolores_core::WorkspaceKind,
@@ -162,6 +185,7 @@ impl Engine {
             connection: Mutex::new(connection),
             active: Mutex::new(None),
             workspace_directory: None,
+            revert: Mutex::new(None),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -221,6 +245,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.clear_revert()?;
                 if let Some(run) = active.take() {
                     run.cancel.cancel();
                 }
@@ -232,6 +257,15 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ChangesPage { session, cursor } => self.changes_page(&session, cursor),
+            Command::ChangeDetails { session, change_id } => {
+                self.change_details(&session, change_id)
+            }
+            Command::PreviewRevert { session, change_id } => {
+                self.preview_revert(&session, change_id)
+            }
+            Command::ApplyRevert { session, token } => self.apply_revert(&session, &token),
+            Command::CancelRevert { token } => self.cancel_revert(&token),
             Command::Bootstrap => {
                 let connection = self
                     .connection
@@ -284,6 +318,7 @@ impl Engine {
                 Ok(report)
             }
             Command::Delete { session } => {
+                self.clear_revert()?;
                 self.store.delete(&session)?;
                 Ok(Value::Null)
             }
@@ -351,6 +386,7 @@ impl Engine {
                 input,
                 workspace,
             } => {
+                self.clear_revert()?;
                 prepare_context(vec![], &input)?;
                 let provider = self
                     .connection
@@ -387,7 +423,15 @@ impl Engine {
                 }
                 let workspace = saved.and_then(|s| s.root).map(PathBuf::from).or(workspace);
                 let tools = workspace
-                    .map(|root| dolores_tools_fs::folder_tools(&root))
+                    .map(|root| {
+                        let journal = Arc::new(dolores_core::WorkspaceJournal {
+                            store: self.store.clone(),
+                            root: root.to_string_lossy().into_owned(),
+                            session: session.clone().unwrap(),
+                            reverts: None,
+                        });
+                        dolores_tools_fs::journaled_folder_tools(&root, journal)
+                    })
                     .transpose()?
                     .unwrap_or_default();
                 let model = self.store.preferences()?.model;

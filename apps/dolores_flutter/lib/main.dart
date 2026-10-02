@@ -12,6 +12,7 @@ import 'reply_content.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'inspector.dart';
+import 'changes.dart';
 import 'request_settings.dart';
 import 'tool_activity.dart';
 import 'workspace_picker.dart';
@@ -644,6 +645,15 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
+                  if (chat.session != null && chat.workspaceRoot != null)
+                    IconButton(
+                      key: const Key('workspace-changes'),
+                      tooltip: 'Changes in this working folder',
+                      onPressed: chat.busy || chat.loading || chat.changing
+                          ? null
+                          : () => showChanges(context, chat),
+                      icon: const Icon(Icons.difference_outlined, size: 20),
+                    ),
                   IconButton(
                     key: const Key('chat-trajectory'),
                     tooltip: 'Chat trajectory and log',

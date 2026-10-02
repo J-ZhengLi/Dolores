@@ -1,7 +1,7 @@
 use super::ReadTextFile;
 use async_trait::async_trait;
 use cap_std::fs::{Dir, OpenOptions, Permissions};
-use dolores_core::{ToolCall, ToolPlugin, ToolRequest, ToolSpec, MAX_TOOL_BYTES};
+use dolores_core::{ChangeJournal, ToolCall, ToolPlugin, ToolRequest, ToolSpec, MAX_TOOL_BYTES};
 use serde::Deserialize;
 use serde_json::json;
 use std::{
@@ -20,6 +20,7 @@ static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 pub struct EditTextFile {
     read: ReadTextFile,
     plans: Mutex<HashMap<String, Plan>>,
+    journal: Option<Arc<dyn ChangeJournal>>,
 }
 struct Plan {
     request: ToolRequest,
@@ -74,7 +75,7 @@ fn snapshot(directory: &Dir, path: &str) -> Result<(String, Permissions), String
 
 // One hunk contains the changed lines and three context lines on each side.
 // Long unchanged files do not inflate the approval card or saved metadata.
-fn diff(before: &str, after: &str) -> String {
+pub fn change_diff(before: &str, after: &str) -> String {
     let old: Vec<_> = before.split_inclusive('\n').collect();
     let new: Vec<_> = after.split_inclusive('\n').collect();
     let prefix = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
@@ -131,6 +132,7 @@ impl EditTextFile {
         Self {
             read,
             plans: Mutex::new(HashMap::new()),
+            journal: None,
         }
     }
     fn direct_path(&self, path: &str) -> Result<(), String> {
@@ -156,7 +158,18 @@ impl EditTextFile {
         }
         Ok(())
     }
-    fn apply(read: ReadTextFile, plan: Plan, cancel: CancellationToken) -> Result<String, String> {
+    pub(super) fn journaled(read: ReadTextFile, journal: Arc<dyn ChangeJournal>) -> Self {
+        Self {
+            journal: Some(journal),
+            ..Self::new(read)
+        }
+    }
+    fn apply(
+        read: ReadTextFile,
+        plan: Plan,
+        cancel: CancellationToken,
+        journal: Option<Arc<dyn ChangeJournal>>,
+    ) -> Result<String, String> {
         checkpoint(&cancel)?;
         Self::new(read.clone())
             .direct_path(&plan.request.target)
@@ -189,7 +202,7 @@ impl EditTextFile {
             .map_err(|_| "Could not flush the file edit.")?;
         drop(file);
         // Recheck after staging, immediately before the short publish operation.
-        Self::new(read)
+        Self::new(read.clone())
             .direct_path(&plan.request.target)
             .map_err(|_| CHANGED)?;
         let (current, permissions) = snapshot(&plan.parent, &plan.filename).map_err(|_| CHANGED)?;
@@ -197,13 +210,39 @@ impl EditTextFile {
             return Err(CHANGED.into());
         }
         checkpoint(&cancel)?;
-        plan.parent
-            .rename(&temp.name, &plan.parent, &plan.filename)
-            .map_err(|_| "Could not replace the file.")?;
-        Ok(
-            json!({"applied":true,"bytesBefore":plan.before.len(),"bytesAfter":plan.after.len()})
-                .to_string(),
-        )
+        // Durably save intent before publishing. Failure here prevents the write.
+        let receipt = journal
+            .as_ref()
+            .map(|j| j.begin(&plan.request.target, &plan.before, &plan.after))
+            .transpose()?;
+        let publish = (|| {
+            checkpoint(&cancel)?;
+            // Persistence may block; check the file again after it completes.
+            Self::new(read)
+                .direct_path(&plan.request.target)
+                .map_err(|_| CHANGED)?;
+            let (current, permissions) =
+                snapshot(&plan.parent, &plan.filename).map_err(|_| CHANGED)?;
+            if current != plan.before || permissions != plan.permissions {
+                return Err(CHANGED.into());
+            }
+            checkpoint(&cancel)?;
+            plan.parent
+                .rename(&temp.name, &plan.parent, &plan.filename)
+                .map_err(|_| "Could not replace the file.".to_string())
+        })();
+        let saved = match (&journal, receipt) {
+            (Some(journal), Some(id)) => journal.finish(id, publish.is_ok()).is_ok(),
+            _ => true,
+        };
+        publish?;
+        let mut result =
+            json!({"applied":true,"bytesBefore":plan.before.len(),"bytesAfter":plan.after.len()});
+        if let Some(id) = receipt {
+            result["changeId"] = json!(id);
+            result["journalStatus"] = json!(if saved { "applied" } else { "pending" });
+        }
+        Ok(result.to_string())
     }
 }
 #[async_trait]
@@ -250,7 +289,7 @@ impl ToolPlugin for EditTextFile {
         if after.len() > MAX_TOOL_BYTES {
             return Err("Edited file exceeds the 16 KiB limit.".into());
         }
-        let preview = diff(&before, &after);
+        let preview = change_diff(&before, &after);
         if preview.len() > MAX_TOOL_BYTES {
             return Err("Edit diff exceeds the 16 KiB limit. Use a smaller edit.".into());
         }
@@ -300,12 +339,84 @@ impl ToolPlugin for EditTextFile {
             return Err("Approved edit changed.".into());
         }
         let read = self.read.clone();
+        let journal = self.journal.clone();
         // Stop is checked inside the worker, including just before publishing.
         // Once the atomic replacement starts, finish it and report its outcome.
-        tokio::task::spawn_blocking(move || Self::apply(read, plan, cancel))
+        tokio::task::spawn_blocking(move || Self::apply(read, plan, cancel, journal))
             .await
             .map_err(|_| "File edit task failed.")?
     }
+}
+
+/// Opaque, local-only plan. The bridge binds it to a chat and a one-use token.
+pub struct RevertPlan {
+    read: ReadTextFile,
+    plan: Plan,
+}
+impl RevertPlan {
+    pub fn preview(
+        root: &std::path::Path,
+        target: &str,
+        expected: &str,
+        restored: &str,
+    ) -> Result<Self, String> {
+        if expected == restored
+            || expected.len() > MAX_TOOL_BYTES
+            || restored.len() > MAX_TOOL_BYTES
+            || restored.contains('\0')
+        {
+            return Err("Invalid revert snapshot.".into());
+        }
+        let read = ReadTextFile::new(root)?;
+        EditTextFile::new(read.clone()).direct_path(target)?;
+        let (parent, filename) = target.rsplit_once('/').unwrap_or((".", target));
+        let parent = Arc::new(
+            read.directory
+                .open_dir(parent)
+                .map_err(|_| "File folder is unavailable.")?,
+        );
+        let (before, permissions) = snapshot(&parent, filename)?;
+        if before != expected {
+            return Err("File changed after this edit. Revert was not prepared.".into());
+        }
+        let preview = change_diff(&before, restored);
+        if preview.len() > MAX_TOOL_BYTES {
+            return Err("Revert diff exceeds the 16 KiB limit.".into());
+        }
+        Ok(Self {
+            read,
+            plan: Plan {
+                request: ToolRequest {
+                    call_id: String::new(),
+                    name: "revert".into(),
+                    target: target.into(),
+                    query: None,
+                    diff: Some(preview),
+                },
+                parent,
+                filename: filename.into(),
+                before,
+                after: restored.into(),
+                permissions,
+            },
+        })
+    }
+    pub fn diff(&self) -> &str {
+        self.plan.request.diff.as_deref().unwrap()
+    }
+    pub fn apply(self, journal: Arc<dyn ChangeJournal>) -> Result<String, String> {
+        EditTextFile::apply(
+            self.read,
+            self.plan,
+            CancellationToken::new(),
+            Some(journal),
+        )
+    }
+}
+
+#[cfg(test)]
+fn diff(before: &str, after: &str) -> String {
+    change_diff(before, after)
 }
 
 #[cfg(test)]

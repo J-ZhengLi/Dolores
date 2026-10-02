@@ -30,6 +30,24 @@ class _ViewState {
 class ChatController extends ChangeNotifier {
   final ChatBridge bridge;
   ChatController(this.bridge);
+  Future<void> inspectLocalChanges(Future<void> Function() inspect) async {
+    if (busy ||
+        changing ||
+        loading ||
+        session == null ||
+        workspaceRoot == null) {
+      return;
+    }
+    changing = true;
+    _notify();
+    try {
+      await inspect();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
   String? workspaceRoot;
   String workspaceKind = 'temporary';
   List<Map<String, dynamic>> projects = [];

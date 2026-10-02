@@ -457,10 +457,13 @@ Future<void> _run(
     Navigator.of(smokePageContext).pop();
     await Future<void>.delayed(const Duration(milliseconds: 250));
     TextButton? usageAction;
-    var usageActions = 0;
+    final usageModels = <String>{};
+    ScrollableState? transcript;
     void inspectUsage(Element element) {
       if (element.widget is UsageDetails) {
-        usageActions++;
+        final usage = element.widget as UsageDetails;
+        usageModels.add('${usage.metadata?['model']}');
+        transcript = element.findAncestorStateOfType<ScrollableState>();
         void findAction(Element child) {
           if (child.widget is TextButton) {
             usageAction = child.widget as TextButton;
@@ -475,12 +478,23 @@ Future<void> _run(
     }
 
     inspectUsage(capture.currentContext! as Element);
+    // A compact lazy list need not mount both replies at once. Inspect each
+    // end of this two-reply fixture rather than counting simultaneous widgets.
+    if (usageModels.length < 2 && transcript != null) {
+      final position = transcript!.position;
+      position.jumpTo(position.minScrollExtent);
+      await WidgetsBinding.instance.endOfFrame;
+      inspectUsage(capture.currentContext! as Element);
+      position.jumpTo(position.maxScrollExtent);
+      await WidgetsBinding.instance.endOfFrame;
+      inspectUsage(capture.currentContext! as Element);
+    }
     check(
-      usageActions == 2 &&
+      usageModels.containsAll({'dolores-fast', 'dolores-mock'}) &&
           usageAction?.onPressed != null &&
           chat.messages[1]['metadata']['model'] == 'dolores-fast' &&
           chat.messages[3]['metadata']['model'] == 'dolores-mock',
-      'Native usage actions retain each reply model after model switching (visible actions: $usageActions, enabled: ${usageAction?.onPressed != null})',
+      'Native usage actions retain each reply model after model switching across transcript scrolling',
       checks,
     );
     usageAction!.onPressed!();
@@ -798,7 +812,85 @@ Future<void> _run(
       checks,
     );
     await screenshot(capture, output, 'edit-result-dark');
-    await editFile.writeAsString(originalText);
+    final journal = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': editedSession,
+    });
+    final changeId = journal['items'][0]['id'];
+    check(
+      journal['items'].length == 1 &&
+          journal['items'][0]['status'] == 'applied',
+      'Only the applied edit creates an independent folder change record',
+      checks,
+    );
+    void press(String label, {bool key = false}) {
+      VoidCallback? callback;
+      void visit(Element element) {
+        final widget = element.widget;
+        if (widget is ButtonStyleButton &&
+            (key
+                ? widget.key == Key(label)
+                : widget.child is Text &&
+                      (widget.child as Text).data == label)) {
+          callback = widget.onPressed;
+        }
+        if (widget is IconButton && key && widget.key == Key(label)) {
+          callback = widget.onPressed;
+        }
+        if (widget is ListTile && key && widget.key == Key(label)) {
+          callback = widget.onTap;
+        }
+        element.visitChildren(visit);
+      }
+
+      visit(capture.currentContext! as Element);
+      if (callback == null) {
+        throw StateError('Missing enabled diagnostic control: $label');
+      }
+      callback!();
+    }
+
+    press('workspace-changes', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    press('change-$changeId', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    press('review-revert', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    check(
+      await editFile.readAsString() != originalText && chat.changing,
+      'Changes review opens the reversed local diff without modifying the file or sending a request',
+      checks,
+    );
+    await screenshot(capture, output, 'changes-revert-dark');
+    press('Cancel');
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    check(
+      await editFile.readAsString() != originalText,
+      'Cancelling a revert preview preserves the applied file',
+      checks,
+    );
+    press('review-revert', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    press('apply-revert', key: true);
+    await waitUntil(
+      () => !File(editFile.path).readAsStringSync().contains('Updated with'),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    final reverted = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': editedSession,
+    });
+    check(
+      await editFile.readAsString() == originalText &&
+          reverted['items'].length == 2 &&
+          reverted['items'][0]['reverts'] == changeId &&
+          reverted['items'][1]['status'] == 'reverted',
+      'Revert once restores exact bytes and retains original plus revert receipts',
+      checks,
+    );
+    await screenshot(capture, output, 'changes-result-dark');
+    press('Close');
+    await waitUntil(() => !chat.changing);
     chat.newChat();
     await chat.select(readSession);
     chat.draft = 'tool-deny';

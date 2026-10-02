@@ -1,5 +1,7 @@
 # Dolores API
 
+Brick 3.6 adds local `changesPage`, `changeDetails`, `previewRevert`, `applyRevert` and `cancelRevert` commands in the selected Flutter host. Schema 7 stores folder-bound snapshots and write-ahead intents independently of chats. Revert is local, separately reviewed and guarded against changed files; pending receipts explicitly represent uncertain completion. No network route or model tool is added. See [journal design](design/change-journal.md) and the bridge contract.
+
 Brick 3.5 adds `edit_text_file` to working chats and optional `diff` in approval/result records; status `edited` identifies an applied replacement. No new bridge command, HTTP route or schema migration is added. The local contract and filesystem-effect boundaries are documented in [approved edits](design/approved-edits.md) and `openapi.json`.
 
 Brick 3.4 adds streamed function calls in working chats, ordered `modelText` events and optional public progress in `AgentSummary.steps`. Final text stays separate; incomplete calls never reach approval/execution. See [contract](flutter/flutter-api.md) and [design](design/streaming-agent.md). Side-chat events and schema 6 remain compatible; the nonstreaming tool description below is historical.

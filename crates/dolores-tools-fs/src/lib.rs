@@ -7,15 +7,33 @@ use std::{io::Read, path::Path, sync::Arc};
 use tokio_util::sync::CancellationToken;
 mod discovery;
 mod edit;
+#[cfg(test)]
+mod journal_tests;
+pub use edit::{change_diff, RevertPlan};
 
 /// Explicit built-in registration; all tools share the same directory handle.
 pub fn folder_tools(root: &Path) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    registered_tools(root, None)
+}
+pub fn journaled_folder_tools(
+    root: &Path,
+    journal: Arc<dyn dolores_core::ChangeJournal>,
+) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    registered_tools(root, Some(journal))
+}
+fn registered_tools(
+    root: &Path,
+    journal: Option<Arc<dyn dolores_core::ChangeJournal>>,
+) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
     let read = ReadTextFile::new(root)?;
     Ok(vec![
         Arc::new(read.clone()),
         Arc::new(discovery::Discover::new(read.clone(), false)),
         Arc::new(discovery::Discover::new(read.clone(), true)),
-        Arc::new(edit::EditTextFile::new(read)),
+        Arc::new(match journal {
+            Some(journal) => edit::EditTextFile::journaled(read, journal),
+            None => edit::EditTextFile::new(read),
+        }),
     ])
 }
 
