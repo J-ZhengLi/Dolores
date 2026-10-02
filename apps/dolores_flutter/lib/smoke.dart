@@ -75,6 +75,9 @@ Future<void> _run(
   Directory output,
 ) async {
   final checks = <String>[];
+  final fixtureBase =
+      Platform.environment['DOLORES_SMOKE_PROVIDER'] ??
+      'http://127.0.0.1:19421/v1';
   try {
     await output.create(recursive: true);
     await chat.initialize();
@@ -82,7 +85,7 @@ Future<void> _run(
     if (chat.sessions.isNotEmpty) {
       throw StateError('Use a fresh smoke database.');
     }
-    final models = await chat.listModels('http://127.0.0.1:19421/v1', '');
+    final models = await chat.listModels(fixtureBase, '');
     check(
       models.contains('dolores-mock') &&
           models.contains('dolores-fast') &&
@@ -91,7 +94,7 @@ Future<void> _run(
       checks,
     );
     await chat.configure(
-      'http://127.0.0.1:19421/v1',
+      fixtureBase,
       'dolores-mock',
       '',
       models: models,
@@ -714,6 +717,91 @@ Future<void> _run(
       'scope': 'all',
       'id': savedPreference['id'],
       'revision': 2,
+    });
+    chat.newChat(kind: 'side');
+    chat.draft = 'I prefer concise examples.';
+    await chat.send();
+    await waitUntil(() => !chat.busy);
+    final suggestionHistory = chat.messages.length;
+    final suggestionSession = chat.session!;
+    T? keyedWidget<T extends Widget>(String key) {
+      T? found;
+      void visit(Element element) {
+        if (element.widget is T && element.widget.key == Key(key)) {
+          found = element.widget as T;
+        }
+        element.visitChildren(visit);
+      }
+
+      visit(capture.currentContext! as Element);
+      return found;
+    }
+
+    if (!smokePageContext.mounted) throw StateError('Memory view unavailable');
+    final suggestionsView = showMemory(smokePageContext, chat);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('suggest-from-chat', key: true);
+    final sourceId = chat.messages.first['id'];
+    await waitUntil(
+      () => keyedWidget<CheckboxListTile>('memory-source-$sourceId') != null,
+    );
+    check(
+      keyedWidget<CheckboxListTile>('memory-source-$sourceId')!.value == false,
+      'Suggestion source review starts with no messages selected',
+      checks,
+    );
+    await screenshot(capture, output, 'memory-sources-dark');
+    keyedWidget<CheckboxListTile>('memory-source-$sourceId')!.onChanged!(true);
+    await press('generate-memory-suggestions', key: true);
+    await waitUntil(
+      () => keyedWidget<ButtonStyleButton>('review-suggestion-0') != null,
+    );
+    check(
+      (await chat.bridge.call({
+            'command': 'memories',
+            'session': suggestionSession,
+          }))['items'].isEmpty &&
+          chat.messages.length == suggestionHistory,
+      'Generating suggestions writes neither preferences nor conversation turns',
+      checks,
+    );
+    await screenshot(capture, output, 'memory-suggestions-dark');
+    await press('review-suggestion-0', key: true);
+    await WidgetsBinding.instance.endOfFrame;
+    keyedWidget<TextField>('memory-text')!.controller!.text =
+        'Prefer one short example.';
+    await screenshot(capture, output, 'memory-suggestion-review-dark');
+    await press('save-memory', key: true);
+    await waitUntil(
+      () =>
+          keyedWidget<ButtonStyleButton>('review-suggestion-0') != null &&
+          keyedWidget<ButtonStyleButton>('review-suggestion-0')?.onPressed ==
+              null,
+    );
+    final suggestedItems =
+        (await chat.bridge.call({
+              'command': 'memories',
+              'session': suggestionSession,
+            }))['items']
+            as List;
+    check(
+      suggestedItems.length == 1 &&
+          suggestedItems[0]['source'] == 'conversation' &&
+          suggestedItems[0]['text'] == 'Prefer one short example.' &&
+          suggestedItems[0]['origin']['quote'] ==
+              'I prefer concise examples.' &&
+          suggestedItems[0]['originAvailable'] == true,
+      'Explicit corrected Save persists one preference with its exact source quote',
+      checks,
+    );
+    await press('discard-memory-suggestions', key: true);
+    await press('Close');
+    await suggestionsView;
+    await chat.bridge.call({
+      'command': 'deleteMemory',
+      'scope': 'all',
+      'id': suggestedItems[0]['id'],
+      'revision': 1,
     });
     final workspace = Directory(path.join(output.path, 'approved-folder'));
     await workspace.create();

@@ -19,6 +19,47 @@ fn decode(data: String) -> Result<MemoryPreference, String> {
     Ok(value)
 }
 impl SqliteStore {
+    pub(super) fn read_memory_sources(
+        &self,
+        session: &str,
+    ) -> Result<dolores_core::HistoryPage<dolores_core::MemoryMessage>, String> {
+        let conn = self.lock()?;
+        if !conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1)",
+                [session],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(storage_error)?
+        {
+            return Err("Conversation no longer exists.".into());
+        }
+        let mut query = conn.prepare("SELECT m.id,m.content FROM messages m WHERE m.session_id=?1 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant') ORDER BY m.id DESC LIMIT 21").map_err(storage_error)?;
+        let mut items = query
+            .query_map([session], |r| {
+                Ok(dolores_core::MemoryMessage {
+                    message_id: r.get(0)?,
+                    text: r.get(1)?,
+                })
+            })
+            .map_err(storage_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        let has_older = items.len() > 20;
+        items.truncate(20);
+        Ok(dolores_core::HistoryPage {
+            items,
+            has_older,
+            has_newer: false,
+        })
+    }
+    pub(super) fn read_memory_source(
+        &self,
+        session: &str,
+        id: i64,
+    ) -> Result<Option<dolores_core::MemoryMessage>, String> {
+        self.lock()?.query_row("SELECT m.id,m.content FROM messages m WHERE m.session_id=?1 AND m.id=?2 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant')", params![session,id], |r| Ok(dolores_core::MemoryMessage {message_id:r.get(0)?,text:r.get(1)?})).optional().map_err(storage_error)
+    }
     pub(super) fn read_memory(&self, root: Option<&str>) -> Result<Vec<MemoryPreference>, String> {
         let root = scope_key(root)?;
         let conn = self.lock()?;
@@ -63,10 +104,51 @@ impl SqliteStore {
         root: Option<&str>,
         draft: &MemoryDraft,
     ) -> Result<MemoryPreference, String> {
+        self.write_memory_with_sources(root, draft, None)
+    }
+    pub(super) fn write_suggested_memory(
+        &self,
+        root: Option<&str>,
+        draft: &MemoryDraft,
+        sources: &[dolores_core::MemoryMessage],
+    ) -> Result<MemoryPreference, String> {
+        self.write_memory_with_sources(root, draft, Some(sources))
+    }
+    fn write_memory_with_sources(
+        &self,
+        root: Option<&str>,
+        draft: &MemoryDraft,
+        sources: Option<&[dolores_core::MemoryMessage]>,
+    ) -> Result<MemoryPreference, String> {
         let root = scope_key(root)?;
         draft.validate()?;
         let mut conn = self.lock()?;
         let tx = conn.transaction().map_err(storage_error)?;
+        match (&draft.origin, sources) {
+            (None, None) => {}
+            (Some(origin), Some(sources)) if draft.revision.is_none() => {
+                dolores_core::memory_suggestion_prompt(sources)?;
+                if !sources
+                    .iter()
+                    .any(|s| s.message_id == origin.message_id && s.text.contains(&origin.quote))
+                {
+                    return Err("Memory source reference changed. Review this chat again.".into());
+                }
+                for source in sources {
+                    let text:Option<String> = tx.query_row("SELECT m.content FROM messages m WHERE m.session_id=?1 AND m.id=?2 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant')",params![origin.session,source.message_id],|r|r.get(0)).optional().map_err(storage_error)?;
+                    if text.as_deref() != Some(source.text.as_str()) {
+                        return Err(
+                            "Memory source reference changed. Review this chat again.".into()
+                        );
+                    }
+                }
+            }
+            _ => {
+                return Err(
+                    "Memory source reference is invalid. Review the suggestion again.".into(),
+                )
+            }
+        }
         let previous: Option<String> = tx
             .query_row(
                 "SELECT data FROM memory_preferences WHERE id=?1 AND root=?2",
@@ -76,7 +158,7 @@ impl SqliteStore {
             .optional()
             .map_err(storage_error)?;
         let timestamp = now();
-        let (revision, created_at) = match (previous, draft.revision) {
+        let (revision, created_at, origin) = match (previous, draft.revision) {
             (None, None) => {
                 let count: usize = tx
                     .query_row(
@@ -88,9 +170,12 @@ impl SqliteStore {
                 if count >= MAX_PREFERENCES_PER_SCOPE {
                     return Err("Memory has reached its 12-preference limit for this scope. Delete an unused preference first.".into());
                 }
-                (1, timestamp)
+                (1, timestamp, draft.origin.clone())
             }
             (Some(data), Some(expected)) => {
+                if draft.origin.is_some() {
+                    return Err("Memory source cannot be replaced during editing.".into());
+                }
                 let previous = decode(data)?;
                 if previous.revision != expected {
                     return Err(CONFLICT.into());
@@ -98,6 +183,7 @@ impl SqliteStore {
                 (
                     expected.checked_add(1).ok_or(CONFLICT)?,
                     previous.created_at,
+                    previous.origin,
                 )
             }
             _ => return Err(CONFLICT.into()),
@@ -112,10 +198,16 @@ impl SqliteStore {
             } else {
                 MemoryScope::Folder
             },
-            source: "user".into(),
+            source: if origin.is_some() {
+                "conversation"
+            } else {
+                "user"
+            }
+            .into(),
             enabled: draft.enabled,
             created_at,
             updated_at: timestamp,
+            origin,
         };
         let data = serde_json::to_string(&value).map_err(storage_error)?;
         if draft.revision.is_some() {
@@ -179,7 +271,79 @@ mod tests {
             title: "Response style".into(),
             text: "Prefer concise examples. 世界".into(),
             enabled: true,
+            origin: None,
         }
+    }
+    #[test]
+    fn suggested_sources_are_atomic_scoped_and_preserved_through_edits_and_restart() {
+        let temp = tempfile::tempdir().unwrap();
+        let db = temp.path().join("state.db");
+        let store = SqliteStore::open(&db).unwrap();
+        store.create("chat").unwrap();
+        store.create("other").unwrap();
+        for n in 0..21 {
+            store
+                .commit_turn(
+                    "chat",
+                    &format!("I prefer concise examples {n}."),
+                    "Assistant suggestion is not a source.",
+                )
+                .unwrap();
+        }
+        let page = store.memory_source_messages("chat").unwrap();
+        assert_eq!(page.items.len(), 20);
+        assert!(page.has_older);
+        let source = page.items[0].clone();
+        assert!(store
+            .memory_source_message("other", source.message_id)
+            .unwrap()
+            .is_none());
+        assert!(store
+            .memory_source_message("chat", source.message_id + 1)
+            .unwrap()
+            .is_none());
+        let mut suggested = draft("reviewed");
+        suggested.origin = Some(dolores_core::MemoryOrigin {
+            session: "chat".into(),
+            message_id: source.message_id,
+            quote: "I prefer concise examples".into(),
+            model: "fixture".into(),
+            reviewed_at: 1,
+        });
+        assert!(store.save_memory_preference(None, &suggested).is_err());
+        let mut stale = source.clone();
+        stale.text.push_str("changed");
+        assert!(store
+            .save_suggested_memory_preference(None, &suggested, &[stale])
+            .is_err());
+        let saved = store
+            .save_suggested_memory_preference(None, &suggested, std::slice::from_ref(&source))
+            .unwrap();
+        assert_eq!(saved.source, "conversation");
+        let corrected = MemoryDraft {
+            revision: Some(1),
+            text: "Prefer short replies.".into(),
+            ..draft("reviewed")
+        };
+        let saved = store.save_memory_preference(None, &corrected).unwrap();
+        assert_eq!(saved.origin, suggested.origin);
+        assert_eq!(saved.revision, 2);
+        drop(store);
+        let store = SqliteStore::open(&db).unwrap();
+        assert_eq!(store.memory_preferences(None).unwrap()[0], saved);
+        store.delete("chat").unwrap();
+        assert!(store
+            .memory_source_message("chat", source.message_id)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            store.memory_preferences(None).unwrap()[0].origin,
+            suggested.origin
+        );
+        suggested.id = "after-deletion".into();
+        assert!(store
+            .save_suggested_memory_preference(None, &suggested, &[source])
+            .is_err());
     }
     #[test]
     fn revisions_scope_atomic_failures_deletion_restart_and_history_stay_consistent() {

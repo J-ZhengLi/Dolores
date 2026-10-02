@@ -24,6 +24,35 @@ pub struct MemoryPreference {
     pub enabled: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<MemoryOrigin>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MemoryOrigin {
+    pub session: String,
+    pub message_id: i64,
+    pub quote: String,
+    pub model: String,
+    pub reviewed_at: i64,
+}
+impl MemoryOrigin {
+    pub fn validate(&self) -> Result<(), String> {
+        if !valid_memory_id(&self.session)
+            || self.message_id <= 0
+            || self.quote.trim().is_empty()
+            || self.quote.len() > 512
+            || self.quote.contains('\0')
+            || self.model.trim().is_empty()
+            || self.model.len() > 200
+            || self.model.chars().any(char::is_control)
+            || self.reviewed_at < 0
+        {
+            return Err("Memory source reference is invalid. Review the suggestion again.".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -34,6 +63,8 @@ pub struct MemoryDraft {
     pub title: String,
     pub text: String,
     pub enabled: bool,
+    #[serde(default)]
+    pub origin: Option<MemoryOrigin>,
 }
 pub fn valid_memory_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 80 && id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
@@ -59,14 +90,22 @@ impl MemoryDraft {
             );
         }
         validate_preference(&self.title, &self.text)
+            .and_then(|()| self.origin.as_ref().map_or(Ok(()), MemoryOrigin::validate))
     }
 }
 impl MemoryPreference {
     pub fn validate(&self) -> Result<(), String> {
-        if !valid_memory_id(&self.id) || self.revision == 0 || self.source != "user" {
+        if !valid_memory_id(&self.id)
+            || self.revision == 0
+            || !matches!(
+                (self.source.as_str(), &self.origin),
+                ("user", None) | ("conversation", Some(_))
+            )
+        {
             return Err("Saved memory preference is invalid. Review Memory before sending.".into());
         }
         validate_preference(&self.title, &self.text)
+            .and_then(|()| self.origin.as_ref().map_or(Ok(()), MemoryOrigin::validate))
     }
 }
 
@@ -79,6 +118,8 @@ pub struct MemorySource {
     pub scope: MemoryScope,
     pub source: String,
     pub updated_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<MemoryOrigin>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -91,12 +132,17 @@ pub struct MemoryContext {
 
 fn entry_text(preference: &MemoryPreference) -> String {
     format!(
-        "\nPreference: {}\nScope: {} · Added by you · id {} · revision {}\n{}\n",
+        "\nPreference: {}\nScope: {} · {} · id {} · revision {}\n{}\n",
         preference.title,
         if preference.scope == MemoryScope::Folder {
             "This working folder"
         } else {
             "All chats"
+        },
+        if preference.origin.is_some() {
+            "From a reviewed chat"
+        } else {
+            "Added by you"
         },
         preference.id,
         preference.revision,
@@ -152,6 +198,7 @@ pub fn prepare_memory_context(
             scope: p.scope,
             source: p.source,
             updated_at: p.updated_at,
+            origin: p.origin,
         });
     }
     let report = MemoryContext {
@@ -186,6 +233,7 @@ mod tests {
             enabled: true,
             created_at: 1,
             updated_at: n,
+            origin: None,
         }
     }
     #[test]

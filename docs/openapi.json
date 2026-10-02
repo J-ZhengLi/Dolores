@@ -216,7 +216,7 @@
         "arguments": {
           "session": "string|null; optional; resolve folder from saved session"
         },
-        "result": "{items:MemoryPreference[0..24],folderAvailable:boolean}; All chats/current saved folder; no network"
+        "result": "{items:MemoryPreference[0..24],folderAvailable:boolean}; All chats/current saved folder; no network; conversation items additionally expose originAvailable:boolean"
       },
       "saveMemory": {
         "arguments": {
@@ -228,7 +228,7 @@
           "text": "string; nonempty, <=1024 UTF-8 bytes, no NUL",
           "enabled": "boolean; explicit activation for new messages"
         },
-        "result": "MemoryPreference; source=user; atomic revision increment; 12 entries/scope including disabled; stale/wrong-scope refusal"
+        "result": "MemoryPreference; manual creation source=user; edits preserve original source/origin; atomic revision increment; 12 entries/scope including disabled; stale/wrong-scope refusal"
       },
       "deleteMemory": {
         "arguments": {
@@ -238,6 +238,39 @@
           "revision": "integer; positive current revision"
         },
         "result": "null; atomic compare/delete; stops future retrieval; historical replies/provenance remain"
+      },
+      "reviewMemorySources": {
+        "arguments": {
+          "session": "string"
+        },
+        "result": "{token:string,items:MemoryMessage[0..20],hasOlder:boolean,folderAvailable:boolean,model:string}; newest completed user messages, no preselection/network; one 300-second review slot"
+      },
+      "suggestMemories": {
+        "arguments": {
+          "id": "u64",
+          "session": "string",
+          "token": "string",
+          "messageIds": "i64[1..6]; unique selected IDs, total text <=8192 UTF-8 bytes"
+        },
+        "result": "null; consumes source token; existing poll/cancel active run; tool-free selected-source-only extraction, min(configured,1024 tokens/30 seconds), 8192 response bytes; no chat or preference writes"
+      },
+      "saveMemorySuggestion": {
+        "arguments": {
+          "session": "string",
+          "token": "string",
+          "index": "usize; unconsumed candidate",
+          "scope": "all|folder",
+          "title": "string; 1..80 characters, no controls",
+          "text": "string; nonblank <=1024 UTF-8 bytes, no NUL",
+          "enabled": "boolean"
+        },
+        "result": "new MemoryPreference; atomic frozen-source validation and insert; source=conversation and host origin; consume candidate only after successful write, no overwrites"
+      },
+      "discardMemoryReview": {
+        "arguments": {
+          "token": "string"
+        },
+        "result": "null; matching-token idempotent discard, no writes"
       }
     },
     "events": [
@@ -248,7 +281,8 @@
       "{type:toolResult,id,record:ToolRecord}",
       "{type:delta,id,text}",
       "{type:done,id,answer}",
-      "{type:done,id,error,recovery:Recovery}"
+      "{type:done,id,error,recovery:Recovery}",
+      "{type:done,id,memorySuggestions:{token,items:MemorySuggestion[0..3],model,usage:TokenUsage|null,tokens:TokenContext}}; memory extraction only, no saved turns"
     ],
     "busy": "Only poll, cancel, approveTool and shutdown are accepted until the terminal event is drained.",
     "documentation": "flutter/flutter-api.md",
@@ -386,10 +420,17 @@
     },
     "workspaceInstructions": "Schema 10 stores one reviewed snapshot per saved folder. Root AGENTS.md only; regular nonempty UTF-8 <=8 KiB, no NUL/links, no includes/ancestor/nested discovery. Changed/missing/unloadable enabled files refuse preview/send before a provider call; running context retains its initial snapshot. Guidance is counted and inspectable, and cannot grant tool permission. Review/enable/disable use the existing generation exclusion; no watcher/network/idle worker.",
     "manualMemory": {
-      "storage": "SQLite schema11; additive local plaintext preferences; source=user; no automatic extraction/model writes",
+      "storage": "SQLite schema11; local plaintext preferences; source=user or explicitly reviewed conversation; no automatic memory writes",
       "selection": "Complete enabled entries: folder first, newest update descending, stable ID ties; skip nonfitting entries under 4096 serialized-entry UTF-8 bytes; report omitted enabled count",
       "context": "Shared preview/send system text; counted in byte/token budgets; snapshot fixed per request; user/workspace/host policy priority; no tool approval or include expansion",
-      "provenance": "Optional ContextSummary.memory retained with completed turn; no duplicate body or automatic root; deletion does not rewrite old replies/provenance"
+      "provenance": "Optional ContextSummary.memory retained with completed turn; no duplicate body or automatic root; deletion does not rewrite old replies/provenance; optional host MemoryOrigin retains exact source quote/model/session/message/reviewedAt in local metadata and exports; corrections/chat deletion preserve origin"
+    },
+    "memorySuggestions": {
+      "sources": "Latest 20 completed user messages, explicitly select 1..6 within 8 KiB; assistant/tools/files/AGENTS/preferences/draft excluded from provider input",
+      "verification": "Strict JSON <=3 candidates, exact selected quote <=512 bytes, valid title/text, duplicate/common-credential refusal; not a semantic or universal secrecy guarantee",
+      "review": "One ephemeral sources-or-candidates slot, bound to session/root/full text, 300-second expiry; Generate consumes source token; successful Save consumes candidate; failure preserves correction; Stop/Discard/Close save nothing",
+      "storage": "Host-only conversation origin, atomic source checks and insertion, unchanged schema11; bounded quotes retained locally and in historical exports after deletion; quote excluded from retrieval system input",
+      "compatibility": "One usage-option rejection can resend the same approved text without that option under the same deadline; at most two HTTP attempts, no failed-inference/output retry"
     }
   },
   "x-tauri-commands": {
@@ -1260,14 +1301,21 @@
             ]
           },
           "source": {
-            "const": "user"
+            "type": "string",
+            "enum": [
+              "user",
+              "conversation"
+            ]
           },
           "updatedAt": {
             "type": "integer",
             "description": "Unix milliseconds"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/MemoryOrigin"
           }
         },
-        "description": "Compact selected preference provenance; no body or absolute root; retained on completed replies"
+        "description": "Selected preference provenance without preference body or automatic root; optional exact source quote retained in completed replies/exports"
       },
       "MemoryPreference": {
         "type": "object",
@@ -1308,7 +1356,11 @@
             ]
           },
           "source": {
-            "const": "user"
+            "type": "string",
+            "enum": [
+              "user",
+              "conversation"
+            ]
           },
           "updatedAt": {
             "type": "integer",
@@ -1325,6 +1377,9 @@
           "createdAt": {
             "type": "integer",
             "description": "Unix milliseconds"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/MemoryOrigin"
           }
         }
       },
@@ -1358,6 +1413,93 @@
           },
           "maxTextBytes": {
             "const": 4096
+          }
+        }
+      },
+      "MemoryOrigin": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session",
+          "messageId",
+          "quote",
+          "model",
+          "reviewedAt"
+        ],
+        "properties": {
+          "session": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9-]+$"
+          },
+          "messageId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nonblank exact source substring <=512 UTF-8 bytes, no NUL; retained locally and in exports"
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "<=200 UTF-8 bytes, no controls"
+          },
+          "reviewedAt": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unix milliseconds of explicit reviewed Save"
+          }
+        }
+      },
+      "MemoryMessage": {
+        "type": "object",
+        "required": [
+          "messageId",
+          "text"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string",
+            "description": "Exact completed user message; selected combined text <=8192 UTF-8 bytes"
+          }
+        }
+      },
+      "MemorySuggestion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "text",
+          "messageId",
+          "quote"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Nonblank, no control characters"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nonblank, <=1024 UTF-8 bytes, no NUL; shared literally when selected"
+          },
+          "messageId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nonblank exact source substring <=512 UTF-8 bytes, no NUL; retained locally and in exports"
           }
         }
       }

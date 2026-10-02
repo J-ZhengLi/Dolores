@@ -42,9 +42,19 @@ impl Engine {
             .map(|id| self.store.workspace(id))
             .transpose()?
             .and_then(|w| w.root);
-        Ok(
-            json!({"items":self.store.memory_preferences(root.as_deref())?,"folderAvailable":root.is_some()}),
-        )
+        let preferences = self.store.memory_preferences(root.as_deref())?;
+        let mut items = Vec::new();
+        for preference in preferences {
+            let mut item = json!(preference);
+            if let Some(origin) = &preference.origin {
+                item["originAvailable"] = json!(self
+                    .store
+                    .memory_source_message(&origin.session, origin.message_id)?
+                    .is_some_and(|m| m.text.contains(&origin.quote)));
+            }
+            items.push(item);
+        }
+        Ok(json!({"items":items,"folderAvailable":root.is_some()}))
     }
     pub(super) fn save_memory(
         &self,
@@ -71,6 +81,7 @@ impl Engine {
             title,
             text,
             enabled,
+            origin: None,
         };
         Ok(json!(self
             .store

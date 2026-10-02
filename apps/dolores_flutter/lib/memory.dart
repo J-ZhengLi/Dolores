@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -30,6 +31,10 @@ class _MemoryInspectorState extends State<MemoryInspector> {
   final title = TextEditingController(), text = TextEditingController();
   List<Map<String, dynamic>> items = [];
   Map<String, dynamic>? editing;
+  Map<String, dynamic>? sourceReview, suggestions;
+  final selected = <int>{}, savedSuggestions = <int>{};
+  int? candidate, run;
+  bool sourceMode = false, generating = false, stopping = false;
   bool form = false,
       enabled = true,
       folderAvailable = false,
@@ -46,6 +51,12 @@ class _MemoryInspectorState extends State<MemoryInspector> {
 
   @override
   void dispose() {
+    final token = suggestions?['token'] ?? sourceReview?['token'];
+    if (token != null) {
+      unawaited(
+        _call('discardMemoryReview', {'token': token}).catchError((_) => null),
+      );
+    }
     title.dispose();
     text.dispose();
     super.dispose();
@@ -91,6 +102,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
     if (busy) return;
     setState(() {
       editing = item;
+      candidate = null;
       form = true;
       title.text = item?['title'] as String? ?? '';
       text.text = item?['text'] as String? ?? '';
@@ -106,6 +118,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
     setState(() {
       form = false;
       editing = null;
+      candidate = null;
       error = null;
     });
   }
@@ -129,24 +142,187 @@ class _MemoryInspectorState extends State<MemoryInspector> {
         'Write a brief preference within 1 KiB of text.',
       );
     }
-    await _call('saveMemory', {
+    final fromSuggestion = candidate != null;
+    await _call(fromSuggestion ? 'saveMemorySuggestion' : 'saveMemory', {
       'scope': scope,
       'title': title.text,
       'text': text.text,
       'enabled': enabled,
       if (editing != null) 'id': editing!['id'],
       if (editing != null) 'revision': editing!['revision'],
+      if (fromSuggestion) 'token': suggestions!['token'],
+      if (fromSuggestion) 'index': candidate,
     });
     if (mounted) {
       setState(() {
         form = false;
         editing = null;
+        if (fromSuggestion) savedSuggestions.add(candidate!);
+        candidate = null;
         notice =
             'Preference saved${enabled ? ' and enabled for new messages' : ''}.';
       });
     }
     await _load();
   });
+
+  Future<void> _loadSources({bool keepSelection = false}) async {
+    final previous = {
+      for (final item in (sourceReview?['items'] as List? ?? []))
+        item['messageId']: item['text'],
+    };
+    final result = (await _call('reviewMemorySources')) as Map;
+    if (!mounted) return;
+    setState(() {
+      sourceReview = result.cast<String, dynamic>();
+      sourceMode = true;
+      suggestions = null;
+      savedSuggestions.clear();
+      if (keepSelection) {
+        final current = {
+          for (final item in result['items'] as List)
+            item['messageId']: item['text'],
+        };
+        selected.removeWhere(
+          (id) => current[id] == null || current[id] != previous[id],
+        );
+      } else {
+        selected.clear();
+      }
+    });
+  }
+
+  Future<void> _sources() => _act(_loadSources);
+  Future<void> _discard() => _act(() async {
+    final token = suggestions?['token'] ?? sourceReview?['token'];
+    if (token != null) await _call('discardMemoryReview', {'token': token});
+    if (!mounted) return;
+    setState(() {
+      sourceMode = false;
+      sourceReview = null;
+      suggestions = null;
+      selected.clear();
+      savedSuggestions.clear();
+      candidate = null;
+      form = false;
+    });
+  });
+
+  Future<void> _generate() => _act(() async {
+    final entries = (sourceReview?['items'] as List? ?? []).where(
+      (v) => selected.contains(v['messageId']),
+    );
+    final bytes = entries.fold<int>(
+      0,
+      (n, v) => n + utf8.encode(v['text'] as String).length,
+    );
+    if (selected.isEmpty || selected.length > 6 || bytes > 8192) {
+      throw const FormatException('Choose 1–6 messages within 8 KiB.');
+    }
+    final number = DateTime.now().microsecondsSinceEpoch;
+    setState(() {
+      generating = true;
+      stopping = false;
+      run = number;
+    });
+    try {
+      await _call('suggestMemories', {
+        'id': number,
+        'token': sourceReview!['token'],
+        'messageIds': selected.toList(),
+      });
+      final deadline = DateTime.now().add(const Duration(seconds: 40));
+      while (mounted) {
+        final events = await _call('poll', {'id': number}) as List;
+        for (final event in events) {
+          if (event['type'] != 'done') continue;
+          if (event['error'] != null) throw event['error'] as String;
+          if (stopping) {
+            if (event['memorySuggestions']?['token'] != null) {
+              await _call('discardMemoryReview', {
+                'token': event['memorySuggestions']['token'],
+              });
+            }
+            throw 'Suggestions stopped. Nothing was saved.';
+          }
+          setState(
+            () => suggestions = (event['memorySuggestions'] as Map)
+                .cast<String, dynamic>(),
+          );
+          return;
+        }
+        if (DateTime.now().isAfter(deadline)) {
+          await _call('cancel', {'id': number});
+          // Release the single native run before allowing other actions.
+          await _call('shutdown');
+          throw 'Suggestions did not finish. Nothing was saved. Try again.';
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
+    } catch (_) {
+      // Local-only refresh restores an expired/consumed review; no model retry.
+      await _loadSources(keepSelection: true);
+      rethrow;
+    } finally {
+      if (mounted) {
+        setState(() {
+          generating = false;
+          stopping = false;
+          run = null;
+        });
+      }
+    }
+  });
+
+  Future<void> _stop() async {
+    if (!generating || stopping || run == null) return;
+    setState(() => stopping = true);
+    try {
+      await _call('cancel', {'id': run});
+    } catch (failure) {
+      if (mounted) {
+        setState(() {
+          error = failure.toString();
+          stopping = false;
+        });
+      }
+    }
+  }
+
+  void _reviewCandidate(int index) {
+    if (busy) return;
+    final item = suggestions!['items'][index] as Map;
+    setState(() {
+      candidate = index;
+      editing = null;
+      form = true;
+      title.text = item['title'] as String;
+      text.text = item['text'] as String;
+      scope = folderAvailable ? 'folder' : 'all';
+      enabled = true;
+      error = null;
+      notice = null;
+    });
+  }
+
+  Widget _origin(Map item, Palette p, {bool? available}) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'From a reviewed chat · message ${item['messageId']} · ${item['model'] ?? suggestions?['model'] ?? ''}',
+          style: TextStyle(color: p.muted, fontSize: 11),
+        ),
+        if (available == false)
+          Text(
+            'Source message is no longer available; the reviewed quote is retained.',
+            style: TextStyle(color: p.muted, fontSize: 11),
+          ),
+        SelectableText(item['quote'] as String),
+      ],
+    ),
+  );
   Future<void> _toggle(Map<String, dynamic> item) => _act(() async {
     await _call('saveMemory', {
       ..._fields(item),
@@ -196,7 +372,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Preferences are added by you. Delete or disable them to stop using them in new messages; past replies stay in your chats. Only a bounded selection is used—inspect context to see which ones.',
+                    'Preferences are saved only after your review. Delete or disable them to stop using them in new messages; past replies stay in your chats. Only a bounded selection is used—inspect context to see which ones.',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                   if (error != null)
@@ -212,10 +388,22 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                   const SizedBox(height: 16),
                   if (form) ...[
                     Text(
-                      editing == null ? 'New preference' : 'Edit preference',
+                      candidate != null
+                          ? 'Review suggestion'
+                          : editing == null
+                          ? 'New preference'
+                          : 'Edit preference',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 12),
+                    if (candidate != null)
+                      _origin(suggestions!['items'][candidate!], p),
+                    if (editing?['origin'] is Map)
+                      _origin(
+                        editing!['origin'],
+                        p,
+                        available: editing!['originAvailable'] as bool?,
+                      ),
                     DropdownButtonFormField<String>(
                       key: ValueKey('memory-scope-$scope'),
                       initialValue: scope,
@@ -269,6 +457,112 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Use in new messages'),
                     ),
+                  ] else if (sourceMode) ...[
+                    if (suggestions == null) ...[
+                      const Text(
+                        'Choose messages to share',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Only these completed messages you wrote will be sent to ${sourceReview?['model'] ?? 'the selected model'}. Replies, tools, files, saved preferences and your draft are excluded. Choose at most 6 messages within 8 KiB; check that they contain no secrets.',
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
+                      Text(
+                        '${selected.length} selected · latest 20 completed messages${sourceReview?['hasOlder'] == true ? ' · Earlier history excluded' : ''}',
+                      ),
+                      if ((sourceReview?['items'] as List? ?? []).isEmpty)
+                        const Text(
+                          'No completed messages in this chat yet. Add a preference manually or finish a conversation first.',
+                        ),
+                      for (final item
+                          in (sourceReview?['items'] as List? ?? []))
+                        Card(
+                          elevation: 0,
+                          color: p.surface,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CheckboxListTile(
+                                  key: ValueKey(
+                                    'memory-source-${item['messageId']}',
+                                  ),
+                                  contentPadding: EdgeInsets.zero,
+                                  value: selected.contains(item['messageId']),
+                                  title: Text(
+                                    'Your message ${item['messageId']}',
+                                  ),
+                                  onChanged: busy
+                                      ? null
+                                      : (value) => setState(() {
+                                          if (value == true) {
+                                            selected.add(
+                                              item['messageId'] as int,
+                                            );
+                                          } else {
+                                            selected.remove(item['messageId']);
+                                          }
+                                        }),
+                                ),
+                                SelectableText(item['text'] as String),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ] else ...[
+                      Text(
+                        'Suggested by ${suggestions!['model']}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Text(
+                        'Review and edit each draft before saving. Suggestions can be wrong; the source quote does not prove the wording is accurate. Saving retains the quote locally and in reply details and exports, even after deleting the source chat.',
+                      ),
+                      if ((suggestions!['items'] as List).isEmpty)
+                        const Text(
+                          'No stable preferences found in the selected messages. Nothing was saved.',
+                        ),
+                      for (
+                        var i = 0;
+                        i < (suggestions!['items'] as List).length;
+                        i++
+                      )
+                        Card(
+                          elevation: 0,
+                          color: p.surface,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  suggestions!['items'][i]['title'] as String,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SelectableText(
+                                  suggestions!['items'][i]['text'] as String,
+                                ),
+                                _origin(suggestions!['items'][i], p),
+                                TextButton(
+                                  key: ValueKey('review-suggestion-$i'),
+                                  onPressed:
+                                      busy || savedSuggestions.contains(i)
+                                      ? null
+                                      : () => _reviewCandidate(i),
+                                  child: Text(
+                                    savedSuggestions.contains(i)
+                                        ? 'Saved'
+                                        : 'Review suggestion',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ] else ...[
                     if (loaded && items.isEmpty)
                       const Text(
@@ -291,10 +585,16 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                 ),
                               ),
                               Text(
-                                '${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['enabled'] == true ? 'Enabled' : 'Disabled'} · Added by you',
+                                '${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · ${item['enabled'] == true ? 'Enabled' : 'Disabled'} · ${item['origin'] is Map ? 'From a reviewed chat' : 'Added by you'}',
                                 style: TextStyle(fontSize: 11, color: p.muted),
                               ),
                               const SizedBox(height: 8),
+                              if (item['origin'] is Map)
+                                _origin(
+                                  item['origin'],
+                                  p,
+                                  available: item['originAvailable'] as bool?,
+                                ),
                               SelectableText(
                                 item['text'] as String,
                                 key: ValueKey('memory-body-${item['id']}'),
@@ -351,11 +651,12 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  TextButton(
-                    key: const Key('refresh-memory'),
-                    onPressed: busy ? null : _refresh,
-                    child: const Text('Refresh'),
-                  ),
+                  if (!sourceMode)
+                    TextButton(
+                      key: const Key('refresh-memory'),
+                      onPressed: busy ? null : _refresh,
+                      child: const Text('Refresh'),
+                    ),
                   if (form) ...[
                     TextButton(
                       key: const Key('cancel-memory-edit'),
@@ -367,12 +668,54 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                       onPressed: busy ? null : _save,
                       child: const Text('Save preference'),
                     ),
-                  ] else
+                  ] else if (sourceMode) ...[
+                    if (generating)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        child: Text('Generating suggestions…'),
+                      ),
+                    if (generating)
+                      TextButton(
+                        key: const Key('stop-memory-suggestions'),
+                        onPressed: stopping ? null : _stop,
+                        child: Text(stopping ? 'Stopping…' : 'Stop'),
+                      )
+                    else ...[
+                      TextButton(
+                        key: const Key('discard-memory-suggestions'),
+                        onPressed: busy ? null : _discard,
+                        child: const Text('Discard'),
+                      ),
+                      TextButton(
+                        key: const Key('refresh-memory-sources'),
+                        onPressed: busy ? null : _sources,
+                        child: const Text('Review messages'),
+                      ),
+                      if (suggestions == null)
+                        FilledButton(
+                          key: const Key('generate-memory-suggestions'),
+                          onPressed: busy || selected.isEmpty
+                              ? null
+                              : _generate,
+                          child: const Text('Generate suggestions'),
+                        ),
+                    ],
+                  ] else ...[
+                    if (widget.session != null)
+                      TextButton(
+                        key: const Key('suggest-from-chat'),
+                        onPressed: busy || !loaded ? null : _sources,
+                        child: const Text('Suggest from this chat'),
+                      ),
                     FilledButton(
                       key: const Key('new-memory'),
                       onPressed: busy || !loaded ? null : () => _edit(),
                       child: const Text('New preference'),
                     ),
+                  ],
                 ],
               ),
             ),

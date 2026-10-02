@@ -93,6 +93,19 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn memory_source_messages(
+        &self,
+        session: &str,
+    ) -> Result<dolores_core::HistoryPage<dolores_core::MemoryMessage>, String> {
+        self.read_memory_sources(session)
+    }
+    fn memory_source_message(
+        &self,
+        session: &str,
+        id: i64,
+    ) -> Result<Option<dolores_core::MemoryMessage>, String> {
+        self.read_memory_source(session, id)
+    }
     fn memory_preferences(
         &self,
         root: Option<&str>,
@@ -105,6 +118,14 @@ impl SessionStore for SqliteStore {
         draft: &dolores_core::MemoryDraft,
     ) -> Result<dolores_core::MemoryPreference, String> {
         self.write_memory(root, draft)
+    }
+    fn save_suggested_memory_preference(
+        &self,
+        root: Option<&str>,
+        draft: &dolores_core::MemoryDraft,
+        sources: &[dolores_core::MemoryMessage],
+    ) -> Result<dolores_core::MemoryPreference, String> {
+        self.write_suggested_memory(root, draft, sources)
     }
     fn delete_memory_preference(
         &self,

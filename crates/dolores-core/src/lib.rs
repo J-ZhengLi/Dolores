@@ -11,12 +11,14 @@ mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 mod instructions;
 mod memory;
+mod memory_suggestions;
 pub use agent::*;
 pub use change::*;
 pub use instructions::{
     prepare_instruction_context, InstructionSource, WorkspaceInstructions, MAX_INSTRUCTION_BYTES,
 };
 pub use memory::*;
+pub use memory_suggestions::*;
 pub use request_settings::RequestSettings;
 pub use token_context::*;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
@@ -180,6 +182,12 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn memory_source_messages(&self, _: &str) -> Result<HistoryPage<MemoryMessage>, String> {
+        Err("This storage plugin does not support memory sources.".into())
+    }
+    fn memory_source_message(&self, _: &str, _: i64) -> Result<Option<MemoryMessage>, String> {
+        Err("This storage plugin does not support memory sources.".into())
+    }
     fn memory_preferences(&self, _: Option<&str>) -> Result<Vec<MemoryPreference>, String> {
         Ok(vec![])
     }
@@ -189,6 +197,14 @@ pub trait SessionStore: Send + Sync {
         _: &MemoryDraft,
     ) -> Result<MemoryPreference, String> {
         Err("This storage plugin does not support memory preferences.".into())
+    }
+    fn save_suggested_memory_preference(
+        &self,
+        _: Option<&str>,
+        _: &MemoryDraft,
+        _: &[MemoryMessage],
+    ) -> Result<MemoryPreference, String> {
+        Err("This storage plugin does not support reviewed memory suggestions.".into())
     }
     fn delete_memory_preference(&self, _: Option<&str>, _: &str, _: u32) -> Result<(), String> {
         Err("This storage plugin does not support memory preferences.".into())

@@ -23,6 +23,28 @@ pub struct ConnectionManager {
     active_base_url: Option<String>,
 }
 impl ConnectionManager {
+    pub(super) fn memory_suggestion_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
+        let preferences = self.store.preferences()?;
+        if self.provider.is_none()
+            || self.active_base_url.as_deref() != Some(preferences.base_url.as_str())
+        {
+            return Err("Set up a model connection first.".into());
+        }
+        let settings = self.store.request_settings()?;
+        Ok(Arc::new(
+            OpenAiProvider::with_settings(
+                &preferences,
+                self.active_key
+                    .clone()
+                    .ok_or("Reconnect your model first.")?,
+                RequestSettings {
+                    max_output_tokens: settings.max_output_tokens.min(1024),
+                    timeout_seconds: settings.timeout_seconds.min(30),
+                },
+            )?
+            .with_context_window(self.context_window(&preferences)?),
+        ))
+    }
     pub fn new(store: Arc<dyn SessionStore>, credentials: Arc<dyn CredentialStore>) -> Self {
         Self {
             store,

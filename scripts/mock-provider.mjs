@@ -23,6 +23,17 @@ const server = createServer(async (request, response) => {
   try { payload = JSON.parse(body); }
   catch { response.writeHead(400).end(); return; }
   const input = payload.messages?.at(-1)?.content ?? '';
+  if (payload.messages?.[0]?.content?.startsWith('You extract preference drafts for Dolores.')) {
+    const sources = JSON.parse(input).sources;
+    const source = sources.find(item => item.text.includes('I prefer concise examples.'));
+    const result = JSON.stringify({suggestions: source ? [{title:'Response style',text:'Prefer concise examples.',messageId:source.messageId,quote:'I prefer concise examples.'}] : []});
+    response.writeHead(200, {'content-type':'text/event-stream'});
+    response.write(`data: ${JSON.stringify({choices:[{delta:{content:result},finish_reason:null}]})}\n\n`);
+    response.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n');
+    response.write('data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":25,"total_tokens":125}}\n\n');
+    response.end('data: [DONE]\n\n');
+    return;
+  }
   if (Array.isArray(payload.tools)) {
     const last = payload.messages?.at(-1);
     const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
@@ -143,7 +154,9 @@ const server = createServer(async (request, response) => {
   response.end('data: [DONE]\n\n');
 });
 
-server.listen(19421, '127.0.0.1', () => {
-  console.log('Dolores test endpoint: http://127.0.0.1:19421/v1 — model: dolores-mock');
+const port = Number(process.env.DOLORES_FIXTURE_PORT ?? 19421);
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid fixture port');
+server.listen(port, '127.0.0.1', () => {
+  console.log(`Dolores test endpoint: http://127.0.0.1:${port}/v1 — model: dolores-mock`);
   console.log('Send "slow" to test stop, "fail" for denial, "truncated" for interruption.');
 });

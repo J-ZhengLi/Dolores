@@ -5,6 +5,7 @@ mod connection;
 mod export;
 mod instructions;
 mod memory;
+mod memory_suggestions;
 mod recovery;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
@@ -47,12 +48,34 @@ struct Engine {
     workspace_directory: Option<PathBuf>,
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
+    memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ReviewMemorySources {
+        session: String,
+    },
+    SuggestMemories {
+        id: u64,
+        session: String,
+        token: String,
+        #[serde(rename = "messageIds")]
+        message_ids: Vec<i64>,
+    },
+    SaveMemorySuggestion {
+        session: String,
+        token: String,
+        index: usize,
+        scope: dolores_core::MemoryScope,
+        #[serde(flatten)]
+        input: memory::MemoryInput,
+    },
+    DiscardMemoryReview {
+        token: String,
+    },
     Memories {
         session: Option<String>,
     },
@@ -220,6 +243,7 @@ impl Engine {
             workspace_directory: None,
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
+            memory_review: Arc::new(Mutex::new(None)),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -275,6 +299,7 @@ impl Engine {
             Command::Cancel { id } => {
                 if let Some(run) = active.as_ref().filter(|run| run.id == id) {
                     run.cancel.cancel();
+                    self.clear_memory_review()?;
                 }
                 return Ok(Value::Null);
             }
@@ -283,6 +308,7 @@ impl Engine {
                 if let Some(run) = active.take() {
                     run.cancel.cancel();
                 }
+                self.clear_memory_review()?;
                 return Ok(Value::Null);
             }
             _ => {}
@@ -291,6 +317,21 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ReviewMemorySources { session } => self.review_memory_sources(&session),
+            Command::SuggestMemories {
+                id,
+                session,
+                token,
+                message_ids,
+            } => self.suggest_memories(&mut active, id, session, token, message_ids),
+            Command::SaveMemorySuggestion {
+                session,
+                token,
+                index,
+                scope,
+                input,
+            } => self.save_memory_suggestion(&session, &token, index, scope, input),
+            Command::DiscardMemoryReview { token } => self.discard_memory_review(&token),
             Command::Memories { session } => self.memories(session.as_deref()),
             Command::SaveMemory {
                 session,
@@ -417,6 +458,7 @@ impl Engine {
             }
             Command::Delete { session } => {
                 self.clear_revert()?;
+                self.clear_memory_review()?;
                 self.store.delete(&session)?;
                 Ok(Value::Null)
             }
@@ -494,6 +536,7 @@ impl Engine {
                 workspace,
             } => {
                 self.clear_revert()?;
+                self.clear_memory_review()?;
                 prepare_context(vec![], &input)?;
                 let provider = self
                     .connection

@@ -1,6 +1,6 @@
-param([string]$OutputDirectory = "$PSScriptRoot/../output/flutter-comparison/smoke", [int]$TimeoutSeconds = 40, [switch]$Compact)
+param([string]$OutputDirectory = "$PSScriptRoot/../output/flutter-comparison/smoke", [int]$TimeoutSeconds = 40, [switch]$Compact, [string]$FixtureUrl = 'http://127.0.0.1:19421/v1')
 $ErrorActionPreference = 'Stop'
-if ($TimeoutSeconds -lt 10 -or $TimeoutSeconds -gt 60) { throw 'Use a timeout from 10 to 60 seconds.' }
+if ($TimeoutSeconds -lt 10 -or $TimeoutSeconds -gt 120) { throw 'Use a timeout from 10 to 120 seconds.' }
 $workspace = (Resolve-Path "$PSScriptRoot/..").Path
 $directory = [IO.Path]::GetFullPath($OutputDirectory)
 $data = Join-Path $directory 'data'
@@ -9,10 +9,12 @@ if ((Test-Path $report) -or (Test-Path "$data/dolores.db")) { throw 'Use a fresh
 $exe = Join-Path $workspace 'apps/dolores_flutter/build/windows/x64/runner/Release/dolores_flutter.exe'
 $oldData = $env:DOLORES_DATA_DIR
 $oldSmoke = $env:DOLORES_SMOKE_DIR
+$oldProvider = $env:DOLORES_SMOKE_PROVIDER
 $process = $null
 try {
     $env:DOLORES_DATA_DIR = $data
     $env:DOLORES_SMOKE_DIR = $directory
+    $env:DOLORES_SMOKE_PROVIDER = $FixtureUrl
     $startArguments = @{ FilePath = $exe; WorkingDirectory = [IO.Path]::GetDirectoryName($exe); WindowStyle = 'Hidden'; PassThru = $true }
     if ($Compact) { $startArguments.ArgumentList = '--compact' }
     $process = Start-Process @startArguments
@@ -32,4 +34,5 @@ try {
     if ($null -ne $process -and !$process.HasExited) { Stop-Process -Id $process.Id }
     $env:DOLORES_DATA_DIR = $oldData
     $env:DOLORES_SMOKE_DIR = $oldSmoke
+    $env:DOLORES_SMOKE_PROVIDER = $oldProvider
 }
