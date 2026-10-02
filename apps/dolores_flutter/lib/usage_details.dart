@@ -47,6 +47,16 @@ Widget contextDetails(
         'Workspace instructions: ${summary['instructions']['source']}\nReviewed revision: ${summary['instructions']['revision']}',
       ),
     ],
+    if (summary['memory'] is Map) ...[
+      const SizedBox(height: 12),
+      Text(
+        'Memory: ${(summary['memory']['used'] as List).length} preferences used · ${summary['memory']['omitted']} enabled preferences left out',
+      ),
+      for (final item in summary['memory']['used'] as List)
+        SelectableText(
+          '${item['title']} · ${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · Added by you · revision ${item['revision']}',
+        ),
+    ],
   ],
 );
 

@@ -122,7 +122,7 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes",
           "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
-        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read"
+        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read; memoryEntries:MemoryPreference[] in selected order; optional memory provenance; literal preference text only in local preview/system input"
       },
       "setRequestSettings": {
         "arguments": {
@@ -211,6 +211,33 @@
           "token": "string"
         },
         "result": "null; matching pending token cleared; no activation"
+      },
+      "memories": {
+        "arguments": {
+          "session": "string|null; optional; resolve folder from saved session"
+        },
+        "result": "{items:MemoryPreference[0..24],folderAvailable:boolean}; All chats/current saved folder; no network"
+      },
+      "saveMemory": {
+        "arguments": {
+          "session": "string|null; optional; required saved working session for folder scope",
+          "scope": "all|folder; immutable on editing",
+          "id": "string|null; optional; omit with revision for random ID creation",
+          "revision": "integer|null; optional; positive saved revision required with id for editing",
+          "title": "string; 1..80 Unicode characters without controls",
+          "text": "string; nonempty, <=1024 UTF-8 bytes, no NUL",
+          "enabled": "boolean; explicit activation for new messages"
+        },
+        "result": "MemoryPreference; source=user; atomic revision increment; 12 entries/scope including disabled; stale/wrong-scope refusal"
+      },
+      "deleteMemory": {
+        "arguments": {
+          "session": "string|null; optional; saved folder required for folder scope",
+          "scope": "all|folder",
+          "id": "string",
+          "revision": "integer; positive current revision"
+        },
+        "result": "null; atomic compare/delete; stops future retrieval; historical replies/provenance remain"
       }
     },
     "events": [
@@ -357,7 +384,13 @@
       "limits": "one pending plan, bounded snapshots/page/UI; growing disk retention; no idle work or new worker",
       "concurrency": "optimistic filesystem checks, not cross-process compare-and-swap; ordinary permissions only, no universal ACL/xattr guarantees"
     },
-    "workspaceInstructions": "Schema 10 stores one reviewed snapshot per saved folder. Root AGENTS.md only; regular nonempty UTF-8 <=8 KiB, no NUL/links, no includes/ancestor/nested discovery. Changed/missing/unloadable enabled files refuse preview/send before a provider call; running context retains its initial snapshot. Guidance is counted and inspectable, and cannot grant tool permission. Review/enable/disable use the existing generation exclusion; no watcher/network/idle worker."
+    "workspaceInstructions": "Schema 10 stores one reviewed snapshot per saved folder. Root AGENTS.md only; regular nonempty UTF-8 <=8 KiB, no NUL/links, no includes/ancestor/nested discovery. Changed/missing/unloadable enabled files refuse preview/send before a provider call; running context retains its initial snapshot. Guidance is counted and inspectable, and cannot grant tool permission. Review/enable/disable use the existing generation exclusion; no watcher/network/idle worker.",
+    "manualMemory": {
+      "storage": "SQLite schema11; additive local plaintext preferences; source=user; no automatic extraction/model writes",
+      "selection": "Complete enabled entries: folder first, newest update descending, stable ID ties; skip nonfitting entries under 4096 serialized-entry UTF-8 bytes; report omitted enabled count",
+      "context": "Shared preview/send system text; counted in byte/token budgets; snapshot fixed per request; user/workspace/host policy priority; no tool approval or include expansion",
+      "provenance": "Optional ContextSummary.memory retained with completed turn; no duplicate body or automatic root; deletion does not rewrite old replies/provenance"
+    }
   },
   "x-tauri-commands": {
     "bootstrap": {
@@ -677,6 +710,9 @@
           },
           "instructions": {
             "$ref": "#/components/schemas/InstructionSource"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MemoryContext"
           }
         },
         "required": [
@@ -764,7 +800,8 @@
               "provider",
               "unknown",
               "contextLimit",
-              "instructions"
+              "instructions",
+              "memory"
             ]
           },
           "retryable": {
@@ -1186,6 +1223,143 @@
           }
         },
         "description": "Reviewed workspace guidance provenance; no absolute root or duplicate text. Optional for legacy context metadata."
+      },
+      "MemorySource": {
+        "type": "object",
+        "required": [
+          "id",
+          "revision",
+          "title",
+          "scope",
+          "source",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9-]+$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Nonblank, no control characters"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "folder"
+            ]
+          },
+          "source": {
+            "const": "user"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "description": "Unix milliseconds"
+          }
+        },
+        "description": "Compact selected preference provenance; no body or absolute root; retained on completed replies"
+      },
+      "MemoryPreference": {
+        "type": "object",
+        "required": [
+          "id",
+          "revision",
+          "title",
+          "scope",
+          "source",
+          "updatedAt",
+          "text",
+          "enabled",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9-]+$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Nonblank, no control characters"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "folder"
+            ]
+          },
+          "source": {
+            "const": "user"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "description": "Unix milliseconds"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nonblank, <=1024 UTF-8 bytes, no NUL; shared literally when selected"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "integer",
+            "description": "Unix milliseconds"
+          }
+        }
+      },
+      "MemoryContext": {
+        "type": "object",
+        "required": [
+          "used",
+          "omitted",
+          "textBytes",
+          "maxTextBytes"
+        ],
+        "properties": {
+          "used": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {
+              "$ref": "#/components/schemas/MemorySource"
+            }
+          },
+          "omitted": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 24,
+            "description": "Enabled entries skipped by retrieval budget"
+          },
+          "textBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096,
+            "description": "Serialized entries only; full wrapper also counted in system/context budgets"
+          },
+          "maxTextBytes": {
+            "const": 4096
+          }
+        }
       }
     }
   },

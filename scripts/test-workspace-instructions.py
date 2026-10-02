@@ -153,7 +153,7 @@ else:
     assert preview["instructions"] == expected["provenance"]
     assert "Changed guidance" in preview["messages"][0]["content"]
     with sqlite3.connect(fixture / "data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 11
     (fixture / "project/AGENTS.md").unlink()
     assert not envelope("context", session=expected["session"], input="hello")["ok"]
     call("disableInstructions", session=expected["session"])

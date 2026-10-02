@@ -4,6 +4,7 @@ mod changes;
 mod connection;
 mod export;
 mod instructions;
+mod memory;
 mod recovery;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
@@ -52,6 +53,21 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Memories {
+        session: Option<String>,
+    },
+    SaveMemory {
+        session: Option<String>,
+        scope: dolores_core::MemoryScope,
+        #[serde(flatten)]
+        input: memory::MemoryInput,
+    },
+    DeleteMemory {
+        session: Option<String>,
+        scope: dolores_core::MemoryScope,
+        id: String,
+        revision: u32,
+    },
     ReviewInstructions {
         session: String,
     },
@@ -275,6 +291,18 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::Memories { session } => self.memories(session.as_deref()),
+            Command::SaveMemory {
+                session,
+                scope,
+                input,
+            } => self.save_memory(session.as_deref(), scope, input),
+            Command::DeleteMemory {
+                session,
+                scope,
+                id,
+                revision,
+            } => self.delete_memory(session.as_deref(), scope, &id, revision),
             Command::ReviewInstructions { session } => self.review_instructions(&session),
             Command::EnableInstructions { session, token } => {
                 self.enable_instructions(&session, &token)
@@ -325,6 +353,8 @@ impl Engine {
             } => {
                 let guidance =
                     instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
+                let memories =
+                    memory::preferences_for_session(self.store.as_ref(), session.as_deref())?;
                 let tools = match session.as_ref() {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
                     None => tools,
@@ -341,6 +371,8 @@ impl Engine {
                 };
                 let messages =
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
+                let (messages, memory_context) =
+                    dolores_core::prepare_memory_context(messages, memories.clone())?;
                 let mut specs = if tools {
                     dolores_tools_fs::folder_tool_specs()
                 } else {
@@ -365,10 +397,22 @@ impl Engine {
                 let mut summary = ContextSummary::from_messages(&messages, count);
                 summary.tokens = Some(tokens);
                 summary.instructions = guidance.map(|g| g.provenance);
+                summary.memory = memory_context;
                 let mut report = json!(summary);
                 report["messages"] = json!(messages);
                 report["tools"] = json!(specs);
                 report["model"] = json!(preferences.model);
+                let used: Vec<_> = summary
+                    .memory
+                    .iter()
+                    .flat_map(|c| &c.used)
+                    .filter_map(|s| {
+                        memories
+                            .iter()
+                            .find(|m| m.id == s.id && m.revision == s.revision)
+                    })
+                    .collect();
+                report["memoryEntries"] = json!(used);
                 Ok(report)
             }
             Command::Delete { session } => {
@@ -572,14 +616,15 @@ async fn execute(
         return Err(stopped());
     }
     let reader = store.clone();
-    let (session, history, count, guidance) = blocking(move || {
+    let (session, history, count, guidance, memories) = blocking(move || {
         let session = match session {
             Some(id) => id,
             None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
         };
         let (history, count) = reader.context_history(&session)?;
         let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
-        Ok((session, history, count, guidance))
+        let memories = memory::preferences_for_session(reader.as_ref(), Some(&session))?;
+        Ok((session, history, count, guidance, memories))
     })
     .await?;
     let context = prepare_context(history, &input)?;
@@ -589,6 +634,7 @@ async fn execute(
         context
     };
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
+    let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
@@ -599,6 +645,7 @@ async fn execute(
     let mut summary = ContextSummary::from_messages(&context, count);
     summary.tokens = Some(tokens);
     summary.instructions = guidance.map(|g| g.provenance);
+    summary.memory = memory_context;
     forward(
         output,
         json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings}),

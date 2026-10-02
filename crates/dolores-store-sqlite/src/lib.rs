@@ -8,6 +8,7 @@ mod change_tests;
 mod changes;
 mod history;
 mod instructions;
+mod memory;
 mod workspace;
 use std::{
     path::Path,
@@ -45,6 +46,8 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_contexts (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS workspace_instructions (root TEXT PRIMARY KEY, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS memory_preferences (id TEXT PRIMARY KEY, root TEXT NOT NULL, data TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS memory_scope ON memory_preferences(root,id);
             CREATE TABLE IF NOT EXISTS request_settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_workspaces (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, kind TEXT NOT NULL, root TEXT);
             CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
@@ -75,6 +78,11 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 10)
                 .map_err(storage_error)?;
         }
+        if version < 11 {
+            connection
+                .pragma_update(None, "user_version", 11)
+                .map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -85,6 +93,27 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn memory_preferences(
+        &self,
+        root: Option<&str>,
+    ) -> Result<Vec<dolores_core::MemoryPreference>, String> {
+        self.read_memory(root)
+    }
+    fn save_memory_preference(
+        &self,
+        root: Option<&str>,
+        draft: &dolores_core::MemoryDraft,
+    ) -> Result<dolores_core::MemoryPreference, String> {
+        self.write_memory(root, draft)
+    }
+    fn delete_memory_preference(
+        &self,
+        root: Option<&str>,
+        id: &str,
+        revision: u32,
+    ) -> Result<(), String> {
+        self.remove_memory(root, id, revision)
+    }
     fn workspace_instructions(
         &self,
         root: &str,
@@ -582,7 +611,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 11);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

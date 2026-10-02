@@ -17,6 +17,7 @@ import 'reply_content.dart';
 import 'usage_details.dart';
 import 'inspector.dart';
 import 'request_settings.dart';
+import 'memory.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -656,6 +657,64 @@ Future<void> _run(
       callback!();
     }
 
+    final memoryDraft = chat.draft;
+    final memoryView = showMemory(smokePageContext, chat);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    check(chat.changing, 'Memory locks chat changes even in Side mode', checks);
+    await press('new-memory', key: true);
+    await screenshot(capture, output, 'memory-new-dark');
+    await press('cancel-memory-edit', key: true);
+    await press('Close');
+    await memoryView;
+    check(
+      chat.draft == memoryDraft &&
+          ((await chat.bridge.call({'command': 'memories'}))['items'] as List)
+              .isEmpty,
+      'Cancel and Close leave preferences empty and preserve the draft',
+      checks,
+    );
+    final savedPreference = await chat.bridge.call({
+      'command': 'saveMemory',
+      'scope': 'all',
+      'title': 'Response style',
+      'text': 'Prefer concise explanations. Keep @../private.env literal.',
+      'enabled': true,
+    });
+    runApp(
+      DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.light),
+    );
+    await WidgetsBinding.instance.endOfFrame;
+    if (!smokePageContext.mounted) throw StateError('Memory view unavailable');
+    final lightMemoryView = showMemory(smokePageContext, chat);
+    await screenshot(capture, output, 'memory-saved-light');
+    await press('Close');
+    await lightMemoryView;
+    runApp(
+      DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.dark),
+    );
+    await WidgetsBinding.instance.endOfFrame;
+    if (!smokePageContext.mounted) throw StateError('Memory view unavailable');
+    final savedMemoryView = showMemory(smokePageContext, chat);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'memory-saved-dark');
+    await press('edit-memory-${savedPreference['id']}', key: true);
+    await screenshot(capture, output, 'memory-edit-dark');
+    await press('cancel-memory-edit', key: true);
+    await press('toggle-memory-${savedPreference['id']}', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('Close');
+    await savedMemoryView;
+    check(
+      (await chat.previewContext())?['memory'] == null,
+      'Disabling Memory excludes it from the next context without a model request',
+      checks,
+    );
+    await chat.bridge.call({
+      'command': 'deleteMemory',
+      'scope': 'all',
+      'id': savedPreference['id'],
+      'revision': 2,
+    });
     final workspace = Directory(path.join(output.path, 'approved-folder'));
     await workspace.create();
     await File(path.join(workspace.path, 'readme.txt'))

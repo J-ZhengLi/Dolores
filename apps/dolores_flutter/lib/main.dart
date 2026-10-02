@@ -17,6 +17,7 @@ import 'request_settings.dart';
 import 'tool_activity.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
+import 'memory.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
 
@@ -196,6 +197,10 @@ class _ChatPageState extends State<ChatPage> {
     },
     onConnection: settings,
     onRequestSettings: requestSettings,
+    onMemory: () {
+      shell.currentState?.closeDrawer();
+      showMemory(context, chat);
+    },
   );
 
   Widget message(
@@ -435,6 +440,14 @@ class _ChatPageState extends State<ChatPage> {
                               ? null
                               : () => showInstructions(context, chat),
                           child: const Text('Instructions'),
+                        ),
+                      if (chat.activeRecovery!['kind'] == 'memory')
+                        TextButton(
+                          key: const Key('failure-memory'),
+                          onPressed: chat.busy || chat.changing || chat.loading
+                              ? null
+                              : () => showMemory(context, chat),
+                          child: const Text('Memory'),
                         ),
                       if (chat.activeRecovery!['retryable'] == true)
                         TextButton(

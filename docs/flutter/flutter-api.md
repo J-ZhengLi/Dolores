@@ -1,5 +1,21 @@
 # Flutter bridge contract
 
+## Manual preferences (brick 4.1)
+
+| Command | Arguments | Result |
+| --- | --- | --- |
+| `memories` | `session:string|null` optional | `{items:MemoryPreference[0..24],folderAvailable:boolean}`; All chats plus that saved working folder, updated time descending/stable ID |
+| `saveMemory` | `session?`, `scope:all|folder`, `id?:string`, `revision?:u32`, `title:string`, `text:string`, `enabled:boolean` | Saved `MemoryPreference`; omit both id/revision to create; require both to edit |
+| `deleteMemory` | `session?`, `scope:all|folder`, `id:string`, `revision:u32` | null; compare saved revision before removal |
+
+All three commands are excluded during generation. Folder scope resolves from a saved project/temporary session; Side/uncreated temporary chats support only All chats. A root supplied by the client is never used. Global operations need no session. Entries survive deleting a chat. Creation assigns a random ID/revision 1; edit/toggle increments it in an atomic transaction, preserving creation time and scope. Stale, deleted or wrong-scope records are refused. Failed writes preserve the old record. The per-scope cap is 12 entries including disabled entries. Titles contain 1–80 Unicode characters without controls; text is nonempty, at most 1024 UTF-8 bytes and has no NUL. Source is always `user`; arbitrary imported/model-written sources are unsupported.
+
+`MemoryPreference` is `{id,revision,title,text,scope,source:user,enabled,createdAt,updatedAt}`; timestamps are Unix milliseconds. No absolute folder root is returned in entries, automatic context or exports. User-entered text can explicitly contain paths and is shared literally. SQLite schema 11 stores local plaintext records. Saving does not call the provider or scan other files. Memory text cannot authorize tools or expand references.
+
+Shared context preparation chooses whole enabled entries: folder first, newest update first, stable ID ties, skipping nonfitting entries under a combined 4096-byte serialized-entry budget. It appends a literal bounded system section after reviewed AGENTS.md guidance and counts the full section in the existing byte/token budget. Host policy/current requests/workspace guidance outrank preferences; folder preferences outrank All chats. The frozen initial snapshot remains for a request. Edits, disable and delete affect later requests.
+
+Optional `ContextSummary.memory` is `{used:MemorySource[],omitted:u32,textBytes,maxTextBytes:4096}`. `MemorySource` is `{id,revision,title,scope,source:user,updatedAt}` with no duplicate preference text. It is absent on legacy/empty/disabled context and is retained atomically with the completed reply in history/exports. `context` additionally returns `memoryEntries:MemoryPreference[]` in selected order, including exact text, or an empty array; started events and saved metadata omit those bodies. Deletion does not rewrite historical replies/provenance or guarantee forensic erasure. First-party preference validation failures use recovery kind `memory` with an explicit Memory action and no automatic retry. Malformed underlying database records may need local storage repair; the editor does not guarantee recovery from database corruption.
+
 ## Workspace instructions (brick 3.9)
 
 All commands below are local, blocked during generation, and use the existing C ABI envelope. A saved working-session folder is authoritative; Side sessions fail these commands.

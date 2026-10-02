@@ -299,6 +299,24 @@ class ContextInspector extends StatelessWidget {
                 ),
               ),
             ),
+          if (report['memory'] is Map) ...[
+            Text(
+              'Memory · ${(report['memory']['used'] as List).length} preferences used · ${report['memory']['omitted']} enabled preferences left out',
+              style: TextStyle(color: p.muted, fontSize: 12),
+            ),
+            _ContextGroup(
+              label: 'Saved preferences',
+              messages: [
+                for (final item in (report['memoryEntries'] as List? ?? []))
+                  {
+                    'role':
+                        '${item['title']} · ${item['scope'] == 'folder' ? 'This working folder' : 'All chats'} · Added by you · revision ${item['revision']}',
+                    'content': item['text'],
+                  },
+              ],
+              color: p.syntaxName,
+            ),
+          ],
         ],
       ),
     );

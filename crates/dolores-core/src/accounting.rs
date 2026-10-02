@@ -25,6 +25,8 @@ pub struct ContextSummary {
     pub tokens: Option<crate::TokenContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instructions: Option<crate::InstructionSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<crate::MemoryContext>,
 }
 
 impl ContextSummary {
@@ -39,6 +41,7 @@ impl ContextSummary {
             max_turns: HISTORY_LIMIT / 2,
             tokens: None,
             instructions: None,
+            memory: None,
         }
     }
 }

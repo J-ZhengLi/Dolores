@@ -37,13 +37,12 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> inspectLocalChanges(Future<void> Function() inspect) async {
-    if (busy ||
-        changing ||
-        loading ||
-        session == null ||
-        workspaceRoot == null) {
-      return;
-    }
+    if (session == null || workspaceRoot == null) return;
+    await inspectLocalSettings(inspect);
+  }
+
+  Future<void> inspectLocalSettings(Future<void> Function() inspect) async {
+    if (busy || changing || loading) return;
     changing = true;
     _notify();
     try {
@@ -319,7 +318,8 @@ class ChatController extends ChangeNotifier {
       final report = (result as Map).cast<String, dynamic>();
       contextSummary = Map.of(report)
         ..remove('messages')
-        ..remove('tools');
+        ..remove('tools')
+        ..remove('memoryEntries');
       contextBasis = 'Next message preview';
       return report;
     } catch (failure) {
