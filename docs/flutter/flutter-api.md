@@ -1,5 +1,26 @@
 # Flutter bridge contract
 
+## Project skills (brick 5.1)
+
+All commands are local, excluded during a run, and resolve the folder from the saved working session. Side sessions fail. Review/activation makes no model request or script execution.
+
+| Command | Arguments | Result |
+| --- | --- | --- |
+| `projectSkills` | `session` | `{items:[{name,enabled,revision:u32|null,version:u32|null,description:string|null,sourceAvailable}],partial,problem:string|null}`; saved records plus discovered directory names, no file bodies |
+| `reviewSkill` | `session,name,version?:u32` | `{token,document:SkillDocument,enabled,revision:u32|null,activeVersion:u32|null,versions:[{version,reviewedAt,rollbackFrom}],reviewVersion:u32|null,sourceMatches,alreadyActive,problem:string|null}`; omitted version reads current file, supplied version reviews retained snapshot |
+| `activateSkill` | `session,token` | `ProjectSkill`; exact reviewed text becomes a new active version |
+| `disableSkill` | `session,name,revision:u32` | null; preserve versions, stop future retrieval |
+| `forgetSkill` | `session,name,revision:u32` | null; remove local versions, preserve source files/history |
+| `cancelSkillReview` | `token` | null; matching-token discard |
+
+Only direct `.agents/skills/<name>/SKILL.md` files are supported. YAML frontmatter requires a matching valid ASCII name and nonempty description <=1024 characters, plus nonempty Markdown body. Standard optional fields are parsed as data, including multiline descriptions and string-valued metadata. No tools are granted by `allowed-tools`. No ancestor/global discovery, includes, links, remote sources or automatic activation. Directory inspection is limited to 128 entries/32 returned eligible names; partial listings are explicit. Invalid/missing files fail review; saved versions remain reviewable and usable.
+
+`SkillDocument={name,description,text}` keeps exact UTF-8 source <=8192 bytes including frontmatter. `SkillVersion={version:u32,reviewedAt:i64,document,rollbackFrom?:u32}`; `ProjectSkill={name,revision:u32,enabled,versions:SkillVersion[1..5]}` (oldest to newest). State revision increments on mutations; version increments on activation/rollback, retaining five most recent versions. At most 12 saved records/folder including disabled, three enabled and 8192 combined source bytes. Capacity refuses changes atomically. Times are Unix milliseconds.
+
+One five-minute single-use review token binds session/root/saved record/exact document and optional rollback version. Activation rechecks current source for file reviews and saved version for rollback, then compares the saved revision inside SQLite's transaction. Wrong session, expiry, stale source/state and failed publication preserve previous state and consume the token. Listing replaces pending review. Disable/Forget also discard review. Rollback publishes the older text as a new version without writing project files. Source changes do not replace or block the existing active snapshot.
+
+SQLite schema 14 adds `project_skills(root,name,data)` with a composite key, independently of chat lifetime. Shared preview/send adds exact active snapshots to mandatory system input after AGENTS.md and before memory/summary. All active entries must fit; token overflow refuses before transport. Optional `ContextSummary.skills:SkillSource[]` is omitted when empty/legacy. `SkillSource={name,source,version,reviewedAt,textBytes,rollbackFrom?}` contains a relative path, never the host folder. Started/history/export retain it. Local `context.skillEntries:SkillVersion[]` additionally exposes the exact current active snapshots, excluding old versions. Running requests keep their initial snapshot. Tools, permissions and limits remain host controlled. See [design](../design/project-skills.md).
+
 ## Automatic memory (brick 4.4)
 
 `setAutomaticMemory {enabled:boolean,revision:integer}` returns `{enabled,revision}` with optimistic increment. `memories {session?}` adds `automaticPolicy` and nullable `automaticAttempt:{messageId,status,note,updatedAt,saved,skipped,usage?}`. SQLite policy defaults enabled; other storage plugins default off until implementing the optional ports. Activity is one latest row/chat; time is Unix milliseconds.

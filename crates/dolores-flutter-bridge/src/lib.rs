@@ -8,6 +8,7 @@ mod instructions;
 mod memory;
 mod memory_suggestions;
 mod recovery;
+mod skills;
 mod summaries;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
@@ -50,6 +51,7 @@ struct Engine {
     workspace_directory: Option<PathBuf>,
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
+    skill_review: Mutex<Option<skills::SkillReview>>,
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
 }
@@ -58,6 +60,31 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ProjectSkills {
+        session: String,
+    },
+    ReviewSkill {
+        session: String,
+        name: String,
+        version: Option<u32>,
+    },
+    ActivateSkill {
+        session: String,
+        token: String,
+    },
+    DisableSkill {
+        session: String,
+        name: String,
+        revision: u32,
+    },
+    ForgetSkill {
+        session: String,
+        name: String,
+        revision: u32,
+    },
+    CancelSkillReview {
+        token: String,
+    },
     ReviewSummary {
         session: String,
     },
@@ -275,6 +302,7 @@ impl Engine {
             workspace_directory: None,
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
+            skill_review: Mutex::new(None),
             memory_review: Arc::new(Mutex::new(None)),
             summary_review: Arc::new(Mutex::new(None)),
         })
@@ -353,6 +381,24 @@ impl Engine {
         }
         match command {
             Command::ReviewSummary { session } => self.review_summary(&session),
+            Command::ProjectSkills { session } => self.project_skills(&session),
+            Command::ReviewSkill {
+                session,
+                name,
+                version,
+            } => self.review_skill(&session, &name, version),
+            Command::ActivateSkill { session, token } => self.activate_skill(&session, &token),
+            Command::DisableSkill {
+                session,
+                name,
+                revision,
+            } => self.mutate_skill(&session, &name, revision, false),
+            Command::ForgetSkill {
+                session,
+                name,
+                revision,
+            } => self.mutate_skill(&session, &name, revision, true),
+            Command::CancelSkillReview { token } => self.cancel_skill_review(&token),
             Command::GenerateSummary { id, session, token } => {
                 self.generate_summary(&mut active, id, session, token)
             }
@@ -450,6 +496,7 @@ impl Engine {
                     instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
                 let memories =
                     memory::preferences_for_session(self.store.as_ref(), session.as_deref())?;
+                let skills = skills::for_session(self.store.as_ref(), session.as_deref())?;
                 let tools = match session.as_ref() {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
                     None => tools,
@@ -466,6 +513,8 @@ impl Engine {
                 };
                 let messages =
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
+                let (messages, skill_sources) =
+                    dolores_core::prepare_skill_context(messages, &skills)?;
                 let (messages, memory_context) =
                     dolores_core::prepare_memory_context(messages, memories.clone())?;
                 let messages =
@@ -494,6 +543,7 @@ impl Engine {
                 let mut summary = ContextSummary::from_messages(&messages, count);
                 summary.tokens = Some(tokens);
                 summary.instructions = guidance.map(|g| g.provenance);
+                summary.skills = skill_sources;
                 summary.memory = memory_context;
                 dolores_core::account_summary(&mut summary, session_summary.as_ref());
                 let mut report = json!(summary);
@@ -512,6 +562,11 @@ impl Engine {
                     .collect();
                 report["memoryEntries"] = json!(used);
                 report["sessionSummary"] = json!(session_summary);
+                report["skillEntries"] = json!(skills
+                    .iter()
+                    .filter(|s| s.enabled)
+                    .map(|s| s.current())
+                    .collect::<Vec<_>>());
                 Ok(report)
             }
             Command::Delete { session } => {
@@ -735,17 +790,27 @@ async fn execute(
         return Err(stopped());
     }
     let reader = store.clone();
-    let (session, history, count, guidance, memories, session_summary) = blocking(move || {
-        let session = match session {
-            Some(id) => id,
-            None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
-        };
-        let (history, count, session_summary) = reader.summary_context_history(&session)?;
-        let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
-        let memories = memory::preferences_for_session(reader.as_ref(), Some(&session))?;
-        Ok((session, history, count, guidance, memories, session_summary))
-    })
-    .await?;
+    let (session, history, count, guidance, memories, session_summary, skills) =
+        blocking(move || {
+            let session = match session {
+                Some(id) => id,
+                None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
+            };
+            let (history, count, session_summary) = reader.summary_context_history(&session)?;
+            let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
+            let memories = memory::preferences_for_session(reader.as_ref(), Some(&session))?;
+            let skills = skills::for_session(reader.as_ref(), Some(&session))?;
+            Ok((
+                session,
+                history,
+                count,
+                guidance,
+                memories,
+                session_summary,
+                skills,
+            ))
+        })
+        .await?;
     let context = prepare_context(history, &input)?;
     let context = if !tools.is_empty() {
         dolores_core::prepare_agent_context(context)?
@@ -753,6 +818,7 @@ async fn execute(
         context
     };
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
+    let (context, skill_sources) = dolores_core::prepare_skill_context(context, &skills)?;
     let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
     let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
@@ -765,6 +831,7 @@ async fn execute(
     let mut summary = ContextSummary::from_messages(&context, count);
     summary.tokens = Some(tokens);
     summary.instructions = guidance.map(|g| g.provenance);
+    summary.skills = skill_sources;
     summary.memory = memory_context;
     dolores_core::account_summary(&mut summary, session_summary.as_ref());
     forward(

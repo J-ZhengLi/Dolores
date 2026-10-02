@@ -51,6 +51,11 @@ Widget contextDetails(
         'Workspace instructions: ${summary['instructions']['source']}\nReviewed revision: ${summary['instructions']['revision']}',
       ),
     ],
+    if (summary['skills'] is List)
+      for (final skill in summary['skills'] as List)
+        Text(
+          'Project skill: ${skill['name']} · version ${skill['version']}\n${skill['source']}${skill['rollbackFrom'] == null ? '' : '\nRolled back from version ${skill['rollbackFrom']}'}',
+        ),
     if (summary['memory'] is Map) ...[
       const SizedBox(height: 12),
       Text(

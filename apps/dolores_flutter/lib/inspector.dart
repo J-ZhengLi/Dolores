@@ -303,6 +303,19 @@ class ContextInspector extends StatelessWidget {
                 ),
               ),
             ),
+          if (report['skills'] is List && (report['skills'] as List).isNotEmpty)
+            _ContextGroup(
+              label: 'Project skills · reviewed snapshots',
+              messages: [
+                for (final skill in report['skillEntries'] as List? ?? [])
+                  {
+                    'role':
+                        '${skill['document']['name']} · version ${skill['version']}',
+                    'content': skill['document']['text'],
+                  },
+              ],
+              color: colors[0],
+            ),
           if (report['sessionSummary'] is Map)
             _ContextGroup(
               label: 'Session summary',

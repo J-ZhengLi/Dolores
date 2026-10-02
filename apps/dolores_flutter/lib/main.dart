@@ -17,6 +17,7 @@ import 'request_settings.dart';
 import 'tool_activity.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
+import 'skills.dart';
 import 'memory.dart';
 import 'session_summary.dart';
 import 'chat_sidebar.dart';
@@ -670,6 +671,17 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
+                  if (chat.session != null &&
+                      chat.workspaceRoot != null &&
+                      constraints.maxWidth >= 480)
+                    IconButton(
+                      key: const Key('project-skills'),
+                      tooltip: 'Project skills',
+                      onPressed: chat.busy || chat.loading || chat.changing
+                          ? null
+                          : () => showSkills(context, chat),
+                      icon: const Icon(Icons.extension_outlined, size: 20),
+                    ),
                   if (chat.session != null && chat.workspaceRoot != null)
                     IconButton(
                       key: const Key('workspace-instructions'),
@@ -708,16 +720,35 @@ class _ChatPageState extends State<ChatPage> {
                   if (chat.session != null)
                     PopupMenuButton<String>(
                       key: const Key('export-chat'),
-                      tooltip: 'Export complete conversation',
+                      tooltip: constraints.maxWidth < 480
+                          ? 'Chat actions'
+                          : 'Export complete conversation',
                       enabled: !chat.busy && !chat.changing && !chat.loading,
-                      onSelected: exportChat,
-                      icon: const Icon(Icons.file_download_outlined, size: 20),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
+                      onSelected: (value) {
+                        if (value == 'skills') {
+                          showSkills(context, chat);
+                        } else {
+                          exportChat(value);
+                        }
+                      },
+                      icon: Icon(
+                        constraints.maxWidth < 480
+                            ? Icons.more_horiz
+                            : Icons.file_download_outlined,
+                        size: 20,
+                      ),
+                      itemBuilder: (_) => [
+                        if (constraints.maxWidth < 480 &&
+                            chat.workspaceRoot != null)
+                          const PopupMenuItem(
+                            value: 'skills',
+                            child: Text('Project skills'),
+                          ),
+                        const PopupMenuItem(
                           value: 'markdown',
                           child: Text('Export Markdown'),
                         ),
-                        PopupMenuItem(
+                        const PopupMenuItem(
                           value: 'json',
                           child: Text('Export JSON'),
                         ),

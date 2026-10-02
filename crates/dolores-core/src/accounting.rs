@@ -29,6 +29,8 @@ pub struct ContextSummary {
     pub memory: Option<crate::MemoryContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<crate::SummarySource>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skills: Vec<crate::SkillSource>,
 }
 
 impl ContextSummary {
@@ -45,6 +47,7 @@ impl ContextSummary {
             instructions: None,
             memory: None,
             summary: None,
+            skills: vec![],
         }
     }
 }

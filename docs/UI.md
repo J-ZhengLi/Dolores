@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Reviewed project skills
+
+Working-folder headers offer Project skills; below 480 pixels it moves into Chat actions to avoid crowding the header. Reuse InspectorFrame, literal selectable text, system palette and fixed wrapping footer with a scrolling body. List Available/Enabled/Disabled records; Review file shows exact source/description, while Saved versions works even for missing/invalid source. Explain activation scope, saved-snapshot behavior, limits, tool approval and literal resources before the body. Review a retained version before Activate version; show rollback provenance and keep files unchanged. Back/Refresh/Disable/Forget remain reachable in compact layouts. Close cancels review without activation; failed activation requires Refresh and preserves old state. Lock dismissal/duplicates during writes and chat changes while open. Context and reply usage show skill version/source; local context includes exact active source. No composer, palette or automatic model activity change.
+
 ## Automatic preferences
 
 Memory offers Learn preferences automatically, enabled by default. Explain current-folder versus All chats scope, limited eligibility and the optional 10-second/512-token extraction. The switch returns to manual review without deleting saved entries. Label automatically learned records and keep source/quote/model/time inspectable. Existing Edit/Disable/Delete remain; edit/disable protects a record from replacement. A collapsible current-chat latest activity shows status, saved/skipped counts, date and separate reported learning usage. Trajectory shows reply saved then learning/result. Learning Stop or failure preserves the completed reply. Reuse the palette, InspectorFrame and fixed footer with a scrollable compact light/dark body; keep the composer unchanged.

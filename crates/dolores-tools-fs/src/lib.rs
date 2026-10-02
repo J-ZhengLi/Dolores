@@ -11,6 +11,8 @@ mod create_tests;
 mod discovery;
 mod edit;
 mod instructions;
+mod skills;
+pub use skills::{project_skill_catalog, read_project_skill, SkillCatalog};
 #[cfg(test)]
 mod journal_tests;
 mod remove_created;

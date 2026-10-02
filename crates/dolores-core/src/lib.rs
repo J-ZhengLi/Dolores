@@ -11,6 +11,11 @@ mod workspace;
 pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
 mod automatic_memory;
 mod instructions;
+mod skills;
+pub use skills::{
+    prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument, SkillSource,
+    SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS,
+};
 mod memory;
 mod memory_suggestions;
 mod summary;
@@ -186,6 +191,24 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn project_skills(&self, _: &str) -> Result<Vec<ProjectSkill>, String> {
+        Ok(vec![])
+    }
+    fn activate_project_skill(
+        &self,
+        _: &str,
+        _: &SkillDocument,
+        _: Option<u32>,
+        _: Option<u32>,
+    ) -> Result<ProjectSkill, String> {
+        Err("This storage plugin does not support project skills.".into())
+    }
+    fn disable_project_skill(&self, _: &str, _: &str, _: u32) -> Result<(), String> {
+        Err("This storage plugin does not support project skills.".into())
+    }
+    fn forget_project_skill(&self, _: &str, _: &str, _: u32) -> Result<(), String> {
+        Err("This storage plugin does not support project skills.".into())
+    }
     fn automatic_memory_policy(&self) -> Result<AutomaticMemoryPolicy, String> {
         Ok(AutomaticMemoryPolicy {
             enabled: false,

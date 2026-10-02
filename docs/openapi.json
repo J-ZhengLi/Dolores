@@ -122,7 +122,7 @@
           "input": "string; empty allowed; at most 16384 UTF-8 bytes",
           "tools": "boolean; optional/default false; appends local tool guidance and applies the same initial context trimming as start"
         },
-        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read; memoryEntries:MemoryPreference[] in selected order; optional memory provenance; literal preference text only in local preview/system input; optional summary:SummarySource and sessionSummary:SessionSummary|null, covered raw turns excluded from prepared history and omittedTurns"
+        "result": "ContextSummary plus messages:Message[], tools:ToolSpec[], model:string; workspace-derived tools; shared byte/token preparation; no mutation/network; enabled AGENTS.md snapshot is validated by a bounded file read; memoryEntries:MemoryPreference[] in selected order; optional memory provenance; literal preference text only in local preview/system input; optional summary:SummarySource and sessionSummary:SessionSummary|null, covered raw turns excluded from prepared history and omittedTurns; optional skills:SkillSource[], skillEntries:SkillVersion[] exact active snapshots"
       },
       "setRequestSettings": {
         "arguments": {
@@ -321,6 +321,49 @@
           "revision": "integer[1..4294967295]"
         },
         "result": "AutomaticMemoryPolicy; global policy, optimistic revision increment; default enabled in SQLite; excluded during active run"
+      },
+      "projectSkills": {
+        "arguments": {
+          "session": "string"
+        },
+        "result": "{items:[{name,enabled,revision:u32|null,version:u32|null,description:string|null,sourceAvailable:boolean}],partial:boolean,problem:string|null}"
+      },
+      "reviewSkill": {
+        "arguments": {
+          "session": "string",
+          "name": "string",
+          "version": "u32 optional; retained version; omit for current source"
+        },
+        "result": "{token,document:SkillDocument,enabled,revision:u32|null,activeVersion:u32|null,versions:[{version,reviewedAt,rollbackFrom}],reviewVersion:u32|null,sourceMatches,alreadyActive,problem:string|null}"
+      },
+      "activateSkill": {
+        "arguments": {
+          "session": "string",
+          "token": "string"
+        },
+        "result": "ProjectSkill"
+      },
+      "disableSkill": {
+        "arguments": {
+          "session": "string",
+          "name": "string",
+          "revision": "u32"
+        },
+        "result": "null"
+      },
+      "forgetSkill": {
+        "arguments": {
+          "session": "string",
+          "name": "string",
+          "revision": "u32"
+        },
+        "result": "null"
+      },
+      "cancelSkillReview": {
+        "arguments": {
+          "token": "string"
+        },
+        "result": "null"
       }
     },
     "events": [
@@ -344,7 +387,7 @@
       "messages": "{id:i64,role:user|assistant,content:string,metadata?:TurnMetadata}[]; entire chronological conversation, no credentials/preferences; Markdown preserves title and bodies in variable-length text fences; optional metadata is included in JSON and as an inert text-fenced record in Markdown"
     },
     "accounting": {
-      "schemaVersion": 13,
+      "schemaVersion": 14,
       "metadata": "Completed assistant metadata {model,usage:TokenUsage|null,context:ContextSummary,requestSettings?:RequestSettings}; actual provider snapshot, omitted for old messages/unsupported providers. Text and metadata commit together; delete cascades both. Optional agent:AgentSummary on successful tool runs; top-level usage is null, per-call usage remains separate. File contents are persisted/exported; folder root is excluded. Schema 6 adds local workspaces; message metadata shape is unchanged. Listing/search records can include query and completed status; their names/snippets are saved/exported with a completed turn. Legacy query omission remains valid. Brick 3.4 adds optional agent.steps with public intermediate commentary; final text remains message content. Old summaries without steps remain valid; schema 6 is unchanged.",
       "context": "Content bytes remain internal resource guards. Optional tokens:TokenContext estimates instructions/history/draft/function schemas/framing using ceil(UTF8bytes/4). Per-model raw capacity defaults131072; input allowance floor(window*0.95)-reservedOutputTokens. Newest whole turns retained, mandatory overflow fails, later tool-call/result growth checked before each call. Old metadata lacks tokens; reported TokenUsage stays separate. Optional summary:SummarySource identifies contiguous summarized coverage separately from omitted raw turns; reviewed summary text is counted as system input. Local preview additionally exposes exact SessionSummary; stored metadata keeps provenance only.",
       "usage": "Provider-reported counters only; missing, null, negative, fractional, string and values over 9007199254740991 remain unavailable. Zero is preserved. Cached/reasoning counts are breakdowns, not additions. No estimated totals, prices, tokenizer or cumulative session totals.",
@@ -507,6 +550,15 @@
       "save": "atomic claim/source/policy/all-applicable-preference snapshot; exact verbatim evidence and fixed topics; duplicates/protected conflicts/full scopes skipped; explicit correction replaces untouched enabled automatic same-topic entry; manual edit/toggle clears autoUpdate",
       "activity": "one latest attempt per chat; reported learning usage separate from reply usage; Stop/failure preserves saved reply; interrupted publication never replays; chat deletion cascades activity but preserves preferences",
       "limitsOfEvidence": "eligibility/credential screening and topic recognition are conservative, not universal privacy or semantic accuracy guarantees; generated preferences remain fallible and editable"
+    },
+    "projectSkills": {
+      "schemaVersion": 14,
+      "scope": "Saved working folder; shared project/temporary chats. Side has none. Root never accepted from caller or automatically sent/exported.",
+      "source": "Direct .agents/skills/<name>/SKILL.md, nonlinked regular UTF-8 <=8192 bytes. YAML name matches valid ASCII directory, description <=1024 characters, nonempty body. Standard optional metadata is data; allowed-tools grants nothing. Directory scan128/returned32, partial explicit; no bodies read during listing.",
+      "lifecycle": "Explicit file or retained-version review, five-minute one-use token binds session/root/exact document/saved state. Activate rechecks source then transaction CAS. Disabled/forgotten/stale/expired reviews cannot bypass checks. Rollback publishes old text as a new version without file writes. Source changes leave reviewed active snapshot usable. No model call, script execution, watcher or implicit activation.",
+      "limits": "12 saved records/folder including disabled, five latest versions/record, three enabled and8192 combined source bytes. Refuse over capacity atomically. Unix-ms review time. Active-run exclusion for all six commands.",
+      "context": "Shared preview/send mandatory system input after AGENTS.md before memory/summary; all active snapshots counted in byte/token/reservation/headroom limits. Optional ContextSummary.skills:SkillSource[] omitted empty/legacy, retained in started/history/export. Local context.skillEntries:SkillVersion[] holds exact active current snapshots only. Host/user/tool policy takes precedence; resources need existing separately approved tools.",
+      "retention": "Disable retains versions; Forget removes local record/retrieval; chat deletion retains folder skills. Source files and old reply provenance unchanged. Local snapshots unencrypted."
     }
   },
   "x-tauri-commands": {
@@ -833,6 +885,14 @@
           },
           "summary": {
             "$ref": "#/components/schemas/SummarySource"
+          },
+          "skills": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/components/schemas/SkillSource"
+            },
+            "description": "Omitted on empty/legacy contexts; exact active snapshot provenance"
           }
         },
         "required": [
@@ -1724,6 +1784,116 @@
           },
           "usage": {
             "$ref": "#/components/schemas/TokenUsage"
+          }
+        }
+      },
+      "SkillDocument": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "text"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "text": {
+            "type": "string",
+            "description": "Exact SKILL.md UTF-8 <=8192 bytes including YAML frontmatter"
+          }
+        }
+      },
+      "SkillVersion": {
+        "type": "object",
+        "required": [
+          "version",
+          "reviewedAt",
+          "document"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reviewedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "document": {
+            "$ref": "#/components/schemas/SkillDocument"
+          },
+          "rollbackFrom": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ProjectSkill": {
+        "type": "object",
+        "required": [
+          "name",
+          "revision",
+          "enabled",
+          "versions"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/SkillVersion"
+            }
+          }
+        }
+      },
+      "SkillSource": {
+        "type": "object",
+        "required": [
+          "name",
+          "source",
+          "version",
+          "reviewedAt",
+          "textBytes"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "Relative .agents/skills/<name>/SKILL.md"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reviewedAt": {
+            "type": "integer"
+          },
+          "textBytes": {
+            "type": "integer",
+            "maximum": 8192
+          },
+          "rollbackFrom": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       }

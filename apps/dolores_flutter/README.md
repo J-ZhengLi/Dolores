@@ -1,5 +1,7 @@
 # Dolores Flutter desktop
 
+Working-folder headers now offer Project skills: review `.agents/skills/<name>/SKILL.md`, then Activate skill. Saved versions support Disable, reviewed rollback and Forget; changed files wait for activation, while the reviewed snapshot stays active. Skills are folder scoped, count toward context, and cannot approve tools. Below 480 pixels, use Chat actions. See [design](../../docs/design/project-skills.md).
+
 Memory learns explicit work/response preferences after saved replies, enabled by default. Inspect its switch, evidence, latest activity and separate usage in Memory; manual edits/disables protect learned entries. Folder/All chats scopes and bounded context retrieval remain. Learning failure or Stop preserves the reply. See [automatic memory](../../docs/design/automatic-memory.md).
 
 Working-folder headers offer Instructions: review the root `AGENTS.md`, then Enable instructions to share and save it for chats in that folder. Changes require re-review or Disable before sending. References are literal and every tool still needs its own approval. See the [design](../../docs/design/workspace-instructions.md).

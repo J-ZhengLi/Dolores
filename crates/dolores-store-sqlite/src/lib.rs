@@ -10,6 +10,7 @@ mod changes;
 mod history;
 mod instructions;
 mod memory;
+mod skills;
 mod summaries;
 mod workspace;
 use std::{
@@ -48,6 +49,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS model_choices (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, models TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_contexts (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS workspace_instructions (root TEXT PRIMARY KEY, data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS project_skills (root TEXT NOT NULL, name TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(root,name));
             CREATE TABLE IF NOT EXISTS memory_preferences (id TEXT PRIMARY KEY, root TEXT NOT NULL, data TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS memory_scope ON memory_preferences(root,id);
             CREATE TABLE IF NOT EXISTS session_summaries (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, data TEXT NOT NULL);
@@ -88,9 +90,9 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 11)
                 .map_err(storage_error)?;
         }
-        if version < 13 {
+        if version < 14 {
             connection
-                .pragma_update(None, "user_version", 13)
+                .pragma_update(None, "user_version", 14)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -103,6 +105,24 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn project_skills(&self, root: &str) -> Result<Vec<dolores_core::ProjectSkill>, String> {
+        self.read_skills(root)
+    }
+    fn activate_project_skill(
+        &self,
+        root: &str,
+        document: &dolores_core::SkillDocument,
+        revision: Option<u32>,
+        rollback: Option<u32>,
+    ) -> Result<dolores_core::ProjectSkill, String> {
+        self.activate_skill(root, document, revision, rollback)
+    }
+    fn disable_project_skill(&self, root: &str, name: &str, revision: u32) -> Result<(), String> {
+        self.mutate_skill(root, name, revision, false)
+    }
+    fn forget_project_skill(&self, root: &str, name: &str, revision: u32) -> Result<(), String> {
+        self.mutate_skill(root, name, revision, true)
+    }
     fn automatic_memory_policy(&self) -> Result<dolores_core::AutomaticMemoryPolicy, String> {
         self.auto_policy()
     }
@@ -708,7 +728,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 13);
+        assert_eq!(version, 14);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

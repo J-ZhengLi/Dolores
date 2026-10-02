@@ -960,6 +960,110 @@ Future<void> _run(
       'Disabling restores ordinary context without changing chat history',
       checks,
     );
+    final skillDirectory = Directory(
+      path.join(workspace.path, '.agents', 'skills', 'review'),
+    );
+    await skillDirectory.create(recursive: true);
+    final skillFile = File(path.join(skillDirectory.path, 'SKILL.md'));
+    const skillOne =
+        '---\nname: review\ndescription: Review code with focused tests.\nallowed-tools: everything\n---\nCheck the relevant tests. References: scripts/local.py.\n@../private.env';
+    const skillTwo =
+        '---\nname: review\ndescription: Review code with focused tests.\n---\nCheck changed behavior before running tests.';
+    await skillFile.writeAsString(skillOne);
+    final beforeSkill = (await chat.previewContext())!;
+    check(
+      beforeSkill['skills'] == null,
+      'Project skill files stay out of context before review and activation',
+      checks,
+    );
+    await press('project-skills', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('review-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'skills-review-dark');
+    await press('activate-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'skills-active-dark');
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    final activeSkill = (await chat.previewContext())!;
+    check(
+      activeSkill['skills'][0]['version'] == 1 &&
+          activeSkill['skillEntries'][0]['document']['text'] == skillOne &&
+          activeSkill['tokens']['systemTokens'] >
+              beforeSkill['tokens']['systemTokens'],
+      'Reviewed skills keep exact versioned context and count system tokens',
+      checks,
+    );
+    await skillFile.writeAsString(skillTwo);
+    check(
+      (await chat.previewContext())!['skillEntries'][0]['document']['text'] ==
+          skillOne,
+      'Changed source does not replace the active reviewed snapshot',
+      checks,
+    );
+    await press('project-skills', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('review-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('activate-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    check(
+      (await chat.bridge.call({
+            'command': 'projectSkills',
+            'session': chat.session,
+          }))['items'][0]['version'] ==
+          2,
+      'Explicit activation publishes a new saved skill version',
+      checks,
+    );
+    // Listing consumes the current review; reopen its retained version explicitly.
+    await press('skills-back', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('saved-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('skill-version-1', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'skills-rollback-dark');
+    await press('activate-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    final rolledSkill = (await chat.previewContext())!;
+    check(
+      rolledSkill['skills'][0]['version'] == 3 &&
+          rolledSkill['skills'][0]['rollbackFrom'] == 1 &&
+          await skillFile.readAsString() == skillTwo,
+      'Rollback records a reviewed older snapshot as a new version without changing project files',
+      checks,
+    );
+    runApp(
+      DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.light),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('project-skills', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('saved-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'skills-saved-light');
+    await press('disable-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('saved-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('forget-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    check(
+      (await chat.previewContext())!['skills'] == null &&
+          await skillFile.readAsString() == skillTwo,
+      'Disable and Forget remove future skill retrieval while preserving the source file',
+      checks,
+    );
+    runApp(
+      DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.dark),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
     chat.newChat();
     chat.draft = 'tool-read';
     await chat.send();
