@@ -73,6 +73,8 @@ enum Command {
         id: u64,
         session: String,
         launch: dolores_core::McpLaunch,
+        #[serde(default = "dolores_core::legacy_mcp_id", rename = "connectionId")]
+        connection_id: String,
         #[serde(default)]
         credentials: Vec<dolores_tools_mcp::credentials::CredentialInput>,
     },
@@ -83,10 +85,14 @@ enum Command {
     },
     DisableMcp {
         session: String,
+        #[serde(default = "dolores_core::legacy_mcp_id", rename = "connectionId")]
+        connection_id: String,
         revision: u32,
     },
     ForgetMcp {
         session: String,
+        #[serde(default = "dolores_core::legacy_mcp_id", rename = "connectionId")]
+        connection_id: String,
         revision: u32,
     },
     DiscardMcpReview {
@@ -463,14 +469,23 @@ impl Engine {
                 session,
                 launch,
                 credentials,
-            } => self.inspect_mcp(&mut active, id, session, launch, credentials),
+                connection_id,
+            } => self.inspect_mcp(&mut active, id, session, connection_id, launch, credentials),
             Command::EnableMcp {
                 session,
                 token,
                 names,
             } => self.enable_mcp(&session, &token, names),
-            Command::DisableMcp { session, revision } => self.mutate_mcp(&session, revision, false),
-            Command::ForgetMcp { session, revision } => self.mutate_mcp(&session, revision, true),
+            Command::DisableMcp {
+                session,
+                connection_id,
+                revision,
+            } => self.mutate_mcp(&session, &connection_id, revision, false),
+            Command::ForgetMcp {
+                session,
+                connection_id,
+                revision,
+            } => self.mutate_mcp(&session, &connection_id, revision, true),
             Command::DiscardMcpReview { token } => self.discard_mcp_review(&token),
             Command::ReviewSkillExamples { session, scope } => {
                 self.review_skill_examples(&session, scope)
@@ -628,11 +643,11 @@ impl Engine {
                         .map(|id| self.store.workspace(id))
                         .transpose()?
                         .and_then(|w| w.root)
-                        .map(|root| self.store.mcp_connection(&root))
+                        .map(|root| self.store.mcp_connections(&root))
                         .transpose()?
-                        .flatten()
+                        .unwrap_or_default()
                 } else {
-                    None
+                    vec![]
                 };
                 let (history, count, session_summary) = match session {
                     Some(session) => self.store.summary_context_history(&session)?,
@@ -659,7 +674,7 @@ impl Engine {
                 };
                 if tools {
                     specs.push(dolores_tools_command::command_spec());
-                    if let Some(connection) = &mcp {
+                    for connection in &mcp {
                         specs.extend(connection.specs());
                     }
                 }
@@ -839,7 +854,7 @@ impl Engine {
                         });
                         let mut plugins = dolores_tools_fs::journaled_folder_tools(&root, journal)?;
                         plugins.push(Arc::new(dolores_tools_command::RunCommand::new(&root)?));
-                        if let Some(connection) = self.store.mcp_connection(
+                        for connection in self.store.mcp_connections(
                             root.to_str().ok_or("Working folder path needs Unicode.")?,
                         )? {
                             plugins.extend(dolores_tools_mcp::plugins_with_credentials(

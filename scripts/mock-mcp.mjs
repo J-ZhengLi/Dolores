@@ -40,6 +40,7 @@ else {
         ? (request.params.cursor?{tools:[tools[1]]}:{tools:[tools[0]],nextCursor:'page-two'})
         : mode==='cycle'?{tools:[],nextCursor:'again'}:{tools}});
     } else if (request.method === 'tools/call') {
+      if (mode === 'crash-on-call' && existsSync('mcp-call-crash')) process.exit(3);
       if (existsSync('mcp-call-hang')) return;
       const valid = request.params.name === 'second' || typeof request.params.arguments?.text === 'string';
       send({jsonrpc:'2.0',id:request.id,result:{content:mode==='image'?[{type:'image',data:'private-not-for-rendering',mimeType:'image/png'}]

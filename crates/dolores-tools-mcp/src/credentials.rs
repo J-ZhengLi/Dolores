@@ -103,6 +103,16 @@ impl Credentials {
         launch: &McpLaunch,
         fingerprints: &[McpFingerprint],
     ) -> Result<String, String> {
+        self.encoded_for("legacy", name, root, launch, fingerprints)
+    }
+    pub fn encoded_for(
+        &self,
+        connection_id: &str,
+        name: &str,
+        root: &Path,
+        launch: &McpLaunch,
+        fingerprints: &[McpFingerprint],
+    ) -> Result<String, String> {
         let value = self
             .0
             .iter()
@@ -111,6 +121,7 @@ impl Credentials {
             .1
             .clone();
         serde_json::to_string(&StoredCredential {
+            connection_id: connection_id.into(),
             root: root
                 .canonicalize()
                 .map_err(|_| "Working folder is unavailable.")?
@@ -127,6 +138,8 @@ impl Credentials {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredCredential {
+    #[serde(default = "dolores_core::legacy_mcp_id")]
+    connection_id: String,
     root: String,
     launch: McpLaunch,
     fingerprints: Vec<McpFingerprint>,
@@ -148,7 +161,8 @@ pub fn resolve(
             .map_err(|_| VAULT_ERROR)?
             .ok_or(VAULT_ERROR)?;
         let stored: StoredCredential = serde_json::from_str(&raw).map_err(|_| VAULT_ERROR)?;
-        if stored.root != root.to_string_lossy()
+        if stored.connection_id != connection.id
+            || stored.root != root.to_string_lossy()
             || stored.launch != connection.launch
             || stored.fingerprints != connection.fingerprints
             || stored.name != binding.name

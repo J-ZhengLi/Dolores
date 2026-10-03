@@ -97,6 +97,15 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 15)
                 .map_err(storage_error)?;
         }
+        if version < 16 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE mcp_connections_v16 (root TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(root,id));
+                INSERT INTO mcp_connections_v16(root,id,data) SELECT root,'legacy',data FROM mcp_connections;
+                DROP TABLE mcp_connections;
+                ALTER TABLE mcp_connections_v16 RENAME TO mcp_connections;
+                PRAGMA user_version=16;
+                COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -110,6 +119,18 @@ impl SessionStore for SqliteStore {
     fn mcp_connection(&self, root: &str) -> Result<Option<dolores_core::McpConnection>, String> {
         self.read_mcp(root)
     }
+    fn mcp_connections(&self, root: &str) -> Result<Vec<dolores_core::McpConnection>, String> {
+        self.read_mcps(root)
+    }
+    fn mutate_mcp_connection_by_id(
+        &self,
+        root: &str,
+        id: &str,
+        revision: u32,
+        forget: bool,
+    ) -> Result<(), String> {
+        self.change_mcp(root, id, revision, forget)
+    }
     fn save_mcp_connection(
         &self,
         root: &str,
@@ -119,7 +140,7 @@ impl SessionStore for SqliteStore {
         self.write_mcp(root, connection, expected)
     }
     fn mutate_mcp_connection(&self, root: &str, revision: u32, forget: bool) -> Result<(), String> {
-        self.change_mcp(root, revision, forget)
+        self.change_mcp(root, "legacy", revision, forget)
     }
     fn promote_skill(
         &self,
@@ -779,7 +800,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 15);
+        assert_eq!(version, 16);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

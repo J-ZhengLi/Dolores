@@ -408,7 +408,9 @@ pub async fn run_agent(
                         || (request.name == "run_command") != request.command.is_some()
                         || request.name.starts_with("mcp_tool_") != request.mcp.is_some()
                         || request.mcp.as_ref().is_some_and(|p| {
-                            crate::validate_mcp_credential_names(&p.credential_names).is_err()
+                            !crate::valid_mcp_id(&p.connection_id)
+                                || crate::validate_mcp_credential_names(&p.credential_names)
+                                    .is_err()
                                 || p.server.is_empty()
                                 || p.server.len() > 128
                                 || p.server.chars().any(char::is_control)

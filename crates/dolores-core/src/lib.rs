@@ -199,6 +199,24 @@ pub trait SessionStore: Send + Sync {
     fn mcp_connection(&self, _root: &str) -> Result<Option<McpConnection>, String> {
         Ok(None)
     }
+    fn mcp_connections(&self, root: &str) -> Result<Vec<McpConnection>, String> {
+        Ok(self.mcp_connection(root)?.into_iter().collect())
+    }
+    fn mcp_connection_by_id(&self, root: &str, id: &str) -> Result<Option<McpConnection>, String> {
+        Ok(self.mcp_connections(root)?.into_iter().find(|c| c.id == id))
+    }
+    fn mutate_mcp_connection_by_id(
+        &self,
+        root: &str,
+        id: &str,
+        revision: u32,
+        forget: bool,
+    ) -> Result<(), String> {
+        if id != "legacy" {
+            return Err("Named MCP connections are unavailable in this store.".into());
+        }
+        self.mutate_mcp_connection(root, revision, forget)
+    }
     fn save_mcp_connection(
         &self,
         _root: &str,

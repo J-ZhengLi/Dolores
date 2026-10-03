@@ -1,5 +1,91 @@
 use super::*;
 
+#[tokio::test]
+async fn identical_tool_names_route_to_separate_servers_and_one_missing_key_does_not_block_the_other(
+) {
+    let folder = tempfile::tempdir().unwrap();
+    let root = folder.path().canonicalize().unwrap();
+    let mut a = connection(
+        inspect_with_credentials(
+            &root,
+            launch("credential-echo"),
+            CancellationToken::new(),
+            credentials(),
+        )
+        .unwrap(),
+    );
+    let mut b = connection(inspect(&root, launch("normal"), CancellationToken::new()).unwrap());
+    a.id = "00000000-0000-4000-8000-000000000001".into();
+    b.id = "00000000-0000-4000-8000-000000000002".into();
+    a.tools.truncate(1);
+    b.tools.truncate(1);
+    assert_eq!(a.tools[0].name, b.tools[0].name);
+    assert_ne!(a.specs()[0].name, b.specs()[0].name);
+    let vault = Arc::new(Vault::default());
+    let id = "00000000-0000-4000-8000-000000000003";
+    a.credentials = vec![dolores_core::McpCredentialBinding {
+        name: "DOLORES_MCP_TEST_TOKEN".into(),
+        credential_id: id.into(),
+    }];
+    vault
+        .write(
+            id,
+            &credentials()
+                .encoded_for(
+                    &a.id,
+                    "DOLORES_MCP_TEST_TOKEN",
+                    &root,
+                    &a.launch,
+                    &a.fingerprints,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+    let mut wrong = a.clone();
+    wrong.id = b.id.clone();
+    assert!(
+        credentials::resolve(&root, &wrong, vault.as_ref()).is_err(),
+        "another connection reused a key"
+    );
+    let left = plugins_with_credentials(&root, a, vault.clone())
+        .unwrap()
+        .remove(0);
+    let right = plugins_with_credentials(&root, b, vault.clone())
+        .unwrap()
+        .remove(0);
+    let proposal = |plugin: &Arc<dyn ToolPlugin>, id: &str| ToolCall {
+        id: id.into(),
+        name: plugin.spec().name,
+        arguments: r#"{"text":"healthy server"}"#.into(),
+    };
+    let left_request = left.prepare(&proposal(&left, "left")).unwrap();
+    let right_request = right.prepare(&proposal(&right, "right")).unwrap();
+    assert_ne!(
+        left_request.mcp.as_ref().unwrap().connection_id,
+        right_request.mcp.as_ref().unwrap().connection_id
+    );
+    vault.delete(id).unwrap();
+    let before = events(&root).len();
+    assert!(left
+        .invoke(&left_request, CancellationToken::new())
+        .await
+        .unwrap_err()
+        .contains("key is missing"));
+    assert_eq!(events(&root).len(), before);
+    let result = right
+        .invoke(&right_request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&result).unwrap()["text"],
+        "healthy server"
+    );
+    assert!(events(&root)
+        .iter()
+        .filter(|e| e["method"] == "tools/call")
+        .all(|e| e["params"]["name"] == "echo"));
+}
+
 #[derive(Default)]
 struct Vault {
     values: Mutex<HashMap<String, String>>,
@@ -230,6 +316,7 @@ fn launch(mode: &str) -> McpLaunch {
 }
 fn connection(i: Inspection) -> McpConnection {
     McpConnection {
+        id: "legacy".into(),
         credentials: vec![],
         retired_credentials: vec![],
         revision: 1,

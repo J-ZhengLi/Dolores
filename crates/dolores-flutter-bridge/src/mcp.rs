@@ -17,6 +17,7 @@ pub(super) struct McpReview {
     session: String,
     root: String,
     previous: Option<McpConnection>,
+    connection_id: String,
     inspection: Inspection,
     credentials: Credentials,
     created: Instant,
@@ -43,19 +44,34 @@ impl Engine {
     pub(super) fn mcp_settings(&self, session: &str) -> Result<Value, String> {
         self.clear_mcp_review()?;
         let root = self.mcp_root(session)?;
-        Ok(json!({"connection":self.store.mcp_connection(&root)?,"directory":root}))
+        Ok(
+            json!({"connection":self.store.mcp_connection(&root)?,"connections":self.store.mcp_connections(&root)?,"directory":root,"maxConnections":dolores_core::MAX_MCP_CONNECTIONS,"maxActiveTools":dolores_core::MAX_ACTIVE_MCP_TOOLS}),
+        )
     }
     pub(super) fn inspect_mcp(
         &self,
         active: &mut Option<Run>,
         id: u64,
         session: String,
+        connection_id: String,
         launch: McpLaunch,
         inputs: Vec<CredentialInput>,
     ) -> Result<Value, String> {
         launch.validate()?;
         let root = self.mcp_root(&session)?;
-        let previous = self.store.mcp_connection(&root)?;
+        let connection_id = if connection_id.is_empty() {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            connection_id
+        };
+        if !dolores_core::valid_mcp_id(&connection_id) {
+            return Err("MCP connection identity is invalid.".into());
+        }
+        let all = self.store.mcp_connections(&root)?;
+        let previous = all.iter().find(|c| c.id == connection_id).cloned();
+        if previous.is_none() && all.len() >= dolores_core::MAX_MCP_CONNECTIONS {
+            return Err("This folder already has four MCP connections. Forget a saved server before adding another.".into());
+        }
         self.clear_mcp_review()?;
         let cancel = CancellationToken::new();
         let (output, events) = mpsc::channel(4);
@@ -95,12 +111,12 @@ impl Engine {
                     let inspection = dolores_tools_mcp::inspect_with_credentials(Path::new(&check_root), launch, token_cancel, credentials.clone())?;
                     Ok::<_, String>((inspection, credentials))
                 }).await?;
-                if store.workspace(&session)?.root.as_ref() != Some(&root) || store.mcp_connection(&root)? != previous { return Err(STALE.into()); }
+                if store.workspace(&session)?.root.as_ref() != Some(&root) || store.mcp_connection_by_id(&root, &connection_id)? != previous { return Err(STALE.into()); }
                 let token = uuid::Uuid::new_v4().to_string();
-                let result = json!({"token":token,"tools":inspection.tools,"protocolVersion":inspection.protocol_version,"serverName":inspection.server_name,"serverVersion":inspection.server_version,"launch":inspection.launch,"credentialNames":credentials.names()});
+                let result = json!({"token":token,"tools":inspection.tools,"protocolVersion":inspection.protocol_version,"serverName":inspection.server_name,"serverVersion":inspection.server_version,"launch":inspection.launch,"credentialNames":credentials.names(),"connectionId":connection_id});
                 let mut review = slot.lock().map_err(|_| STALE)?;
                 if cancel.is_cancelled() { return Err("MCP inspection stopped. Nothing was saved.".into()); }
-                *review = Some(McpReview { token, session, root, previous, inspection, credentials, created: Instant::now() });
+                *review = Some(McpReview { token, session, root, previous, connection_id, inspection, credentials, created: Instant::now() });
                 Ok::<_, String>(result)
             }.await;
             let event = match result {
@@ -123,7 +139,10 @@ impl Engine {
             || review.session != session
             || review.root != self.mcp_root(session)?
             || review.created.elapsed() > Duration::from_secs(300)
-            || self.store.mcp_connection(&review.root)? != review.previous
+            || self
+                .store
+                .mcp_connection_by_id(&review.root, &review.connection_id)?
+                != review.previous
         {
             return Err(STALE.into());
         }
@@ -157,6 +176,20 @@ impl Engine {
         if review.created.elapsed() > Duration::from_secs(300) {
             return Err(STALE.into());
         }
+        let proposed = McpConnection {
+            id: review.connection_id.clone(),
+            revision: 1,
+            enabled: true,
+            launch: review.inspection.launch.clone(),
+            fingerprints: review.inspection.fingerprints.clone(),
+            protocol_version: review.inspection.protocol_version.clone(),
+            server_name: review.inspection.server_name.clone(),
+            server_version: review.inspection.server_version.clone(),
+            tools: tools.clone(),
+            credentials: vec![],
+            retired_credentials: vec![],
+        };
+        dolores_core::check_mcp_capacity(&self.store.mcp_connections(&review.root)?, &proposed)?;
         // Keep old opaque references until Forget; cleanup failures remain retryable.
         let mut retired = review
             .previous
@@ -175,7 +208,8 @@ impl Engine {
         let mut prepared = vec![];
         for name in review.credentials.names() {
             let id = uuid::Uuid::new_v4().to_string();
-            let encoded = review.credentials.encoded(
+            let encoded = review.credentials.encoded_for(
+                &review.connection_id,
                 &name,
                 Path::new(&review.root),
                 &review.inspection.launch,
@@ -205,6 +239,7 @@ impl Engine {
             bindings.push(binding);
         }
         let value = McpConnection {
+            id: review.connection_id.clone(),
             revision: 1,
             enabled: true,
             launch: review.inspection.launch.clone(),
@@ -253,14 +288,22 @@ impl Engine {
     pub(super) fn mutate_mcp(
         &self,
         session: &str,
+        connection_id: &str,
         revision: u32,
         forget: bool,
     ) -> Result<Value, String> {
-        self.clear_mcp_review()?;
+        let mut review = self.mcp_review.lock().map_err(|_| STALE)?;
+        if review
+            .as_ref()
+            .is_some_and(|r| r.connection_id == connection_id)
+        {
+            review.take();
+        }
+        drop(review);
         let root = self.mcp_root(session)?;
         let saved = self
             .store
-            .mcp_connection(&root)?
+            .mcp_connection_by_id(&root, connection_id)?
             .ok_or("MCP connection is missing.")?;
         if saved.revision != revision {
             return Err(STALE.into());
@@ -268,8 +311,11 @@ impl Engine {
         if forget && (!saved.credentials.is_empty() || !saved.retired_credentials.is_empty()) {
             // Disable first, retaining references until every vault deletion succeeds.
             let disabled = if saved.enabled {
-                self.store.mutate_mcp_connection(&root, revision, false)?;
-                self.store.mcp_connection(&root)?.ok_or(STALE)?
+                self.store
+                    .mutate_mcp_connection_by_id(&root, connection_id, revision, false)?;
+                self.store
+                    .mcp_connection_by_id(&root, connection_id)?
+                    .ok_or(STALE)?
             } else {
                 saved
             };
@@ -285,12 +331,17 @@ impl Engine {
             if failed {
                 return Err("MCP tools are disabled, but credential removal failed. Unlock secure storage and press Forget again.".into());
             }
-            self.store
-                .mutate_mcp_connection(&root, disabled.revision, true)?;
+            self.store.mutate_mcp_connection_by_id(
+                &root,
+                connection_id,
+                disabled.revision,
+                true,
+            )?;
         } else {
-            self.store.mutate_mcp_connection(&root, revision, forget)?;
+            self.store
+                .mutate_mcp_connection_by_id(&root, connection_id, revision, forget)?;
         }
-        Ok(Value::Null)
+        Ok(json!({"connections":self.store.mcp_connections(&root)?}))
     }
 }
 
@@ -310,6 +361,26 @@ mod tests {
     use super::*;
     use dolores_core::{SessionStore, SessionWorkspace, WorkspaceKind};
     use dolores_store_sqlite::SqliteStore;
+    #[test]
+    fn desktop_json_routes_named_connections_and_defaults_legacy_requests() {
+        for name in ["inspectMcp", "disableMcp", "forgetMcp"] {
+            for identity in [None, Some(""), Some("63ed0154-e98f-4547-91cb-184971cdb922")] {
+                let mut request = json!({"command":name,"session":"work","id":1,"revision":1,
+                    "launch":{"label":"Fixture","executable":"/fixture/node","args":[]}});
+                if let Some(id) = identity {
+                    request["connectionId"] = json!(id);
+                }
+                let command: crate::Command = serde_json::from_value(request).unwrap();
+                let actual = match command {
+                    crate::Command::InspectMcp { connection_id, .. }
+                    | crate::Command::DisableMcp { connection_id, .. }
+                    | crate::Command::ForgetMcp { connection_id, .. } => connection_id,
+                    _ => unreachable!(),
+                };
+                assert_eq!(actual, identity.unwrap_or("legacy"));
+            }
+        }
+    }
     #[test]
     fn credential_rotation_failed_save_and_locked_forget_are_recoverable() {
         use std::sync::atomic::Ordering::Relaxed;
@@ -365,6 +436,7 @@ mod tests {
         let review = |previous| {
             *engine.mcp_review.lock().unwrap() = Some(McpReview {
                 token: "review".into(),
+                connection_id: "legacy".into(),
                 session: "work".into(),
                 root: root.clone(),
                 previous,
@@ -411,14 +483,18 @@ mod tests {
         assert_eq!(vault.values.lock().unwrap().len(), 1);
         vault.locked.store(true, Relaxed);
         let error = engine
-            .mutate_mcp("work", rotated.revision, true)
+            .mutate_mcp("work", "legacy", rotated.revision, true)
             .unwrap_err();
         assert!(error.contains("disabled") && error.contains("Forget again"));
         let disabled = store.mcp_connection(&root).unwrap().unwrap();
         assert!(!disabled.enabled && !disabled.credentials.is_empty());
-        assert!(engine.mutate_mcp("work", rotated.revision, true).is_err());
+        assert!(engine
+            .mutate_mcp("work", "legacy", rotated.revision, true)
+            .is_err());
         vault.locked.store(false, Relaxed);
-        engine.mutate_mcp("work", disabled.revision, true).unwrap();
+        engine
+            .mutate_mcp("work", "legacy", disabled.revision, true)
+            .unwrap();
         assert!(store.mcp_connection(&root).unwrap().is_none());
         assert!(vault.values.lock().unwrap().is_empty());
     }
@@ -472,6 +548,7 @@ mod tests {
         let reset = |created: Instant| {
             *engine.mcp_review.lock().unwrap() = Some(McpReview {
                 token: "one".into(),
+                connection_id: "legacy".into(),
                 session: "work".into(),
                 root: root.clone(),
                 previous: None,
@@ -514,7 +591,7 @@ mod tests {
         assert!(engine
             .enable_mcp("work", "one", vec!["echo".into()])
             .is_err());
-        engine.mutate_mcp("work", 1, false).unwrap();
+        engine.mutate_mcp("work", "legacy", 1, false).unwrap();
         assert!(!store.mcp_connection(&root).unwrap().unwrap().enabled);
         reset(Instant::now());
         assert!(engine

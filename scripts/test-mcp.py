@@ -270,7 +270,7 @@ else:
     if args.credentials: assert credential['value'] not in exported.read_text(encoding='utf-8')
     call('shutdown')
 with sqlite3.connect(fixture / 'data/dolores.db') as db:
-    assert db.execute('PRAGMA user_version').fetchone()[0] == 15
+    assert db.execute('PRAGMA user_version').fetchone()[0] == 16
     if args.credentials:
         assert credential['value'] not in '\n'.join(db.iterdump())
-print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 15, 'nativeCredentialFlow': args.credentials}))
+print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 16, 'nativeCredentialFlow': args.credentials}))

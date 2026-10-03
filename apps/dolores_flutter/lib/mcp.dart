@@ -55,6 +55,11 @@ class _McpInspectorState extends State<McpInspector> {
   final _credentials = <_CredentialRow>[];
   final _scroll = ScrollController();
   Map<String, dynamic>? _connection, _review;
+  List<Map<String, dynamic>> _connections = [];
+  String? _editingId;
+  int get _otherTools => _connections
+      .where((c) => (c['id'] ?? 'legacy') != _editingId && c['enabled'] == true)
+      .fold(0, (n, c) => n + (c['tools'] as List).length);
   final _selected = <String>{};
   bool _busy = false, _stopping = false;
   int? _run;
@@ -103,7 +108,7 @@ class _McpInspectorState extends State<McpInspector> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool newConnection = false, String? chooseId}) async {
     final result = await _call('mcpSettings') as Map;
     if (!mounted) return;
     for (final arg in _args) {
@@ -114,11 +119,28 @@ class _McpInspectorState extends State<McpInspector> {
       row.dispose();
     }
     _credentials.clear();
-    final saved = (result['connection'] as Map?)?.cast<String, dynamic>();
+    final entries =
+        (result['connections'] as List? ??
+                [if (result['connection'] != null) result['connection']])
+            .map((c) => (c as Map).cast<String, dynamic>())
+            .toList();
+    var id = newConnection
+        ? ''
+        : chooseId ??
+              _editingId ??
+              (entries.isEmpty
+                  ? ''
+                  : (entries.first['id'] as String? ?? 'legacy'));
+    if (id.isNotEmpty && !entries.any((c) => (c['id'] ?? 'legacy') == id)) {
+      id = '';
+    }
+    final saved = entries.where((c) => (c['id'] ?? 'legacy') == id).firstOrNull;
     setState(() {
       for (final binding in saved?['credentials'] as List? ?? []) {
         _credentials.add(_CredentialRow(binding['name'] as String));
       }
+      _connections = entries;
+      _editingId = id;
       _connection = saved;
       _directory = result['directory'] as String?;
       _review = null;
@@ -175,6 +197,7 @@ class _McpInspectorState extends State<McpInspector> {
     setState(() => _run = id);
     await _call('inspectMcp', {
       'id': id,
+      'connectionId': _editingId ?? '',
       'credentials': _credentials
           .map(
             (row) => {
@@ -240,10 +263,14 @@ class _McpInspectorState extends State<McpInspector> {
       'token': _review!['token'],
       'names': _selected.toList(),
     });
+    _editingId =
+        (result as Map?)?['id'] as String? ??
+        _review!['connectionId'] as String? ??
+        _editingId;
     await _load();
     if (mounted) {
       setState(
-        () => _notice = (result as Map?)?['warning'] as String? ?? 'Selected tools enabled for this folder. Each call still needs approval.',
+        () => _notice = result?['warning'] as String? ?? 'Selected tools enabled for this folder. Each call still needs approval.',
       );
       _status();
     }
@@ -252,11 +279,13 @@ class _McpInspectorState extends State<McpInspector> {
     try {
       await _call(forget ? 'forgetMcp' : 'disableMcp', {
         'revision': _connection!['revision'],
+        'connectionId': _editingId,
       });
     } catch (error) {
       await _load(); // Forget may have disabled tools before a vault failure.
       rethrow;
     }
+    if (forget) _editingId = null;
     await _load();
     if (mounted) {
       setState(
@@ -266,6 +295,25 @@ class _McpInspectorState extends State<McpInspector> {
       );
       _status();
     }
+  });
+  Future<void> _disableOther(Map<String, dynamic> server) => _act(() async {
+    final result = await _call('disableMcp', {
+      'connectionId': server['id'] ?? 'legacy',
+      'revision': server['revision'],
+    });
+    if (!mounted) return;
+    setState(() {
+      if (result is Map && result['connections'] is List) {
+        _connections = (result['connections'] as List)
+            .map((c) => (c as Map).cast<String, dynamic>())
+            .toList();
+      } else {
+        server['enabled'] = false;
+        server['revision'] = (server['revision'] as int) + 1;
+      }
+      _notice = 'Server disabled. Your current fields and review are preserved; retry Enable or adjust the selected tools.';
+    });
+    _status();
   });
   @override
   void dispose() {
@@ -325,6 +373,57 @@ class _McpInspectorState extends State<McpInspector> {
                       _directory!,
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Servers · ${_connections.length}/4 saved · ${_connections.where((c) => c['enabled'] == true).fold<int>(0, (n, c) => n + (c['tools'] as List).length)}/2 external tools enabled',
+                  ),
+                  for (final server in _connections)
+                    ListTile(
+                      key: Key('mcp-server-${server['id'] ?? 'legacy'}'),
+                      contentPadding: EdgeInsets.zero,
+                      selected: (server['id'] ?? 'legacy') == _editingId,
+                      leading: Icon(
+                        server['enabled'] == true
+                            ? Icons.check_circle_outline
+                            : Icons.pause_circle_outline,
+                      ),
+                      title: Text(server['launch']['label'] as String),
+                      trailing:
+                          server['enabled'] == true &&
+                              (server['id'] ?? 'legacy') != _editingId
+                          ? TextButton(
+                              key: Key(
+                                'mcp-disable-other-${server['id'] ?? 'legacy'}',
+                              ),
+                              onPressed: _busy
+                                  ? null
+                                  : () => _disableOther(server),
+                              child: const Text('Disable'),
+                            )
+                          : null,
+                      subtitle: Text(
+                        '${server['enabled'] == true ? 'Enabled' : 'Disabled'} · ${(server['tools'] as List).map((t) => t['name']).join(', ')}',
+                      ),
+                      onTap: _busy
+                          ? null
+                          : () => _act(
+                              () => _load(
+                                chooseId: server['id'] as String? ?? 'legacy',
+                              ),
+                            ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      key: const Key('mcp-add-server'),
+                      onPressed: _busy || _connections.length >= 4
+                          ? null
+                          : () => _act(() => _load(newConnection: true)),
+                      child: const Text('Add server'),
+                    ),
+                  ),
+                  if (_connection == null)
+                    const Text('New connection · inspect before enabling'),
                   if (_connection != null) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -488,12 +587,15 @@ class _McpInspectorState extends State<McpInspector> {
                     title: const Text('Limits and supported features'),
                     children: [
                       Text(
-                        'One connection per folder, up to two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
+                        'Up to four saved connections per folder, sharing two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                     ],
                   ),
                   if (_review != null) ...[
+                    Text(
+                      '${2 - _otherTools} external tool slots available. If Enable exceeds the limit, select fewer tools or disable another server; the current review stays available.',
+                    ),
                     Text(
                       '${_review!['serverName']} · ${_review!['serverVersion']} · MCP ${_review!['protocolVersion']}',
                     ),
@@ -515,8 +617,7 @@ class _McpInspectorState extends State<McpInspector> {
                                       setState(() {
                                         if (checked == true) {
                                           if (_selected.length >= 2) {
-                                            _error =
-                                                'Choose at most two MCP tools.';
+                                            _error = 'Choose at most two MCP tools. This folder shares two external tool slots across servers.';
                                             _status();
                                           } else {
                                             _selected.add(

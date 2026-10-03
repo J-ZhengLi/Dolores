@@ -63,9 +63,45 @@ impl McpTool {
         Ok(())
     }
 }
+pub const MAX_MCP_CONNECTIONS: usize = 4;
+pub const MAX_ACTIVE_MCP_TOOLS: usize = 2;
+pub fn legacy_mcp_id() -> String {
+    "legacy".into()
+}
+pub fn is_legacy_mcp_id(id: &String) -> bool {
+    id == "legacy"
+}
+pub fn valid_mcp_id(id: &str) -> bool {
+    id == "legacy" || valid_credential_id(id)
+}
+
+pub fn check_mcp_capacity(
+    connections: &[McpConnection],
+    proposed: &McpConnection,
+) -> Result<(), String> {
+    let others = connections
+        .iter()
+        .filter(|c| c.id != proposed.id)
+        .collect::<Vec<_>>();
+    if others.len() >= MAX_MCP_CONNECTIONS {
+        return Err("This folder already has four MCP connections. Forget a saved server before adding another.".into());
+    }
+    let active: usize = others
+        .iter()
+        .filter(|c| c.enabled)
+        .map(|c| c.tools.len())
+        .sum();
+    if active + proposed.tools.len() > MAX_ACTIVE_MCP_TOOLS {
+        return Err("Only two external tools can be enabled per folder. Disable another server or select fewer tools, then retry Enable. Your review is preserved.".into());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct McpConnection {
+    #[serde(default = "legacy_mcp_id", skip_serializing_if = "is_legacy_mcp_id")]
+    pub id: String,
     pub revision: u32,
     pub enabled: bool,
     pub launch: McpLaunch,
@@ -113,7 +149,8 @@ impl McpConnection {
                 "MCP credential references are duplicated. Review the connection again.".into(),
             );
         }
-        if self.revision == 0
+        if !valid_mcp_id(&self.id)
+            || self.revision == 0
             || self.tools.is_empty()
             || self.tools.len() > 2
             || !matches!(
@@ -154,7 +191,7 @@ impl McpConnection {
             return vec![];
         }
         self.tools.iter().enumerate().map(|(index, tool)| crate::ToolSpec {
-            name: format!("mcp_tool_{}", index + 1),
+            name: if self.id == "legacy" { format!("mcp_tool_{}", index + 1) } else { format!("mcp_tool_{}_{}", self.id.replace('-', ""), index + 1) },
             description: format!("External MCP tool {} from {}. Requires approval and starts the reviewed server. {}", tool.name, self.launch.label, tool.description),
             parameters: tool.input_schema.clone(),
         }).collect()
@@ -163,6 +200,8 @@ impl McpConnection {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct McpCallPreview {
+    #[serde(default = "legacy_mcp_id", skip_serializing_if = "is_legacy_mcp_id")]
+    pub connection_id: String,
     pub server: String,
     pub tool: String,
     pub arguments: String,

@@ -11,6 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 class McpBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
   Map<String, dynamic>? saved;
+  final connections = <Map<String, dynamic>>[];
+  String inspectedId = 'legacy';
+  String? failEnable;
+  int serial = 0;
   bool pending = false, cancelled = false, failSave = false, failForget = false;
   final tools = [
     for (final name in ['echo', 'second', 'third'])
@@ -29,8 +33,19 @@ class McpBridge implements ChatBridge {
     commands.add(c);
     switch (c['command']) {
       case 'mcpSettings':
-        return {'directory': 'C:/synthetic/project', 'connection': saved};
+        return {
+          'directory': 'C:/synthetic/project',
+          'connection': saved,
+          'connections': connections.isEmpty
+              ? [if (saved != null) saved]
+              : connections,
+        };
       case 'inspectMcp':
+        inspectedId = c['connectionId'] as String? ?? 'legacy';
+        if (inspectedId.isEmpty) {
+          inspectedId =
+              '00000000-0000-4000-8000-${(++serial).toString().padLeft(12, '0')}';
+        }
         return null;
       case 'poll':
         if (pending && !cancelled) return [];
@@ -42,6 +57,7 @@ class McpBridge implements ChatBridge {
             else
               'mcpInspection': {
                 'token': 'review',
+                'connectionId': inspectedId,
                 'tools': tools,
                 'serverName': 'Fixture',
                 'serverVersion': '1',
@@ -54,7 +70,9 @@ class McpBridge implements ChatBridge {
         return null;
       case 'enableMcp':
         if (failSave) throw 'Synthetic save failure';
+        if (failEnable != null) throw failEnable!;
         saved = {
+          'id': inspectedId,
           'enabled': true,
           'revision': 1,
           'launch': {
@@ -75,18 +93,23 @@ class McpBridge implements ChatBridge {
               {'name': row['name'], 'credentialId': 'opaque-fixture-reference'},
           ],
         };
+        connections.removeWhere((s) => s['id'] == inspectedId);
+        connections.add(saved!);
         return saved;
       case 'disableMcp':
+        saved = connections.firstWhere((s) => s['id'] == c['connectionId']);
         saved!['enabled'] = false;
         saved!['revision'] = 2;
         return null;
       case 'forgetMcp':
+        saved = connections.firstWhere((s) => s['id'] == c['connectionId']);
         if (failForget) {
           saved!['enabled'] = false;
           saved!['revision'] = 3;
           throw 'MCP tools are disabled, but credential removal failed. Unlock secure storage and press Forget again.';
         }
-        saved = null;
+        connections.removeWhere((s) => s['id'] == c['connectionId']);
+        saved = connections.lastOrNull;
         return null;
       case 'discardMcpReview':
         return null;
@@ -124,6 +147,11 @@ Future<void> open(WidgetTester t, McpBridge b, bool dark) async {
   );
   await t.tap(find.text('Open'));
   await t.pumpAndSettle();
+  await t.scrollUntilVisible(
+    find.byKey(const Key('mcp-name')),
+    120,
+    scrollable: find.byType(Scrollable).first,
+  );
   await t.enterText(find.byKey(const Key('mcp-name')), 'Fixture');
   await press(t, 'mcp-choose-program');
 }
@@ -148,6 +176,54 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
 }
 
 void main() {
+  testWidgets(
+    'shared-slot refusal preserves review and fields while disabling another server enables retry',
+    (t) async {
+      final b = McpBridge();
+      await open(t, b, true);
+      await press(t, 'mcp-inspect');
+      await press(t, 'mcp-tool-echo');
+      await press(t, 'mcp-enable');
+      final first = b.saved!['id'] as String;
+      await press(t, 'mcp-add-server');
+      await t.scrollUntilVisible(
+        find.byKey(const Key('mcp-name')),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await t.enterText(find.byKey(const Key('mcp-name')), 'Second');
+      await press(t, 'mcp-choose-program');
+      await press(t, 'mcp-inspect');
+      await press(t, 'mcp-tool-echo');
+      await press(t, 'mcp-tool-second');
+      b.failEnable = 'Only two external tools can be enabled per folder. Disable another server or select fewer tools, then retry Enable. Your review is preserved.';
+      await press(t, 'mcp-enable');
+      expect(find.textContaining('Your review is preserved.'), findsOneWidget);
+      expect(find.byKey(const Key('mcp-enable')), findsOneWidget);
+      final inspections = b.commands
+          .where((c) => c['command'] == 'inspectMcp')
+          .length;
+      final discards = b.commands
+          .where((c) => c['command'] == 'discardMcpReview')
+          .length;
+      await press(t, 'mcp-disable-other-$first');
+      expect(
+        b.commands.where((c) => c['command'] == 'discardMcpReview').length,
+        discards,
+      );
+      expect(find.byKey(const Key('mcp-enable')), findsOneWidget);
+      b.failEnable = null;
+      await press(t, 'mcp-enable');
+      expect(
+        b.commands.where((c) => c['command'] == 'inspectMcp').length,
+        inspections,
+      );
+      expect(b.connections.length, 2);
+      expect(b.connections.first['enabled'], false);
+      expect(b.connections.last['enabled'], true);
+      expect(t.takeException(), isNull);
+    },
+  );
   testWidgets(
     'credential values are masked, reused by name and never sent to Enable',
     (t) async {
@@ -233,7 +309,12 @@ void main() {
         await press(t, 'mcp-tool-echo');
         await press(t, 'mcp-tool-second');
         await press(t, 'mcp-tool-third');
-        expect(find.text('Choose at most two MCP tools.'), findsOneWidget);
+        expect(
+          find.text(
+            'Choose at most two MCP tools. This folder shares two external tool slots across servers.',
+          ),
+          findsOneWidget,
+        );
         await press(t, 'mcp-enable');
         expect(b.saved!['enabled'], true);
         expect(
@@ -269,6 +350,11 @@ void main() {
           .controller!
           .jumpTo(300);
       await t.pumpAndSettle();
+      await t.scrollUntilVisible(
+        find.byKey(const Key('mcp-name')),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await Scrollable.ensureVisible(
         t.element(find.byKey(const Key('mcp-name'))),
       );

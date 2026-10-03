@@ -2231,11 +2231,66 @@ Future<void> _run(
     final savedMcp = (await chat.bridge.call({
       'command': 'mcpSettings',
       'session': chat.session,
-    }))['connection'];
+    }))['connections'][0];
     check(
       savedMcp['credentials'].length == 1 &&
           !jsonEncode(savedMcp).contains('synthetic-ui-mcp-credential'),
       'Rendered MCP enable stores only an opaque credential binding in settings',
+      checks,
+    );
+    scrollMcp(capture.currentContext! as Element, 300);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await press('mcp-add-server', key: true);
+    scrollMcp(capture.currentContext! as Element, 500);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    mcpField('mcp-name')!.controller!.text = 'Synthetic second';
+    mcpField('mcp-program')!.controller!.text = node.path;
+    scrollMcp(capture.currentContext! as Element);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await press('mcp-add-argument', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    mcpField('mcp-arg-0')!.controller!.text = fixtureScript.path;
+    await press('mcp-inspect', key: true);
+    await waitUntil(() => hasKey('mcp-enable'));
+    scrollMcp(capture.currentContext! as Element);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    (capture.currentContext! as Element).visitChildren(selectEcho);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await press('mcp-enable', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    final servers =
+        (await chat.bridge.call({
+              'command': 'mcpSettings',
+              'session': chat.session,
+            }))['connections']
+            as List;
+    check(
+      servers.length == 2 && servers.every((s) => s['enabled'] == true),
+      'Rendered second server enables independently while retaining the first',
+      checks,
+    );
+    final multiContext = await chat.bridge.call({
+      'command': 'context',
+      'session': chat.session,
+      'input': '',
+    });
+    check(
+      multiContext['tools'].length == 8 &&
+          multiContext['tools'][6]['name'] != multiContext['tools'][7]['name'],
+      'Two identical MCP tool names have distinct aliases within the shared tool budget',
+      checks,
+    );
+    scrollMcp(capture.currentContext! as Element, 0);
+    await screenshot(capture, output, 'mcp-multiple-dark');
+    await press('mcp-forget', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    check(
+      (await chat.bridge.call({
+            'command': 'mcpSettings',
+            'session': chat.session,
+          }))['connections'].length ==
+          1,
+      'Forgetting one rendered server preserves the other connection',
       checks,
     );
     await press('Close');

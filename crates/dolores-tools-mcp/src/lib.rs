@@ -504,6 +504,7 @@ impl ToolPlugin for McpPlugin {
             diff: None,
             command: None,
             mcp: Some(Box::new(McpCallPreview {
+                connection_id: self.connection.id.clone(),
                 server: self.connection.launch.label.clone(),
                 tool: tool.name.clone(),
                 arguments: arguments.to_string(),
