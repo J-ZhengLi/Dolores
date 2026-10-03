@@ -36,9 +36,23 @@ class McpInspector extends StatefulWidget {
   State<McpInspector> createState() => _McpInspectorState();
 }
 
+class _CredentialRow {
+  final name = TextEditingController(), value = TextEditingController();
+  String? savedName;
+  _CredentialRow([this.savedName]) {
+    name.text = savedName ?? '';
+  }
+  void dispose() {
+    name.dispose();
+    value.clear();
+    value.dispose();
+  }
+}
+
 class _McpInspectorState extends State<McpInspector> {
   final _name = TextEditingController(), _program = TextEditingController();
   final _args = <TextEditingController>[];
+  final _credentials = <_CredentialRow>[];
   final _scroll = ScrollController();
   Map<String, dynamic>? _connection, _review;
   final _selected = <String>{};
@@ -96,8 +110,15 @@ class _McpInspectorState extends State<McpInspector> {
       arg.dispose();
     }
     _args.clear();
+    for (final row in _credentials) {
+      row.dispose();
+    }
+    _credentials.clear();
     final saved = (result['connection'] as Map?)?.cast<String, dynamic>();
     setState(() {
+      for (final binding in saved?['credentials'] as List? ?? []) {
+        _credentials.add(_CredentialRow(binding['name'] as String));
+      }
       _connection = saved;
       _directory = result['directory'] as String?;
       _review = null;
@@ -154,6 +175,18 @@ class _McpInspectorState extends State<McpInspector> {
     setState(() => _run = id);
     await _call('inspectMcp', {
       'id': id,
+      'credentials': _credentials
+          .map(
+            (row) => {
+              'name': row.name.text.trim(),
+              'value':
+                  row.value.text.isEmpty &&
+                      row.savedName == row.name.text.trim()
+                  ? null
+                  : row.value.text,
+            },
+          )
+          .toList(),
       'launch': {
         'label': _name.text.trim(),
         'executable': _program.text,
@@ -203,22 +236,27 @@ class _McpInspectorState extends State<McpInspector> {
 
   Future<void> _enable() => _act(() async {
     if (_review == null || _selected.isEmpty) return;
-    await _call('enableMcp', {
+    final result = await _call('enableMcp', {
       'token': _review!['token'],
       'names': _selected.toList(),
     });
     await _load();
     if (mounted) {
       setState(
-        () => _notice = 'Selected tools enabled for this folder. Each call still needs approval.',
+        () => _notice = (result as Map?)?['warning'] as String? ?? 'Selected tools enabled for this folder. Each call still needs approval.',
       );
       _status();
     }
   });
   Future<void> _mutate(bool forget) => _act(() async {
-    await _call(forget ? 'forgetMcp' : 'disableMcp', {
-      'revision': _connection!['revision'],
-    });
+    try {
+      await _call(forget ? 'forgetMcp' : 'disableMcp', {
+        'revision': _connection!['revision'],
+      });
+    } catch (error) {
+      await _load(); // Forget may have disabled tools before a vault failure.
+      rethrow;
+    }
     await _load();
     if (mounted) {
       setState(
@@ -241,6 +279,9 @@ class _McpInspectorState extends State<McpInspector> {
     _program.dispose();
     for (final arg in _args) {
       arg.dispose();
+    }
+    for (final row in _credentials) {
+      row.dispose();
     }
     _scroll.dispose();
     super.dispose();
@@ -371,12 +412,83 @@ class _McpInspectorState extends State<McpInspector> {
                       child: const Text('Add argument'),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  const Text('Credentials'),
+                  const Text(
+                    'Optional keys for this server. Inspect sends them to the program; Enable saves them in secure storage. Saved keys stay masked. Leave a saved value blank to reuse it, or remove its row to revoke it when enabling. A changed program needs the key entered again.',
+                  ),
+                  for (var i = 0; i < _credentials.length; i++) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: Key('mcp-credential-name-$i'),
+                            controller: _credentials[i].name,
+                            enabled: !_busy,
+                            maxLength: 64,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            onChanged: (_) => _edited(),
+                            decoration: const InputDecoration(
+                              labelText: 'Environment name',
+                              hintText: 'SERVICE_API_KEY',
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove credential ${i + 1}',
+                          onPressed: _busy
+                              ? null
+                              : () {
+                                  final removed = _credentials.removeAt(i);
+                                  _edited();
+                                  WidgetsBinding.instance.addPostFrameCallback(
+                                    (_) => removed.dispose(),
+                                  );
+                                },
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      key: Key('mcp-credential-value-$i'),
+                      controller: _credentials[i].value,
+                      enabled: !_busy,
+                      obscureText: true,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      onChanged: (_) => _edited(),
+                      decoration: InputDecoration(
+                        labelText: 'Secret value',
+                        hintText:
+                            _credentials[i].savedName ==
+                                _credentials[i].name.text.trim()
+                            ? 'Saved securely · leave blank to reuse'
+                            : 'Required for a new credential',
+                      ),
+                    ),
+                  ],
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      key: const Key('mcp-add-credential'),
+                      onPressed: _busy || _credentials.length >= 8
+                          ? null
+                          : () {
+                              _credentials.add(_CredentialRow());
+                              _edited();
+                            },
+                      child: const Text('Add credential'),
+                    ),
+                  ),
                   ExpansionTile(
                     tilePadding: EdgeInsets.zero,
                     title: const Text('Limits and supported features'),
                     children: [
                       Text(
-                        'One connection per folder, up to two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. No credentials/environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
+                        'One connection per folder, up to two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                     ],

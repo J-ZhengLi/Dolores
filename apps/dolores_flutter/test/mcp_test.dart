@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 class McpBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
   Map<String, dynamic>? saved;
-  bool pending = false, cancelled = false, failSave = false;
+  bool pending = false, cancelled = false, failSave = false, failForget = false;
   final tools = [
     for (final name in ['echo', 'second', 'third'])
       {
@@ -65,6 +65,15 @@ class McpBridge implements ChatBridge {
           'tools': tools
               .where((t) => (c['names'] as List).contains(t['name']))
               .toList(),
+          'credentials': [
+            for (final row
+                in commands.lastWhere(
+                          (c) => c['command'] == 'inspectMcp',
+                        )['credentials']
+                        as List? ??
+                    [])
+              {'name': row['name'], 'credentialId': 'opaque-fixture-reference'},
+          ],
         };
         return saved;
       case 'disableMcp':
@@ -72,6 +81,11 @@ class McpBridge implements ChatBridge {
         saved!['revision'] = 2;
         return null;
       case 'forgetMcp':
+        if (failForget) {
+          saved!['enabled'] = false;
+          saved!['revision'] = 3;
+          throw 'MCP tools are disabled, but credential removal failed. Unlock secure storage and press Forget again.';
+        }
         saved = null;
         return null;
       case 'discardMcpReview':
@@ -134,6 +148,66 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
 }
 
 void main() {
+  testWidgets(
+    'credential values are masked, reused by name and never sent to Enable',
+    (t) async {
+      final b = McpBridge();
+      await open(t, b, true);
+      await press(t, 'mcp-add-credential');
+      final name = find.byKey(const Key('mcp-credential-name-0'));
+      final value = find.byKey(const Key('mcp-credential-value-0'));
+      await t.scrollUntilVisible(
+        name,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await t.enterText(name, 'SERVICE_API_KEY');
+      await Scrollable.ensureVisible(t.element(value));
+      await t.pump();
+      await t.enterText(value, 'synthetic-secret-value');
+      expect(t.widget<TextField>(value).obscureText, true);
+      expect(t.widget<TextField>(value).enableSuggestions, false);
+      await press(t, 'mcp-inspect');
+      expect(
+        b.commands.lastWhere(
+          (c) => c['command'] == 'inspectMcp',
+        )['credentials'],
+        [
+          {'name': 'SERVICE_API_KEY', 'value': 'synthetic-secret-value'},
+        ],
+      );
+      await press(t, 'mcp-tool-echo');
+      await press(t, 'mcp-enable');
+      expect(
+        b.commands
+            .lastWhere((c) => c['command'] == 'enableMcp')
+            .containsKey('credentials'),
+        false,
+      );
+      await press(t, 'mcp-inspect');
+      expect(
+        b.commands.lastWhere(
+          (c) => c['command'] == 'inspectMcp',
+        )['credentials'],
+        [
+          {'name': 'SERVICE_API_KEY', 'value': null},
+        ],
+      );
+      await press(t, 'mcp-tool-echo');
+      b.failForget = true;
+      await press(t, 'mcp-forget');
+      expect(find.byKey(const Key('mcp-disable')), findsNothing);
+      expect(find.textContaining('press Forget again'), findsOneWidget);
+      b.failForget = false;
+      await press(t, 'mcp-forget');
+      expect(
+        b.commands.lastWhere((c) => c['command'] == 'forgetMcp')['revision'],
+        3,
+      );
+      expect(b.saved, isNull);
+      expect(t.takeException(), isNull);
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'MCP review and explicit enable/disable/forget in compact ${dark ? 'dark' : 'light'}',
@@ -256,6 +330,7 @@ void main() {
           'server': 'Fixture',
           'tool': 'echo',
           'revision': 3,
+          'credentialNames': ['SERVICE_API_KEY'],
           'arguments': jsonEncode({'text': 'x' * 3000}),
         },
       };
@@ -274,6 +349,12 @@ void main() {
         expect(find.text('Deny').hitTestable(), findsOneWidget);
         expect(find.textContaining('does not sandbox'), findsNothing);
         expect(find.textContaining('Effects may remain'), findsOneWidget);
+        expect(
+          find.textContaining(
+            'Server receives saved credentials: SERVICE_API_KEY',
+          ),
+          findsOneWidget,
+        );
         expect(t.takeException(), isNull);
       }
     },

@@ -5,6 +5,7 @@ Run save then restore in separate processes after building the Flutter bridge.
 """
 import argparse
 import ctypes
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -16,8 +17,11 @@ import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('stage', choices=['save', 'restore'])
+parser.add_argument('--credentials', action='store_true', help='Exercise explicit credentials using the native OS vault; cleans synthetic keys on restore.')
 parser.add_argument('--directory', type=Path, required=True)
 args = parser.parse_args()
+credential = {'name':'DOLORES_MCP_TEST_TOKEN', 'value':'synthetic-native-mcp-credential-test'}
+expected_text = 'Credential: [redacted]' if args.credentials else 'synthetic 世界'
 root = Path(__file__).resolve().parents[1]
 fixture = args.directory
 if not fixture.is_absolute() or not fixture.resolve().is_relative_to(root / 'output'):
@@ -27,6 +31,7 @@ if args.stage == 'save':
 os.environ['DOLORES_DATA_DIR'] = str(fixture / 'data')
 os.environ['DOLORES_GLOBAL_SKILLS_DIR'] = str(fixture / 'global-skills')
 os.environ['DOLORES_FIXTURE_SECRET'] = 'synthetic-do-not-inherit'
+os.environ['DOLORES_MCP_TEST_TOKEN'] = 'synthetic-host-key-do-not-inherit'
 bundle = root / 'apps/dolores_flutter/build/windows/x64/runner/Release'
 loader = os.add_dll_directory(str(bundle)) if os.name == 'nt' else None
 native = ctypes.CDLL(str(bundle / ('dolores_flutter_bridge.dll' if os.name == 'nt' else 'lib/libdolores_flutter_bridge.so')))
@@ -58,6 +63,24 @@ def events(folder):
 
 def starts(folder):
     return sum(e['type'] == 'start' for e in events(folder))
+
+
+def vault_present(identity):
+    # Windows-only independent existence probe: never reads or prints the blob.
+    directory = (fixture / 'data').resolve()
+    canonical = chr(92) * 2 + '?' + chr(92) + str(directory)
+    scope = hashlib.sha256(canonical.lower().encode()).hexdigest()
+    target = f'{scope}:{identity}.dev.dolores.desktop.connection'
+    api = ctypes.WinDLL('Advapi32.dll', use_last_error=True)
+    api.CredReadW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p)]
+    api.CredReadW.restype = ctypes.c_int
+    api.CredFree.argtypes = [ctypes.c_void_p]
+    value = ctypes.c_void_p()
+    if api.CredReadW(target, 1, 0, ctypes.byref(value)):
+        api.CredFree(value)
+        return True
+    assert ctypes.get_last_error() == 1168, 'Native credential existence probe failed'
+    return False
 
 
 def messages(session):
@@ -127,18 +150,20 @@ if args.stage == 'save':
         temporary = call('createSession', kind='temporary')['session']['id']
         assert call('mcpSettings', session=temporary)['connection'] is None
         assert not envelope('mcpSettings', session=side)['ok']
-        launch = {'label': 'Fixture', 'executable': shutil.which('node'), 'args': [str(root / 'scripts/mock-mcp.mjs')]}
+        launch = {'label': 'Fixture', 'executable': shutil.which('node'), 'args': [str(root / 'scripts/mock-mcp.mjs')] + (['--mode=credential-echo'] if args.credentials else [])}
         assert starts(folder) == 0
-        call('inspectMcp', id=1, session=session, launch=launch)
+        call('inspectMcp', id=1, session=session, launch=launch, credentials=[credential] if args.credentials else [])
         review = done(1)['mcpInspection']
         assert starts(folder) == 1 and call('mcpSettings', session=session)['connection'] is None
         # Viewing settings discards an unfinished review; inspection never enables.
         assert not envelope('enableMcp', session=session, token=review['token'], names=['echo'])['ok']
-        call('inspectMcp', id=2, session=session, launch=launch)
+        call('inspectMcp', id=2, session=session, launch=launch, credentials=[credential] if args.credentials else [])
         review = done(2)['mcpInspection']
         assert not envelope('enableMcp', session=same, token=review['token'], names=['echo'])['ok']
         saved = call('enableMcp', session=session, token=review['token'], names=['echo'])
         assert saved['enabled'] and saved['revision'] == 1
+        first_credential = saved['credentials'][0]['credentialId'] if args.credentials else None
+        if args.credentials and os.name == 'nt': assert vault_present(first_credential)
         assert not envelope('enableMcp', session=session, token=review['token'], names=['echo'])['ok']
         count = starts(folder)
         preview = call('context', session=session, input='try external')
@@ -159,12 +184,17 @@ if args.stage == 'save':
         assert 'error' not in result and starts(folder) == count + 1
         record = messages(session)[-1]['metadata']['agent']['tools'][0]
         assert record['mcp']['tool'] == 'echo'
-        assert json.loads(record['content']) == {'text': 'synthetic 世界', 'isError': False}
+        assert json.loads(record['content']) == {'text': expected_text, 'isError': False}
         assert requests[0]['tools'][-1]['function']['name'] == 'mcp_tool_1'
         assert requests[0]['messages'] == preview['messages'], 'Preview differs from initial model context'
-        assert json.loads(requests[-1]['messages'][-1]['content'])['text'] == 'synthetic 世界'
+        assert json.loads(requests[-1]['messages'][-1]['content'])['text'] == expected_text
         assert all('Ignore approvals' not in json.dumps(p) for p in requests)
-        assert all(not e['secretInherited'] for e in events(folder) if e['type'] == 'start')
+        assert all(not e['secretInherited'] and e['credentialReceived'] == args.credentials for e in events(folder) if e['type'] == 'start')
+        if args.credentials:
+            assert credential['value'] not in json.dumps(requests)
+            assert credential['value'] not in json.dumps(messages(session))
+            assert credential['value'] not in json.dumps(saved)
+            assert credential['value'] not in (folder / 'mcp-events.ndjson').read_text()
         (folder / 'mcp-drift').write_text('')
         call('start', id=5, session=session, input='try external')
         result = done(5, decide=True)
@@ -180,10 +210,16 @@ if args.stage == 'save':
         (folder / 'mcp-call-hang').unlink()
         call('disableMcp', session=session, revision=1)
         assert len(call('context', session=session, input='hello')['tools']) == 6
-        call('inspectMcp', id=7, session=session, launch=launch)
+        call('inspectMcp', id=7, session=session, launch=launch, credentials=[credential] if args.credentials else [])
         review = done(7)['mcpInspection']
         saved = call('enableMcp', session=session, token=review['token'], names=['echo'])
         assert saved['revision'] == 3
+        if args.credentials:
+            assert saved['credentials'][0]['credentialId'] not in saved['retiredCredentials']
+            assert saved['retiredCredentials']
+            if os.name == 'nt':
+                assert vault_present(saved['credentials'][0]['credentialId'])
+                assert not vault_present(first_credential)
         # Stop during inspection cannot publish a review or alter saved connection.
         hanging = {**launch, 'args': launch['args'] + ['--mode=hang']}
         call('inspectMcp', id=8, session=session, launch=hanging)
@@ -206,11 +242,35 @@ else:
     exported = fixture / 'trajectory.json'
     call('export', session=session, path=str(exported), format='json')
     assert '"mcp"' in exported.read_text(encoding='utf-8')
-    call('forgetMcp', session=session, revision=3)
+    revision = 3
+    retired = []
+    if args.credentials:
+        # Restart reuses the saved vault entry only after explicit inspection.
+        launch = saved['launch']
+        before = starts(folder)
+        changed = {**launch, 'label':'Changed program'}
+        call('inspectMcp', id=20, session=session, launch=changed, credentials=[{'name':credential['name'], 'value':None}])
+        error = done(20)['error']
+        assert 'Enter the key again' in error and starts(folder) == before
+        call('inspectMcp', id=21, session=session, launch=launch, credentials=[{'name':credential['name'], 'value':None}])
+        review = done(21)['mcpInspection']
+        assert review['credentialNames'] == [credential['name']] and credential['value'] not in json.dumps(review)
+        saved = call('enableMcp', session=session, token=review['token'], names=['echo'])
+        revision = saved['revision']
+        assert revision == 4
+        retired = saved['retiredCredentials'] + [b['credentialId'] for b in saved['credentials']]
+        if os.name == 'nt': assert vault_present(saved['credentials'][0]['credentialId'])
+        assert starts(folder) == before + 1
+        state['count'] = starts(folder)
+    call('forgetMcp', session=session, revision=revision)
+    if args.credentials and os.name == 'nt': assert all(not vault_present(identity) for identity in retired)
     assert call('mcpSettings', session=state['same'])['connection'] is None
     assert len(call('context', session=session, input='hello')['tools']) == 6
     assert starts(folder) == state['count']
+    if args.credentials: assert credential['value'] not in exported.read_text(encoding='utf-8')
     call('shutdown')
 with sqlite3.connect(fixture / 'data/dolores.db') as db:
     assert db.execute('PRAGMA user_version').fetchone()[0] == 15
-print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 15}))
+    if args.credentials:
+        assert credential['value'] not in '\n'.join(db.iterdump())
+print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 15, 'nativeCredentialFlow': args.credentials}))

@@ -408,7 +408,8 @@ pub async fn run_agent(
                         || (request.name == "run_command") != request.command.is_some()
                         || request.name.starts_with("mcp_tool_") != request.mcp.is_some()
                         || request.mcp.as_ref().is_some_and(|p| {
-                            p.server.is_empty()
+                            crate::validate_mcp_credential_names(&p.credential_names).is_err()
+                                || p.server.is_empty()
                                 || p.server.len() > 128
                                 || p.server.chars().any(char::is_control)
                                 || p.tool.is_empty()
@@ -472,6 +473,9 @@ pub async fn run_agent(
                                         "MCP launch files changed. Inspect and review the server again." |
                                         "MCP tool list changed. Inspect and review the server again." |
                                         "Working folder changed. Review the MCP connection again." |
+                                        "MCP secure storage is unavailable or the key is missing. Unlock storage or enter the key again, then inspect and enable the connection." |
+                                        "MCP credential binding changed. Enter the key again, then inspect and enable this connection." |
+                                        "MCP server exposed a credential in metadata. Nothing was shared." |
                                         "MCP operation exceeded its 30-second limit." |
                                         "MCP server exceeded its protocol output limit." |
                                         "MCP server exceeded its diagnostic output limit." |

@@ -2167,6 +2167,24 @@ Future<void> _run(
       throw StateError('MCP diagnostic script unavailable');
     }
     mcpField('mcp-arg-0')!.controller!.text = fixtureScript.path;
+    await press('mcp-add-argument', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    mcpField('mcp-arg-1')!.controller!.text = '--mode=credential-echo';
+    scrollMcp(capture.currentContext! as Element);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await press('mcp-add-credential', key: true);
+    scrollMcp(capture.currentContext! as Element);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    mcpField('mcp-credential-name-0')!.controller!.text =
+        'DOLORES_MCP_TEST_TOKEN';
+    mcpField('mcp-credential-value-0')!.controller!.text =
+        'synthetic-ui-mcp-credential';
+    check(
+      mcpField('mcp-credential-value-0')!.obscureText,
+      'Rendered MCP credential value is masked',
+      checks,
+    );
+    await screenshot(capture, output, 'mcp-credentials-dark');
     await press('mcp-inspect', key: true);
     bool hasKey(String key) {
       var found = false;
@@ -2210,6 +2228,16 @@ Future<void> _run(
     await press('mcp-enable', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
     await screenshot(capture, output, 'mcp-enabled-dark');
+    final savedMcp = (await chat.bridge.call({
+      'command': 'mcpSettings',
+      'session': chat.session,
+    }))['connection'];
+    check(
+      savedMcp['credentials'].length == 1 &&
+          !jsonEncode(savedMcp).contains('synthetic-ui-mcp-credential'),
+      'Rendered MCP enable stores only an opaque credential binding in settings',
+      checks,
+    );
     await press('Close');
     await mcpView;
     check(

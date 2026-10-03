@@ -74,10 +74,45 @@ pub struct McpConnection {
     pub server_name: String,
     pub server_version: String,
     pub tools: Vec<McpTool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub credentials: Vec<McpCredentialBinding>,
+    // Recoverable cleanup references; never values. Missing entries are harmless.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub retired_credentials: Vec<String>,
 }
 impl McpConnection {
     pub fn validate(&self) -> Result<(), String> {
         self.launch.validate()?;
+        validate_mcp_credential_names(
+            &self
+                .credentials
+                .iter()
+                .map(|b| b.name.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        if self.retired_credentials.len() > 32
+            || self
+                .credentials
+                .iter()
+                .map(|b| &b.credential_id)
+                .chain(self.retired_credentials.iter())
+                .any(|id| !valid_credential_id(id))
+        {
+            return Err(
+                "MCP credential references are invalid. Review the connection again.".into(),
+            );
+        }
+        let ids = self
+            .credentials
+            .iter()
+            .map(|b| &b.credential_id)
+            .chain(self.retired_credentials.iter())
+            .collect::<Vec<_>>();
+        if ids.iter().enumerate().any(|(i, id)| ids[..i].contains(id)) {
+            return Err(
+                "MCP credential references are duplicated. Review the connection again.".into(),
+            );
+        }
         if self.revision == 0
             || self.tools.is_empty()
             || self.tools.len() > 2
@@ -132,4 +167,77 @@ pub struct McpCallPreview {
     pub tool: String,
     pub arguments: String,
     pub revision: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub credential_names: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct McpCredentialBinding {
+    pub name: String,
+    pub credential_id: String,
+}
+fn valid_credential_id(id: &str) -> bool {
+    id.len() == 36
+        && id.bytes().enumerate().all(|(i, b)| {
+            if [8, 13, 18, 23].contains(&i) {
+                b == b'-'
+            } else {
+                b.is_ascii_hexdigit()
+            }
+        })
+}
+pub fn validate_mcp_credential_names(names: &[String]) -> Result<(), String> {
+    const RESERVED: &[&str] = &[
+        "PATH",
+        "HOME",
+        "USERPROFILE",
+        "SYSTEMROOT",
+        "WINDIR",
+        "TEMP",
+        "TMP",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "LANG",
+        "TZ",
+        "CI",
+        "TERM",
+        "NO_COLOR",
+    ];
+    if names.len() > 8
+        || names.iter().enumerate().any(|(i, name)| {
+            name.is_empty()
+                || name.len() > 64
+                || !name.bytes().enumerate().all(|(i, b)| {
+                    b == b'_' || b.is_ascii_uppercase() || (i > 0 && b.is_ascii_digit())
+                })
+                || names[..i].contains(name)
+                || RESERVED.contains(&name.as_str())
+                || [
+                    "LC_",
+                    "LD_",
+                    "DYLD_",
+                    "NODE_",
+                    "PYTHON",
+                    "RUBY",
+                    "PERL",
+                    "BASH",
+                    "ENV",
+                    "COMSPEC",
+                    "PATHEXT",
+                    "PSMODULEPATH",
+                    "JAVA",
+                    "JDK_",
+                    "DOTNET_",
+                    "COR_",
+                    "GIT_",
+                    "SSH_",
+                ]
+                .iter()
+                .any(|prefix| name.starts_with(prefix))
+        })
+    {
+        return Err("Use up to eight unique uppercase credential names (letters, digits, underscore). Process and runtime settings cannot be overridden.".into());
+    }
+    Ok(())
 }

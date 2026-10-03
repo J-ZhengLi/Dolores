@@ -1,5 +1,214 @@
 use super::*;
 
+#[derive(Default)]
+struct Vault {
+    values: Mutex<HashMap<String, String>>,
+    reads: std::sync::atomic::AtomicUsize,
+    locked: std::sync::atomic::AtomicBool,
+}
+impl CredentialStore for Vault {
+    fn descriptor(&self) -> dolores_core::PluginDescriptor {
+        dolores_core::PluginDescriptor {
+            id: "test.vault",
+            kind: "credentials",
+            api_version: 1,
+        }
+    }
+    fn read(&self, id: &str) -> Result<Option<String>, String> {
+        self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if self.locked.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("private diagnostic".into());
+        }
+        Ok(self.values.lock().unwrap().get(id).cloned())
+    }
+    fn write(&self, id: &str, value: &str) -> Result<(), String> {
+        self.values.lock().unwrap().insert(id.into(), value.into());
+        Ok(())
+    }
+    fn delete(&self, id: &str) -> Result<(), String> {
+        self.values.lock().unwrap().remove(id);
+        Ok(())
+    }
+}
+fn credentials() -> Credentials {
+    Credentials::new(vec![(
+        "DOLORES_MCP_TEST_TOKEN".into(),
+        "synthetic-key-credential-test".into(),
+    )])
+    .unwrap()
+}
+#[tokio::test]
+async fn credentials_are_read_only_after_approval_and_echoes_are_redacted() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let folder = tempfile::tempdir().unwrap();
+    let root = folder.path().canonicalize().unwrap();
+    let secret = credentials();
+    let inspected = inspect_with_credentials(
+        &root,
+        launch("credential-echo"),
+        CancellationToken::new(),
+        secret.clone(),
+    )
+    .unwrap();
+    let mut conn = connection(inspected);
+    let vault = Arc::new(Vault::default());
+    let id = "00000000-0000-4000-8000-000000000001";
+    vault
+        .write(
+            id,
+            &secret
+                .encoded(
+                    "DOLORES_MCP_TEST_TOKEN",
+                    &root,
+                    &conn.launch,
+                    &conn.fingerprints,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+    conn.credentials = vec![dolores_core::McpCredentialBinding {
+        name: "DOLORES_MCP_TEST_TOKEN".into(),
+        credential_id: id.into(),
+    }];
+    let plugin = plugins_with_credentials(&root, conn.clone(), vault.clone())
+        .unwrap()
+        .remove(0);
+    let request = plugin
+        .prepare(&call("safe", r#"{"text":"hello"}"#))
+        .unwrap();
+    assert_eq!(
+        request.mcp.as_ref().unwrap().credential_names,
+        ["DOLORES_MCP_TEST_TOKEN"]
+    );
+    assert_eq!(vault.reads.load(SeqCst), 0);
+    assert_eq!(
+        events(&root)
+            .iter()
+            .filter(|e| e["type"] == "start")
+            .count(),
+        1
+    );
+    let result = plugin
+        .invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert!(result.contains("[redacted]"));
+    assert!(!result.contains("synthetic-key"));
+    assert_eq!(vault.reads.load(SeqCst), 1);
+    assert!(events(&root)
+        .iter()
+        .filter(|e| e["type"] == "start")
+        .all(|e| e["credentialReceived"] == true && e["secretInherited"] == false));
+    for state in ["locked", "missing", "wrong-root", "wrong-launch"] {
+        vault.locked.store(state == "locked", SeqCst);
+        if state == "missing" {
+            vault.delete(id).unwrap();
+        }
+        if state == "wrong-root" {
+            std::fs::create_dir(root.join("another")).unwrap();
+            vault
+                .write(
+                    id,
+                    &secret
+                        .encoded(
+                            "DOLORES_MCP_TEST_TOKEN",
+                            &root.join("another"),
+                            &conn.launch,
+                            &conn.fingerprints,
+                        )
+                        .unwrap(),
+                )
+                .unwrap();
+        }
+        if state == "wrong-launch" {
+            let mut other = conn.launch.clone();
+            other.label = "Other".into();
+            vault
+                .write(
+                    id,
+                    &secret
+                        .encoded("DOLORES_MCP_TEST_TOKEN", &root, &other, &conn.fingerprints)
+                        .unwrap(),
+                )
+                .unwrap();
+        }
+        let before = events(&root).len();
+        let request = plugin.prepare(&call(state, r#"{"text":"hello"}"#)).unwrap();
+        let error = plugin
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert!(!error.contains("private diagnostic") && !error.contains("synthetic-key"));
+        assert_eq!(events(&root).len(), before, "server started for {state}");
+    }
+}
+#[test]
+fn credential_validation_and_metadata_leaks_are_refused() {
+    for name in [
+        "PATH",
+        "LD_PRELOAD",
+        "NODE_OPTIONS",
+        "PYTHONPATH",
+        "GIT_CONFIG_COUNT",
+        "lowercase",
+        "0KEY",
+        "A=B",
+        "HOME",
+        "COMSPEC",
+    ] {
+        assert!(
+            Credentials::new(vec![(name.into(), "synthetic-value".into())]).is_err(),
+            "{name}"
+        );
+    }
+    assert!(Credentials::new(vec![("KEY".into(), "".into())]).is_err());
+    assert!(Credentials::new(vec![
+        ("KEY".into(), "one".into()),
+        ("KEY".into(), "two".into())
+    ])
+    .is_err());
+    let folder = tempfile::tempdir().unwrap();
+    let error = inspect_with_credentials(
+        folder.path(),
+        launch("credential-metadata"),
+        CancellationToken::new(),
+        credentials(),
+    )
+    .unwrap_err();
+    assert!(error.contains("exposed a credential") && !error.contains("synthetic-key"));
+    assert!(inspect(
+        folder.path(),
+        launch("credential-echo"),
+        CancellationToken::new()
+    )
+    .is_err());
+    let mut unsafe_launch = launch("normal");
+    unsafe_launch
+        .args
+        .push("--secret=synthetic-key-credential-test".into());
+    let before = events(folder.path()).len();
+    assert!(inspect_with_credentials(
+        folder.path(),
+        unsafe_launch,
+        CancellationToken::new(),
+        credentials()
+    )
+    .is_err());
+    assert_eq!(events(folder.path()).len(), before);
+    let overlap = Credentials::new(vec![
+        ("ONE".into(), "abc".into()),
+        ("TWO".into(), "bcd".into()),
+    ])
+    .unwrap();
+    assert_eq!(
+        overlap.redact("before abcd after"),
+        "before [redacted] after"
+    );
+    assert!(credentials()
+        .reject_metadata(&json!({"nested": {"synthetic-key-credential-test": "ignored"}}))
+        .is_err());
+}
+
 fn launch(mode: &str) -> McpLaunch {
     let filename = if cfg!(windows) { "node.exe" } else { "node" };
     let executable = std::env::split_paths(&std::env::var_os("PATH").unwrap())
@@ -21,6 +230,8 @@ fn launch(mode: &str) -> McpLaunch {
 }
 fn connection(i: Inspection) -> McpConnection {
     McpConnection {
+        credentials: vec![],
+        retired_credentials: vec![],
         revision: 1,
         enabled: true,
         launch: i.launch,
@@ -229,6 +440,7 @@ fn cancellation_and_deadline_interrupt_nonresponsive_servers() {
         &launch("hang"),
         CancellationToken::new(),
         Instant::now() + Duration::from_millis(250),
+        Credentials::empty(),
     );
     assert!(matches!(result,Err(e) if e.contains("limit")));
 }

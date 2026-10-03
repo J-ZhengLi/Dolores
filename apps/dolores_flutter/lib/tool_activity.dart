@@ -79,6 +79,8 @@ class ToolApprovalCard extends StatelessWidget {
     final creating = name == 'create_text_file';
     final running = name == 'run_command';
     final external = request['mcp'] is Map;
+    final credentialNames =
+        (request['mcp'] as Map?)?['credentialNames'] as List? ?? [];
     final title = switch (name) {
       String value when value.startsWith('mcp_tool_') =>
         'Allow this external tool?',
@@ -91,7 +93,7 @@ class ToolApprovalCard extends StatelessWidget {
     };
     final disclosure = switch (name) {
       String value when value.startsWith('mcp_tool_') =>
-        'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.',
+        'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.${credentialNames.isEmpty ? '' : '\nServer receives saved credentials: ${credentialNames.join(', ')}.'}',
       'list_folder' =>
         'Share up to 100 file and folder names with ${chat.model}? This allows one listing. Results are kept with a completed reply.',
       'search_text' =>

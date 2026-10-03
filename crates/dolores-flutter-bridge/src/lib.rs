@@ -59,6 +59,7 @@ struct Engine {
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
     mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
+    mcp_credentials: Arc<dyn CredentialStore>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
@@ -72,6 +73,8 @@ enum Command {
         id: u64,
         session: String,
         launch: dolores_core::McpLaunch,
+        #[serde(default)]
+        credentials: Vec<dolores_tools_mcp::credentials::CredentialInput>,
     },
     EnableMcp {
         session: String,
@@ -357,7 +360,7 @@ impl Engine {
             .enable_all()
             .build()
             .map_err(|_| "Could not start the chat runtime.")?;
-        let mut connection = ConnectionManager::new(store.clone(), credentials);
+        let mut connection = ConnectionManager::new(store.clone(), credentials.clone());
         {
             let _entered = runtime.enter();
             let _ = connection.recover(); // Recovery warnings keep history available.
@@ -376,6 +379,7 @@ impl Engine {
             memory_review: Arc::new(Mutex::new(None)),
             summary_review: Arc::new(Mutex::new(None)),
             mcp_review: Arc::new(Mutex::new(None)),
+            mcp_credentials: credentials,
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -458,7 +462,8 @@ impl Engine {
                 id,
                 session,
                 launch,
-            } => self.inspect_mcp(&mut active, id, session, launch),
+                credentials,
+            } => self.inspect_mcp(&mut active, id, session, launch, credentials),
             Command::EnableMcp {
                 session,
                 token,
@@ -837,7 +842,11 @@ impl Engine {
                         if let Some(connection) = self.store.mcp_connection(
                             root.to_str().ok_or("Working folder path needs Unicode.")?,
                         )? {
-                            plugins.extend(dolores_tools_mcp::plugins(&root, connection)?);
+                            plugins.extend(dolores_tools_mcp::plugins_with_credentials(
+                                &root,
+                                connection,
+                                self.mcp_credentials.clone(),
+                            )?);
                         }
                         Ok::<_, String>(plugins)
                     })

@@ -115,6 +115,8 @@ mod tests {
     fn value(root: &std::path::Path) -> McpConnection {
         let exe = root.join("server.exe").to_str().unwrap().to_owned();
         McpConnection {
+            credentials: vec![],
+            retired_credentials: vec![],
             revision: 1,
             enabled: true,
             launch: McpLaunch {

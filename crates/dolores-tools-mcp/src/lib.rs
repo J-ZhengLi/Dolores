@@ -2,8 +2,8 @@
 //! not sandboxed folder tools. No server is started by spec() or prepare().
 use async_trait::async_trait;
 use dolores_core::{
-    McpCallPreview, McpConnection, McpFingerprint, McpLaunch, McpTool, ToolCall, ToolPlugin,
-    ToolRequest, ToolSpec,
+    CredentialStore, McpCallPreview, McpConnection, McpFingerprint, McpLaunch, McpTool, ToolCall,
+    ToolPlugin, ToolRequest, ToolSpec,
 };
 use dolores_tools_command::process;
 use serde_json::{json, Value};
@@ -18,6 +18,9 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
+
+pub mod credentials;
+use credentials::Credentials;
 
 const SECONDS: u64 = 30;
 const MAX_FRAME: usize = 64 * 1024;
@@ -127,6 +130,7 @@ struct Session {
     stderr: usize,
     notifications: usize,
     id: u64,
+    credentials: Credentials,
     deadline: Instant,
     cancel: CancellationToken,
 }
@@ -136,13 +140,17 @@ impl Session {
         launch: &McpLaunch,
         cancel: CancellationToken,
         deadline: Instant,
+        credentials: Credentials,
     ) -> Result<(Self, String, String, String), String> {
         check(&cancel, deadline)?;
+        credentials.validate_launch(launch)?;
+        let mut environment = process::environment();
+        environment.extend(credentials.0.iter().map(|(n, v)| (n.into(), v.into())));
         let (process, mut input, output, error) = process::spawn_stdio(
             Path::new(&launch.executable),
             &launch.args,
             root,
-            &process::environment(),
+            &environment,
         )?;
         let (sender, receiver) = mpsc::sync_channel::<WriteJob>(1);
         // The owner can kill the process while a non-reading server blocks stdin.
@@ -170,10 +178,12 @@ impl Session {
             stderr: 0,
             notifications: 0,
             id: 0,
+            credentials,
             deadline,
             cancel,
         };
         let result = session.request("initialize", json!({"protocolVersion":VERSIONS[0],"capabilities":{},"clientInfo":{"name":"Dolores","version":env!("CARGO_PKG_VERSION")}}))?;
+        session.credentials.reject_metadata(&result)?;
         let version = result["protocolVersion"]
             .as_str()
             .filter(|s| VERSIONS.contains(s))
@@ -309,6 +319,7 @@ impl Session {
                 "tools/list",
                 cursor.as_ref().map_or(json!({}), |c| json!({"cursor":c})),
             )?;
+            self.credentials.reject_metadata(&page)?;
             for item in page["tools"]
                 .as_array()
                 .ok_or("MCP tools/list did not contain a tool array.")?
@@ -389,13 +400,22 @@ pub fn inspect(
     launch: McpLaunch,
     cancel: CancellationToken,
 ) -> Result<Inspection, String> {
+    inspect_with_credentials(root, launch, cancel, Credentials::empty())
+}
+pub fn inspect_with_credentials(
+    root: &Path,
+    launch: McpLaunch,
+    cancel: CancellationToken,
+    credentials: Credentials,
+) -> Result<Inspection, String> {
+    credentials.validate_launch(&launch)?;
     let root = root
         .canonicalize()
         .map_err(|_| "Working folder is unavailable.")?;
     let deadline = Instant::now() + Duration::from_secs(SECONDS);
     let hashes = fingerprints(&root, &launch, &cancel, deadline)?;
     let (mut session, protocol_version, server_name, server_version) =
-        Session::start(&root, &launch, cancel.clone(), deadline)?;
+        Session::start(&root, &launch, cancel.clone(), deadline, credentials)?;
     let tools = session.tools()?;
     session.close();
     if tools.is_empty() {
@@ -424,8 +444,23 @@ pub struct McpPlugin {
     connection: McpConnection,
     index: usize,
     plans: Mutex<HashMap<String, ToolRequest>>,
+    vault: Option<Arc<dyn CredentialStore>>,
 }
 pub fn plugins(root: &Path, connection: McpConnection) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    plugins_inner(root, connection, None)
+}
+pub fn plugins_with_credentials(
+    root: &Path,
+    connection: McpConnection,
+    vault: Arc<dyn CredentialStore>,
+) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    plugins_inner(root, connection, Some(vault))
+}
+fn plugins_inner(
+    root: &Path,
+    connection: McpConnection,
+    vault: Option<Arc<dyn CredentialStore>>,
+) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
     connection.validate()?;
     let root = root
         .canonicalize()
@@ -440,6 +475,7 @@ pub fn plugins(root: &Path, connection: McpConnection) -> Result<Vec<Arc<dyn Too
                 connection: connection.clone(),
                 index,
                 plans: Mutex::new(HashMap::new()),
+                vault: vault.clone(),
             }) as Arc<dyn ToolPlugin>
         })
         .collect())
@@ -472,6 +508,12 @@ impl ToolPlugin for McpPlugin {
                 tool: tool.name.clone(),
                 arguments: arguments.to_string(),
                 revision: self.connection.revision,
+                credential_names: self
+                    .connection
+                    .credentials
+                    .iter()
+                    .map(|b| b.name.clone())
+                    .collect(),
             })),
         };
         let mut plans = self
@@ -500,11 +542,12 @@ impl ToolPlugin for McpPlugin {
         }
         let (root, connection) = (self.root.clone(), self.connection.clone());
         let index = self.index;
+        let vault = self.vault.clone();
         let arguments = plan.mcp.ok_or("MCP approval has no arguments.")?.arguments;
         let cancel = cancel.child_token();
         let _guard = CancelOnDrop(cancel.clone());
         tokio::task::spawn_blocking(move || {
-            invoke_reviewed(root, connection, index, arguments, cancel)
+            invoke_reviewed(root, connection, index, arguments, cancel, vault)
         })
         .await
         .map_err(|_| "MCP worker failed.")?
@@ -517,6 +560,7 @@ fn invoke_reviewed(
     index: usize,
     arguments: String,
     cancel: CancellationToken,
+    vault: Option<Arc<dyn CredentialStore>>,
 ) -> Result<String, String> {
     let deadline = Instant::now() + Duration::from_secs(SECONDS);
     if root.canonicalize().ok().as_ref() != Some(&root) {
@@ -525,8 +569,22 @@ fn invoke_reviewed(
     if fingerprints(&root, &connection.launch, &cancel, deadline)? != connection.fingerprints {
         return Err("MCP launch files changed. Inspect and review the server again.".into());
     }
-    let (mut session, protocol, server, release) =
-        Session::start(&root, &connection.launch, cancel.clone(), deadline)?;
+    let credentials = if connection.credentials.is_empty() {
+        Credentials::empty()
+    } else {
+        credentials::resolve(
+            &root,
+            &connection,
+            vault.as_ref().ok_or(credentials::VAULT_ERROR)?.as_ref(),
+        )?
+    };
+    let (mut session, protocol, server, release) = Session::start(
+        &root,
+        &connection.launch,
+        cancel.clone(),
+        deadline,
+        credentials,
+    )?;
     let catalog = session.tools()?;
     if protocol != connection.protocol_version
         || server != connection.server_name
@@ -564,6 +622,10 @@ fn invoke_reviewed(
         if text.len() > 8192 || text.contains('\0') {
             return Err("MCP result exceeds 8 KiB or contains NUL.".into());
         }
+    }
+    text = session.credentials.redact(&text);
+    if text.len() > 8192 {
+        return Err("MCP redacted result exceeds 8 KiB.".into());
     }
     let is_error = match result.get("isError") {
         None => false,
