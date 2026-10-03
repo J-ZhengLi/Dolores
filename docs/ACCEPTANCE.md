@@ -1,5 +1,9 @@
 # Dolores acceptance — 2026-10-04
 
+## Roadmap review
+
+Brick **8.4 is skipped** at the user's request. The [roadmap](ROADMAP.md) now separates a forward proposal (milestones 9–12, with scoped bricks, dependencies, exit criteria and direction choices) from the [implementation history](IMPLEMENTATION_HISTORY.md). Future implementation waits for the user's choice; this documentation change neither approves those features nor closes existing platform/input/resource gaps. Runtime behavior and provider settings are unchanged.
+
 ## Brick 8.3 — Composer input and accessibility
 
 Native rich-composer fields now expose Message plus heading level, code language or paragraph position, while retaining editable values and focus. The code-language button has a named enabled state and a tooltip excluded from repeated speech. Send and language changes wait for active composition to commit rather than submitting unfinished candidates or clearing the composing range. No editor engine, dependency, worker, provider request or theme change is added. See the [verification matrix](design/native-input-verification.md).

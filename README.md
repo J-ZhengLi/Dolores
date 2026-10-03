@@ -34,6 +34,6 @@ The selected desktop UI is Flutter, backed by a Rust core and replaceable provid
 - [Architecture](docs/ARCHITECTURE.md) — components, trust boundaries and limits.
 - [UI contract](docs/UI.md) — shared theme and interaction rules.
 - [Documentation index](docs/README.md) — user, developer, design and verification references.
-- [Roadmap](docs/ROADMAP.md) — completed scope and next milestones.
+- [Roadmap](docs/ROADMAP.md) — proposed priorities, milestones and acceptance gates.
 
 Dolores is licensed under [MIT](LICENSE).

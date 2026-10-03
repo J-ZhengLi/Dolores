@@ -1,71 +1,131 @@
 # Dolores roadmap
 
-Build one usable brick at a time. Each new brick needs a small design decision, scoped implementation, behavior checks, resource measurements where relevant, and an updated acceptance record. Commit each completed brick separately before proceeding to the next, as requested by the user. Do not equate compilation with product acceptance.
+**Status: proposal for user review, 2026-10-04.** Brick 8.4, cross-platform build CI, is **skipped**. Future bricks below are planned scope, not authorization to implement them. Present this plan and wait for the user to choose a direction.
 
-| Brick | Usable result | Acceptance boundary |
-| --- | --- | --- |
-| 1 — Conversation foundation | Desktop chat, replaceable provider/storage ports, OpenAI-compatible text streaming, stop, SQLite history, system theme | Local build and mock endpoint proof; live provider and OS checks recorded separately. |
-| 1.1 — Resource decision | Working Iced/software UI reuses core/plugins; default development shell selected, Tauri retained | Windows release/controller/renderer comparison completed. Settled native idle near 30 MiB versus over 400 MiB webview working set. Low-end, input/accessibility and transient CPU acceptance remain gaps. |
-| 1.2 — Flutter selection | Styled Flutter desktop chat sharing the Rust core/plugins through FFI; selected default | Windows build and visual/resource comparison completed; user selected Flutter. Cross-platform and low-end acceptance remain open. |
-| 2.1 — Remembered connections | OS credential plugin, restart restoration, recovery retry, forget without history loss | Windows native-vault and separate-process authorization/restart checks; locked/missing vault and endpoint-binding tests. No plaintext fallback. |
-| 2.1.1 — Model discovery and picker | Fetch models, enable a subset, switch beside the composer; manual fallback | Bounded authenticated listing, subset/active-model persistence, real selected-model request, restart and exclusion during generation. |
-| 2.2 — History browsing and export | Browse beyond the current 100-session/40-turn view and export a chosen conversation | Stable ordering/pagination, complete export, bounded UI memory; history must not be silently truncated. |
-| 2.3.1 — Markdown and code | Selectable formatted replies, code Copy, bounded rich rendering; editable headings and syntax-colored code cards in the composer | Literal HTML, no image I/O or automatic navigation, compact layout, streaming, editing/composition and canonical Markdown preservation. |
-| 2.3.2 — Usage and context | Provider-reported per-reply counters, persistent request details, on-demand context inspector, context ring and trajectory/log views | Missing versus zero, complete-turn atomicity, restart/export, bounded newest history, independent inspection and actual server contract; no inferred tokens/pricing or fabricated historical timings. |
-| 2.4 — Request controls and recovery | Saved output-token/timeout controls and explicit recovery actions | Full-stream deadline, bounded compatibility fallback, unchanged credentials, restored drafts, manual retries and original per-reply settings. |
-| 2.5 — Token context and model capacity | Token-based meter and inspectable estimates, saved per-model windows with a 128K blank default | Shared preview/send selection, schema/framing overhead, output/headroom reservation, latest-call reported usage, rollback/restart and bounded tool growth; estimates stay approximate. |
-| 2.3 — Rich conversation | Markdown/code presentation, usage/context visibility | Rendering safety, server compatibility and accounting accuracy. Scope each feature separately. |
-| 2 — Reliable workspace | OS credential storage, history pagination/export, Markdown/code, model discovery, usage accounting, context budgeting, retry guidance | Restart/recovery, secret storage, long-session behavior, Windows/macOS/Linux CI and measured release baseline. |
-| 3 — Tools and bounded agent loop | Tool plugin port, explicit approval policy, visible tool results, max iterations/time/cost, filesystem read tools first | Deterministic tool protocol tests and prompt-injection cases; approval cannot be bypassed by model text. |
-| 3.1 — Approved text-file reads | Launch-only folder, per-read Allow/Deny, compiled tool port, bounded model loop, visible durable results | Protocol/approval/path limits, Stop, complete-pair persistence and per-call usage; live models/platform file-picker UAT remain open. No price budget yet. |
-| 3.2 — Folder discovery | Approved shallow listing and bounded literal text search, then separately approved full-file read | Exact query/scope binding, filtered paths/links, partial coverage, scan/output limits, Stop and durable results; no background indexing. |
-| 3.3 — Working sessions | Project chats, automatic separate temporary folders, explicit side chats, persistent per-chat folder identity and project recents | Folder restoration, scope isolation, legacy history, default tool availability, approval and compact system-theme layouts; no automatic workspace-file deletion. |
-| 3.4 — Streaming agent progress | Stream working-chat replies and public commentary; save intermediate progress separately from the final answer | Bounded indexed argument assembly, no partial execution, Stop/timeout, separate final text, per-call usage, restart/export and atomic failed-save behavior. |
-| 3.5 — Reviewed file edits | One unique exact replacement in an existing small text file, local diff and Apply once | Scope/preview binding, changed snapshot refusal, staged replacement, Deny/Stop, failed publication cleanup and retained diff; filesystem effects remain after a later chat failure. |
-| 3.6 — Change journal and reviewed revert | Independent local snapshots/receipts and folder Changes view, including edits whose reply fails | Write-ahead intent, honest pending status, separate reverse diff/one-use approval, changed-file refusal, restart/deleted-chat retention and bounded paging. |
-| 3.7 — Reviewed new files | Complete addition preview, no-overwrite creation and separately reviewed removal of recorded creations | Explicit existence including empty files, direct parent/path bounds, journal intent/receipt failures, Deny/Stop/conflicts, restart and one-use removal. |
-| 3.8 — Approved commands | Reviewed direct executable and literal arguments, bounded output/exit results in chat and trajectory | Exact proposal/denial binding, filtered environment, 30-second/8-KiB bounds, Stop/dropped-run descendant cleanup, restart/export, and honest unjournaled effects with user permissions. Windows verified; Unix runtime acceptance open. |
-| 3.9 — Workspace instructions | Review a working folder's root AGENTS.md and include enabled guidance in inspectable context | Single-use activation, bounded root-only text, folder-scoped persistence, changed/missing-file refusal, provenance and unchanged tool approval; ancestor/nested discovery and include expansion remain future scope. |
-| 4 — Memory with provenance | User preferences and session summaries; inspect/edit/delete, source references, retrieval budget | Test usefulness, correction and deletion; secrets never enter memory by default. |
-| 4.1 — Manual preferences | Sidebar Memory editor, All chats/folder scopes, revisioned correction, disable/delete and inspectable bounded retrieval | Explicit Save only, 12 entries/scope, whole-entry 4-KiB selection, shared preview/send, isolation, atomic refusal, restart/provenance and unchanged tool approval. No automatic extraction. |
-| 4.2 — Reviewed memory suggestions | Select completed user messages, generate tool-free drafts, correct and explicitly save preferences with source quotes | Source-only bounded request, frozen-source verification, Stop/expiry, atomic one-use Save, correction, provenance, restart/export and model probe; no silent writes. |
-| 4.3 — Reviewed session summaries | Summarize the next contiguous older batch, correct/save, extend or delete; keep full history | Session scope, exact bounded sources/prior revision, atomic replacement, shared token-budgeted context/coverage, Stop/failure, restart/export and live model probe. |
-| 4.4 — Automatic memory updates | Learn explicit durable preferences after saved replies; inspect/edit/delete, disable learning, protect manual corrections | Exact user evidence, folder/All chats scope, duplicates/explicit corrections/protected conflicts, atomic snapshots, bounded cost, no replay/retry, restart and measured synthetic model behavior; conservative eligibility is not universal learning. |
-| 5 — Reusable skills | Propose a skill from successful work; user reviews before activation; version and roll back | Show outcome improvement on a frozen task set; no unreviewed generated code execution. |
-| 5.1 — Reviewed project skills | Inspect standard project SKILL.md files, explicitly activate saved versions, disable/forget and review rollback | Folder isolation, exact source/expiry/CAS, bounded storage/context, unchanged tool approval, restart/export and compact layouts; no automatic selection or outcome-improvement claim. |
-| 5.1.1 — Global skills | Review home-directory skills for all chats; keep project overrides and separate scope controls | Global/project persistence isolation, same-name precedence/fallback, side-chat context, linked collection boundary, unchanged tools and compact layouts. |
-| 5.2 — Reviewed skill drafts and response evaluation | Select useful exchanges, edit a generated workflow, freeze baseline/candidate tests and explicitly promote measured improvement | Exact evidence, tool-free bounded tests, all-pass/strict-improvement gate, invalidation/Stop, atomic frozen-state promotion and retained historical receipts; literal checks do not establish general task quality. |
-| 5.2.1 — Draft-generation limits | Use saved model limits with explicit per-draft overrides and retained selections after truncation | No hidden 1024-token/30-second cap, context preflight, clear actual-limit guidance, manual retry, unchanged saved settings, bounded response and no incomplete activation. |
-| 5.2.2 — Draft JSON contract | Show the exact typed evidence-array shape to the model and distinguish syntax from schema errors | Real DeepSeek reproduction, parser-compatible prompt example, duplicate/unknown-field refusal, unchanged evidence and activation checks. |
-| 5.3 — Portable reviewed skills | Export a selected saved version as standard SKILL.md for reuse and review elsewhere | Exact retained version, native destination picker, atomic no-overwrite publication, unchanged activation, document-only copy, restart/import and compact layouts; native Save dialog UAT remains open. |
-| 6 — Plugin ecosystem | External protocol, capability declarations, version negotiation, install/enable/disable lifecycle | Crash, timeout, compatibility and resource tests. State what is isolated and what is not. |
-| 6.1 — Reviewed MCP tool connection | Configure one installed local server per working folder, inspect its catalog, enable up to two selected tools and approve each call | Bounded stdio/version negotiation, exact approval/freshness binding, crash/Stop/output recovery, revisioned persistence, restart without startup and compact layouts. External programs run with user permissions; text-only, stateless calls. |
-| 6.2 — MCP credentials | Bind explicitly configured server credentials to the native vault and selected connection | Masked explicit bindings, native-vault storage, folder/launch/hash scope, exact-value metadata refusal/result redaction, rotation/revocation and missing/locked-vault recovery. No silent launch or wider automatic permissions. |
-| 6.3 — Multiple MCP connections | Manage several reviewed local servers per folder and select a bounded active tool set | Four saved servers, two shared active external slots, stable aliases/approvals/credential scopes, independent enable/disable/forget, schema-16 migration and restart, collision/crash isolation and review-preserving capacity recovery. On-demand startup remains. |
-| 6.4 — Long-task recovery | Save paused progress and explicitly continue after provider output or agent step limits | Latest-source atomic binding, preserved text/usage/receipts, discarded unfinished calls, fresh approvals, bounded accumulated context, repeated limits/Stop/restart and Qwen/DeepSeek probes. Current defaults remain unchanged; recovery does not establish general task competence. |
-| 6.5 — Larger reviewed coding files | Larger code proposals reach complete review; approved relative scripts validate working files | File-only 64-KiB JSON, retained 16-KiB file/diff and 4-KiB other-tool limits, runnable-slice guidance, exact cancellation/conflict/restart checks, Windows Node cwd fix and multi-file fixture validation. Live Qwen/DeepSeek tasks remain unfinished. |
-| 6.6 — Per-model generation profiles | Configure output, timeout and supported reasoning options for the selected model | Endpoint/model output and timeout profiles, explicit provider-default/DeepSeek-off/OpenAI effort adapters, legacy-compatible schema 17, manual rejection/malformed-call recovery, reported reasoning usage and isolated/live checks. No automatic budget or retry changes. |
-| 6.7 — Coding task validation and repair | Inspect failed checks and recover useful coding work within explicit budgets | Actual command outcomes, remaining-budget guidance, durable unresolved-check repair, exact-command rerun reconciliation, stale/Stop/restart/incomplete-output checks and live probes. DeepSeek repaired two bugs after two explicit continuations; Qwen remains unfinished. |
-| 6.8 — Reliable exact coding edits | Reduce avoidable edit failures on real source files | LF/CRLF proposal adaptation for uniform source, strict other whitespace/uniqueness, mixed-ending recovery, raw snapshot/revert checks and real model probes. DeepSeek passes nine unchanged checks in one bounded run; Qwen remains unfinished. |
-| 7 — Evaluate and improve | Local feedback, task traces, regression suite, compare memory/skill versions | Promote a change only when measured success improves without violating safety/resource budgets. |
-| 7.1 — Task feedback and evidence | Record whether a task worked and tie feedback to its actual run | Local revisioned Worked/Needs work feedback on exact replies; original run/model/settings/context/tool evidence retained through paging/export/restart. No model or learning input, retry or automatic promotion. |
-| 7.2 — Frozen context comparisons | Compare memory/skill instructions against the same explicit response tests | Exact frozen requests/source revisions, at most six responses, durable failures/Stop, reported usage/timing, restart/export and strict completed improvement without activation. Qwen fails the synthetic candidate; DeepSeek passes. |
-| 7.3 — Repeatable regression checks | Rerun selected basic and pressure cases with honest reports | Build/lint/unit/widgets plus eight isolated native save/restart pairs, stage deadlines, owned-process cleanup, strict receipts, retained failure reports and explicit coverage gaps. |
-| 8 — Release hardening | Useful user/developer docs and verifiable desktop distribution | Complete dependency notices, package integrity, clean-machine/prerequisite recovery, signing, native input/accessibility, platform builds and representative resource checks. |
-| 8.1 — Windows portable preview and documentation | Local unsigned x64 ZIP, user guide and contributor reference | Explicit runtime allowlist/hash verification, missing/private/wrong-architecture/corrupt/stale-path refusal, retained artifacts, extracted-app launch and bounded Qwen probe. Build-path privacy and local link checks; publication/signing and clean-machine acceptance stay separate. |
-| 8.2 — Dependency notices and startup recovery | Versioned offline notice inventory bound to the Windows bundle, full upstream texts and a friendly portable launcher | Normal/build and Dart production closure, SDK/native/artwork attribution, MPL source, stale-lock/runtime/truncated-notice refusal, incomplete extraction/missing-runtime recovery and extracted launcher proof; actual clean-machine/version/loadability and signing remain open. |
-| 8.3 — Composer input and accessibility | Named native editable blocks and composition-safe Send/language controls | Native keyboard smoke, semantic-tree inspection and platform-seam recovery tests; physical left-Control, real IME candidates, spoken screen-reader and native display-scale checks remain open. |
+## Product destination
 
-Bricks 1, 1.1, 1.2, 2.1, 2.1.1, 2.2, 2.3.1, 2.3.2, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.1, 4.2, 4.3, 4.4, 5.1, 5.1.1, 5.2, 5.2.1, 5.2.2, 5.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7 6.8, 7.1, 7.2 and 7.3 are implemented. Bricks 2, 3, 4, 5 and 6 retain broader acceptance gaps. Automatic learning has bounded explicit-preference scope; broader habit inference and universal memory reliability remain unaccepted. Skill-draft response checks measure their selected cases, not general task quality. Reviewed local MCP tools begin the external plugin ecosystem; persistent/remote connections and third-party compatibility remain future work. Flutter is selected; unverified platforms and hardware are not labeled accepted.
+Dolores should become a lightweight desktop agent that finishes useful work in a project, explains its progress and limits, and improves from experience. Flutter remains the selected UI; Rust owns the runtime and replaceable interfaces. The system theme and Codex-inspired project/temporary/side-chat flow remain the UI foundation.
 
-## Next iteration
+The recommended next cycle prioritizes **useful task execution**, then **effective context**, then **learning from outcomes**, then **consistent plugins and resource improvements**. Release engineering is deferred. This order is a proposal, not an approved commitment.
 
-Brick 7 is complete in the defined scope: local task feedback, retained original traces, frozen memory/skill response comparisons and repeatable selected regressions. Comparisons require complete strict literal improvement inside their bounds; they never activate instructions automatically. The existing generated-skill promotion gate remains separately reviewed. Qwen's synthetic candidate failure remains recorded alongside DeepSeek's pass.
+Success means a user can open a project, assign a bounded task, watch meaningful progress, recover from a limit without losing work, and get a result supported by actual checks. Learning means retained knowledge or workflows that measurably help later tasks; it does not mean changing model weights.
 
-Brick 8.1 adds a local unsigned Windows x64 portable preview and separates getting started, user controls, contributor instructions and internal contracts. It retains explicit build/fixture/live/package boundaries. No release has been uploaded or signed.
+## Starting point
 
-Brick 8.2 adds full versioned notices and source references for the selected Windows bundle plus a startup preflight with explicit recovery. Notice integrity/bundle binding and failure fixtures pass; neither certifies clean-machine execution or blanket legal compliance.
+| Implemented foundation | Remaining limitation |
+| --- | --- |
+| Project/temporary/side chats, streaming, model discovery and profiles | Small run, file and command bounds constrain whole tasks. |
+| Reviewed file tools, commands, journal/revert and local MCP | Every invocation needs approval; larger projects and long checks are awkward. Commands/MCP are not folder sandboxes. |
+| Context inspection, estimates, manual summaries and explicit continuation | Long tasks need manual summary and recovery management. Estimates are not exact model tokenization. |
+| Automatic explicit-preference learning and reviewed global/project skills | Project knowledge and experience-based learning are absent; task feedback is not learning input. |
+| Local outcomes, instruction comparisons and regression runner | Literal tool-free response tests do not establish whole coding-task success. |
+| Windows preview, notices, startup guidance and composer improvements | Low-end resources, real IME/screen readers and other platforms remain unverified. |
 
-Brick 8.3 adds accessible composer names and composition-safe Send/language changes, with native keyboard smoke and bounded recovery tests. Its [verification matrix](design/native-input-verification.md) explicitly retains physical-keyboard, real IME and spoken screen-reader gaps; native automation is not a substitute for those checks.
+[Implementation history](IMPLEMENTATION_HISTORY.md) preserves bricks 1–8.3. [Acceptance](ACCEPTANCE.md) records actual results. Completed bricks do not certify every broader product goal.
 
-Next brick 8.4: add repeatable macOS/Linux build CI alongside Windows, keeping compile/package results separate from desktop acceptance. Actual clean-machine execution with/without the supported C++ runtime, signing and representative low-end measurements remain separate release gates. General coding competence, representative task evaluation, exact tokenization/pricing and broader automatic learning remain separate work. The selected regression runner supports this work but does not certify those gaps.
+## Planned sequence
+
+| Milestone | User-visible outcome | Planned bricks | Dependency and exit decision |
+| --- | --- | --- | --- |
+| **9 — A dependable working agent** | Complete and verify a modest multi-file task with understandable permissions, budgets and recovery | 9.1 baseline; 9.2 run controls; 9.3 approval policy; 9.4 larger files/checks; 9.5 checkpoints | Start here. Diagnose measured failures before selecting defaults; assess the complete workflow before adding learning. |
+| **10 — Context for real projects** | Work beyond one short conversation without repeated discovery or silent loss of context | 10.1 guidance/skill selection; 10.2 context-pressure handling | Depends on 9's task state and policies. Review automatic sharing and summarization. |
+| **11 — Learning from outcomes** | Retain useful project facts and propose tested workflows from experience | 11.1 project knowledge; 11.2 experience-to-skill loop | Needs trustworthy task evidence from 9 and context selection from 10. Keep only measured useful changes. |
+| **12 — A lean, extensible harness** | Consistent plugin lifecycle and predictable cost when features are unused | 12.1 plugin registry; 12.2 resource improvements | Resource checks run throughout. Optimize measured costs; review any new plugin execution model separately. |
+
+Each sub-brick produces one reviewable change and commit. Each milestone ends with an integration check. Later scope is planned now and reviewed at the preceding milestone's exit; new work requires an explicit roadmap revision. Dates are not promised before the baseline establishes the work size.
+
+## Milestone 9 — A dependable working agent
+
+### 9.1 Task and resource baselines
+
+Create five bounded tasks on versioned synthetic projects: understand an unfamiliar project, repair a failing check, create/validate a small multi-file feature, edit a file beyond the current 16-KiB bound, and recover an interrupted/limited task. Publish fixture definitions and non-private aggregate results.
+
+Classify failures by output/context, reasoning versus visible output, model-call/tool counts, file bounds, command timeout/capture and approval overhead. Measure release startup, idle memory, streaming and long-history behavior with a declared machine/dataset. The provisional 150-MiB idle / two-second cold-start goals remain targets; prior Flutter observations exceeded the memory target.
+
+**Exit:** every observed harness failure has a reproducible trigger and classified cause. Each task has an unchanged executable or human-review criterion. Separate deterministic results from bounded live Qwen routine cases and DeepSeek harder cases. Model failure does not justify weakening a task. No default increases here.
+
+### 9.2 Configurable task budgets
+
+Add coherent controls for model-call/tool-operation ceilings and total elapsed allowance, retaining per-model output/context settings. Show remaining capacity and actual pause reasons. Define continuation segment allowances and visible accumulated task usage/context. Select proposed defaults from 9.1 evidence and review them before implementation.
+
+**Exit:** explicitly larger allowances are usable; exhaustion saves progress with a bounded next step. Test repeated exhaustion and Stop near a tool decision. No unlimited loop, hidden retry or automatic spending increase.
+
+### 9.3 Explicit session approval policies
+
+Keep review-every-call as the default. Add opt-in session permission for built-in reads/list/search inside the chosen working folder, with scope disclosure and visible revocation. Edits keep diff review; commands/MCP keep individual approval. Wider write/command trust is a separate decision.
+
+**Exit:** repeated discovery works under an explicit grant. Test out-of-folder/link refusal and revocation before a queued call executes. Files, model output and receipts cannot grant permissions. Commands/MCP remain outside the folder-sandbox claim.
+
+### 9.4 Larger files and practical verification commands
+
+Add bounded ranged reads and snapshot-bound patches so common source files do not need complete inclusion in each request. Define Unicode, line-ending, stale-snapshot and partial-file semantics first. Make command timeout/capture configurable within explicit ceilings; oversized logs keep an inspectable bounded result. Preserve journaled file effects and identify unjournaled command effects.
+
+**Exit:** the larger-file baseline task can be reviewed, applied and verified without truncating source or weakening conflict/uniqueness checks. A slow check finishes under an explicit allowance; oversized output has an honest useful outcome. Test changed files between read/apply and incomplete/erroring capture. Multi-file atomic transactions are excluded.
+
+### 9.5 Durable task progress and checkpoints
+
+Save the task goal, proposed steps, completed evidence and pause state with the conversation. A model may propose/update a short plan; its checkboxes are not execution evidence. Restore useful drafts/progress after restart. Distinguish completed, failed and uncertain effects; explicitly resume rather than replaying commands/writes.
+
+**Exit:** restart preserves enough state to continue or inspect a multi-step task. Test interruption after a write but before reply storage, plus unavailable tools on resume. Rerun the five baseline tasks at milestone exit and compare completion, verification, approvals, usage and time under recorded settings. Separate model and harness failures.
+
+## Milestone 10 — Context for real projects
+
+### 10.1 Project instructions and relevant skills
+
+Define ancestor/nested AGENTS.md discovery, precedence and review. Select a bounded set of task-relevant, already activated global/project skill snapshots; expose selections in context inspection. Discovery does not activate unreviewed files or execute referenced scripts. Avoid including every skill in every request.
+
+**Exit:** two projects get their correct scoped guidance and relevant skills without leakage. Test same-name overrides, changed guidance and unrelated skills. Use bounded discovery/lazy loading; no resident indexer by default.
+
+### 10.2 Context-pressure recovery
+
+Add an opt-in managed-summary policy using existing summary/provenance machinery. Preserve the goal, unresolved work, instructions and relevant tool evidence while keeping the full transcript locally. Keep estimates separate from reported usage, configured model windows and the 128K blank default. Show summary coverage/omissions and bound the summary request itself.
+
+**Exit:** a small configured window triggers visible recovery with provenance. Test failed summarization and a tool result that still cannot fit. Preserve work and offer manual summary/context settings; never retry indefinitely or silently delete history. Real-model summary accuracy is reported separately.
+
+## Milestone 11 — Learning from outcomes
+
+### 11.1 Useful project knowledge
+
+Extend memory to scoped project facts: verified test/build commands, project structure and user-confirmed conventions. Keep sources/freshness, correction/disable/delete and a distinction between observed facts and inference. Define automatic-save eligibility first; uncertain or higher-risk facts remain suggestions. Arbitrary file/tool text is not trusted guidance.
+
+**Exit:** a later task benefits from retained verified knowledge; changed commands/corrected conventions invalidate stale entries. Test contradictory evidence and protected manual corrections. Compare retrieval cost and task behavior with memory enabled/disabled. Preserve existing preference-learning safeguards.
+
+### 11.2 Experience-to-skill loop
+
+Use completed task evidence and explicit outcomes to propose workflows from successful repairs and recurring mistakes. Drafting is opt-in, bounded and traceable, using version review/rollback. Extend evaluation to isolated tool-using project fixtures so skills are assessed on task outcomes, beyond response snippets. Automatic activation is excluded.
+
+**Exit:** a workflow helps a frozen task set and an unsupported/harmful proposal is rejected. Test false success claims and failed/truncated drafts without losing source tasks. Old skills survive rejection/rollback. Small-case improvement is not general competence.
+
+## Milestone 12 — A lean, extensible harness
+
+### 12.1 Consistent plugin registry and lifecycle
+
+Unify metadata, capabilities, enable/disable state, configuration and lifecycle across provider/storage/credential/tool implementations. Keep a small kernel and optional features. Compiled Rust plugins and external MCP adapters remain distinct execution types with honest trust boundaries. Design bounded active-tool selection as catalogs grow.
+
+**Exit:** a built-in adapter and local MCP adapter use the registry with clear version/configuration failures, lazy startup and independent failure handling. Test incompatibility and a crashing server while chat remains usable. Native dynamic loading, a marketplace and arbitrary plugin UI/code are excluded.
+
+### 12.2 An agreed resource budget
+
+Use 9.1 and per-brick measurements to address dominant allocations, history/render work and startup. Keep inspections/processes on demand. Test a reference low-end Windows machine with reproducible release/data scenarios; publish aggregates without machine/user identifiers. Account for child processes separately from local model hosting.
+
+**Exit:** compare startup, idle/active memory, idle CPU and long-history responsiveness against agreed targets. Test long history and a large tool catalog. If Flutter cannot meet the desired footprint, present the measured tradeoff for a user decision; do not silently switch frameworks or infer low-end support from a development machine.
+
+## Checks throughout
+
+- Freeze scope and acceptance before implementation. Check the basic flow and one or two realistic failure/recovery cases per brick.
+- Use bounded Qwen3.5-2B routine probes and DeepSeek V4.1 Flash harder probes with isolated data and unchanged selected settings. Fixtures and live evidence retain separate meaning.
+- Preserve configuration/history, commit each completed brick in English, and build/visibly launch the normal app after each task.
+- Measure changes to retained state, processes, catalogs/context or expensive UI work. Avoid default resident services, broad indexing and unbounded retries.
+- Record actual acceptance. Failed cases stay failed until the same criterion passes; model prose is not verification evidence.
+
+## Deferred scope and direction choices
+
+Cross-platform support remains a requirement, but **8.4's platform CI is skipped**. Other-platform execution and native physical-keyboard/IME/screen-reader gates remain visible in acceptance. CI returns only through an explicit plan change, not under a renamed brick. Signing/public release, updater, cloud sync, multi-agent orchestration, local model hosting, remote/persistent MCP, full sandboxing and vector-search memory are unscheduled.
+
+| Direction | Tradeoff |
+| --- | --- |
+| **Recommended: working-agent first** | Follow 9 → 10 → 11 → 12. Address execution constraints before more learning. |
+| **Learning first** | Start with 9.1 and trustworthy task evidence, then prioritize 11.1. Skill outcome evaluation still needs isolated task execution. |
+| **Footprint/plugin first** | Start with 9.1, then 12. Prioritize lean/modular behavior while task constraints remain visible. |
+
+User review should choose a direction and the next milestone. At each milestone exit, review actual outcomes and explicitly revise the remaining plan. This proposal does not authorize deferred features.

@@ -10,7 +10,8 @@
 | Understand stored/shared information | [Privacy](PRIVACY.md) |
 | Inspect Windows bundled licenses and prerequisites | [Dependency notices](DEPENDENCIES.md) |
 | Check what was actually verified | [Acceptance](ACCEPTANCE.md) |
-| See planned/completed scope | [Roadmap](ROADMAP.md) |
+| Review priorities, dependencies and acceptance gates | [Roadmap](ROADMAP.md) |
+| See completed bricks and historical scope | [Implementation history](IMPLEMENTATION_HISTORY.md) |
 
 `design/` contains implementation contracts and feature invariants. Brick labels connect decisions to the roadmap; it is not the product getting-started guide. `research/` holds dated source research and trials, including earlier alternatives. ACCEPTANCE retains historical evidence with its original boundary; newer sections describe later behavior.
 
