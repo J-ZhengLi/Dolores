@@ -75,6 +75,9 @@ const server = createServer(async (request, response) => {
         : prompt === 'tool-command-output' ? "process.stdout.write('x'.repeat(65536));setTimeout(()=>{},10000)"
         : "require('fs').writeFileSync('command-proof.txt','validated 世界');process.stdout.write('Checked 世界');process.stderr.write('diagnostic');process.exitCode=7";
       message = {role:'assistant',content:null,tool_calls:[{id:'command-one',type:'function',function:{name:'run_command',arguments:JSON.stringify({program:'node',args:['-e',script]})}}]}; finish='tool_calls';
+    } else if (prompt === 'tool-create-large' && last?.role !== 'tool') {
+      const content = Array.from({length:250}, (_,i) => `// line ${i+1} — 世界 "quoted" \\path`).join('\r\n') + '\r\n';
+      message = {role:'assistant',content:null,tool_calls:[{id:'create-large',type:'function',function:{name:'create_text_file',arguments:JSON.stringify({path:'large.js',content})}}]}; finish='tool_calls';
     } else if (prompt.startsWith('tool-create') && last?.role !== 'tool') {
       message = {role:'assistant',content:null,tool_calls:[{id:'create-one',type:'function',function:{name:'create_text_file',arguments:JSON.stringify({path:prompt === 'tool-create-empty' ? 'empty.txt' : 'created.txt',content:prompt === 'tool-create-empty' ? '' : '# Created with approval\r\nHello 世界.\r\n'})}}]}; finish='tool_calls';
     } else if (prompt.startsWith('tool-edit') && last?.role !== 'tool') {
@@ -130,7 +133,7 @@ const server = createServer(async (request, response) => {
         }
         const call = message.tool_calls[0];
         send({tool_calls:[{index:0,id:call.id,type:'function',function:{name:call.function.name,arguments:''}}]});
-        for (const part of call.function.arguments.match(/.{1,8}/gs)) {
+        for (const part of call.function.arguments.match(prompt === 'tool-create-large' ? /.{1,200}/gs : /.{1,8}/gs)) {
           if (closed) return;
           send({tool_calls:[{index:0,function:{arguments:part}}]});
           await setTimeout(prompt === 'tool-stream-slow' ? 500 : 15);

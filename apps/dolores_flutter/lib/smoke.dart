@@ -1738,7 +1738,35 @@ Future<void> _run(
       checks,
     );
     chat.newChat();
+    final largeContent =
+        '${List.generate(250, (i) => '// line ${i + 1} — 世界 "quoted" \\path').join('\r\n')}\r\n';
+    final largeFile = File(path.join(workspace.path, 'large.js'));
+    await proposeCreation('tool-create-large');
+    check(
+      chat.toolApproval?['diff'] is String &&
+          (chat.toolApproval!['diff'] as String).contains('+// line 250') &&
+          !await largeFile.exists(),
+      'Larger code proposal reaches full diff review without creating a file',
+      checks,
+    );
+    await screenshot(capture, output, 'large-file-review-dark');
+    await chat.decideTool(true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      chat.error == null &&
+          await largeFile.length() > 4096 &&
+          await largeFile.readAsString() == largeContent &&
+          chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'created',
+      'Reviewed larger file preserves every Unicode line and saved tool receipt',
+      checks,
+    );
     final commandFile = File(path.join(workspace.path, 'command-proof.txt'));
+    final beforeCommandJournal = await chat.bridge.call({
+      'command': 'changesPage',
+      'session': chat.session,
+    });
+    chat.newChat();
     Future<void> proposeCommand([String prompt = 'tool-command']) async {
       chat.draft = prompt;
       await chat.send();
@@ -1796,7 +1824,7 @@ Future<void> _run(
       'session': commandSession,
     });
     check(
-      commandJournal['items'].length == emptyPage['items'].length,
+      commandJournal['items'].length == beforeCommandJournal['items'].length,
       'Command file effects remain separate from the reviewed file-change journal',
       checks,
     );

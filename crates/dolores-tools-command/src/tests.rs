@@ -17,6 +17,33 @@ async fn invoke(tool: &RunCommand, script: &str) -> serde_json::Value {
     .unwrap()
 }
 #[tokio::test]
+async fn node_runs_relative_script_from_a_unicode_folder_with_spaces() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("project 世界 with spaces");
+    std::fs::create_dir(&folder).unwrap();
+    std::fs::write(folder.join("check.cjs"),"const assert=require('node:assert/strict');assert.equal(require('./module.cjs'),42);console.log('relative module passed');").unwrap();
+    std::fs::write(folder.join("module.cjs"), "module.exports=42;").unwrap();
+    let tool = RunCommand::new(&folder).unwrap();
+    let request = tool
+        .prepare(&ToolCall {
+            arguments: json!({"program":"node","args":["check.cjs"]}).to_string(),
+            ..call("")
+        })
+        .unwrap();
+    let result: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["exitCode"], 0, "{}", result["stderr"]);
+    assert!(result["stdout"]
+        .as_str()
+        .unwrap()
+        .contains("relative module passed"));
+}
+#[tokio::test]
 async fn literal_arguments_unicode_cwd_filtered_environment_and_nonzero_exit_are_retained() {
     let dir = tempfile::tempdir().unwrap();
     let tool = RunCommand::new(dir.path()).unwrap();

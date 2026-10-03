@@ -147,7 +147,8 @@ fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     ];
     let prepared = prepare_agent_context(context).unwrap();
     assert_eq!(prepared.len(), 2);
-    assert!(prepared[0].content.ends_with(TOOL_GUIDANCE));
+    assert!(prepared[0].content.contains(TOOL_GUIDANCE));
+    assert!(prepared[0].content.ends_with(CODING_GUIDANCE));
     assert_eq!(prepared[1].content, "Current request");
     let repeated = prepare_agent_context(prepared.clone()).unwrap();
     assert_eq!(repeated[0].content, prepared[0].content);
@@ -163,6 +164,32 @@ fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
         },
     ])
     .is_err());
+}
+
+#[test]
+fn larger_argument_budget_is_exclusive_to_file_writes_and_still_bounded() {
+    for name in [
+        "create_text_file",
+        "edit_text_file",
+        "run_command",
+        "read_text_file",
+        "mcp_tool_test_echo",
+    ] {
+        let limit = tool_argument_limit(name);
+        let mut call = ToolCall {
+            id: "one".into(),
+            name: name.into(),
+            arguments: " ".repeat(limit),
+        };
+        assert!(validate_call(&call).is_ok());
+        call.arguments.push(' ');
+        let error = validate_call(&call).unwrap_err();
+        assert!(error.contains(if limit == MAX_FILE_ARGUMENT_BYTES {
+            "64 KiB"
+        } else {
+            "4 KiB"
+        }));
+    }
 }
 
 struct Scripted {

@@ -28,6 +28,53 @@ fn provider(base_url: String) -> OpenAiProvider {
     .unwrap()
 }
 
+#[test]
+fn large_fragmented_file_json_survives_but_other_tools_and_overflow_remain_bounded() {
+    let arguments = json!({"path":"main.js","content":"世界\\\"\r\n".repeat(900)}).to_string();
+    assert!(arguments.len() > 4096);
+    for name in [
+        "create_text_file",
+        "edit_text_file",
+        "run_command",
+        "mcp_tool_test_echo",
+    ] {
+        let mut assembly = Assembly::default();
+        assembly
+            .push(delta(
+                json!({"tool_calls":[call(0,"one",name,"")]}),
+                Value::Null,
+            ))
+            .unwrap();
+        let mut part = String::new();
+        for c in arguments.chars() {
+            part.push(c);
+            if part.len() >= 73 {
+                assembly
+                    .push(delta(
+                        json!({"tool_calls":[{"index":0,"function":{"arguments":part}}]}),
+                        Value::Null,
+                    ))
+                    .unwrap();
+                part.clear();
+            }
+        }
+        assembly
+            .push(delta(
+                json!({"tool_calls":[{"index":0,"function":{"arguments":part}}]}),
+                json!("tool_calls"),
+            ))
+            .unwrap();
+        let result = assembly.complete();
+        if matches!(name, "create_text_file" | "edit_text_file") {
+            assert_eq!(result.unwrap().calls[0].arguments, arguments);
+        } else {
+            assert!(result.is_err());
+        }
+    }
+    let mut assembly = Assembly::default();
+    assert!(assembly.push(delta(json!({"tool_calls":[call(0,"one","create_text_file",&"x".repeat(MAX_FILE_ARGUMENT_BYTES+1))]}),Value::Null)).is_err());
+}
+
 #[tokio::test]
 async fn output_limit_keeps_final_text_usage_and_never_returns_partial_calls() {
     for call_parts in [

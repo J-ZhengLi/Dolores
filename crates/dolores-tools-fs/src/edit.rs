@@ -272,7 +272,9 @@ impl ToolPlugin for EditTextFile {
         edit_spec()
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
-        if call.name != "edit_text_file" || call.arguments.len() > 4096 {
+        if call.name != "edit_text_file"
+            || call.arguments.len() > dolores_core::MAX_FILE_ARGUMENT_BYTES
+        {
             return Err("Invalid edit arguments.".into());
         }
         let args: Arguments =

@@ -1,7 +1,7 @@
 use crate::{reported_usage, usage_option_rejected, OpenAiProvider, SseDecoder};
 use dolores_core::{
     validate_call, AgentMessage, AgentTurn, TokenUsage, ToolCall, ToolSpec, MAX_CONTEXT_BYTES,
-    MAX_OUTPUT_BYTES, MAX_TOOL_CALLS,
+    MAX_FILE_ARGUMENT_BYTES, MAX_OUTPUT_BYTES, MAX_TOOL_CALLS,
 };
 use futures_util::StreamExt;
 use serde_json::{json, Value};
@@ -106,7 +106,7 @@ impl Assembly {
                     append(
                         &mut call.arguments,
                         function.get("arguments").unwrap_or(&Value::Null),
-                        4096,
+                        MAX_FILE_ARGUMENT_BYTES,
                     )?;
                 }
             }

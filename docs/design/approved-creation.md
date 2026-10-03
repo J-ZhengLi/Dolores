@@ -1,5 +1,7 @@
 # Reviewed new files — brick 3.7
 
+Brick 6.5 supersedes the former 4-KiB file-tool argument budget with 64 KiB; each file and complete reviewed diff still stays within 16 KiB. Other tools keep 4 KiB. See [larger coding files](larger-code-files.md).
+
 Project and temporary chats can propose `create_text_file {path,content}`. This makes an empty working folder useful without enabling a shell. The path is direct and relative, its parent must already exist, and content is complete literal UTF-8 text. All fields are required; unknown fields are rejected. Existing files, directories and aliases are refused. Traversal, device, secret/VCS and internal staging paths use the same policy as edits. No directory-creation or arbitrary-deletion tool is added.
 
 The existing 4-KiB serialized argument budget includes path, content and JSON escaping. File text and the complete addition diff have separate 16-KiB caps; the smaller argument budget normally controls creation size. Empty files are supported. Unicode, CRLF and missing final newlines are preserved exactly as proposed. The model can still propose the wrong content: the local review is authoritative, and no formatter silently repairs it.

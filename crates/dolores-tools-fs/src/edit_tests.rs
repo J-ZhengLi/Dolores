@@ -19,6 +19,33 @@ use std::path::Path;
 mod recovery;
 
 #[tokio::test]
+async fn larger_edit_retains_snapshot_binding_and_exact_bytes() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("main.js");
+    let before = "// original 世界 \\\"text\\\"\r\n".repeat(150);
+    let after = "// revised 世界 \\\"text\\\"\r\n".repeat(150);
+    std::fs::write(&file, &before).unwrap();
+    let edit = tool(root.path());
+    let proposal = call("main.js", &before, &after);
+    assert!(proposal.arguments.len() > 4096);
+    dolores_core::validate_call(&proposal).unwrap();
+    let request = edit.prepare(&proposal).unwrap();
+    assert_eq!(std::fs::read(&file).unwrap(), before.as_bytes());
+    std::fs::write(&file, "external update").unwrap();
+    assert!(edit
+        .invoke(&request, CancellationToken::new())
+        .await
+        .is_err());
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "external update");
+    std::fs::write(&file, &before).unwrap();
+    let request = edit.prepare(&proposal).unwrap();
+    edit.invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(&file).unwrap(), after.as_bytes());
+}
+
+#[tokio::test]
 async fn applies_reviewed_unique_unicode_change_preserves_line_endings_and_is_single_use() {
     let root = tempfile::tempdir().unwrap();
     std::fs::create_dir(root.path().join("notes")).unwrap();

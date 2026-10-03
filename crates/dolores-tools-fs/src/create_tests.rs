@@ -51,6 +51,46 @@ fn call(path: &str, content: &str) -> ToolCall {
         arguments: json!({"path":path,"content":content}).to_string(),
     }
 }
+
+#[tokio::test]
+async fn larger_creation_keeps_complete_review_cancel_journal_and_file_diff_limits() {
+    let dir = tempfile::tempdir().unwrap();
+    let journal = Arc::new(Journal::default());
+    let tools = journaled_folder_tools(dir.path(), journal.clone()).unwrap();
+    let content = "// 世界 \\\"quoted\\\"\r\n".repeat(250);
+    let proposal = call("main.js", &content);
+    assert!(proposal.arguments.len() > 4096);
+    dolores_core::validate_call(&proposal).unwrap();
+    let request = tools[4].prepare(&proposal).unwrap();
+    assert!(request
+        .diff
+        .as_ref()
+        .unwrap()
+        .ends_with("+// 世界 \\\"quoted\\\"\r\n"));
+    assert!(!dir.path().join("main.js").exists());
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    assert!(tools[4].invoke(&request, cancel).await.is_err());
+    assert!(!dir.path().join("main.js").exists());
+    assert!(journal.entries.lock().unwrap().is_empty());
+    let request = tools[4].prepare(&proposal).unwrap();
+    tools[4]
+        .invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read(dir.path().join("main.js")).unwrap(),
+        content.as_bytes()
+    );
+    assert_eq!(journal.entries.lock().unwrap()[0], (None, Some(content)));
+    for text in [
+        "x".repeat(MAX_TOOL_BYTES + 1),
+        "\n".repeat(MAX_TOOL_BYTES / 2),
+    ] {
+        assert!(tools[4].prepare(&call("too-large.js", &text)).is_err());
+        assert!(!dir.path().join("too-large.js").exists());
+    }
+}
 #[tokio::test]
 async fn creation_is_previewed_complete_empty_unicode_and_single_use() {
     for content in ["", "# 世界\r\n<script>literal</script>"] {
@@ -114,7 +154,7 @@ async fn existing_paths_invalid_arguments_and_changed_approval_never_create() {
     }
     for arguments in [
         r#"{"path":"new","content":"x","approved":true}"#.to_owned(),
-        call("new", &"x".repeat(4096)).arguments,
+        call("new", &"x".repeat(dolores_core::MAX_FILE_ARGUMENT_BYTES)).arguments,
         call("new", "\0").arguments,
     ] {
         assert!(tools[4]

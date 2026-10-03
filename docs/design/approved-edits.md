@@ -1,5 +1,7 @@
 # Brick 3.5 — Reviewed single-file edits
 
+Brick 6.5 supersedes the former 4-KiB file-tool argument budget with 64 KiB; each file and complete reviewed diff still stays within 16 KiB. Other tools keep 4 KiB. See [larger coding files](larger-code-files.md).
+
 Brick 3.6 adds independent local snapshots, durable intent and reviewed revert to the selected Flutter host; it supersedes this brick's lack of a durable journal. See [change journal](change-journal.md). The edit validation and optimistic concurrency limits below still apply.
 
 Working project/temporary chats register `edit_text_file` alongside read/list/search. Its arguments are `{path,old_text,new_text}` with no extra fields. One exact, nonempty, unique match is replaced in an existing writable UTF-8 file. Overlapping/repeated matches, NUL/binary text, aliases and common credential/VCS paths fail preparation. The existing 4-KiB argument and 1024-byte relative-path limits apply; original/replacement files and the displayed diff each stay within 16 KiB. This brick does not create/delete/rename files or run commands.

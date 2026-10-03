@@ -132,7 +132,7 @@ impl CreateTextFile {
     }
 }
 pub fn create_spec() -> ToolSpec {
-    ToolSpec{name:"create_text_file".into(),description:"Create one small UTF-8 text file at a direct relative path under an existing working-folder directory. Requires review of the complete addition and one user approval. Never overwrites existing files, directories or aliases. No directory creation, secret/VCS paths or shell. Content and JSON must fit the 4 KiB argument budget; file/diff cap 16 KiB. Empty files are allowed. Applied creation remains if the later reply fails.".into(),parameters:json!({"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false})}
+    ToolSpec{name:"create_text_file".into(),description:"Create one small UTF-8 text file at a direct relative path under an existing working-folder directory. Requires review of the complete addition and one user approval. Never overwrites existing files, directories or aliases. No directory creation, secret/VCS paths or shell. JSON arguments up to 64 KiB; UTF-8 file and complete diff each up to 16 KiB. Split larger implementations into smaller files. Empty files are allowed. Applied creation remains if the later reply fails.".into(),parameters:json!({"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false})}
 }
 #[async_trait]
 impl ToolPlugin for CreateTextFile {
@@ -140,7 +140,9 @@ impl ToolPlugin for CreateTextFile {
         create_spec()
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
-        if call.name != "create_text_file" || call.arguments.len() > 4096 {
+        if call.name != "create_text_file"
+            || call.arguments.len() > dolores_core::MAX_FILE_ARGUMENT_BYTES
+        {
             return Err("Invalid creation arguments.".into());
         }
         let args: Arguments =

@@ -1,13 +1,13 @@
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs::File,
     io::{self, Read},
     mem::{size_of, size_of_val, ManuallyDrop},
     os::windows::{
-        ffi::OsStrExt,
+        ffi::{OsStrExt, OsStringExt},
         io::{AsRawHandle, FromRawHandle},
     },
-    path::Path,
+    path::{Component, Path, Prefix},
     ptr::{null, null_mut},
 };
 use windows_sys::Win32::{
@@ -122,6 +122,21 @@ impl Drop for Attributes {
 fn wide(value: &OsStr) -> Vec<u16> {
     value.encode_wide().chain(Some(0)).collect()
 }
+fn child_directory(root: &Path) -> OsString {
+    let units: Vec<_> = root.as_os_str().encode_wide().collect();
+    match root.components().next() {
+        Some(Component::Prefix(prefix)) => match prefix.kind() {
+            Prefix::VerbatimDisk(_) => OsString::from_wide(&units[4..]),
+            Prefix::VerbatimUNC(_, _) => {
+                let mut ordinary = vec![b'\\' as u16, b'\\' as u16];
+                ordinary.extend_from_slice(&units[8..]);
+                OsString::from_wide(&ordinary)
+            }
+            _ => root.as_os_str().to_owned(),
+        },
+        _ => root.as_os_str().to_owned(),
+    }
+}
 // Windows CRT argument quoting: every argument remains one literal value.
 fn quote(value: &str) -> String {
     let mut result = String::from("\"");
@@ -200,7 +215,11 @@ pub fn spawn_stdio(
         return Err("Command process control is unavailable.".into());
     }
     let executable_wide = wide(executable.as_os_str());
-    let directory = wide(root.as_os_str());
+    // Canonical folder capabilities use verbatim paths. Keep that identity for
+    // checks, but give development runtimes a conventional process cwd: Node's
+    // relative entrypoint resolution misreads a verbatim drive as "C:".
+    let cwd = child_directory(root);
+    let directory = wide(&cwd);
     let command = std::iter::once(executable.to_string_lossy().into_owned())
         .chain(args.iter().cloned())
         .map(|s| quote(&s))
@@ -295,5 +314,22 @@ mod tests {
         assert_eq!(quote("a b"), "\"a b\"");
         assert_eq!(quote("a\"b"), "\"a\\\"b\"");
         assert_eq!(quote("a\\"), "\"a\\\\\"");
+    }
+    #[test]
+    fn child_cwd_preserves_unicode_spaces_and_unc_without_rewriting_device_paths() {
+        for (input, output) in [
+            (
+                r"\\?\C:\project 世界 with spaces",
+                r"C:\project 世界 with spaces",
+            ),
+            (
+                r"\\?\UNC\server\share\project 世界",
+                r"\\server\share\project 世界",
+            ),
+            (r"C:\ordinary folder", r"C:\ordinary folder"),
+            (r"\\?\Volume{fixture}\folder", r"\\?\Volume{fixture}\folder"),
+        ] {
+            assert_eq!(child_directory(Path::new(input)), OsStr::new(output));
+        }
     }
 }
