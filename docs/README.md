@@ -8,6 +8,7 @@
 | Change the UI consistently | [UI contract](UI.md) |
 | Work on Flutter/Rust integration | [Bridge contract](flutter/flutter-api.md) |
 | Understand stored/shared information | [Privacy](PRIVACY.md) |
+| Inspect Windows bundled licenses and prerequisites | [Dependency notices](DEPENDENCIES.md) |
 | Check what was actually verified | [Acceptance](ACCEPTANCE.md) |
 | See planned/completed scope | [Roadmap](ROADMAP.md) |
 

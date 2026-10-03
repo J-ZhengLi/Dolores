@@ -1,6 +1,8 @@
 """Package completeness, integrity and private-file/missing-runtime recovery."""
 import importlib.util
 import io
+import hashlib
+import json
 from pathlib import Path
 import struct
 import sys
@@ -31,16 +33,29 @@ class PackageTests(unittest.TestCase):
             path.write_bytes(value)
         return bundle
 
+    def notices(self,directory,bundle):
+        result=directory/'notices';result.mkdir()
+        text=b'SYNTHETIC MIT license fixture, not a real dependency audit.'
+        inventory={'format':1,'platform':'windows-x64','components':[
+            {'name':'synthetic','source':'https://example.invalid','notices':[{'file':'LICENSE'}]}],
+            'runtime':{n:hashlib.sha256((bundle/n).read_bytes()).hexdigest() for n in packaging.RUNTIME},
+            'inputs':{n:hashlib.sha256((packaging.ROOT/n).read_bytes()).hexdigest() for n in packaging.AUDIT_INPUTS},
+            'noticesSha256':hashlib.sha256(text).hexdigest()}
+        (result/'DEPENDENCIES.json').write_text(json.dumps(inventory),encoding='utf-8')
+        (result/'THIRD-PARTY-NOTICES.txt').write_bytes(text)
+        return result
+
     def test_complete_archive_hashes_and_no_overwrite(self):
         with tempfile.TemporaryDirectory(dir=packaging.ROOT/'output') as temp:
             directory=Path(temp);bundle=self.fixture(directory);destination=directory/'release'
-            archive=packaging.package(bundle,destination)
+            notices=self.notices(directory,bundle)
+            archive=packaging.package(bundle,destination,notices)
             manifest=packaging.verify_archive(archive)
             self.assertEqual(len(manifest['files']),len(packaging.RUNTIME|packaging.DOCUMENTS))
             self.assertFalse(manifest['signed'])
             self.assertTrue(archive.with_suffix('.zip.sha256').is_file())
             prior=archive.read_bytes()
-            with self.assertRaisesRegex(ValueError,'exists'): packaging.package(bundle,destination)
+            with self.assertRaisesRegex(ValueError,'exists'): packaging.package(bundle,destination,notices)
             self.assertEqual(archive.read_bytes(),prior)
             damaged=directory/'damaged.zip'
             with zipfile.ZipFile(archive) as source,zipfile.ZipFile(damaged,'w') as target:
@@ -56,20 +71,38 @@ class PackageTests(unittest.TestCase):
     def test_missing_private_and_wrong_arch_refuse_then_explicit_recovery(self):
         with tempfile.TemporaryDirectory(dir=packaging.ROOT/'output') as temp:
             directory=Path(temp);bundle=self.fixture(directory);bridge=bundle/'dolores_flutter_bridge.dll'
+            notices=self.notices(directory,bundle)
             original=bridge.read_bytes();bridge.unlink()
-            with self.assertRaisesRegex(ValueError,'Missing'): packaging.package(bundle,directory/'missing')
+            with self.assertRaisesRegex(ValueError,'Missing'): packaging.package(bundle,directory/'missing',notices)
             self.assertFalse((directory/'missing').exists())
             bridge.write_bytes(original)
             private=bundle/'data/dolores.db';private.write_bytes(b'SYNTHETIC PRIVATE DATA')
-            with self.assertRaisesRegex(ValueError,'Unexpected'): packaging.package(bundle,directory/'private')
+            with self.assertRaisesRegex(ValueError,'Unexpected'): packaging.package(bundle,directory/'private',notices)
             self.assertFalse((directory/'private').exists());private.unlink()
             invalid=bytearray(original);invalid[-2:]=b'\x4c\x01';bridge.write_bytes(invalid)
-            with self.assertRaisesRegex(ValueError,'x64'): packaging.package(bundle,directory/'wrong-arch')
+            with self.assertRaisesRegex(ValueError,'x64'): packaging.package(bundle,directory/'wrong-arch',notices)
             bridge.write_bytes(original)
             bridge.write_bytes(original+str(packaging.ROOT).encode('utf-16-le'))
-            with self.assertRaisesRegex(ValueError,'Local build path'): packaging.package(bundle,directory/'build-path')
+            with self.assertRaisesRegex(ValueError,'Local build path'): packaging.package(bundle,directory/'build-path',notices)
             self.assertFalse((directory/'build-path').exists())
             bridge.write_bytes(original)
-            self.assertTrue(packaging.package(bundle,directory/'recovered').is_file())
+            self.assertTrue(packaging.package(bundle,directory/'recovered',notices).is_file())
+
+    def test_stale_notices_and_changed_locks_refuse_then_recover(self):
+        with tempfile.TemporaryDirectory(dir=packaging.ROOT/'output') as temp:
+            directory=Path(temp);bundle=self.fixture(directory);notices=self.notices(directory,bundle)
+            inventory_path=notices/'DEPENDENCIES.json';original=inventory_path.read_bytes()
+            bridge=bundle/'dolores_flutter_bridge.dll';prior=bridge.read_bytes();bridge.write_bytes(prior+b'new build')
+            with self.assertRaisesRegex(ValueError,'Stale'): packaging.package(bundle,directory/'stale',notices)
+            self.assertFalse((directory/'stale').exists());bridge.write_bytes(prior)
+            inventory=json.loads(original);inventory['inputs']['Cargo.lock']='0'*64
+            inventory_path.write_text(json.dumps(inventory),encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'inputs changed'): packaging.package(bundle,directory/'locks',notices)
+            self.assertFalse((directory/'locks').exists());inventory_path.write_bytes(original)
+            text=notices/'THIRD-PARTY-NOTICES.txt';prior_text=text.read_bytes();text.write_bytes(b'cut off')
+            with self.assertRaisesRegex(ValueError,'mismatched'): packaging.package(bundle,directory/'truncated-notice',notices)
+            text.write_bytes(prior_text)
+            archive=packaging.package(bundle,directory/'recovered',notices)
+            self.assertTrue(archive.is_file());self.assertEqual(inventory_path.read_bytes(),original)
 
 if __name__=='__main__': unittest.main()

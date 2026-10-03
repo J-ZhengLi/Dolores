@@ -44,12 +44,16 @@ After the normal build:
 
 ```powershell
 python -I -B scripts/test-package-windows.py
-python -I -B scripts/package-windows.py --directory C:/path/to/repository/output/releases/preview
+python -I -B scripts/test-windows-launcher.py
+python -I -B scripts/collect-windows-notices.py --flutter-sdk C:/path/to/flutter --directory C:/path/to/repository/output/releases/notices
+python -I -B scripts/package-windows.py --notices C:/path/to/repository/output/releases/notices --directory C:/path/to/repository/output/releases/preview
 ```
 
-Choose fresh output. The packager accepts reviewed runtime paths, checks required files/x64 binaries, and refuses unexpected files/links, embedded local build paths or existing destinations. It adds a user guide, license and per-file hashes, verifies the ZIP, then writes a ZIP SHA-256 sidecar. It packages an existing build and does not claim source/build freshness. Rebuild the normal entry point beforehand.
+Choose fresh output. Notice collection uses locally prepared locked Rust/Dart dependencies and the matching Flutter SDK, without downloads. Python 3.11+ is required. It retains full notices, versioned source references, corresponding MPL source and a conservative dependency inventory. Packaging refuses missing/stale notice collections when the runtime or locked inputs differ. Recollect after rebuilding or changing dependencies. See [dependency scope](docs/DEPENDENCIES.md).
 
-`--verify C:/path/to/package.zip` checks integrity, not publisher identity or runtime behavior. Destination machines need Microsoft's C++ x64 runtime; system DLLs are not copied. Signing, dependency-license review, clean-machine and resource/input testing remain release gates. See [contract](docs/design/windows-portable.md).
+The packager accepts reviewed runtime paths, checks required files/x64 binaries, and refuses unexpected files/links, embedded local build paths or existing destinations. It adds user guidance, licenses, a startup helper and per-file hashes, verifies the ZIP, then writes a ZIP SHA-256 sidecar. It packages an existing build and does not claim source/build freshness. Rebuild the normal entry point beforehand.
+
+`--verify C:/path/to/package.zip` checks integrity and notice/bundle binding, not publisher identity or runtime behavior. Destination machines need Microsoft's C++ x64 runtime; system DLLs are not copied. `Start-Dolores.cmd --check` checks file presence without launching. Signing, clean-machine and resource/input testing remain release gates. See [contract](docs/design/windows-portable.md).
 
 ## Cross-platform and diagnostics
 

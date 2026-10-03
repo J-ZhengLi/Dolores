@@ -18,7 +18,10 @@ RUNTIME = {
     'data/flutter_assets/fonts/MaterialIcons-Regular.otf',
     'data/flutter_assets/shaders/ink_sparkle.frag', 'data/flutter_assets/shaders/stretch_effect.frag',
 }
-DOCUMENTS = {'START-HERE.md','USER_GUIDE.md','PRIVACY.md','LICENSE'}
+DOCUMENTS = {'START-HERE.md','USER_GUIDE.md','PRIVACY.md','LICENSE',
+             'Start-Dolores.cmd','THIRD-PARTY-NOTICES.txt','DEPENDENCIES.json'}
+AUDIT_INPUTS = ('Cargo.lock', 'apps/dolores_flutter/pubspec.lock',
+                'apps/dolores_flutter/pubspec.yaml', 'assets/LICENSE.material-icons')
 PREFIX = 'Dolores/'
 MAX_BYTES = 256*1024*1024
 
@@ -82,6 +85,32 @@ def info(name):
     result.external_attr=0o100644<<16
     return result
 
+def validate_notices(inventory, notices, runtime):
+    if not isinstance(inventory,dict) or inventory.get('format')!=1 or inventory.get('platform')!='windows-x64':
+        raise ValueError('Invalid dependency inventory; collect notices again.')
+    if inventory.get('runtime')!=runtime or inventory.get('noticesSha256')!=hashlib.sha256(notices).hexdigest():
+        raise ValueError('Stale/mismatched dependency notices; collect notices for this bundle again.')
+    components=inventory.get('components')
+    if not isinstance(components,list) or not components or any(
+        not isinstance(c,dict) or not c.get('name') or not c.get('source') or not c.get('notices') for c in components):
+        raise ValueError('Incomplete dependency inventory; review missing notices.')
+
+def notice_documents(directory, files):
+    if is_link(directory): raise ValueError('Notice directory links are not allowed.')
+    values={}
+    for name in ('DEPENDENCIES.json','THIRD-PARTY-NOTICES.txt'):
+        path=directory/name
+        if is_link(path) or path.stat().st_size>64*1024*1024: raise ValueError('Invalid notice file: '+name)
+        values[name]=path.read_bytes()
+    inventory=json.loads(values['DEPENDENCIES.json'])
+    runtime={}
+    for name,path in files.items():
+        with path.open('rb') as stream: runtime[name]=sha(stream)
+    validate_notices(inventory,values['THIRD-PARTY-NOTICES.txt'],runtime)
+    inputs={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in AUDIT_INPUTS}
+    if inventory.get('inputs')!=inputs: raise ValueError('Dependency inputs changed; collect notices again before packaging.')
+    return values
+
 def verify_archive(path):
     with zipfile.ZipFile(path) as archive:
         entries=archive.infolist()
@@ -104,22 +133,28 @@ def verify_archive(path):
                 raise ValueError('Invalid file record: '+name)
             with archive.open(entry) as stream:
                 if sha(stream,name)!=record['sha256']: raise ValueError('Archive content hash differs: '+name)
+        inventory=json.loads(archive.read(PREFIX+'DEPENDENCIES.json'))
+        validate_notices(inventory,archive.read(PREFIX+'THIRD-PARTY-NOTICES.txt'),
+                         {name:manifest['files'][name]['sha256'] for name in RUNTIME})
         return manifest
 
-def package(bundle, directory):
+def package(bundle, directory, notice_directory):
     if is_link(bundle): raise ValueError('Bundle links are not allowed.')
     output=(ROOT/'output').resolve(); directory=directory.resolve(); bundle=bundle.resolve()
     if directory==output or not directory.is_relative_to(output) or directory.is_relative_to(bundle):
         raise ValueError('Choose a fresh destination strictly beneath output/ and outside the bundle.')
     if directory.exists(): raise ValueError('Destination exists; choose a fresh directory to retain earlier artifacts.')
     files=payload_files(bundle)
+    notices=notice_documents(notice_directory,files)
     documents={
         'LICENSE':(ROOT/'LICENSE').read_bytes(),
         'PRIVACY.md':(ROOT/'docs/PRIVACY.md').read_bytes(),
         'USER_GUIDE.md':(ROOT/'docs/USER_GUIDE.md').read_text(encoding='utf-8').replace(
             'See [privacy](PRIVACY.md) and [tested limitations](ACCEPTANCE.md).',
             'See [privacy](PRIVACY.md). Native accessibility, other platforms and low-end acceptance remain open.').encode(),
-        'START-HERE.md':b'# Dolores Windows portable preview\n\nExtract the whole ZIP, keep these files together, and open dolores_flutter.exe.\n\nRead [User guide](USER_GUIDE.md) and [Privacy](PRIVACY.md).\n\nRequires Microsoft Visual C++ x64 runtime: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170\n\nThis unsigned preview does not install a model, dependencies or an updater. Conversations/settings use your account application-data folder, not this extracted folder. Signing, dependency-license review, clean-machine tests and low-end/input acceptance remain open.\n',
+        'START-HERE.md':b'# Dolores Windows portable preview\n\nExtract the whole ZIP, keep these files together, and open Start-Dolores.cmd. It explains missing app/C++ runtime files before launching Dolores.\n\nRead [User guide](USER_GUIDE.md) and [Privacy](PRIVACY.md). [Third-party notices](THIRD-PARTY-NOTICES.txt) and [versioned inventory](DEPENDENCIES.json) are included.\n\nRequires Microsoft Visual C++ x64 runtime: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist\n\nIf a loader error still appears, install/repair that runtime and extract a fresh complete ZIP. The launcher checks file presence, not version/loadability; it downloads nothing.\n\nThis unsigned preview does not install a model, dependencies or an updater. Conversations/settings use your account application-data folder, not this extracted folder. Signing, clean-machine tests and low-end/input acceptance remain open.\n',
+        'Start-Dolores.cmd':(ROOT/'scripts/Start-Dolores.cmd').read_bytes(),
+        **notices,
     }
     version=re.search(r'^version: ([0-9.]+\+[0-9]+)$',(ROOT/'apps/dolores_flutter/pubspec.yaml').read_text(),re.M)[1]
     manifest={'format':1,'version':version,'platform':'windows-x64','signed':False,
@@ -158,17 +193,19 @@ def main():
     group=parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--directory',type=Path,help='Fresh absolute output destination; normal bundle only.')
     group.add_argument('--verify',type=Path,help='Verify a ZIP without extracting or executing it.')
+    parser.add_argument('--notices',type=Path,help='Notice collection directory bound to this bundle and locked dependencies.')
     args=parser.parse_args()
     try:
         if args.verify:
             manifest=verify_archive(args.verify)
             print(json.dumps({'ok':True,'files':len(manifest['files']),'platform':manifest['platform']}))
         else:
+            if args.notices is None: raise ValueError('Collect dependency notices and pass their directory with --notices.')
             if os.name!='nt': raise ValueError('Windows packaging must run on Windows.')
             if not args.directory.is_absolute(): raise ValueError('Use an absolute output directory.')
             # Check the lexical bundle path before resolving links.
             if is_link(BUNDLE): raise ValueError('Bundle links are not allowed.')
-            path=package(BUNDLE,args.directory)
+            path=package(BUNDLE,args.directory,args.notices)
             print(json.dumps({'ok':True,'archive':str(path),'bytes':path.stat().st_size,'files':len(RUNTIME|DOCUMENTS)}))
     except (OSError, ValueError, zipfile.BadZipFile, KeyError, TypeError) as error:
         parser.exit(1,'Package refused: '+str(error)+'\n')

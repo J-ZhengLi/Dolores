@@ -6,7 +6,7 @@ Dolores is an early preview. Windows has been exercised locally; macOS/Linux bui
 
 ## Get started
 
-For a Windows portable preview, extract the **entire** ZIP to a folder and open `dolores_flutter.exe` inside it. Keep the DLLs and `data/` folder together. The destination computer needs the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). Portable describes the application files; conversations and settings use your account's application data directory.
+For a Windows portable preview, extract the **entire** ZIP to a folder and open `Start-Dolores.cmd` inside it. It checks for missing app files and explains how to install or repair the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) if needed. Keep the DLLs and `data/` folder together. Portable describes the application files; conversations and settings use your account's application data directory.
 
 The repository includes a [build and packaging guide](CONTRIBUTING.md); it does not yet promise signed installers or an automatic updater.
 
