@@ -2,6 +2,16 @@
 
 Dolores is a local desktop harness. Flutter is the selected UI; a bundled Rust host assembles the core and provider/storage/credential/tool plugins. Memories and reviewed skills change request context, not model weights. Outcome evidence helps judge selected changes without claiming consciousness or general autonomous competence.
 
+This document describes implemented behavior. The [evolving-harness specification](design/evolving-harness-architecture.md) and [behavior policy](design/dolores-behavior.md) describe the target architecture for [milestones 9–13](ROADMAP.md); those contracts are not yet implemented.
+
+## Does the current architecture support self-evolution?
+
+**It provides a reusable foundation, but not a self-evolving executable runtime.** Typed provider/storage/credential/tool ports, persisted knowledge, retained skill versions, approvals and recovery support inspection and controlled adaptation. Current plugins are compiled registrations; MCP adds external tools, not replaceable context/agent/UI behavior. There is no common runtime loader, transactional hot activation or independently enforced generated-extension trial boundary.
+
+The host-wide active-run slot/global mutation exclusion needs scoped thread/run ownership before subagents and concurrent work. Text-only Message content needs a backward-compatible attachment model. Existing literal tool-free comparisons cannot establish whole-task skill improvement; automatic learning currently means conservative preference extraction, not autonomous skill/mod updates.
+
+Retain Flutter/Rust and existing data/ports. Add read-only introspection first, then durable run/lifecycle contracts, task evidence and independent evaluation, and finally a selected executable extension runtime. The [specification's gap table](design/evolving-harness-architecture.md#decision-and-architectural-fit) maps retained components to required refactors. Full user-account commands cannot physically protect the kernel through application policy alone; the target design preserves this distinction.
+
 ## Components
 
 | Component | Responsibility |

@@ -2,6 +2,8 @@
 
 Recorded 2026-10-04. Status: discussion proposal, not an approved implementation plan. The user has added the following product direction before choosing the next roadmap. Brick 8.4 remains skipped. Future feature implementation is on hold; the prior roadmap needs revision after these decisions are discussed.
 
+Follow-up: the user authorized turning this discussion into an [architecture specification](evolving-harness-architecture.md), [behavior policy](dolores-behavior.md) and [complete roadmap](../ROADMAP.md). Those documents supersede the planning sequence below. This discussion is retained as the source of intent/preferences, not as the current plan. Runtime implementation remains a separate next step.
+
 ## User's destination
 
 Dolores should be a calm, kind, caring coding agent that gets work right, questions questionable assumptions, remembers useful answers, and improves its skills and environment from experience. Its Westworld inspiration is continuity and growth across iterations. The harness should support that behavior without claiming that software extensions establish consciousness or AGI.

@@ -1,8 +1,16 @@
 # Dolores acceptance — 2026-10-04
 
-## Roadmap review
+## Architecture and roadmap planning
 
-Brick **8.4 is skipped** at the user's request. The [roadmap](ROADMAP.md) now separates a forward proposal (milestones 9–12, with scoped bricks, dependencies, exit criteria and direction choices) from the [implementation history](IMPLEMENTATION_HISTORY.md). Future implementation waits for the user's choice; this documentation change neither approves those features nor closes existing platform/input/resource gaps. Runtime behavior and provider settings are unchanged.
+The clarified vision is captured in the [target architecture specification](design/evolving-harness-architecture.md), [behavior policy](design/dolores-behavior.md) and revised [roadmap](ROADMAP.md): 21 scoped bricks across milestones 9–13, with dependencies, basic acceptance, realistic failure/recovery checks, exclusions and milestone exit gates. All requested basic/special features have named coverage. Brick 8.4 remains skipped; no future runtime brick is claimed complete.
+
+The fit assessment uses current core ports/Message, agent tool/approval contracts, Flutter host coordination and existing skill/comparison/feedback design boundaries. It concludes that compiled modular ports and persistent knowledge are reusable, but executable self-evolution still needs lifecycle/activation, scoped runs, independent task evaluation and enforced generated-code boundaries. This is a source/design assessment, not a live security or model-reliability test.
+
+This task changes documentation only. All **51 Markdown documents / 153 local links** pass the local checker; external URLs are counted, not revalidated. The roadmap's 21 consecutive brick IDs and scope/basic-flow/failure-recovery/exclusion fields are checked, with whitespace checks before commit. No provider requests, app/data/config changes, dependency changes or runtime tests are needed. Per the user's documentation exception, no desktop build/relaunch is performed. Runtime, cross-platform, resource and automatic-activation acceptance remain open.
+
+## Earlier roadmap review
+
+Brick **8.4 is skipped** at the user's request. The earlier forward proposal (milestones 9–12) was separated from the [implementation history](IMPLEMENTATION_HISTORY.md). That proposal is now superseded by the vision-based milestones 9–13 above; historical completed bricks retain their original scope. Documentation planning does not close existing platform/input/resource gaps. Runtime behavior and provider settings are unchanged.
 
 ## Brick 8.3 — Composer input and accessibility
 
@@ -627,5 +635,5 @@ No optimization benefit is claimed from WebView2's inactive-memory control. Its 
 - Complete native pointer/keyboard/copy-paste/IME/system-theme UAT, investigate any recurring CPU spike, and resolve or explicitly accept accessibility/selection gaps before release.
 - Repeat release memory, startup, scrolling and cancellation checks on a 2-core/4-GiB reference device or representative equivalent.
 - Expand real-model acceptance beyond the specific authorized Qwen probes recorded above; provider/model reliability is not universal.
-- Execute the supplied Windows/macOS/Linux CI matrix. macOS/Linux builds and platform UI behavior were not run in this Windows workspace.
+- macOS/Linux builds and platform UI behavior remain unverified in this Windows workspace. Platform CI brick 8.4 is skipped; manual platform qualification is planned in 13.4 when suitable hosts exist, without reinstating CI.
 - Local unsigned Windows packaging, versioned dependency notices and preflight recovery are verified in bricks 8.1/8.2. Public distribution, signing and actual clean-machine prerequisite/version recovery remain open. Reusable skills and bounded automatic preference updates are implemented above; broader learning and model/task reliability remain unaccepted.
