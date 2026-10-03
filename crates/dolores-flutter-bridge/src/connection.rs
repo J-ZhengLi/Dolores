@@ -54,7 +54,7 @@ impl ConnectionManager {
         {
             return Err("Set up a model connection first.".into());
         }
-        let settings = settings.unwrap_or(self.store.request_settings()?);
+        let settings = settings.unwrap_or(self.store.effective_request_settings(&preferences)?);
         settings.validate()?;
         Ok(Arc::new(
             OpenAiProvider::with_settings(
@@ -65,6 +65,7 @@ impl ConnectionManager {
                 RequestSettings {
                     max_output_tokens: settings.max_output_tokens.min(max_output),
                     timeout_seconds: settings.timeout_seconds.min(timeout),
+                    ..settings
                 },
             )?
             .with_context_window(self.context_window(&preferences)?),
@@ -121,7 +122,7 @@ impl ConnectionManager {
             OpenAiProvider::with_settings(
                 &preferences,
                 key.clone(),
-                self.store.request_settings()?,
+                self.store.effective_request_settings(&preferences)?,
             )?
             .with_context_window(self.context_window(&preferences)?),
         );
@@ -199,7 +200,7 @@ impl ConnectionManager {
             OpenAiProvider::with_settings(
                 &preferences,
                 key.clone(),
-                self.store.request_settings()?,
+                self.store.effective_request_settings(&preferences)?,
             )?
             .with_context_window(window),
         );
@@ -284,13 +285,65 @@ impl ConnectionManager {
                     );
                 }
                 Some(Arc::new(
-                    OpenAiProvider::with_settings(&preferences, key.clone(), settings)?
-                        .with_context_window(self.context_window(&preferences)?),
+                    OpenAiProvider::with_settings(
+                        &preferences,
+                        key.clone(),
+                        self.store
+                            .model_request_settings(&preferences.base_url)?
+                            .get(&preferences.model)
+                            .copied()
+                            .unwrap_or(settings),
+                    )?
+                    .with_context_window(self.context_window(&preferences)?),
                 ) as Arc<dyn ModelProvider>)
             }
             None => None,
         };
         self.store.save_request_settings(&settings)?;
+        self.provider = provider;
+        Ok(())
+    }
+    pub fn update_model_request_settings(
+        &mut self,
+        preferences: ConnectionPreferences,
+        settings: Option<RequestSettings>,
+    ) -> Result<(), String> {
+        dolores_provider_openai::validate_preferences(&preferences)?;
+        if let Some(settings) = settings {
+            settings.validate()?;
+        }
+        let current = self.store.preferences()?;
+        if preferences.base_url != current.base_url
+            || !self.model_choices()?.contains(&preferences.model)
+        {
+            return Err(
+                "Model connection changed. Reopen generation settings for an enabled model.".into(),
+            );
+        }
+        let provider = if current == preferences {
+            match self.active_key.as_ref() {
+                Some(key) if self.active_base_url.as_deref() == Some(current.base_url.as_str()) => {
+                    Some(Arc::new(
+                        OpenAiProvider::with_settings(
+                            &current,
+                            key.clone(),
+                            settings.unwrap_or(self.store.request_settings()?),
+                        )?
+                        .with_context_window(self.context_window(&current)?),
+                    ) as Arc<dyn ModelProvider>)
+                }
+                Some(_) => {
+                    return Err(
+                        "Connection changed. Reconnect before saving generation settings.".into(),
+                    )
+                }
+                None => None,
+            }
+        } else {
+            self.provider.clone()
+        };
+        self.store
+            .save_model_request_settings(&preferences, settings.as_ref())?;
         self.provider = provider;
         Ok(())
     }
@@ -356,7 +409,7 @@ impl ConnectionManager {
                 self.active_key
                     .clone()
                     .ok_or("Reconnect your model first.")?,
-                self.store.request_settings()?,
+                self.store.effective_request_settings(&preferences)?,
             )?
             .with_context_window(self.context_window(&preferences)?),
         );
@@ -475,6 +528,105 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn profiles_switch_restore_reset_and_failed_save_without_rotating_credentials() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let vault = Arc::new(MemoryCredentials::default());
+        let mut manager = ConnectionManager::new(store.clone(), vault.clone());
+        let preferences = preferences("https://example.com/v1");
+        manager
+            .configure_models(
+                preferences.clone(),
+                Some("fixture-key".into()),
+                true,
+                Some(vec!["fixture".into(), "other".into()]),
+            )
+            .unwrap();
+        let remembered = store.remembered_connection().unwrap();
+        let profile = RequestSettings {
+            max_output_tokens: 8192,
+            timeout_seconds: 300,
+            reasoning: dolores_core::ReasoningControl::DeepseekThinkingOff,
+        };
+        manager
+            .update_model_request_settings(preferences.clone(), Some(profile))
+            .unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().request_settings(),
+            Some(profile)
+        );
+        let review = manager
+            .review_provider()
+            .unwrap()
+            .request_settings()
+            .unwrap();
+        assert_eq!(
+            (
+                review.max_output_tokens,
+                review.timeout_seconds,
+                review.reasoning
+            ),
+            (1024, 30, profile.reasoning)
+        );
+        assert_eq!(
+            manager
+                .skill_draft_provider(None)
+                .unwrap()
+                .request_settings(),
+            Some(profile)
+        );
+        manager.select_model("other".into()).unwrap();
+        assert_eq!(
+            manager.provider.as_ref().unwrap().request_settings(),
+            Some(RequestSettings::default())
+        );
+        manager.select_model("fixture".into()).unwrap();
+        let mut restarted = ConnectionManager::new(store.clone(), vault.clone());
+        restarted.recover().unwrap();
+        assert_eq!(
+            restarted.provider.as_ref().unwrap().request_settings(),
+            Some(profile)
+        );
+        assert_eq!(
+            serde_json::to_value(store.remembered_connection().unwrap()).unwrap(),
+            serde_json::to_value(remembered).unwrap()
+        );
+        assert_eq!(vault.values.lock().unwrap().len(), 1);
+        let wrong = ConnectionPreferences {
+            base_url: "https://other.example/v1".into(),
+            ..preferences.clone()
+        };
+        assert!(restarted
+            .update_model_request_settings(wrong, Some(profile))
+            .is_err());
+        assert_eq!(
+            restarted.provider.as_ref().unwrap().request_settings(),
+            Some(profile)
+        );
+        restarted
+            .update_request_settings(RequestSettings {
+                max_output_tokens: 4096,
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(
+            restarted.provider.as_ref().unwrap().request_settings(),
+            Some(profile)
+        );
+        restarted
+            .update_model_request_settings(preferences, None)
+            .unwrap();
+        assert_eq!(
+            restarted
+                .provider
+                .as_ref()
+                .unwrap()
+                .request_settings()
+                .unwrap()
+                .max_output_tokens,
+            4096
+        );
+    }
+    #[tokio::test]
     async fn request_settings_rebuild_active_provider_preserve_credentials_and_restore_on_restart()
     {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
@@ -483,6 +635,7 @@ mod tests {
         let settings = RequestSettings {
             max_output_tokens: 8192,
             timeout_seconds: 300,
+            reasoning: Default::default(),
         };
         manager.update_request_settings(settings).unwrap();
         assert!(manager.provider.is_none());
@@ -502,6 +655,7 @@ mod tests {
         let updated = RequestSettings {
             max_output_tokens: 4096,
             timeout_seconds: 120,
+            reasoning: Default::default(),
         };
         manager.update_request_settings(updated).unwrap();
         assert_eq!(

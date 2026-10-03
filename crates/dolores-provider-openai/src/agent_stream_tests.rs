@@ -347,6 +347,7 @@ async fn stream_delivery_is_cancelable_and_under_the_configured_deadline() {
             RequestSettings {
                 max_output_tokens: 2048,
                 timeout_seconds: 1,
+                reasoning: Default::default(),
             },
         )
         .unwrap();

@@ -34,7 +34,7 @@ pub use instructions::{
 };
 pub use memory::*;
 pub use memory_suggestions::*;
-pub use request_settings::RequestSettings;
+pub use request_settings::{ReasoningControl, RequestSettings};
 pub use summary::*;
 pub use token_context::*;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
@@ -429,6 +429,31 @@ pub trait SessionStore: Send + Sync {
     }
     fn save_request_settings(&self, _: &RequestSettings) -> Result<(), String> {
         Err("This storage plugin does not support request settings.".into())
+    }
+    fn model_request_settings(
+        &self,
+        _: &str,
+    ) -> Result<std::collections::BTreeMap<String, RequestSettings>, String> {
+        Ok(Default::default())
+    }
+    fn save_model_request_settings(
+        &self,
+        _: &ConnectionPreferences,
+        _: Option<&RequestSettings>,
+    ) -> Result<(), String> {
+        Err("This storage plugin does not support model generation profiles.".into())
+    }
+    fn effective_request_settings(
+        &self,
+        preferences: &ConnectionPreferences,
+    ) -> Result<RequestSettings, String> {
+        match self
+            .model_request_settings(&preferences.base_url)?
+            .get(&preferences.model)
+        {
+            Some(settings) => Ok(*settings),
+            None => self.request_settings(),
+        }
     }
     fn sessions_page(
         &self,

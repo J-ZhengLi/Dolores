@@ -413,6 +413,7 @@ mod tests {
             settings: crate::RequestSettings {
                 max_output_tokens: 512,
                 timeout_seconds: 10,
+                reasoning: Default::default(),
             },
             context_window_tokens: Some(131072),
             evidence: vec![SkillEvidence {

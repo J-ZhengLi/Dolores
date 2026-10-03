@@ -7,6 +7,7 @@ mod automatic_memory;
 #[cfg(test)]
 mod change_tests;
 mod changes;
+mod generation_profiles;
 mod history;
 mod instructions;
 mod mcp;
@@ -105,6 +106,11 @@ impl SqliteStore {
                 ALTER TABLE mcp_connections_v16 RENAME TO mcp_connections;
                 PRAGMA user_version=16;
                 COMMIT;").map_err(storage_error)?;
+        }
+        if version < 17 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE model_request_settings (base_url TEXT NOT NULL, model TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(base_url,model));
+                PRAGMA user_version=17; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -364,6 +370,19 @@ impl SessionStore for SqliteStore {
         settings.validate()?;
         Ok(settings)
     }
+    fn model_request_settings(
+        &self,
+        base_url: &str,
+    ) -> Result<std::collections::BTreeMap<String, RequestSettings>, String> {
+        self.read_generation_profiles(base_url)
+    }
+    fn save_model_request_settings(
+        &self,
+        preferences: &ConnectionPreferences,
+        settings: Option<&RequestSettings>,
+    ) -> Result<(), String> {
+        self.write_generation_profile(preferences, settings)
+    }
     fn save_request_settings(&self, settings: &RequestSettings) -> Result<(), String> {
         settings.validate()?;
         let data = serde_json::to_string(settings).map_err(storage_error)?;
@@ -618,6 +637,24 @@ impl SqliteStore {
             }
         };
         let data = serde_json::to_string(&contexts).map_err(storage_error)?;
+        // Disabled models lose their overrides in the same configuration transaction.
+        let mut statement = transaction
+            .prepare("SELECT model FROM model_request_settings WHERE base_url=?1")
+            .map_err(storage_error)?;
+        let saved = statement
+            .query_map([&preferences.base_url], |r| r.get::<_, String>(0))
+            .map_err(storage_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(statement);
+        for model in saved.into_iter().filter(|model| !models.contains(model)) {
+            transaction
+                .execute(
+                    "DELETE FROM model_request_settings WHERE base_url=?1 AND model=?2",
+                    params![preferences.base_url, model],
+                )
+                .map_err(storage_error)?;
+        }
         transaction.execute("INSERT INTO model_contexts(id,base_url,data) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,data=excluded.data", params![preferences.base_url, data]).map_err(storage_error)?;
         transaction.execute("INSERT INTO preferences(id,base_url,model) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url,model=excluded.model", params![preferences.base_url, preferences.model]).map_err(storage_error)?;
         let data = serde_json::to_string(models).map_err(storage_error)?;
@@ -778,12 +815,14 @@ mod tests {
         let settings = RequestSettings {
             max_output_tokens: 4096,
             timeout_seconds: 300,
+            reasoning: Default::default(),
         };
         store.save_request_settings(&settings).unwrap();
         assert!(store
             .save_request_settings(&RequestSettings {
                 max_output_tokens: 0,
-                timeout_seconds: 300
+                timeout_seconds: 300,
+                reasoning: Default::default()
             })
             .is_err());
         store.lock().unwrap().execute_batch("CREATE TRIGGER reject_settings BEFORE UPDATE ON request_settings BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
@@ -885,7 +924,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 16);
+        assert_eq!(version, 17);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

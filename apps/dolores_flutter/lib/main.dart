@@ -291,7 +291,7 @@ class _ChatPageState extends State<ChatPage> {
                     const SizedBox(height: 12),
                     Text(
                       metadata!['paused']['reason'] == 'outputLimit'
-                          ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.'
+                          ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
                           : 'Paused at this run’s step limit. Progress and tool results saved.',
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
@@ -500,6 +500,7 @@ class _ChatPageState extends State<ChatPage> {
                       if ([
                         'timeout',
                         'outputLimit',
+                        'generationSettings',
                         'contextLimit',
                       ].contains(chat.activeRecovery!['kind']))
                         TextButton(
@@ -513,6 +514,7 @@ class _ChatPageState extends State<ChatPage> {
                         'network',
                         'access',
                         'configuration',
+                        'malformedTools',
                         'contextLimit',
                       ].contains(chat.activeRecovery!['kind']))
                         TextButton(

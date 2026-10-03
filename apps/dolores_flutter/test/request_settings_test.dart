@@ -21,6 +21,9 @@ class SettingsBridge implements ChatBridge {
   String kind = 'timeout';
   String input = '';
   List<Map<String, dynamic>> messages = [];
+  String activeModel = 'fixture';
+  List<String> models = ['fixture'];
+  final profiles = <String, dynamic>{};
   @override
   Future<void> open() async {}
   @override
@@ -34,11 +37,31 @@ class SettingsBridge implements ChatBridge {
       case 'bootstrap':
         return {
           'sessions': <Map<String, dynamic>>[],
-          'preferences': {'baseUrl': 'http://localhost/v1', 'model': 'fixture'},
-          'requestSettings': settings,
+          'preferences': {
+            'baseUrl': 'http://localhost/v1',
+            'model': activeModel,
+          },
+          'requestSettings': profiles[activeModel] ?? settings,
+          'defaultRequestSettings': settings,
+          'modelRequestSettings': Map.of(profiles),
           'configured': true,
-          'enabledModels': ['fixture'],
+          'enabledModels': models,
         };
+      case 'setModelRequestSettings':
+        if (pending != null) await pending!.future;
+        if (failSave) throw StateError('Settings could not be saved.');
+        final name = command['preferences']['model'] as String;
+        if (command['settings'] == null) {
+          profiles.remove(name);
+        } else {
+          profiles[name] = Map.of(command['settings'] as Map);
+        }
+        return {
+          'requestSettings': profiles[activeModel] ?? settings,
+          'modelRequestSettings': Map.of(profiles),
+        };
+      case 'selectModel':
+        activeModel = command['model'] as String;
       case 'setRequestSettings':
         if (pending != null) await pending!.future;
         if (failSave) throw StateError('Settings could not be saved.');
@@ -67,6 +90,8 @@ class SettingsBridge implements ChatBridge {
                   'access',
                   'stopped',
                   'contextLimit',
+                  'generationSettings',
+                  'malformedTools',
                 ].contains(kind),
                 'guidance': 'Your draft is restored; choose an action.',
               },
@@ -89,6 +114,101 @@ void compact(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets(
+    'Model profiles switch locally, preserve drafts and failed edits, and reset only the chosen model',
+    (tester) async {
+      compact(tester);
+      for (final dark in [false, true]) {
+        final bridge = SettingsBridge()..models = ['fixture', 'other'];
+        bridge.profiles['other'] = {
+          'maxOutputTokens': 8192,
+          'timeoutSeconds': 300,
+          'reasoning': 'deepseekThinkingOff',
+        };
+        final chat = ChatController(bridge)
+          ..loading = false
+          ..draft = 'unsent';
+        await chat.refresh();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: doloresTheme(dark),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => RequestSettingsDialog(chat: chat),
+                  ),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('generation-model')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('other').last);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<TextFormField>(
+                find.byKey(const Key('output-token-limit')),
+              )
+              .controller!
+              .text,
+          '8192',
+        );
+        await tester.enterText(
+          find.byKey(const Key('output-token-limit')),
+          '4096',
+        );
+        bridge.failSave = true;
+        await tester.tap(find.byKey(const Key('save-request-settings')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('could not be saved'), findsOneWidget);
+        expect(chat.modelRequestSettings['other']['maxOutputTokens'], 8192);
+        expect(
+          tester
+              .widget<TextFormField>(
+                find.byKey(const Key('output-token-limit')),
+              )
+              .controller!
+              .text,
+          '4096',
+        );
+        bridge.failSave = false;
+        await tester.tap(find.byKey(const Key('save-request-settings')));
+        await tester.pumpAndSettle();
+        expect(chat.model, 'fixture');
+        expect(chat.requestSettings['maxOutputTokens'], 2048);
+        expect(
+          chat.modelRequestSettings['other']['reasoning'],
+          'deepseekThinkingOff',
+        );
+        expect(chat.draft, 'unsent');
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('generation-model')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('other').last);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('reset-request-settings')),
+        );
+        await tester.tap(find.byKey(const Key('reset-request-settings')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-request-settings')));
+        await tester.pumpAndSettle();
+        expect(chat.modelRequestSettings.containsKey('other'), isFalse);
+        expect(chat.draft, 'unsent');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      }
+    },
+  );
   testWidgets(
     'Request settings validate integers, restore defaults locally and preserve draft in both themes',
     (tester) async {
@@ -274,7 +394,13 @@ void main() {
     'Access and context limits offer settings while Stop has no failure retry',
     (tester) async {
       compact(tester);
-      for (final kind in ['access', 'stopped', 'contextLimit']) {
+      for (final kind in [
+        'access',
+        'stopped',
+        'contextLimit',
+        'generationSettings',
+        'malformedTools',
+      ]) {
         final bridge = SettingsBridge()..kind = kind;
         final chat = ChatController(bridge)
           ..loading = false
@@ -288,13 +414,15 @@ void main() {
         expect(find.byKey(const Key('retry-message')), findsNothing);
         expect(
           find.byKey(const Key('failure-connection')),
-          kind == 'access' || kind == 'contextLimit'
+          kind == 'access' || kind == 'contextLimit' || kind == 'malformedTools'
               ? findsOneWidget
               : findsNothing,
         );
         expect(
           find.byKey(const Key('failure-request-settings')),
-          kind == 'contextLimit' ? findsOneWidget : findsNothing,
+          kind == 'contextLimit' || kind == 'generationSettings'
+              ? findsOneWidget
+              : findsNothing,
         );
         expect(chat.draft, 'unsent');
         expect(tester.takeException(), isNull);

@@ -10,6 +10,8 @@ use tokio_util::sync::CancellationToken;
 use url::{Host, Url};
 mod agent;
 mod agent_stream;
+#[cfg(test)]
+mod generation_tests;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 pub const OUTPUT_LIMIT_ERROR: &str =
@@ -29,6 +31,30 @@ fn is_context_limit(value: &Value) -> bool {
                     | "max_context_length_exceeded"
             )
         })
+}
+fn check_generation_rejection(value: &Value) -> Result<(), String> {
+    let param = value
+        .pointer("/error/param")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let message = value
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if [
+        "thinking",
+        "reasoning_effort",
+        "max_tokens",
+        "max_completion_tokens",
+    ]
+    .iter()
+    .any(|field| {
+        param == *field || param.starts_with(&format!("{field}.")) || message.contains(field)
+    }) {
+        return Err("Model rejected generation settings. Open Request settings for this model and choose Provider default or a supported output limit. Your draft and completed file changes are retained; no settings were changed automatically.".into());
+    }
+    Ok(())
 }
 async fn request_error_json(
     response: &mut reqwest::Response,
@@ -52,12 +78,11 @@ async fn check_context_limit(
     response: &mut reqwest::Response,
     cancel: &CancellationToken,
 ) -> Result<(), String> {
-    if request_error_json(response, cancel)
-        .await?
-        .as_ref()
-        .is_some_and(is_context_limit)
-    {
-        return Err(CONTEXT_LIMIT_ERROR.into());
+    if let Some(value) = request_error_json(response, cancel).await? {
+        if is_context_limit(&value) {
+            return Err(CONTEXT_LIMIT_ERROR.into());
+        }
+        check_generation_rejection(&value)?;
     }
     Ok(())
 }
@@ -99,6 +124,7 @@ async fn usage_option_rejected(
     if is_context_limit(&value) {
         return Err(CONTEXT_LIMIT_ERROR.into());
     }
+    check_generation_rejection(&value)?;
     if !matches!(response.status().as_u16(), 400 | 422) {
         return Ok(false);
     }
@@ -177,6 +203,25 @@ pub fn validate_preferences(preferences: &ConnectionPreferences) -> Result<Url, 
 }
 
 impl OpenAiProvider {
+    fn apply_generation_settings(&self, body: &mut Value) {
+        use dolores_core::ReasoningControl::*;
+        match self.settings.reasoning {
+            ProviderDefault => {}
+            DeepseekThinkingOff => {
+                body["thinking"] = json!({"type":"disabled"});
+            }
+            OpenaiLow | OpenaiMedium | OpenaiHigh => {
+                let effort = match self.settings.reasoning {
+                    OpenaiLow => "low",
+                    OpenaiMedium => "medium",
+                    _ => "high",
+                };
+                body.as_object_mut().unwrap().remove("max_tokens");
+                body["max_completion_tokens"] = json!(self.settings.max_output_tokens);
+                body["reasoning_effort"] = json!(effort);
+            }
+        }
+    }
     pub fn new(preferences: &ConnectionPreferences, api_key: String) -> Result<Self, String> {
         Self::with_settings(preferences, api_key, RequestSettings::default())
     }
@@ -413,6 +458,7 @@ impl OpenAiProvider {
         let mut include_usage = true;
         let mut response = loop {
             let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": self.settings.max_output_tokens });
+            self.apply_generation_settings(&mut body);
             if include_usage {
                 body["stream_options"] = json!({"include_usage":true});
             }
@@ -632,6 +678,7 @@ mod tests {
         let settings = RequestSettings {
             max_output_tokens: 4096,
             timeout_seconds: 8,
+            reasoning: Default::default(),
         };
         let provider = OpenAiProvider::with_settings(
             &ConnectionPreferences {
@@ -722,6 +769,7 @@ mod tests {
                 RequestSettings {
                     max_output_tokens: 2048,
                     timeout_seconds: 1,
+                    reasoning: Default::default(),
                 },
             )
             .unwrap();
@@ -775,6 +823,7 @@ mod tests {
                 RequestSettings {
                     max_output_tokens: 2048,
                     timeout_seconds: 1,
+                    reasoning: Default::default(),
                 },
             )
             .unwrap();

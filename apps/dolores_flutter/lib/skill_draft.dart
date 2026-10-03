@@ -198,7 +198,12 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
     }
     final value = await _request('generateSkillDraft', {
       'messageIds': selected.toList(),
-      'settings': {'maxOutputTokens': tokens, 'timeoutSeconds': seconds},
+      'settings': {
+        'maxOutputTokens': tokens,
+        'timeoutSeconds': seconds,
+        if (sources?['settings']?['reasoning'] != null)
+          'reasoning': sources!['settings']['reasoning'],
+      },
     }, 'skillDraft');
     if (!mounted) return;
     setState(() {

@@ -12,6 +12,8 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error.starts_with("Model rejected generation settings.") => ("generationSettings", false, "Open Request settings for this model. Choose Provider default or a supported output limit, then send the restored draft. Completed file changes remain; Dolores will not retry automatically."),
+        error if error.starts_with("Model returned incomplete or invalid tool arguments.") => ("malformedTools", false, "Review completed work in Changes, then narrow the task or choose another tool-capable model. The unfinished call did not run; your draft is restored. No automatic retry."),
         error if error.starts_with("Memory ") || error.starts_with("Saved memory ") => ("memory", false, "Open Memory to review, shorten or disable preferences. Your message was not saved; your draft is restored."),
         error if error.starts_with("Workspace instructions") || error.starts_with("Saved workspace instructions") => ("instructions", false, "Open Instructions to review AGENTS.md again or disable it. Your message was not saved; your draft is restored."),
         error if error.contains("context budget") || error.starts_with("Context window leaves no input room.") || error.starts_with("Model context limit reached.") => ("contextLimit", false, "Review this model’s context window in Model connection, reduce the output token limit, or start a new chat with a shorter message. Already applied tool effects remain."),

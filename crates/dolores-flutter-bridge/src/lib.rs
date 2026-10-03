@@ -299,6 +299,10 @@ enum Command {
     SetRequestSettings {
         settings: RequestSettings,
     },
+    SetModelRequestSettings {
+        preferences: ConnectionPreferences,
+        settings: Option<RequestSettings>,
+    },
     Delete {
         session: String,
     },
@@ -606,7 +610,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.request_settings()?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -694,7 +698,7 @@ impl Engine {
                     messages,
                     &specs,
                     Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),
-                    self.store.request_settings()?,
+                    self.store.effective_request_settings(&preferences)?,
                 )?;
                 let mut summary = ContextSummary::from_messages(&messages, count);
                 summary.tokens = Some(tokens);
@@ -744,6 +748,20 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?
                     .update_request_settings(settings)?;
                 Ok(Value::Null)
+            }
+            Command::SetModelRequestSettings {
+                preferences,
+                settings,
+            } => {
+                let _runtime = self.runtime.enter();
+                self.connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .update_model_request_settings(preferences, settings)?;
+                let preferences = self.store.preferences()?;
+                Ok(
+                    json!({"requestSettings":self.store.effective_request_settings(&preferences)?,"modelRequestSettings":self.store.model_request_settings(&preferences.base_url)?}),
+                )
             }
             Command::Configure {
                 preferences,
@@ -1498,6 +1516,7 @@ mod tests {
         let settings = RequestSettings {
             max_output_tokens: 4096,
             timeout_seconds: 300,
+            reasoning: Default::default(),
         };
         engine
             .call(Command::SetRequestSettings { settings })
@@ -1598,6 +1617,7 @@ mod tests {
                     settings: Some(RequestSettings {
                         max_output_tokens: 2048,
                         timeout_seconds: 1,
+                        reasoning: Default::default(),
                     }),
                     tools: vec![],
                     approval: None,

@@ -122,7 +122,7 @@ impl Engine {
             })
             .collect();
         let token = uuid::Uuid::new_v4().to_string();
-        let result = json!({"token":token,"examples":examples,"hasOlder":page.has_older,"scope":scope,"model":self.store.preferences()?.model,"settings":self.store.request_settings()?});
+        let result = json!({"token":token,"examples":examples,"hasOlder":page.has_older,"scope":scope,"model":self.store.preferences()?.model,"settings":self.store.effective_request_settings(&self.store.preferences()?)?});
         self.skill_review.lock().map_err(|_| STALE)?.take();
         *self.skill_draft_review.lock().map_err(|_| STALE)? = Some(DraftReview {
             token,
@@ -454,6 +454,7 @@ mod tests {
             let saved_settings = dolores_core::RequestSettings {
                 max_output_tokens: configured,
                 timeout_seconds: 90,
+                reasoning: Default::default(),
             };
             store.save_request_settings(&saved_settings).unwrap();
             let engine = Engine::new(
@@ -493,6 +494,7 @@ mod tests {
                     Some(dolores_core::RequestSettings {
                         max_output_tokens: 0,
                         timeout_seconds: 90,
+                        reasoning: Default::default(),
                     }),
                 )
                 .unwrap_err();
@@ -501,6 +503,7 @@ mod tests {
             let override_settings = requested.map(|n| dolores_core::RequestSettings {
                 max_output_tokens: n,
                 timeout_seconds: 120,
+                reasoning: Default::default(),
             });
             engine
                 .generate_skill_draft(

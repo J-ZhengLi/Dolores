@@ -29,7 +29,8 @@ impl OpenAiProvider {
                 return Err("Tool context exceeds the 128 KiB limit.".into());
             }
             let specs: Vec<_> = tools.iter().map(|s| json!({"type":"function","function":{"name":s.name,"description":s.description,"parameters":s.parameters}})).collect();
-            let body = json!({"model":self.model,"messages":messages,"tools":specs,"tool_choice":"auto","parallel_tool_calls":false,"stream":false,"max_tokens":self.settings.max_output_tokens});
+            let mut body = json!({"model":self.model,"messages":messages,"tools":specs,"tool_choice":"auto","parallel_tool_calls":false,"stream":false,"max_tokens":self.settings.max_output_tokens});
+            self.apply_generation_settings(&mut body);
             let mut request = self.client.post(self.endpoint.clone()).json(&body);
             if !self.api_key.is_empty() {
                 request = request.bearer_auth(&self.api_key);

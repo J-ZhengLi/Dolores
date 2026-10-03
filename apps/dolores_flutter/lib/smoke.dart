@@ -691,7 +691,60 @@ Future<void> _run(
       callback!();
     }
 
+    final profileModel = chat.model;
+    final profileDraft = chat.draft;
+    await chat.saveModelRequestSettings(chat.baseUrl, profileModel, {
+      'maxOutputTokens': 8192,
+      'timeoutSeconds': 120,
+      'reasoning': 'deepseekThinkingOff',
+    });
+    await chat.refresh();
+    check(
+      chat.requestSettings['maxOutputTokens'] == 8192 &&
+          chat.modelRequestSettings[profileModel]['reasoning'] ==
+              'deepseekThinkingOff' &&
+          chat.draft == profileDraft,
+      'Model generation profile reloads with explicit reasoning while retaining the draft',
+      checks,
+    );
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before generation profile capture');
+    }
+    unawaited(
+      showDialog<void>(
+        context: smokePageContext,
+        builder: (_) => RequestSettingsDialog(chat: chat),
+      ),
+    );
+    await screenshot(capture, output, 'generation-profile-dark');
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable after generation profile capture');
+    }
+    Navigator.of(smokePageContext).pop();
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    final siblingModel = chat.enabledModels.firstWhere(
+      (id) => id != profileModel,
+    );
+    await chat.selectModel(siblingModel);
+    check(
+      chat.requestSettings['maxOutputTokens'] == 4096 &&
+          !chat.requestSettings.containsKey('reasoning') &&
+          chat.draft == profileDraft,
+      'Switching models loads the sibling defaults without inheriting a reasoning override',
+      checks,
+    );
+    await chat.selectModel(profileModel);
+    await chat.saveModelRequestSettings(chat.baseUrl, profileModel, null);
+    check(
+      chat.requestSettings['maxOutputTokens'] == 4096 &&
+          !chat.modelRequestSettings.containsKey(profileModel),
+      'Removing only the selected model profile restores application settings',
+      checks,
+    );
     final memoryDraft = chat.draft;
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before memory capture');
+    }
     final memoryView = showMemory(smokePageContext, chat);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     check(chat.changing, 'Memory locks chat changes even in Side mode', checks);

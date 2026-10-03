@@ -207,6 +207,7 @@ impl OpenAiProvider {
         }
         let specs: Vec<_> = tools.iter().map(|s| json!({"type":"function","function":{"name":s.name,"description":s.description,"parameters":s.parameters}})).collect();
         let mut body = json!({"model":self.model,"messages":messages,"tools":specs,"tool_choice":"auto","parallel_tool_calls":false,"stream":true,"max_tokens":self.settings.max_output_tokens,"stream_options":{"include_usage":true}});
+        self.apply_generation_settings(&mut body);
         let mut include_usage = true;
         let mut response = loop {
             let mut request = self.client.post(self.endpoint.clone()).json(&body);

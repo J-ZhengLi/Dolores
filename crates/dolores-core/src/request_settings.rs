@@ -1,10 +1,28 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ReasoningControl {
+    #[default]
+    ProviderDefault,
+    DeepseekThinkingOff,
+    OpenaiLow,
+    OpenaiMedium,
+    OpenaiHigh,
+}
+impl ReasoningControl {
+    pub fn is_default(&self) -> bool {
+        *self == Self::ProviderDefault
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RequestSettings {
     pub max_output_tokens: u32,
     pub timeout_seconds: u32,
+    #[serde(default, skip_serializing_if = "ReasoningControl::is_default")]
+    pub reasoning: ReasoningControl,
 }
 
 impl Default for RequestSettings {
@@ -12,6 +30,7 @@ impl Default for RequestSettings {
         Self {
             max_output_tokens: 2048,
             timeout_seconds: 180,
+            reasoning: ReasoningControl::ProviderDefault,
         }
     }
 }
@@ -44,7 +63,8 @@ mod tests {
             assert_eq!(
                 RequestSettings {
                     max_output_tokens: tokens,
-                    timeout_seconds: seconds
+                    timeout_seconds: seconds,
+                    ..Default::default()
                 }
                 .validate()
                 .is_ok(),
@@ -58,6 +78,16 @@ mod tests {
             r#"{"maxOutputTokens":2048,"timeoutSeconds":180,"automaticRetry":true}"#,
         ] {
             assert!(serde_json::from_str::<RequestSettings>(json).is_err());
+        }
+    }
+    #[test]
+    fn old_settings_keep_wire_shape_and_unknown_reasoning_is_rejected() {
+        let old = r#"{"maxOutputTokens":2048,"timeoutSeconds":180}"#;
+        let settings: RequestSettings = serde_json::from_str(old).unwrap();
+        assert_eq!(settings.reasoning, ReasoningControl::ProviderDefault);
+        assert_eq!(serde_json::to_string(&settings).unwrap(), old);
+        for reasoning in ["auto", "deepseekThinkingOn", "arbitrary"] {
+            assert!(serde_json::from_value::<RequestSettings>(serde_json::json!({"maxOutputTokens":2048,"timeoutSeconds":180,"reasoning":reasoning})).is_err());
         }
     }
 }

@@ -185,6 +185,11 @@ class ChatController extends ChangeNotifier {
     'maxOutputTokens': 2048,
     'timeoutSeconds': 180,
   };
+  Map<String, dynamic> defaultRequestSettings = {
+    'maxOutputTokens': 2048,
+    'timeoutSeconds': 180,
+  };
+  Map<String, dynamic> modelRequestSettings = {};
   bool rememberConnection = false, hasSavedKey = false;
   bool loading = true,
       configured = false,
@@ -365,6 +370,39 @@ class ChatController extends ChangeNotifier {
     requestSettings =
         (state['requestSettings'] as Map?)?.cast<String, dynamic>() ??
         {'maxOutputTokens': 2048, 'timeoutSeconds': 180};
+    defaultRequestSettings =
+        (state['defaultRequestSettings'] as Map?)?.cast<String, dynamic>() ??
+        Map.of(requestSettings);
+    modelRequestSettings =
+        (state['modelRequestSettings'] as Map?)?.cast<String, dynamic>() ?? {};
+  }
+
+  Future<void> saveModelRequestSettings(
+    String endpoint,
+    String name,
+    Map<String, dynamic>? settings,
+  ) async {
+    if (busy || changing || loading) {
+      throw StateError('Finish the current action first.');
+    }
+    changing = true;
+    _notify();
+    try {
+      final result = await bridge.call({
+        'command': 'setModelRequestSettings',
+        'preferences': {'baseUrl': endpoint, 'model': name},
+        'settings': settings,
+      });
+      requestSettings = (result['requestSettings'] as Map)
+          .cast<String, dynamic>();
+      modelRequestSettings = (result['modelRequestSettings'] as Map)
+          .cast<String, dynamic>();
+      contextSummary = null;
+      contextBasis = null;
+    } finally {
+      changing = false;
+      _notify();
+    }
   }
 
   Future<void> saveRequestSettings(Map<String, dynamic> settings) async {
