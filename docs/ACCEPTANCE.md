@@ -1,5 +1,17 @@
 # Dolores acceptance — 2026-10-03
 
+## Brick 7.1 — Local task feedback
+
+Saved replies and trajectory rows offer Worked / Needs work with an optional note. Feedback compares the exact saved reply/metadata and its own revision, stays local, preserves command evidence and never feeds model context or learning. Clear retains a revision tombstone; deleting a chat cascades its feedback. Conversation exports retain the assessment explicitly. See [feedback design](design/task-feedback.md).
+
+- Rust workspace: **197 passed, 1 ignored** native-vault opt-in; all-target Clippy clean. Basic correction/restart/export/deletion and unchanged context are tested. Edge cases cover wrong chat/user-message/stale reply/revision, excessive/control/credential-like notes and injected transactional failure retaining the previous assessment.
+- Flutter: **144 tests passed**, analysis clean. Three new compact light/dark and pending-save cases preserve notes after stale/save failure, bind the original model/reply, retry explicitly, exclude duplicates/Close and clear using the saved revision. Compact light/dark widget captures were inspected; these are not native input UAT. No composer changes or automatic request were added.
+- `scripts/test-task-feedback.py` save/restore through the normal bundled FFI, SQLite and independent HTTP fixture passes: **two fixture requests during save, zero after restart**. Wrong-scope/source/stale writes refuse; an injected SQLite failure preserves feedback and a fresh retry succeeds. JSON/Markdown exports retain the note, and the next provider request excludes feedback. Restart restores exact messages/feedback; clear rejects stale re-creation. A test-driver extension error was corrected before the fresh passing run; no product retry occurred.
+- Authorized **Qwen/Qwen3.5-2B**, 1024 output tokens/60 seconds: the isolated one-digit arithmetic probe passed the exact check in **0.31 s**, and its synthetic Worked assessment persisted on the original reply. This is a small routine flow, not evidence of broad model competence.
+- Normal Windows release rebuilt and visibly launched. SQLite is **schema 18** with one empty new table; all **19 pre-existing table row digests** match the fresh baseline. Provider/key, selected model and history remain intact. Public scan covers **303 paths**, with no known personal-path/email matches or Gitleaks findings. Native input UAT, macOS/Linux and low-end resource acceptance remain open.
+
+Feedback is an assessment, not a success score or promotion permission. Brick 7.2 adds frozen comparisons; brick 7.3 makes the selected regression checks repeatable. There is no new dependency, resident worker, model retry or default increase.
+
 ## Brick 6.8 — Reliable exact coding edits
 
 A failing regression confirmed that a multiline LF proposal could not match a CRLF source. The edit tool now adapts only proposal line breaks to a file's uniform LF/CRLF style; characters, indentation and a unique match remain exact. Review shows the actual resulting diff. Mixed/lone-CR files retain byte-exact matching and get actionable single-line/original-ending guidance when adaptation would be needed. Raw snapshots, one-use approval, size bounds, journal and revert remain intact. See [exact-edit design](design/reliable-exact-edits.md).

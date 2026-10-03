@@ -68,6 +68,10 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    SaveTaskFeedback {
+        session: String,
+        draft: Box<dolores_core::FeedbackDraft>,
+    },
     McpSettings {
         session: String,
     },
@@ -471,6 +475,9 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::SaveTaskFeedback { session, draft } => {
+                Ok(json!(self.store.save_task_feedback(&session, &draft)?))
+            }
             Command::McpSettings { session } => self.mcp_settings(&session),
             Command::InspectMcp {
                 id,

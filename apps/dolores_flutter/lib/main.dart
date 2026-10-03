@@ -11,6 +11,7 @@ import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
+import 'task_feedback.dart';
 import 'inspector.dart';
 import 'changes.dart';
 import 'request_settings.dart';
@@ -214,6 +215,7 @@ class _ChatPageState extends State<ChatPage> {
     Key? key,
     Map<String, dynamic>? metadata,
     int? messageId,
+    Map<String, dynamic>? feedback,
   }) {
     final user = role == 'user';
     return Padding(
@@ -332,6 +334,16 @@ class _ChatPageState extends State<ChatPage> {
                   else if (metadata?['agent']?['tools'] is List)
                     ToolRecords(records: metadata!['agent']['tools'] as List),
                   UsageDetails(metadata: metadata),
+                  if (messageId != null)
+                    TaskFeedbackButton(
+                      chat: chat,
+                      message: {
+                        'id': messageId,
+                        'content': text,
+                        'metadata': metadata,
+                        'feedback': feedback,
+                      },
+                    ),
                 ],
               ],
             ),
@@ -897,6 +909,8 @@ class _ChatPageState extends State<ChatPage> {
                                       metadata: (item['metadata'] as Map?)
                                           ?.cast<String, dynamic>(),
                                       messageId: item['id'] as int?,
+                                      feedback: (item['feedback'] as Map?)
+                                          ?.cast<String, dynamic>(),
                                       key: ValueKey(
                                         '${chat.session}:${item['id'] ?? index}',
                                       ),

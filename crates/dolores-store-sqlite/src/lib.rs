@@ -7,6 +7,7 @@ mod automatic_memory;
 #[cfg(test)]
 mod change_tests;
 mod changes;
+mod feedback;
 mod generation_profiles;
 mod history;
 mod instructions;
@@ -112,6 +113,11 @@ impl SqliteStore {
                 CREATE TABLE model_request_settings (base_url TEXT NOT NULL, model TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(base_url,model));
                 PRAGMA user_version=17; COMMIT;").map_err(storage_error)?;
         }
+        if version < 18 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE task_feedback (message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, data TEXT NOT NULL);
+                PRAGMA user_version=18; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -122,6 +128,13 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn save_task_feedback(
+        &self,
+        session: &str,
+        draft: &dolores_core::FeedbackDraft,
+    ) -> Result<dolores_core::TaskFeedback, String> {
+        self.write_task_feedback(session, draft)
+    }
     fn mcp_connection(&self, root: &str) -> Result<Option<dolores_core::McpConnection>, String> {
         self.read_mcp(root)
     }
@@ -924,7 +937,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 17);
+        assert_eq!(version, 18);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

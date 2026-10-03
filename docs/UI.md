@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Task feedback
+
+Saved assistant replies and trajectory rows offer a quiet Task feedback action beside existing run details. Use the shared InspectorFrame, palette and scrollable compact form with Worked / Needs work, optional note and fixed Save / Clear controls. Explain that the local assessment is separate from command evidence and included in exports; it never changes model context or learning. Show the original reply details and pause reason. Pending saves exclude duplicate edits/dismissal; failed saves preserve notes and bring errors into view. Keep the composer unchanged.
+
 ## Failed command checks
 
 Command cards label Failed with the actual exit, Verification incomplete for incomplete capture/process evidence, and Exited 0 for complete zero-exit receipts. Keep stdout/stderr literal and expandable, including legacy receipts. A commandReview pause uses muted explanatory text and Repair and verify in the existing Continue position. Show the inherited saved command receipts even when the latest segment has none. Preserve draft exclusion, latest-message binding, loading/duplicate locks and fresh-approval explanation. Step/output pauses keep Continue. The quiet palette, composer and layout stay unchanged; never present model prose as a verified result.

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
+mod feedback;
+pub use feedback::*;
 mod agent;
 mod command_outcome;
 mod continuation;
@@ -98,6 +100,8 @@ pub struct StoredMessage {
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<TurnMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback: Option<TaskFeedback>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -212,6 +216,9 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn save_task_feedback(&self, _: &str, _: &FeedbackDraft) -> Result<TaskFeedback, String> {
+        Err("This storage plugin does not support task feedback.".into())
+    }
     fn commit_continuation(
         &self,
         _: &str,

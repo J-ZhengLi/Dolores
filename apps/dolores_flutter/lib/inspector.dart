@@ -7,6 +7,7 @@ import 'theme.dart';
 import 'usage_details.dart';
 import 'tool_activity.dart';
 import 'model_steps.dart';
+import 'task_feedback.dart';
 
 Future<void> showContextPreview(
   BuildContext context,
@@ -614,6 +615,10 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
                                     steps: metadata!['agent']['steps'] as List,
                                   ),
                                 UsageDetails(metadata: metadata),
+                                TaskFeedbackButton(
+                                  chat: chat,
+                                  message: message,
+                                ),
                               ],
                             ],
                           ),
