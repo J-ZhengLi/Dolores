@@ -122,7 +122,7 @@ impl Engine {
             })
             .collect();
         let token = uuid::Uuid::new_v4().to_string();
-        let result = json!({"token":token,"examples":examples,"hasOlder":page.has_older,"scope":scope,"model":self.store.preferences()?.model});
+        let result = json!({"token":token,"examples":examples,"hasOlder":page.has_older,"scope":scope,"model":self.store.preferences()?.model,"settings":self.store.request_settings()?});
         self.skill_review.lock().map_err(|_| STALE)?.take();
         *self.skill_draft_review.lock().map_err(|_| STALE)? = Some(DraftReview {
             token,
@@ -144,6 +144,7 @@ impl Engine {
         session: String,
         token: String,
         ids: Vec<i64>,
+        settings: Option<dolores_core::RequestSettings>,
     ) -> Result<Value, String> {
         let mut review = self
             .skill_draft_review
@@ -173,13 +174,14 @@ impl Engine {
             .connection
             .lock()
             .map_err(|_| "Connection unavailable.")?
-            .review_provider()?;
+            .skill_draft_provider(settings)?;
+        let settings = provider.request_settings().unwrap_or_default();
         let model = self.store.preferences()?.model;
         let (prompt, tokens) = dolores_core::prepare_token_context(
             prompt,
             &[],
             provider.context_window_tokens(),
-            provider.request_settings().unwrap_or_default(),
+            settings,
         )?;
         let (output, events) = mpsc::channel(8);
         let cancel = CancellationToken::new();
@@ -195,7 +197,11 @@ impl Engine {
             let result = async {
                 let (text, usage) = super::memory_suggestions::collect_review(
                     provider, prompt, cancel.clone(), "Skill draft",
-                ).await?;
+                ).await.map_err(|error| {
+                    if error == dolores_provider_openai::OUTPUT_LIMIT_ERROR {
+                        format!("Skill draft reached its {}-token output limit. Increase Draft output tokens and generate again, or select less source text. Nothing was saved.", settings.max_output_tokens)
+                    } else { error }
+                })?;
                 let draft = dolores_core::parse_skill_draft(&text, &review.examples)?;
                 let reader = store.clone();
                 let frozen = review.clone();
@@ -206,7 +212,7 @@ impl Engine {
                 review.draft = Some(draft.clone());
                 review.model = Some(model.clone());
                 let warning = dolores_core::skill_document(&draft.name, &draft.description, &draft.instructions).err();
-                let result = json!({"token":review.token,"draft":draft,"model":model,"usage":usage,"tokens":tokens,"warning":warning});
+                let result = json!({"token":review.token,"draft":draft,"model":model,"usage":usage,"tokens":tokens,"warning":warning,"settings":settings});
                 publish(&slot, &cancel, &old, review)?;
                 Ok::<_, String>(result)
             }.await;
@@ -386,6 +392,159 @@ impl Engine {
 mod tests {
     use super::*;
     use dolores_store_sqlite::SqliteStore;
+    #[test]
+    fn generation_can_finish_with_the_configured_output_budget() {
+        use std::io::{Read, Write};
+        for (configured, requested, expected, success) in [
+            (4096, None, 4096, true),
+            (1024, None, 1024, false),
+            (2048, Some(8192), 8192, true),
+        ] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}/v1", listener.local_addr().unwrap());
+            let fixture = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let request = loop {
+                    let mut chunk = [0; 4096];
+                    let n = socket.read(&mut chunk).unwrap();
+                    assert_ne!(n, 0);
+                    bytes.extend_from_slice(&chunk[..n]);
+                    if let Some(offset) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&bytes[..offset]);
+                        let length: usize = headers
+                            .lines()
+                            .find_map(|line| {
+                                line.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")
+                                    .map(|n| n.trim().parse().unwrap())
+                            })
+                            .unwrap();
+                        if bytes.len() >= offset + 4 + length {
+                            break serde_json::from_slice::<Value>(
+                                &bytes[offset + 4..offset + 4 + length],
+                            )
+                            .unwrap();
+                        }
+                    }
+                };
+                assert!(request.get("tools").is_none());
+                let complete = request["max_tokens"].as_u64().unwrap() >= 4096;
+                let text = if complete {
+                    json!({"name":"review","description":"When reviewing work.","instructions":"Use focused tests.","evidence":[{"messageId":2,"quote":"Use focused tests."}]}).to_string()
+                } else {
+                    "{\"name\":\"review\",\"instructions\":\"".into()
+                };
+                let frames = format!(
+                    "data: {}\n\ndata: {}\n\ndata: [DONE]\n\n",
+                    json!({"choices":[{"delta":{"content":text},"finish_reason":null}]}),
+                    json!({"choices":[{"delta":{},"finish_reason":if complete {"stop"} else {"length"}}]})
+                );
+                write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", frames.len(), frames).unwrap();
+                request
+            });
+            let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+            store.create("side").unwrap();
+            store
+                .commit_turn("side", "Review", "Use focused tests.")
+                .unwrap();
+            let saved_settings = dolores_core::RequestSettings {
+                max_output_tokens: configured,
+                timeout_seconds: 90,
+            };
+            store.save_request_settings(&saved_settings).unwrap();
+            let engine = Engine::new(
+                store.clone(),
+                Arc::new(crate::connection::testing::MemoryCredentials::default()),
+            )
+            .unwrap();
+            {
+                let _entered = engine.runtime.enter();
+                engine
+                    .connection
+                    .lock()
+                    .unwrap()
+                    .configure(
+                        dolores_core::ConnectionPreferences {
+                            base_url: endpoint,
+                            model: "fixture".into(),
+                        },
+                        Some(String::new()),
+                        false,
+                    )
+                    .unwrap();
+            }
+            let review = engine
+                .review_skill_examples("side", SkillScope::Global)
+                .unwrap();
+            assert_eq!(review["settings"], json!(saved_settings));
+            let mut active = None;
+            let token = review["token"].as_str().unwrap().to_string();
+            let invalid = engine
+                .generate_skill_draft(
+                    &mut active,
+                    0,
+                    "side".into(),
+                    token.clone(),
+                    vec![2],
+                    Some(dolores_core::RequestSettings {
+                        max_output_tokens: 0,
+                        timeout_seconds: 90,
+                    }),
+                )
+                .unwrap_err();
+            assert!(invalid.contains("Output token limit"));
+            assert!(active.is_none());
+            let override_settings = requested.map(|n| dolores_core::RequestSettings {
+                max_output_tokens: n,
+                timeout_seconds: 120,
+            });
+            engine
+                .generate_skill_draft(
+                    &mut active,
+                    1,
+                    "side".into(),
+                    token.clone(),
+                    vec![2],
+                    override_settings,
+                )
+                .unwrap();
+            let event = engine.runtime.block_on(async {
+                tokio::time::timeout(
+                    Duration::from_secs(5),
+                    active.as_mut().unwrap().events.recv(),
+                )
+                .await
+                .unwrap()
+                .unwrap()
+            });
+            let request = fixture.join().unwrap();
+            assert_eq!(request["max_tokens"], expected);
+            if success {
+                assert!(event.get("error").is_none(), "{event}");
+                assert_eq!(event["skillDraft"]["draft"]["name"], "review");
+                assert_eq!(
+                    event["skillDraft"]["settings"]["timeoutSeconds"],
+                    if requested.is_some() { 120 } else { 90 }
+                );
+            } else {
+                let error = event["error"].as_str().unwrap();
+                assert!(
+                    error.contains("1024-token output limit")
+                        && error.contains("Increase Draft output tokens"),
+                    "{error}"
+                );
+                let slot = engine.skill_draft_review.lock().unwrap();
+                assert_eq!(slot.as_ref().unwrap().token, token);
+                assert!(slot.as_ref().unwrap().draft.is_none());
+            }
+            assert!(store.global_skills().unwrap().is_empty());
+            assert_eq!(store.request_settings().unwrap(), saved_settings);
+        }
+    }
     #[test]
     fn saved_entry_limit_is_checked_before_provider_setup_and_allows_replacing_an_entry() {
         let temp = tempfile::tempdir().unwrap();

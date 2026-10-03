@@ -47,11 +47,12 @@ class Fixture(BaseHTTPRequestHandler):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         requests.append(request)
         if mode == 'slow': time.sleep(2)
+        if mode == 'long': time.sleep(31)
         assert request['model'] == 'fixture'
         assert 'tools' not in request and 'tool_choice' not in request
         assert len(request['messages']) == 2
         if request['messages'][0]['content'].startswith('You draft reusable instructions for Dolores'):
-            assert request['max_tokens'] == 1024
+            assert request['max_tokens'] in (2048, 4096)
             example = json.loads(request['messages'][1]['content'])['examples'][0]
             text = json.dumps({'name': 'review', 'description': 'Use when reviewing synthetic work.', 'instructions': 'Include SKILL_PASS in the review.', 'evidence': [{'messageId': example['messageId'], 'quote': 'Use focused tests.'}]})
         elif request['messages'][-1]['content'].startswith('skill-test'):
@@ -60,14 +61,16 @@ class Fixture(BaseHTTPRequestHandler):
             if mode == 'regress': text = 'FAIL'
         else:
             text = 'Use focused tests.'
-        events = [{'choices': [{'delta': {'content': text}, 'finish_reason': None}]}, {'choices': [{'delta': {}, 'finish_reason': 'stop'}]}, {'choices': [], 'usage': {'prompt_tokens': 100, 'completion_tokens': 20, 'total_tokens': 120}}]
+        truncated = mode == 'length' and request['max_tokens'] < 4096
+        if truncated: text = text[:50]
+        events = [{'choices': [{'delta': {'content': text}, 'finish_reason': None}]}, {'choices': [{'delta': {}, 'finish_reason': 'length' if truncated else 'stop'}]}, {'choices': [], 'usage': {'prompt_tokens': 100, 'completion_tokens': 20, 'total_tokens': 120}}]
         try:
             self.send_response(200); self.send_header('Content-Type', 'text/event-stream'); self.end_headers()
             self.wfile.write((''.join('data: '+json.dumps(v)+'\n\n' for v in events)+'data: [DONE]\n\n').encode())
         except (BrokenPipeError, ConnectionResetError): pass
 
-def finish(number, error=False):
-    deadline = time.monotonic()+15
+def finish(number, error=False, timeout=15):
+    deadline = time.monotonic()+timeout
     while time.monotonic() < deadline:
         for event in call('poll', id=number):
             if event['type'] == 'done':
@@ -93,9 +96,21 @@ if args.stage == 'save':
         assert not envelope('reviewSkillExamples', session=session, scope='project')['ok']
         assert not envelope('promoteSkillDraft', session=session, token=sources['token'])['ok']
         assert not envelope('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[999])['ok']
+        assert sources['settings'] == {'maxOutputTokens': 2048, 'timeoutSeconds': 180}
+        mode = 'length'
         call('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']])
+        exhausted = finish(2, error=True)
+        assert '2048-token output limit' in exhausted['error'] and 'Increase Draft output tokens' in exhausted['error']
+        assert len(requests) == 2 and not call('projectSkills', session=session, scope='global')['items']
+        assert not envelope('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']], settings={'maxOutputTokens': 0, 'timeoutSeconds': 90})['ok']
+        assert len(requests) == 2
+        mode = 'long'
+        call('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']], settings={'maxOutputTokens': 4096, 'timeoutSeconds': 90})
         assert not envelope('reviewSkillExamples', session=session, scope='global')['ok']
-        draft = finish(2)['skillDraft']
+        draft = finish(2, timeout=45)['skillDraft']
+        assert requests[-1]['max_tokens'] == 4096 and draft['settings'] == {'maxOutputTokens': 4096, 'timeoutSeconds': 90}
+        mode = 'normal'
+        assert call('bootstrap')['requestSettings'] == {'maxOutputTokens': 2048, 'timeoutSeconds': 180}
         assert not call('projectSkills', session=session, scope='global')['items']
         trials = [{'prompt': 'skill-test-one', 'required': ['SKILL_PASS'], 'forbidden': ['FAIL']}, {'prompt': 'skill-test-two', 'required': ['SKILL_PASS'], 'forbidden': []}]
         bad = {**draft['draft'], 'evidence': [{'messageId': 999, 'quote': 'Invented'}]}
@@ -152,7 +167,7 @@ if args.stage == 'save':
         call('discardSkillDraft', token=tested['token'])
         state_file.write_text(json.dumps({'session': session, 'evaluation': evaluation}), encoding='utf-8')
         with sqlite3.connect(fixture / 'data/dolores.db') as db: assert db.execute('PRAGMA user_version').fetchone()[0] == 14
-        print(json.dumps({'ok': True, 'stage': 'save', 'requests': len(requests), 'checks': 'tool-free wire, frozen tests, tie/regression gate, one-use promotion, edits, Stop, unchanged transcript/schema'}))
+        print(json.dumps({'ok': True, 'stage': 'save', 'requests': len(requests), 'checks': 'output-limit refusal, explicit larger retry, 31-second draft, unchanged settings, tool-free wire, frozen tests, tie/regression gate, one-use promotion, edits, Stop, unchanged transcript/schema'}))
     finally:
         call('shutdown'); server.shutdown(); server.server_close()
 else:

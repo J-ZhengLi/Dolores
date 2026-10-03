@@ -4,6 +4,8 @@
 
 Use **Draft from chat** to select useful completed exchanges, generate and edit a reusable workflow, then compare responses on 1–3 tests. Review both responses and choose **Activate tested skill** only after every test passes and the score improves over the baseline. Evaluation is tool-free and checks exact snippets; it measures those cases only. Drafts and test receipts are saved locally after activation; no skill file is written. See [draft and evaluation design](docs/design/skill-drafts.md).
 
+Draft generation starts with your model's output-token and timeout settings. Adjust **Draft output tokens** or **Draft timeout** in the dialog for that draft alone. If output is cut short, your selections remain available for explicit retry; no partial skill is saved.
+
 History browsing keeps one conversation-list page and one message page in memory. Use Older/Newer to reach all saved chats and messages, or Latest to return to the newest messages. The conversation header exports complete Markdown or JSON to a new file through the native Save dialog. Drafts and scroll positions restore for the 20 most recently visited views during the current launch. [UI.md](docs/UI.md) is the shared visual contract, backed by Flutter's `lib/theme.dart`; system light/dark mode remains the default.
 
 A lightweight desktop agent harness, inspired by the gradual awakening of Dolores in *Westworld*. Start with conversation; add tools, memory, reusable skills and evaluation one brick at a time.

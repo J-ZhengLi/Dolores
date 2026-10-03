@@ -2,6 +2,8 @@
 
 ## Skill drafts and evaluation
 
+Before Generate, show Draft output tokens and Draft timeout with the saved model settings as initial values. Edits apply to this draft only; explain that larger allowances may increase usage while the skill stays within 8 KiB. Lock these fields during requests. An output-limit error names the allowance and points to Draft output tokens; preserve selected exchanges for manual retry and bring the error into view. No hidden drafting token/deadline cap or automatic increased-budget retry is permitted.
+
 Skills offers Draft from chat in the selected Project/Global scope. Use a nested InspectorFrame with a scrolling body and fixed wrapping Generate/Evaluate/Activate actions. Completed exchanges start unchecked; show full expandable You/Dolores text and explain what Generate sends. The editable draft has name, trigger description and Markdown instructions, with source evidence expandable. Test prompts and required/forbidden exact snippets are editable; allow up to three tests. Explain tool-free fresh-response context, request limits and the limited meaning of literal checks. Show baseline/candidate scores, full responses, usage, settings and expandable exact tested requests. Editing invalidates the prior activation action, and a tie or incomplete comparison never enables it. Activate tested skill is separate from Evaluate. Pending calls disable edits/closing/duplicates while keeping Stop; errors preserve corrections. Saved generated versions show their historical receipt and local origin without a misleading missing-file notice. Keep chat changes locked throughout and preserve the existing composer/theme.
 
 ## Reviewed skills

@@ -12,6 +12,8 @@ mod agent;
 mod agent_stream;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
+pub const OUTPUT_LIMIT_ERROR: &str =
+    "Response reached the model output limit. Try a shorter request.";
 const CONTEXT_LIMIT_ERROR: &str = "Model context limit reached. Check this model’s context window, shorten the message, or start a new chat.";
 
 fn is_context_limit(value: &Value) -> bool {
@@ -469,10 +471,7 @@ impl OpenAiProvider {
                 };
                 if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
                     if reason == "length" {
-                        return Err(
-                            "Response reached the model output limit. Try a shorter request."
-                                .into(),
-                        );
+                        return Err(OUTPUT_LIMIT_ERROR.into());
                     }
                     if reason != "stop" {
                         return Err("Provider finished without a complete text response.".into());

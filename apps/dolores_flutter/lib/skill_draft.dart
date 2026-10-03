@@ -45,7 +45,9 @@ class SkillDraftInspector extends StatefulWidget {
 class _SkillDraftInspectorState extends State<SkillDraftInspector> {
   final name = TextEditingController(),
       description = TextEditingController(),
-      instructions = TextEditingController();
+      instructions = TextEditingController(),
+      outputTokens = TextEditingController(text: '2048'),
+      timeoutSeconds = TextEditingController(text: '180');
   final trials = [_Trial()];
   final selected = <int>{};
   final _scroll = ScrollController();
@@ -69,7 +71,14 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
     super.initState();
     _act(() async {
       final value = await _call('reviewSkillExamples') as Map;
-      if (mounted) setState(() => sources = value.cast<String, dynamic>());
+      if (mounted) {
+        setState(() {
+          sources = value.cast<String, dynamic>();
+          final settings = value['settings'] as Map?;
+          outputTokens.text = '${settings?['maxOutputTokens'] ?? 2048}';
+          timeoutSeconds.text = '${settings?['timeoutSeconds'] ?? 180}';
+        });
+      }
     });
   }
 
@@ -84,6 +93,8 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
     _scroll.dispose();
     description.dispose();
     instructions.dispose();
+    outputTokens.dispose();
+    timeoutSeconds.dispose();
     for (final t in trials) {
       t.dispose();
     }
@@ -99,7 +110,12 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
     try {
       await action();
     } catch (failure) {
-      if (mounted) setState(() => error = failure.toString());
+      if (mounted) {
+        setState(() => error = failure.toString());
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -136,7 +152,11 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
     });
     await _call(command, {'id': id, 'token': token, ...args});
     final deadline = DateTime.now().add(
-      Duration(seconds: command == 'generateSkillDraft' ? 40 : 80),
+      Duration(
+        seconds: command == 'generateSkillDraft'
+            ? ((args['settings'] as Map)['timeoutSeconds'] as int) + 10
+            : 80,
+      ),
     );
     while (mounted) {
       final events = await _call('poll', {'id': id}) as List;
@@ -167,8 +187,18 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
   }
 
   Future<void> _generate() => _act(() async {
+    FocusScope.of(context).unfocus();
+    final tokens = int.tryParse(outputTokens.text.trim());
+    final seconds = int.tryParse(timeoutSeconds.text.trim());
+    if (tokens == null || tokens < 1 || tokens > 32768) {
+      throw 'Draft output tokens must be between 1 and 32,768.';
+    }
+    if (seconds == null || seconds < 1 || seconds > 900) {
+      throw 'Draft timeout must be between 1 and 900 seconds.';
+    }
     final value = await _request('generateSkillDraft', {
       'messageIds': selected.toList(),
+      'settings': {'maxOutputTokens': tokens, 'timeoutSeconds': seconds},
     }, 'skillDraft');
     if (!mounted) return;
     setState(() {
@@ -265,7 +295,33 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Latest 20 exchanges · 16 KiB combined. One tool-free request, up to 1,024 output tokens. No skill is saved yet.',
+                      'Latest 20 exchanges · 16 KiB combined. One tool-free request. No skill is saved yet.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('skill-draft-output-tokens'),
+                      controller: outputTokens,
+                      enabled: !busy,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Draft output tokens',
+                        helperText: '1–32,768 · includes model reasoning where applicable',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('skill-draft-timeout'),
+                      controller: timeoutSeconds,
+                      enabled: !busy,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Draft timeout (seconds)',
+                        helperText: '1–900',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Starts with your model settings. Changes apply to this draft only. A larger allowance may use more tokens; it does not increase the 8 KiB skill limit.',
                     ),
                     if (examples.isEmpty && !busy)
                       const Text(

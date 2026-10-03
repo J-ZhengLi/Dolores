@@ -73,6 +73,7 @@ enum Command {
         token: String,
         #[serde(rename = "messageIds")]
         message_ids: Vec<i64>,
+        settings: Option<RequestSettings>,
     },
     EvaluateSkillDraft {
         id: u64,
@@ -426,7 +427,8 @@ impl Engine {
                 session,
                 token,
                 message_ids,
-            } => self.generate_skill_draft(&mut active, id, session, token, message_ids),
+                settings,
+            } => self.generate_skill_draft(&mut active, id, session, token, message_ids, settings),
             Command::EvaluateSkillDraft {
                 id,
                 session,

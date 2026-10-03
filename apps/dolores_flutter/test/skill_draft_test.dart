@@ -10,7 +10,8 @@ class DraftBridge implements ChatBridge {
       cancelled = false,
       fail = false,
       tied = false,
-      repairable = false;
+      repairable = false,
+      outputLimited = false;
   String running = '';
   @override
   Future<void> open() async {}
@@ -23,6 +24,7 @@ class DraftBridge implements ChatBridge {
       case 'reviewSkillExamples':
         return {
           'token': 'sources',
+          'settings': {'maxOutputTokens': 4096, 'timeoutSeconds': 90},
           'examples': [
             {
               'userId': 1,
@@ -59,6 +61,14 @@ class DraftBridge implements ChatBridge {
           ];
         }
         if (running == 'generateSkillDraft') {
+          if (outputLimited) {
+            return [
+              {
+                'type': 'done',
+                'error': 'Skill draft reached its 4096-token output limit. Increase Draft output tokens and generate again. Nothing was saved.',
+              },
+            ];
+          }
           return [
             {
               'type': 'done',
@@ -173,6 +183,122 @@ Future<void> generate(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'draft limits start from model settings and failure allows an explicit larger retry',
+    (tester) async {
+      final bridge = DraftBridge()..outputLimited = true;
+      await open(tester, bridge, true);
+      await reveal(tester, 'skill-draft-output-tokens');
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('skill-draft-output-tokens')),
+            )
+            .controller!
+            .text,
+        '4096',
+      );
+      await reveal(tester, 'skill-draft-timeout');
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('skill-draft-timeout')))
+            .controller!
+            .text,
+        '90',
+      );
+      await generate(tester);
+      expect(
+        find.textContaining('Increase Draft output tokens'),
+        findsOneWidget,
+      );
+      expect(
+        bridge.commands
+            .where((c) => c['command'] == 'generateSkillDraft')
+            .length,
+        1,
+      );
+      expect(
+        bridge.commands.where((c) => c['command'] == 'promoteSkillDraft'),
+        isEmpty,
+      );
+      await reveal(tester, 'skill-draft-output-tokens');
+      await tester.enterText(
+        find.byKey(const Key('skill-draft-output-tokens')),
+        '8192',
+      );
+      await reveal(tester, 'skill-draft-timeout');
+      await tester.enterText(
+        find.byKey(const Key('skill-draft-timeout')),
+        '240',
+      );
+      bridge.outputLimited = false;
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.tap(find.byKey(const Key('generate-skill-draft')));
+      await tester.pumpAndSettle();
+      final requests = bridge.commands
+          .where((c) => c['command'] == 'generateSkillDraft')
+          .toList();
+      expect(requests.length, 2);
+      expect(requests[0]['settings'], {
+        'maxOutputTokens': 4096,
+        'timeoutSeconds': 90,
+      });
+      expect(requests[1]['settings'], {
+        'maxOutputTokens': 8192,
+        'timeoutSeconds': 240,
+      });
+      expect(requests[1]['messageIds'], [2]);
+      expect(requests[1]['token'], 'sources');
+      expect(
+        bridge.commands.where((c) => c['command'] == 'promoteSkillDraft'),
+        isEmpty,
+      );
+    },
+  );
+  testWidgets(
+    'invalid generation limits are refused locally without sending sources',
+    (tester) async {
+      final bridge = DraftBridge();
+      await open(tester, bridge, false);
+      await reveal(tester, 'skill-example-2');
+      await tester.tap(find.byKey(const Key('skill-example-2')));
+      for (final invalid in ['0', '32769', '3.5', '']) {
+        await reveal(tester, 'skill-draft-output-tokens');
+        await tester.enterText(
+          find.byKey(const Key('skill-draft-output-tokens')),
+          invalid,
+        );
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.tap(find.byKey(const Key('generate-skill-draft')));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Draft output tokens must be between 1 and 32,768.'),
+          findsOneWidget,
+        );
+      }
+      await reveal(tester, 'skill-draft-output-tokens');
+      await tester.enterText(
+        find.byKey(const Key('skill-draft-output-tokens')),
+        '8192',
+      );
+      await reveal(tester, 'skill-draft-timeout');
+      await tester.enterText(
+        find.byKey(const Key('skill-draft-timeout')),
+        '901',
+      );
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.tap(find.byKey(const Key('generate-skill-draft')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Draft timeout must be between 1 and 900 seconds.'),
+        findsOneWidget,
+      );
+      expect(
+        bridge.commands.where((c) => c['command'] == 'generateSkillDraft'),
+        isEmpty,
+      );
+    },
+  );
   testWidgets(
     'invalid generated metadata stays editable and cannot be tested until corrected',
     (tester) async {

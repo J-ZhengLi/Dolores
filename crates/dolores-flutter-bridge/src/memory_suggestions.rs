@@ -294,7 +294,10 @@ pub(super) async fn collect_review(
     let mut finished = false;
     let mut closed = false;
     let mut usage = None;
-    let timeout = tokio::time::sleep(Duration::from_secs(30));
+    let seconds = provider
+        .request_settings()
+        .map_or(30, |s| s.timeout_seconds);
+    let timeout = tokio::time::sleep(Duration::from_secs(seconds.into()));
     tokio::pin!(timeout);
     loop {
         if finished && closed {

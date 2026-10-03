@@ -29,10 +29,24 @@ impl ConnectionManager {
     pub(super) fn automatic_memory_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         self.bounded_review_provider(512, 10)
     }
+    pub(super) fn skill_draft_provider(
+        &self,
+        settings: Option<RequestSettings>,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
+        self.review_provider_with_settings(32768, 900, settings)
+    }
     pub(super) fn bounded_review_provider(
         &self,
         max_output: u32,
         timeout: u32,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
+        self.review_provider_with_settings(max_output, timeout, None)
+    }
+    fn review_provider_with_settings(
+        &self,
+        max_output: u32,
+        timeout: u32,
+        settings: Option<RequestSettings>,
     ) -> Result<Arc<dyn ModelProvider>, String> {
         let preferences = self.store.preferences()?;
         if self.provider.is_none()
@@ -40,7 +54,8 @@ impl ConnectionManager {
         {
             return Err("Set up a model connection first.".into());
         }
-        let settings = self.store.request_settings()?;
+        let settings = settings.unwrap_or(self.store.request_settings()?);
+        settings.validate()?;
         Ok(Arc::new(
             OpenAiProvider::with_settings(
                 &preferences,
