@@ -407,6 +407,7 @@ class _RichComposerState extends State<RichComposer> {
   }
 
   void _language(int index, String language) {
+    if (widget.readOnly || !input.value.composing.isCollapsed) return;
     final b = blocks[index];
     final prefix = input.text.substring(b.start, b.bodyStart);
     final match = composerFence.firstMatch(prefix.trimRight())!;
@@ -698,55 +699,67 @@ class _RichComposerState extends State<RichComposer> {
           onFocusChange: (yes) {
             if (yes) active = i;
           },
-          child: TextField(
-            key: Key('composer-field-$i'),
-            controller: fields[i],
-            focusNode: focuses[i],
-            readOnly: widget.readOnly,
-            contextMenuBuilder: (context, editable) =>
-                AdaptiveTextSelectionToolbar.buttonItems(
-                  anchors: editable.contextMenuAnchors,
-                  buttonItems: [
-                    for (final item in editable.contextMenuButtonItems)
-                      ContextMenuButtonItem(
-                        type: item.type,
-                        label: item.label,
-                        onPressed: () {
-                          switch (item.type) {
-                            case ContextMenuButtonType.selectAll:
-                              _selectAll();
-                            case ContextMenuButtonType.copy when allSelected:
-                              unawaited(_copySelection());
-                            case ContextMenuButtonType.cut when allSelected:
-                              unawaited(_copySelection(cut: true));
-                            case ContextMenuButtonType.paste when allSelected:
-                              unawaited(_pasteSelection());
-                            default:
-                              item.onPressed?.call();
-                          }
-                          editable.hideToolbar();
-                        },
-                      ),
-                  ],
-                ),
-            minLines: 1,
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
-            style: TextStyle(
-              fontSize: code
-                  ? 14
-                  : b.kind == ComposerBlockKind.heading
-                  ? (b.level == 1 ? 24 : 20)
-                  : 14,
-              fontWeight: b.kind == ComposerBlockKind.heading
-                  ? FontWeight.w600
-                  : FontWeight.normal,
-              fontFamily: code ? UiTokens.codeFont : null,
-              fontFamilyFallback: code ? UiTokens.codeFontFallback : null,
-              height: code ? 1.5 : 1.55,
-              color: p.text,
+          child: Semantics(
+            label: switch (b.kind) {
+              ComposerBlockKind.heading =>
+                'Message, heading level ${b.level}, block ${i + 1}',
+              ComposerBlockKind.code =>
+                'Message, ${codeLanguages[codeLanguage(b.language)] ?? b.language} code, block ${i + 1}',
+              ComposerBlockKind.paragraph =>
+                rich ? 'Message, block ${i + 1}' : 'Message',
+            },
+            child: TextField(
+              key: Key('composer-field-$i'),
+              controller: fields[i],
+              focusNode: focuses[i],
+              readOnly: widget.readOnly,
+              contextMenuBuilder: (context, editable) =>
+                  AdaptiveTextSelectionToolbar.buttonItems(
+                    anchors: editable.contextMenuAnchors,
+                    buttonItems: [
+                      for (final item in editable.contextMenuButtonItems)
+                        ContextMenuButtonItem(
+                          type: item.type,
+                          label: item.label,
+                          onPressed: () {
+                            switch (item.type) {
+                              case ContextMenuButtonType.selectAll:
+                                _selectAll();
+                              case ContextMenuButtonType.copy when allSelected:
+                                unawaited(_copySelection());
+                              case ContextMenuButtonType.cut when allSelected:
+                                unawaited(_copySelection(cut: true));
+                              case ContextMenuButtonType.paste when allSelected:
+                                unawaited(_pasteSelection());
+                              default:
+                                item.onPressed?.call();
+                            }
+                            editable.hideToolbar();
+                          },
+                        ),
+                    ],
+                  ),
+              minLines: 1,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              style: TextStyle(
+                fontSize: code
+                    ? 14
+                    : b.kind == ComposerBlockKind.heading
+                    ? (b.level == 1 ? 24 : 20)
+                    : 14,
+                fontWeight: b.kind == ComposerBlockKind.heading
+                    ? FontWeight.w600
+                    : FontWeight.normal,
+                fontFamily: code ? UiTokens.codeFont : null,
+                fontFamilyFallback: code ? UiTokens.codeFontFallback : null,
+                height: code ? 1.5 : 1.55,
+                color: p.text,
+              ),
+              decoration: decoration(
+                hint: !rich && i == 0 ? widget.hint : null,
+              ),
             ),
-            decoration: decoration(hint: !rich && i == 0 ? widget.hint : null),
           ),
         ),
       );
@@ -765,26 +778,37 @@ class _RichComposerState extends State<RichComposer> {
           children: [
             PopupMenuButton<String>(
               key: Key('composer-language-$i'),
-              tooltip: 'Code language',
-              enabled: !widget.readOnly,
+              tooltip: '',
+              enabled: !widget.readOnly && input.value.composing.isCollapsed,
               onSelected: (v) => _language(i, v),
               itemBuilder: (_) => [
                 for (final e in codeLanguages.entries)
                   PopupMenuItem(value: e.key, child: Text(e.value)),
               ],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      codeLanguages[lang] ??
-                          (b.language.isEmpty ? 'Plain text' : b.language),
-                      style: TextStyle(fontSize: 12, color: p.muted),
+              child: Tooltip(
+                message: 'Code language: ${codeLanguages[lang] ?? b.language}',
+                excludeFromSemantics: true,
+                child: Semantics(
+                  button: true,
+                  enabled:
+                      !widget.readOnly && input.value.composing.isCollapsed,
+                  label: 'Code language: ${codeLanguages[lang] ?? b.language}',
+                  excludeSemantics: true,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          codeLanguages[lang] ??
+                              (b.language.isEmpty ? 'Plain text' : b.language),
+                          style: TextStyle(fontSize: 12, color: p.muted),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.expand_more, size: 14, color: p.muted),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.expand_more, size: 14, color: p.muted),
-                  ],
+                  ),
                 ),
               ),
             ),

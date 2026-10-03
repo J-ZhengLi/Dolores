@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Composer input and accessibility
+
+Name native editable blocks as Message plus their heading level, code language or paragraph position. Retain editable values and native focus in the semantic tree; expose the code-language button's current language and enabled state without repeating its tooltip. Send and code-language changes wait for active IME composition to commit, preserving unfinished candidates; Stop remains available during a response. Keep the existing model/context/send footer and palette. See [native input checks](design/native-input-verification.md) for verified flows and pending physical-keyboard, real-IME and spoken screen-reader acceptance.
+
 ## Brand mark
 
 Keep the original `Icons.all_inclusive_rounded` infinity mark and existing semantic accent colors in Flutter's home, sidebar and assistant avatars. `assets/dolores.svg` retains that exact Material Icons outline for Windows, macOS, Linux and web/Tauri icons on the dark rounded tile. Do not redesign it as closed loops or reintroduce a letter monogram. Regenerate platform assets with `scripts/generate-icons.py`; Pillow is development-only and normal builds use checked-in outputs. Preserve the upstream attribution/license in `assets/LICENSE.material-icons`. The visible app name is Dolores; framework names stay out of its window title.

@@ -1,5 +1,17 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 8.3 — Composer input and accessibility
+
+Native rich-composer fields now expose Message plus heading level, code language or paragraph position, while retaining editable values and focus. The code-language button has a named enabled state and a tooltip excluded from repeated speech. Send and language changes wait for active composition to commit rather than submitting unfinished candidates or clearing the composing range. No editor engine, dependency, worker, provider request or theme change is added. See the [verification matrix](design/native-input-verification.md).
+
+- **151 Flutter tests pass**, with clean analysis and formatting. Four new cases cover semantic names/values/focus, Windows whole-draft select/delete/undo, active Chinese composition refusing Send then sending exactly once after commit, and composition refusing language changes then preserving text/focus after commit. The latter two exercise realistic recovery at the platform text-input seam, not a real IME candidate window.
+- The normal Windows release builds. Native isolated-data checks exercise continuous heading/fence/code typing, Shift+Enter, Down into prose, right Ctrl+A across heading/code/prose, complete Backspace removal and undo, Tab into Model connection and Escape dismissal. Editable names/values/focus appear in the Windows accessibility tree. No synthetic draft was sent or connection form saved.
+- An injected left-Control chord failed. A temporary key-only probe showed its letter event arriving after Control was released, unlike right-Control; this does not establish a physical-keyboard defect. The probe is removed from final source/build. Physical left-Control, real Chinese IME candidate selection, spoken Narrator traversal and enlarged native display-scale acceptance remain **pending**. Immediate native snapshots may precede settled focus/selection and were refreshed before judging behavior.
+- All **22 schema-19 table digests** still match the existing configuration/history snapshot. This UI-only change requires no live-model request and makes no general model-reliability claim. Rust behavior tests and portable packaging are outside this change; prior evidence retains its original scope.
+- All **46 Markdown documents / 113 local links** pass. The public working-copy snapshot covers **331 paths**, with zero known personal-prefix/email matches and a clean Gitleaks result. The final release's native language-button name appears once; code-card creation retains typing and Down exit. The normal desktop app is reopened with the original data location for user verification.
+
+Brick 8.3's implementation and bounded checks do not close all native input/accessibility release gates. Actual clean-machine startup, macOS/Linux builds, signing and representative low-end measurements remain separate work.
+
 ## Commit message language
 
 All **40 existing commits** now have English subjects and bodies. Every rewritten commit was checked against its original raw object: **author and committer dates (including timezone offsets), identities, tree snapshots, and parent order are preserved**. Commit IDs changed. Unrelated tree refs, the index, and working files remained unchanged during the rewrite. A verified local recovery bundle and old-to-new commit map are retained in ignored output, without publishing another history.

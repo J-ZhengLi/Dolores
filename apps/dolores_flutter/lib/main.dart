@@ -586,7 +586,11 @@ class _ChatPageState extends State<ChatPage> {
                   chat.invalidateContextPreview();
                   setState(() {});
                 },
-                onSend: () => unawaited(chat.send()),
+                onSend: () {
+                  if (input.value.composing.isCollapsed) {
+                    unawaited(chat.send());
+                  }
+                },
                 trailing: const SizedBox.shrink(),
               ),
               Row(
@@ -670,7 +674,8 @@ class _ChatPageState extends State<ChatPage> {
                           : (chat.loading ||
                                     chat.changing ||
                                     !chat.configured ||
-                                    chat.draft.trim().isEmpty
+                                    chat.draft.trim().isEmpty ||
+                                    !input.value.composing.isCollapsed
                                 ? null
                                 : chat.send),
                       style: IconButton.styleFrom(
