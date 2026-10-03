@@ -1,4 +1,12 @@
-# Dolores acceptance — 2026-10-03
+# Dolores acceptance — 2026-10-04
+
+## Logo consistency
+
+Flutter keeps the original `Icons.all_inclusive_rounded` infinity mark in its home/sidebar/assistant avatars. Its exact existing font outline is retained in `assets/dolores.svg` for Windows title/taskbar/executable resources, macOS assets, Linux's embedded GTK icon and retained web/Tauri assets, with Google's upstream icon license. A development-only Pillow generator produces **14 outputs** and verifies that checked-in files match; it adds no Flutter runtime image package or model request. The visible Windows title and product description are **Dolores**, without the framework suffix.
+
+- Normal Windows release built and visibly launched; all **22 schema-19 data-table digests** match, preserving configured provider/history. **147 Flutter tests**, clean analysis/format and the retained web production build pass. Existing compact light/dark cases remain green.
+- Small **16/24/32-pixel icons** were visually inspected against a light background, with antialiased transparent corners. The built EXE's actual seven icon resources (**16/24/32/48/64/128/256**) match the generated ICO payload byte for byte, covering small and high-DPI selection rather than checking the source file alone. The first custom closed-loop design was rejected by the user; the final assets reuse the original rounded glyph exactly.
+- macOS/ICNS assets decode and regeneration matches; Linux embeds the PNG so the window icon does not need a source-folder path at runtime. macOS/Linux builds and desktop-shell icon display remain unverified. GTK icon display depends on the window manager; Linux launcher/package integration remains a platform release check. No icon cache or pinned user shortcut was reset.
 
 ## Brick 8.1 — Windows portable preview and documentation
 

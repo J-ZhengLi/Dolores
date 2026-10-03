@@ -257,7 +257,7 @@
 <div class="workspace">
   <aside class="sidebar" aria-label="Conversations">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">d</span><span
+      <span class="brand-mark" aria-hidden="true"><img src="/dolores.svg" alt="" width="28" height="28" /></span><span
         >Dolores<small>A little better, each time.</small></span
       >
     </div>
@@ -394,7 +394,7 @@
         {#each messages as message, index (index)}
           <article class="message" class:user={message.role === 'user'}>
             <div class="avatar" aria-hidden="true">
-              {message.role === 'user' ? 'Y' : 'd'}
+              {#if message.role === 'user'}Y{:else}<img src="/dolores.svg" alt="" width="28" height="28" />{/if}
             </div>
             <div class="message-body">
               <span class="message-author"
@@ -415,7 +415,7 @@
             </div>
           </article>
           <article class="message">
-            <div class="avatar" aria-hidden="true">d</div>
+            <div class="avatar" aria-hidden="true"><img src="/dolores.svg" alt="" width="28" height="28" /></div>
             <div class="message-body">
               <span class="message-author"
                 >Dolores <small

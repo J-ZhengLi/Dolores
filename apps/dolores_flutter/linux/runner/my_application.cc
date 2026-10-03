@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "dolores_icon.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -53,6 +54,15 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  GdkPixbufLoader* icon_loader = gdk_pixbuf_loader_new();
+  gboolean icon_loaded = gdk_pixbuf_loader_write(
+      icon_loader, kDoloresIcon, sizeof(kDoloresIcon), nullptr);
+  gboolean icon_closed = gdk_pixbuf_loader_close(icon_loader, nullptr);
+  GdkPixbuf* icon = gdk_pixbuf_loader_get_pixbuf(icon_loader);
+  if (icon_loaded && icon_closed && icon != nullptr) {
+    gtk_window_set_icon(window, icon);
+  }
+  g_object_unref(icon_loader);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

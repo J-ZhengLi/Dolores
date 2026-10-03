@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Brand mark
+
+Keep the original `Icons.all_inclusive_rounded` infinity mark and existing semantic accent colors in Flutter's home, sidebar and assistant avatars. `assets/dolores.svg` retains that exact Material Icons outline for Windows, macOS, Linux and web/Tauri icons on the dark rounded tile. Do not redesign it as closed loops or reintroduce a letter monogram. Regenerate platform assets with `scripts/generate-icons.py`; Pillow is development-only and normal builds use checked-in outputs. Preserve the upstream attribution/license in `assets/LICENSE.material-icons`. The visible app name is Dolores; framework names stay out of its window title.
+
 ## Instruction comparisons
 
 Use the saved-chat **Chat actions → Compare instructions** entry and shared InspectorFrame/system palette. Keep two labeled instruction snapshots, source-copy selectors, 1–3 literal tests and comparison-only token/deadline fields in one scroll area. Fixed footer Run/Refresh and Stop remain reachable; busy operations lock dismissal and duplicate writes. Editing a copied snapshot clears its source binding. Refusals retain the draft and reveal actionable errors at the top.

@@ -234,7 +234,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
             alignment: Alignment.center,
             child: Icon(
-              user ? Icons.person_outline : Icons.all_inclusive,
+              user ? Icons.person_outline : Icons.all_inclusive_rounded,
               size: 20,
               color: user ? p.text : p.accent,
             ),

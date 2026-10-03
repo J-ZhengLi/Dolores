@@ -53,6 +53,8 @@ Choose fresh output. The packager accepts reviewed runtime paths, checks require
 
 ## Cross-platform and diagnostics
 
+The infinity logo source is `assets/dolores.svg`, the original rounded Material Icons outline used by Flutter. To regenerate platform assets, install development-only Pillow (`python -m pip install Pillow`), run `python -I -B scripts/generate-icons.py`, then `python -I -B scripts/generate-icons.py --check`. This updates platform icons and web SVG; Flutter keeps its original `Icons.all_inclusive_rounded`. Preserve the upstream icon license. Normal builds do not need Pillow.
+
 `.github/workflows/ci.yml` defines Windows/macOS/Linux builds; local Windows work does not verify the other targets. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service for credentials. macOS needs its desktop toolchain and signing after adding the Rust library.
 
 The optional `pnpm desktop:build` helper assembles Flutter for the current host. The bridge belongs beside the Windows EXE, in Linux `lib/`, or macOS `Contents/Frameworks/`. See [Flutter module notes](apps/dolores_flutter/README.md). Iced/Tauri remain comparisons: `pnpm desktop:iced:build` and `pnpm desktop:web:build`; they do not have every Flutter feature. `pnpm build` checks Svelte and `pnpm dev` previews it without a model connection.

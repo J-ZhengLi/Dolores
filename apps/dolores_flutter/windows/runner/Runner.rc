@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "dev.dolores" "\0"
-            VALUE "FileDescription", "dolores_flutter" "\0"
+            VALUE "FileDescription", "Dolores" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "dolores_flutter" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 dev.dolores. All rights reserved." "\0"
             VALUE "OriginalFilename", "dolores_flutter.exe" "\0"
-            VALUE "ProductName", "dolores_flutter" "\0"
+            VALUE "ProductName", "Dolores" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
