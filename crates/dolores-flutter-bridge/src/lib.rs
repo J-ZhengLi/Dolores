@@ -105,6 +105,11 @@ enum Command {
         session: String,
         token: String,
     },
+    ExportSkill {
+        session: String,
+        token: String,
+        path: PathBuf,
+    },
     DisableSkill {
         session: String,
         name: String,
@@ -449,6 +454,11 @@ impl Engine {
                 scope,
             } => self.review_scoped_skill(&session, &name, version, scope),
             Command::ActivateSkill { session, token } => self.activate_skill(&session, &token),
+            Command::ExportSkill {
+                session,
+                token,
+                path,
+            } => self.export_skill(&session, &token, &path),
             Command::DisableSkill {
                 session,
                 name,

@@ -216,6 +216,49 @@ impl Engine {
         }?;
         Ok(json!(value))
     }
+    pub(super) fn export_skill(
+        &self,
+        session: &str,
+        token: &str,
+        path: &Path,
+    ) -> Result<Value, String> {
+        // Keep the review valid for activation or a retry at a different destination.
+        // Export accepts no client-supplied text or version: both come from review.
+        let slot = self
+            .skill_review
+            .lock()
+            .map_err(|_| "Skills are unavailable.")?;
+        let review = slot
+            .as_ref()
+            .ok_or("Skill review expired. Refresh Skills and review it again.")?;
+        if review.token != token
+            || review.session != session
+            || review.root != self.skill_root(session, review.scope)?
+            || review.created.elapsed() > Duration::from_secs(300)
+        {
+            return Err("Skill review expired. Refresh Skills and review it again.".into());
+        }
+        let version = review
+            .rollback
+            .ok_or("Select a saved version before exporting.")?;
+        let saved = self
+            .saved_skills(&review.root, review.scope)?
+            .into_iter()
+            .find(|s| s.name == review.document.name);
+        if saved != review.saved
+            || !saved.as_ref().is_some_and(|s| {
+                s.versions
+                    .iter()
+                    .any(|v| v.version == version && v.document == review.document)
+            })
+        {
+            return Err("Skill changed after review. Refresh Skills.".into());
+        }
+        let bytes = super::export::save_skill(&review.document, path)?;
+        Ok(
+            json!({"name":review.document.name,"scope":review.scope,"version":version,"bytes":bytes}),
+        )
+    }
     #[cfg(test)]
     fn mutate_skill(
         &self,
@@ -265,6 +308,138 @@ mod tests {
     use dolores_core::{SessionWorkspace, WorkspaceKind};
     use dolores_store_sqlite::SqliteStore;
     use std::sync::Arc;
+    #[test]
+    fn skill_export_binds_exact_retained_review_and_preserves_activation_in_both_scopes() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = crate::workspace::canonical_folder(temp.path()).unwrap();
+        let store = Arc::new(SqliteStore::open(&temp.path().join("state.db")).unwrap());
+        for id in ["project", "other"] {
+            store
+                .create_workspace_session(
+                    id,
+                    &SessionWorkspace {
+                        kind: WorkspaceKind::Project,
+                        root: Some(root.clone()),
+                    },
+                )
+                .unwrap();
+        }
+        store.create("side").unwrap();
+        let mut engine = Engine::new(
+            store.clone(),
+            Arc::new(crate::connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        engine.global_skills_directory = Some(temp.path().join("missing-global"));
+        let first = dolores_core::skill_document("review", "Review code", "Old instructions. 世界")
+            .unwrap();
+        let second =
+            dolores_core::skill_document("review", "Review code", "New instructions.").unwrap();
+        for (scope, session) in [
+            (SkillScope::Project, "project"),
+            (SkillScope::Global, "side"),
+        ] {
+            match scope {
+                SkillScope::Project => {
+                    store
+                        .activate_project_skill(&root, &first, None, None)
+                        .unwrap();
+                    store
+                        .activate_project_skill(&root, &second, Some(1), None)
+                        .unwrap();
+                    store.disable_project_skill(&root, "review", 2).unwrap();
+                }
+                SkillScope::Global => {
+                    store.activate_global_skill(&first, None, None).unwrap();
+                    store.activate_global_skill(&second, Some(1), None).unwrap();
+                    store.disable_global_skill("review", 2).unwrap();
+                }
+            }
+            let before = engine.saved_skills(&root, scope).unwrap();
+            let destination = temp.path().join(format!("{scope:?}")).join("review");
+            std::fs::create_dir_all(&destination).unwrap();
+            let path = destination.join("SKILL.md");
+            let preview = engine
+                .review_scoped_skill(session, "review", Some(1), scope)
+                .unwrap();
+            let token = preview["token"].as_str().unwrap();
+            assert!(engine.export_skill("other", token, &path).is_err());
+            assert!(engine.export_skill(session, "wrong", &path).is_err());
+            assert!(!path.exists());
+            let result = engine
+                .call(crate::Command::ExportSkill {
+                    session: session.into(),
+                    token: token.into(),
+                    path: path.clone(),
+                })
+                .unwrap();
+            assert_eq!(result["version"], 1);
+            assert_eq!(std::fs::read(&path).unwrap(), first.text.as_bytes());
+            assert_eq!(engine.saved_skills(&root, scope).unwrap(), before);
+            assert!(engine.export_skill(session, token, &path).is_err());
+            assert_eq!(std::fs::read(&path).unwrap(), first.text.as_bytes());
+            std::fs::remove_file(&path).unwrap();
+            engine
+                .skill_review
+                .lock()
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .created = Instant::now() - Duration::from_secs(301);
+            assert!(engine.export_skill(session, token, &path).is_err());
+            let preview = engine
+                .review_scoped_skill(session, "review", Some(1), scope)
+                .unwrap();
+            let token = preview["token"].as_str().unwrap();
+            engine.cancel_skill_review(token).unwrap();
+            assert!(engine.export_skill(session, token, &path).is_err());
+            let preview = engine
+                .review_scoped_skill(session, "review", Some(1), scope)
+                .unwrap();
+            let token = preview["token"].as_str().unwrap();
+            match scope {
+                SkillScope::Project => {
+                    store
+                        .activate_project_skill(&root, &second, Some(3), None)
+                        .unwrap();
+                }
+                SkillScope::Global => {
+                    store.activate_global_skill(&second, Some(3), None).unwrap();
+                }
+            }
+            assert!(engine.export_skill(session, token, &path).is_err());
+            assert!(!path.exists());
+            let preview = engine
+                .review_scoped_skill(session, "review", Some(1), scope)
+                .unwrap();
+            let token = preview["token"].as_str().unwrap();
+            engine.export_skill(session, token, &path).unwrap();
+            // Export leaves the explicit activation review usable.
+            engine.activate_skill(session, token).unwrap();
+            assert!(engine.saved_skills(&root, scope).unwrap()[0].enabled);
+        }
+        let source = temp.path().join(".agents/skills/source-only");
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(
+            source.join("SKILL.md"),
+            "---\nname: source-only\ndescription: Review\n---\nCheck tests",
+        )
+        .unwrap();
+        let preview = engine
+            .review_scoped_skill("project", "source-only", None, SkillScope::Project)
+            .unwrap();
+        assert!(engine
+            .export_skill(
+                "project",
+                preview["token"].as_str().unwrap(),
+                &source.join("SKILL.md")
+            )
+            .unwrap_err()
+            .contains("saved version"));
+        assert!(engine
+            .review_scoped_skill("project", "review", Some(99), SkillScope::Project)
+            .is_err());
+    }
     #[cfg(windows)]
     #[test]
     fn retargeting_the_global_boundary_requires_another_review_even_with_identical_text() {

@@ -19,6 +19,7 @@ import 'inspector.dart';
 import 'request_settings.dart';
 import 'memory.dart';
 import 'session_summary.dart';
+import 'skills.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1053,9 +1054,74 @@ Future<void> _run(
     await press('skill-version-1', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await screenshot(capture, output, 'skills-rollback-dark');
+    await press('Close');
+    await waitUntil(() => !chat.changing);
+    final exportedFolder = Directory(
+      path.join(output.path, 'portable', 'review'),
+    );
+    await exportedFolder.create(recursive: true);
+    final exportedSkill = File(path.join(exportedFolder.path, 'SKILL.md'));
+    var exportChoices = 0;
+    if (!smokePageContext.mounted) {
+      throw StateError('Page unavailable before skill export');
+    }
+    final exportView = showSkills(
+      smokePageContext,
+      chat,
+      chooseExportPath: (name, version) async {
+        check(
+          name == 'review' && version == 1,
+          'Export picker receives the selected older version',
+          checks,
+        );
+        exportChoices++;
+        return exportChoices == 1 ? null : exportedSkill.path;
+      },
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('saved-skill-review', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('skill-version-1', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await screenshot(capture, output, 'skill-export-review-dark');
+    await press('export-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    check(
+      !await exportedSkill.exists() && chat.changing,
+      'Cancelled export writes nothing and retains the locked review',
+      checks,
+    );
+    await press('export-skill', key: true);
+    await waitUntil(() => exportedSkill.existsSync());
+    check(
+      await exportedSkill.readAsString() == skillOne &&
+          await skillFile.readAsString() == skillTwo,
+      'Rendered export writes the exact retained version without changing its source',
+      checks,
+    );
+    final afterExport = await chat.bridge.call({
+      'command': 'context',
+      'session': chat.session,
+      'input': '',
+    });
+    check(
+      afterExport['skills'][0]['version'] == 2,
+      'Export does not activate the selected historical version',
+      checks,
+    );
+    await press('export-skill', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    check(
+      await exportedSkill.readAsString() == skillOne &&
+          exportedFolder.listSync().length == 1,
+      'Existing export is refused without replacement or leftover temporary files',
+      checks,
+    );
+    await screenshot(capture, output, 'skill-export-existing-dark');
     await press('activate-skill', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await press('Close');
+    await exportView;
     await waitUntil(() => !chat.changing);
     final rolledSkill = (await chat.previewContext())!;
     check(

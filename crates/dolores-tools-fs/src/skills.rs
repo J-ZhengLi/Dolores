@@ -123,7 +123,7 @@ struct Metadata {
     #[serde(default, rename = "allowed-tools")]
     allowed_tools: Option<String>,
 }
-fn parse(name: &str, text: String) -> Result<SkillDocument, String> {
+pub fn parse_skill_document(name: &str, text: String) -> Result<SkillDocument, String> {
     let mut lines = text.lines();
     if lines.next() != Some("---") {
         return Err("SKILL.md needs YAML frontmatter with name and description.".into());
@@ -225,7 +225,7 @@ fn read_skill(root: &Path, name: &str, global: bool) -> Result<SkillDocument, St
         return Err("SKILL.md must be UTF-8 text within 8 KiB, without NUL.".into());
     }
     let text = String::from_utf8(bytes).map_err(|_| "SKILL.md is not UTF-8 text.")?;
-    let document = parse(name, text)?;
+    let document = parse_skill_document(name, text)?;
     // Re-resolve from the root to detect replacement/link changes during reading.
     let current = open_collection(root, global)?;
     if (global && Some(global_skills_target(root)?) != target)

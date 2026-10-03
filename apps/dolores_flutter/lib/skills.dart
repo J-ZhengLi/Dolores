@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
 
 import 'bridge.dart';
 import 'chat.dart';
@@ -6,30 +7,36 @@ import 'inspector.dart';
 import 'skill_draft.dart';
 import 'theme.dart';
 
-Future<void> showSkills(BuildContext context, ChatController chat) =>
-    chat.inspectLocalSettings(() async {
-      if (chat.session == null) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => SkillsInspector(
-          bridge: chat.bridge,
-          session: chat.session!,
-          hasProject: chat.workspaceRoot != null,
-        ),
-      );
-      chat.invalidateContext();
-    });
+Future<void> showSkills(
+  BuildContext context,
+  ChatController chat, {
+  Future<String?> Function(String name, int version)? chooseExportPath,
+}) => chat.inspectLocalSettings(() async {
+  if (chat.session == null) return;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => SkillsInspector(
+      bridge: chat.bridge,
+      session: chat.session!,
+      hasProject: chat.workspaceRoot != null,
+      chooseExportPath: chooseExportPath,
+    ),
+  );
+  chat.invalidateContext();
+});
 
 class SkillsInspector extends StatefulWidget {
   final ChatBridge bridge;
   final String session;
   final bool hasProject;
+  final Future<String?> Function(String name, int version)? chooseExportPath;
   const SkillsInspector({
     super.key,
     required this.bridge,
     required this.session,
     this.hasProject = true,
+    this.chooseExportPath,
   });
   @override
   State<SkillsInspector> createState() => _SkillsInspectorState();
@@ -57,6 +64,12 @@ class _SkillsInspectorState extends State<SkillsInspector> {
     _list();
   }
 
+  void _showStatus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
+    });
+  }
+
   Future<void> _act(Future<void> Function() action) async {
     if (busy) return;
     setState(() {
@@ -66,7 +79,10 @@ class _SkillsInspectorState extends State<SkillsInspector> {
     try {
       await action();
     } catch (failure) {
-      if (mounted) setState(() => error = failure.toString());
+      if (mounted) {
+        setState(() => error = failure.toString());
+        _showStatus();
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -77,7 +93,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
     final result = await _call('projectSkills');
     if (mounted) {
       setState(() => catalog = (result as Map).cast<String, dynamic>());
-      if (_scroll.hasClients) _scroll.jumpTo(0);
+      _showStatus();
     }
   }
 
@@ -133,6 +149,34 @@ class _SkillsInspectorState extends State<SkillsInspector> {
       result['name'] as String,
       (result['versions'] as List).last['version'] as int,
     );
+  });
+  Future<void> _export() => _act(() async {
+    final token = review?['token'];
+    final version = review?['reviewVersion'] as int?;
+    if (token == null || version == null) return;
+    final name = review!['document']['name'] as String;
+    final path = widget.chooseExportPath != null
+        ? await widget.chooseExportPath!(name, version)
+        : (await getSaveLocation(
+            suggestedName: 'SKILL.md',
+            confirmButtonText: 'Export version $version',
+            acceptedTypeGroups: [
+              const XTypeGroup(
+                label: 'Markdown',
+                extensions: ['md'],
+                uniformTypeIdentifiers: ['public.text'],
+              ),
+            ],
+          ))?.path;
+    if (path == null) return;
+    await _call('exportSkill', {'token': token, 'path': path});
+    if (mounted) {
+      setState(
+        () => notice =
+            'Exported $name version $version. Activation is unchanged.',
+      );
+      _showStatus();
+    }
   });
   Future<void> _mutate(bool forget) => _act(() async {
     final name = review!['document']['name'];
@@ -194,6 +238,17 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                 controller: _scroll,
                 padding: const EdgeInsets.all(20),
                 children: [
+                  if (notice != null) ...[
+                    Text(notice!),
+                    const SizedBox(height: 12),
+                  ],
+                  if (error != null) ...[
+                    SelectableText(
+                      error!,
+                      style: TextStyle(color: p.errorText),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Text(
                     'Choose a skill, review its text, then activate it ${scope == 'global' ? 'for all chats, including side chats' : 'for chats in this folder'}. Activation shares the text with your model and saves it locally. Each tool still needs your approval.',
                   ),
@@ -208,19 +263,6 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                       ),
                     ],
                   ),
-                  if (notice != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(notice!),
-                    ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SelectableText(
-                        error!,
-                        style: TextStyle(color: p.errorText),
-                      ),
-                    ),
                   const SizedBox(height: 16),
                   if (catalog?['directory'] is String) ...[
                     SelectableText(
@@ -248,6 +290,13 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                         'Reviewing saved version ${review!['reviewVersion']}. Activation records a new version; the source file stays unchanged.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
+                    if (review!['reviewVersion'] != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Export copies this saved version. In the save dialog, choose or create a folder named ${document['name']} and save as SKILL.md. Existing files are never overwritten. References and scripts are not copied; review them separately before reuse.',
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
+                    ],
                     if (review!['generated'] == true)
                       const Text(
                         'Drafted and tested in Dolores. Stored locally; no source file was created.',
@@ -419,6 +468,14 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     child: const Text('Refresh'),
                   ),
                   if (review != null) ...[
+                    if (review!['reviewVersion'] != null)
+                      TextButton(
+                        key: const Key('export-skill'),
+                        onPressed: busy || review!['token'] == null
+                            ? null
+                            : _export,
+                        child: const Text('Export SKILL.md'),
+                      ),
                     TextButton(
                       key: const Key('disable-skill'),
                       onPressed: busy || review!['enabled'] != true

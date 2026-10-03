@@ -13,6 +13,8 @@ class SkillBridge implements ChatBridge {
   bool enabled = false, saved = false, missing = false, conflict = false;
   int revision = 1, version = 1;
   Completer<void>? pending;
+  Completer<void>? exporting;
+  bool exportConflict = false;
   final text =
       '---\nname: review\ndescription: Review code\n---\n@../private.env\n${'Check tests.\n' * 65}';
   @override
@@ -84,6 +86,12 @@ class SkillBridge implements ChatBridge {
         enabled = false;
         revision++;
         return null;
+      case 'exportSkill':
+        if (exporting != null) await exporting!.future;
+        if (exportConflict) {
+          throw Exception('That file already exists. Choose a new folder.');
+        }
+        return {'name': 'review', 'version': 1};
       case 'forgetSkill':
         saved = false;
         enabled = false;
@@ -116,6 +124,7 @@ Future<void> open(
   ChatBridge bridge,
   bool dark, {
   bool hasProject = true,
+  Future<String?> Function(String name, int version)? chooseExportPath,
 }) async {
   tester.view.physicalSize = const Size(390, 700);
   tester.view.devicePixelRatio = 1;
@@ -133,6 +142,7 @@ Future<void> open(
                 bridge: bridge,
                 session: 'chat',
                 hasProject: hasProject,
+                chooseExportPath: chooseExportPath,
               ),
             ),
             child: const Text('Open'),
@@ -163,6 +173,122 @@ Future<void> press(WidgetTester tester, String key) async {
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'export selected retained version with no activation in compact ${dark ? 'dark' : 'light'} layout',
+      (tester) async {
+        final bridge = SkillBridge()
+          ..saved = true
+          ..version = 2
+          ..missing = true;
+        final selections = <Object>[];
+        await open(
+          tester,
+          bridge,
+          dark,
+          chooseExportPath: (name, version) async {
+            selections.addAll([name, version]);
+            return '/chosen/review/SKILL.md';
+          },
+        );
+        await press(tester, 'saved-skill-review');
+        await press(tester, 'skill-version-1');
+        await press(tester, 'export-skill');
+        expect(selections, ['review', 1]);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'exportSkill').single,
+          {
+            'command': 'exportSkill',
+            'session': 'chat',
+            'scope': 'project',
+            'token': 'token',
+            'path': '/chosen/review/SKILL.md',
+          },
+        );
+        expect(
+          find.textContaining('Exported review version 1'),
+          findsOneWidget,
+        );
+        expect(bridge.enabled, isFalse);
+        expect(bridge.version, 2);
+        expect(
+          bridge.commands.where((c) => c['command'] == 'activateSkill'),
+          isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets(
+    'export absent for unretained file and cancelling destination publishes nothing',
+    (tester) async {
+      final bridge = SkillBridge()..saved = true;
+      await open(tester, bridge, true, chooseExportPath: (_, _) async => null);
+      await press(tester, 'review-skill-review');
+      expect(find.byKey(const Key('export-skill')), findsNothing);
+      await press(tester, 'skills-back');
+      await press(tester, 'saved-skill-review');
+      await press(tester, 'export-skill');
+      expect(
+        bridge.commands.where((c) => c['command'] == 'exportSkill'),
+        isEmpty,
+      );
+      expect(bridge.enabled, isFalse);
+    },
+  );
+  testWidgets(
+    'side-chat export stays global; pending and failed export retain the review for retry',
+    (tester) async {
+      final bridge = ScopedSkillBridge();
+      bridge.global
+        ..saved = true
+        ..exportConflict = true
+        ..exporting = Completer<void>();
+      await open(
+        tester,
+        bridge,
+        false,
+        hasProject: false,
+        chooseExportPath: (_, _) async => '/chosen/review/SKILL.md',
+      );
+      await press(tester, 'saved-skill-review');
+      await tester.tap(find.byKey(const Key('export-skill')));
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const Key('export-skill')))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Close'))
+            .onPressed,
+        isNull,
+      );
+      bridge.global.exporting!.complete();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('That file already exists'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const Key('export-skill')))
+            .onPressed,
+        isNotNull,
+      );
+      bridge.global.exportConflict = false;
+      await press(tester, 'export-skill');
+      final calls = bridge.commands
+          .where((c) => c['command'] == 'exportSkill')
+          .toList();
+      expect(calls.length, 2);
+      expect(
+        calls.every((c) => c['scope'] == 'global' && c['token'] == 'token'),
+        isTrue,
+      );
+      expect(bridge.global.enabled, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'side-chat Skills action opens without a working folder and locks chat changes',
     (tester) async {
