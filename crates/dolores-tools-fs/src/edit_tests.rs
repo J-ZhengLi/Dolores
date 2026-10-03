@@ -19,6 +19,131 @@ use std::path::Path;
 mod recovery;
 
 #[tokio::test]
+async fn multiline_lf_proposal_edits_crlf_source_without_rewriting_other_bytes() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("module.cjs");
+    let before = "// 世界\r\nfunction sum(a,b) {\r\n  return a-b;\r\n}\r\n// last line";
+    std::fs::write(&file, before).unwrap();
+    let edit = tool(root.path());
+    let request = edit
+        .prepare(&call(
+            "module.cjs",
+            "function sum(a,b) {\n  return a-b;\n}",
+            "function sum(a,b) {\n  return a+b;\n}",
+        ))
+        .expect("An otherwise exact LF proposal must reach CRLF review");
+    assert_eq!(std::fs::read(&file).unwrap(), before.as_bytes());
+    edit.invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read(&file).unwrap(),
+        before.replace("a-b", "a+b").as_bytes()
+    );
+}
+
+#[tokio::test]
+async fn newline_adaptation_is_symmetric_preserves_bom_and_handles_insert_delete() {
+    for ending in ["\n", "\r\n"] {
+        for proposal_ending in ["\n", "\r\n"] {
+            for (old, new) in [
+                ("alpha\nbeta", "alpha\ngamma"),
+                ("alpha", "alpha\nextra"),
+                ("alpha\nbeta", "alpha"),
+                ("alpha\nbeta", ""),
+            ] {
+                let root = tempfile::tempdir().unwrap();
+                let file = root.path().join("note");
+                let before = format!("\u{feff}// 世界{ending}alpha{ending}beta{ending}untouched");
+                std::fs::write(&file, &before).unwrap();
+                let request_old = old.replace('\n', proposal_ending);
+                let request_new = new.replace('\n', proposal_ending);
+                let expected =
+                    before.replacen(&old.replace('\n', ending), &new.replace('\n', ending), 1);
+                let edit = tool(root.path());
+                let request = edit
+                    .prepare(&call("note", &request_old, &request_new))
+                    .unwrap();
+                assert_eq!(
+                    request.diff.as_deref(),
+                    Some(diff(&before, &expected).as_str())
+                );
+                assert_eq!(std::fs::read(&file).unwrap(), before.as_bytes());
+                edit.invoke(&request, CancellationToken::new())
+                    .await
+                    .unwrap();
+                assert_eq!(std::fs::read(&file).unwrap(), expected.as_bytes());
+            }
+        }
+    }
+}
+
+#[test]
+fn adapted_matches_stay_exact_unique_bounded_and_refuse_mixed_ending_inference() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("note");
+    for (before, old, new) in [
+        ("one\r\ntwo\r\none\r\ntwo", "one\ntwo", "changed"),
+        ("\r\n\r\n\r\n", "\n\n", "changed"),
+        ("one\r\n  two", "one\n two", "changed"),
+        ("one\r\ntwo", "one\ntwo", "one\r\ntwo"),
+        ("one\r\ntwo", "one\ntwo", "changed\0"),
+    ] {
+        std::fs::write(&file, before).unwrap();
+        assert!(tool(root.path()).prepare(&call("note", old, new)).is_err());
+        assert_eq!(std::fs::read(&file).unwrap(), before.as_bytes());
+    }
+    let mixed = "prefix\none\r\ntwo\r\nlast";
+    std::fs::write(&file, mixed).unwrap();
+    let error = tool(root.path())
+        .prepare(&call("note", "one\ntwo", "changed"))
+        .unwrap_err();
+    assert!(error.contains("mixed or lone-CR") && error.contains("single-line match"));
+    assert_eq!(std::fs::read(&file).unwrap(), mixed.as_bytes());
+    std::fs::write(&file, "one\rtwo").unwrap();
+    assert!(tool(root.path())
+        .prepare(&call("note", "one\ntwo", "changed"))
+        .unwrap_err()
+        .contains("lone-CR"));
+    let before = format!("x\r\n{}", "z".repeat(MAX_TOOL_BYTES - 3));
+    std::fs::write(&file, &before).unwrap();
+    assert!(tool(root.path())
+        .prepare(&call("note", "x", "x\n"))
+        .is_err());
+    assert_eq!(std::fs::read(&file).unwrap(), before.as_bytes());
+}
+
+#[tokio::test]
+async fn adapted_preview_keeps_raw_snapshot_checks_stop_and_single_use() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("note");
+    let before = "one\r\ntwo\r\n";
+    let edit = tool(root.path());
+    let proposal = call("note", "one\ntwo", "one\nthree");
+    for stop in [false, true] {
+        std::fs::write(&file, before).unwrap();
+        let request = edit.prepare(&proposal).unwrap();
+        let cancel = CancellationToken::new();
+        if stop {
+            cancel.cancel();
+        } else {
+            std::fs::write(&file, before.replace("\r\n", "\n")).unwrap();
+        }
+        assert!(edit.invoke(&request, cancel).await.is_err());
+        let expected = if stop {
+            before.into()
+        } else {
+            before.replace("\r\n", "\n")
+        };
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), expected);
+        assert!(edit
+            .invoke(&request, CancellationToken::new())
+            .await
+            .is_err());
+    }
+}
+
+#[tokio::test]
 async fn larger_edit_retains_snapshot_binding_and_exact_bytes() {
     let root = tempfile::tempdir().unwrap();
     let file = root.path().join("main.js");

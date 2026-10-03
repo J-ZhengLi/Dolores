@@ -436,6 +436,7 @@ pub async fn run_agent(
                         match error.as_str() {
                             "Invalid edit arguments." => "Edit arguments must contain exactly path, old_text and new_text as strings; use these snake_case field names and no extra fields.".into(),
                             "Exact edit text was not found." => "Exact old_text was not found. Read the file and use its actual text, including whitespace and line endings.".into(),
+                            "Line-ending adaptation is unavailable for mixed or lone-CR files. Use an exact single-line match or copy the original line endings." => error,
                             "Edit text occurs more than once. Use a larger unique match." | "Edit text occurs more than once." => "old_text matches more than once. Include enough surrounding text for one unique occurrence.".into(),
                             "Edit needs different text and a nonempty match." => "old_text must be nonempty, new_text must differ, and replacement text cannot contain NUL.".into(),
                             "Edited file exceeds the 16 KiB limit." | "Edit diff exceeds the 16 KiB limit. Use a smaller edit." => "The proposed file or diff exceeds 16 KiB. Request a smaller edit.".into(),

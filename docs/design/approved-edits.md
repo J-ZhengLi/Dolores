@@ -1,5 +1,7 @@
 # Brick 3.5 — Reviewed single-file edits
 
+Brick 6.8 supersedes byte-identical proposal line-break matching for uniform LF/CRLF files: only proposal line breaks adapt to the source style, with other whitespace/content remaining exact. Raw snapshot review, concurrency checks, journal and revert are unchanged. Mixed-ending files require byte-exact or unique single-line proposals. See [reliable exact edits](reliable-exact-edits.md).
+
 Brick 6.5 supersedes the former 4-KiB file-tool argument budget with 64 KiB; each file and complete reviewed diff still stays within 16 KiB. Other tools keep 4 KiB. See [larger coding files](larger-code-files.md).
 
 Brick 3.6 adds independent local snapshots, durable intent and reviewed revert to the selected Flutter host; it supersedes this brick's lack of a durable journal. See [change journal](change-journal.md). The edit validation and optimistic concurrency limits below still apply.

@@ -1,5 +1,7 @@
 # Dolores
 
+**Exact edits:** multiline LF/CRLF proposals now use the file's uniform line-ending style while keeping other text exact. Ambiguous targets and changed previews are still refused; mixed-ending files get guidance for an exact single-line edit. Diff approval and exact saved-byte revert remain. See [edit matching and limits](docs/design/reliable-exact-edits.md).
+
 **Coding checks:** failed commands and incomplete output stay visible with their actual exit status. **Repair and verify** on the latest saved response starts another bounded run with fresh approvals, preserving completed files and failed-check feedback. Only a complete successful rerun of the same command clears that failure; a model's success claim does not. Step/output limits still use Continue. See [validation and repair design](docs/design/coding-validation-repair.md).
 
 **Generation settings:** open Request settings, choose an enabled model, and save its output-token allowance, timeout and optional reasoning control. Profiles stay separate by endpoint/model and reload when switching models. Restore defaults removes only that model's override after Save. Provider default sends no reasoning override; use DeepSeek thinking off or OpenAI effort only when your provider supports it. Rejected settings offer an explicit correction without automatic retries. See [profile design and limits](docs/design/model-generation-profiles.md).

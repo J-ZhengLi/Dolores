@@ -15,6 +15,8 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 const CHANGED: &str = "File changed since preview. No edit was applied.";
+#[path = "edit_text.rs"]
+mod text;
 pub(super) static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
 pub struct EditTextFile {
@@ -262,7 +264,7 @@ impl EditTextFile {
 pub fn edit_spec() -> ToolSpec {
     ToolSpec {
             name:"edit_text_file".into(),
-            description:"Replace one exact, unique old_text occurrence with new_text in an existing writable UTF-8 file under the working folder. Relative direct paths only, files up to 16 KiB. The user must review the local diff and approve once before writing. No creation, deletion, shell, aliases or VCS/credential files. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
+            description:"Replace one exact, unique old_text occurrence with new_text in an existing writable UTF-8 file under the working folder. LF/CRLF proposal line breaks use the file's uniform newline style; all other text and whitespace must match exactly. Mixed/lone-CR files require byte-exact text or a unique single-line edit. Relative direct paths only, files up to 16 KiB. The user must review the local diff and approve once before writing. No creation, deletion, shell, aliases or VCS/credential files. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
             parameters:json!({"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string","minLength":1},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}),
         }
 }
@@ -294,17 +296,7 @@ impl ToolPlugin for EditTextFile {
                 .map_err(|_| "File folder is unavailable.")?,
         );
         let (before, permissions) = snapshot(&parent, filename)?;
-        let mut positions = before.match_indices(&args.old_text);
-        let (position, _) = positions.next().ok_or("Exact edit text was not found.")?;
-        if positions.next().is_some() {
-            return Err("Edit text occurs more than once. Use a larger unique match.".into());
-        }
-        // Reject overlapping matches too (for example aa in aaa).
-        let next = position + args.old_text.chars().next().unwrap().len_utf8();
-        if before[next..].contains(&args.old_text) {
-            return Err("Edit text occurs more than once.".into());
-        }
-        let after = before.replacen(&args.old_text, &args.new_text, 1);
+        let after = text::replace(&before, &args.old_text, &args.new_text)?;
         if after.len() > MAX_TOOL_BYTES {
             return Err("Edited file exceeds the 16 KiB limit.".into());
         }
