@@ -1,5 +1,11 @@
 # Dolores acceptance — 2026-10-04
 
+## Commit message language
+
+All **40 existing commits** now have English subjects and bodies. Every rewritten commit was checked against its original raw object: **author and committer dates (including timezone offsets), identities, tree snapshots, and parent order are preserved**. Commit IDs changed. Unrelated tree refs, the index, and working files remained unchanged during the rewrite. A verified local recovery bundle and old-to-new commit map are retained in ignored output, without publishing another history.
+
+Project guidance now requires English commit messages. The normal Windows release rebuild passes and the app is visibly open; all **22 schema-19 table digests** still match the prior data snapshot. This task changes history metadata and documentation; it adds no runtime behavior or live-model reliability claim.
+
 ## Brick 8.2 — Dependency notices and startup recovery
 
 The Windows preview now includes a [versioned dependency inventory and full notices](DEPENDENCIES.md), bound to runtime/locked-input hashes, and **Start-Dolores.cmd** with recovery guidance. Collection uses prepared local dependencies without downloads or model calls. The original infinity logo and **Dolores** title are retained.
