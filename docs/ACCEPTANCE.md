@@ -1,5 +1,16 @@
 # Dolores acceptance — 2026-10-03
 
+## Brick 7.2 — Frozen context comparisons
+
+Saved chats provide **Chat actions → Compare instructions**, with scoped memory/retained skill copies, labeled manual snapshots, 1–3 frozen literal tests and comparison-only limits. Receipts retain the exact requests, model/settings, outputs, reported usage and elapsed time. Strict completed improvement never activates instructions automatically. See [comparison design](design/context-comparisons.md).
+
+- Rust workspace: **203 passed, 1 ignored**; six new tests cover immutable prompts/prefixes, scope/revision/deletion/restart, capacity/paging/export, budget and malformed evidence refusal, truncation, timeout, cancellation, excessive capture and reported usage. All-target Clippy is clean.
+- Flutter: **147 passed**. Three new compact light/dark and pending-run cases cover stale-source refusal retaining editable inputs, explicit retry, truncated snippets failing evaluation, Stop retaining baseline, duplicate exclusion and Close locking. These are widget checks; native keyboard/IME/accessibility acceptance remains open.
+- `scripts/test-context-comparisons.py`: save/restore passes through the normal bundle FFI, SQLite and independent HTTP fixture, **14 fixture responses during save, zero on restart**. Basic strict gain, tie, source correction/stale refusal before requests, output-limit partial preservation, timeout/Stop with baseline retained, injected persistence failure with copyable volatile receipt and a fresh explicit recovery all pass. Both exports retain comparison evidence, and chat messages/other active memory remain excluded. An unfinished stored prefix stays unfinished after restart.
+- Authorized synthetic conflicting-input check, 512 output tokens/60 seconds, two responses per model: **Qwen/Qwen3.5-2B** completed in **5.29 s** but failed the candidate literal rule (0/1 versus 0/1), correctly reporting no improvement. **DeepSeek V4.1 Flash**, thinking explicitly off, completed in **2.92 s** with 0/1 baseline and 1/1 candidate. This establishes the selected response check, not general task or statistical improvement. No original provider settings or history were used as test inputs or modified.
+
+Normal Windows release rebuilt and visibly launched with schema 19. All **20 pre-existing table digests** match the fresh baseline; two new tables are empty. Provider configuration/history remain intact. Public scan covers **310 paths**, no known personal-path/email or Gitleaks findings. Broader native/platform/low-end acceptance remains open; no price, representative benchmark or automatic promotion is claimed.
+
 ## Brick 7.1 — Local task feedback
 
 Saved replies and trajectory rows offer Worked / Needs work with an optional note. Feedback compares the exact saved reply/metadata and its own revision, stays local, preserves command evidence and never feeds model context or learning. Clear retains a revision tombstone; deleting a chat cascades its feedback. Conversation exports retain the assessment explicitly. See [feedback design](design/task-feedback.md).

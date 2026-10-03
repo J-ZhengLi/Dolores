@@ -1,5 +1,11 @@
 # Universal UI style
 
+## Instruction comparisons
+
+Use the saved-chat **Chat actions → Compare instructions** entry and shared InspectorFrame/system palette. Keep two labeled instruction snapshots, source-copy selectors, 1–3 literal tests and comparison-only token/deadline fields in one scroll area. Fixed footer Run/Refresh and Stop remain reachable; busy operations lock dismissal and duplicate writes. Editing a copied snapshot clears its source binding. Refusals retain the draft and reveal actionable errors at the top.
+
+Saved receipts show complete/failed/stopped/unfinished status, two separate pass counts, actual output/elapsed/reported usage and expandable exact requests. Only complete strict gain earns the improvement label. Failed storage shows Copy receipt before closing; never imply a volatile result was saved. Older/Newest replaces the bounded saved page. Use as draft is explicit and never resumes an old run. Leave the composer unchanged and add no startup/background evaluation.
+
 ## Task feedback
 
 Saved assistant replies and trajectory rows offer a quiet Task feedback action beside existing run details. Use the shared InspectorFrame, palette and scrollable compact form with Worked / Needs work, optional note and fixed Save / Clear controls. Explain that the local assessment is separate from command evidence and included in exports; it never changes model context or learning. Show the original reply details and pause reason. Pending saves exclude duplicate edits/dismissal; failed saves preserve notes and bring errors into view. Keep the composer unchanged.

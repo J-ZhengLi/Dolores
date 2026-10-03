@@ -267,6 +267,38 @@ impl SqliteStore {
             count += 1;
         }
         if matches!(format, ExportFormat::Json) {
+            output.write_all(b"],\"comparisons\":[").map_err(error)?;
+        }
+        let mut comparisons = snapshot
+            .prepare("SELECT data FROM context_comparisons WHERE session_id=?1 ORDER BY id ASC")
+            .map_err(storage_error)?;
+        let mut rows = comparisons.query([id]).map_err(storage_error)?;
+        let mut first = true;
+        while let Some(row) = rows.next().map_err(storage_error)? {
+            let run: dolores_core::ContextComparison =
+                serde_json::from_str(&row.get::<_, String>(0).map_err(storage_error)?)
+                    .map_err(storage_error)?;
+            run.validate()?;
+            let receipt = serde_json::json!({"record":run,"summary":run.summary()});
+            match format {
+                ExportFormat::Json => {
+                    if !first {
+                        output.write_all(b",").map_err(error)?;
+                    }
+                    serde_json::to_writer(&mut *output, &receipt).map_err(storage_error)?;
+                }
+                ExportFormat::Markdown => {
+                    writeln!(output, "## Frozen context comparison\n").map_err(error)?;
+                    markdown_block(
+                        output,
+                        &serde_json::to_string(&receipt).map_err(storage_error)?,
+                    )
+                    .map_err(error)?;
+                }
+            }
+            first = false;
+        }
+        if matches!(format, ExportFormat::Json) {
             output.write_all(b"]}\n").map_err(error)?;
         }
         Ok(count)

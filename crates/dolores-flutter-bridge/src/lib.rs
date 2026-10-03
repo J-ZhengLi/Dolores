@@ -2,6 +2,7 @@
 mod approval;
 mod automatic_memory;
 mod changes;
+mod comparison;
 mod connection;
 mod continuation;
 mod export;
@@ -68,6 +69,30 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ComparisonSources {
+        session: String,
+    },
+    ComparisonsPage {
+        session: String,
+        cursor: Option<i64>,
+    },
+    Comparison {
+        session: String,
+        #[serde(rename = "comparisonId")]
+        comparison_id: i64,
+    },
+    DeleteComparison {
+        session: String,
+        #[serde(rename = "comparisonId")]
+        comparison_id: i64,
+        revision: u32,
+    },
+    StartComparison {
+        id: u64,
+        session: String,
+        draft: dolores_core::ComparisonDraft,
+        settings: RequestSettings,
+    },
     SaveTaskFeedback {
         session: String,
         draft: Box<dolores_core::FeedbackDraft>,
@@ -478,6 +503,29 @@ impl Engine {
             Command::SaveTaskFeedback { session, draft } => {
                 Ok(json!(self.store.save_task_feedback(&session, &draft)?))
             }
+            Command::ComparisonSources { session } => self.comparison_sources(&session),
+            Command::ComparisonsPage { session, cursor } => {
+                Ok(json!(self.store.comparisons_page(&session, cursor)?))
+            }
+            Command::Comparison {
+                session,
+                comparison_id,
+            } => self.comparison_report(&session, comparison_id),
+            Command::DeleteComparison {
+                session,
+                comparison_id,
+                revision,
+            } => {
+                self.store
+                    .delete_comparison(&session, comparison_id, revision)?;
+                Ok(Value::Null)
+            }
+            Command::StartComparison {
+                id,
+                session,
+                draft,
+                settings,
+            } => self.start_comparison(&mut active, id, session, draft, settings),
             Command::McpSettings { session } => self.mcp_settings(&session),
             Command::InspectMcp {
                 id,

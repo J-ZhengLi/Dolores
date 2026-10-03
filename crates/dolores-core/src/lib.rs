@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
+mod comparison;
 mod feedback;
+pub use comparison::*;
 pub use feedback::*;
 mod agent;
 mod command_outcome;
@@ -216,6 +218,25 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn create_comparison(&self, _: &ContextComparison) -> Result<ContextComparison, String> {
+        Err("Context comparisons are unavailable in this store.".into())
+    }
+    fn update_comparison(&self, _: &ContextComparison) -> Result<ContextComparison, String> {
+        Err("Context comparisons are unavailable in this store.".into())
+    }
+    fn comparisons_page(
+        &self,
+        _: &str,
+        _: Option<i64>,
+    ) -> Result<HistoryPage<ComparisonSummary>, String> {
+        Err("Context comparisons are unavailable in this store.".into())
+    }
+    fn comparison(&self, _: &str, _: i64) -> Result<ContextComparison, String> {
+        Err("Context comparisons are unavailable in this store.".into())
+    }
+    fn delete_comparison(&self, _: &str, _: i64, _: u32) -> Result<(), String> {
+        Err("Context comparisons are unavailable in this store.".into())
+    }
     fn save_task_feedback(&self, _: &str, _: &FeedbackDraft) -> Result<TaskFeedback, String> {
         Err("This storage plugin does not support task feedback.".into())
     }

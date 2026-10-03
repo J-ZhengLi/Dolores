@@ -12,6 +12,7 @@ import 'reply_content.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
+import 'comparison.dart';
 import 'inspector.dart';
 import 'changes.dart';
 import 'request_settings.dart';
@@ -783,6 +784,8 @@ class _ChatPageState extends State<ChatPage> {
                           showSkills(context, chat);
                         } else if (value == 'mcp') {
                           showMcp(context, chat);
+                        } else if (value == 'comparisons') {
+                          showComparisons(context, chat);
                         } else {
                           exportChat(value);
                         }
@@ -794,6 +797,10 @@ class _ChatPageState extends State<ChatPage> {
                         size: 20,
                       ),
                       itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'comparisons',
+                          child: Text('Compare instructions'),
+                        ),
                         if (chat.workspaceRoot != null)
                           const PopupMenuItem(
                             value: 'mcp',

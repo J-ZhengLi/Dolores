@@ -7,6 +7,7 @@ mod automatic_memory;
 #[cfg(test)]
 mod change_tests;
 mod changes;
+mod comparison;
 mod feedback;
 mod generation_profiles;
 mod history;
@@ -118,6 +119,12 @@ impl SqliteStore {
                 CREATE TABLE task_feedback (message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, data TEXT NOT NULL);
                 PRAGMA user_version=18; COMMIT;").map_err(storage_error)?;
         }
+        if version < 19 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE context_comparisons (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, data TEXT NOT NULL);
+                CREATE INDEX comparisons_session ON context_comparisons(session_id,id);
+                PRAGMA user_version=19; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -128,6 +135,35 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn create_comparison(
+        &self,
+        run: &dolores_core::ContextComparison,
+    ) -> Result<dolores_core::ContextComparison, String> {
+        self.insert_comparison(run)
+    }
+    fn update_comparison(
+        &self,
+        run: &dolores_core::ContextComparison,
+    ) -> Result<dolores_core::ContextComparison, String> {
+        self.advance_comparison(run)
+    }
+    fn comparisons_page(
+        &self,
+        session: &str,
+        cursor: Option<i64>,
+    ) -> Result<dolores_core::HistoryPage<dolores_core::ComparisonSummary>, String> {
+        self.read_comparisons(session, cursor)
+    }
+    fn comparison(
+        &self,
+        session: &str,
+        id: i64,
+    ) -> Result<dolores_core::ContextComparison, String> {
+        self.read_comparison(session, id)
+    }
+    fn delete_comparison(&self, session: &str, id: i64, revision: u32) -> Result<(), String> {
+        self.remove_comparison(session, id, revision)
+    }
     fn save_task_feedback(
         &self,
         session: &str,
@@ -937,7 +973,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 18);
+        assert_eq!(version, 19);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

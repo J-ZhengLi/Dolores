@@ -184,7 +184,7 @@ mod tests {
         store
             .lock()
             .unwrap()
-            .execute_batch("DROP TABLE model_request_settings;DROP TABLE task_feedback;PRAGMA user_version=16;")
+            .execute_batch("DROP TABLE model_request_settings;DROP TABLE task_feedback;DROP TABLE context_comparisons;PRAGMA user_version=16;")
             .unwrap();
         drop(store);
         let store = SqliteStore::open(&file).unwrap();
@@ -203,7 +203,7 @@ mod tests {
                 .unwrap()
                 .query_row::<i64, _, _>("PRAGMA user_version", [], |r| r.get(0))
                 .unwrap(),
-            18
+            19
         );
     }
 }

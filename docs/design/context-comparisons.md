@@ -1,0 +1,11 @@
+# Frozen context comparisons — brick 7.2
+
+Open **Chat actions → Compare instructions** in a saved chat. Copy a current scoped memory or retained skill version into each side, or label a manual snapshot. Provide one to three test prompts with required and optional forbidden literal snippets. Historical memory text can be compared as a labeled manual copy; memory revisions are not a version archive.
+
+Each side receives the same test with a fresh system prompt and its frozen instruction text. Chat history, other memories/skills and tools are excluded. A source selection is rechecked before any request. Editing a copied source makes it a manual snapshot. Full requests, model, context capacity, reasoning/output/deadline settings, responses, elapsed time and optional reported usage remain in the receipt. Unknown usage remains unknown; no token-price estimate is invented.
+
+The run permits at most six sequential responses, each at most 2048 output tokens, 60 seconds and 8 KiB captured text. These comparison-only controls leave chat settings unchanged. All prompts must fit before a run starts. Save each result before requesting the next; a failed save stops execution and offers a volatile copy while keeping earlier saved evidence. Stop, timeout, truncated/empty/oversized responses and reported allowance overruns cannot pass. There is no automatic retry or resume after restart.
+
+A strict improvement requires every candidate test to pass, more candidate passes than baseline, and a completed run with all responses inside the bounds. Ties, unfinished runs and failed storage never authorize activation. These are literal response checks on selected cases, not statistical significance, tool-task success or general model competence. No memory/skill activation is changed; generated skill promotion still requires its separate reviewed evaluation.
+
+Schema 19 stores revisioned receipts per chat (30 maximum, 10-row pages). Updates bind immutable inputs and the saved result prefix; deletion binds the current revision. Conversation deletion cascades receipts. JSON/Markdown exports include full frozen evidence explicitly, separately from chat messages. Viewing and restarting make no provider request. No dependency, startup worker or idle polling is added. Privacy follows local chat exports: synthetic diagnostics stay under ignored `output/`.

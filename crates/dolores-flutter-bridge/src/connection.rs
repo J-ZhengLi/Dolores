@@ -29,6 +29,12 @@ impl ConnectionManager {
     pub(super) fn automatic_memory_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         self.bounded_review_provider(512, 10)
     }
+    pub(super) fn comparison_provider(
+        &self,
+        settings: RequestSettings,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
+        self.review_provider_with_settings(2048, 60, Some(settings))
+    }
     pub(super) fn skill_draft_provider(
         &self,
         settings: Option<RequestSettings>,

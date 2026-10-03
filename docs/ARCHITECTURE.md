@@ -96,6 +96,8 @@ The paired Flutter trial measured 224.36 MiB working set / 229.52 MiB private by
 
 ## Sources
 
+Brick 7 adds local evidence through optional store ports: revisioned exact-reply feedback (schema 18) and bounded frozen context comparisons (schema 19). Comparison workers reuse the provider/profile ports without tools, persist each response before the next, and keep immutable request/result prefixes. Failures preserve durable or explicitly volatile evidence. Exports keep assessments/comparisons separate from provider-visible history. See [comparison design](design/context-comparisons.md).
+
 See [native research](research/native-shell-options.md) for rendering, APIs, IME and accessibility evidence. [Tauri architecture](https://v2.tauri.app/concept/architecture/) and [capabilities](https://v2.tauri.app/security/capabilities/) inform the alternative host. [Initial research](research/architecture-options.md) records the Hermes/DeepSeek influences.
 
 Brick 2.3.2 adds optional provider-reported usage and storage metadata capabilities with defaults for existing plugins. Flutter saves usage, original model and exact context summary atomically with completed replies. An on-demand context preview reads one SQLite snapshot and adds no idle work or provider request. The core byte/turn bounds remain unchanged and are not model-specific token budgets.
