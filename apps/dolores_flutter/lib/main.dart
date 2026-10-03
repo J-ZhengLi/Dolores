@@ -292,6 +292,8 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       metadata!['paused']['reason'] == 'outputLimit'
                           ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
+                          : metadata['paused']['reason'] == 'commandReview'
+                          ? 'A command failed or verification was incomplete. Review its output before repair.'
                           : 'Paused at this run’s step limit. Progress and tool results saved.',
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
@@ -308,7 +310,11 @@ class _ChatPageState extends State<ChatPage> {
                               ? null
                               : () => chat.continueTask(messageId!),
                           icon: const Icon(Icons.play_arrow_outlined, size: 18),
-                          label: const Text('Continue'),
+                          label: Text(
+                            metadata['paused']['reason'] == 'commandReview'
+                                ? 'Repair and verify'
+                                : 'Continue',
+                          ),
                         ),
                       ),
                     Text(
@@ -318,7 +324,12 @@ class _ChatPageState extends State<ChatPage> {
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
                   ],
-                  if (metadata?['agent']?['tools'] is List)
+                  if (metadata?['paused']?['reason'] == 'commandReview')
+                    ToolRecords(
+                      records: metadata!['paused']['receipts'] as List,
+                      maxRecords: 16,
+                    )
+                  else if (metadata?['agent']?['tools'] is List)
                     ToolRecords(records: metadata!['agent']['tools'] as List),
                   UsageDetails(metadata: metadata),
                 ],

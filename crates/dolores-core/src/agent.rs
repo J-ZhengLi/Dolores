@@ -36,6 +36,10 @@ pub fn prepare_agent_context(mut context: Vec<Message>) -> Result<Vec<Message>, 
     if !context[0].content.contains(CODING_GUIDANCE) {
         context[0].content.push_str(CODING_GUIDANCE);
     }
+    let budget = budget_note(1, 0);
+    if !context[0].content.contains(&budget) {
+        context[0].content.push_str(&budget);
+    }
     while context
         .iter()
         .map(|message| message.content.len())
@@ -54,6 +58,14 @@ pub fn prepare_agent_context(mut context: Vec<Message>) -> Result<Vec<Message>, 
         return Err("Tool context exceeds the 128 KiB limit.".into());
     }
     Ok(context)
+}
+
+fn budget_note(number: usize, used_tools: usize) -> String {
+    format!(
+        "\n\nThis run: model call {number}/{MAX_MODEL_CALLS}; {} tool operations remain; {} tool-producing model calls remain including this one. The final model call must report results without tools. For coding, reserve a tool operation and a tool-producing call for validation before more optional work. Failed or incomplete command receipts require repair and a fresh approved rerun of the same check; do not weaken tests merely to make them pass. If that cannot fit, report remaining work and pause for explicit continuation.",
+        MAX_TOOL_CALLS - used_tools,
+        MAX_MODEL_CALLS - number,
+    )
 }
 pub fn prepare_external_tool_context(
     mut context: Vec<Message>,
@@ -165,6 +177,7 @@ pub struct AgentReply {
 pub enum PauseReason {
     OutputLimit,
     StepLimit,
+    CommandReview,
 }
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -267,7 +280,13 @@ pub async fn run_agent(
     let mut output_bytes = 0;
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
+    let base_system = messages[0].content.clone();
     for number in 1..=MAX_MODEL_CALLS {
+        messages[0].content = base_system.replacen(
+            &budget_note(1, 0),
+            &budget_note(number, summary.tools.len()),
+            1,
+        );
         let bytes = serde_json::to_vec(&messages).map_err(|_| "Could not prepare tool context.")?;
         if bytes.len() > MAX_CONTEXT_BYTES {
             return Err("Tool context exceeds the 128 KiB limit.".into());
@@ -339,7 +358,8 @@ pub async fn run_agent(
                 return Err("The model returned no text.".into());
             }
             return Ok(AgentReply {
-                pause: None,
+                pause: (!crate::unresolved_commands(&summary.tools).is_empty())
+                    .then_some(PauseReason::CommandReview),
                 answer: turn.content,
                 summary,
             });
@@ -506,6 +526,8 @@ pub async fn run_agent(
                                     "edited"
                                 } else if request.name == "create_text_file" {
                                     "created"
+                                } else if request.name == "run_command" {
+                                    crate::CommandOutcome::from_content(&content).status()
                                 } else {
                                     "completed"
                                 },

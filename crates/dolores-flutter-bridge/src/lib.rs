@@ -1095,21 +1095,23 @@ async fn execute(
             return Err(stopped());
         }
         let saved = reply.answer.clone();
+        let mut receipts = prior
+            .as_ref()
+            .map(|(p, _)| p.receipts.clone())
+            .unwrap_or_default();
+        receipts.extend(reply.summary.tools.clone());
+        let pause = reply.pause.or_else(|| {
+            (!dolores_core::unresolved_commands(&receipts).is_empty())
+                .then_some(dolores_core::PauseReason::CommandReview)
+        });
         let metadata = TurnMetadata {
-            paused: reply.pause.map(|reason| {
-                let mut receipts = prior
+            paused: pause.map(|reason| dolores_core::PausedTask {
+                reason,
+                task: prior
                     .as_ref()
-                    .map(|(p, _)| p.receipts.clone())
-                    .unwrap_or_default();
-                receipts.extend(reply.summary.tools.clone());
-                dolores_core::PausedTask {
-                    reason,
-                    task: prior
-                        .as_ref()
-                        .map(|(p, _)| p.task.clone())
-                        .unwrap_or_else(|| input.clone()),
-                    receipts,
-                }
+                    .map(|(p, _)| p.task.clone())
+                    .unwrap_or_else(|| input.clone()),
+                receipts,
             }),
             model,
             usage: None,

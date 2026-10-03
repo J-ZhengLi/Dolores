@@ -148,7 +148,7 @@ fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     let prepared = prepare_agent_context(context).unwrap();
     assert_eq!(prepared.len(), 2);
     assert!(prepared[0].content.contains(TOOL_GUIDANCE));
-    assert!(prepared[0].content.ends_with(CODING_GUIDANCE));
+    assert!(prepared[0].content.ends_with(&budget_note(1, 0)));
     assert_eq!(prepared[1].content, "Current request");
     let repeated = prepare_agent_context(prepared.clone()).unwrap();
     assert_eq!(repeated[0].content, prepared[0].content);

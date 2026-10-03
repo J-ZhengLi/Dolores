@@ -1863,6 +1863,15 @@ Future<void> _run(
     final commandRecord = chat.messages.last['metadata']['agent']['tools'][0];
     final commandResult = jsonDecode(commandRecord['content'] as String);
     check(
+      commandRecord['status'] == 'failed' &&
+          chat.messages.last['metadata']['paused']['reason'] ==
+              'commandReview' &&
+          chat.latestPausedId == chat.messages.last['id'],
+      'Nonzero command exit remains actionable with saved repair provenance despite a final model reply',
+      checks,
+    );
+    await screenshot(capture, output, 'command-repair-dark');
+    check(
       await commandFile.readAsString() == 'validated 世界' &&
           commandResult['exitCode'] == 7 &&
           commandResult['stdout'] == 'Checked 世界' &&
@@ -1890,6 +1899,13 @@ Future<void> _run(
     check(
       shortened['reason'] == 'outputLimit' && shortened['truncated'] == true,
       'Command output limit stops execution and labels shortened output',
+      checks,
+    );
+    check(
+      chat.messages.last['metadata']['agent']['tools'][0]['status'] ==
+              'incomplete' &&
+          chat.messages.last['metadata']['paused']['reason'] == 'commandReview',
+      'Shortened command evidence offers explicit verification recovery',
       checks,
     );
     await proposeCommand('tool-command-slow');

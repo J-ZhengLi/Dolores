@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Failed command checks
+
+Command cards label Failed with the actual exit, Verification incomplete for incomplete capture/process evidence, and Exited 0 for complete zero-exit receipts. Keep stdout/stderr literal and expandable, including legacy receipts. A commandReview pause uses muted explanatory text and Repair and verify in the existing Continue position. Show the inherited saved command receipts even when the latest segment has none. Preserve draft exclusion, latest-message binding, loading/duplicate locks and fresh-approval explanation. Step/output pauses keep Continue. The quiet palette, composer and layout stay unchanged; never present model prose as a verified result.
+
 ## Paused tasks
 
 An explicit model output limit or agent step limit renders the saved partial response with a muted pause reason, actual saved output allowance where applicable, and the existing progress/tool/usage details. Show Continue only on the latest saved paused assistant message. Disable it during loading or generation and when a composer draft is present; explain that the draft must be sent or cleared. A continuation needs a configured connection, starts a separate bounded run and asks for fresh tool approval. Incomplete calls have not run. Keep the original paused segment and receipts visible after success, failure, Stop and restart. Failed continuation leaves the composer empty and the saved response available for retry. No automatic retries or new budget controls are introduced. Paused replies do not trigger automatic preference learning.

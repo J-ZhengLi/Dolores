@@ -19,7 +19,13 @@ String toolLabel(dynamic name) => switch (name) {
 
 String toolResultText(dynamic record) {
   final content = '${record['content']}';
-  if (!['completed', 'edited', 'created'].contains(record['status'])) {
+  if (![
+    'completed',
+    'failed',
+    'incomplete',
+    'edited',
+    'created',
+  ].contains(record['status'])) {
     return content;
   }
   try {
@@ -64,6 +70,28 @@ String toolResultText(dynamic record) {
     // Legacy/unknown tool payloads remain literal and selectable.
   }
   return content;
+}
+
+String toolStatus(dynamic record) {
+  if (record['name'] != 'run_command' ||
+      ['denied', 'blocked', 'error'].contains(record['status'])) {
+    return '${record['status']}';
+  }
+  try {
+    final result = jsonDecode('${record['content']}') as Map;
+    if (result['reason'] != 'completed' || result['exitCode'] is! int) {
+      return 'Verification incomplete';
+    }
+    if (result['exitCode'] != 0) return 'Failed · exit ${result['exitCode']}';
+    if (result['truncated'] != false ||
+        result['lossyUtf8'] == true ||
+        result['outputError'] == true) {
+      return 'Verification incomplete';
+    }
+    return 'Exited 0';
+  } catch (_) {
+    return 'Verification incomplete';
+  }
 }
 
 class ToolApprovalCard extends StatelessWidget {
@@ -281,14 +309,15 @@ class ToolApprovalCard extends StatelessWidget {
 
 class ToolRecords extends StatelessWidget {
   final List<dynamic> records;
-  const ToolRecords({super.key, required this.records});
+  final int maxRecords;
+  const ToolRecords({super.key, required this.records, this.maxRecords = 4});
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final record in records.take(4))
+        for (final record in records.take(maxRecords))
           Card(
             elevation: 0,
             color: p.surface,
@@ -309,7 +338,7 @@ class ToolRecords extends StatelessWidget {
                 style: const TextStyle(fontSize: 12),
               ),
               subtitle: Text(
-                '${toolLabel(record['name'])} · ${record['status']}',
+                '${toolLabel(record['name'])} · ${toolStatus(record)}',
                 style: TextStyle(fontSize: 11, color: p.muted),
               ),
               childrenPadding: const EdgeInsets.all(12),
