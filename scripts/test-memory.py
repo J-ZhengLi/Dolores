@@ -187,6 +187,6 @@ else:
     history = call("messagesPage", session=expected["session"])["items"]
     assert len(history) == 6 and history[1]["metadata"]["context"]["memory"] == expected["old"]
     with sqlite3.connect(fixture / "data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 14
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 15
 call("shutdown")
 print(json.dumps({"ok": True, "stage": args.stage, "scope": "manual memory, frozen wire, approval, provenance and restart"}))

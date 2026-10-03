@@ -387,6 +387,7 @@ impl ToolPlugin for Discover {
             query: args.query,
             diff: None,
             command: None,
+            mcp: None,
         })
     }
     async fn invoke(

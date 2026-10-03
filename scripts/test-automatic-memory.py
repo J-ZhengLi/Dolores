@@ -175,6 +175,6 @@ else:
     call("deleteMemory",session=state["session"],scope="folder",id=learned["id"],revision=3)
     assert items(state["session"])==[]
     with sqlite3.connect(fixture/"data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0]==14
+        assert db.execute("PRAGMA user_version").fetchone()[0]==15
     print(json.dumps({"ok":True,"stage":"restore","policyAndProvenancePreserved":True}))
     call("shutdown")

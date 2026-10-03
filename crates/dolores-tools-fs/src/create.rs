@@ -161,6 +161,7 @@ impl ToolPlugin for CreateTextFile {
             query: None,
             diff: Some(diff),
             command: None,
+            mcp: None,
         };
         let mut plans = self
             .plans

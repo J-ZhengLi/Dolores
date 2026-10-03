@@ -123,6 +123,6 @@ else:
     item = call("projectSkills", session=state["session"])["items"][0]
     assert not item["enabled"] and item["version"] == 2
     with sqlite3.connect(fixture / "data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 14
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 15
         assert db.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 0
-print(json.dumps({"ok": True, "stage": args.stage, "providerRequests": 0, "schema": 14}))
+print(json.dumps({"ok": True, "stage": args.stage, "providerRequests": 0, "schema": 15}))

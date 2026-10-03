@@ -18,6 +18,7 @@ import 'tool_activity.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
 import 'skills.dart';
+import 'mcp.dart';
 import 'memory.dart';
 import 'session_summary.dart';
 import 'chat_sidebar.dart';
@@ -718,13 +719,13 @@ class _ChatPageState extends State<ChatPage> {
                   if (chat.session != null)
                     PopupMenuButton<String>(
                       key: const Key('export-chat'),
-                      tooltip: constraints.maxWidth < 480
-                          ? 'Chat actions'
-                          : 'Export complete conversation',
+                      tooltip: 'Chat actions',
                       enabled: !chat.busy && !chat.changing && !chat.loading,
                       onSelected: (value) {
                         if (value == 'skills') {
                           showSkills(context, chat);
+                        } else if (value == 'mcp') {
+                          showMcp(context, chat);
                         } else {
                           exportChat(value);
                         }
@@ -736,6 +737,11 @@ class _ChatPageState extends State<ChatPage> {
                         size: 20,
                       ),
                       itemBuilder: (_) => [
+                        if (chat.workspaceRoot != null)
+                          const PopupMenuItem(
+                            value: 'mcp',
+                            child: Text('External tools (MCP)'),
+                          ),
                         if (constraints.maxWidth < 480)
                           const PopupMenuItem(
                             value: 'skills',

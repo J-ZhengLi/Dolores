@@ -242,6 +242,7 @@ impl ToolPlugin for Read {
             query: None,
             diff: None,
             command: None,
+            mcp: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
@@ -276,6 +277,7 @@ impl ToolPlugin for CommandMock {
                 invocation,
                 executable: "/runtime/node".into(),
             }),
+            mcp: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
@@ -351,6 +353,7 @@ impl ToolPlugin for DiscoveryMock {
             query: args["query"].as_str().map(str::to_owned),
             diff: None,
             command: None,
+            mcp: None,
         })
     }
     async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {

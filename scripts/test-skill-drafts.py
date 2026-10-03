@@ -166,7 +166,7 @@ if args.stage == 'save':
         call('forgetSkill', session=session, scope='global', name='other', revision=1)
         call('discardSkillDraft', token=tested['token'])
         state_file.write_text(json.dumps({'session': session, 'evaluation': evaluation}), encoding='utf-8')
-        with sqlite3.connect(fixture / 'data/dolores.db') as db: assert db.execute('PRAGMA user_version').fetchone()[0] == 14
+        with sqlite3.connect(fixture / 'data/dolores.db') as db: assert db.execute('PRAGMA user_version').fetchone()[0] == 15
         print(json.dumps({'ok': True, 'stage': 'save', 'requests': len(requests), 'checks': 'output-limit refusal, explicit larger retry, 31-second draft, unchanged settings, tool-free wire, frozen tests, tie/regression gate, one-use promotion, edits, Stop, unchanged transcript/schema'}))
     finally:
         call('shutdown'); server.shutdown(); server.server_close()

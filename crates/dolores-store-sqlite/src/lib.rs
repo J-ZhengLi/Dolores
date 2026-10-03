@@ -9,6 +9,7 @@ mod change_tests;
 mod changes;
 mod history;
 mod instructions;
+mod mcp;
 mod memory;
 mod skills;
 mod summaries;
@@ -50,6 +51,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS model_contexts (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS workspace_instructions (root TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS project_skills (root TEXT NOT NULL, name TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(root,name));
+            CREATE TABLE IF NOT EXISTS mcp_connections (root TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS memory_preferences (id TEXT PRIMARY KEY, root TEXT NOT NULL, data TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS memory_scope ON memory_preferences(root,id);
             CREATE TABLE IF NOT EXISTS session_summaries (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, data TEXT NOT NULL);
@@ -90,9 +92,9 @@ impl SqliteStore {
                 .pragma_update(None, "user_version", 11)
                 .map_err(storage_error)?;
         }
-        if version < 14 {
+        if version < 15 {
             connection
-                .pragma_update(None, "user_version", 14)
+                .pragma_update(None, "user_version", 15)
                 .map_err(storage_error)?;
         }
         Ok(Self {
@@ -105,6 +107,20 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn mcp_connection(&self, root: &str) -> Result<Option<dolores_core::McpConnection>, String> {
+        self.read_mcp(root)
+    }
+    fn save_mcp_connection(
+        &self,
+        root: &str,
+        connection: &dolores_core::McpConnection,
+        expected: Option<u32>,
+    ) -> Result<dolores_core::McpConnection, String> {
+        self.write_mcp(root, connection, expected)
+    }
+    fn mutate_mcp_connection(&self, root: &str, revision: u32, forget: bool) -> Result<(), String> {
+        self.change_mcp(root, revision, forget)
+    }
     fn promote_skill(
         &self,
         promotion: &dolores_core::SkillPromotion,
@@ -763,7 +779,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 14);
+        assert_eq!(version, 15);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

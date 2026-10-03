@@ -36,7 +36,7 @@ impl Handle {
         unsafe { File::from_raw_handle(owned.0) }
     }
 }
-pub(super) struct Running {
+pub struct Running {
     process: Handle,
     job: Option<Handle>,
 }
@@ -162,11 +162,20 @@ pub(super) fn spawn(
     root: &Path,
     env: &[(String, String)],
 ) -> Result<(Running, File, File), String> {
+    let (running, input, stdout, stderr) = spawn_stdio(executable, args, root, env)?;
+    drop(input);
+    Ok((running, stdout, stderr))
+}
+pub fn spawn_stdio(
+    executable: &Path,
+    args: &[String],
+    root: &Path,
+    env: &[(String, String)],
+) -> Result<(Running, File, File, File), String> {
     let (stdout, out_write) = pipe()?;
     let (stderr, err_write) = pipe()?;
     let (stdin, in_write) = pipe()?;
-    drop(in_write); // Closed input: the child receives EOF, never an interactive prompt.
-    for handle in [&stdout, &stderr] {
+    for handle in [&stdout, &stderr, &in_write] {
         if unsafe { SetHandleInformation(handle.0, HANDLE_FLAG_INHERIT, 0) } == 0 {
             return Err("Command pipes are unavailable.".into());
         }
@@ -250,9 +259,9 @@ pub(super) fn spawn(
         return Err("Command could not be started.".into());
     }
     drop((thread, stdin, out_write, err_write, attributes));
-    Ok((running, stdout.file(), stderr.file()))
+    Ok((running, in_write.file(), stdout.file(), stderr.file()))
 }
-pub(super) fn read_available(pipe: &mut File, buffer: &mut [u8]) -> io::Result<usize> {
+pub fn read_available(pipe: &mut File, buffer: &mut [u8]) -> io::Result<usize> {
     let mut available = 0;
     if unsafe {
         PeekNamedPipe(

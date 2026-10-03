@@ -317,6 +317,7 @@ impl ToolPlugin for EditTextFile {
             query: None,
             diff: Some(preview),
             command: None,
+            mcp: None,
         };
         let mut plans = self
             .plans
@@ -411,6 +412,7 @@ impl RevertPlan {
                     query: None,
                     diff: Some(preview),
                     command: None,
+                    mcp: None,
                 },
                 parent,
                 filename: filename.into(),

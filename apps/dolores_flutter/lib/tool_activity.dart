@@ -8,6 +8,7 @@ import 'theme.dart';
 import 'edit_diff.dart';
 
 String toolLabel(dynamic name) => switch (name) {
+  String value when value.startsWith('mcp_tool_') => 'External tool',
   'list_folder' => 'Folder listing',
   'search_text' => 'Text search',
   'edit_text_file' => 'File edit',
@@ -23,6 +24,9 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if ('${record['name']}'.startsWith('mcp_tool_')) {
+      return '${result['isError'] == true ? 'Tool reported an error\n\n' : ''}${result['text'] ?? ''}';
+    }
     if (record['name'] == 'run_command') {
       final outcome = switch (result['reason']) {
         'timedOut' => 'Stopped at the time limit',
@@ -74,7 +78,10 @@ class ToolApprovalCard extends StatelessWidget {
     final editing = name == 'edit_text_file';
     final creating = name == 'create_text_file';
     final running = name == 'run_command';
+    final external = request['mcp'] is Map;
     final title = switch (name) {
+      String value when value.startsWith('mcp_tool_') =>
+        'Allow this external tool?',
       'list_folder' => 'Allow a folder listing?',
       'search_text' => 'Allow a text search?',
       'edit_text_file' => 'Apply this file change?',
@@ -83,6 +90,8 @@ class ToolApprovalCard extends StatelessWidget {
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      String value when value.startsWith('mcp_tool_') =>
+        'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.',
       'list_folder' =>
         'Share up to 100 file and folder names with ${chat.model}? This allows one listing. Results are kept with a completed reply.',
       'search_text' =>
@@ -110,7 +119,7 @@ class ToolApprovalCard extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: editing || creating || running ? 270 : 180,
+              maxHeight: editing || creating || running || external ? 270 : 180,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -131,11 +140,30 @@ class ToolApprovalCard extends StatelessWidget {
                     'Folder: ${chat.workspaceKind == 'temporary' ? 'Temporary workspace' : path.basename(chat.workspaceRoot ?? '')}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
-                  if (running) ...[
+                  if (running || external) ...[
                     const SizedBox(height: 6),
                     Text(
                       disclosure,
                       style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                  ],
+                  if (external) ...[
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      'Server: ${request['mcp']['server']}\nTool: ${request['mcp']['tool']}\nReviewed revision: ${request['mcp']['revision']}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Exact arguments (JSON)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    SelectableText(
+                      '${request['mcp']['arguments']}',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                   if (running && request['command'] is Map) ...[
@@ -198,7 +226,7 @@ class ToolApprovalCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 6),
-                  if (!running)
+                  if (!running && !external)
                     Text(
                       disclosure,
                       style: TextStyle(color: p.muted, fontSize: 12),
@@ -232,7 +260,7 @@ class ToolApprovalCard extends StatelessWidget {
                 child: Text(
                   chat.decidingTool
                       ? 'Sending decision…'
-                      : running
+                      : running || external
                       ? 'Run once'
                       : creating
                       ? 'Create once'
@@ -284,6 +312,15 @@ class ToolRecords extends StatelessWidget {
               ),
               childrenPadding: const EdgeInsets.all(12),
               children: [
+                if (record['mcp'] is Map)
+                  SelectableText(
+                    'Server: ${record['mcp']['server']}\nTool: ${record['mcp']['tool']}\nReviewed revision: ${record['mcp']['revision']}\nArguments: ${record['mcp']['arguments']}',
+                    style: TextStyle(
+                      color: p.muted,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
                 if (record['command'] is Map)
                   SelectableText(
                     key: PageStorageKey(

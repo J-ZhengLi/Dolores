@@ -1272,6 +1272,7 @@ dependencies = [
  "dolores-store-sqlite",
  "dolores-tools-command",
  "dolores-tools-fs",
+ "dolores-tools-mcp",
  "rusqlite",
  "serde",
  "serde_json",
@@ -1352,6 +1353,21 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml_ng",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "dolores-tools-mcp"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "dolores-core",
+ "dolores-tools-command",
+ "serde",
+ "serde_json",
+ "sha2",
  "tempfile",
  "tokio",
  "tokio-util",

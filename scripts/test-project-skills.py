@@ -196,7 +196,7 @@ else:
     call("forgetSkill",session=session,name="review",revision=5)
     assert not call("context",session=session,input="next").get("skills")
     with sqlite3.connect(fixture/"data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0]==14
+        assert db.execute("PRAGMA user_version").fetchone()[0]==15
         assert db.execute("SELECT COUNT(*) FROM project_skills").fetchone()[0]==0
     print(json.dumps({"ok":True,"stage":"restore"}))
 call("shutdown")

@@ -82,6 +82,7 @@ mod tests {
                     query: None,
                     diff: None,
                     command: None,
+                    mcp: None,
                 };
                 tokio::time::timeout(
                     std::time::Duration::from_millis(150),

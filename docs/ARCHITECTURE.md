@@ -25,7 +25,7 @@ Brick 3.4 adds an optional streaming-tool provider method with a legacy default.
 | Folder tools | Compiled folder plugins, saved working-directory capability and per-operation approval | Bounded reads/listing/search and reviewed exact edits, explicit results/diffs; native plugin code remains trusted. |
 | Folder discovery | Approved shallow listing and bounded literal text search | Shared directory capability, separate query/scope decisions and partial results; no index or background scanning. |
 | Command tools | Separate compiled plugin, reviewed direct executable and literal arguments | Working directory plus user permissions; 30-second/8-KiB bounds and active process cleanup, no sandbox or automatic change journal. |
-| Extensions | Typed Rust interfaces and explicit built-in registration | Start with replaceable provider/storage plugins. External executable/WASM plugins require a later protocol and permission design. |
+| Extensions | Typed Rust ports plus reviewed local MCP tools | `dolores-tools-mcp` adapts selected stdio server tools into the existing approval loop; external processes have user permissions and bounded supervised lifetime. Remote/WASM and persistent connections remain future scope. |
 | Learning | Reviewed memories and skills, then outcome evaluation | Learn reusable behavior without silently rewriting instructions or running generated code. Not implemented in brick 1. |
 
 ```mermaid
@@ -52,6 +52,8 @@ flowchart TB
 Brick 3.2 explicitly registers listing, search and read plugins sharing the selected directory handle. Search/listing add optional query provenance and a completed status to extensible tool records; old records and schema 5 remain compatible. Their scan/result budgets and exclusions live in the filesystem plugin, while the core owns distinct `(tool,target,query)` denial decisions and the existing run budget. Flutter discloses scan scope before approval and displays selectable results with partial coverage. No service, index, dependency or worker is added. See [folder discovery](design/folder-discovery.md).
 
 The core has no desktop framework, UI, HTTP, SQLite or keyring dependency. Each host assembles plugins. Networking belongs to the provider plugin. Flutter remembers secrets only in OS secure storage when requested; alternative hosts retain memory-only keys. All share `dev.dolores.desktop` and the database format; `DOLORES_DATA_DIR` selects an isolated absolute directory. History is unencrypted. Concurrent runs from separate hosts are outside the per-host guard's boundary.
+
+Brick 6.1 registers selected local MCP tools only in the Flutter host's working-chat registry. `dolores-tools-mcp` reuses the command plugin's supervised process transport with writable stdin, negotiates the protocol, discovers bounded object schemas and binds each call to its exact approval. A server starts only for explicit inspection or approved invocation and stops afterward. Revisioned folder configuration lives in an additive schema-15 table; no server or runtime is bundled. SHA-256 checks reviewed launch files and the call rechecks selected metadata before invocation. External processes are trusted user-permission programs, not sandboxed folder capabilities. See [MCP design](design/mcp-connection.md).
 
 ## Boundaries and lifecycle
 

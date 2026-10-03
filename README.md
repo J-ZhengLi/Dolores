@@ -1,5 +1,7 @@
 # Dolores
 
+**External tools:** in a saved Project or Temporary chat, open **Chat actions → External tools (MCP)**. Choose an installed direct executable and its literal arguments, **Inspect server**, select up to two tools, then **Enable selected tools** for that folder. Every call still needs **Run once** or **Deny**. Servers run with your account permissions and stop after inspection or each approved call; startup and idle chat launch nothing. Disable or Forget from the same view. This first connection supports local stdio and text results. See [MCP design and limits](docs/design/mcp-connection.md).
+
 **Portable skills:** open Saved versions, select a retained version, then Export SKILL.md. Choose or create a folder named after that skill and save as SKILL.md. Export preserves its exact text, refuses existing files and keeps activation unchanged. Resources and evaluation receipts are not copied. See [export design](docs/design/skill-export.md).
 
 **Skills:** add standard `.agents/skills/<name>/SKILL.md` files to a working folder, or `~/.agents/skills/<name>/SKILL.md` for global skills. Open Skills, choose Project or Global, review the exact text, then Activate skill. Global snapshots apply to all chats, including side chats; an active project skill overrides a global skill with the same name. Both scopes support Disable, reviewed rollback and Forget. File changes take effect only after review; tools retain separate approval. See [skill design](docs/design/project-skills.md).
@@ -12,7 +14,7 @@ History browsing keeps one conversation-list page and one message page in memory
 
 A lightweight desktop agent harness, inspired by the gradual awakening of Dolores in *Westworld*. Start with conversation; add tools, memory, reusable skills and evaluation one brick at a time.
 
-**Current bricks:** Flutter desktop, Rust core, system theme, OpenAI-compatible streaming chat, cancellation, SQLite history and replaceable provider/storage/credential interfaces. Remember connections using the OS credential store, restore them after restart, retry recovery, or forget them while keeping conversations. Automatic preference learning, reviewed skills, bounded skill-draft evaluation and portable SKILL.md export are available; external plugin loading remains on the roadmap.
+**Current bricks:** Flutter desktop, Rust core, system theme, OpenAI-compatible streaming chat, cancellation, SQLite history and replaceable provider/storage/credential interfaces. Remember connections using the OS credential store, restore them after restart, retry recovery, or forget them while keeping conversations. Automatic preference learning, reviewed skills, bounded skill-draft evaluation, portable SKILL.md export and reviewed local MCP tools are available.
 
 Flutter is selected as the default after the visual/resource comparison. The earlier Windows observation was 224.36 MiB working set and 229.52 MiB private allocation; it exceeds the provisional 150 MiB working-set target. Refinement now proceeds in Flutter, with low-end performance and cross-platform release acceptance still open. Iced and Tauri remain optional comparison shells. See [acceptance](docs/ACCEPTANCE.md).
 

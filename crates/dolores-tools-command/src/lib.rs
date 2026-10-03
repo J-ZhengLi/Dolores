@@ -16,6 +16,14 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
+/// Shared supervised direct-process transport. No shell, inherited secret environment
+/// or persistent worker; callers own cancellation and bounded protocol I/O.
+pub mod process {
+    pub use crate::platform::{read_available, spawn_stdio, Running};
+    pub fn environment() -> Vec<(String, String)> {
+        super::environment()
+    }
+}
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
@@ -307,6 +315,7 @@ impl ToolPlugin for RunCommand {
                 invocation: invocation.clone(),
                 executable: executable.to_string_lossy().into_owned(),
             }),
+            mcp: None,
         };
         let mut plans = self
             .plans

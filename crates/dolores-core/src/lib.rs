@@ -4,6 +4,8 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
 mod agent;
+mod mcp;
+pub use mcp::*;
 mod change;
 mod request_settings;
 mod token_context;
@@ -194,6 +196,25 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn mcp_connection(&self, _root: &str) -> Result<Option<McpConnection>, String> {
+        Ok(None)
+    }
+    fn save_mcp_connection(
+        &self,
+        _root: &str,
+        _connection: &McpConnection,
+        _expected: Option<u32>,
+    ) -> Result<McpConnection, String> {
+        Err("This storage plugin does not support MCP connections.".into())
+    }
+    fn mutate_mcp_connection(
+        &self,
+        _root: &str,
+        _revision: u32,
+        _forget: bool,
+    ) -> Result<(), String> {
+        Err("This storage plugin does not support MCP connections.".into())
+    }
     fn promote_skill(&self, _: &SkillPromotion) -> Result<ProjectSkill, String> {
         Err("This storage plugin does not support evaluated skill promotion.".into())
     }

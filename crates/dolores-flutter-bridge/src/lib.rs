@@ -1,10 +1,11 @@
-//! C ABI for the selected Flutter shell. No server or subprocess.
+//! C ABI for the selected Flutter shell. External processes require explicit review.
 mod approval;
 mod automatic_memory;
 mod changes;
 mod connection;
 mod export;
 mod instructions;
+mod mcp;
 mod memory;
 mod memory_suggestions;
 mod recovery;
@@ -57,12 +58,37 @@ struct Engine {
     global_skills_directory: Option<PathBuf>,
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
+    mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    McpSettings {
+        session: String,
+    },
+    InspectMcp {
+        id: u64,
+        session: String,
+        launch: dolores_core::McpLaunch,
+    },
+    EnableMcp {
+        session: String,
+        token: String,
+        names: Vec<String>,
+    },
+    DisableMcp {
+        session: String,
+        revision: u32,
+    },
+    ForgetMcp {
+        session: String,
+        revision: u32,
+    },
+    DiscardMcpReview {
+        token: String,
+    },
     ReviewSkillExamples {
         session: String,
         scope: dolores_core::SkillScope,
@@ -349,6 +375,7 @@ impl Engine {
             global_skills_directory: None,
             memory_review: Arc::new(Mutex::new(None)),
             summary_review: Arc::new(Mutex::new(None)),
+            mcp_review: Arc::new(Mutex::new(None)),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -406,6 +433,7 @@ impl Engine {
                     run.cancel.cancel();
                     self.clear_memory_review()?;
                     self.clear_summary_review()?;
+                    self.clear_mcp_review()?;
                 }
                 return Ok(Value::Null);
             }
@@ -416,6 +444,7 @@ impl Engine {
                 }
                 self.clear_memory_review()?;
                 self.clear_summary_review()?;
+                self.clear_mcp_review()?;
                 return Ok(Value::Null);
             }
             _ => {}
@@ -424,6 +453,20 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::McpSettings { session } => self.mcp_settings(&session),
+            Command::InspectMcp {
+                id,
+                session,
+                launch,
+            } => self.inspect_mcp(&mut active, id, session, launch),
+            Command::EnableMcp {
+                session,
+                token,
+                names,
+            } => self.enable_mcp(&session, &token, names),
+            Command::DisableMcp { session, revision } => self.mutate_mcp(&session, revision, false),
+            Command::ForgetMcp { session, revision } => self.mutate_mcp(&session, revision, true),
+            Command::DiscardMcpReview { token } => self.discard_mcp_review(&token),
             Command::ReviewSkillExamples { session, scope } => {
                 self.review_skill_examples(&session, scope)
             }
@@ -574,6 +617,18 @@ impl Engine {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
                     None => tools,
                 };
+                let mcp = if tools {
+                    session
+                        .as_ref()
+                        .map(|id| self.store.workspace(id))
+                        .transpose()?
+                        .and_then(|w| w.root)
+                        .map(|root| self.store.mcp_connection(&root))
+                        .transpose()?
+                        .flatten()
+                } else {
+                    None
+                };
                 let (history, count, session_summary) = match session {
                     Some(session) => self.store.summary_context_history(&session)?,
                     None => (vec![], Some(0), None),
@@ -599,8 +654,12 @@ impl Engine {
                 };
                 if tools {
                     specs.push(dolores_tools_command::command_spec());
+                    if let Some(connection) = &mcp {
+                        specs.extend(connection.specs());
+                    }
                 }
                 let preferences = self.store.preferences()?;
+                let messages = dolores_core::prepare_external_tool_context(messages, &specs)?;
                 let window = self
                     .store
                     .model_contexts(&preferences.base_url)?
@@ -775,6 +834,11 @@ impl Engine {
                         });
                         let mut plugins = dolores_tools_fs::journaled_folder_tools(&root, journal)?;
                         plugins.push(Arc::new(dolores_tools_command::RunCommand::new(&root)?));
+                        if let Some(connection) = self.store.mcp_connection(
+                            root.to_str().ok_or("Working folder path needs Unicode.")?,
+                        )? {
+                            plugins.extend(dolores_tools_mcp::plugins(&root, connection)?);
+                        }
                         Ok::<_, String>(plugins)
                     })
                     .transpose()?

@@ -8,7 +8,7 @@ use std::{
     path::Path,
     process::{Child, Command, Stdio},
 };
-pub(super) struct Running {
+pub struct Running {
     child: Child,
     group: i32,
     stopped: bool,
@@ -38,18 +38,29 @@ pub(super) fn spawn(
     root: &Path,
     env: &[(String, String)],
 ) -> Result<(Running, File, File), String> {
+    let (running, input, stdout, stderr) = spawn_stdio(executable, args, root, env)?;
+    drop(input);
+    Ok((running, stdout, stderr))
+}
+pub fn spawn_stdio(
+    executable: &Path,
+    args: &[String],
+    root: &Path,
+    env: &[(String, String)],
+) -> Result<(Running, File, File, File), String> {
     let mut child = Command::new(executable)
         .args(args)
         .current_dir(root)
         .env_clear()
         .envs(env.iter().cloned())
-        .stdin(Stdio::null())
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0)
         .spawn()
         .map_err(|_| "Command could not be started.")?;
     let group = child.id() as i32;
+    let stdin = unsafe { File::from_raw_fd(child.stdin.take().unwrap().into_raw_fd()) };
     let stdout = unsafe { File::from_raw_fd(child.stdout.take().unwrap().into_raw_fd()) };
     let stderr = unsafe { File::from_raw_fd(child.stderr.take().unwrap().into_raw_fd()) };
     let running = Running {
@@ -64,8 +75,8 @@ pub(super) fn spawn(
             return Err("Command output could not be configured.".into());
         }
     }
-    Ok((running, stdout, stderr))
+    Ok((running, stdin, stdout, stderr))
 }
-pub(super) fn read_available(pipe: &mut File, buffer: &mut [u8]) -> io::Result<usize> {
+pub fn read_available(pipe: &mut File, buffer: &mut [u8]) -> io::Result<usize> {
     pipe.read(buffer)
 }

@@ -20,6 +20,7 @@ import 'request_settings.dart';
 import 'memory.dart';
 import 'session_summary.dart';
 import 'skills.dart';
+import 'mcp.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -2101,6 +2102,133 @@ Future<void> _run(
       (windowField!.widget as TextField).controller!.text ==
           (chat.modelContexts[chat.model]?.toString() ?? ''),
       'Model settings opens the active model capacity and scrolls it into view in the native release',
+      checks,
+    );
+    if (!smokePageContext.mounted) throw StateError('MCP page unavailable');
+    Navigator.of(smokePageContext).pop();
+    final mcpSession = await chat.bridge.call({
+      'command': 'createSession',
+      'kind': 'project',
+      'path': workspace.path,
+    });
+    await chat.select(mcpSession['session']['id'] as String);
+    if (!smokePageContext.mounted) throw StateError('MCP page unavailable');
+    final mcpView = showMcp(smokePageContext, chat);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    void scrollMcp(Element e, [double? offset]) {
+      if (e.widget is ListView && e.widget.key == const Key('mcp-scroll')) {
+        final controller = (e.widget as ListView).controller!;
+        controller.jumpTo(
+          (offset ?? controller.position.maxScrollExtent).clamp(
+            0,
+            controller.position.maxScrollExtent,
+          ),
+        );
+      }
+      e.visitChildren((child) => scrollMcp(child, offset));
+    }
+
+    scrollMcp(capture.currentContext! as Element, 300);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    final nodeName = Platform.isWindows ? 'node.exe' : 'node';
+    final node = (Platform.environment['PATH'] ?? '')
+        .split(Platform.isWindows ? ';' : ':')
+        .map((entry) => File(path.join(entry, nodeName)))
+        .firstWhere((file) => path.isAbsolute(file.path) && file.existsSync());
+    TextField? mcpField(String key) {
+      TextField? result;
+      void visit(Element e) {
+        if (e.widget is TextField && e.widget.key == Key(key)) {
+          result = e.widget as TextField;
+        }
+        e.visitChildren(visit);
+      }
+
+      (capture.currentContext! as Element).visitChildren(visit);
+      return result;
+    }
+
+    mcpField('mcp-name')!.controller!.text = 'Synthetic MCP';
+    mcpField('mcp-program')!.controller!.text = node.path;
+    scrollMcp(capture.currentContext! as Element);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await press('mcp-add-argument', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    // Resolve the fixture via the app bundle's known repository layout, without shell expansion.
+    final fixtureScript = File(
+      path.normalize(
+        path.join(
+          path.dirname(Platform.resolvedExecutable),
+          '../../../../../../../scripts/mock-mcp.mjs',
+        ),
+      ),
+    );
+    if (!fixtureScript.existsSync()) {
+      throw StateError('MCP diagnostic script unavailable');
+    }
+    mcpField('mcp-arg-0')!.controller!.text = fixtureScript.path;
+    await press('mcp-inspect', key: true);
+    bool hasKey(String key) {
+      var found = false;
+      void visit(Element e) {
+        if (e.widget.key == Key(key)) {
+          found = true;
+        }
+        e.visitChildren(visit);
+      }
+
+      (capture.currentContext! as Element).visitChildren(visit);
+      return found;
+    }
+
+    await waitUntil(() => hasKey('mcp-enable'));
+    check(
+      (await chat.bridge.call({
+            'command': 'context',
+            'session': chat.session,
+            'input': '',
+          }))['tools'].length ==
+          6,
+      'Rendered MCP inspection lists tools without enabling or changing the six built-ins',
+      checks,
+    );
+    await screenshot(capture, output, 'mcp-review-dark');
+    // The list may be below the viewport: scroll its controller to build the bounded catalog.
+    scrollMcp(capture.currentContext! as Element);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    void selectEcho(Element e) {
+      if (e.widget is CheckboxListTile &&
+          e.widget.key == const Key('mcp-tool-echo')) {
+        (e.widget as CheckboxListTile).onChanged!(true);
+      }
+      e.visitChildren(selectEcho);
+    }
+
+    (capture.currentContext! as Element).visitChildren(selectEcho);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await screenshot(capture, output, 'mcp-selected-dark');
+    await press('mcp-enable', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await screenshot(capture, output, 'mcp-enabled-dark');
+    await press('Close');
+    await mcpView;
+    check(
+      (await chat.previewContext())!['tools'].length == 7,
+      'Rendered explicit MCP enable adds the selected tool to working context',
+      checks,
+    );
+    if (!smokePageContext.mounted) throw StateError('MCP page unavailable');
+    final disabledView = showMcp(smokePageContext, chat);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await press('mcp-disable', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await press('mcp-forget', key: true);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await press('Close');
+    await disabledView;
+    check(
+      (await chat.previewContext())!['tools'].length == 6,
+      'Rendered MCP disable and forget restore ordinary tools without altering files',
       checks,
     );
     await File(path.join(output.path, 'report.json')).writeAsString(
