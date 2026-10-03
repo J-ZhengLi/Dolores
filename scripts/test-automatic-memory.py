@@ -20,6 +20,7 @@ if not fixture.is_absolute() or not fixture.resolve().is_relative_to(root / "out
 if args.stage == "save":
     fixture.mkdir(parents=True, exist_ok=False)
 os.environ["DOLORES_DATA_DIR"] = str(fixture / "data")
+os.environ["DOLORES_GLOBAL_SKILLS_DIR"] = str(fixture / "global-skills")
 bundle = root / "apps/dolores_flutter/build/windows/x64/runner/Release"
 loader = os.add_dll_directory(str(bundle)) if os.name == "nt" else None
 native = ctypes.CDLL(str(bundle / ("dolores_flutter_bridge.dll" if os.name == "nt" else "lib/libdolores_flutter_bridge.so")))
@@ -163,7 +164,7 @@ if args.stage == "save":
         exported=json.loads((fixture/"conversation.json").read_text())
         assert any(m.get("metadata",{}).get("context",{}).get("memory",{}).get("used",[]) for m in exported["messages"] if m["role"]=="assistant")
         (fixture/"state.json").write_text(json.dumps({"session":session,"side":side,"id":corrected["id"]}),encoding="utf-8")
-        print(json.dumps({"ok":True,"stage":"save","requests":len(requests),"scopedAutomaticLearning":True,"correctionAndProtection":True,"failureKeepsReplies":True}))
+        print(json.dumps({"ok":True,"stage":"save","fixtureRequests":len(requests),"liveRequests":0,"scopedAutomaticLearning":True,"correctionAndProtection":True,"failureKeepsReplies":True}))
     finally: call("shutdown");server.shutdown();server.server_close()
 else:
     state=json.loads((fixture/"state.json").read_text())
@@ -175,6 +176,6 @@ else:
     call("deleteMemory",session=state["session"],scope="folder",id=learned["id"],revision=3)
     assert items(state["session"])==[]
     with sqlite3.connect(fixture/"data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0]==15
-    print(json.dumps({"ok":True,"stage":"restore","policyAndProvenancePreserved":True}))
+        assert db.execute("PRAGMA user_version").fetchone()[0]==19
+    print(json.dumps({"ok":True,"stage":"restore","fixtureRequests":len(requests),"liveRequests":0,"policyAndProvenancePreserved":True}))
     call("shutdown")

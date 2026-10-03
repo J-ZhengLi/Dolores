@@ -1,5 +1,7 @@
 # Dolores
 
+**Repeat regression checks:** `rtk proxy python -I -B scripts/run-regressions.py` builds/checks the normal Windows app and runs eight isolated save/restart fixtures, retaining failure logs and JSON/Markdown reports. [Scope, prerequisites and recovery](docs/design/regression-runner.md).
+
 **Evaluate instructions:** saved chats offer **Chat actions → Compare instructions** to compare memory/skill snapshots on the same bounded response tests. Inspect exact requests, limits, results and unfinished evidence; instruction activation remains explicit. [Design and limits](docs/design/context-comparisons.md).
 
 **Exact edits:** multiline LF/CRLF proposals now use the file's uniform line-ending style while keeping other text exact. Ambiguous targets and changed previews are still refused; mixed-ending files get guidance for an exact single-line edit. Diff approval and exact saved-byte revert remain. See [edit matching and limits](docs/design/reliable-exact-edits.md).

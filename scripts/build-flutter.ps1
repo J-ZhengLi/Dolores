@@ -44,6 +44,10 @@ try {
             if ($dependenciesExit) { throw 'Flutter dependencies failed.' }
         }
         if ($LASTEXITCODE) { throw 'Flutter dependencies failed.' }
+        # A successful pub get can leave new plugin links absent, while a later
+        # build's implicit pub get can remove generated junctions. Prepare links
+        # after dependency resolution and avoid regenerating them during builds.
+        & "$PSScriptRoot/flutter-plugin-junctions.ps1" -AppDirectory (Get-Location).Path
         # Release asset targets share build/flutter_assets across entry points.
         # A cached icon subset can otherwise survive new Dart IconData usages,
         # leaving visible controls blank. Rebuild only the generated asset stage;
@@ -63,7 +67,7 @@ try {
             # installer component is absent. The SDK and engine remain unmodified.
             try {
                 $ErrorActionPreference = 'Continue'
-                $configuration = (& rtk proxy $flutter --no-version-check --suppress-analytics build windows --release --config-only --target $entry 2>&1 | Out-String)
+                $configuration = (& rtk proxy $flutter --no-version-check --suppress-analytics build windows --release --no-pub --config-only --target $entry 2>&1 | Out-String)
                 $configurationExit = $LASTEXITCODE
             } finally { $ErrorActionPreference = 'Stop' }
             if ($configurationExit -and $configuration -notmatch 'Unable to find suitable Visual Studio toolchain') { throw $configuration }
@@ -72,7 +76,7 @@ try {
             if ($LASTEXITCODE) { throw 'CMake configuration failed.' }
             & rtk proxy $cmakeExecutable --build build/windows/x64 --config Release --target INSTALL
         } else {
-            & rtk proxy $flutter --no-version-check --suppress-analytics build windows --release --target $entry
+            & rtk proxy $flutter --no-version-check --suppress-analytics build windows --release --no-pub --target $entry
         }
         if ($LASTEXITCODE) { throw 'Flutter desktop build failed.' }
         $bundle = Join-Path $workspace 'apps/dolores_flutter/build/windows/x64/runner/Release'
