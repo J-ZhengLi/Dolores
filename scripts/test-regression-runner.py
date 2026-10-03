@@ -23,7 +23,7 @@ class RunnerTests(unittest.TestCase):
                           {'ok':True,'stage':'save','liveRequests':0}]:
                 log.write_text(json.dumps(value),encoding='utf-8')
                 with self.assertRaises(ValueError): runner.validate_receipt(log,'save')
-            log.write_text('RTK banner\n{"ok":true,"stage":"save","fixtureRequests":2,"liveRequests":0}\n',encoding='utf-8')
+            log.write_text('Optional tool banner\n{"ok":true,"stage":"save","fixtureRequests":2,"liveRequests":0}\n',encoding='utf-8')
             self.assertEqual(runner.validate_receipt(log,'save')['fixtureRequests'],2)
             report={'mode':'test','expectedSteps':2,'steps':[{'name':'one','status':'passed','elapsedSeconds':0}]}
             runner.write_report(directory,report)
@@ -34,7 +34,7 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory=Path(temp)
             def run(name,code,timeout=5,stage=None):
-                return runner.run_step(name,['rtk','proxy',sys.executable,'-c',code],directory,directory,timeout,stage)
+                return runner.run_step(name,[sys.executable,'-c',code],directory,directory,timeout,stage)
             failed=run('nonzero','print("usable work",flush=True);raise SystemExit(2)')
             self.assertEqual(failed['status'],'failed')
             self.assertIn('usable work',(directory/'nonzero.log').read_text())

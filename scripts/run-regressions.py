@@ -31,7 +31,7 @@ def validate_receipt(log, stage):
 def stop_process(process):
     if os.name == 'nt':
         # Only the subprocess owned by this runner and its current descendants.
-        stopped = subprocess.run(['rtk','proxy','taskkill','/PID',str(process.pid),'/T','/F'],
+        stopped = subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
         if stopped.returncode and process.poll() is None: process.kill()
     else:
@@ -103,17 +103,17 @@ def main():
     steps = []
     if not args.native_only:
         steps = [
-            ('runner-tests',['rtk','proxy',sys.executable,'-I','-B',str(ROOT/'scripts/test-regression-runner.py')],ROOT,60,None),
-            ('rust-format',['rtk','proxy','cargo','fmt','--all','--check'],ROOT,60,None),
-            ('rust-lint',['rtk','proxy','cargo','clippy','--workspace','--all-targets','--locked','--','-D','warnings'],ROOT,300,None),
-            ('rust-tests',['rtk','proxy','cargo','test','--workspace','--locked'],ROOT,300,None),
-            ('normal-build',['rtk','proxy','powershell','-NoProfile','-File',str(ROOT/'scripts/build-flutter.ps1'),'-FlutterSdk',str(args.flutter_sdk.resolve())],ROOT,900,None),
-            ('flutter-analysis',['rtk','proxy',str(flutter),'--no-version-check','--suppress-analytics','analyze','--no-pub'],ROOT/'apps/dolores_flutter',120,None),
-            ('flutter-tests',['rtk','proxy',str(flutter),'--no-version-check','--suppress-analytics','test','--no-pub'],ROOT/'apps/dolores_flutter',180,None),
+            ('runner-tests',[sys.executable,'-I','-B',str(ROOT/'scripts/test-regression-runner.py')],ROOT,60,None),
+            ('rust-format',['cargo','fmt','--all','--check'],ROOT,60,None),
+            ('rust-lint',['cargo','clippy','--workspace','--all-targets','--locked','--','-D','warnings'],ROOT,300,None),
+            ('rust-tests',['cargo','test','--workspace','--locked'],ROOT,300,None),
+            ('normal-build',['powershell','-NoProfile','-File',str(ROOT/'scripts/build-flutter.ps1'),'-FlutterSdk',str(args.flutter_sdk.resolve())],ROOT,900,None),
+            ('flutter-analysis',[str(flutter),'--no-version-check','--suppress-analytics','analyze','--no-pub'],ROOT/'apps/dolores_flutter',120,None),
+            ('flutter-tests',[str(flutter),'--no-version-check','--suppress-analytics','test','--no-pub'],ROOT/'apps/dolores_flutter',180,None),
         ]
     for case in cases:
         for stage in ('save','restore'):
-            steps.append((case+'-'+stage,['rtk','proxy',sys.executable,'-I','-B',str(ROOT/'scripts'/('test-'+case+'.py')),stage,'--directory',str(directory/case)],ROOT,120,stage))
+            steps.append((case+'-'+stage,[sys.executable,'-I','-B',str(ROOT/'scripts'/('test-'+case+'.py')),stage,'--directory',str(directory/case)],ROOT,120,stage))
     report = {'version':1, 'createdAt':datetime.now(timezone.utc).isoformat(),
               'mode':'existing-bundle-native-only' if args.native_only else 'build-and-selected-regressions',
               'cases':cases, 'expectedSteps':len(steps), 'steps':[], 'liveModelTests':'not run',

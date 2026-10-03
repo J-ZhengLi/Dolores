@@ -1,102 +1,39 @@
 # Dolores
 
-**Repeat regression checks:** `rtk proxy python -I -B scripts/run-regressions.py` builds/checks the normal Windows app and runs eight isolated save/restart fixtures, retaining failure logs and JSON/Markdown reports. [Scope, prerequisites and recovery](docs/design/regression-runner.md).
+Dolores is a desktop agent harness for working with a local or hosted language model. Choose a project folder, ask for help, and review proposed file edits and commands before they run. Its name comes from Dolores in *Westworld*: the aim is an assistant that improves through useful memories, reusable skills and measured feedback.
 
-**Evaluate instructions:** saved chats offer **Chat actions → Compare instructions** to compare memory/skill snapshots on the same bounded response tests. Inspect exact requests, limits, results and unfinished evidence; instruction activation remains explicit. [Design and limits](docs/design/context-comparisons.md).
+Dolores is an early preview. Windows has been exercised locally; macOS/Linux builds, native accessibility and low-end performance still need verification. See [current acceptance](docs/ACCEPTANCE.md) for the tested scope.
 
-**Exact edits:** multiline LF/CRLF proposals now use the file's uniform line-ending style while keeping other text exact. Ambiguous targets and changed previews are still refused; mixed-ending files get guidance for an exact single-line edit. Diff approval and exact saved-byte revert remain. See [edit matching and limits](docs/design/reliable-exact-edits.md).
+## Get started
 
-**Coding checks:** failed commands and incomplete output stay visible with their actual exit status. **Repair and verify** on the latest saved response starts another bounded run with fresh approvals, preserving completed files and failed-check feedback. Only a complete successful rerun of the same command clears that failure; a model's success claim does not. Step/output limits still use Continue. See [validation and repair design](docs/design/coding-validation-repair.md).
+For a Windows portable preview, extract the **entire** ZIP to a folder and open `dolores_flutter.exe` inside it. Keep the DLLs and `data/` folder together. The destination computer needs the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). Portable describes the application files; conversations and settings use your account's application data directory.
 
-**Generation settings:** open Request settings, choose an enabled model, and save its output-token allowance, timeout and optional reasoning control. Profiles stay separate by endpoint/model and reload when switching models. Restore defaults removes only that model's override after Save. Provider default sends no reasoning override; use DeepSeek thinking off or OpenAI effort only when your provider supports it. Rejected settings offer an explicit correction without automatic retries. See [profile design and limits](docs/design/model-generation-profiles.md).
+The repository includes a [build and packaging guide](CONTRIBUTING.md); it does not yet promise signed installers or an automatic updater.
 
-**External tools:** in a saved Project or Temporary chat, open **Chat actions → External tools (MCP)**. Add up to four installed local servers for that folder. Choose each direct executable and its literal arguments, **Inspect server**, select tools, then **Enable selected tools**. Two active external tool slots are shared across servers; disable a server to free a slot without losing the current review. Every call still needs **Run once** or **Deny**. Servers run with your account permissions and stop after inspection or each approved call; startup and idle chat launch nothing. Optional masked credential rows pass named keys to that reviewed server during inspection and approved calls; Enable stores them in the OS vault. Leave a saved value blank to reuse it, or enter a replacement and inspect again. Disable retains keys; Forget removes them. This first connection supports local stdio and text results. See [MCP design and limits](docs/design/mcp-connection.md).
+1. Open **Model connection**, enter your provider's OpenAI-compatible API base URL and key, then **Fetch models**. Select the models you want available and save. Manual model IDs are available when listing is unsupported.
+2. Choose **Open project…** for an existing folder, or start a **Temporary workspace** and Dolores creates one. Choose **Side chat** for conversation without file tools.
+3. Select a model inside the input box and send a message. Review each proposed tool operation before allowing it. Working chats need a model that supports Chat Completions function calls.
 
-**Portable skills:** open Saved versions, select a retained version, then Export SKILL.md. Choose or create a folder named after that skill and save as SKILL.md. Export preserves its exact text, refuses existing files and keeps activation unchanged. Resources and evaluation receipts are not copied. See [export design](docs/design/skill-export.md).
+Dolores connects to models you provide; it does not install or start a local model server. **Remember connection** stores a key in the OS credential vault. Without it, the connection lasts for the current launch.
 
-**Skills:** add standard `.agents/skills/<name>/SKILL.md` files to a working folder, or `~/.agents/skills/<name>/SKILL.md` for global skills. Open Skills, choose Project or Global, review the exact text, then Activate skill. Global snapshots apply to all chats, including side chats; an active project skill overrides a global skill with the same name. Both scopes support Disable, reviewed rollback and Forget. File changes take effect only after review; tools retain separate approval. See [skill design](docs/design/project-skills.md).
+## What you can do
 
-Use **Draft from chat** to select useful completed exchanges, generate and edit a reusable workflow, then compare responses on 1–3 tests. Review both responses and choose **Activate tested skill** only after every test passes and the score improves over the baseline. Evaluation is tool-free and checks exact snippets; it measures those cases only. Drafts and test receipts are saved locally after activation; no skill file is written. See [draft and evaluation design](docs/design/skill-drafts.md).
+- Read, find, edit and create text files in a working folder, with reviewed diffs and a local change journal.
+- Run reviewed commands and connect installed local MCP tool servers.
+- Browse and export conversations, inspect context and reported token usage, and explicitly continue paused tasks.
+- Inspect learned preferences, review reusable skills, and compare instruction snapshots on bounded response tests.
+- Record local **Worked / Needs work** feedback against a reply's original evidence.
 
-Draft generation starts with your model's output-token and timeout settings. Adjust **Draft output tokens** or **Draft timeout** in the dialog for that draft alone. If output is cut short, your selections remain available for explicit retry; no partial skill is saved.
+Follow the [user guide](docs/USER_GUIDE.md) for controls, recovery and data handling. File tools stay inside the working folder; commands and MCP servers run with your account permissions. Chat history, preferences and file-change snapshots are local plaintext, and approved content is sent to your configured model provider.
 
-History browsing keeps one conversation-list page and one message page in memory. Use Older/Newer to reach all saved chats and messages, or Latest to return to the newest messages. The conversation header exports complete Markdown or JSON to a new file through the native Save dialog. Drafts and scroll positions restore for the 20 most recently visited views during the current launch. [UI.md](docs/UI.md) is the shared visual contract, backed by Flutter's `lib/theme.dart`; system light/dark mode remains the default.
+## Develop Dolores
 
-A lightweight desktop agent harness, inspired by the gradual awakening of Dolores in *Westworld*. Start with conversation; add tools, memory, reusable skills and evaluation one brick at a time.
+The selected desktop UI is Flutter, backed by a Rust core and replaceable provider, storage, credential and tool interfaces. No model or Node sidecar is bundled.
 
-**Current bricks:** Flutter desktop, Rust core, system theme, OpenAI-compatible streaming chat, cancellation, SQLite history and replaceable provider/storage/credential interfaces. Remember connections using the OS credential store, restore them after restart, retry recovery, or forget them while keeping conversations. Automatic preference learning, reviewed skills, bounded skill-draft evaluation, portable SKILL.md export and reviewed local MCP tools are available.
+- [Contributor guide](CONTRIBUTING.md) — prerequisites, build, tests and packaging.
+- [Architecture](docs/ARCHITECTURE.md) — components, trust boundaries and limits.
+- [UI contract](docs/UI.md) — shared theme and interaction rules.
+- [Documentation index](docs/README.md) — user, developer, design and verification references.
+- [Roadmap](docs/ROADMAP.md) — completed scope and next milestones.
 
-Flutter is selected as the default after the visual/resource comparison. The earlier Windows observation was 224.36 MiB working set and 229.52 MiB private allocation; it exceeds the provisional 150 MiB working-set target. Refinement now proceeds in Flutter, with low-end performance and cross-platform release acceptance still open. Iced and Tauri remain optional comparison shells. See [acceptance](docs/ACCEPTANCE.md).
-
-The [Flutter desktop](apps/dolores_flutter/README.md) uses the Rust core/plugins through a bundled C ABI. Keep the entire generated release directory together.
-
-## Run
-
-Working chats stream replies with tools enabled. Public commentary before a tool call stays visible at approval and is saved in expandable **Agent progress** separately from the final answer. Stop and interrupted arguments never publish a partial turn. An explicit provider output limit or agent step limit saves a **paused** response with progress and completed tool receipts. **Continue** on the latest paused response starts another bounded run with current settings and fresh tool approvals; unfinished calls never run. Send or clear an existing composer draft first. Progress is preserved in chat, trajectory and exports. Your provider must support streaming Chat Completions function calls; use Side chat explicitly for models without tools. See [long-task recovery](docs/design/long-task-recovery.md).
-
-Install Rust stable, Flutter 3.47.5 and its [desktop prerequisites](https://docs.flutter.dev/platform-integration/desktop). Linux secure storage also needs the D-Bus development library and a running Secret Service. On Windows, build directly from PowerShell:
-
-```powershell
-rtk proxy powershell -NoProfile -File scripts/build-flutter.ps1 -FlutterSdk C:/path/to/flutter
-./apps/dolores_flutter/build/windows/x64/runner/Release/dolores_flutter.exe
-```
-
-Open Model connection, enter the API base URL and a key if required, then **Fetch models**. Search and check the models you want available, save, and choose the active model beside the message box. Manual entry is available for servers that do not list models. Local example: `http://localhost:11434/v1` with a model already installed on your server. Hosted example: your provider's HTTPS API prefix. Dolores does not download or launch a local model.
-
-Enable **Remember connection** to keep the key in Windows Credential Manager, macOS Keychain or Linux Secret Service. Disable it to use the connection until the app closes. A blank key field keeps the current/saved key for the same endpoint; **Use without a key** explicitly clears it on save. Switching models preserves the conversation, draft and key and is disabled during a response. Your choices and last active model survive restart, with the connection restored only when remembered. No key is returned to the UI or stored in SQLite. If recovery fails, history remains available and the app offers retry or reconnection. **Forget saved connection** removes the stored key and connection while keeping history.
-
-**Request settings** controls the output token limit (default 2048) and whole-response timeout (default 180 seconds). Changes apply to the next message and survive restart. Failed responses restore your draft and offer manual recovery actions; **Retry message** sends your current edited draft. Completed reply details retain the settings used for that reply.
-
-Open **Memory** in the sidebar to inspect/edit/disable/delete preferences. **Learn preferences automatically** is enabled: after a saved reply, eligible explicit work/response preferences are learned from your message, preserving exact wording and source evidence. Working chats save in **This working folder**; side chats use **All chats**. Explicit corrections can replace untouched learned entries; editing/disabling protects them. Turn the switch off for manual review, then use **New preference** or **Suggest from this chat**. Eligible learning may use one extra tool-free request (10 seconds / 512 output tokens or lower configured limits), with separate usage/activity shown in Memory. Ordinary tasks and common sensitive/quoted patterns skip it; filtering and topic selection remain limited. Enabled entries use bounded folder-first retrieval, visible through the context ring. Preferences/source quotes are local plaintext and can remain in earlier reply provenance/exports after deletion. See [automatic memory](docs/design/automatic-memory.md) and [reviewed suggestions](docs/design/memory-suggestions.md).
-
-Use **Session summary** in a saved chat’s header to review the next conversation batch, generate a draft, correct it and explicitly **Save summary**. Future messages use that summary plus recent uncovered turns; your full conversation remains in history and exports. Extend it with later turns, edit or delete it at any time. It is local plaintext used only in that chat; generated summaries can omit or distort details. Summaries still require review alongside automatic preferences. See [summary design](docs/design/session-summaries.md).
-
-Start with **Open project…** to choose a working folder, or send a message in a **Temporary workspace** and Dolores creates a separate folder for that chat. The sidebar groups project chats under collapsible Projects and temporary/side chats under Recents. New chat starts a temporary workspace; its menu offers Side chat, and each project has a + action for a new chat in that folder. Working folders are saved per conversation and restored after restart. A temporary workspace is app-managed, not an automatically erased conversation. Existing conversations are preserved as side chats. The header identifies the current mode and lets you show/copy its working-folder path.
-
-Project and temporary chats include folder tools automatically. Ask the model to read a relative text-file path; each valid operation offers **Allow once** or **Deny** before information is shared. Approved text is saved with the completed reply and included in exports. Inspect it in expandable chat/trajectory cards. Tool runs allow at most four model calls and four total tool operations, with bounded text and time. **Side chat** is the explicit streaming conversation without file access. Your provider/model must support Chat Completions function calls for working chats; the configured Qwen/Qwen3.5-2B passed specific synthetic live flows, without implying universal compatibility. The file tools stay inside the working folder: open a file’s containing folder as a project to use them. Separately reviewed commands have broader user-account access as described below. Deleting a chat removes its saved conversation and folder association, never project files or temporary-folder contents.
-
-For a small existing text file, ask for an exact replacement. Dolores shows a local diff and **Apply once**/**Deny**. It rechecks the file before applying; a changed file needs a fresh preview. The reviewed diff is retained with a successful reply and exports. Applied file changes remain if the later reply stops or fails. The header’s **Changes** view retains local before/after snapshots independently of conversation history. Select a record, **Review revert**, then **Revert once** to restore it; changed files are refused. A failed receipt is labeled **Needs check** rather than assumed applied. Records survive deleting the chat and can be opened from another chat in the same folder. Older edits have no invented snapshots. See [journal design](docs/design/change-journal.md). Files and diffs are limited to 16 KiB, with one unique match per edit. See [edit design](docs/design/approved-edits.md) for the concurrency/platform boundary.
-
-Ask for a small new text file in an existing working-folder directory. Dolores shows the complete addition and **Create once**/**Deny**, refuses an occupied path, and saves explicit file existence in Changes, including empty files. Select its record, **Review revert**, then **Remove once** to remove that created file only if it still matches. Removal needs its own decision and cannot be reversed here. Creation/editing now allow 64-KiB JSON arguments while keeping each UTF-8 file and complete diff within 16 KiB; other tools keep their 4-KiB arguments. Coding guidance encourages small runnable files and approved validation. Publication requires a filesystem supporting hard links and never falls back to overwrite. Directory creation and arbitrary model deletion are unavailable through the file tools. See [larger coding files](docs/design/larger-code-files.md) and [creation design](docs/design/approved-creation.md).
-
-Working chats can now validate work with **run_command**. Review the working folder, resolved executable and each literal argument, then choose **Run once** or **Deny**. Initial programs are installed direct executables for git, node, python, python3, cargo, rustc and dart; shell/batch expansion is unavailable. Each command has a 30-second deadline and 8-KiB combined output cap. Results retain stdout, stderr, exit code and any shortened-output label in chat/trajectory and exports. Commands run with your account permissions and can access/change files outside the folder or use the network. Their changes are outside the file-change journal and may remain after Stop or failure. See [command design](docs/design/approved-commands.md).
-
-The model can also list a folder or search for literal text to locate a file. Each operation asks separately: a listing shares names, a search scans bounded text files and shares matching snippets, and reading a whole file needs another decision. Searches are case-sensitive and capped by depth, entries, files and bytes; cards label partial results. For example, ask “Find the note containing `meeting agenda` in this folder and read it.” Discovery skips links and common secret/generated paths; inspect each request because names cannot identify every secret. Names, queries and snippets are also retained with successful replies and exports. No background index is created.
-
-Preferences, completed conversations and local file-change snapshots are stored unencrypted in `dolores.db` under the OS application data directory for `dev.dolores.desktop`. Open one shell at a time against a data directory. Remembered keys are scoped to that directory; a copied database does not restore its key elsewhere. Model requests include bounded history and go to your configured endpoint. Saving settings makes no network request. Enter sends, Shift+Enter inserts a newline; replies are selectable and have Copy actions.
-
-For an isolated test workspace, set `DOLORES_DATA_DIR` to an absolute directory before launching. For a deterministic local fixture, run `pnpm demo:server`, connect to `http://127.0.0.1:19421/v1` with model `dolores-mock`, and leave the key blank. The fixture is development tooling, not a language model. Send `slow`, `fail`, or `truncated` to exercise stop and error handling.
-
-On Windows, `scripts/measure-runtime.ps1 -AppProcessId <pid>` samples either shell and its descendants. It reports working sets, private bytes and interval CPU as a percentage of one logical core. Shared pages can be counted more than once. Measure a release without smoke/debugging, record hardware, cache state, window size/DPI and startup separately. The alternative web UI's `dolores-interactive` mark records history readiness; it is not a native startup measurement.
-
-The optional webview shell and fixture need Node.js ≥22.12 (24 recommended), pnpm 11 and `pnpm install --frozen-lockfile`. The webview shell also needs [Tauri's platform prerequisites](https://v2.tauri.app/start/prerequisites/).
-
-```sh
-pnpm build                 # UI type check + production assets
-pnpm test:core             # core/provider/storage tests
-cargo test --workspace     # includes native host checks
-pnpm desktop              # build and open the default Flutter release
-pnpm desktop:build        # Flutter release bundle, no installer
-pnpm desktop:iced         # optional Iced development window
-pnpm desktop:iced:build   # optional Iced release
-pnpm desktop:web          # alternative Tauri/Svelte desktop
-pnpm desktop:web:build    # alternative release executable
-pnpm dev                   # browser UI preview, no model connection
-```
-
-Use `rtk` as a prefix for shell commands when working under the supplied workspace instructions. Node is development tooling; it is not bundled as an application sidecar. Supported design targets are Windows, macOS and Linux; check the [acceptance record](docs/ACCEPTANCE.md) for what was actually verified.
-
-## Design and iteration
-
-- [Architecture](docs/ARCHITECTURE.md): boundaries, plugin ports, resource limits and tradeoffs.
-- [UI contract](docs/UI.md): one shared visual style and interaction vocabulary.
-- [Roadmap](docs/ROADMAP.md): small bricks with acceptance gates.
-- [Research](docs/research/architecture-options.md): official sources and alternatives.
-
-The core lives in `crates/dolores-core`; plugins in `crates/dolores-provider-openai`, `crates/dolores-store-sqlite`, `crates/dolores-credentials` and `crates/dolores-tools-fs`; default host/UI in `crates/dolores-flutter-bridge` and `apps/dolores_flutter`. Alternatives live in `crates/dolores-native`, `src-tauri` and `src`. New plugins implement core traits and are explicitly registered. Compiled native plugins are not sandboxed. `FLUTTER_SDK`, the ignored local SDK or PATH supplies Flutter to the development helper; Node is never bundled.
-
-For Flutter checks, use `flutter analyze` and `flutter test` in the app directory. With the fixture server running, build with `scripts/build-flutter.ps1 -Smoke`, then run `scripts/test-flutter.ps1` against a fresh output directory. Build with `-RestartSmoke`, then run `scripts/test-connection-restart.ps1` for separate-process recovery using a generated test key, which is deleted afterward. Rebuild without diagnostic switches before normal usage or resource measurement.
-
-For native controller/renderer checks, start `pnpm demo:server`, build `cargo build -p dolores-native --release --features smoke --locked`, then run `powershell -NoProfile -File scripts/test-native.ps1`. The runner creates isolated fixture data and four screenshots, then closes its app. It drives controller events and real HTTP; pointer, keyboard and IME interaction remain separate UAT. Rebuild without `--features smoke` for normal usage and resource measurements.
-
-Saved replies offer local **Task feedback** (Worked / Needs work) tied to their original run evidence, retained in conversation exports. See [design](docs/design/task-feedback.md).
+Dolores is licensed under [MIT](LICENSE).

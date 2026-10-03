@@ -1,6 +1,6 @@
 # Repeatable regression checks — brick 7.3
 
-Run from the repository: `rtk proxy python -I -B scripts/run-regressions.py`. Windows, Python 3.11+, RTK, Rust, Flutter and the normal desktop build prerequisites are required. The default Flutter SDK is `output/toolchains/flutter`; override with `--flutter-sdk`. The existing build helper prepares dependencies and plugin junctions before analysis/tests. Close the normal app before rebuilding to release its owned bundle files; the runner never kills user apps.
+Run from the repository: `python -I -B scripts/run-regressions.py`. Windows, Python 3.11+, Rust, Flutter and the normal desktop build prerequisites are required. The default Flutter SDK is `output/toolchains/flutter`; override with `--flutter-sdk`. The existing build helper prepares dependencies and plugin junctions before analysis/tests. Close the normal app before rebuilding to release its owned bundle files; the runner never kills user apps.
 
 The runner checks its recovery logic, Rust format/lint/workspace tests, the normal release build, Flutter analysis/widgets, then eight native fixture pairs: task feedback, context comparisons, continuation, generation profiles, coding repair, exact edits, automatic memory and skill drafts. Save and restore run in separate processes using fresh isolated directories, loopback HTTP and synthetic data. No configured live credentials/history are read. Source hashes and the bundled bridge hash identify the evidence; no live-model or native input acceptance is inferred.
 

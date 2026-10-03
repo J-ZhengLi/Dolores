@@ -1,9 +1,19 @@
-# Public repository privacy
+# Privacy and public repository hygiene
 
-Raw benchmarks, screenshots, runtime traces, local databases, audit reports and recovery backups stay in ignored local output directories. Machine reports can contain hardware fingerprints, OS locale, absolute paths and precise activity timestamps. Do not force-add these artifacts. Public performance notes retain only aggregate observations and generic test context; raw reports are private and cannot be independently inspected from this repository.
+## When using Dolores
 
-Commit author and committer identities use the repository-local neutral identity. This does not change global Git settings. Before publishing, inspect all branches/tags, commit metadata and every publishable file, including untracked files intended for addition. Keep API keys in the OS credential store or process memory and exclude environment/data files. Existing credential-like strings in provider tests are synthetic validation fixtures, not production credentials.
+Dolores sends selected context, enabled instructions/memories/skills and approved tool results to your configured endpoint. Provider retention belongs to that provider. The desktop app has no background telemetry or automatic model download.
 
-The privacy cleanup removed raw benchmark files from every existing commit, scrubbed identifying machine details/timestamps from documentation, and anonymized both commit identities. Local Gitleaks and personal-data checks cover reachable history and a publishable working-tree snapshot. These checks are not a guarantee that every possible secret or piece of personal data can be detected.
+Conversations, preferences, source evidence, comparisons and change snapshots are local unencrypted SQLite data. Remembered model/MCP keys use the OS vault, scoped to the data directory. Launch-only keys stay in memory. Exports can retain approved content and evidence: inspect them before sharing.
 
-Local privacy recovery material is kept under ignored output/privacy. It contains the original private history and must never be uploaded or included in release bundles. Review source archives and packaged application files separately; Git checks do not cover ignored user data or private output.
+Deleting a preference does not erase earlier reply provenance/exports. Deleting a chat preserves working files and independent change records. Commands/MCP servers run with user permissions and can access data outside the folder. See [user controls](USER_GUIDE.md).
+
+## When contributing or publishing
+
+Raw benchmarks, screenshots, traces, databases, audits and backups stay in ignored `output/`; they may contain personal paths, hardware details and activity timestamps. Never force-add them. Keep production credentials out of code/logs/fixtures; synthetic validation strings must stay clearly synthetic.
+
+Inspect publishable files, branches/tags and commit metadata before publishing. Git authorship is public; this repository uses the author's configured identity. Earlier cleanup removed private benchmark/history artifacts, but subsequent author configuration is not anonymized. Secret/personal-pattern scans detect selected leak classes, not every private fact.
+
+Ignored `output/privacy/` may contain recovery copies of private history. Never upload it. Check archives separately: Git scans do not cover ignored data/build outputs. The Windows packager accepts reviewed runtime paths and user documents, refuses unexpected files/links, and excludes workspaces, databases, credentials and diagnostic outputs by construction.
+
+Compiled code can retain source-machine paths even when Git is clean. The Windows build removes known compiler paths and keeps debug symbols private; packaging refuses current workspace/home prefixes in its payload. Review binaries and third-party assets separately before public distribution. This local identity check is not a universal personal-data or secret detector.
