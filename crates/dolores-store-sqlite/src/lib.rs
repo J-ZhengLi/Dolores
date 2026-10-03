@@ -487,7 +487,7 @@ impl SessionStore for SqliteStore {
         Ok(())
     }
     fn commit_turn(&self, id: &str, user: &str, assistant: &str) -> Result<(), String> {
-        self.save_turn(id, user, assistant, None)
+        self.save_turn(id, user, assistant, None, None)
     }
     fn commit_turn_metadata(
         &self,
@@ -496,7 +496,17 @@ impl SessionStore for SqliteStore {
         assistant: &str,
         metadata: &TurnMetadata,
     ) -> Result<(), String> {
-        self.save_turn(id, user, assistant, Some(metadata))
+        self.save_turn(id, user, assistant, Some(metadata), None)
+    }
+    fn commit_continuation(
+        &self,
+        id: &str,
+        expected: i64,
+        user: &str,
+        assistant: &str,
+        metadata: &TurnMetadata,
+    ) -> Result<(), String> {
+        self.save_turn(id, user, assistant, Some(metadata), Some(expected))
     }
     fn preferences(&self) -> Result<ConnectionPreferences, String> {
         self.read_preferences()
@@ -634,9 +644,22 @@ impl SqliteStore {
         user: &str,
         assistant: &str,
         metadata: Option<&TurnMetadata>,
+        expected: Option<i64>,
     ) -> Result<(), String> {
         let mut connection = self.lock()?;
         let transaction = connection.transaction().map_err(storage_error)?;
+        if let Some(expected) = expected {
+            let latest: Option<i64> = transaction
+                .query_row(
+                    "SELECT MAX(id) FROM messages WHERE session_id=?1",
+                    [id],
+                    |r| r.get(0),
+                )
+                .map_err(storage_error)?;
+            if latest != Some(expected) {
+                return Err("The chat changed during continuation. Saved tool effects remain; review the latest chat before continuing.".into());
+            }
+        }
         transaction.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user',?2),(?1,'assistant',?3)", params![id,user,assistant]).map_err(storage_error)?;
         if let Some(metadata) = metadata {
             let data = serde_json::to_string(metadata).map_err(storage_error)?;
@@ -678,6 +701,67 @@ impl SqliteStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn paused_continuation_is_atomic_persistent_and_refuses_reused_source() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("paused.db");
+        let store = SqliteStore::open(&file).unwrap();
+        store.create("work").unwrap();
+        let metadata = TurnMetadata {
+            model: "fixture".into(),
+            usage: None,
+            context: dolores_core::ContextSummary::from_messages(&[], None),
+            request_settings: None,
+            agent: None,
+            paused: Some(dolores_core::PausedTask {
+                reason: dolores_core::PauseReason::OutputLimit,
+                task: "Keep 世界".into(),
+                receipts: vec![],
+            }),
+        };
+        store
+            .commit_turn_metadata("work", "Keep 世界", "Saved partial 世界", &metadata)
+            .unwrap();
+        let source = store
+            .messages_page("work", None, false, 2)
+            .unwrap()
+            .items
+            .last()
+            .unwrap()
+            .id;
+        drop(store);
+        let store = SqliteStore::open(&file).unwrap();
+        assert_eq!(
+            store
+                .messages_page("work", None, false, 2)
+                .unwrap()
+                .items
+                .last()
+                .unwrap()
+                .metadata
+                .as_ref()
+                .unwrap()
+                .paused,
+            metadata.paused
+        );
+        store.lock().unwrap().execute_batch("CREATE TRIGGER reject_continue BEFORE INSERT ON messages BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store
+            .commit_continuation("work", source, "Continue", "still partial", &metadata)
+            .is_err());
+        assert_eq!(store.messages("work").unwrap().len(), 2);
+        store
+            .lock()
+            .unwrap()
+            .execute_batch("DROP TRIGGER reject_continue;")
+            .unwrap();
+        store
+            .commit_continuation("work", source, "Continue", "still partial", &metadata)
+            .unwrap();
+        assert!(store
+            .commit_continuation("work", source, "Continue", "duplicate", &metadata)
+            .is_err());
+        assert_eq!(store.messages("work").unwrap().len(), 4);
+    }
     #[test]
     fn request_settings_are_nonsecret_persistent_and_failed_writes_leave_previous_settings() {
         let directory = tempfile::tempdir().unwrap();
@@ -725,6 +809,7 @@ mod tests {
         store.create("session").unwrap();
         store.commit_turn("session", "legacy", "no usage").unwrap();
         let metadata = TurnMetadata {
+            paused: None,
             model: "fixture".into(),
             request_settings: None,
             agent: None,

@@ -4,13 +4,15 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
 mod agent;
+mod continuation;
+pub use continuation::PausedTask;
 mod mcp;
 pub use mcp::*;
 mod change;
 mod request_settings;
 mod token_context;
 mod workspace;
-pub use accounting::{ContextSummary, Reply, TokenUsage, TurnMetadata};
+pub use accounting::{ContextSummary, Reply, StreamOutcome, TokenUsage, TurnMetadata};
 mod automatic_memory;
 mod instructions;
 mod skill_drafts;
@@ -136,6 +138,18 @@ impl Default for ConnectionPreferences {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Chat-only outcome; strict structured consumers keep using stream_with_usage.
+    async fn stream_chat_outcome(
+        &self,
+        messages: Vec<Message>,
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<StreamOutcome, String> {
+        Ok(StreamOutcome {
+            usage: self.stream_with_usage(messages, output, cancel).await?,
+            output_limit: false,
+        })
+    }
     /// Optional streaming tool capability; existing provider plugins still work.
     async fn stream_tool_turn(
         &self,
@@ -196,6 +210,16 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn commit_continuation(
+        &self,
+        _: &str,
+        _: i64,
+        _: &str,
+        _: &str,
+        _: &TurnMetadata,
+    ) -> Result<(), String> {
+        Err("This storage plugin does not support atomic continuation.".into())
+    }
     fn mcp_connection(&self, _root: &str) -> Result<Option<McpConnection>, String> {
         Ok(None)
     }
@@ -524,17 +548,50 @@ pub async fn stream_reply_with_usage(
     output: mpsc::Sender<String>,
     cancel: CancellationToken,
 ) -> Result<Reply, String> {
+    collect_reply(provider, messages, output, cancel, false).await
+}
+pub async fn stream_chat_reply(
+    provider: &dyn ModelProvider,
+    messages: Vec<Message>,
+    output: mpsc::Sender<String>,
+    cancel: CancellationToken,
+) -> Result<Reply, String> {
+    collect_reply(provider, messages, output, cancel, true).await
+}
+async fn collect_reply(
+    provider: &dyn ModelProvider,
+    messages: Vec<Message>,
+    output: mpsc::Sender<String>,
+    cancel: CancellationToken,
+    recover: bool,
+) -> Result<Reply, String> {
     let (sender, mut receiver) = mpsc::channel(32);
-    let request = provider.stream_with_usage(messages, sender, cancel.clone());
+    let request = async {
+        if recover {
+            provider
+                .stream_chat_outcome(messages, sender, cancel.clone())
+                .await
+        } else {
+            Ok(StreamOutcome {
+                usage: provider
+                    .stream_with_usage(messages, sender, cancel.clone())
+                    .await?,
+                output_limit: false,
+            })
+        }
+    };
     tokio::pin!(request);
     let mut finished = false;
     let mut answer = String::new();
-    let mut usage = None;
+    let mut outcome = StreamOutcome {
+        usage: None,
+        output_limit: false,
+    };
     loop {
         tokio::select! {
             biased;
             _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
-            result = &mut request, if !finished => { usage = result?; finished = true; }
+            result = &mut request, if !finished => { outcome = result?; finished = true; }
             delta = receiver.recv() => match delta {
                 Some(delta) => {
                     if answer.len() + delta.len() > MAX_OUTPUT_BYTES { return Err("Response exceeds the 128 KiB limit.".into()); }
@@ -544,14 +601,22 @@ pub async fn stream_reply_with_usage(
                         result = output.send(delta) => result.map_err(|_| "Conversation window closed.".to_string())?,
                     }
                 }
-                None => { if !finished { usage = request.await?; } break; }
+                None => { if !finished { outcome = request.await?; } break; }
             }
         }
     }
     if answer.trim().is_empty() {
-        return Err("The model returned no text.".into());
+        if outcome.output_limit {
+            answer = "The model reached its output limit before producing visible text.".into();
+        } else {
+            return Err("The model returned no text.".into());
+        }
     }
-    Ok(Reply { answer, usage })
+    Ok(Reply {
+        answer,
+        usage: outcome.usage,
+        output_limit: outcome.output_limit,
+    })
 }
 
 #[cfg(test)]

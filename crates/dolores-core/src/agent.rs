@@ -83,6 +83,7 @@ pub struct AgentMessage {
     pub call_id: Option<String>,
 }
 pub struct AgentTurn {
+    pub output_limit: bool,
     pub content: String,
     pub calls: Vec<ToolCall>,
     pub usage: Option<TokenUsage>,
@@ -144,8 +145,15 @@ pub struct ModelText {
     pub text: String,
 }
 pub struct AgentReply {
+    pub pause: Option<PauseReason>,
     pub answer: String,
     pub summary: AgentSummary,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PauseReason {
+    OutputLimit,
+    StepLimit,
 }
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -294,6 +302,17 @@ pub async fn run_agent(
         }
         summary.model_calls = number;
         summary.usage_by_call.push(turn.usage);
+        if turn.output_limit {
+            return Ok(AgentReply {
+                answer: if turn.content.trim().is_empty() {
+                    "The model reached its output limit before completing a response or tool request.".into()
+                } else {
+                    turn.content
+                },
+                summary,
+                pause: Some(PauseReason::OutputLimit),
+            });
+        }
         if turn.content.len() > MAX_OUTPUT_BYTES {
             return Err("Response exceeds the 128 KiB limit.".into());
         }
@@ -302,14 +321,21 @@ pub async fn run_agent(
                 return Err("The model returned no text.".into());
             }
             return Ok(AgentReply {
+                pause: None,
                 answer: turn.content,
                 summary,
             });
         }
         if number == MAX_MODEL_CALLS || summary.tools.len() + turn.calls.len() > MAX_TOOL_CALLS {
-            return Err(
-                "Agent reached its tool or model-call limit. Your message was not saved.".into(),
-            );
+            return Ok(AgentReply {
+                answer: if turn.content.trim().is_empty() {
+                    "Paused at this run's step limit. Saved tool results are available below; the remaining tool requests have not run.".into()
+                } else {
+                    turn.content
+                },
+                summary,
+                pause: Some(PauseReason::StepLimit),
+            });
         }
         for call in &turn.calls {
             validate_call(call)?;

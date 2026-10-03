@@ -44,6 +44,7 @@ impl ModelProvider for RecoveringModel {
             vec![]
         };
         Ok(AgentTurn {
+            output_limit: false,
             content: if calls.is_empty() {
                 "Finished".into()
             } else {

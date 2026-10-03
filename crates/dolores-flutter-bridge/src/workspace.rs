@@ -160,6 +160,7 @@ mod tests {
             .unwrap();
         assert!(engine
             .call(Command::Start {
+                continuation: None,
                 id: 99,
                 session: Some(id.into()),
                 input: "hello".into(),

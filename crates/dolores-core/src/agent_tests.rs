@@ -43,6 +43,7 @@ impl ModelProvider for BudgetProvider {
     ) -> Result<AgentTurn, String> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         Ok(AgentTurn {
+            output_limit: false,
             content: String::new(),
             calls: vec![ToolCall {
                 id: "read1".into(),
@@ -209,6 +210,7 @@ impl ModelProvider for Scripted {
             assert!(messages[messages.len() - 2].role == "assistant");
         }
         Ok(AgentTurn {
+            output_limit: false,
             content: if call.is_none() {
                 "Final answer".into()
             } else {
@@ -493,6 +495,7 @@ impl ModelProvider for Streaming {
             output.send("Final ".into()).await.unwrap();
             output.send("answer".into()).await.unwrap();
             return Ok(AgentTurn {
+                output_limit: false,
                 content: "Final answer".into(),
                 calls: vec![],
                 usage: None,
@@ -516,6 +519,7 @@ impl ModelProvider for Streaming {
             request.name = "execute_shell".into();
         }
         Ok(AgentTurn {
+            output_limit: false,
             content: if self.failure == 4 {
                 "different text".into()
             } else {
@@ -603,16 +607,16 @@ async fn partial_invalid_and_oversized_streams_cannot_run_tools() {
             count: AtomicUsize::new(0),
         };
         let (events, _receiver) = mpsc::channel(32);
-        assert!(run_agent(
+        let result = run_agent(
             &provider,
             context(),
             &[read.clone() as Arc<dyn ToolPlugin>],
             &approval,
             events,
-            CancellationToken::new()
+            CancellationToken::new(),
         )
-        .await
-        .is_err());
+        .await;
+        assert!(result.is_err());
         assert_eq!(read.count.load(Ordering::SeqCst), 0);
         assert_eq!(approval.count.load(Ordering::SeqCst), 0);
     }
@@ -673,16 +677,25 @@ async fn unknown_replayed_and_excessive_calls_never_bypass_the_registry_or_budge
             loop_forever: case == 2,
         };
         let (events, _receiver) = mpsc::channel(32);
-        assert!(run_agent(
+        let result = run_agent(
             &provider,
             context(),
             &[read.clone() as Arc<dyn ToolPlugin>],
             &approval,
             events,
-            CancellationToken::new()
+            CancellationToken::new(),
         )
-        .await
-        .is_err());
+        .await;
+        if case == 2 {
+            let reply = result.unwrap();
+            assert_eq!(reply.pause, Some(PauseReason::StepLimit));
+            assert_eq!(reply.summary.model_calls, 4);
+            assert_eq!(reply.summary.tools.len(), 3);
+            assert!(!reply.answer.is_empty());
+            assert_eq!(approval.count.load(Ordering::SeqCst), 3);
+        } else {
+            assert!(result.is_err());
+        }
         assert_eq!(read.count.load(Ordering::SeqCst), [0, 1, 3][case]);
     }
 }

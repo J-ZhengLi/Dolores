@@ -213,6 +213,7 @@ class _ChatPageState extends State<ChatPage> {
     bool streaming = false,
     Key? key,
     Map<String, dynamic>? metadata,
+    int? messageId,
   }) {
     final user = role == 'user';
     return Padding(
@@ -286,6 +287,37 @@ class _ChatPageState extends State<ChatPage> {
                     onRendered: _followReply,
                   ),
                 if (!user && !streaming) ...[
+                  if (metadata?['paused'] is Map) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      metadata!['paused']['reason'] == 'outputLimit'
+                          ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.'
+                          : 'Paused at this run’s step limit. Progress and tool results saved.',
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                    if (messageId == chat.latestPausedId)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          key: const Key('continue-task'),
+                          onPressed:
+                              chat.busy ||
+                                  chat.changing ||
+                                  chat.loading ||
+                                  chat.draft.isNotEmpty
+                              ? null
+                              : () => chat.continueTask(messageId!),
+                          icon: const Icon(Icons.play_arrow_outlined, size: 18),
+                          label: const Text('Continue'),
+                        ),
+                      ),
+                    Text(
+                      chat.draft.isNotEmpty
+                          ? 'Send or clear your draft to continue. Each continuation uses your current model and limits.'
+                          : 'Continue starts another bounded run. New tool calls need fresh approval; incomplete calls have not run.',
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                  ],
                   if (metadata?['agent']?['tools'] is List)
                     ToolRecords(records: metadata!['agent']['tools'] as List),
                   UsageDetails(metadata: metadata),
@@ -851,6 +883,7 @@ class _ChatPageState extends State<ChatPage> {
                                       item['content'] as String,
                                       metadata: (item['metadata'] as Map?)
                                           ?.cast<String, dynamic>(),
+                                      messageId: item['id'] as int?,
                                       key: ValueKey(
                                         '${chat.session}:${item['id'] ?? index}',
                                       ),

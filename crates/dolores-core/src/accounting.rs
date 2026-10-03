@@ -55,6 +55,8 @@ impl ContextSummary {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused: Option<crate::PausedTask>,
     pub model: String,
     pub usage: Option<TokenUsage>,
     pub context: ContextSummary,
@@ -67,6 +69,11 @@ pub struct TurnMetadata {
 pub struct Reply {
     pub answer: String,
     pub usage: Option<TokenUsage>,
+    pub output_limit: bool,
+}
+pub struct StreamOutcome {
+    pub usage: Option<TokenUsage>,
+    pub output_limit: bool,
 }
 
 #[cfg(test)]

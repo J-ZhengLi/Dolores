@@ -1870,6 +1870,19 @@ Future<void> _run(
       'Outside-folder request is blocked without an approval or file read',
       checks,
     );
+    bool hasKey(String key) {
+      var found = false;
+      void visit(Element e) {
+        if (e.widget.key == Key(key)) {
+          found = true;
+        }
+        e.visitChildren(visit);
+      }
+
+      (capture.currentContext! as Element).visitChildren(visit);
+      return found;
+    }
+
     chat.newChat();
     chat.draft = 'tool-loop';
     await chat.send();
@@ -1878,10 +1891,28 @@ Future<void> _run(
       await Future<void>.delayed(const Duration(milliseconds: 25));
     }
     check(
-      chat.error?.contains('limit') == true &&
-          chat.draft == 'tool-loop' &&
-          chat.messages.isEmpty,
-      'Repeated tool requests stop at the fixed model-call budget and never save a partial turn',
+      chat.error == null &&
+          chat.draft.isEmpty &&
+          chat.messages.last['metadata']['paused']['reason'] == 'stepLimit' &&
+          chat.messages.last['metadata']['agent']['modelCalls'] == 4,
+      'Repeated tool requests pause at the fixed model-call budget and retain progress with receipts',
+      checks,
+    );
+    await screenshot(capture, output, 'paused-task-dark');
+    final pausedId = chat.latestPausedId!;
+    check(
+      hasKey('continue-task'),
+      'Rendered paused response offers explicit Continue',
+      checks,
+    );
+    await press('continue-task', key: true);
+    await waitUntil(() => !chat.busy && !chat.changing);
+    check(
+      chat.error == null &&
+          chat.latestPausedId == null &&
+          chat.messages.length == 4 &&
+          chat.messages[1]['id'] == pausedId,
+      'Rendered Continue keeps the paused segment and saves a separate completed continuation',
       checks,
     );
     await Directory(path.join(workspace.path, 'docs')).create();
@@ -2186,19 +2217,6 @@ Future<void> _run(
     );
     await screenshot(capture, output, 'mcp-credentials-dark');
     await press('mcp-inspect', key: true);
-    bool hasKey(String key) {
-      var found = false;
-      void visit(Element e) {
-        if (e.widget.key == Key(key)) {
-          found = true;
-        }
-        e.visitChildren(visit);
-      }
-
-      (capture.currentContext! as Element).visitChildren(visit);
-      return found;
-    }
-
     await waitUntil(() => hasKey('mcp-enable'));
     check(
       (await chat.bridge.call({

@@ -112,12 +112,7 @@ impl Assembly {
             }
         }
         if let Some(reason) = choice["finish_reason"].as_str() {
-            if reason == "length" {
-                return Err(
-                    "Response reached the model output limit. Try a shorter request.".into(),
-                );
-            }
-            if !matches!(reason, "stop" | "tool_calls") {
+            if !matches!(reason, "stop" | "tool_calls" | "length") {
                 return Err("Model finished without a complete tool response.".into());
             }
             self.finish = Some(reason.to_owned());
@@ -127,6 +122,15 @@ impl Assembly {
         Ok(text.to_owned())
     }
     fn complete(self) -> Result<AgentTurn, String> {
+        if self.finish.as_deref() == Some("length") {
+            // Never publish incomplete/pending tool calls as executable work.
+            return Ok(AgentTurn {
+                content: self.content,
+                calls: vec![],
+                usage: self.usage,
+                output_limit: true,
+            });
+        }
         let expected = if self.calls.is_empty() {
             "stop"
         } else {
@@ -155,6 +159,7 @@ impl Assembly {
             calls.push(call);
         }
         Ok(AgentTurn {
+            output_limit: false,
             content: self.content,
             calls,
             usage: self.usage,

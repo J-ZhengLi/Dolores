@@ -3,6 +3,7 @@ mod approval;
 mod automatic_memory;
 mod changes;
 mod connection;
+mod continuation;
 mod export;
 mod instructions;
 mod mcp;
@@ -16,8 +17,8 @@ mod workspace;
 use approval::{ApprovalSlot, RunApproval};
 use connection::ConnectionManager;
 use dolores_core::{
-    prepare_context, preview_context, stream_reply_with_usage, ConnectionPreferences,
-    ContextSummary, CredentialStore, ModelProvider, RequestSettings, SessionStore, TurnMetadata,
+    prepare_context, preview_context, stream_chat_reply, ConnectionPreferences, ContextSummary,
+    CredentialStore, ModelProvider, RequestSettings, SessionStore, TurnMetadata,
 };
 use dolores_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -37,6 +38,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    continuation: Option<i64>,
     id: u64,
     session: Option<String>,
     input: String,
@@ -323,6 +325,8 @@ enum Command {
     RecoverConnection,
     ForgetConnection,
     Start {
+        #[serde(default)]
+        continuation: Option<i64>,
         id: u64,
         session: Option<String>,
         input: String,
@@ -801,6 +805,7 @@ impl Engine {
                 Ok(Value::Null)
             }
             Command::Start {
+                continuation,
                 id,
                 session,
                 input,
@@ -810,6 +815,15 @@ impl Engine {
                 self.clear_memory_review()?;
                 self.clear_summary_review()?;
                 prepare_context(vec![], &input)?;
+                if let Some(source_id) = continuation {
+                    if input != continuation::INPUT {
+                        return Err("Use Continue with its unchanged recovery request.".into());
+                    }
+                    let saved_session = session.as_deref().ok_or("Continue needs a saved chat.")?;
+                    let (source, partial) =
+                        continuation::source(self.store.as_ref(), saved_session, source_id)?;
+                    source.prompt(&partial)?;
+                }
                 let provider = self
                     .connection
                     .lock()
@@ -900,6 +914,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            continuation,
                             id,
                             session,
                             input,
@@ -912,7 +927,8 @@ impl Engine {
                         &output,
                     )
                     .await;
-                    let memory_update = if result.is_ok() {
+                    let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
+                    let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
                             automatic_memory::learn(store, learner, &session, &learning_model, cancel.clone(), &output, id).await
                         } else { None }
@@ -944,6 +960,7 @@ async fn execute(
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
     let TurnRequest {
+        continuation,
         id,
         session,
         input,
@@ -977,7 +994,13 @@ async fn execute(
             ))
         })
         .await?;
-    let context = prepare_context(history, &input)?;
+    let prior = continuation
+        .map(|source_id| continuation::source(store.as_ref(), &session, source_id))
+        .transpose()?;
+    let mut context = prepare_context(history, &input)?;
+    if let Some((paused, partial)) = &prior {
+        context.last_mut().unwrap().content = paused.prompt(partial)?;
+    }
     let context = if !tools.is_empty() {
         dolores_core::prepare_agent_context(context)?
     } else {
@@ -1055,20 +1078,42 @@ async fn execute(
         }
         let saved = reply.answer.clone();
         let metadata = TurnMetadata {
+            paused: reply.pause.map(|reason| {
+                let mut receipts = prior
+                    .as_ref()
+                    .map(|(p, _)| p.receipts.clone())
+                    .unwrap_or_default();
+                receipts.extend(reply.summary.tools.clone());
+                dolores_core::PausedTask {
+                    reason,
+                    task: prior
+                        .as_ref()
+                        .map(|(p, _)| p.task.clone())
+                        .unwrap_or_else(|| input.clone()),
+                    receipts,
+                }
+            }),
             model,
             usage: None,
             context: summary,
             request_settings: settings,
             agent: Some(reply.summary),
         };
-        blocking(move || store.commit_turn_metadata(&session, &input, &saved, &metadata)).await?;
+        blocking(move || {
+            if let Some(source_id) = continuation {
+                store.commit_continuation(&session, source_id, &input, &saved, &metadata)
+            } else {
+                store.commit_turn_metadata(&session, &input, &saved, &metadata)
+            }
+        })
+        .await?;
         return Ok(reply.answer);
     }
     // The adapter deadline alone cannot run while this host awaits a full UI
     // queue. Bound streaming AND delivery, excluding history reads and commit.
     let streaming = async {
         let (sender, mut receiver) = mpsc::channel(32);
-        let request = stream_reply_with_usage(provider.as_ref(), context, sender, cancel.clone());
+        let request = stream_chat_reply(provider.as_ref(), context, sender, cancel.clone());
         tokio::pin!(request);
         let answer = loop {
             tokio::select! {
@@ -1102,6 +1147,17 @@ async fn execute(
     }
     let saved = answer.answer.clone();
     let metadata = TurnMetadata {
+        paused: answer.output_limit.then(|| dolores_core::PausedTask {
+            reason: dolores_core::PauseReason::OutputLimit,
+            task: prior
+                .as_ref()
+                .map(|(p, _)| p.task.clone())
+                .unwrap_or_else(|| input.clone()),
+            receipts: prior
+                .as_ref()
+                .map(|(p, _)| p.receipts.clone())
+                .unwrap_or_default(),
+        }),
         model,
         usage: answer.usage,
         context: summary,
@@ -1109,7 +1165,14 @@ async fn execute(
         agent: None,
     };
     // Once the complete-pair transaction starts, completion wins over late Stop.
-    blocking(move || store.commit_turn_metadata(&session, &input, &saved, &metadata)).await?;
+    blocking(move || {
+        if let Some(source_id) = continuation {
+            store.commit_continuation(&session, source_id, &input, &saved, &metadata)
+        } else {
+            store.commit_turn_metadata(&session, &input, &saved, &metadata)
+        }
+    })
+    .await?;
     Ok(answer.answer)
 }
 fn stopped() -> String {
@@ -1291,6 +1354,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    continuation: None,
                     id: 1,
                     session: Some("side".into()),
                     input: "draft".into(),
@@ -1526,6 +1590,7 @@ mod tests {
                     fail: false,
                 }),
                 TurnRequest {
+                    continuation: None,
                     id: 1,
                     session: Some("paused-window".into()),
                     input: "unsent".into(),
@@ -1580,6 +1645,7 @@ mod tests {
                 .unwrap();
             engine
                 .call(Command::Start {
+                    continuation: None,
                     id: 7,
                     session: Some("side".into()),
                     input: "user".into(),

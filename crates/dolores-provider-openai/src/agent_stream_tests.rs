@@ -28,6 +28,34 @@ fn provider(base_url: String) -> OpenAiProvider {
     .unwrap()
 }
 
+#[tokio::test]
+async fn output_limit_keeps_final_text_usage_and_never_returns_partial_calls() {
+    for call_parts in [
+        Value::Null,
+        json!([call(0, "unfinished", "create_text_file", "{\"path\":")]),
+    ] {
+        let frames = [
+            delta(
+                json!({"content":"saved 世界", "tool_calls":call_parts}),
+                json!("length"),
+            ),
+            json!({"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":64}}),
+        ];
+        let (endpoint, server) = crate::tests::sequence_server(vec![wire(&frames, true)]).await;
+        let (output, mut receiver) = mpsc::channel(32);
+        let turn = provider(endpoint)
+            .stream_tool_turn(&[], &[], output, CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(turn.output_limit);
+        assert!(turn.calls.is_empty());
+        assert_eq!(turn.content, "saved 世界");
+        assert_eq!(receiver.recv().await.unwrap(), turn.content);
+        assert_eq!(turn.usage.unwrap().output_tokens, Some(64));
+        server.await.unwrap();
+    }
+}
+
 #[test]
 fn fragmented_unicode_and_interleaved_calls_assemble_by_index() {
     let frames = [
@@ -99,7 +127,6 @@ fn incomplete_malformed_and_over_budget_calls_never_complete() {
             json!({"tool_calls":[call(0,"one","read_text_file","{}")] }),
             json!("stop"),
         )],
-        vec![delta(json!({"content":"partial"}), json!("length"))],
         vec![delta(
             json!({"content":"x".repeat(MAX_OUTPUT_BYTES + 1)}),
             json!("stop"),

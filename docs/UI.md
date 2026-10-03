@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Paused tasks
+
+An explicit model output limit or agent step limit renders the saved partial response with a muted pause reason, actual saved output allowance where applicable, and the existing progress/tool/usage details. Show Continue only on the latest saved paused assistant message. Disable it during loading or generation and when a composer draft is present; explain that the draft must be sent or cleared. A continuation needs a configured connection, starts a separate bounded run and asks for fresh tool approval. Incomplete calls have not run. Keep the original paused segment and receipts visible after success, failure, Stop and restart. Failed continuation leaves the composer empty and the saved response available for retry. No automatic retries or new budget controls are introduced. Paused replies do not trigger automatic preference learning.
+
 ## Skill drafts and evaluation
 
 Before Generate, show Draft output tokens and Draft timeout with the saved model settings as initial values. Edits apply to this draft only; explain that larger allowances may increase usage while the skill stays within 8 KiB. Lock these fields during requests. An output-limit error names the allowance and points to Draft output tokens; preserve selected exchanges for manual retry and bring the error into view. No hidden drafting token/deadline cap or automatic increased-budget retry is permitted.

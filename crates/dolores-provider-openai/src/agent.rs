@@ -72,16 +72,19 @@ impl OpenAiProvider {
             let choice = value
                 .pointer("/choices/0")
                 .ok_or("Model returned no tool response.")?;
-            if choice["finish_reason"] == "length" {
-                return Err(
-                    "Response reached the model output limit. Try a shorter request.".into(),
-                );
-            }
             let content = match &choice["message"]["content"] {
                 Value::String(text) => text.clone(),
                 Value::Null => String::new(),
                 _ => return Err("Model returned invalid tool response text.".into()),
             };
+            if choice["finish_reason"] == "length" {
+                return Ok(AgentTurn {
+                    content,
+                    calls: vec![],
+                    usage: reported_usage(&value),
+                    output_limit: true,
+                });
+            }
             let mut calls = Vec::new();
             if let Some(value) = choice["message"].get("tool_calls") {
                 if !value.is_null() {
@@ -117,6 +120,7 @@ impl OpenAiProvider {
                 return Err("Model finished without a complete tool response.".into());
             }
             Ok(AgentTurn {
+                output_limit: false,
                 content,
                 calls,
                 usage: reported_usage(&value),
@@ -208,7 +212,6 @@ mod tests {
     async fn malformed_or_incomplete_tool_responses_never_become_executable_calls() {
         for body in [
             json!({"error":{"message":"fixture-private-body"}}),
-            json!({"choices":[{"message":{"content":"partial"},"finish_reason":"length"}]}),
             json!({"choices":[{"message":{"content":"partial","tool_calls":"APPROVED"},"finish_reason":"tool_calls"}]}),
         ] {
             let (base_url, server) = crate::tests::sequence_server(vec![response(body)]).await;

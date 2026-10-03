@@ -22,7 +22,7 @@ The [Flutter desktop](apps/dolores_flutter/README.md) uses the Rust core/plugins
 
 ## Run
 
-Working chats stream replies with tools enabled. Public commentary before a tool call stays visible at approval and is saved in expandable **Agent progress** separately from the final answer. Stop and interrupted arguments never publish a partial turn. Progress is preserved in chat, trajectory and exports. Your provider must support streaming Chat Completions function calls; use Side chat explicitly for models without tools.
+Working chats stream replies with tools enabled. Public commentary before a tool call stays visible at approval and is saved in expandable **Agent progress** separately from the final answer. Stop and interrupted arguments never publish a partial turn. An explicit provider output limit or agent step limit saves a **paused** response with progress and completed tool receipts. **Continue** on the latest paused response starts another bounded run with current settings and fresh tool approvals; unfinished calls never run. Send or clear an existing composer draft first. Progress is preserved in chat, trajectory and exports. Your provider must support streaming Chat Completions function calls; use Side chat explicitly for models without tools. See [long-task recovery](docs/design/long-task-recovery.md).
 
 Install Rust stable, Flutter 3.47.5 and its [desktop prerequisites](https://docs.flutter.dev/platform-integration/desktop). Linux secure storage also needs the D-Bus development library and a running Secret Service. On Windows, build directly from PowerShell:
 

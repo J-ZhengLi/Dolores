@@ -384,8 +384,19 @@ impl ModelProvider for OpenAiProvider {
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
     ) -> Result<Option<TokenUsage>, String> {
-        tokio::select! {
-            biased;
+        let outcome = self.stream_chat_outcome(messages, output, cancel).await?;
+        if outcome.output_limit {
+            return Err(OUTPUT_LIMIT_ERROR.into());
+        }
+        Ok(outcome.usage)
+    }
+    async fn stream_chat_outcome(
+        &self,
+        messages: Vec<Message>,
+        output: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<dolores_core::StreamOutcome, String> {
+        tokio::select! { biased;
             _ = cancel.cancelled() => Err("Response stopped.".into()),
             result = tokio::time::timeout(Duration::from_secs(self.settings.timeout_seconds.into()), self.stream_request(messages, output, cancel.clone())) => result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.".to_string())?,
         }
@@ -398,7 +409,7 @@ impl OpenAiProvider {
         messages: Vec<Message>,
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
-    ) -> Result<Option<TokenUsage>, String> {
+    ) -> Result<dolores_core::StreamOutcome, String> {
         let mut include_usage = true;
         let mut response = loop {
             let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": self.settings.max_output_tokens });
@@ -441,6 +452,7 @@ impl OpenAiProvider {
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
         let mut finished = false;
+        let mut output_limit = false;
         let mut usage = None;
         loop {
             let chunk = tokio::select! {
@@ -452,7 +464,13 @@ impl OpenAiProvider {
                 "Connection interrupted before the response finished.".to_string()
             })?)? {
                 if data == "[DONE]" {
-                    return Ok(usage);
+                    if !finished {
+                        return Err("Connection ended before the response finished.".into());
+                    }
+                    return Ok(dolores_core::StreamOutcome {
+                        usage,
+                        output_limit,
+                    });
                 }
                 let value: Value = serde_json::from_str(&data)
                     .map_err(|_| "Provider returned a malformed stream.".to_string())?;
@@ -469,11 +487,18 @@ impl OpenAiProvider {
                 else {
                     continue;
                 };
+                if finished
+                    && (choice
+                        .pointer("/delta/content")
+                        .and_then(Value::as_str)
+                        .is_some_and(|s| !s.is_empty())
+                        || !choice["finish_reason"].is_null())
+                {
+                    return Err("Provider sent text after the response finished.".into());
+                }
                 if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
-                    if reason == "length" {
-                        return Err(OUTPUT_LIMIT_ERROR.into());
-                    }
-                    if reason != "stop" {
+                    output_limit = reason == "length";
+                    if reason != "stop" && !output_limit {
                         return Err("Provider finished without a complete text response.".into());
                     }
                     finished = true;
@@ -489,7 +514,10 @@ impl OpenAiProvider {
             }
         }
         if finished && decoder.buffer.is_empty() {
-            Ok(usage)
+            Ok(dolores_core::StreamOutcome {
+                usage,
+                output_limit,
+            })
         } else {
             Err("Connection ended before the response finished.".into())
         }
@@ -822,7 +850,7 @@ mod tests {
     async fn explicitly_unsupported_usage_option_retries_once_before_streaming() {
         let (base_url, server) = sequence_server(vec![
             "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n{\"error\":{\"param\":\"stream_options\",\"message\":\"Unsupported parameter: stream_options\"}}".into(),
-            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: [DONE]\n\n".into(),
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n".into(),
         ]).await;
         let provider = OpenAiProvider::new(
             &ConnectionPreferences {
@@ -864,7 +892,7 @@ mod tests {
     }
     #[tokio::test]
     async fn streams_from_real_http_and_sends_expected_contract() {
-        let (base_url, server) = server("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: [DONE]\n\n").await;
+        let (base_url, server) = server("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n").await;
         let provider = OpenAiProvider::new(
             &ConnectionPreferences {
                 base_url,

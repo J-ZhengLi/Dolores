@@ -680,7 +680,33 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  Future<void> send() async {
+  bool _continuing = false;
+  int? get latestPausedId =>
+      !messagesNewer &&
+          messages.isNotEmpty &&
+          messages.last['role'] == 'assistant' &&
+          messages.last['metadata']?['paused'] != null
+      ? messages.last['id'] as int?
+      : null;
+
+  Future<void> continueTask(int sourceId) async {
+    if (busy ||
+        changing ||
+        loading ||
+        sourceId != latestPausedId ||
+        draft.isNotEmpty) {
+      return;
+    }
+    if (!configured) {
+      error = 'Set up a model connection first.';
+      _notify();
+      return;
+    }
+    draft = 'Continue working on the previous task.';
+    await send(continuation: sourceId);
+  }
+
+  Future<void> send({int? continuation}) async {
     if (busy || changing || loading || draft.trim().isEmpty) return;
     if (!configured) {
       error = 'Set up a model connection first.';
@@ -706,6 +732,7 @@ class ChatController extends ChangeNotifier {
       if (messagesNewer || error != null) return;
     }
     busy = true;
+    _continuing = continuation != null;
     stopping = false;
     pendingInput = draft;
     draft = '';
@@ -732,6 +759,7 @@ class ChatController extends ChangeNotifier {
         'id': id,
         'session': session,
         'input': pendingInput,
+        'continuation': ?continuation,
       });
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});
@@ -890,7 +918,8 @@ class ChatController extends ChangeNotifier {
     }
     _clock.stop();
     error = failure;
-    draft = pendingInput;
+    draft = _continuing ? '' : pendingInput;
+    _continuing = false;
     pendingInput = '';
     partial = '';
     busy = false;

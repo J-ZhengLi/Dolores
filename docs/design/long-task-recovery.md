@@ -1,0 +1,23 @@
+# Long-task recovery — brick 6.4
+
+The selected Flutter shell saves progress when the provider explicitly reports its output limit or the agent reaches its model/tool step limit. The response is labeled paused rather than complete. It retains text, usage, public model steps and completed tool receipts; unfinished calls are discarded. A model that uses its output allowance only for reasoning gets an honest placeholder instead of invented visible work. Stop, timeout, broken transport, invalid calls and malformed streams remain failures. File effects may survive these failures independently in Changes.
+
+## Continue
+
+Continue appears on the latest saved paused assistant message. Send or clear an existing draft first. The host validates the source ID and exact recovery input before starting and again during execution. The continuation's message pair is appended only if that source remains latest inside the same SQLite transaction. Old IDs, another session and modified recovery input are refused. A failed or cancelled continuation leaves the original saved segment available; it does not restore the synthetic recovery input into the composer.
+
+The next run uses the currently selected model, request settings, working folder and enabled guidance/skills/tools. The last user context message carries JSON containing the original task, saved partial response and accumulated completed tool receipts. The host labels these fields untrusted and instructs the model to preserve completed effects, inspect current files when needed and request fresh tools/approvals. No pending call is resumed and no old approval is reused. This instruction helps models avoid duplicate work; it does not guarantee every model will follow it. Each new tool invocation still needs a separate decision.
+
+A continuation is its own bounded turn. Repeated pauses retain the original task and accumulated receipts, while each visible response stays in history. After a new ordinary message, the old paused card remains visible but cannot be continued using its stale ID. A completed continuation removes the latest Continue action. Automatic preference learning skips paused replies, avoiding an extra request after incomplete work.
+
+## Budgets and compatibility
+
+The existing defaults remain **2048 output tokens**, **180 seconds per request**, **four model calls** and **four tool operations per run**. Continue does not increase these limits, retry automatically or switch models. Recovery prompt construction refuses more than **96 KiB** or **16 accumulated receipts**; normal context token/byte guards can refuse sooner. Refusal keeps the saved response and suggests a reviewed summary in a new chat. Large tasks still need decomposition or explicit request-setting changes.
+
+The provider's chat-specific outcome distinguishes explicit `length` from interruption and preserves trailing usage. Both streamed tool arguments and nonstreamed pending calls are discarded on `length`. Strict structured consumers such as skill drafts still reject truncated output instead of accepting partial JSON. Existing provider plugins inherit a strict default; storage plugins must implement atomic continuation to support it. Optional paused metadata fits existing JSON storage and exports with **schema 16 unchanged**. No new runtime, dependency, resident process or background retry exists. Alternative Iced/Tauri hosts retain their earlier strict chat UX.
+
+## Checks and limits
+
+`scripts/test-continuation.py` uses isolated synthetic data, the bundled bridge, SQLite and its own loopback HTTP fixture. Run `save`, then `restore` in separate processes with the same fresh absolute directory under `output/`. It covers repeated output limits, stale/wrong-session sources, changed recovery input, cancellation after visible text, three approved file creations followed by a step-limit pause, explicit continuation that reads saved work, unchanged files, restart and JSON export provenance. Unit checks add atomic failed commits, source reuse refusal, bounded untrusted prompts and incomplete streamed arguments with trailing usage. Compact light/dark widget checks cover drafts, failed retry, duplicate exclusion and missing connection.
+
+Windows release diagnostics exercise the rendered Continue action at wide and compact sizes. Authorized Qwen and DeepSeek probes intentionally use small limits on synthetic text tasks; both retain two paused segments after explicit continuation. They establish recovery behavior, not completion of those tasks or general coding competence. The reported game-building failure has not been reproduced. Native keyboard/IME UAT, macOS/Linux runtime and representative low-end resource acceptance remain open.

@@ -270,6 +270,7 @@ impl ModelProvider for EditModel {
             vec![]
         };
         Ok(AgentTurn {
+            output_limit: false,
             content: if calls.is_empty() {
                 "Finished".into()
             } else {
