@@ -6,6 +6,8 @@ Dolores sends selected context, enabled instructions/memories/skills and approve
 
 Conversations, preferences, source evidence, comparisons and change snapshots are local unencrypted SQLite data. Remembered model/MCP keys use the OS vault, scoped to the data directory. Launch-only keys stay in memory. Exports can retain approved content and evidence: inspect them before sharing.
 
+Primary run records also retain the input, effective settings and bounded literal tool intent/results locally, separately from chat turns. They are not automatically shared as context or learning input; deleting the chat removes its run records. Scoped settings contain no credentials and their inspector omits private project roots.
+
 Deleting a preference does not erase earlier reply provenance/exports. Deleting a chat preserves working files and independent change records. Commands/MCP servers run with user permissions and can access data outside the folder. See [user controls](USER_GUIDE.md).
 
 ## When contributing or publishing

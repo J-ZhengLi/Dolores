@@ -23,5 +23,6 @@
 - [Working sessions](design/working-sessions.md), [change journal](design/change-journal.md) and [commands](design/approved-commands.md).
 - [Automatic preferences](design/automatic-memory.md), [skills](design/project-skills.md) and [MCP](design/mcp-connection.md).
 - [Recovery](design/long-task-recovery.md), [generation profiles](design/model-generation-profiles.md) and [coding repair](design/coding-validation-repair.md).
+- [Run ownership](design/run-ownership.md), [extension registry](design/extension-registry.md) and [scoped settings](design/scoped-settings.md).
 - [Task feedback](design/task-feedback.md), [comparisons](design/context-comparisons.md) and [regressions](design/regression-runner.md).
 - [Windows portable preview](design/windows-portable.md).

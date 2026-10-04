@@ -4,6 +4,7 @@ Build one usable brick at a time. Each new brick needs a small design decision, 
 
 | Brick | Usable result | Acceptance boundary |
 | --- | --- | --- |
+| 9.1–9.4 — Inspection and execution foundation | Bounded running-source/capability inspection, durable run evidence, pinned registry, scoped settings and questioning/recovery guidance | Mechanical contracts, realistic refusal/recovery and bounded live probes; consistent model task behavior, executable adaptation and platform/resource qualification remain open. Each brick has its own commit and acceptance record. |
 | 1 — Conversation foundation | Desktop chat, replaceable provider/storage ports, OpenAI-compatible text streaming, stop, SQLite history, system theme | Local build and mock endpoint proof; live provider and OS checks recorded separately. |
 | 1.1 — Resource decision | Working Iced/software UI reuses core/plugins; default development shell selected, Tauri retained | Windows release/controller/renderer comparison completed. Settled native idle near 30 MiB versus over 400 MiB webview working set. Low-end, input/accessibility and transient CPU acceptance remain gaps. |
 | 1.2 — Flutter selection | Styled Flutter desktop chat sharing the Rust core/plugins through FFI; selected default | Windows build and visual/resource comparison completed; user selected Flutter. Cross-platform and low-end acceptance remain open. |

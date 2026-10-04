@@ -64,7 +64,10 @@ const server = createServer(async (request, response) => {
   if (Array.isArray(payload.tools)) {
     const last = payload.messages?.at(-1);
     const prompt = payload.messages?.findLast(message => message.role === 'user')?.content ?? '';
-    if (payload.tools.map(tool => tool?.function?.name).sort().join(',') !== 'create_text_file,edit_text_file,list_folder,read_text_file,run_command,search_text') {
+    const names = payload.tools.map(tool => tool?.function?.name).sort().join(',');
+    // Retained comparison shells use six built-ins; normal Flutter also advertises inspection.
+    if (!['create_text_file,edit_text_file,list_folder,read_text_file,run_command,search_text',
+          'create_text_file,edit_text_file,inspect_harness,list_folder,read_text_file,run_command,search_text'].includes(names)) {
       response.writeHead(400).end(); return;
     }
     let message, finish;

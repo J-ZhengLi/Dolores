@@ -12,6 +12,8 @@ mod runs;
 pub use runs::*;
 mod registry;
 pub use registry::*;
+mod settings;
+pub use settings::*;
 mod command_outcome;
 mod continuation;
 pub use command_outcome::{unresolved_commands, CommandOutcome};
@@ -222,6 +224,18 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn scoped_settings(&self, _scope: SettingsScope, _key: &str) -> Result<ScopedSettings, String> {
+        Ok(Default::default())
+    }
+    fn save_scoped_settings(
+        &self,
+        _scope: SettingsScope,
+        _key: &str,
+        _revision: u32,
+        _patch: &SettingsPatch,
+    ) -> Result<ScopedSettings, String> {
+        Err("Scoped settings are unavailable.".into())
+    }
     fn begin_run(&self, _: &RunSnapshot) -> Result<(), String> {
         Err("Run evidence is unavailable in this store.".into())
     }
@@ -586,7 +600,7 @@ pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
     if !history.len().is_multiple_of(2) {
         return Err("Stored conversation has an incomplete turn.".into());
     }
-    let system = Message { role: Role::System, content: "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. You currently have no tools or persistent learned memories.".into() };
+    let system = Message { role: Role::System, content: "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.".into() };
     let mut budget = MAX_CONTEXT_BYTES - input.len() - system.content.len();
     // Keep newest complete turns. Never start context with an orphaned assistant reply.
     let mut pairs = Vec::new();

@@ -2,7 +2,7 @@
 
 **Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, remains skipped**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
 
-Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.3 are implemented** with the bounded evidence in acceptance; 9.4 is the active cycle. Later milestones retain their planned scope and are not implicitly complete.
+Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.4 are implemented**, with separate commits and bounded evidence in acceptance. The mechanical contracts are verified; consistent real-model task behavior, native input/platform and representative resource acceptance remain open. Later milestones retain their planned scope and are not implicitly complete.
 
 ## Destination and scope
 
@@ -17,7 +17,7 @@ This replaces the prior working-agent/context/learning/plugin proposal. Extensio
 | Implemented | Remaining work |
 | --- | --- |
 | Project/temporary/side chats, provider profiles and streaming | Per-thread run ownership, durable task state, forks and multimodal messages |
-| Compiled Rust ports, reviewed tools and on-demand local MCP | Shared lifecycle/inventory; executable extension host is absent |
+| Compiled Rust ports, reviewed tools, on-demand local MCP and a pinned registry | Executable extension host/activation are absent |
 | Context inspection, estimates, manual summaries and continuation | Scoped guidance/skill selection and managed compaction |
 | Every-call approvals and capability-bound file tools | Explicit auto-approval/full-access settings; commands/MCP are not OS sandboxes |
 | Automatic explicit preferences, global/project skills and versions | Project facts, cause attribution, task evaluation and automatic qualifying activation |

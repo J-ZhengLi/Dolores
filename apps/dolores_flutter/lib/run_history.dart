@@ -117,7 +117,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     selected: selected == run['id'],
                     title: Text('${run['state']} · ${run['model']}'),
                     subtitle: Text(
-                      '${run['id']}\nOutput allowance: ${run['settings']['maxOutputTokens']} tokens · ${run['sequence']} events',
+                      '${run['id']}\nOutput allowance: ${run['settings']['maxOutputTokens']} tokens · ${run['sequence']} events${run['effectiveSettings'] is Map ? '\nSource: ${run['effectiveSettings']['requestOrigin']} · interaction: ${run['effectiveSettings']['interactionOrigin']}\nContext: ${run['effectiveSettings']['contextWindowTokens']} tokens · ${run['effectiveSettings']['contextOrigin']}' : ''}',
                     ),
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),

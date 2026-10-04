@@ -14,6 +14,7 @@ mod memory_suggestions;
 mod recovery;
 mod registry;
 mod run_journal;
+mod settings;
 mod skill_drafts;
 mod skills;
 mod summaries;
@@ -42,6 +43,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    interaction: dolores_core::InteractionPolicy,
     continuation: Option<i64>,
     id: u64,
     session: Option<String>,
@@ -73,6 +75,15 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ScopedSettings {
+        session: Option<String>,
+    },
+    SaveScopedSettings {
+        session: Option<String>,
+        scope: dolores_core::SettingsScope,
+        revision: u32,
+        patch: dolores_core::SettingsPatch,
+    },
     Runs {
         session: String,
     },
@@ -457,6 +468,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
             Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
             Command::Workspace {session} => return Ok(json!(self.store.workspace(&session)?)),
@@ -537,6 +549,12 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::SaveScopedSettings {
+                session,
+                scope,
+                revision,
+                patch,
+            } => self.save_settings(session.as_deref(), scope, revision, patch),
             Command::SaveTaskFeedback { session, draft } => {
                 Ok(json!(self.store.save_task_feedback(&session, &draft)?))
             }
@@ -728,6 +746,7 @@ impl Engine {
                 input,
                 tools,
             } => {
+                let effective = self.effective_settings(session.as_deref())?;
                 let guidance =
                     instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
                 let memories =
@@ -753,7 +772,10 @@ impl Engine {
                     Some(session) => self.store.summary_context_history(&session)?,
                     None => (vec![], Some(0), None),
                 };
-                let messages = preview_context(history, &input)?;
+                let messages = dolores_core::prepare_behavior_context(
+                    preview_context(history, &input)?,
+                    effective.interaction,
+                )?;
                 let messages = if tools {
                     dolores_core::prepare_agent_context(messages)?
                 } else {
@@ -791,7 +813,7 @@ impl Engine {
                     messages,
                     &specs,
                     Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),
-                    self.store.effective_request_settings(&preferences)?,
+                    effective.request,
                 )?;
                 let mut summary = ContextSummary::from_messages(&messages, count);
                 summary.tokens = Some(tokens);
@@ -803,6 +825,7 @@ impl Engine {
                 report["messages"] = json!(messages);
                 report["tools"] = json!(specs);
                 report["model"] = json!(preferences.model);
+                report["effectiveSettings"] = json!(effective);
                 let used: Vec<_> = summary
                     .memory
                     .iter()
@@ -926,6 +949,15 @@ impl Engine {
                 self.clear_memory_review()?;
                 self.clear_summary_review()?;
                 prepare_context(vec![], &input)?;
+                if self
+                    .connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .provider
+                    .is_none()
+                {
+                    return Err("Configure a model connection before sending a message.".into());
+                }
                 if let Some(source_id) = continuation {
                     if input != continuation::INPUT {
                         return Err("Use Continue with its unchanged recovery request.".into());
@@ -935,13 +967,6 @@ impl Engine {
                         continuation::source(self.store.as_ref(), saved_session, source_id)?;
                     source.prompt(&partial)?;
                 }
-                let provider = self
-                    .connection
-                    .lock()
-                    .map_err(|_| "Connection unavailable.")?
-                    .provider
-                    .clone()
-                    .ok_or("Set up a model connection first.")?;
                 let session = match session {
                     Some(id) => Some(id),
                     None => {
@@ -954,6 +979,13 @@ impl Engine {
                         Some(created["session"]["id"].as_str().unwrap().to_owned())
                     }
                 };
+                let effective = self.effective_settings(session.as_deref())?;
+                let _entered = self.runtime.enter();
+                let provider = self
+                    .connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .foreground_provider(effective.request)?;
                 // Legacy callers can choose a folder when starting a new chat.
                 // A saved workspace is authoritative and cannot be redirected per request.
                 let saved = session
@@ -1029,6 +1061,7 @@ impl Engine {
                     build: env!("DOLORES_BUILD_REVISION").into(),
                     tools: tools.iter().map(|t| t.spec().name).collect(),
                     extensions: registry.entries.clone(),
+                    effective_settings: Some(effective.clone()),
                 })?;
                 let log = run_journal::RunLog::new(self.store.clone(), run_id);
                 tools = tools
@@ -1065,6 +1098,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            interaction:effective.interaction,
                             continuation,
                             id,
                             session,
@@ -1115,6 +1149,7 @@ async fn execute(
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
     let TurnRequest {
+        interaction,
         continuation,
         id,
         session,
@@ -1152,7 +1187,8 @@ async fn execute(
     let prior = continuation
         .map(|source_id| continuation::source(store.as_ref(), &session, source_id))
         .transpose()?;
-    let mut context = prepare_context(history, &input)?;
+    let mut context =
+        dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
     if let Some((paused, partial)) = &prior {
         context.last_mut().unwrap().content = paused.prompt(partial)?;
     }
@@ -1514,6 +1550,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    interaction: Default::default(),
                     continuation: None,
                     id: 1,
                     session: Some("side".into()),
@@ -1545,6 +1582,9 @@ mod tests {
     }
     #[async_trait]
     impl ModelProvider for Fixture {
+        fn request_settings(&self) -> Option<RequestSettings> {
+            Some(RequestSettings::default())
+        }
         fn descriptor(&self) -> PluginDescriptor {
             PluginDescriptor {
                 id: "fixture",
@@ -1756,6 +1796,7 @@ mod tests {
                     fail: false,
                 }),
                 TurnRequest {
+                    interaction: Default::default(),
                     continuation: None,
                     id: 1,
                     session: Some("paused-window".into()),

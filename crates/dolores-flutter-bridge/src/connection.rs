@@ -23,6 +23,17 @@ pub struct ConnectionManager {
     active_base_url: Option<String>,
 }
 impl ConnectionManager {
+    pub(super) fn foreground_provider(
+        &self,
+        settings: RequestSettings,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
+        if let Some(provider) = &self.provider {
+            if provider.request_settings() == Some(settings) {
+                return Ok(provider.clone());
+            }
+        }
+        self.review_provider_with_settings(u32::MAX, u32::MAX, Some(settings))
+    }
     pub(super) fn review_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         self.bounded_review_provider(1024, 30)
     }

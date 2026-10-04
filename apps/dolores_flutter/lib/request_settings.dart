@@ -192,7 +192,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Saved for this model and endpoint. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
+                    'Saved for this model and endpoint. Project/chat output and timeout overrides in Chat actions → Dolores settings take precedence. Check them when adjusting a failed run’s limit. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                   const SizedBox(height: 8),

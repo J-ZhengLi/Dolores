@@ -23,6 +23,7 @@ Dolores connects to models you provide; it does not install or start a local mod
 - Browse and export conversations, inspect context and reported token usage, and explicitly continue paused tasks.
 - Inspect learned preferences, review reusable skills, and compare instruction snapshots on bounded response tests.
 - Record local **Worked / Needs work** feedback against a reply's original evidence.
+- Inspect running capabilities and run evidence, and configure project/chat request and interaction overrides.
 
 Follow the [user guide](docs/USER_GUIDE.md) for controls, recovery and data handling. File tools stay inside the working folder; commands and MCP servers run with your account permissions. Chat history, preferences and file-change snapshots are local plaintext, and approved content is sent to your configured model provider.
 

@@ -2,7 +2,7 @@
 
 Dolores is a local desktop harness. Flutter is the selected UI; a bundled Rust host assembles the core and provider/storage/credential/tool plugins. Memories and reviewed skills change request context, not model weights. Outcome evidence helps judge selected changes without claiming consciousness or general autonomous competence.
 
-This document describes implemented behavior. The [evolving-harness specification](design/evolving-harness-architecture.md) and [behavior policy](design/dolores-behavior.md) describe the target architecture for [milestones 9–13](ROADMAP.md); those contracts are not yet implemented.
+This document describes implemented behavior. The [evolving-harness specification](design/evolving-harness-architecture.md) and [behavior policy](design/dolores-behavior.md) describe the target architecture for [milestones 9–13](ROADMAP.md). Milestone 9's inspection, run ownership, registry and scoped settings are implemented; later adaptation/runtime contracts remain planned.
 
 ## Does the current architecture support self-evolution?
 
@@ -48,6 +48,8 @@ The [bridge contract](flutter/flutter-api.md) defines allocation ownership and c
 Iced (`crates/dolores-native`) and Tauri/Svelte (`src-tauri`, `src`) remain development comparisons using shared core ports. They do not have full Flutter feature parity. Trusted built-in plugins are compiled and explicitly registered; there is no generic native dynamic-loader or plugin installation UI.
 
 ## Context and learning
+
+Primary chats resolve [scoped settings](design/scoped-settings.md) from model/user generation defaults, user interaction, project and chat overrides. Context preview and actual provider requests share this resolution; durable runs retain values and origins. Model reasoning/context windows stay in model configuration, with the existing 128K blank default. Behavior instructions encourage reasoning discussion, evidence-based questions and calm recovery; they cannot guarantee a model's conduct. Tool review, preference learning and future self-update authority remain distinct.
 
 Brick 9.1 adds local capability inspection and a reviewed `inspect_harness` tool in working chats. The report excludes keys/private roots, labels model reliability unknown and exposes existing limits. A bounded five-component source bundle corresponds to the running code; explicit checkout comparison never changes the source used for diagnosis. Build revision identifies checkout HEAD at compilation; bundled file identities capture local source differences. Neither source access nor the catalog grants self-update authority.
 

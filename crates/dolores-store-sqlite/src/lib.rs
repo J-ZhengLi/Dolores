@@ -27,6 +27,7 @@ pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
 mod runs;
+mod settings;
 fn storage_error(_: impl std::fmt::Display) -> String {
     "Could not read or save local conversation data.".into()
 }
@@ -133,6 +134,11 @@ impl SqliteStore {
                 CREATE TABLE IF NOT EXISTS run_events(run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE, sequence INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(run_id,sequence));
                 PRAGMA user_version=20; COMMIT;").map_err(storage_error)?;
         }
+        if version < 21 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS scoped_settings(scope TEXT NOT NULL,scope_key TEXT NOT NULL,revision INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(scope,scope_key));
+            CREATE TRIGGER IF NOT EXISTS delete_thread_settings AFTER DELETE ON sessions BEGIN DELETE FROM scoped_settings WHERE scope='thread' AND scope_key=OLD.id; END;
+            PRAGMA user_version=21; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -143,6 +149,23 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn scoped_settings(
+        &self,
+        scope: dolores_core::SettingsScope,
+        key: &str,
+    ) -> Result<dolores_core::ScopedSettings, String> {
+        self.read_scoped_settings(scope, key)
+    }
+    fn save_scoped_settings(
+        &self,
+        scope: dolores_core::SettingsScope,
+        key: &str,
+        revision: u32,
+        patch: &dolores_core::SettingsPatch,
+    ) -> Result<dolores_core::ScopedSettings, String> {
+        self.write_scoped_settings(scope, key, revision, patch)
+    }
+
     fn begin_run(&self, run: &dolores_core::RunSnapshot) -> Result<(), String> {
         self.insert_run(run)
     }
@@ -1003,7 +1026,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 20);
+        assert_eq!(version, 21);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

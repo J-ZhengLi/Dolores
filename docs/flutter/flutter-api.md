@@ -24,6 +24,8 @@ Requests use a camelCase `command` discriminator. [`Command`](../../crates/dolor
 | --- | --- | --- |
 | Bootstrap/workspaces | `bootstrap`, `createSession`, `workspace`, `sessionsPage`, `messagesPage`, `messages`, `delete`, `export` | Session identity, bounded paging, complete export; deletion preserves working files. |
 | Connection/settings | `configure`, `listModels`, `selectModel`, `recoverConnection`, `forgetConnection`, `setRequestSettings`, `setModelRequestSettings` | Native-vault connection recovery and endpoint/model profiles; no key returned to UI. |
+| Scoped settings | `scopedSettings`, `saveScopedSettings` | Effective user/project/chat values and origins; revisioned typed overrides, private root binding and frozen primary-run snapshots. Reads work while busy; mutations refuse. See [settings contract](../design/scoped-settings.md). |
+| Durable run evidence | `runs`, `runEvents` | Latest 20 primary runs and ordered bounded literal events; safe reads while busy, interrupted status on restart and no effect replay. |
 | Run/context | `start`, `poll`, `cancel`, `approveTool`, `shutdown`, `context` | One active run; context inspection is local. |
 | Harness inspection | `harnessInventory`, `harnessSource` | Read-only local inspection works during an active run. Source IDs are allowlisted; ranges are bounded to 120 lines / 12 KiB. Optional explicitly selected checkout is compared, not used as running source; no provider request. |
 | Instructions/changes | `reviewInstructions`, `enableInstructions`, `disableInstructions`, `cancelInstructionReview`, `changesPage`, `changeDetails`, `previewRevert`, `applyRevert`, `cancelRevert` | Exact one-use previews with scope/snapshot binding. |

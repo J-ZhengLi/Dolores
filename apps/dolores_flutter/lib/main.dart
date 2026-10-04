@@ -27,6 +27,7 @@ import 'chat_sidebar.dart';
 import 'model_steps.dart';
 import 'capabilities.dart';
 import 'run_history.dart';
+import 'dolores_settings.dart';
 
 import 'theme.dart';
 export 'theme.dart' show Palette;
@@ -787,7 +788,9 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'capabilities') {
+                        if (value == 'settings') {
+                          showDoloresSettings(context, chat);
+                        } else if (value == 'capabilities') {
                           showCapabilities(context, chat);
                         } else if (value == 'runs') {
                           showRunHistory(context, chat);
@@ -808,6 +811,10 @@ class _ChatPageState extends State<ChatPage> {
                         size: 20,
                       ),
                       itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'settings',
+                          child: Text('Dolores settings'),
+                        ),
                         const PopupMenuItem(
                           value: 'capabilities',
                           child: Text('Dolores capabilities'),

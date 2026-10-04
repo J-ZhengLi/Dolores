@@ -200,6 +200,7 @@ mod tests {
             build: "fixture".into(),
             tools: vec![],
             extensions: vec![],
+            effective_settings: None,
         };
         store.begin_run(&run).unwrap();
         assert!(store
@@ -266,6 +267,7 @@ mod tests {
             build: "fixture".into(),
             tools: vec!["read_text_file".into()],
             extensions: vec![],
+            effective_settings: None,
         };
         store.begin_run(&run).unwrap();
         store

@@ -65,4 +65,6 @@ The optional `pnpm desktop:build` helper assembles Flutter for the current host.
 
 For diagnostics, start `pnpm demo:server`, use the matching `-Smoke`, `-RestartSmoke` or `-HistorySmoke` build switch and `scripts/test-flutter.ps1`, `scripts/test-connection-restart.ps1` or `scripts/test-history.ps1`. Data/generated keys are isolated. Rebuild with **no diagnostic switch** afterward. Controller screenshots are not native pointer/keyboard/IME UAT. Native vault tests are opt-in and create/delete their own entry.
 
+After a normal Windows build, `python scripts/test-scoped-settings.py` verifies actual HTTP allowances, scope inheritance, frozen runs and changed-window recovery against an isolated local fixture. It needs no model key and releases the child host before removing its temporary data. This does not replace bounded real-model task checks.
+
 Measure normal release builds with `scripts/measure-runtime.ps1 -AppProcessId <pid>`, recording hardware, cache state, DPI/window size and startup separately. Shared working-set pages can be counted repeatedly. Keep raw results ignored; publish aggregate observations with their boundary.

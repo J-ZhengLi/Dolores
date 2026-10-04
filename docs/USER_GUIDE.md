@@ -26,6 +26,10 @@ New chat starts a temporary workspace. Its menu offers Side chat; a project's **
 
 ## Write, review and recover
 
+In a saved chat, open **Chat actions → Dolores settings** to choose **User defaults**, **This project** or **This chat**. Project/chat overrides can change output tokens and timeout; interaction controls choose discussion before substantial work or brief explanations, and checking important assumptions. The panel shows the effective values and their source. **Use inherited settings** removes that scope's overrides. Reasoning options and model context windows stay in model configuration/Request settings.
+
+Changes apply to future runs. While a run is active, you can inspect settings but cannot save them. If another update makes your save stale, **Refresh** keeps your draft; review it and explicitly Save again. Tool operations still need review, and these settings do not authorize self-updates. Behavior instructions encourage useful questions and candid recovery; results also depend on the model.
+
 Enter sends ordinary text; Shift+Enter inserts a newline. Headings and fenced code render as editable blocks. Enter inside code inserts a newline; Ctrl/Command+Enter sends. Down Arrow from the final visual code line moves to the next block or creates a paragraph below. Ctrl/Command+A selects the whole draft. Replies have message/code Copy actions.
 
 Working models can request folder listing, literal search, text reads and file changes. Review the exact target, query, content or diff and choose the displayed **Allow/Apply/Create once** or **Deny** action. To work on a file elsewhere, open its containing folder as a project. Searches are bounded and can report partial coverage. Files/diffs currently have a 16-KiB limit; existing-file edits require one unique match.
@@ -39,7 +43,7 @@ If a task pauses at an output/agent-step limit, inspect retained work and choose
 | Symptom | Next action |
 | --- | --- |
 | Connection cannot recover | Unlock the credential store, retry recovery or reconnect. |
-| Output cut short or response timed out | Inspect the actual limit; adjust Request settings and explicitly Continue/retry where offered. |
+| Output cut short or response timed out | Inspect the actual limit; check project/chat overrides in Dolores settings, then Request settings. Explicitly Continue/retry where offered. |
 | Model rejects a reasoning option | Choose Provider default or a supported option, then retry. |
 | Proposed edit no longer matches | Inspect the current file and request a fresh exact edit. |
 | Model says it cannot read files | Check the chat has a working folder and the model supports tool calls. |
@@ -66,6 +70,10 @@ Place skills in `.agents/skills/<name>/SKILL.md` within a project, or `~/.agents
 **Chat actions → Compare instructions** compares labeled memory/skill snapshots on the same tests. It makes at most six tool-free responses under comparison-only settings. Read exact requests, outcomes, reported usage and timings. A tie, incomplete run or truncated response never counts as improvement. Nothing activates automatically; selected literal tests do not establish general task quality.
 
 Use **Older/Newer/Latest** to browse saved chats/messages. Export the complete selected conversation as Markdown/JSON to a new file. **Trajectory** shows saved run/tool evidence; its live Log holds recent lifecycle events. The context ring reveals prepared-text estimates without a model request.
+
+**Chat actions → Dolores capabilities** inspects the running build, available tools, limits, registry and bounded bundled source locally. A model-requested `inspect_harness` operation in a working chat requires approval before sharing its result. Inspection does not authorize self-updates.
+
+**Chat actions → Run history** shows the latest 20 primary runs, their saved settings/origins and ordered local execution evidence. Interrupted operations can have uncertain effects: inspect **Changes** and any external effects before retrying. Dolores never replays them automatically. This durable history is separate from Trajectory's recent live Log; older chats have no invented run records.
 
 ## Data and portable previews
 
