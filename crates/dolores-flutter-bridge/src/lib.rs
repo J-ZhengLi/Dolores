@@ -2,6 +2,7 @@
 mod approval;
 mod attachments;
 mod automatic_memory;
+mod browser;
 mod changes;
 #[cfg(test)]
 mod checkpoint_tests;
@@ -96,6 +97,10 @@ enum Command {
         theme: dolores_core::Appearance,
     },
     WebSettings,
+    BrowserSettings,
+    BrowserCapture {
+        capture: String,
+    },
     SaveWebSettings {
         revision: u32,
         enabled: bool,
@@ -573,6 +578,8 @@ impl Engine {
                 return Ok(view);
             },
             Command::WebSettings => return self.web_settings(),
+            Command::BrowserSettings => return self.browser_settings(),
+            Command::BrowserCapture { capture } => return self.browser_capture(&capture),
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
             Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
@@ -689,6 +696,8 @@ impl Engine {
                 settings,
             } => self.start_comparison(&mut active, id, session, draft, settings),
             Command::WebSettings => self.web_settings(),
+            Command::BrowserSettings => self.browser_settings(),
+            Command::BrowserCapture { capture } => self.browser_capture(&capture),
             Command::SaveWebSettings {
                 revision,
                 enabled,
@@ -918,6 +927,9 @@ impl Engine {
                     specs.push(introspection::spec());
                     specs.push(subagents::spec());
                     specs.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
+                    if self.browser_runtime().is_ok() {
+                        specs.push(dolores_tools_browser::spec());
+                    }
                     for connection in &mcp {
                         specs.extend(connection.specs());
                     }
@@ -1210,6 +1222,9 @@ impl Engine {
                             self.store.web_configuration()?,
                             self.mcp_credentials.clone(),
                         )?);
+                        if let Ok(runtime) = self.browser_runtime() {
+                            plugins.push(Arc::new(dolores_tools_browser::Browser::new(runtime)));
+                        }
                         for connection in self.store.mcp_connections(
                             root.to_str().ok_or("Working folder path needs Unicode.")?,
                         )? {

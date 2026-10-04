@@ -9,7 +9,7 @@ impl SqliteStore {
             || run.sequence != 0
             || run.id.len() != 36
             || run.input.len() > dolores_core::MAX_INPUT_BYTES
-            || run.tools.len() > 10
+            || run.tools.len() > dolores_core::MAX_REGISTERED_TOOLS
         {
             return Err("Run snapshot is invalid.".into());
         }
@@ -188,7 +188,7 @@ mod tests {
     fn event_exhaustion_retains_terminal_marker_and_invalid_transitions_are_atomic() {
         let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
         store.create("chat").unwrap();
-        let run = RunSnapshot {
+        let mut run = RunSnapshot {
             parent_run: None,
             segments: 1,
             id: "11111111-1111-4111-8111-111111111111".into(),
@@ -204,6 +204,12 @@ mod tests {
             extensions: vec![],
             effective_settings: None,
         };
+        run.tools = (0..=dolores_core::MAX_REGISTERED_TOOLS)
+            .map(|i| format!("tool_{i}"))
+            .collect();
+        assert!(store.begin_run(&run).is_err());
+        assert!(store.runs("chat").unwrap().is_empty());
+        run.tools.pop();
         store.begin_run(&run).unwrap();
         assert!(store
             .append_run_event(

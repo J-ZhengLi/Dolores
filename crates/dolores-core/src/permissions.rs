@@ -92,6 +92,21 @@ impl PermissionPolicy {
         if self.expired(now) || self.validate().is_err() {
             return false;
         }
+        // A website's external effects cannot be inferred from page labels or
+        // covered by blanket full access. Require review for every input/click.
+        if request.name == "browser" {
+            let safe = request
+                .query
+                .as_deref()
+                .and_then(|q| serde_json::from_str::<serde_json::Value>(q).ok())
+                .and_then(|q| q["operation"].as_str().map(str::to_owned))
+                .is_some_and(|op| {
+                    ["open", "state", "scroll", "screenshot", "close"].contains(&op.as_str())
+                });
+            if !safe {
+                return false;
+            }
+        }
         if self.mode == PermissionMode::FullAccess {
             return true;
         }
@@ -134,6 +149,23 @@ pub fn prepare_permission_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn browser_input_is_never_covered_by_blanket_full_access() {
+        let policy = PermissionPolicy {
+            mode: PermissionMode::FullAccess,
+            ..Default::default()
+        };
+        let mut r = request("owned browser");
+        r.name = "browser".into();
+        for op in ["click", "fill", "press", "unknown"] {
+            r.query = Some(serde_json::json!({"operation":op}).to_string());
+            assert!(!policy.automatic(&r, 1));
+        }
+        for op in ["open", "state", "scroll", "screenshot", "close"] {
+            r.query = Some(serde_json::json!({"operation":op}).to_string());
+            assert!(policy.automatic(&r, 1));
+        }
+    }
     fn request(target: &str) -> ToolRequest {
         ToolRequest {
             call_id: "one".into(),

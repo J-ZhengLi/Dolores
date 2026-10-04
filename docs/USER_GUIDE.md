@@ -2,7 +2,7 @@
 
 ## Settings
 
-The single **Settings** entry sits at the bottom left of the sidebar (open Conversations first in a narrow window). It opens one window with **Appearance**, **Models**, **Personalization**, **Memory**, **Web search**, **External tools**, **Skills**, **Permissions** and **Task limits**. Chat actions uses an ellipsis and contains conversation actions such as export, forks and run history.
+The single **Settings** entry sits at the bottom left of the sidebar (open Conversations first in a narrow window). It opens one window with **Appearance**, **Models**, **Personalization**, **Memory**, **Web search**, **Browser**, **External tools**, **Skills**, **Permissions** and **Task limits**. Chat actions uses an ellipsis and contains conversation actions such as export, forks and run history.
 
 **Appearance** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
@@ -21,7 +21,7 @@ shortcuts and border resizing are available too.
 
 ## Choose tool access
 
-In a saved project or temporary chat, open **Settings → Permissions**. **Review every operation** is the default. **Approve within selected grants** lets you choose file/discovery actions in a relative folder prefix, an exact command, or individual reviewed external tools. **Full access for this chat** skips prompts for advertised tools. Choose a duration and acknowledge the displayed scope before saving.
+In a saved project or temporary chat, open **Settings → Permissions**. **Review every operation** is the default. **Approve within selected grants** lets you choose file/discovery actions in a relative folder prefix, an exact command, or individual reviewed external tools. **Full access for this chat** skips prompts for advertised tools, except browser clicks/input, which always need fresh review. Choose a duration and acknowledge the displayed scope before saving.
 
 Grants apply to this chat. They do not enable new plugins or self-updates. File restrictions, task budgets and Stop remain active. Commands and MCP use your account's OS permissions and can affect files outside the working folder. **Revoke grants** is available during work: it stops that chat's run and invalidates pending decisions. Effects already started can remain; inspect progress before resuming. Expired grants need renewal or revocation. Other chats keep their own access settings.
 
@@ -76,7 +76,47 @@ resolves the public hostname. Private networks, cookies, login, scripts and
 redirects are unavailable. Each request has a 20-second deadline/256 KiB download
 bound; a page excerpt is at most 8 KiB. Empty results are not proof that no source
 exists. Refine the query, choose another provider or supply a direct primary URL.
-No paid fallback or retry occurs automatically. Browser interaction comes later.
+No paid fallback or retry occurs automatically.
+
+## Use a browser
+
+Open **Settings → Browser** to check the optional adapter. In a project or
+temporary chat, ask Dolores to inspect a website or your local development page.
+It opens a visible browser with a fresh profile for that run. Your everyday
+browser, cookies and saved login are not used. The browser closes when the run
+finishes or you press Stop. A continued run opens a new browser.
+
+Review the literal URL and operation. Clicks and input always ask for approval,
+including under Full access, because they can send data or submit actions. Page
+changes or expired control references return fresh state without performing the
+requested action. An uncertain result needs inspection before another action.
+Stop closes the owned browser; it does not undo submissions.
+
+Only resources from the opened origin load. Popups, WebSockets, uploads,
+downloads and automated password input are unavailable; some sites will not
+work under these limits. HTTPS sites and literal `http://127.0.0.1:<port>` local
+development pages are supported. Screenshots capture the viewport and remain
+local. Expand a browser tool card and choose **View local screenshot** to see
+one; this does not repeat the action or send an image to the model.
+
+### Browser setup
+
+This optional feature needs Node 20 or newer and an installed Edge on Windows,
+or Chrome on Linux/macOS. It does not download a browser. From a source checkout,
+install the pinned adapter next to your built desktop executable:
+
+```powershell
+powershell -NoProfile -File scripts/install-browser-adapter.ps1 -Destination "apps/dolores_flutter/build/windows/x64/runner/Release/browser-adapter"
+```
+
+On Linux/macOS, copy `adapters/browser/package.json` and `package-lock.json` to
+a `browser-adapter` directory next to the executable, then run
+`npm ci --ignore-scripts --no-audit --no-fund` in that directory. Restart Dolores
+if you installed Node while it was open, then use **Refresh** in Browser settings.
+Runtime readiness does not verify that every website or model can use it.
+Screenshots stay in the local folder shown in Browser settings after the run.
+At 128 saved captures, remove older images there or use page text inspection;
+Dolores does not delete them automatically.
 
 ## Start the Windows preview
 

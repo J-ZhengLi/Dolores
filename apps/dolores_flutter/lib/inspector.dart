@@ -630,6 +630,7 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
                               if (assistant) ...[
                                 if (metadata?['agent']?['tools'] is List)
                                   ToolRecords(
+                                    bridge: chat.bridge,
                                     records:
                                         metadata!['agent']['tools'] as List,
                                   ),

@@ -10,6 +10,14 @@ This is an internal in-process integration, not an HTTP API. The Dart UI and bun
 
 ## Ownership and loading
 
+`browserSettings` reads optional runtime discovery, literal bounds and the local
+capture folder without launching Node or a browser. `browserCapture {capture}`
+accepts only a canonical UUID and returns one bounded saved JPEG as
+`data` (base64); missing, linked, oversized or invalid images refuse. These local
+reads remain available while busy and never replay a browser action. Browser
+tool results retain text/state/control refs and capture IDs, without automatic
+image projection to the model. See [browser use](../design/browser-use.md).
+
 `webSettings` reads the global revisioned connection while busy; `saveWebSettings`
 accepts revision, enabled, provider (`mwmbl`/`brave`/`searxng`), optional endpoint,
 optional `apiKey` and `clearKey`. Mutations refuse during a run. The result exposes
@@ -50,6 +58,7 @@ Requests use a camelCase `command` discriminator. [`Command`](../../crates/dolor
 | Summary | `reviewSummary`, `generateSummary`, `saveSummary`, `correctSummary`, `deleteSummary`, `discardSummaryReview` | Exact contiguous sources and explicit Save. |
 | Skills | `projectSkills`, `reviewSkill`, `activateSkill`, `exportSkill`, `disableSkill`, `forgetSkill`, `cancelSkillReview`, `reviewSkillExamples`, `generateSkillDraft`, `evaluateSkillDraft`, `promoteSkillDraft`, `discardSkillDraft` | Project/global snapshots, frozen evaluation and separate promotion. |
 | MCP | `mcpSettings`, `inspectMcp`, `enableMcp`, `disableMcp`, `forgetMcp`, `discardMcpReview` | Folder/connection identity, credentials, reviewed metadata and on-demand execution. |
+| Browser | `browserSettings`, `browserCapture` | Local optional-runtime discovery and bounded explicit capture preview; no automatic browser launch or action replay. |
 | Local evaluation | `saveTaskFeedback`, `comparisonSources`, `comparisonsPage`, `comparison`, `deleteComparison`, `startComparison` | Local feedback CAS; exact frozen comparison requests/results and bounded storage. |
 
 Run IDs are supplied by the host. `poll` drains a bounded batch and is the active-run event transport; consume the `done` event before starting another run. `cancel` affects the matching run, and each approval binds a waiting call ID. Configuration and most session/inspection mutations refuse while work is active. Review tokens/revisions are separate from run IDs and never grant reusable tool permission.

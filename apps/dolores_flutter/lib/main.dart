@@ -314,11 +314,15 @@ class _ChatPageState extends State<ChatPage> {
             ],
             if (metadata?['paused']?['reason'] == 'commandReview')
               ToolRecords(
+                bridge: chat.bridge,
                 records: metadata!['paused']['receipts'] as List,
                 maxRecords: 16,
               )
             else if (metadata?['agent']?['tools'] is List)
-              ToolRecords(records: metadata!['agent']['tools'] as List),
+              ToolRecords(
+                records: metadata!['agent']['tools'] as List,
+                bridge: chat.bridge,
+              ),
             UsageDetails(metadata: metadata),
             if (messageId != null)
               TaskFeedbackButton(
@@ -418,7 +422,7 @@ class _ChatPageState extends State<ChatPage> {
               children: [
                 if (chat.subagents.isNotEmpty)
                   SubagentCards(children: chat.subagents),
-                ToolRecords(records: chat.toolRecords),
+                ToolRecords(records: chat.toolRecords, bridge: chat.bridge),
               ],
             ),
           ),

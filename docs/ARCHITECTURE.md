@@ -46,6 +46,7 @@ invoke commands/MCP, change grants or recurse. The parent verifies their reports
 | `crates/dolores-tools-command` | Reviewed direct executable/arguments, bounded capture/deadline and owned process cleanup. |
 | `crates/dolores-tools-mcp` | Reviewed local stdio catalogs, selected tools, credential resolution and on-demand process transport. |
 | `crates/dolores-tools-web` | Setup-free Mwmbl search, configurable Brave/SearXNG and bounded public HTTPS page extraction. |
+| `crates/dolores-tools-browser` | Pinned optional Playwright worker, one fresh visible browser per parent run, stale-state checks and owned cleanup. |
 
 ```mermaid
 flowchart TB
@@ -64,7 +65,15 @@ flowchart TB
   Context --> Core
 ```
 
-The [bridge contract](flutter/flutter-api.md) defines allocation ownership and command coordination. Native calls run off the UI isolate. The host uses two Tokio async workers and at most two blocking workers; command transport additionally uses bounded pipe readers while a process is active. No model, Node service, vector database, startup tool server, background scheduler or idle polling is bundled.
+The [bridge contract](flutter/flutter-api.md) defines allocation ownership and command coordination. Native calls run off the UI isolate. The host uses two Tokio async workers and at most two blocking workers; command transport additionally uses bounded pipe readers while a process is active. Optional browser use owns one supervised transport thread and Node/browser process tree only during its parent run. No model, idle Node service, vector database, startup tool server, background scheduler or idle polling is bundled.
+
+[Browser use](design/browser-use.md) registers only when the pinned optional
+adapter and Node are discoverable. It shares the parent's budgets, approvals and
+durable tool evidence, with fresh review required for clicks/input even under
+Full access. Captures live in the local data directory and load on explicit
+preview. The worker inherits only selected OS directory/display hints, never
+model keys or Node startup options. Owned process groups/Job Objects control
+lifetime rather than account authority. Browsers do not join delegated children.
 
 Iced (`crates/dolores-native`) and Tauri/Svelte (`src-tauri`, `src`) remain development comparisons using shared core ports. They do not have full Flutter feature parity. Trusted built-in plugins are compiled and explicitly registered; there is no generic native dynamic-loader or plugin installation UI.
 

@@ -1,5 +1,80 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 11.3 — on-demand browser use
+
+Implemented the [owned browser contract](design/browser-use.md): optional pinned
+Playwright-core 1.63.0 with installed Edge/Chrome and Node, one fresh visible
+parent-run browser, origin-restricted networking, bounded state/refs/actions and
+local JPEG previews. Settings → Browser exposes setup and capture location
+without starting a service. Click/fill/press require fresh review even under
+Full access; Stop/end/deadline releases owned resources without undoing remote
+effects. Children do not receive the browser tool.
+
+- Rust: **166 passed** across browser/core/store/bridge suites; Clippy with
+  warnings denied passed. Proposal tampering, single use, argument/receipt
+  bounds, malformed receipts, cancellation and dropped-owner descendant cleanup
+  are exercised. The full tool catalog now fits SQLite run snapshots; an
+  excessive catalog remains atomically rejected.
+- Flutter: **204 full-suite tests passed** before the final setup wording/cache
+  guidance changes; the final **three focused browser tests** and analysis
+  passed. Compact Light/Dark fixtures cover missing-adapter setup, stale and
+  uncertain status, local preview failure/retry and unsafe capture IDs. Failed
+  preview retains receipts and repeats only the local image read.
+- Real browser adapter: **two tests passed**, using a local reversible form.
+  Open/fill/click and a 9,388-byte JPEG pass. Expired tokens and changed DOM do
+  not dispatch actions; disabled controls time out with uncertainty/fresh state;
+  closed tabs recover through explicit open; popups are closed. UTF-8 truncation
+  marks partial evidence, and 128 captures refuse another save while retaining
+  page inspection. Browser cleanup is exercised after the fixture.
+- Normal-release host fixtures exercise fresh Full-access input review, stale
+  no-replay, saved capture preview/missing-image recovery, model-step limits,
+  Stop during navigation, subsequent file/browser use and a parent combining
+  scoped child file work with browser input. The browser stops within the
+  fixture deadline, completed evidence remains and file tools stay usable.
+- Final active Windows sample: **one Node worker, 11 owned processes, 661.16 MiB
+  aggregate working set**. Shared pages are counted; this is neither unique
+  memory nor a peak or representative-device benchmark. After run completion,
+  owned workers/processes return to zero. Static page reading remains the
+  lighter option; no low-end performance claim follows from this sample.
+
+- Live configured provider, isolated data and unchanged six-call/six-tool
+  allowance: **DeepSeek V4.1 Flash passed** open → fill → click → close, using
+  current tokens/refs and verifying the returned synthetic value in **13.48
+  seconds / five model calls**. Reported usage was retained; workspace files
+  stayed unchanged. This is one small reversible task, not general reliability.
+- **Qwen3.5-2B failed the same flow twice** (21.69 and 27.81 seconds), omitting
+  the required state token on input. No input action was dispatched; the run
+  paused at its six-call allowance with evidence preserved. The first attempt
+  exposed a misleading generic file-denial error; browser-specific argument
+  guidance and field descriptions now replace it. A regression fixture verifies
+  correction/review without private error leakage. Qwen still omitted tokens
+  after that correction; reliable Qwen browser use remains an acceptance gap.
+
+- Final normal Windows release build passed and was visibly launched. Its Dark
+  screenshot was inspected with Settings → Browser: runtime-installed status,
+  bounded setup/storage details and Refresh fit the unified panel. All **34
+  local table digests** matched the pre-task snapshot, including provider,
+  selected model, appearance and history. With the normal app open on Browser
+  settings, a final sample found **zero owned browser workers/processes**.
+
+Broad real-site/authentication behavior, browser adapter
+packaging, physical input, macOS/Linux lifetime behavior and general model
+reliability remain unaccepted. Same-origin browser networking is not the
+DNS-pinned page reader or an OS sandbox. Screenshots stay local rather than
+providing model vision. Cross-origin dependencies and logins can make real sites
+unusable under the initial policy.
+
+## Milestone 11 — exit review
+
+The optional subagent, search and browser tools are implemented within existing
+host authority, shared usage and cancellation contracts. A combined parent/
+child/browser fixture passes, and browser failure/Stop leaves ordinary file
+work usable. Search has a separate bounded live Qwen pass. Active browser
+process cost and idle cleanup are measured above. These small checks do not
+close broad research/delegation/website, low-end or other-platform gaps.
+Milestone 12 should build scoped evidence and independent evaluations on these
+contracts; it must not treat tool transport success as task success.
+
 ## Sidebar resizing and title-strip spacing
 
 The title strip now has one full-width theme color. Sidebar content starts 16

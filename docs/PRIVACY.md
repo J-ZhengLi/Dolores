@@ -16,6 +16,17 @@ Routing-proxy synthetic DNS addresses cause a public hostname lookup through
 Cloudflare's fixed DNS endpoint; private destinations remain blocked. Disable
 both web tools in **Settings → Web search**. See [boundaries](design/web-search.md).
 
+The optional browser starts a fresh visible profile for each parent run and
+shares literal URLs/input with the chosen site. Approved page text, control
+state and action arguments enter model context and local evidence/exports.
+Existing browser profiles are never imported. Manual login is an explicit user
+action, and cookies/storage are discarded when the run ends. Stop cannot undo
+submitted remote effects. Local JPEG screenshots remain in `browser-captures`
+after browser or chat closure; they are not automatically sent to the model or
+deleted. Settings → Browser shows their location and 128-image capacity. Review
+or remove them locally before sharing/backing up data. See
+[browser boundaries](design/browser-use.md).
+
 Approved delegation shares the prepared system instructions and original user
 request with children using the same configured provider, plus their scoped file
 results. Children do not receive full chat history or attachments. Goals, file

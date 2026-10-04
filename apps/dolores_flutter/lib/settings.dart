@@ -11,6 +11,7 @@ import 'skills.dart';
 import 'task_permissions.dart';
 import 'theme.dart';
 import 'web_settings.dart';
+import 'browser_settings.dart';
 
 enum SettingsCategory {
   appearance,
@@ -18,6 +19,7 @@ enum SettingsCategory {
   personalization,
   memory,
   web,
+  browser,
   tools,
   skills,
   permissions,
@@ -70,6 +72,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsCategory.personalization: ('Personalization', Icons.tune),
     SettingsCategory.memory: ('Memory', Icons.bookmarks_outlined),
     SettingsCategory.web: ('Web search', Icons.travel_explore),
+    SettingsCategory.browser: ('Browser', Icons.web_outlined),
     SettingsCategory.tools: ('External tools', Icons.extension_outlined),
     SettingsCategory.skills: ('Skills', Icons.auto_stories_outlined),
     SettingsCategory.permissions: ('Permissions', Icons.shield_outlined),
@@ -131,6 +134,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
               session: widget.chat.session,
             ),
     SettingsCategory.web => WebSettingsInspector(chat: widget.chat),
+    SettingsCategory.browser => BrowserSettingsInspector(chat: widget.chat),
     SettingsCategory.tools =>
       widget.chat.session == null || widget.chat.workspaceRoot == null
           ? unavailable(

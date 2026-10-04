@@ -20,6 +20,7 @@
 ## Selected design references
 
 - [Bounded subagents](design/subagents.md) explains file ownership, inherited permissions, shared budgets and cancellation.
+- [Browser use](design/browser-use.md) explains the optional runtime, fresh profiles, reviewed actions, local captures and cleanup.
 
 - [Attachment snapshots](design/attachments.md) explains supported formats, explicit image capability, sharing, export and retention.
 

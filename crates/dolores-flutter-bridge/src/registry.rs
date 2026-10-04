@@ -12,7 +12,7 @@ impl ToolProposalHook for ValidateProposal {
             || request.target.len() > 1024
             || request.query.as_ref().is_some_and(|q| {
                 q.len()
-                    > if request.name == "delegate_tasks" {
+                    > if matches!(request.name.as_str(), "delegate_tasks" | "browser") {
                         4096
                     } else {
                         256
@@ -157,6 +157,13 @@ impl Engine {
             working,
             vec!["bounded-scoped-children".into()],
             vec!["delegate_tasks".into()],
+        )?;
+        add(
+            "browser",
+            true,
+            working && self.browser_runtime().is_ok(),
+            vec!["owned-browser-session".into()],
+            vec!["browser".into()],
         )?;
         {
             let web = self.store.web_configuration()?;

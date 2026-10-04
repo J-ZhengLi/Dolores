@@ -2,6 +2,12 @@
 
 The portable preview includes **THIRD-PARTY-NOTICES.txt**, **DEPENDENCIES.json**, the Dolores MIT license and Flutter's existing compressed `data/flutter_assets/NOTICES.Z`. These describe the selected Windows Flutter/Rust app. Iced/Tauri/Node development tooling, installed model servers and external MCP servers are outside this bundle and need their own distribution review.
 
+Optional browser use installs the locked Playwright-core 1.63.0 npm dependency
+separately, with existing Node and Edge/Chrome. The browser worker source is
+embedded in the Rust tool; Node, npm modules and browser binaries are not in the
+reviewed portable preview inventory. Do not add an installed `browser-adapter`
+directory to a distributed ZIP without updating packaging and notice review.
+
 ## Reproduce the inventory
 
 Build the normal app, then follow the [contributor packaging commands](../CONTRIBUTING.md#windows-portable-preview). Collection reads the locally resolved locked Cargo/pub packages and the matching Flutter SDK. It performs no network request or dependency upgrade. Keep the generated output out of Git; it is included in the ZIP. The public inventory contains package names, versions, license declarations, upstream source links and notice hashes, never package-cache paths or builder identity.

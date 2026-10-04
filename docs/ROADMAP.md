@@ -14,8 +14,12 @@ Milestone 11 update: **11.1 scoped subagents and 11.2 attributable web search ar
 implemented**. Search defaults to setup-free Mwmbl, with explicit Brave or public
 SearXNG configuration and bounded page reading. A Qwen search/read/citation probe
 passed; paid/custom service live acceptance and broad research reliability remain
-open. See [web contract](design/web-search.md) and acceptance. **11.3 on-demand
-browser use is next**; it is not included in page extraction.
+open. **11.3 on-demand browser use is implemented**, with an optional owned
+Playwright runtime, reviewed input and bounded local evidence. Synthetic host
+flows and cleanup pass; general website/model reliability and other-platform
+execution remain open. See [web contract](design/web-search.md),
+[browser contract](design/browser-use.md) and acceptance. **12.1 scoped knowledge
+and evidence use is next**, subject to the milestone review below.
 
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
 
@@ -172,7 +176,9 @@ permissions and durable reports are exercised in fixtures and one bounded
 DeepSeek coding task. Qwen completed its read task directly despite an explicit
 delegation request, so dependable delegation across configured models remains
 open. See [acceptance](ACCEPTANCE.md#brick-111--bounded-subagents). Bricks
-11.2 and 11.3 remain planned.
+11.2 and 11.3 are also implemented; their measured acceptance and limitations
+are recorded separately. Browser startup is optional and on demand, and this
+milestone does not establish general research or website reliability.
 
 ### 11.1 Bounded subagents
 

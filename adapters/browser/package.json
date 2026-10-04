@@ -1,0 +1,8 @@
+{
+  "name": "dolores-browser-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional supervised browser runtime for Dolores",
+  "dependencies": { "playwright-core": "1.63.0" },
+  "scripts": { "test": "node --test worker.test.cjs" }
+}

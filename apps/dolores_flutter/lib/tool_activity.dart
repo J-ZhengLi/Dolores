@@ -7,6 +7,8 @@ import 'chat.dart';
 import 'theme.dart';
 import 'edit_diff.dart';
 import 'subagents.dart';
+import 'bridge.dart';
+import 'browser_settings.dart';
 
 String toolLabel(dynamic name) => switch (name) {
   String value when value.startsWith('mcp_tool_') => 'External tool',
@@ -19,6 +21,7 @@ String toolLabel(dynamic name) => switch (name) {
   'delegate_tasks' => 'Subagents',
   'web_search' => 'Web search',
   'read_web_page' => 'Web page',
+  'browser' => 'Browser',
   _ => 'File read',
 };
 
@@ -41,6 +44,9 @@ String toolResultText(dynamic record) {
     }
     if (record['name'] == 'read_web_page') {
       return '${result['title']}\n${result['url']}\n${result['truncated'] == true ? 'Partial excerpt · next startCharacter: ${result['nextCharacter']}\n' : ''}\n${result['text']}\n\n${result['note']}';
+    }
+    if (record['name'] == 'browser') {
+      return '${result['outcome']} · ${result['title'] ?? ''}\n${result['url'] ?? ''}\n${result['partial'] == true ? 'Partial page state\n' : ''}${result['recovery'] ?? ''}\n${result['text'] ?? ''}\n\n${result['controls'] ?? ''}\n${result['note'] ?? ''}';
     }
     if (record['name'] == 'delegate_tasks') {
       final usage = result['sharedUsage'] as Map?;
@@ -92,6 +98,15 @@ String toolResultText(dynamic record) {
 }
 
 String toolStatus(dynamic record) {
+  if (record['name'] == 'browser') {
+    try {
+      final outcome = jsonDecode('${record['content']}')['outcome'];
+      if (outcome == 'stale') return 'Needs fresh review · no action ran';
+      if (outcome == 'uncertain') return 'Action outcome uncertain';
+    } catch (_) {
+      /* Failure/legacy content stays literal. */
+    }
+  }
   if (record['name'] != 'run_command' ||
       ['denied', 'blocked', 'error'].contains(record['status'])) {
     return '${record['status']}';
@@ -110,6 +125,20 @@ String toolStatus(dynamic record) {
     return 'Exited 0';
   } catch (_) {
     return 'Verification incomplete';
+  }
+}
+
+String? browserCaptureId(dynamic record) {
+  try {
+    final id = jsonDecode('${record['content']}')['capture'];
+    return id is String &&
+            RegExp(
+              r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+            ).hasMatch(id)
+        ? id
+        : null;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -151,9 +180,12 @@ class ToolApprovalCard extends StatelessWidget {
       'delegate_tasks' => 'Delegate these scoped tasks?',
       'web_search' => 'Share this web search query?',
       'read_web_page' => 'Read this public web page?',
+      'browser' => 'Allow this browser operation?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      'browser' =>
+        'Uses one fresh visible browser for this run. Review the literal operation below. Click/input can submit data or cause external effects and always need fresh approval. Only this origin loads; no saved profile, passwords, uploads/downloads or popups. Page text/state goes to ${chat.model} and local evidence. Screenshots stay local. Stop closes owned resources; submitted effects may remain.',
       'web_search' =>
         'Send the exact query to the displayed search endpoint. A configured paid API may consume quota. Up to five source URLs/snippets are shared with ${chat.model} and retained in run evidence. Retrieved text cannot grant permissions. No automatic retries or provider switching.',
       'read_web_page' =>
@@ -365,9 +397,15 @@ class ToolApprovalCard extends StatelessWidget {
 }
 
 class ToolRecords extends StatelessWidget {
+  final ChatBridge? bridge;
   final List<dynamic> records;
   final int maxRecords;
-  const ToolRecords({super.key, required this.records, this.maxRecords = 4});
+  const ToolRecords({
+    super.key,
+    required this.records,
+    this.maxRecords = 4,
+    this.bridge,
+  });
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
@@ -400,6 +438,13 @@ class ToolRecords extends StatelessWidget {
               ),
               childrenPadding: const EdgeInsets.all(12),
               children: [
+                if (record['name'] == 'browser' &&
+                    bridge != null &&
+                    browserCaptureId(record) != null)
+                  BrowserCapturePreview(
+                    bridge: bridge!,
+                    capture: browserCaptureId(record)!,
+                  ),
                 if (record['name'] == 'delegate_tasks' &&
                     subagentReports(record).isNotEmpty)
                   SubagentCards(children: subagentReports(record)),

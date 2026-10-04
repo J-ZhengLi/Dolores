@@ -225,6 +225,80 @@ fn larger_argument_budget_is_exclusive_to_file_writes_and_still_bounded() {
     }
 }
 
+#[tokio::test]
+async fn invalid_browser_arguments_explain_correction_without_access_denial_or_dispatch() {
+    struct BrowserMock;
+    #[async_trait]
+    impl ToolPlugin for BrowserMock {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "browser".into(),
+                description: "browser".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            if call.arguments != r#"{"operation":"state"}"# {
+                return Err("private runtime detail must not be exposed".into());
+            }
+            Ok(ToolRequest {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                target: "owned browser".into(),
+                query: Some(call.arguments.clone()),
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            Ok("fresh browser state".into())
+        }
+    }
+    let provider = Scripted {
+        calls: Mutex::new(vec![
+            ToolCall {
+                id: "invalid".into(),
+                name: "browser".into(),
+                arguments: r#"{"operation":"fill"}"#.into(),
+            },
+            ToolCall {
+                id: "corrected".into(),
+                name: "browser".into(),
+                arguments: r#"{"operation":"state"}"#.into(),
+            },
+        ]),
+        loop_forever: false,
+    };
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &[Arc::new(BrowserMock)],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    let blocked = &reply.summary.tools[0];
+    assert_eq!(blocked.target, "Invalid browser operation");
+    assert_eq!(blocked.status, "blocked");
+    assert!(blocked
+        .content
+        .contains("fill requires ref, state and text"));
+    assert!(blocked.content.contains("not an access denial"));
+    assert!(!blocked.content.contains("File request"));
+    assert!(!blocked.content.contains("private runtime detail"));
+    assert_eq!(approval.count.load(Ordering::SeqCst), 1);
+    assert_eq!(reply.summary.tools[1].status, "completed");
+    assert_eq!(reply.answer, "Final answer");
+}
+
 struct Scripted {
     calls: Mutex<Vec<ToolCall>>,
     loop_forever: bool,

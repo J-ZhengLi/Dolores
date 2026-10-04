@@ -18,6 +18,7 @@ dolores-tools-fs = { path = "../dolores-tools-fs" }
 dolores-tools-command = { path = "../dolores-tools-command" }
 dolores-tools-mcp = { path = "../dolores-tools-mcp" }
 dolores-tools-web = { path = "../dolores-tools-web" }
+dolores-tools-browser = { path = "../dolores-tools-browser" }
 directories = "6"
 serde.workspace = true
 serde_json.workspace = true

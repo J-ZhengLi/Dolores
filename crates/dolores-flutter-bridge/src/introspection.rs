@@ -148,6 +148,9 @@ impl Engine {
             tools.push(spec());
             tools.push(crate::subagents::spec());
             tools.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
+            if self.browser_runtime().is_ok() {
+                tools.push(dolores_tools_browser::spec());
+            }
             for c in self
                 .store
                 .mcp_connections(workspace.as_ref().unwrap().root.as_ref().unwrap())?
