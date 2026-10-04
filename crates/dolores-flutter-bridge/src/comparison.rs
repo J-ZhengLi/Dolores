@@ -130,6 +130,7 @@ impl Engine {
         let (output, events) = mpsc::channel(8);
         let cancel = CancellationToken::new();
         active.reserve(Run {
+            thread: None,
             id,
             cancel: cancel.clone(),
             events,

@@ -95,6 +95,7 @@ mod tests {
         store.create("chat").unwrap();
         store.create("other").unwrap();
         let patch = SettingsPatch {
+            permissions: None,
             task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 512,
@@ -115,6 +116,7 @@ mod tests {
             .generation
             .is_none());
         let invalid = SettingsPatch {
+            permissions: None,
             task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 0,

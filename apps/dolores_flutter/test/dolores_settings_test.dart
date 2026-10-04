@@ -136,6 +136,7 @@ void main() {
       await tester.tap(find.text('Use inherited settings'));
       await tester.pumpAndSettle();
       expect(bridge.commands.last['patch'], {
+        'permissions': null,
         'task': null,
         'generation': null,
         'interaction': null,

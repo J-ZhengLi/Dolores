@@ -28,6 +28,7 @@ import 'model_steps.dart';
 import 'capabilities.dart';
 import 'run_history.dart';
 import 'dolores_settings.dart';
+import 'task_permissions.dart';
 
 import 'theme.dart';
 export 'theme.dart' show Palette;
@@ -788,7 +789,9 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'settings') {
+                        if (value == 'permissions') {
+                          showTaskPermissions(context, chat);
+                        } else if (value == 'settings') {
                           showDoloresSettings(context, chat);
                         } else if (value == 'capabilities') {
                           showCapabilities(context, chat);
@@ -811,6 +814,11 @@ class _ChatPageState extends State<ChatPage> {
                         size: 20,
                       ),
                       itemBuilder: (_) => [
+                        if (chat.workspaceRoot != null)
+                          const PopupMenuItem(
+                            value: 'permissions',
+                            child: Text('Task permissions'),
+                          ),
                         const PopupMenuItem(
                           value: 'settings',
                           child: Text('Dolores settings'),

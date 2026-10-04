@@ -16,6 +16,8 @@ mod task_budget;
 pub use task_budget::*;
 mod settings;
 pub use settings::*;
+mod permissions;
+pub use permissions::*;
 mod command_outcome;
 mod continuation;
 pub use command_outcome::{unresolved_commands, CommandOutcome};

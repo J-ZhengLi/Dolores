@@ -11,6 +11,7 @@ mod introspection;
 mod mcp;
 mod memory;
 mod memory_suggestions;
+mod permissions;
 mod recovery;
 mod registry;
 mod run_journal;
@@ -37,12 +38,14 @@ use tokio::{runtime::Runtime, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
 struct Run {
+    thread: Option<String>,
     id: u64,
     cancel: CancellationToken,
     events: mpsc::Receiver<Value>,
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    permissions: dolores_core::PermissionPolicy,
     task: dolores_core::TaskBudget,
     interaction: dolores_core::InteractionPolicy,
     continuation: Option<i64>,
@@ -76,6 +79,14 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    TaskPermissions {
+        session: String,
+    },
+    SetTaskPermissions {
+        session: String,
+        revision: u32,
+        policy: dolores_core::PermissionPolicy,
+    },
     ScopedSettings {
         session: Option<String>,
     },
@@ -469,6 +480,13 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::TaskPermissions {session} => return self.permission_view(&session),
+            Command::SetTaskPermissions {session,revision,policy} => {
+                if active.is_some() && policy.mode != dolores_core::PermissionMode::Review { return Err("Stop the run before expanding or changing task access. Revoke remains available.".into()); }
+                let view=self.set_permissions(&session,revision,policy)?;
+                if let Some(run)=active.as_ref().filter(|r|r.thread.as_deref()==Some(&session)) { run.cancel.cancel(); }
+                return Ok(view);
+            },
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
             Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
@@ -778,7 +796,10 @@ impl Engine {
                     effective.interaction,
                 )?;
                 let messages = if tools {
-                    dolores_core::prepare_agent_context_with_budget(messages, effective.task)?
+                    dolores_core::prepare_permission_context(
+                        dolores_core::prepare_agent_context_with_budget(messages, effective.task)?,
+                        &effective.permissions,
+                    )?
                 } else {
                     messages
                 };
@@ -1073,25 +1094,52 @@ impl Engine {
                     effective_settings: Some(effective.clone()),
                 })?;
                 let log = run_journal::RunLog::new(self.store.clone(), run_id);
+                let dispatch_guard = Arc::new(permissions::PermissionGuard {
+                    store: self.store.clone(),
+                    session: session.clone().unwrap(),
+                    revision: self
+                        .store
+                        .scoped_settings(
+                            dolores_core::SettingsScope::Thread,
+                            session.as_deref().unwrap(),
+                        )?
+                        .revision,
+                    policy: effective.permissions.clone(),
+                });
                 tools = tools
                     .into_iter()
                     .map(|inner| {
                         Arc::new(run_journal::LoggedTool {
                             inner,
                             log: log.clone(),
+                            policy: Some(dispatch_guard.clone()),
                         }) as Arc<dyn dolores_core::ToolPlugin>
                     })
                     .collect();
                 let cancel = CancellationToken::new();
                 let (output, events) = mpsc::channel(32);
                 let approvals = Arc::new(Mutex::new(None));
+                let guard = Arc::new(permissions::PermissionGuard {
+                    store: self.store.clone(),
+                    session: session.clone().unwrap(),
+                    revision: self
+                        .store
+                        .scoped_settings(
+                            dolores_core::SettingsScope::Thread,
+                            session.as_deref().unwrap(),
+                        )?
+                        .revision,
+                    policy: effective.permissions.clone(),
+                });
                 let approval = Arc::new(RunApproval {
+                    policy: Some(guard.clone()),
                     id,
                     pending: approvals.clone(),
                     output: output.clone(),
                     log: Some(log.clone()),
                 });
                 active.reserve(Run {
+                    thread: session.clone(),
                     id,
                     cancel: cancel.clone(),
                     events,
@@ -1107,6 +1155,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            permissions: effective.permissions,
                             task: effective.task,
                             interaction:effective.interaction,
                             continuation,
@@ -1159,6 +1208,7 @@ async fn execute(
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
     let TurnRequest {
+        permissions,
         task,
         interaction,
         continuation,
@@ -1204,7 +1254,10 @@ async fn execute(
         context.last_mut().unwrap().content = paused.prompt(partial)?;
     }
     let context = if !tools.is_empty() {
-        dolores_core::prepare_agent_context_with_budget(context, task)?
+        dolores_core::prepare_permission_context(
+            dolores_core::prepare_agent_context_with_budget(context, task)?,
+            &permissions,
+        )?
     } else {
         context
     };
@@ -1568,6 +1621,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    permissions: Default::default(),
                     task: Default::default(),
                     interaction: Default::default(),
                     continuation: None,
@@ -1756,6 +1810,7 @@ mod tests {
             .lock()
             .unwrap()
             .reserve(Run {
+                thread: None,
                 id: 7,
                 cancel: CancellationToken::new(),
                 events,
@@ -1815,6 +1870,7 @@ mod tests {
                     fail: false,
                 }),
                 TurnRequest {
+                    permissions: Default::default(),
                     task: Default::default(),
                     interaction: Default::default(),
                     continuation: None,

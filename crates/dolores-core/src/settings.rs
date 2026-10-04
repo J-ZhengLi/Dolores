@@ -47,12 +47,20 @@ pub struct GenerationOverride {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SettingsPatch {
     #[serde(default)]
+    pub permissions: Option<crate::PermissionPolicy>,
+    #[serde(default)]
     pub task: Option<crate::TaskBudget>,
     pub generation: Option<GenerationOverride>,
     pub interaction: Option<InteractionPolicy>,
 }
 impl SettingsPatch {
     pub fn validate(&self, scope: SettingsScope) -> Result<(), String> {
+        if let Some(p) = &self.permissions {
+            if scope != SettingsScope::Thread {
+                return Err("Permissions are explicitly scoped to a saved working chat.".into());
+            }
+            p.validate()?;
+        }
         if let Some(t) = self.task {
             t.validate()?;
         }
@@ -85,6 +93,8 @@ pub struct SettingsSource {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectiveSettings {
+    #[serde(default)]
+    pub permissions: crate::PermissionPolicy,
     #[serde(default)]
     pub task: crate::TaskBudget,
     #[serde(default)]
@@ -126,6 +136,7 @@ pub fn inspect_settings(
 ) -> Result<EffectiveSettings, String> {
     request.validate()?;
     let mut result = EffectiveSettings {
+        permissions: Default::default(),
         task: Default::default(),
         task_origin: "Dolores default".into(),
         request,
@@ -144,6 +155,9 @@ pub fn inspect_settings(
     };
     for (scope, record) in scopes {
         record.patch.validate(*scope)?;
+        if let Some(p) = &record.patch.permissions {
+            result.permissions = p.clone();
+        }
         result.sources.push(SettingsSource {
             scope: *scope,
             revision: record.revision,
@@ -194,6 +208,7 @@ mod tests {
         let user = ScopedSettings {
             revision: 1,
             patch: SettingsPatch {
+                permissions: None,
                 task: None,
                 interaction: Some(InteractionPolicy {
                     discussion: DiscussionStyle::Brief,
@@ -205,6 +220,7 @@ mod tests {
         let project = ScopedSettings {
             revision: 2,
             patch: SettingsPatch {
+                permissions: None,
                 task: None,
                 generation: Some(GenerationOverride {
                     max_output_tokens: 512,
@@ -216,6 +232,7 @@ mod tests {
         let thread = ScopedSettings {
             revision: 3,
             patch: SettingsPatch {
+                permissions: None,
                 task: None,
                 generation: Some(GenerationOverride {
                     max_output_tokens: 256,

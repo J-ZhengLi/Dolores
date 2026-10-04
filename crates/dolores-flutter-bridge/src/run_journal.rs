@@ -94,6 +94,7 @@ impl RunLog {
 pub(super) struct LoggedTool {
     pub inner: Arc<dyn ToolPlugin>,
     pub log: Arc<RunLog>,
+    pub policy: Option<Arc<crate::permissions::PermissionGuard>>,
 }
 #[async_trait]
 impl ToolPlugin for LoggedTool {
@@ -111,6 +112,9 @@ impl ToolPlugin for LoggedTool {
         self.log.record(None,"toolIntent",json!({"callId":request.call_id,"name":request.name,"certainty":"Effect outcome is unknown until a result is recorded."})).await?;
         if cancel.is_cancelled() {
             return Err(crate::stopped());
+        }
+        if let Some(policy) = &self.policy {
+            policy.recheck()?;
         }
         let result = self.inner.invoke(request, cancel).await;
         let content = match &result {
@@ -140,6 +144,7 @@ mod tests {
     fn coordinator_reserves_one_owner_and_rejects_after_shutdown() {
         fn run(id: u64) -> Run {
             Run {
+                thread: None,
                 id,
                 cancel: CancellationToken::new(),
                 events: tokio::sync::mpsc::channel(1).1,
@@ -174,6 +179,7 @@ mod tests {
             .lock()
             .unwrap()
             .reserve(Run {
+                thread: None,
                 id: 7,
                 cancel: cancel.clone(),
                 events: tokio::sync::mpsc::channel(1).1,

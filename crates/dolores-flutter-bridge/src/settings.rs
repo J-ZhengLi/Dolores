@@ -91,7 +91,7 @@ impl Engine {
             .map(|(scope, record)| json!({"scope":scope,"record":record}))
             .collect();
         Ok(
-            json!({"validationError":effective.validate().err(),"effective":effective,"scopes":scopes,"taskAccess":"Each tool still needs review; settings cannot grant permission.","adaptation":"Executable self-update activation is unavailable; automatic preferences retain their separate policy."}),
+            json!({"validationError":effective.validate().err(),"effective":effective,"scopes":scopes,"taskAccess":"Use Task permissions to review or grant tool access. Budget/interaction controls cannot grant self-update permission.","adaptation":"Executable self-update activation is unavailable; automatic preferences retain their separate policy."}),
         )
     }
     pub(super) fn save_settings(
@@ -111,6 +111,9 @@ impl Engine {
         let record = &mut layers[index].1;
         if record.revision != revision {
             return Err("Settings changed. Refresh, keep your draft and review it again.".into());
+        }
+        if record.patch.permissions != patch.permissions {
+            return Err("Change task access in Task permissions. Budget and interaction edits must preserve existing grants.".into());
         }
         record.patch = patch.clone();
         // A child override must not mask an invalid new parent default.
@@ -154,6 +157,7 @@ mod tests {
         )
         .unwrap();
         let large = SettingsPatch {
+            permissions: None,
             task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 16384,
@@ -170,6 +174,7 @@ mod tests {
                 SettingsScope::Thread,
                 0,
                 SettingsPatch {
+                    permissions: None,
                     task: None,
                     generation: Some(GenerationOverride {
                         max_output_tokens: 512,
@@ -247,6 +252,7 @@ mod tests {
         )
         .unwrap();
         let patch = SettingsPatch {
+            permissions: None,
             task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 512,

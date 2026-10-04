@@ -1,5 +1,7 @@
 # Privacy and public repository hygiene
 
+Task permission grants can retain literal command arguments locally and in run snapshots/exports. Keep secrets out of grants. The host shares the selected access mode/boundary as context; credentials remain in the vault. Revoking access prevents future/pending dispatch and cannot retract data already shared or undo effects already started. Commands and MCP still use the OS account's permissions outside the application grant boundary.
+
 ## When using Dolores
 
 Dolores sends selected context, enabled instructions/memories/skills and approved tool results to your configured endpoint. Provider retention belongs to that provider. The desktop app has no background telemetry or automatic model download.

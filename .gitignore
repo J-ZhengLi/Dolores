@@ -13,3 +13,5 @@ output/
 
 # Private machine reports and audit backups never belong in public history.
 docs/benchmarks/
+__pycache__/
+*.pyc

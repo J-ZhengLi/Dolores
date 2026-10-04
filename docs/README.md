@@ -19,6 +19,8 @@
 
 ## Selected design references
 
+- [Task access and revocation](design/task-permissions.md) explains review, selected grants, full access and the real execution boundary.
+
 - [Task budgets and fixed baselines](design/task-budgets.md) describes scoped allowances, continuation accounting and observable task criteria.
 
 - [Evolving harness specification](design/evolving-harness-architecture.md), [behavior policy](design/dolores-behavior.md), [vision discussion](design/dolores-vision-discussion.md) and [DSH/Claude research](research/evolving-harnesses.md). These are target/design references, not current feature acceptance.

@@ -256,6 +256,7 @@ mod tests {
             .lock()
             .unwrap()
             .reserve(Run {
+                thread: None,
                 id: 1,
                 cancel: tokio_util::sync::CancellationToken::new(),
                 events,

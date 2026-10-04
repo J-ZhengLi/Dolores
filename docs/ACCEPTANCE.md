@@ -1,5 +1,15 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 10.2 — Thread permissions and revocation
+
+Review, explicit automatic grants and full task access now apply to working chats. Grants stay thread-local, are pinned to a revision and expiry, and are checked before dispatch. Commands/MCP retain their actual containment limits; task access cannot activate self-updates.
+
+49 core, 53 bridge and 37 store tests passed; Clippy and Flutter analysis were clean, with 163 Flutter tests passing. The normal-library fixture exercised Review/Auto/Full access, uncovered-path review, stale saves, expiry before dispatch, revocation during approval and late approval refusal. Generic settings cannot replace permission grants; another chat sharing the folder remains in Review. Existing budget/settings fixtures also passed. Full access retained the configured operation cap.
+
+A bounded DeepSeek V4.1 Flash multi-file baseline passed independently: both files changed and the executable produced Hello, World! with exit zero. Covered discovery/read operations were automatic; two edits and one command required review. Credentials and transcripts remain local, normal settings unchanged. This small result does not establish general reliability; the earlier Qwen failure remains recorded.
+
+The final normal app was visibly launched (PID 13476), with all 22 original table digests unchanged. A development-machine point was 225.72 MiB working set, 238.62 MiB private and 46 threads; bridge 10,152,960 bytes (+122,880). Resource conditions vary. Native keyboard/IME, MCP automatic-grant integration, other-OS and low-end acceptance remain open. Revocation cannot undo already-started effects; commands are not an OS sandbox.
+
 ## Brick 10.1 — Fixed baselines and coherent task allowances
 
 Implemented [task budget contracts](design/task-budgets.md), scoped inspector controls, effective inventory/context/run values, accumulated continuation segments and the six-case v1 corpus. Existing model/output/context defaults and four-call/four-operation defaults are retained. The new default task ceiling is four explicit segments; no unlimited continuation or automatic model/budget switch occurs.

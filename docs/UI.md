@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Task permissions
+
+Working saved chats offer Task permissions in Chat actions, including during execution. Reuse InspectorFrame/system palette with a scrolling mode, grant, expiry and acknowledgement form and fixed Refresh/Revoke grants/Save access controls. Full access and selected grants require explicit acknowledgement before Save; defaults are review mode with no automatic grant. Show saved mode/revision/expiry and actual user-account command/MCP boundary. Busy mode permits inspection/revocation, with expansion disabled. Stale saves retain the draft and Refresh requires renewed acknowledgement; errors remain visible. Budget/interaction reset does not change access. No composer/theme change or idle polling is introduced.
+
 ## Task limits
 
 Dolores settings includes a scoped Task limits override in its existing scrollable inspector: model calls, tool operations, total task segments and optional task deadline. Blank deadline inherits existing behavior. Fixed Save/Refresh/Use inherited controls retain drafts after invalid/stale saves. Describe that Continue consumes a segment, preserves work and grants no access. Keep the composer, system palette and native typography unchanged. Segment refusal keeps the saved paused card and points to Task limits; do not silently restart a task.

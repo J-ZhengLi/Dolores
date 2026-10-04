@@ -96,6 +96,8 @@ Default order is sequential. Independent documents/measurements may proceed with
 
 ### 10.2 Explicit permission modes
 
+**Implementation status:** thread-scoped typed Review/Auto/Full access, explicit grant UI and host revision/expiry/dispatch checks are implemented. Validation results are recorded in acceptance; this does not establish OS containment.
+
 **Scope:** review-every-operation, auto approval within user-defined grants and opt-in full-access execution. Show scope/revocation and actual containment. Writes/commands/external tools/self-updates retain distinct authority; recheck at dispatch.
 
 **Basic acceptance:** repeated granted discovery avoids prompts; review mode retains exact decisions; full access skips covered prompts while preserving budgets, cancellation and update gates.

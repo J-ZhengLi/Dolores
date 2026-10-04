@@ -12,6 +12,7 @@ pub struct PendingApproval {
 }
 pub type ApprovalSlot = Arc<Mutex<Option<PendingApproval>>>;
 pub struct RunApproval {
+    pub policy: Option<Arc<crate::permissions::PermissionGuard>>,
     pub id: u64,
     pub pending: ApprovalSlot,
     pub output: mpsc::Sender<Value>,
@@ -27,11 +28,29 @@ impl Drop for ClearPending {
 }
 #[async_trait]
 impl ToolApproval for RunApproval {
+    async fn recheck(&self, _: &ToolRequest, cancel: CancellationToken) -> Result<(), String> {
+        if cancel.is_cancelled() {
+            return Err(stopped());
+        }
+        if let Some(policy) = &self.policy {
+            policy.recheck()?;
+        }
+        Ok(())
+    }
     async fn authorize(
         &self,
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<bool, String> {
+        self.recheck(request, cancel.clone()).await?;
+        if let Some(policy) = &self.policy {
+            if policy.automatic(request)? {
+                if let Some(log) = &self.log {
+                    log.record(None,"approvalAutomatic",json!({"callId":request.call_id,"mode":policy.policy.mode,"revision":policy.revision})).await?;
+                }
+                return Ok(true);
+            }
+        }
         if let Some(log) = &self.log {
             log.record(
                 Some(dolores_core::RunState::WaitingForApproval),
@@ -65,6 +84,7 @@ impl ToolApproval for RunApproval {
             _ = cancel.cancelled() => Err(stopped()),
             result = decision => result.map_err(|_| "Tool approval was closed.".into()),
         }?;
+        self.recheck(request, cancel.clone()).await?;
         if let Some(log) = &self.log {
             log.record(
                 Some(dolores_core::RunState::Running),
@@ -86,6 +106,7 @@ mod tests {
             let pending = Arc::new(Mutex::new(None));
             let (output, mut events) = mpsc::channel(4);
             let approval = Arc::new(RunApproval {
+                policy: None,
                 id: 7,
                 pending: pending.clone(),
                 output,

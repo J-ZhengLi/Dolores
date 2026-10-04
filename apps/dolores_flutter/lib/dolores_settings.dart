@@ -144,6 +144,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
         'scope': scope,
         'revision': record['revision'],
         'patch': {
+          'permissions': record['patch']['permissions'],
           'task': !reset && task
               ? {
                   'modelCalls': int.parse(calls.text),
