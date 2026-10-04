@@ -250,11 +250,7 @@ class _ChatPageState extends State<ChatPage> {
           if (user || text.isEmpty)
             SelectableText(
               text.isEmpty && streaming ? 'Thinking…' : text,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.65,
-                color: user ? Theme.of(context).colorScheme.onPrimary : p.text,
-              ),
+              style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
             )
           else
             ReplyContent(

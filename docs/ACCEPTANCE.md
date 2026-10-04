@@ -2,17 +2,17 @@
 
 ## User bubble color
 
-User bubbles use the theme's primary background and matching on-primary text.
+User bubbles use the same soft background and normal text color as highlighted
+sidebar sessions, replacing the overly bright primary-color fill.
 The 12 focused message-frame/reply-rendering tests pass, including compact
 light/dark layouts, long/multiline text, hover stability and keyboard Copy.
 Flutter analysis is clean. No additional model request or new limit is involved.
 
-The normal Windows release was rebuilt. An actual dark-mode screenshot of
-isolated synthetic messages confirmed the primary bubble and readable text.
-The fixture instance was closed and the normal user-data release reopened visibly
-(PID 35496). All 32 table digests match the fresh baseline, preserving settings
-and history. Light mode has widget coverage; native light-mode and other-platform
-visual acceptance were not repeated for this color refinement.
+The normal Windows release was rebuilt and reopened visibly. An actual dark-mode
+screenshot confirmed that the user bubble matches the highlighted sidebar session
+and keeps readable text. All 32 table digests match the fresh baseline, preserving
+settings and history. Light mode has widget coverage; native light-mode and
+other-platform visual acceptance were not repeated for this color refinement.
 
 ## Conversation layout — alignment and hover controls
 
