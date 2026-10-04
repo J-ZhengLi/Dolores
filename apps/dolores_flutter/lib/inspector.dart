@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
+import 'settings_frame.dart';
 import 'theme.dart';
 import 'usage_details.dart';
 import 'tool_activity.dart';
@@ -31,6 +32,16 @@ class InspectorFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final embedding = SettingsEmbedding.of(context);
+    if (embedding != null) {
+      return EmbeddedSettingsFrame(
+        title: title,
+        subtitle: subtitle,
+        canClose: canClose,
+        pending: embedding.pending,
+        child: child,
+      );
+    }
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     return Dialog(
       insetPadding: const EdgeInsets.all(16),

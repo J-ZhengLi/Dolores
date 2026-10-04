@@ -6,21 +6,18 @@ import 'theme.dart';
 
 class ChatSidebar extends StatefulWidget {
   final ChatController chat;
-  final VoidCallback onNewTemporary, onNewSide, onConnection, onRequestSettings;
+  final VoidCallback onNewTemporary, onNewSide, onSettings;
   final Future<void> Function() onOpenProject;
-  final VoidCallback? onMemory;
   final Future<void> Function(String) onProject, onSelect;
   const ChatSidebar({
     super.key,
     required this.chat,
     required this.onNewTemporary,
     required this.onNewSide,
-    required this.onConnection,
-    required this.onRequestSettings,
+    required this.onSettings,
     required this.onOpenProject,
     required this.onProject,
     required this.onSelect,
-    this.onMemory,
   });
   @override
   State<ChatSidebar> createState() => _ChatSidebarState();
@@ -420,32 +417,13 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   ],
                 ),
               Divider(color: p.border),
-              if (widget.onMemory != null)
-                TextButton.icon(
-                  key: const Key('memory'),
-                  onPressed: locked ? null : widget.onMemory,
-                  icon: const Icon(Icons.bookmarks_outlined, size: 18),
-                  label: const Text('Memory'),
-                  style: TextButton.styleFrom(
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.all(12),
-                  ),
-                ),
               TextButton.icon(
-                key: const Key('connection'),
-                onPressed: locked ? null : widget.onConnection,
-                icon: const Icon(Icons.tune, size: 18),
-                label: const Text('Model connection'),
-                style: TextButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.all(12),
-                ),
-              ),
-              TextButton.icon(
-                key: const Key('request-settings'),
-                onPressed: locked ? null : widget.onRequestSettings,
-                icon: const Icon(Icons.timer_outlined, size: 18),
-                label: const Text('Request settings'),
+                key: const Key('settings'),
+                onPressed: chat.loading || chat.changing
+                    ? null
+                    : widget.onSettings,
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('Settings'),
                 style: TextButton.styleFrom(
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.all(12),

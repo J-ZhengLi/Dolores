@@ -94,9 +94,10 @@ void main() {
       final chat = ChatController(bridge);
       await chat.initialize();
       await tester.pumpWidget(DoloresApp(chat: chat));
-      await tester.tap(find.byKey(const Key('connection')));
+      await tester.tap(find.byKey(const Key('settings')));
       await tester.pumpAndSettle();
       expect(find.text('Model name'), findsNothing);
+      await tester.ensureVisible(find.byKey(const Key('fetch-models')));
       await tester.tap(find.byKey(const Key('fetch-models')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(
@@ -107,6 +108,8 @@ void main() {
       await tester.tap(find.byKey(const Key('save-connection')));
       await tester.pumpAndSettle();
       expect(chat.enabledModels, ['fixture', 'faster']);
+      await tester.tap(find.byKey(const Key('close-settings')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('composer')),
         'Keep my draft',
@@ -189,7 +192,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(chat.configured, isTrue);
       expect(find.byKey(const Key('connection-warning')), findsNothing);
-      await tester.tap(find.byKey(const Key('connection')));
+      await tester.tap(find.byKey(const Key('settings')));
       await tester.pumpAndSettle();
       expect(
         tester
@@ -205,8 +208,6 @@ void main() {
       );
       expect(save['apiKey'], isNull);
       expect(save['rememberConnection'], isTrue);
-      await tester.tap(find.byKey(const Key('connection')));
-      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('forget-connection')));
       await tester.tap(find.byKey(const Key('forget-connection')));
       await tester.pumpAndSettle();
@@ -260,7 +261,7 @@ void main() {
     await tester.pumpWidget(DoloresApp(chat: chat, themeMode: ThemeMode.dark));
     await tester.tap(find.byTooltip('Conversations'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('connection')));
+    await tester.tap(find.byKey(const Key('settings')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('base-url')), findsOneWidget);
     expect(find.byKey(const Key('api-key')), findsOneWidget);

@@ -142,7 +142,7 @@ void main() {
         );
         await tester.tap(find.byKey(const Key('model-image-input')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Cancel'));
+        await tester.tap(find.byKey(const Key('close-settings')));
         await tester.pumpAndSettle();
         expect(chat.imageModels, isEmpty);
         expect(chat.attachments.single['name'], 'sample.png');

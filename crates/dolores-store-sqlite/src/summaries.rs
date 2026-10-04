@@ -310,6 +310,6 @@ mod tests {
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 26);
+        assert_eq!(version, 27);
     }
 }

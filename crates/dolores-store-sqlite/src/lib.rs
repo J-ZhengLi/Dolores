@@ -169,6 +169,11 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS web_configuration(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL);
             PRAGMA user_version=26;COMMIT;").map_err(storage_error)?;
         }
+        if version < 27 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS appearance(id INTEGER PRIMARY KEY CHECK(id=1),theme TEXT NOT NULL CHECK(theme IN ('system','light','dark')));
+            PRAGMA user_version=27;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -179,6 +184,30 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn appearance(&self) -> Result<dolores_core::Appearance, String> {
+        let theme: Option<String> = self
+            .lock()?
+            .query_row("SELECT theme FROM appearance WHERE id=1", [], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(storage_error)?;
+        match theme.as_deref() {
+            None | Some("system") => Ok(dolores_core::Appearance::System),
+            Some("light") => Ok(dolores_core::Appearance::Light),
+            Some("dark") => Ok(dolores_core::Appearance::Dark),
+            _ => Err("Saved theme is invalid. Choose a theme in Settings.".into()),
+        }
+    }
+    fn save_appearance(&self, theme: dolores_core::Appearance) -> Result<(), String> {
+        let theme = match theme {
+            dolores_core::Appearance::System => "system",
+            dolores_core::Appearance::Light => "light",
+            dolores_core::Appearance::Dark => "dark",
+        };
+        self.lock()?.execute("INSERT INTO appearance(id,theme) VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET theme=excluded.theme", [theme]).map_err(storage_error)?;
+        Ok(())
+    }
     fn web_configuration(&self) -> Result<dolores_core::WebConfiguration, String> {
         self.read_web_configuration()
     }
@@ -1135,7 +1164,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 26);
+        assert_eq!(version, 27);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]
@@ -1151,6 +1180,40 @@ mod tests {
         assert_eq!(history.len(), 80);
         assert_eq!(count, Some(63));
         assert_eq!(history[0].content, "u23");
+    }
+    #[test]
+    fn appearance_survives_restart_and_failed_save_without_changing_chat() {
+        use dolores_core::Appearance;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("appearance.db");
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(store.appearance().unwrap(), Appearance::System);
+        store.create("chat").unwrap();
+        store
+            .commit_turn("chat", "Original question", "Original reply")
+            .unwrap();
+        let history = store.messages("chat").unwrap();
+        let preferences = store.preferences().unwrap();
+        store.save_appearance(Appearance::Dark).unwrap();
+        store.lock().unwrap().execute_batch("CREATE TRIGGER reject_theme BEFORE UPDATE ON appearance BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store.save_appearance(Appearance::Light).is_err());
+        assert_eq!(store.appearance().unwrap(), Appearance::Dark);
+        drop(store);
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(store.appearance().unwrap(), Appearance::Dark);
+        assert_eq!(store.preferences().unwrap(), preferences);
+        assert_eq!(store.messages("chat").unwrap().len(), history.len());
+        assert_eq!(
+            store.messages("chat").unwrap()[0].content,
+            history[0].content
+        );
+        store
+            .lock()
+            .unwrap()
+            .execute_batch("DROP TRIGGER reject_theme;")
+            .unwrap();
+        store.save_appearance(Appearance::System).unwrap();
+        assert_eq!(store.appearance().unwrap(), Appearance::System);
     }
     #[test]
     fn connection_metadata_and_preferences_commit_together_and_migrate_legacy_database() {

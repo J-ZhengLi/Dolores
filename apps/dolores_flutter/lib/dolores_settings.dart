@@ -9,15 +9,24 @@ Future<void> showDoloresSettings(BuildContext context, ChatController chat) =>
       builder: (_) => DoloresSettingsInspector(chat: chat),
     );
 
+enum SettingsGroup { all, personalization, generation, task }
+
 class DoloresSettingsInspector extends StatefulWidget {
   final ChatController chat;
-  const DoloresSettingsInspector({super.key, required this.chat});
+  final SettingsGroup group;
+  const DoloresSettingsInspector({
+    super.key,
+    required this.chat,
+    this.group = SettingsGroup.all,
+  });
   @override
   State<DoloresSettingsInspector> createState() =>
       _DoloresSettingsInspectorState();
 }
 
 class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
+  bool shows(SettingsGroup group) =>
+      widget.group == SettingsGroup.all || widget.group == group;
   late final String? session = widget.chat.session;
   final output = TextEditingController(), timeout = TextEditingController();
   final calls = TextEditingController(),
@@ -115,6 +124,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
     final maxTokens = int.tryParse(output.text),
         seconds = int.tryParse(timeout.text);
     if (!reset &&
+        shows(SettingsGroup.task) &&
         task &&
         (int.tryParse(calls.text) == null ||
             int.tryParse(tools.text) == null ||
@@ -126,7 +136,10 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
       });
       return;
     }
-    if (!reset && generation && (maxTokens == null || seconds == null)) {
+    if (!reset &&
+        shows(SettingsGroup.generation) &&
+        generation &&
+        (maxTokens == null || seconds == null)) {
       setState(() {
         error = 'Use whole numbers for output tokens and timeout.';
       });
@@ -145,7 +158,9 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
         'revision': record['revision'],
         'patch': {
           'permissions': record['patch']['permissions'],
-          'task': !reset && task
+          'task': !shows(SettingsGroup.task)
+              ? record['patch']['task']
+              : !reset && task
               ? {
                   'modelCalls': int.parse(calls.text),
                   'toolCalls': int.parse(tools.text),
@@ -153,10 +168,14 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                   'elapsedSeconds': int.tryParse(elapsed.text),
                 }
               : null,
-          'generation': !reset && generation && scope != 'user'
+          'generation': !shows(SettingsGroup.generation)
+              ? record['patch']['generation']
+              : !reset && generation && scope != 'user'
               ? {'maxOutputTokens': maxTokens, 'timeoutSeconds': seconds}
               : null,
-          'interaction': !reset && interaction
+          'interaction': !shows(SettingsGroup.personalization)
+              ? record['patch']['interaction']
+              : !reset && interaction
               ? {'discussion': discussion, 'questionAssumptions': question}
               : null,
         },
@@ -202,7 +221,11 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
       return PopScope(
         canPop: !pending,
         child: InspectorFrame(
-          title: 'Dolores settings',
+          title: switch (widget.group) {
+            SettingsGroup.generation => 'Scope overrides',
+            SettingsGroup.task => 'Task limits',
+            _ => 'Personalization',
+          },
           subtitle: 'Scoped overrides · applies to future runs',
           canClose: !pending,
           child: Column(
@@ -246,20 +269,30 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                 },
                         ),
                         const SizedBox(height: 12),
-                        SelectableText(
-                          'Effective output: ${effective!['request']['maxOutputTokens']} tokens · ${effective['requestOrigin']}\nTimeout: ${effective['request']['timeoutSeconds']} seconds\nContext: ${effective['contextWindowTokens']} tokens · ${effective['contextOrigin']}\nInteraction: ${effective['interactionOrigin']}',
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(
-                            'Override task limits for this scope',
+                        if (widget.group == SettingsGroup.personalization)
+                          SelectableText(
+                            'Interaction style · ${effective!['interactionOrigin']}',
+                          )
+                        else if (widget.group == SettingsGroup.task)
+                          SelectableText(
+                            'Model calls per segment: ${effective!['task']?['modelCalls'] ?? 4}\nTool operations per segment: ${effective['task']?['toolCalls'] ?? 4}\nTotal task segments: ${effective['task']?['segments'] ?? 4}',
+                          )
+                        else
+                          SelectableText(
+                            'Effective output: ${effective!['request']['maxOutputTokens']} tokens · ${effective['requestOrigin']}\nTimeout: ${effective['request']['timeoutSeconds']} seconds\nContext: ${effective['contextWindowTokens']} tokens · ${effective['contextOrigin']}\nInteraction: ${effective['interactionOrigin']}',
                           ),
-                          value: task,
-                          onChanged: locked
-                              ? null
-                              : (value) => setState(() => task = value!),
-                        ),
-                        if (task) ...[
+                        if (shows(SettingsGroup.task))
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Override task limits for this scope',
+                            ),
+                            value: task,
+                            onChanged: locked
+                                ? null
+                                : (value) => setState(() => task = value!),
+                          ),
+                        if (shows(SettingsGroup.task) && task) ...[
                           for (final field in [
                             (calls, 'Model calls per segment (2–16)'),
                             (tools, 'Tool operations per segment (1–32)'),
@@ -279,14 +312,15 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                             'Continue uses another segment. Applied work remains. Limits do not grant tool access or change model output/context settings.',
                           ),
                         ],
-                        if (scope == 'user')
+                        if (shows(SettingsGroup.generation) && scope == 'user')
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Text(
-                              'Edit user/model generation defaults in Request settings. Model context windows remain in Model connection.',
+                              'Edit model generation defaults in Models → Responses. Context windows are in Models → Connection & models.',
                             ),
                           ),
-                        if (scope != 'user') ...[
+                        if (shows(SettingsGroup.generation) &&
+                            scope != 'user') ...[
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text(
@@ -319,17 +353,20 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                             ),
                           ],
                         ],
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(
-                            'Override interaction for this scope',
+                        if (shows(SettingsGroup.personalization))
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Override interaction for this scope',
+                            ),
+                            value: interaction,
+                            onChanged: locked
+                                ? null
+                                : (value) =>
+                                      setState(() => interaction = value!),
                           ),
-                          value: interaction,
-                          onChanged: locked
-                              ? null
-                              : (value) => setState(() => interaction = value!),
-                        ),
-                        if (interaction) ...[
+                        if (shows(SettingsGroup.personalization) &&
+                            interaction) ...[
                           DropdownButtonFormField<String>(
                             key: ValueKey('discussion-$scope-$discussion'),
                             initialValue: discussion,
@@ -360,9 +397,10 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                 : (value) => setState(() => question = value!),
                           ),
                         ],
-                        const Text(
-                          'Dolores stays calm and candid, uses available evidence, and asks only useful questions. These controls cannot guarantee model behavior.',
-                        ),
+                        if (shows(SettingsGroup.personalization))
+                          const Text(
+                            'Dolores stays calm and candid, uses available evidence, and asks only useful questions. These controls cannot guarantee model behavior.',
+                          ),
                         const SizedBox(height: 12),
                         SelectableText(
                           '${data['taskAccess']}\n${data['adaptation']}',

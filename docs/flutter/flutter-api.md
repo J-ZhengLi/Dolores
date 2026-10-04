@@ -74,3 +74,7 @@ Transport/Stop/malformed ordinary responses do not publish an incomplete chat tu
 `savedDraft`, `saveDraft`, `runCheckpoint` and `checkpointDraft` are local APIs. `start.resumeRun` binds explicit recovery to the latest recoverable run; snapshots expose optional parentRun and accumulated segments. Old snapshot JSON defaults to the first segment. See [task checkpoints](../design/task-checkpoints.md).
 
 orkSession {session, through} atomically copies complete turns and returns a new session/workspace with sharedFolder. setAutoCompact {session, enabled} controls only that chat; reviewSummary includes autoCompact. compacting/compacted events disclose a single preflight summary and reported usage; the durable run log retains these events.
+
+### Desktop appearance
+
+`bootstrap.appearance` is `system`, `light` or `dark` (absent legacy values use System). `saveAppearance {theme}` persists the typed local choice and returns the acknowledged theme. Invalid strings are rejected. It is allowed during a run because it changes presentation only, and does not change profiles, task authority, provider requests or conversation history. Storage failure leaves the previous acknowledged UI theme. Schema 27 adds an `appearance` singleton without rewriting existing tables.

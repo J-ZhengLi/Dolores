@@ -1,5 +1,44 @@
 # Dolores acceptance — 2026-10-05
 
+## Settings remaster — before browser use
+
+One bottom-left Settings entry replaces the separate Memory, Model connection
+and Request settings actions. The shared window contains Appearance, Models,
+Personalization, Memory, Web search, External tools, Skills, Permissions and
+Task limits. Models combines connection/capabilities/context, response profiles
+and project/chat generation overrides. Chat actions uses an ellipsis and retains
+conversation actions. System/Light/Dark theme selection is acknowledged locally,
+applies immediately and persists through restart; default remains System.
+
+- Rust storage/bridge: **109 tests passed**; warnings-denied workspace Clippy
+  and Flutter analysis passed. Flutter's full suite passed **191 tests** after
+  final notification/removed-model hardening; its focused 19 tests also passed.
+- Basic flow: the single entry opens without creating a session or provider
+  request, Models controls and Web search are reachable, and explicit Close
+  retains the composer draft without saving editor drafts. Retained editors are
+  created only on first visit; the app theme subscribes only to appearance changes.
+- Failure cases: pending theme save blocks Close/Escape and navigation;
+  injected failed save retains the prior theme and enables explicit retry.
+  A stale endpoint or removed enabled model retains response edits, refuses a
+  save, avoids dropdown assertion failure and offers Reload response settings.
+  Category switches retain unsaved connection/web edits. Personalization reset
+  preserves generation and task overrides; scoped revision checks remain intact.
+- Normal release bridge in isolated data passed theme save, invalid-value refusal
+  and process-restart restoration without model traffic or credentials.
+  Additive schema **27** adds appearance storage; original **33 table digests**
+  remained unchanged, with **34 tables** after migration.
+- Wide dark Appearance, wide light Models and compact dark Models screenshots
+  were rendered with desktop fonts and inspected. The normal release desktop
+  was visibly launched; Settings, Models, Appearance and Web search were inspected
+  in its real window without saving the user's configuration. A cached accessibility
+  index initially failed; refreshed screenshot navigation recovered the check.
+
+Native theme persistence was tested with isolated data; actual theme transitions
+in the open window are covered by widgets rather than changing the user's saved
+theme. No new live-model task was needed for this local settings/navigation change.
+Physical keyboard/IME/screen-reader, macOS/Linux and low-end resource qualification
+remain open. This detour does not implement brick 11.3 browser use.
+
 ## Brick 11.2 — default and configurable web research
 
 Working chats now have default unauthenticated Mwmbl search and public HTTPS

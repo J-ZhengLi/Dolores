@@ -124,3 +124,7 @@ The provisional 150-MiB idle working-set and two-second cold-start goals on a 2-
 The normal Windows helper assembles Flutter/Rust/plugins with generated junctions where symlink privileges are unavailable. The regression runner is development tooling: selected isolated save/restart checks, stage deadlines, retained failure reports and explicit scope. Windows portable packaging accepts reviewed runtime paths, preserves assets/notices and adds hashes/user guidance; it is an unsigned local preview with separate prerequisites and release gates.
 
 See [contributor guide](../CONTRIBUTING.md), [roadmap](ROADMAP.md), [design references](README.md#selected-design-references), and dated [architecture research](research/architecture-options.md) for implementation details/history and alternatives.
+
+## Desktop settings presentation
+
+Flutter uses one settings window with lazily created, retained editors and a shared pending-operation gate. The existing scoped settings, model profiles, memory, skills, MCP and permission ports remain authoritative. InspectorFrame embeds only on its Settings route; nested reviews retain their own dialog boundary. Models unifies connection/capabilities/context, responses and project/chat generation overrides. Scoped editors preserve other patch groups and retain compare-and-swap revisions. Theme is a separate typed local appearance preference, persisted in an additive schema-27 singleton and returned by bootstrap; it is never included in model context or grants. SaveAppearance is independent of active generation.

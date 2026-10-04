@@ -28,6 +28,22 @@ class _ViewState {
 }
 
 class ChatController extends ChangeNotifier {
+  final appearanceChanges = ValueNotifier<String>('system');
+  String get appearance => appearanceChanges.value;
+  set appearance(String theme) {
+    if (!_disposed) appearanceChanges.value = theme;
+  }
+
+  Future<void> saveAppearance(String theme) async {
+    if (!['system', 'light', 'dark'].contains(theme)) {
+      throw ArgumentError('Choose System, Light or Dark.');
+    }
+    await bridge.call({'command': 'saveAppearance', 'theme': theme});
+    if (_disposed) return;
+    appearance = theme;
+    _notify();
+  }
+
   final ChatBridge bridge;
   ChatController(this.bridge);
   void invalidateContext() {
@@ -467,6 +483,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> refresh() async {
     final state = await bridge.call({'command': 'bootstrap'});
+    appearance = state['appearance'] as String? ?? 'system';
     durableDrafts = state['durableDrafts'] == true;
     attachmentsAvailable = state['attachments'] == true;
     imageModels = ((state['imageModels'] as List?) ?? []).cast<String>();
@@ -1170,6 +1187,7 @@ class ChatController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    appearanceChanges.dispose();
     _timer?.cancel();
     _draftTimer?.cancel();
     unawaited(bridge.close());

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
@@ -9,21 +8,16 @@ import 'chat.dart';
 import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'message_frame.dart';
-import 'web_settings.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
 import 'comparison.dart';
 import 'inspector.dart';
 import 'changes.dart';
-import 'request_settings.dart';
 import 'tool_activity.dart';
 import 'subagents.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
-import 'skills.dart';
-import 'mcp.dart';
-import 'memory.dart';
 import 'session_summary.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
@@ -31,10 +25,10 @@ import 'capabilities.dart';
 import 'run_history.dart';
 import 'thread_fork.dart';
 import 'attachments.dart';
-import 'dolores_settings.dart';
-import 'task_permissions.dart';
 
 import 'theme.dart';
+import 'settings.dart';
+export 'model_settings.dart' show ConnectionDialog;
 export 'theme.dart' show Palette;
 
 void main() {
@@ -46,24 +40,33 @@ void main() {
 
 class DoloresApp extends StatelessWidget {
   final ChatController chat;
-  final ThemeMode themeMode;
+  final ThemeMode? themeMode;
   final GlobalKey? captureKey;
   const DoloresApp({
     super.key,
     required this.chat,
-    this.themeMode = ThemeMode.system,
+    this.themeMode,
     this.captureKey,
   });
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Dolores',
-    debugShowCheckedModeBanner: false,
-    theme: doloresTheme(false),
-    darkTheme: doloresTheme(true),
-    themeMode: themeMode,
-    builder: (context, child) =>
-        RepaintBoundary(key: captureKey, child: child!),
-    home: ChatPage(chat: chat),
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: chat.appearanceChanges,
+    builder: (context, _) => MaterialApp(
+      title: 'Dolores',
+      debugShowCheckedModeBanner: false,
+      theme: doloresTheme(false),
+      darkTheme: doloresTheme(true),
+      themeMode:
+          themeMode ??
+          switch (chat.appearance) {
+            'light' => ThemeMode.light,
+            'dark' => ThemeMode.dark,
+            _ => ThemeMode.system,
+          },
+      builder: (context, child) =>
+          RepaintBoundary(key: captureKey, child: child!),
+      home: ChatPage(chat: chat),
+    ),
   );
 }
 
@@ -138,17 +141,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> settings() async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => ConnectionDialog(chat: chat),
-    );
+    shell.currentState?.closeDrawer();
+    await showSettings(context, chat, initial: SettingsCategory.models);
     if (mounted) focus.requestFocus();
   }
 
   Future<void> requestSettings() async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => RequestSettingsDialog(chat: chat),
+    shell.currentState?.closeDrawer();
+    await showSettings(
+      context,
+      chat,
+      initial: SettingsCategory.models,
+      modelsPage: ModelsPage.responses,
     );
     if (mounted) focus.requestFocus();
   }
@@ -208,11 +212,9 @@ class _ChatPageState extends State<ChatPage> {
         shell.currentState?.closeDrawer();
       }
     },
-    onConnection: settings,
-    onRequestSettings: requestSettings,
-    onMemory: () {
+    onSettings: () {
       shell.currentState?.closeDrawer();
-      showMemory(context, chat);
+      showSettings(context, chat);
     },
   );
 
@@ -502,7 +504,11 @@ class _ChatPageState extends State<ChatPage> {
                           key: const Key('failure-memory'),
                           onPressed: chat.busy || chat.changing || chat.loading
                               ? null
-                              : () => showMemory(context, chat),
+                              : () => showSettings(
+                                  context,
+                                  chat,
+                                  initial: SettingsCategory.memory,
+                                ),
                           child: const Text('Memory'),
                         ),
                       if (chat.activeRecovery!['retryable'] == true)
@@ -529,7 +535,7 @@ class _ChatPageState extends State<ChatPage> {
                           onPressed: chat.busy || chat.changing
                               ? null
                               : requestSettings,
-                          child: const Text('Request settings'),
+                          child: const Text('Model response settings'),
                         ),
                       if ([
                         'network',
@@ -543,7 +549,7 @@ class _ChatPageState extends State<ChatPage> {
                           onPressed: chat.busy || chat.changing
                               ? null
                               : settings,
-                          child: const Text('Model connection'),
+                          child: const Text('Model settings'),
                         ),
                     ],
                   ),
@@ -762,15 +768,6 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
-                  if (chat.session != null && constraints.maxWidth >= 480)
-                    IconButton(
-                      key: const Key('project-skills'),
-                      tooltip: 'Skills',
-                      onPressed: chat.busy || chat.loading || chat.changing
-                          ? null
-                          : () => showSkills(context, chat),
-                      icon: const Icon(Icons.extension_outlined, size: 20),
-                    ),
                   if (chat.session != null && chat.workspaceRoot != null)
                     IconButton(
                       key: const Key('workspace-instructions'),
@@ -837,46 +834,18 @@ class _ChatPageState extends State<ChatPage> {
                               });
                         } else if (value == 'fork') {
                           showThreadFork(context, chat);
-                        } else if (value == 'permissions') {
-                          showTaskPermissions(context, chat);
-                        } else if (value == 'settings') {
-                          showDoloresSettings(context, chat);
                         } else if (value == 'capabilities') {
                           showCapabilities(context, chat);
                         } else if (value == 'runs') {
                           showRunHistory(context, chat);
-                        } else if (value == 'skills') {
-                          showSkills(context, chat);
-                        } else if (value == 'mcp') {
-                          showMcp(context, chat);
-                        } else if (value == 'web') {
-                          showWebSettings(context, chat);
                         } else if (value == 'comparisons') {
                           showComparisons(context, chat);
                         } else {
                           exportChat(value);
                         }
                       },
-                      icon: Icon(
-                        constraints.maxWidth < 480
-                            ? Icons.more_horiz
-                            : Icons.file_download_outlined,
-                        size: 20,
-                      ),
+                      icon: const Icon(Icons.more_horiz, size: 20),
                       itemBuilder: (_) => [
-                        if (chat.workspaceRoot != null)
-                          const PopupMenuItem(
-                            value: 'permissions',
-                            child: Text('Task permissions'),
-                          ),
-                        const PopupMenuItem(
-                          value: 'settings',
-                          child: Text('Dolores settings'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'web',
-                          child: Text('Web search'),
-                        ),
                         const PopupMenuItem(
                           value: 'capabilities',
                           child: Text('Dolores capabilities'),
@@ -905,18 +874,6 @@ class _ChatPageState extends State<ChatPage> {
                           value: 'comparisons',
                           child: Text('Compare instructions'),
                         ),
-                        if (chat.workspaceRoot != null)
-                          PopupMenuItem(
-                            enabled: !chat.busy,
-                            value: 'mcp',
-                            child: Text('External tools (MCP)'),
-                          ),
-                        if (constraints.maxWidth < 480)
-                          PopupMenuItem(
-                            enabled: !chat.busy,
-                            value: 'skills',
-                            child: Text('Skills'),
-                          ),
                         PopupMenuItem(
                           enabled: !chat.busy,
                           value: 'markdown',
@@ -1090,476 +1047,4 @@ class _ChatPageState extends State<ChatPage> {
       },
     );
   }
-}
-
-class ConnectionDialog extends StatefulWidget {
-  final ChatController chat;
-  const ConnectionDialog({super.key, required this.chat});
-  @override
-  State<ConnectionDialog> createState() => _ConnectionDialogState();
-}
-
-class _ConnectionDialogState extends State<ConnectionDialog> {
-  final _scroll = ScrollController();
-  late final url = TextEditingController(text: widget.chat.baseUrl);
-  final manualModel = TextEditingController();
-  final search = TextEditingController();
-  late List<String> available = [...widget.chat.enabledModels];
-  late final Set<String> selected = {
-    ...widget.chat.enabledModels,
-    if (widget.chat.model.isNotEmpty) widget.chat.model,
-  };
-  final keyInput = TextEditingController();
-  late bool remember =
-      widget.chat.rememberConnection || widget.chat.model.isEmpty;
-  bool saving = false;
-  String? error;
-  bool fetching = false, manual = false;
-  bool clearKey = false;
-  late String? contextModel = widget.chat.model.isEmpty
-      ? null
-      : widget.chat.model;
-  bool contextEndpointChanged = false;
-  late final Set<String> imageModels = widget.chat.imageModels.toSet();
-  final contextInputs = <String, TextEditingController>{};
-  TextEditingController contextInput(String id) => contextInputs.putIfAbsent(
-    id,
-    () => TextEditingController(
-      text: contextEndpointChanged
-          ? ''
-          : widget.chat.modelContexts[id]?.toString() ?? '',
-    ),
-  );
-  bool get working => saving || fetching;
-  String? get requestKey =>
-      !clearKey &&
-          keyInput.text.isEmpty &&
-          (widget.chat.hasSavedKey || widget.chat.configured)
-      ? null
-      : keyInput.text;
-  void endpointChanged(String _) {
-    setState(() {
-      available = [];
-      selected.clear();
-      contextModel = null;
-      contextEndpointChanged = true;
-      imageModels.clear();
-      for (final input in contextInputs.values) {
-        input.dispose();
-      }
-      contextInputs.clear();
-      search.clear();
-      error = null;
-    });
-  }
-
-  void addManual() {
-    final id = manualModel.text.trim();
-    if (id.isEmpty) return;
-    setState(() {
-      if (utf8.encode(id).length > 200 || selected.length >= 32) {
-        error = 'Choose up to 32 models, with IDs up to 200 bytes.';
-        return;
-      }
-      if (!available.contains(id)) available.add(id);
-      selected.add(id);
-      manualModel.clear();
-      error = null;
-    });
-  }
-
-  Future<void> fetch() async {
-    setState(() {
-      fetching = true;
-      error = null;
-    });
-    try {
-      final models = await widget.chat.listModels(url.text, requestKey);
-      if (mounted) {
-        setState(() {
-          available = {...models, ...selected}.toList()..sort();
-          if (selected.isEmpty) selected.add(models.first);
-        });
-      }
-    } catch (failure) {
-      if (mounted) {
-        setState(() {
-          error = failure.toString();
-          manual = true;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => fetching = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    url.dispose();
-    manualModel.dispose();
-    search.dispose();
-    keyInput.dispose();
-    for (final input in contextInputs.values) {
-      input.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> save() async {
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    try {
-      final contexts = <String, int?>{};
-      for (final id in selected) {
-        final text = contextInput(id).text.trim();
-        final tokens = int.tryParse(text);
-        if (text.isNotEmpty &&
-            (tokens == null || tokens < 1024 || tokens > 16777216)) {
-          throw FormatException(
-            'Context window for $id must be a whole number between 1024 and 16777216 tokens, or blank.',
-          );
-        }
-        contexts[id] = text.isEmpty ? null : tokens;
-      }
-      await widget.chat.configure(
-        url.text,
-        selected.contains(widget.chat.model)
-            ? widget.chat.model
-            : selected.first,
-        requestKey,
-        remember: remember,
-        models: selected.toList(),
-        contexts: contexts,
-      );
-      if (widget.chat.attachmentsAvailable) {
-        await widget.chat.bridge.call({
-          'command': 'setImageModels',
-          'models': imageModels.where(selected.contains).toList(),
-        });
-        await widget.chat.refresh();
-      }
-      if (mounted) Navigator.pop(context);
-    } catch (failure) {
-      if (mounted) {
-        setState(() {
-          error = failure is FormatException
-              ? failure.message
-              : failure.toString();
-          saving = false;
-        });
-        if (_scroll.hasClients) _scroll.jumpTo(0);
-      }
-    }
-  }
-
-  Future<void> forget() async {
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    try {
-      await widget.chat.forgetConnection();
-      if (mounted) Navigator.pop(context);
-    } catch (failure) {
-      if (mounted) {
-        setState(() {
-          saving = false;
-          error = failure.toString();
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !working,
-    child: AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Model connection',
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-      ),
-      content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          controller: _scroll,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Use an OpenAI-compatible local or hosted API.',
-                style: TextStyle(fontSize: 13),
-              ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              if (selected.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(
-                    'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
-                  ),
-                  initialValue: selected.contains(contextModel)
-                      ? contextModel
-                      : selected.first,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Model settings',
-                  ),
-                  items: [
-                    for (final id in selected)
-                      DropdownMenuItem(
-                        value: id,
-                        child: Text(id, overflow: TextOverflow.ellipsis),
-                      ),
-                  ],
-                  onChanged: working
-                      ? null
-                      : (id) => setState(() => contextModel = id),
-                ),
-                if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
-                  CheckboxListTile(
-                    key: const Key('model-image-input'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Supports image input'),
-                    subtitle: const Text(
-                      'Enable for a model that accepts images from your provider. Images are sent at low detail.',
-                    ),
-                    value: imageModels.contains(
-                      selected.contains(contextModel)
-                          ? contextModel
-                          : selected.first,
-                    ),
-                    onChanged: working
-                        ? null
-                        : (enabled) => setState(() {
-                            final id = selected.contains(contextModel)
-                                ? contextModel!
-                                : selected.first;
-                            enabled == true
-                                ? imageModels.add(id)
-                                : imageModels.remove(id);
-                          }),
-                  ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('context-window'),
-                  controller: contextInput(
-                    selected.contains(contextModel)
-                        ? contextModel!
-                        : selected.first,
-                  ),
-                  enabled: !working,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Context window (tokens)',
-                    hintText: '131072 (128K default)',
-                    helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
-                    helperMaxLines: 2,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              const Divider(height: 24),
-              TextField(
-                key: const Key('base-url'),
-                controller: url,
-                enabled: !working,
-                onChanged: endpointChanged,
-                decoration: const InputDecoration(
-                  labelText: 'Base URL',
-                  hintText: 'http://localhost:11434/v1',
-                ),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                key: const Key('api-key'),
-                controller: keyInput,
-                enabled: !working,
-                obscureText: true,
-                enableSuggestions: false,
-                autocorrect: false,
-                onChanged: (_) => setState(() => clearKey = false),
-                decoration: InputDecoration(
-                  labelText: 'API key (optional for local servers)',
-                  helperText: clearKey
-                      ? 'This connection will use no key.'
-                      : widget.chat.hasSavedKey || widget.chat.configured
-                      ? 'Leave blank to keep the current key.'
-                      : null,
-                ),
-              ),
-              if (widget.chat.hasSavedKey || widget.chat.configured)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: working
-                        ? null
-                        : () => setState(() {
-                            clearKey = !clearKey;
-                            keyInput.clear();
-                          }),
-                    child: Text(
-                      clearKey ? 'Keep existing key' : 'Use without a key',
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                key: const Key('fetch-models'),
-                onPressed: working ? null : fetch,
-                icon: fetching
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh, size: 16),
-                label: Text(fetching ? 'Fetching models…' : 'Fetch models'),
-              ),
-              if (available.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '${selected.length} selected · Available in the chat model picker',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  key: const Key('model-search'),
-                  controller: search,
-                  onChanged: (_) => setState(() {}),
-                  enabled: !working,
-                  decoration: const InputDecoration(
-                    hintText: 'Search models',
-                    prefixIcon: Icon(Icons.search, size: 18),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: (available.length * 44.0).clamp(44, 176),
-                  child: Builder(
-                    builder: (_) {
-                      final filtered = available
-                          .where(
-                            (id) => id.toLowerCase().contains(
-                              search.text.toLowerCase(),
-                            ),
-                          )
-                          .toList();
-                      return ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (_, index) {
-                          final id = filtered[index];
-                          return CheckboxListTile(
-                            key: ValueKey('enable-model-$id'),
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              id,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            value: selected.contains(id),
-                            onChanged: working
-                                ? null
-                                : (value) => setState(() {
-                                    if (value! && selected.length >= 32) {
-                                      error = 'Choose up to 32 models.';
-                                    } else {
-                                      value
-                                          ? selected.add(id)
-                                          : selected.remove(id);
-                                      error = null;
-                                    }
-                                  }),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-              TextButton(
-                key: const Key('manual-model-toggle'),
-                onPressed: working
-                    ? null
-                    : () => setState(() => manual = !manual),
-                child: const Text('Add a model manually'),
-              ),
-              if (manual)
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        key: const Key('manual-model'),
-                        controller: manualModel,
-                        enabled: !working,
-                        onSubmitted: (_) => addManual(),
-                        decoration: const InputDecoration(
-                          labelText: 'Model ID',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      key: const Key('add-manual-model'),
-                      tooltip: 'Add model',
-                      onPressed: working ? null : addManual,
-                      icon: const Icon(Icons.add),
-                    ),
-                  ],
-                ),
-              CheckboxListTile(
-                key: const Key('remember-connection'),
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Remember connection',
-                  style: TextStyle(fontSize: 14),
-                ),
-                subtitle: Text(
-                  remember
-                      ? 'Store your key in the OS credential store.'
-                      : 'Use this connection until Dolores closes.',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                value: remember,
-                onChanged: working
-                    ? null
-                    : (value) => setState(() => remember = value!),
-              ),
-              if (widget.chat.rememberConnection)
-                TextButton(
-                  key: const Key('forget-connection'),
-                  onPressed: working ? null : forget,
-                  child: const Text('Forget saved connection'),
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: working ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          key: const Key('save-connection'),
-          onPressed: working || selected.isEmpty ? null : save,
-          child: Text(saving ? 'Saving…' : 'Save connection'),
-        ),
-      ],
-    ),
-  );
 }

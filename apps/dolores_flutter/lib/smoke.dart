@@ -1059,7 +1059,8 @@ Future<void> _run(
       'Project skill files stay out of context before review and activation',
       checks,
     );
-    await press('project-skills', key: true);
+    await press('settings', key: true);
+    await press('settings-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await press('review-skill-review', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -1085,7 +1086,8 @@ Future<void> _run(
       'Changed source does not replace the active reviewed snapshot',
       checks,
     );
-    await press('project-skills', key: true);
+    await press('settings', key: true);
+    await press('settings-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await press('review-skill-review', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -1189,7 +1191,8 @@ Future<void> _run(
       DoloresApp(chat: chat, captureKey: capture, themeMode: ThemeMode.light),
     );
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    await press('project-skills', key: true);
+    await press('settings', key: true);
+    await press('settings-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     final globalDirectory = Directory(
       path.join(output.path, 'global-skills', 'review'),
@@ -1215,7 +1218,8 @@ Future<void> _run(
       'An active project skill overrides a same-name global snapshot',
       checks,
     );
-    await press('project-skills', key: true);
+    await press('settings', key: true);
+    await press('settings-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await screenshot(capture, output, 'skills-list-light');
     await press('saved-skill-review', key: true);
@@ -1250,7 +1254,8 @@ Future<void> _run(
       'Side chats inherit global snapshots while remaining without working-folder tools',
       checks,
     );
-    await press('project-skills', key: true);
+    await press('settings', key: true);
+    await press('settings-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await screenshot(capture, output, 'global-skills-side-list-light');
     await press('saved-skill-review', key: true);
@@ -1274,7 +1279,8 @@ Future<void> _run(
     await chat.send();
     await waitUntil(() => !chat.busy && !chat.changing);
     final draftMessageCount = chat.messages.length;
-    await press('project-skills', key: true);
+    await press('settings', key: true);
+    await press('settings-skills', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await press('draft-skill', key: true);
     await Future<void>.delayed(const Duration(milliseconds: 200));

@@ -10,7 +10,7 @@ For a Windows portable preview, extract the **entire** ZIP to a folder and open 
 
 The repository includes a [build and packaging guide](CONTRIBUTING.md); it does not yet promise signed installers or an automatic updater.
 
-1. Open **Model connection**, enter your provider's OpenAI-compatible API base URL and key, then **Fetch models**. Select the models you want available and save. Manual model IDs are available when listing is unsupported.
+1. Open **Settings → Models → Connection & models**, enter your provider's OpenAI-compatible API base URL and key, then **Fetch models**. Select the models you want available and save. Manual model IDs are available when listing is unsupported.
 2. Choose **Open project…** for an existing folder, or start a **Temporary workspace** and Dolores creates one. Choose **Side chat** for conversation without file tools.
 3. Select a model inside the input box and send a message. Review each proposed tool operation before allowing it. Working chats need a model that supports Chat Completions function calls.
 

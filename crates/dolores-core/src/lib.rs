@@ -250,7 +250,22 @@ pub trait ModelProvider: Send + Sync {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Appearance {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
 pub trait SessionStore: Send + Sync {
+    fn appearance(&self) -> Result<Appearance, String> {
+        Ok(Appearance::System)
+    }
+    fn save_appearance(&self, _: Appearance) -> Result<(), String> {
+        Err("Appearance settings are unavailable in this store.".into())
+    }
     fn web_configuration(&self) -> Result<WebConfiguration, String> {
         Ok(Default::default())
     }

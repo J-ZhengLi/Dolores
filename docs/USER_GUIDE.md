@@ -1,14 +1,23 @@
 # Using Dolores
 
+## Settings
+
+The single **Settings** entry sits at the bottom left of the sidebar (open Conversations first in a narrow window). It opens one window with **Appearance**, **Models**, **Personalization**, **Memory**, **Web search**, **External tools**, **Skills**, **Permissions** and **Task limits**. Chat actions uses an ellipsis and contains conversation actions such as export, forks and run history.
+
+**Appearance** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
+
+**Models** combines Connection & models (provider, enabled models, image support and context windows), Responses (output tokens, timeout and reasoning) and Scope overrides (project/chat output and timeout). Configuration remains scoped as before. Each section saves explicitly, except theme selection; switching sections keeps drafts, while Close discards unsaved edits. If a connection changes while a response draft is open, reload response settings before saving. Workspace-specific pages explain when a working chat is required; opening Settings creates no workspace or model request.
+
+
 ## Choose tool access
 
-In a saved project or temporary chat, open **Chat actions → Task permissions**. **Review every operation** is the default. **Approve within selected grants** lets you choose file/discovery actions in a relative folder prefix, an exact command, or individual reviewed external tools. **Full access for this chat** skips prompts for advertised tools. Choose a duration and acknowledge the displayed scope before saving.
+In a saved project or temporary chat, open **Settings → Permissions**. **Review every operation** is the default. **Approve within selected grants** lets you choose file/discovery actions in a relative folder prefix, an exact command, or individual reviewed external tools. **Full access for this chat** skips prompts for advertised tools. Choose a duration and acknowledge the displayed scope before saving.
 
 Grants apply to this chat. They do not enable new plugins or self-updates. File restrictions, task budgets and Stop remain active. Commands and MCP use your account's OS permissions and can affect files outside the working folder. **Revoke grants** is available during work: it stops that chat's run and invalidates pending decisions. Effects already started can remain; inspect progress before resuming. Expired grants need renewal or revocation. Other chats keep their own access settings.
 
 ## Task limits and continuing work
 
-Open **Chat actions → Dolores settings** to set task limits for this chat, its project or your user defaults. Model calls, tool operations and the task deadline are separate from output tokens and the model context window. Leaving the task deadline blank retains the existing request-derived deadline.
+Open **Settings → Task limits** to set task limits for this chat, its project or your user defaults. Model calls, tool operations and the task deadline are separate from output tokens and the model context window. Leaving the task deadline blank retains the existing request-derived deadline.
 
 Dolores preserves saved progress at output/step limits. **Continue** uses a fresh bounded segment and fresh tool decisions. A task allows four segments by default; after that, review its progress and explicitly adjust Task limits before continuing. Applied files remain after a later failure. A saved reply or successful command alone does not establish that the whole task is finished.
 
@@ -43,7 +52,7 @@ query or URL before allowing it, under your selected task permission mode.
 Side chats have no tools. Search snippets and partial page excerpts are labeled
 in expandable tool cards and **Run history**.
 
-Open **Chat actions → Web search** to disable both web tools or change the global
+Open **Settings → Web search** to disable both web tools or change the global
 search connection. **Default (Mwmbl)** needs no account/key but has a smaller
 index. **Brave Search API** uses your separately supplied key and plan quota;
 blank keeps a saved key. **Custom SearXNG** needs a public HTTPS search endpoint
@@ -67,17 +76,17 @@ If Windows still displays a DLL or startup error after the preflight passes, ins
 
 ## Connect a model
 
-Open **Model connection** and enter the OpenAI-compatible API base URL. A local server might use `http://localhost:11434/v1`; its model must already be installed and server running. Hosted providers use their own HTTPS prefix. Enter a key when required, **Fetch models**, select an enabled subset, and save. Manual IDs are available when listing is unsupported.
+Open **Settings → Models → Connection & models** and enter the OpenAI-compatible API base URL. A local server might use `http://localhost:11434/v1`; its model must already be installed and server running. Hosted providers use their own HTTPS prefix. Enter a key when required, **Fetch models**, select an enabled subset, and save. Manual IDs are available when listing is unsupported.
 
 Pick the active model at the bottom right of the input card. Changes preserve the conversation and draft. **Remember connection** stores the key in your OS vault and restores the connection after restart. A blank key field reuses a current/saved key for the same endpoint; **Use without a key** clears it on save. **Forget saved connection** removes the remembered connection/key while keeping history. If recovery fails, unlock the vault or reconnect; conversations remain available.
 
-Set each model's context window in Model connection; blank uses **128K (131072 tokens)**. The context ring shows an estimate and included context, with reported usage shown separately when available. **Request settings** controls that model's output allowance, deadline and supported reasoning options. Defaults are **2048 output tokens / 180 seconds**. Use provider-specific reasoning options only when your endpoint supports them.
+Set each model's context window in **Settings → Models → Connection & models**; blank uses **128K (131072 tokens)**. The context ring shows an estimate and included context, with reported usage shown separately when available. **Settings → Models → Responses** controls that model's output allowance, deadline and supported reasoning options. Defaults are **2048 output tokens / 180 seconds**. Use provider-specific reasoning options only when your endpoint supports them.
 
 ## Attach files and images
 
 Use **Attach file** (the plus button) in the input card. Click its chip to preview the saved snapshot and what Send will share; remove a draft attachment with its chip’s close action. Text files must be UTF-8 within 64 KiB; PNG/JPEG images fit 2 MiB and 4 megapixels, with no side over 4096 pixels. Up to four files fit one message. Changes to the original file after attachment do not change the snapshot. An attachment-only Send asks Dolores to review the files.
 
-For images, open **Model connection**, choose the model in **Model settings** at the top, enable **Supports image input**, and **Save connection**. This setting applies separately to each model and starts disabled. Your provider and model must accept OpenAI-compatible image input. An image-disabled error also offers **Model settings**; your draft and attachments remain so you can change the setting, choose a capable model, or remove the image before sending again. PDF/OCR and other binary formats require an explicit conversion adapter; none is bundled. The context ring includes an approximate image token allowance, separate from actual reported usage.
+For images, open **Settings → Models → Connection & models**, choose the model in **Model settings** at the top, enable **Supports image input**, and **Save connection**. This setting applies separately to each model and starts disabled. Your provider and model must accept OpenAI-compatible image input. An image-disabled error also offers **Model settings**; your draft and attachments remain so you can change the setting, choose a capable model, or remove the image before sending again. PDF/OCR and other binary formats require an explicit conversion adapter; none is bundled. The context ring includes an approximate image token allowance, separate from actual reported usage.
 
 **Chat actions → Export attachments** copies draft/sent snapshots into a new folder with a manifest. Ordinary conversation exports contain references only. **Clean unused attachments** removes snapshots that no chat or draft still references; deleting a chat does not remove exported copies or securely erase database pages. See [sharing and limits](design/attachments.md).
 
@@ -93,9 +102,9 @@ New chat starts a temporary workspace. Its menu offers Side chat; a project's **
 
 ## Write, review and recover
 
-In a saved chat, open **Chat actions → Dolores settings** to choose **User defaults**, **This project** or **This chat**. Project/chat overrides can change output tokens and timeout; interaction controls choose discussion before substantial work or brief explanations, and checking important assumptions. The panel shows the effective values and their source. **Use inherited settings** removes that scope's overrides. Reasoning options and model context windows stay in model configuration/Request settings.
+Open **Settings** at the bottom left. **Models → Scope overrides** chooses output and timeout overrides for a project or chat; **Personalization** controls discussion before substantial work, brief explanations and checking important assumptions. **Task limits** controls execution budgets. Each scoped panel offers **User defaults**, **This project** and **This chat** where available, and shows effective values and origins. **Use inherited settings** clears only that panel’s overrides at the selected scope; other sections are preserved. Reasoning and context windows remain under Models.
 
-Changes apply to future runs. While a run is active, you can inspect settings but cannot save them. If another update makes your save stale, **Refresh** keeps your draft; review it and explicitly Save again. Tool operations still need review, and these settings do not authorize self-updates. Behavior instructions encourage useful questions and candid recovery; results also depend on the model.
+Changes apply to future runs. While a run is active, run-related changes wait until it finishes; theme changes remain available. If another update makes your save stale, **Refresh** keeps your draft; review it and explicitly Save again. Tool operations still need review, and these settings do not authorize self-updates. Behavior instructions encourage useful questions and candid recovery; results also depend on the model.
 
 Enter sends ordinary text; Shift+Enter inserts a newline. Headings and fenced code render as editable blocks. Enter inside code inserts a newline; Ctrl/Command+Enter sends. Down Arrow from the final visual code line moves to the next block or creates a paragraph below. Ctrl/Command+A selects the whole draft. Replies have message/code Copy actions.
 
@@ -103,14 +112,14 @@ Working models can request folder listing, literal search, text reads and file c
 
 **Changes** retains file before/after snapshots independently of the final reply. Select a record, **Review revert**, inspect the reverse diff, then **Revert once**; a recorded creation offers **Remove once**. Changed files require another review. **Needs check** indicates an uncertain receipt to inspect. Applied files can remain after Stop or a later model failure. Command and MCP effects are outside this journal.
 
-Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable installed local servers under **Chat actions → External tools (MCP)**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
+Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable installed local servers under **Settings → External tools**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
 
 If a task pauses at an output/agent-step limit, inspect retained work and choose **Continue** on the latest paused reply. This starts another bounded run with current settings and fresh approvals. Send or clear any current draft first. **Repair and verify** uses saved failed/incomplete command evidence to repair work and rerun the same check. A model's success claim does not clear failed checks.
 
 | Symptom | Next action |
 | --- | --- |
 | Connection cannot recover | Unlock the credential store, retry recovery or reconnect. |
-| Output cut short or response timed out | Inspect the actual limit; check project/chat overrides in Dolores settings, then Request settings. Explicitly Continue/retry where offered. |
+| Output cut short or response timed out | Inspect the actual limit; check Settings → Models → Scope overrides, then Models → Responses. Explicitly Continue/retry where offered. |
 | Model rejects a reasoning option | Choose Provider default or a supported option, then retry. |
 | Proposed edit no longer matches | Inspect the current file and request a fresh exact edit. |
 | Model says it cannot read files | Check the chat has a working folder and the model supports tool calls. |

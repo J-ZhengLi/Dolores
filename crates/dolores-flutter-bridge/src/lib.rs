@@ -92,6 +92,9 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    SaveAppearance {
+        theme: dolores_core::Appearance,
+    },
     WebSettings,
     SaveWebSettings {
         revision: u32,
@@ -554,6 +557,10 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::SaveAppearance { theme } => {
+                self.store.save_appearance(theme)?;
+                return Ok(json!(theme));
+            },
             Command::SavedDraft {session} => return Ok(json!(self.store.saved_draft(&session)?)),
             Command::SaveDraft {session,text} => {self.store.save_draft(&session,&text)?;return Ok(Value::Null);},
             Command::RunCheckpoint {session,run_id} => return checkpoints::view(self.store.as_ref(),&session,&run_id),
@@ -829,7 +836,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"durableDrafts":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"appearance":self.store.appearance()?,"durableDrafts":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -2172,6 +2179,33 @@ mod tests {
             engine.call(Command::Bootstrap).unwrap()["requestSettings"]["maxOutputTokens"],
             4096
         );
+    }
+    #[test]
+    fn appearance_is_local_validated_and_restored_in_bootstrap() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let engine = Engine::new(
+            store,
+            Arc::new(connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        assert_eq!(
+            engine.call(Command::Bootstrap).unwrap()["appearance"],
+            "system"
+        );
+        let command: Command =
+            serde_json::from_value(json!({"command":"saveAppearance","theme":"dark"})).unwrap();
+        assert_eq!(engine.call(command).unwrap(), "dark");
+        assert!(serde_json::from_value::<Command>(
+            json!({"command":"saveAppearance","theme":"unknown"})
+        )
+        .is_err());
+        assert_eq!(
+            engine.call(Command::Bootstrap).unwrap()["appearance"],
+            "dark"
+        );
+        assert!(!engine.call(Command::Bootstrap).unwrap()["configured"]
+            .as_bool()
+            .unwrap());
     }
     #[test]
     fn approval_commands_reject_stale_wrong_call_and_repeated_decisions() {

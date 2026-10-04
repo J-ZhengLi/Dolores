@@ -61,7 +61,7 @@ void main() {
         await tester.pumpWidget(DoloresApp(chat: chat));
         await tester.tap(find.byTooltip('Conversations'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('connection')));
+        await tester.tap(find.byKey(const Key('settings')));
         await tester.pumpAndSettle();
         final window = find.byKey(const Key('context-window'));
         await tester.ensureVisible(window);
@@ -94,13 +94,16 @@ void main() {
           )['modelContexts'],
           {'fixture': 65536, 'faster': null},
         );
-        // The drawer remains open underneath the dialog in this compact flow.
-        await tester.tap(find.byKey(const Key('connection')));
+        await tester.tap(find.byKey(const Key('close-settings')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Conversations'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('settings')));
         await tester.pumpAndSettle();
         await tester.ensureVisible(window);
         expect(tester.widget<TextField>(window).controller!.text, '65536');
         await tester.enterText(window, '16384');
-        await tester.tap(find.text('Cancel'));
+        await tester.tap(find.byKey(const Key('close-settings')));
         await tester.pumpAndSettle();
         expect(chat.modelContexts['fixture'], 65536);
         expect(tester.takeException(), isNull);

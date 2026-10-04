@@ -4,7 +4,7 @@ Brick 6.1 introduced local stdio MCP tools; brick 6.3 supports up to four saved 
 
 ## Desktop flow
 
-In a saved Project or Temporary chat, open **Chat actions → External tools (MCP)**. Select a saved server or choose **Add server**. Enter a short name, choose an installed direct executable and add its literal arguments individually. On Windows choose an `.exe`; for a JavaScript server, choose an installed Node executable and put the existing server script path in the first argument. A shell command or `npx.cmd` is not a direct executable. No variable expansion or shell fallback occurs.
+In a saved Project or Temporary chat, open **Settings → External tools**. Select a saved server or choose **Add server**. Enter a short name, choose an installed direct executable and add its literal arguments individually. On Windows choose an `.exe`; for a JavaScript server, choose an installed Node executable and put the existing server script path in the first argument. A shell command or `npx.cmd` is not a direct executable. No variable expansion or shell fallback occurs.
 
 **Inspect server** is an explicit launch action. Its disclosure explains that the program runs with user OS permissions, may access files/network or change them during startup, and is not sandboxed by tool approval. Inspection initializes the server, discovers a bounded catalog, then closes it. Select one or two tools and choose **Enable selected tools** to save the reviewed connection for that folder. Editing launch fields discards the review; inspecting never enables tools. A previously enabled connection remains unchanged until a successful replacement, Disable or Forget. Side chats have no MCP setup or tools.
 

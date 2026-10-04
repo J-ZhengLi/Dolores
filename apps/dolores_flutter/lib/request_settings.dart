@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'theme.dart';
+import 'settings_frame.dart';
 
 class RequestSettingsDialog extends StatefulWidget {
   final ChatController chat;
@@ -12,9 +13,10 @@ class RequestSettingsDialog extends StatefulWidget {
 
 class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   final _form = GlobalKey<FormState>();
+  final _scroll = ScrollController();
   late final TextEditingController tokens, timeout;
   bool saving = false;
-  String? failure;
+  String? failure, notice;
   late String endpoint, model;
   String reasoning = 'providerDefault';
   bool inherited = false;
@@ -39,6 +41,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
 
   @override
   void dispose() {
+    _scroll.dispose();
     tokens.dispose();
     timeout.dispose();
     super.dispose();
@@ -52,10 +55,19 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   }
 
   Future<void> _save() async {
+    if (endpoint != widget.chat.baseUrl ||
+        (model.isNotEmpty && !widget.chat.enabledModels.contains(model))) {
+      setState(
+        () => failure = 'The model connection changed. Reload response settings before saving. Your edits are retained.',
+      );
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+      return;
+    }
     if (!inherited && !_form.currentState!.validate()) return;
     setState(() {
       saving = true;
       failure = null;
+      notice = null;
     });
     try {
       final settings = {
@@ -72,9 +84,16 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
           inherited ? null : settings,
         );
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        if (SettingsEmbedding.of(context) == null) {
+          Navigator.pop(context);
+        } else {
+          setState(() => notice = 'Response settings saved.');
+        }
+      }
     } catch (error) {
       if (mounted) setState(() => failure = error.toString());
+      if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -85,158 +104,173 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     return PopScope(
       canPop: !saving,
-      child: AlertDialog(
-        title: const Text('Request settings'),
-        content: SizedBox(
-          width: 400,
-          child: SingleChildScrollView(
-            child: Form(
-              key: _form,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (model.isNotEmpty) ...[
-                    DropdownButtonFormField<String>(
-                      key: const Key('generation-model'),
-                      initialValue: model,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Model'),
-                      items: widget.chat.enabledModels
-                          .map(
-                            (id) => DropdownMenuItem(
-                              value: id,
-                              child: Text(id, overflow: TextOverflow.ellipsis),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: saving
-                          ? null
-                          : (value) {
-                              setState(() {
-                                model = value!;
-                                inherited = false;
-                                tokens.text =
-                                    '${selectedSettings['maxOutputTokens']}';
-                                timeout.text =
-                                    '${selectedSettings['timeoutSeconds']}';
-                                reasoning =
-                                    selectedSettings['reasoning'] as String? ??
-                                    'providerDefault';
-                                failure = null;
-                              });
-                            },
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  TextFormField(
-                    key: const Key('output-token-limit'),
-                    controller: tokens,
-                    enabled: !saving && !inherited,
-                    keyboardType: TextInputType.number,
-                    maxLength: 9,
-                    decoration: const InputDecoration(
-                      labelText: 'Output token limit',
-                      helperText: '1–32,768 tokens · default 2,048',
-                      counterText: '',
-                    ),
-                    validator: (v) => inherited ? null : _validate(v, 32768),
+      child: SettingsFormFrame(
+        title: 'Responses',
+        canClose: !saving,
+        content: SingleChildScrollView(
+          controller: _scroll,
+          child: Form(
+            key: _form,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (failure != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(failure!, style: TextStyle(color: p.errorText)),
                   ),
-                  const SizedBox(height: 20),
-                  TextFormField(
-                    key: const Key('request-timeout'),
-                    controller: timeout,
-                    enabled: !saving && !inherited,
-                    keyboardType: TextInputType.number,
-                    maxLength: 9,
-                    decoration: const InputDecoration(
-                      labelText: 'Request timeout (seconds)',
-                      helperText: '1–900 seconds · default 180',
-                      counterText: '',
-                    ),
-                    validator: (v) => inherited ? null : _validate(v, 900),
-                  ),
-                  const SizedBox(height: 20),
+                if (model.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
-                    key: ValueKey('reasoning-$model-$reasoning'),
-                    initialValue: reasoning,
+                    key: const Key('generation-model'),
+                    initialValue: model,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Reasoning control',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'providerDefault',
-                        child: Text('Provider default'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'deepseekThinkingOff',
-                        child: Text('DeepSeek · thinking off'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'openaiLow',
-                        child: Text('OpenAI · low effort'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'openaiMedium',
-                        child: Text('OpenAI · medium effort'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'openaiHigh',
-                        child: Text('OpenAI · high effort'),
-                      ),
-                    ],
-                    onChanged: saving || inherited
+                    decoration: const InputDecoration(labelText: 'Model'),
+                    items: {...widget.chat.enabledModels, model}
+                        .map(
+                          (id) => DropdownMenuItem(
+                            value: id,
+                            child: Text(id, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: saving
                         ? null
-                        : (value) => setState(() => reasoning = value!),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Saved for this model and endpoint. Project/chat output and timeout overrides in Chat actions → Dolores settings take precedence. Check them when adjusting a failed run’s limit. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
-                    style: TextStyle(color: p.muted, fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    key: const Key('reset-request-settings'),
-                    onPressed: saving
-                        ? null
-                        : () {
+                        : (value) {
                             setState(() {
-                              inherited = model.isNotEmpty;
-                              final defaults =
-                                  widget.chat.defaultRequestSettings;
-                              tokens.text = '${defaults['maxOutputTokens']}';
-                              timeout.text = '${defaults['timeoutSeconds']}';
+                              model = value!;
+                              inherited = false;
+                              tokens.text =
+                                  '${selectedSettings['maxOutputTokens']}';
+                              timeout.text =
+                                  '${selectedSettings['timeoutSeconds']}';
                               reasoning =
-                                  defaults['reasoning'] as String? ??
+                                  selectedSettings['reasoning'] as String? ??
                                   'providerDefault';
+                              failure = null;
                             });
-                            _form.currentState?.validate();
                           },
-                    child: const Text('Restore defaults'),
                   ),
-                  if (inherited)
-                    const Text(
-                      'Save to remove this model’s override and use the application defaults.',
-                    ),
-                  if (failure != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        failure!,
-                        style: TextStyle(color: p.errorText),
-                      ),
-                    ),
+                  const SizedBox(height: 20),
                 ],
-              ),
+                TextFormField(
+                  key: const Key('output-token-limit'),
+                  controller: tokens,
+                  enabled: !saving && !inherited,
+                  keyboardType: TextInputType.number,
+                  maxLength: 9,
+                  decoration: const InputDecoration(
+                    labelText: 'Output token limit',
+                    helperText: '1–32,768 tokens · default 2,048',
+                    counterText: '',
+                  ),
+                  validator: (v) => inherited ? null : _validate(v, 32768),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  key: const Key('request-timeout'),
+                  controller: timeout,
+                  enabled: !saving && !inherited,
+                  keyboardType: TextInputType.number,
+                  maxLength: 9,
+                  decoration: const InputDecoration(
+                    labelText: 'Request timeout (seconds)',
+                    helperText: '1–900 seconds · default 180',
+                    counterText: '',
+                  ),
+                  validator: (v) => inherited ? null : _validate(v, 900),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('reasoning-$model-$reasoning'),
+                  initialValue: reasoning,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Reasoning control',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'providerDefault',
+                      child: Text('Provider default'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'deepseekThinkingOff',
+                      child: Text('DeepSeek · thinking off'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'openaiLow',
+                      child: Text('OpenAI · low effort'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'openaiMedium',
+                      child: Text('OpenAI · medium effort'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'openaiHigh',
+                      child: Text('OpenAI · high effort'),
+                    ),
+                  ],
+                  onChanged: saving || inherited
+                      ? null
+                      : (value) => setState(() => reasoning = value!),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Saved for this model and endpoint. Project/chat output and timeout overrides in Models → Scope overrides take precedence. Check them when adjusting a failed run’s limit. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
+                  style: TextStyle(color: p.muted, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  key: const Key('reset-request-settings'),
+                  onPressed: saving
+                      ? null
+                      : () {
+                          setState(() {
+                            inherited = model.isNotEmpty;
+                            final defaults = widget.chat.defaultRequestSettings;
+                            tokens.text = '${defaults['maxOutputTokens']}';
+                            timeout.text = '${defaults['timeoutSeconds']}';
+                            reasoning =
+                                defaults['reasoning'] as String? ??
+                                'providerDefault';
+                          });
+                          _form.currentState?.validate();
+                        },
+                  child: const Text('Restore defaults'),
+                ),
+                if (inherited)
+                  const Text(
+                    'Save to remove this model’s override and use the application defaults.',
+                  ),
+                if (notice != null) Text(notice!),
+              ],
             ),
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: saving ? null : () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          if (SettingsEmbedding.of(context) != null)
+            TextButton(
+              onPressed: saving
+                  ? null
+                  : () => setState(() {
+                      endpoint = widget.chat.baseUrl;
+                      model = widget.chat.model;
+                      inherited = false;
+                      tokens.text = '${selectedSettings['maxOutputTokens']}';
+                      timeout.text = '${selectedSettings['timeoutSeconds']}';
+                      reasoning =
+                          selectedSettings['reasoning'] as String? ??
+                          'providerDefault';
+                      failure = null;
+                      notice = 'Response settings reloaded.';
+                    }),
+              child: const Text('Reload response settings'),
+            ),
+          if (SettingsEmbedding.of(context) == null)
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
           FilledButton(
             key: const Key('save-request-settings'),
             onPressed: saving ? null : _save,

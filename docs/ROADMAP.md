@@ -6,6 +6,8 @@ Implementation update: the user authorized batching milestone 9. Bricks **9.1–
 
 The user subsequently authorized milestone 10 as a batch. **10.1–10.6 are implemented**, with separate commits and release-native/widget/live evidence. The initial routed six-case corpus has five passing observable cases after explicit same-budget recovery; a separate DeepSeek understanding case passes unchanged criteria, completing passing evidence for the small fixed set. Qwen project grounding still fails. The mechanical foundation is delivered, while consistency across configured models remains unaccepted. See [batch results](ACCEPTANCE.md#milestone-10--batch-exit) before treating advanced tools as dependable.
 
+User-requested UX detour before 11.3: unified Settings replaces scattered configuration entries, combines model/response controls, separates scoped personalization/task budgets, and adds persisted System/Light/Dark appearance. Runtime evidence is recorded in acceptance; this does not change or complete the planned browser brick.
+
 ## Destination and scope
 
 Milestone 11 update: **11.1 scoped subagents and 11.2 attributable web search are
