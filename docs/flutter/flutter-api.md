@@ -48,3 +48,5 @@ Transport/Stop/malformed ordinary responses do not publish an incomplete chat tu
 `run_command` now accepts optional `timeout_seconds` and `capture_bytes`; its approval preview includes their resolved values. `read_text_file` accepts `start_line`/`line_count`; ranged results include `snapshot`, usable as edit `expected_snapshot`. See [practical tools](../design/practical-tools.md).
 
 `savedDraft`, `saveDraft`, `runCheckpoint` and `checkpointDraft` are local APIs. `start.resumeRun` binds explicit recovery to the latest recoverable run; snapshots expose optional parentRun and accumulated segments. Old snapshot JSON defaults to the first segment. See [task checkpoints](../design/task-checkpoints.md).
+
+orkSession {session, through} atomically copies complete turns and returns a new session/workspace with sharedFolder. setAutoCompact {session, enabled} controls only that chat; reviewSummary includes autoCompact. compacting/compacted events disclose a single preflight summary and reported usage; the durable run log retains these events.

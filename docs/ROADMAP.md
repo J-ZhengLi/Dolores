@@ -132,6 +132,8 @@ Default order is sequential. Independent documents/measurements may proceed with
 
 ### 10.5 Thread forks and managed context
 
+**Implementation status:** transactional complete-turn forks, reviewed nested guidance, keyword-selected activated skills and opt-in bounded preflight compaction are implemented; qualification is recorded in acceptance.
+
 **Scope:** resume/fork at complete boundaries with shared-folder semantics; scoped ancestor/nested guidance and relevant activated skills. Opt-in bounded compaction preserves goals/unresolved work/provenance/full history and exposes coverage/omissions.
 
 **Basic acceptance:** fork copies selected history without active runs/grants; small windows trigger visible recovery and retain the task goal. Guidance does not leak between projects.

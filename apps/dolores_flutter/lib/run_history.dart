@@ -31,6 +31,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
   Future<void> refresh() async {
     setState(() {
       pending = true;
+      checkpoint = null;
       error = null;
     });
     try {
@@ -63,6 +64,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
   Future<void> select(String id) async {
     setState(() {
       pending = true;
+      checkpoint = null;
       error = null;
       selected = id;
       events = [];

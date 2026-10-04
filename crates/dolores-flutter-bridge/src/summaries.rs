@@ -42,7 +42,7 @@ impl Engine {
         self.clear_summary_review()?;
         let batch = self.store.review_summary_batch(session)?;
         let token = uuid::Uuid::new_v4().to_string();
-        let result = json!({"token":token,"summary":batch.previous,"messages":batch.messages,"hasMore":batch.has_more,"model":self.store.preferences()?.model});
+        let result = json!({"token":token,"summary":batch.previous,"messages":batch.messages,"hasMore":batch.has_more,"model":self.store.preferences()?.model,"autoCompact":self.store.auto_compact(session)?});
         *self.summary_review.lock().map_err(|_| STALE)? = Some(SummaryReview {
             token,
             session: session.into(),

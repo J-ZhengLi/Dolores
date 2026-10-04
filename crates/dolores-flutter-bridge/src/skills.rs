@@ -554,7 +554,7 @@ mod tests {
         let context = engine
             .call(crate::Command::Context {
                 session: Some("side".into()),
-                input: "draft".into(),
+                input: "review this draft".into(),
                 tools: false,
             })
             .unwrap();

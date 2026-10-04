@@ -29,6 +29,7 @@ pub struct SqliteStore {
 mod drafts;
 mod runs;
 mod settings;
+mod threads;
 fn storage_error(_: impl std::fmt::Display) -> String {
     "Could not read or save local conversation data.".into()
 }
@@ -143,6 +144,9 @@ impl SqliteStore {
         if version < 22 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS session_drafts(session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,text TEXT NOT NULL); PRAGMA user_version=22; COMMIT;").map_err(storage_error)?;
         }
+        if version < 23 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS thread_context(session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,auto_compact INTEGER NOT NULL DEFAULT 0,origin TEXT); PRAGMA user_version=23; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -153,6 +157,16 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn fork_session(&self, source: &str, through: i64, id: &str) -> Result<Session, String> {
+        self.fork_thread(source, through, id)
+    }
+    fn auto_compact(&self, id: &str) -> Result<bool, String> {
+        self.read_auto_compact(id)
+    }
+    fn set_auto_compact(&self, id: &str, enabled: bool) -> Result<(), String> {
+        self.write_auto_compact(id, enabled)
+    }
+
     fn saved_draft(&self, id: &str) -> Result<String, String> {
         self.read_draft(id)
     }
@@ -1046,7 +1060,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 22);
+        assert_eq!(version, 23);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

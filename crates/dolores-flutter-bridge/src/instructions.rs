@@ -28,7 +28,7 @@ pub(super) fn effective_instructions(
     let Some(saved) = store.workspace_instructions(&root)? else {
         return Ok(None);
     };
-    let current = dolores_tools_fs::read_workspace_instructions(Path::new(&root));
+    let current = dolores_tools_fs::read_scoped_workspace_instructions(Path::new(&root));
     if current.as_ref().ok() != Some(&saved.text) {
         return Err("Workspace instructions need review: AGENTS.md changed, is missing or cannot be loaded. Open Instructions to review it again or disable instructions before sending.".into());
     }
@@ -49,7 +49,7 @@ impl Engine {
             .take();
         let root = self.instruction_root(session)?;
         let saved = self.store.workspace_instructions(&root)?;
-        let text = dolores_tools_fs::read_workspace_instructions(Path::new(&root));
+        let text = dolores_tools_fs::read_scoped_workspace_instructions(Path::new(&root));
         let mut response = json!({"source":"AGENTS.md","enabled":saved.is_some(),"provenance":saved.as_ref().map(|s| &s.provenance),"current":false,"text":null,"token":null,"problem":null});
         match text {
             Ok(text) => {
@@ -87,7 +87,8 @@ impl Engine {
         }
         let root = self.instruction_root(session)?;
         if root != pending.root
-            || dolores_tools_fs::read_workspace_instructions(Path::new(&root))? != pending.text
+            || dolores_tools_fs::read_scoped_workspace_instructions(Path::new(&root))?
+                != pending.text
         {
             return Err("AGENTS.md changed after review. Refresh and review it again.".into());
         }

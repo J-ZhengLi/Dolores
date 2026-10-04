@@ -633,6 +633,22 @@ class ChatController extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> forkAt(int through) async {
+    if (busy || changing || session == null) return;
+    try {
+      final result = await bridge.call({
+        'command': 'forkSession',
+        'session': session,
+        'through': through,
+      }) as Map;
+      await refresh();
+      await select(result['session']['id'] as String);
+    } catch (failure) {
+      error = failure.toString();
+      _notify();
+    }
+  }
+
   Future<void> select(String id) async {
     if (busy || changing) return;
     _rememberView();
@@ -917,6 +933,12 @@ class ChatController extends ChangeNotifier {
       for (final event in events as List) {
         if (event['id'] != id) continue;
         switch (event['type']) {
+          case 'compacting':
+            _record('Compacting context · one bounded attempt');
+          case 'compacted':
+            _record(
+              'Context compacted · ${event['summary']['coveredTurns']} turns · usage ${event['usage']}',
+            );
           case 'started':
             session = event['session'] as String;
             for (final record in requestLogs.where(

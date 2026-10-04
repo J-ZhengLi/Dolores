@@ -5,6 +5,8 @@ mod changes;
 #[cfg(test)]
 mod checkpoint_tests;
 mod checkpoints;
+#[cfg(test)]
+mod compaction_tests;
 mod comparison;
 mod connection;
 mod continuation;
@@ -48,6 +50,9 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    log: Option<Arc<run_journal::RunLog>>,
+    compaction_provider: Option<Arc<dyn ModelProvider>>,
+    compacted: bool,
     resume_run: Option<String>,
     permissions: dolores_core::PermissionPolicy,
     task: dolores_core::TaskBudget,
@@ -83,6 +88,14 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ForkSession {
+        session: String,
+        through: i64,
+    },
+    SetAutoCompact {
+        session: String,
+        enabled: bool,
+    },
     TaskPermissions {
         session: String,
     },
@@ -833,7 +846,7 @@ impl Engine {
                 let messages =
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
                 let (messages, skill_sources) =
-                    dolores_core::prepare_skill_context(messages, &skills)?;
+                    dolores_core::prepare_relevant_skill_context(messages, &skills)?;
                 let (messages, memory_context) =
                     dolores_core::prepare_memory_context(messages, memories.clone())?;
                 let messages =
@@ -889,6 +902,10 @@ impl Engine {
                 report["sessionSummary"] = json!(session_summary);
                 report["skillEntries"] = json!(dolores_core::effective_skills(&skills)
                     .into_iter()
+                    .filter(|s| summary
+                        .skills
+                        .iter()
+                        .any(|source| source.name == s.name && source.scope == s.scope))
                     .map(|s| {
                         let mut value = json!(s.current());
                         if s.scope == dolores_core::SkillScope::Global {
@@ -898,6 +915,20 @@ impl Engine {
                     })
                     .collect::<Vec<_>>());
                 Ok(report)
+            }
+            Command::ForkSession { session, through } => {
+                let fork = self.store.fork_session(
+                    &session,
+                    through,
+                    &uuid::Uuid::new_v4().to_string(),
+                )?;
+                Ok(
+                    json!({"session":fork,"workspace":self.store.workspace(&fork.id)?,"sharedFolder":true}),
+                )
+            }
+            Command::SetAutoCompact { session, enabled } => {
+                self.store.set_auto_compact(&session, enabled)?;
+                Ok(Value::Null)
             }
             Command::Delete { session } => {
                 self.clear_revert()?;
@@ -1104,6 +1135,16 @@ impl Engine {
                         self.harness_inventory(session.as_deref())?,
                     )));
                 }
+                let compaction_provider = if self.store.auto_compact(session.as_deref().unwrap())? {
+                    Some(
+                        self.connection
+                            .lock()
+                            .map_err(|_| "Connection unavailable.")?
+                            .bounded_review_provider(1024, 30)?,
+                    )
+                } else {
+                    None
+                };
                 let model = self.store.preferences()?.model;
                 let settings = provider.request_settings();
                 let learner = if self.store.automatic_memory_policy()?.enabled {
@@ -1222,6 +1263,9 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            log: Some(log.clone()),
+                            compaction_provider,
+                    compacted: false,
                             resume_run,
                             permissions: effective.permissions,
                             task: effective.task,
@@ -1276,10 +1320,14 @@ async fn execute(
     cancel: CancellationToken,
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
+    let started_at = std::time::Instant::now();
     let TurnRequest {
+        log,
+        compaction_provider,
+        compacted,
         resume_run,
         permissions,
-        task,
+        mut task,
         interaction,
         continuation,
         id,
@@ -1346,7 +1394,7 @@ async fn execute(
         context
     };
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
-    let (context, skill_sources) = dolores_core::prepare_skill_context(context, &skills)?;
+    let (context, skill_sources) = dolores_core::prepare_relevant_skill_context(context, &skills)?;
     let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
     let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
@@ -1356,6 +1404,114 @@ async fn execute(
         provider.context_window_tokens(),
         settings.unwrap_or_default(),
     )?;
+    let uncovered = count.unwrap_or(0).saturating_sub(
+        session_summary
+            .as_ref()
+            .map_or(0, |s| s.provenance.covered_turns),
+    );
+    let omitted = uncovered.saturating_sub((context.len().saturating_sub(2) / 2) as u64);
+    if omitted > 0 && store.auto_compact(&session)? {
+        if compacted {
+            return Err("Compaction preserved a valid summary but this window still omits history. Review Session summary, shorten context or increase the model window before sending again.".into());
+        }
+        if task.model_calls < 3 {
+            return Err("Automatic compaction needs one summary call and at least two remaining model calls. Increase Task limits or use Session summary manually.".into());
+        }
+        forward(output,json!({"type":"compacting","id":id,"message":"Compacting one complete source batch; full history is retained."}),&cancel).await?;
+        if let Some(log) = &log {
+            log.record(
+                None,
+                "compacting",
+                json!({"source":"complete history batch","omittedTurns":omitted}),
+            )
+            .await?;
+        }
+        let summarizer = compaction_provider
+            .ok_or("Compaction provider is unavailable. Use Session summary manually.")?;
+        let mut batch = store.review_summary_batch(&session)?;
+        let mut prompt = dolores_core::summary_prompt(&batch)?;
+        prompt[0].content.push_str(" The user opted into automatic compaction. Preserve the original goal, unresolved work and uncertainty. No tools or permissions are granted.");
+        let prompt = loop {
+            match dolores_core::prepare_token_context(prompt.clone(),&[],summarizer.context_window_tokens(),summarizer.request_settings().unwrap_or_default()) {
+                Ok((prepared,_))=>break prepared,
+                Err(_) if batch.messages.len()>2=> {batch.messages.truncate(batch.messages.len()-2);batch.has_more=true;prompt=dolores_core::summary_prompt(&batch)?;},
+                Err(error)=>return Err(format!("{error} Summary sources cannot fit this model window. Last valid summary remains; use manual recovery or a larger window.")),
+            }
+        };
+        let (text,usage)=memory_suggestions::collect_review(summarizer,prompt,cancel.clone(),"Compaction").await.map_err(|e|format!("{e} Last valid summary and draft remain. Open Session summary for manual recovery."))?;
+        let goal = batch
+            .previous
+            .as_ref()
+            .and_then(|s| s.text.lines().find(|l| l.starts_with("Original goal: ")))
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                format!(
+                    "Original goal: {}",
+                    batch.messages[0].content.replace('\n', " ")
+                )
+            });
+        let latest = store.runs(&session)?.into_iter().find(|r| {
+            r.state != dolores_core::RunState::Running
+                && r.state != dolores_core::RunState::Prepared
+        });
+        let text = format!(
+            "{goal}\nUnresolved run provenance (inspect receipts; no replay authority): {}\n{text}",
+            latest.map_or_else(|| "none".into(), |r| format!("{} {:?}", r.id, r.state))
+        );
+        dolores_core::validate_summary(&text).map_err(|e| {
+            format!("{e} Last valid summary and draft remain. Use manual summary recovery.")
+        })?;
+        if cancel.is_cancelled() {
+            return Err(stopped());
+        }
+        let saved_summary = store.save_session_summary(&session, &batch, &text, &model)?;
+        forward(
+            output,
+            json!({"type":"compacted","id":id,"summary":saved_summary.provenance,"usage":usage}),
+            &cancel,
+        )
+        .await?;
+        if let Some(log) = &log {
+            log.record(
+                None,
+                "compacted",
+                json!({"summary":saved_summary.provenance,"usage":usage}),
+            )
+            .await?;
+        }
+        task.model_calls -= 1;
+        let spent = started_at.elapsed().as_secs();
+        let remaining = u64::from(task.deadline(settings.unwrap_or_default().timeout_seconds))
+            .saturating_sub(spent);
+        if remaining < 30 {
+            return Err("Compaction saved valid progress but fewer than 30 seconds remain in the task elapsed allowance. Increase Task limits or send again explicitly.".into());
+        }
+        task.elapsed_seconds = Some(remaining.min(3600) as u32);
+        return Box::pin(execute(
+            store,
+            provider,
+            TurnRequest {
+                log,
+                compaction_provider: None,
+                compacted: true,
+                resume_run,
+                permissions,
+                task,
+                interaction,
+                continuation,
+                id,
+                session: Some(session),
+                input,
+                model,
+                settings,
+                tools,
+                approval,
+            },
+            cancel,
+            output,
+        ))
+        .await;
+    }
     let mut summary = ContextSummary::from_messages(&context, count);
     summary.tokens = Some(tokens);
     summary.instructions = guidance.map(|g| g.provenance);
@@ -1705,6 +1861,9 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    log: None,
+                    compaction_provider: None,
+                    compacted: false,
                     permissions: Default::default(),
                     task: Default::default(),
                     interaction: Default::default(),
@@ -1955,6 +2114,9 @@ mod tests {
                     fail: false,
                 }),
                 TurnRequest {
+                    log: None,
+                    compaction_provider: None,
+                    compacted: false,
                     permissions: Default::default(),
                     task: Default::default(),
                     interaction: Default::default(),

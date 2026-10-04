@@ -31,8 +31,10 @@ mod workspace;
 pub use accounting::{ContextSummary, Reply, StreamOutcome, TokenUsage, TurnMetadata};
 mod automatic_memory;
 mod instructions;
+mod relevant_skills;
 mod skill_drafts;
 mod skills;
+pub use relevant_skills::prepare_relevant_skill_context;
 pub use skill_drafts::*;
 pub use skills::{
     effective_skills, prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument,
@@ -228,6 +230,16 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn fork_session(&self, _: &str, _: i64, _: &str) -> Result<Session, String> {
+        Err("Thread forks are unavailable.".into())
+    }
+    fn auto_compact(&self, _: &str) -> Result<bool, String> {
+        Ok(false)
+    }
+    fn set_auto_compact(&self, _: &str, _: bool) -> Result<(), String> {
+        Err("Managed context is unavailable.".into())
+    }
+
     fn saved_draft(&self, _: &str) -> Result<String, String> {
         Ok(String::new())
     }
@@ -727,6 +739,8 @@ async fn collect_reply(
     })
 }
 
+/// Local file snapshots are larger than model-facing tool results.
+pub const MAX_FILE_SNAPSHOT_BYTES: usize = 1024 * 1024;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -848,6 +862,3 @@ mod tests {
         }
     }
 }
-
-/// Local file snapshots are larger than the model-facing tool result allowance.
-pub const MAX_FILE_SNAPSHOT_BYTES: usize = 1024 * 1024;

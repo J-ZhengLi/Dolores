@@ -13,6 +13,8 @@ mod create_tests;
 mod discovery;
 mod edit;
 mod instructions;
+mod scoped_instructions;
+pub use scoped_instructions::read_scoped_workspace_instructions;
 mod ranged;
 #[cfg(test)]
 mod ranged_tests;

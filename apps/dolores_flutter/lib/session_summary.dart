@@ -220,6 +220,16 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                   const Text(
                     'A saved summary replaces the older turns it covers in future model context. Your full chat stays in history. It is used only in this chat.',
                   ),
+                  if (review?.containsKey('autoCompact') == true)
+                    SwitchListTile(
+                      title: const Text('Automatically compact this chat'),
+                      subtitle: const Text('One bounded summary attempt before sending when older turns would be omitted. Uses the selected model; full history stays local. Failures preserve the draft.'),
+                      value: review!['autoCompact'] == true,
+                      onChanged: busy ? null : (enabled) => _act(() async {
+                        await _call('setAutoCompact', {'enabled': enabled});
+                        await _load();
+                      }),
+                    ),
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),

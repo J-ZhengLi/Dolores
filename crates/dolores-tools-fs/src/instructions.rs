@@ -9,6 +9,9 @@ pub fn read_workspace_instructions(root: &Path) -> Result<String, String> {
     }
     let dir = Dir::open_ambient_dir(root, cap_std::ambient_authority())
         .map_err(|_| "Working folder is unavailable.")?;
+    read_instruction_dir(&dir)
+}
+pub(super) fn read_instruction_dir(dir: &Dir) -> Result<String, String> {
     let before = dir
         .symlink_metadata("AGENTS.md")
         .map_err(|_| "AGENTS.md is missing or unreadable in this working folder.")?;

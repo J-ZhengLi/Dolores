@@ -78,3 +78,5 @@ Brick 8.4 (cross-platform build CI) was skipped at the user's request. Future pr
 - **10.3:** ranged reads and snapshot-bound larger-file edits; explicit command limits and inspectable local output logs, with conflict/timeout recovery and a live fixed larger-file check.
 
 - **10.4:** durable checkpoints and linked explicit recovery; local saved-chat drafts and complete bounded event retrieval, with real journaled-write restart/no-replay fixture checks.
+
+- 10.5: complete-turn shared-folder forks, scoped guidance/relevant skill snapshots and opt-in bounded preflight compaction.

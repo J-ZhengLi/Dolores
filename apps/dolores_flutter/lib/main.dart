@@ -27,6 +27,7 @@ import 'chat_sidebar.dart';
 import 'model_steps.dart';
 import 'capabilities.dart';
 import 'run_history.dart';
+import 'thread_fork.dart';
 import 'dolores_settings.dart';
 import 'task_permissions.dart';
 
@@ -789,7 +790,9 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'permissions') {
+                        if (value == 'fork') {
+                          showThreadFork(context, chat);
+                        } else if (value == 'permissions') {
                           showTaskPermissions(context, chat);
                         } else if (value == 'settings') {
                           showDoloresSettings(context, chat);
@@ -826,6 +829,11 @@ class _ChatPageState extends State<ChatPage> {
                         const PopupMenuItem(
                           value: 'capabilities',
                           child: Text('Dolores capabilities'),
+                        ),
+                        PopupMenuItem(
+                          value: 'fork',
+                          enabled: !chat.busy,
+                          child: const Text('Fork conversation'),
                         ),
                         const PopupMenuItem(
                           value: 'runs',

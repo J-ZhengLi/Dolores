@@ -714,3 +714,13 @@ Verified 49 core, 54 bridge, 38 storage and 165 Flutter tests; clean Flutter ana
 A bounded Qwen3.5-2B probe resumed a synthetic interrupted checkpoint against the unchanged understand-project corpus. It returned without tool use and failed all required grounding facts; files remained unchanged. This is a model/prompt reliability gap, not a passed task or evidence of real-model interruption recovery.
 
 The normal release app was built and visibly launched (PID 24476). Original 22 user-data digests remained unchanged; schema 22 contains 26 tables. Draft persistence applies to saved chats with a 250 ms debounce and a switch flush; a crash before persistence can lose the newest edits. Latest 20 runs, eight linked ancestors and bounded receipts are explicit recovery limits. No automatic replay, detached execution, exactly-once external effects or cross-platform qualification is claimed.
+
+## Brick 10.5 — forks and managed context
+
+Verified 50 core, 55 bridge, 39 storage, 34 filesystem and 165 Flutter tests; clean Rust Clippy and Flutter analysis. Fork checks cover complete boundaries, wrong source, atomic duplicate failure, shared folder, parent deletion and absence of copied drafts/runs/thread authority. Nested guidance tests exclude the outside parent and refuse oversized aggregate snapshots. Relevant-skill tests preserve a visible catalogue while excluding unrelated full instructions and allowing explicit selection.
+
+`scripts/test-managed-threads.py` passed on the normal native library: read-only preview made no request, one compaction permitted the send, reported summary usage was recorded in run evidence, and an oversized next summary preserved the previous summary and draft. The restart-after-edit fixture also passed. Compaction tests retain literal goal, full history and a reduced model-call allowance. A valid but insufficient batch stops for manual recovery; automatic mid-tool compaction is excluded.
+
+A bounded live Qwen3.5-2B probe with synthetic saved history and a 4096-token configured window completed in 8.51 seconds and preserved the literal goal. Summary usage: 2403 input / 266 output / 2669 total tokens, separately reported from foreground usage. This establishes this compaction probe, not general coding competence or semantic completeness of every summary.
+
+Normal release build launched visibly (PID 30968). Original 22 user-data digests remained unchanged; schema 23 contains 27 tables. Guidance discovery has explicit depth/directory/file/byte coverage; it does not read parent folders outside the selected root. Forks share files rather than isolating them. Physical keyboard/IME, other platforms and low-end qualification remain open.

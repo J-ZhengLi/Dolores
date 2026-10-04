@@ -187,3 +187,7 @@ Read approvals label start/count ranges. Command approvals expose actual request
 ## Task checkpoints and draft recovery
 
 Run history keeps its existing system-themed inspector and scrollable evidence, adding original goal, unverified operation plan, uncertain effects and the saved draft. Prepare resume draft is explicit, excludes running/completed work and never replaces an occupied composer. Errors retain selection and text. Returning to the composer requires a normal Send. Saved chats restore local drafts; persistence failures explain copying or retrying without clearing the text.
+
+## Managed threads
+
+Fork conversation uses a completed-turn chooser with explicit shared-folder disclosure; disable it while running. Session summary keeps its inspector layout and adds the chat-specific automatic compaction switch only when the host advertises support. Progress appears in trajectory and durable run evidence; failures preserve the composer draft and link manual recovery. Scoped guidance displays relative paths and precedence in the existing Instructions review.
