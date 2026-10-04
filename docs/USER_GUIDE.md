@@ -6,6 +6,11 @@ The single **Settings** entry sits at the bottom left of the sidebar (open Conve
 
 **Appearance** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
+Drag the sidebar’s right border to make it wider or narrower. Double-click the
+border to reset its width. You can also focus it and use Left/Right arrows to
+resize or Home to reset. The chosen width stays for the current window; smaller
+windows use the Conversations drawer and restore your width when expanded.
+
 The top window strip follows the same theme. Drag its empty space to move Dolores
 or double-click to maximize/restore. Window controls remain available with Settings
 open. On Windows, right-click the strip for the window menu; standard window

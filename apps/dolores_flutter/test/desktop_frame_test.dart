@@ -118,6 +118,15 @@ void main() {
           Palette(dark).bg,
         );
         expect(find.text('Dolores'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('window-drag-area')),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is Container && widget.color != null,
+            ),
+          ),
+          findsNothing,
+        );
         expect(find.byTooltip('Minimize'), findsOneWidget);
         expect(find.byTooltip('Maximize'), findsOneWidget);
         expect(find.byTooltip('Close'), findsOneWidget);

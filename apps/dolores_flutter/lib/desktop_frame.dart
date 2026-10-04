@@ -177,20 +177,7 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                               windowManager.popUpWindowMenu,
                             )
                           : null,
-                      child: LayoutBuilder(
-                        builder: (_, size) => Row(
-                          children: [
-                            if (!mac &&
-                                size.maxWidth >=
-                                    UiTokens.drawerBreakpoint - 138)
-                              Container(
-                                width: UiTokens.sidebarWidth,
-                                color: p.sidebar,
-                              ),
-                            const Expanded(child: SizedBox.expand()),
-                          ],
-                        ),
-                      ),
+                      child: const SizedBox.expand(),
                     ),
                   ),
                   if (!mac) ...[

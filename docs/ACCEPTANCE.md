@@ -1,5 +1,35 @@
 # Dolores acceptance — 2026-10-05
 
+## Sidebar resizing and title-strip spacing
+
+The title strip now has one full-width theme color. Sidebar content starts 16
+pixels higher, and brand-to-New-chat spacing is reduced by eight pixels. A
+9-pixel target around the right divider resizes the sidebar from 220–360 pixels,
+with a 480-pixel conversation allowance. Its accent is limited to an active
+drag; release or cancellation restores the border color, including retained
+keyboard focus. Width is local to the current window, not persisted on restart.
+
+- Full Flutter suite: **200 passed** before the final accent correction; the
+  final **four focused sidebar tests passed**, including the added release/cancel
+  regression. Final Flutter analysis and normal Windows release build passed.
+- Basic and edge fixtures cover widening/shrinking, double-click and keyboard
+  reset, extreme drags, editable-draft preservation, 760-pixel window clamping,
+  compact drawer use and restoring the preferred width on expansion. Minimum
+  width exposed section-label overflow; flexible ellipsis now preserves the
+  chevron. Caption tests verify the drag area contains no split-color segment.
+- The final normal release was visibly launched and its Dark screenshot
+  inspected: unified title strip, higher single brand and normal divider.
+  Clicking the divider and Right changed its width from 252 to 268 pixels;
+  Home restored 252, with conversation content and the normal border color
+  intact. All **34 local table digests** remained unchanged, including provider,
+  selected model, appearance and history. No model request was made.
+
+Native automation's pointer drag did not change the sidebar width. Widget
+pointer behavior and native keyboard resizing are verified; physical pointer
+feel, spoken screen-reader feedback and macOS/Linux execution remain acceptance
+gaps. The previously recorded native window move/resize gaps also remain open.
+This refinement does not advance the browser-use brick.
+
 ## Themed desktop title strip
 
 The normal desktop entry point hides native title branding and adds a themed

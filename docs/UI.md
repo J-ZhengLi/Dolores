@@ -3,8 +3,8 @@
 ## Desktop window frame
 
 The normal desktop app uses a 32-pixel custom title strip above the conversation
-layout. It follows the effective app theme, continues the wide sidebar background
-at the left and adds no name or icon; keep the original sidebar brand once.
+layout. It uses one uninterrupted effective-theme background across its full
+width and adds no name or icon; keep the original sidebar brand once.
 Windows/Linux use quiet 46-pixel Minimize, Maximize/Restore and Close buttons with
 tooltips, keyboard focus and semantic labels. macOS reserves space for native
 traffic lights. Drag the empty strip to move; double-click it to maximize/restore.
@@ -13,6 +13,19 @@ resize operations and the desktop minimum is 420×480 logical pixels. Controls s
 above the Navigator and remain reachable while settings/detail dialogs are open.
 Use OS maximize events rather than polling. A failed action preserves the body
 and offers explicit Retry/Dismiss; failed initialization restores the native frame.
+
+The wide sidebar starts at 252 pixels and resizes from its right divider, with a
+9-pixel pointer target and horizontal resize cursor. Use the accent only during
+an active drag; release/cancel returns to the normal border color even while
+hovered or focused. Hover/focus slightly thickens the normal divider.
+Clamp it to 220–360 pixels and preserve at least 480 pixels for the conversation.
+Keep the chosen width for this window, temporarily clamp it on window shrink and
+restore it on expansion; below 760 pixels use the existing 252-pixel drawer.
+Double-click the divider or press Home when focused to reset; Left/Right arrows
+and semantic increase/decrease resize by 16 pixels. Resizing preserves drafts,
+conversation state and section expansion. Sidebar content starts 12 pixels below
+the title strip, with 16 pixels between the brand and New chat; Settings stays
+anchored at the bottom. Section labels ellipsize before clipping their chevrons.
 
 ## Unified settings
 

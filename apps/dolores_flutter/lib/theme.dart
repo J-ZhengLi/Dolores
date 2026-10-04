@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 // Shared visual contract: docs/UI.md. Update both when deliberately restyling.
 abstract final class UiTokens {
   static const sidebarWidth = 252.0;
+  static const sidebarMinWidth = 220.0;
+  static const sidebarMaxWidth = 360.0;
+  static const conversationMinWidth = 480.0;
   static const drawerBreakpoint = 760.0;
   static const contentWidth = 824.0;
   static const codeFont = 'Consolas';

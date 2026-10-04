@@ -5,12 +5,14 @@ import 'chat.dart';
 import 'theme.dart';
 
 class ChatSidebar extends StatefulWidget {
+  final double width;
   final ChatController chat;
   final VoidCallback onNewTemporary, onNewSide, onSettings;
   final Future<void> Function() onOpenProject;
   final Future<void> Function(String) onProject, onSelect;
   const ChatSidebar({
     super.key,
+    this.width = UiTokens.sidebarWidth,
     required this.chat,
     required this.onNewTemporary,
     required this.onNewSide,
@@ -50,11 +52,15 @@ class _ChatSidebarState extends State<ChatSidebar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
@@ -167,16 +173,16 @@ class _ChatSidebarState extends State<ChatSidebar> {
         .where((item) => item['workspace']?['kind'] != 'project')
         .toList();
     return Container(
-      width: UiTokens.sidebarWidth,
+      width: widget.width,
       color: p.sidebar,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 28, 12, 16),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 0, 24),
+                padding: const EdgeInsets.fromLTRB(10, 0, 0, 16),
                 child: Row(
                   children: [
                     Icon(
@@ -264,6 +270,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                           label: const Text('Open project…'),
                           style: TextButton.styleFrom(
                             alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
                         ),
                       for (final project in projects.values) ...[

@@ -29,6 +29,7 @@ import 'attachments.dart';
 import 'theme.dart';
 import 'settings.dart';
 import 'desktop_frame.dart';
+import 'sidebar_resize.dart';
 export 'model_settings.dart' show ConnectionDialog;
 export 'theme.dart' show Palette;
 
@@ -90,6 +91,7 @@ class _ChatPageState extends State<ChatPage> {
   final shell = GlobalKey<ScaffoldState>();
   ChatController get chat => widget.chat;
   bool following = true;
+  double sidebarWidth = UiTokens.sidebarWidth;
   int seenRevision = -1;
   @override
   void initState() {
@@ -192,37 +194,39 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Widget sidebar(Palette p) => ChatSidebar(
-    chat: chat,
-    onNewTemporary: () {
-      chat.newChat(kind: 'temporary');
-      shell.currentState?.closeDrawer();
-      focus.requestFocus();
-    },
-    onNewSide: () {
-      chat.newChat(kind: 'side');
-      shell.currentState?.closeDrawer();
-      focus.requestFocus();
-    },
-    onOpenProject: openProject,
-    onProject: (root) async {
-      await chat.openProject(root);
-      if (mounted && chat.error == null) {
-        shell.currentState?.closeDrawer();
-        focus.requestFocus();
-      }
-    },
-    onSelect: (id) async {
-      await chat.select(id);
-      if (mounted && chat.error == null) {
-        shell.currentState?.closeDrawer();
-      }
-    },
-    onSettings: () {
-      shell.currentState?.closeDrawer();
-      showSettings(context, chat);
-    },
-  );
+  Widget sidebar(Palette p, {double width = UiTokens.sidebarWidth}) =>
+      ChatSidebar(
+        width: width,
+        chat: chat,
+        onNewTemporary: () {
+          chat.newChat(kind: 'temporary');
+          shell.currentState?.closeDrawer();
+          focus.requestFocus();
+        },
+        onNewSide: () {
+          chat.newChat(kind: 'side');
+          shell.currentState?.closeDrawer();
+          focus.requestFocus();
+        },
+        onOpenProject: openProject,
+        onProject: (root) async {
+          await chat.openProject(root);
+          if (mounted && chat.error == null) {
+            shell.currentState?.closeDrawer();
+            focus.requestFocus();
+          }
+        },
+        onSelect: (id) async {
+          await chat.select(id);
+          if (mounted && chat.error == null) {
+            shell.currentState?.closeDrawer();
+          }
+        },
+        onSettings: () {
+          shell.currentState?.closeDrawer();
+          showSettings(context, chat);
+        },
+      );
 
   Widget message(
     Palette p,
@@ -747,6 +751,15 @@ class _ChatPageState extends State<ChatPage> {
     return LayoutBuilder(
       builder: (_, constraints) {
         final narrow = constraints.maxWidth < UiTokens.drawerBreakpoint;
+        final maxSidebarWidth =
+            (constraints.maxWidth - UiTokens.conversationMinWidth - 1).clamp(
+              UiTokens.sidebarMinWidth,
+              UiTokens.sidebarMaxWidth,
+            );
+        final effectiveSidebarWidth = sidebarWidth.clamp(
+          UiTokens.sidebarMinWidth,
+          maxSidebarWidth,
+        );
         final body = Column(
           children: [
             Container(
@@ -1040,13 +1053,38 @@ class _ChatPageState extends State<ChatPage> {
           drawer: narrow
               ? Drawer(width: UiTokens.sidebarWidth, child: sidebar(p))
               : null,
-          body: Row(
+          body: Stack(
+            fit: StackFit.expand,
             children: [
-              if (!narrow) ...[
-                sidebar(p),
-                Container(width: 1, color: p.border),
-              ],
-              Expanded(child: body),
+              Row(
+                children: [
+                  if (!narrow) ...[
+                    sidebar(p, width: effectiveSidebarWidth),
+                    Container(width: 1, color: p.border),
+                  ],
+                  Expanded(child: body),
+                ],
+              ),
+              if (!narrow)
+                Positioned(
+                  left: effectiveSidebarWidth - 4,
+                  top: 0,
+                  bottom: 0,
+                  width: 9,
+                  child: SidebarResizeHandle(
+                    width: effectiveSidebarWidth,
+                    maxWidth: maxSidebarWidth,
+                    onDelta: (delta) => setState(() {
+                      sidebarWidth = (effectiveSidebarWidth + delta).clamp(
+                        UiTokens.sidebarMinWidth,
+                        maxSidebarWidth,
+                      );
+                    }),
+                    onReset: () => setState(() {
+                      sidebarWidth = UiTokens.sidebarWidth;
+                    }),
+                  ),
+                ),
             ],
           ),
         );
