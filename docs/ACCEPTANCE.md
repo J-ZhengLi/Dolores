@@ -1,5 +1,39 @@
 # Dolores acceptance — 2026-10-05
 
+## Themed desktop title strip
+
+The normal desktop entry point hides native title branding and adds a themed
+32-pixel drag strip with Windows/Linux Minimize, Maximize/Restore and Close.
+macOS keeps native traffic lights. The sidebar remains the only visible brand;
+the OS/taskbar title and infinity icon remain Dolores.
+
+- Flutter full suite: **197 passed**, with final focused **6 passed** after
+  adding the drag dispatch assertion. Flutter analysis and normal Windows
+  release build passed. No Rust/provider/tool behavior changed and no model
+  request was necessary for this window-only task.
+- Basic flow: the actual normal release window was inspected in Light, including
+  its light title strip and a single brand. A live Dark switch also changed the
+  strip/controls with Settings open; the original Light preference was restored.
+  Double-click maximize and the custom Restore control passed, with bounds
+  changing from a restored window to the monitor work area and back.
+- Native right-click window menu passed. Its keyboard Move/Size commands changed
+  window position and width without losing conversation content. Custom Minimize
+  produced a confirmed minimized window, then activation restored the content.
+  Custom Close worked with Settings open; relaunch retained the Light preference.
+  All **34 local table digests** matched the pre-check snapshot after restoring
+  the theme, including provider settings and history.
+- Edge cases: failed/pending window actions preserve an editable draft, prevent
+  duplicate operations and offer explicit retry. Initialization refusal restores
+  the native frame. Real-app widgets retain the rich draft through theme changes,
+  and caption controls remain usable with Settings open. Compact 420×480 controls,
+  external maximize events, listener cleanup and macOS traffic-light spacing pass.
+
+Pointer drag/border gestures were attempted through native UI automation but did
+not change geometry; native Move/Size and widget drag dispatch are verified, while
+physical pointer drag/resize and Windows snap-hover behavior remain acceptance
+gaps. macOS/Linux native execution, multi-monitor DPI and screen-reader testing
+also remain open. This UI follow-up does not advance the browser-use brick.
+
 ## Settings remaster — before browser use
 
 One bottom-left Settings entry replaces the separate Memory, Model connection

@@ -1,5 +1,19 @@
 # Universal UI style
 
+## Desktop window frame
+
+The normal desktop app uses a 32-pixel custom title strip above the conversation
+layout. It follows the effective app theme, continues the wide sidebar background
+at the left and adds no name or icon; keep the original sidebar brand once.
+Windows/Linux use quiet 46-pixel Minimize, Maximize/Restore and Close buttons with
+tooltips, keyboard focus and semantic labels. macOS reserves space for native
+traffic lights. Drag the empty strip to move; double-click it to maximize/restore.
+Windows also offers the native window menu on right-click. Native borders retain
+resize operations and the desktop minimum is 420×480 logical pixels. Controls sit
+above the Navigator and remain reachable while settings/detail dialogs are open.
+Use OS maximize events rather than polling. A failed action preserves the body
+and offers explicit Retry/Dismiss; failed initialization restores the native frame.
+
 ## Unified settings
 
 One labeled gear entry, **Settings**, sits below the sidebar divider at the bottom left. Remove separate Memory, Model connection and Request settings entries and configuration entries from Chat actions. The latter uses `Icons.more_horiz` in every size and keeps conversation export/history/fork/comparison/capability actions. Skills management lives in Settings too; workspace instructions remain a conversation-context action.

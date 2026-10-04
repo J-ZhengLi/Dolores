@@ -6,6 +6,11 @@ The single **Settings** entry sits at the bottom left of the sidebar (open Conve
 
 **Appearance** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
+The top window strip follows the same theme. Drag its empty space to move Dolores
+or double-click to maximize/restore. Window controls remain available with Settings
+open. On Windows, right-click the strip for the window menu; standard window
+shortcuts and border resizing are available too.
+
 **Models** combines Connection & models (provider, enabled models, image support and context windows), Responses (output tokens, timeout and reasoning) and Scope overrides (project/chat output and timeout). Configuration remains scoped as before. Each section saves explicitly, except theme selection; switching sections keeps drafts, while Close discards unsaved edits. If a connection changes while a response draft is open, reload response settings before saving. Workspace-specific pages explain when a working chat is required; opening Settings creates no workspace or model request.
 
 

@@ -28,13 +28,15 @@ import 'attachments.dart';
 
 import 'theme.dart';
 import 'settings.dart';
+import 'desktop_frame.dart';
 export 'model_settings.dart' show ConnectionDialog;
 export 'theme.dart' show Palette;
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final desktopFrame = await initializeDesktopFrame();
   final chat = ChatController(NativeBridge());
-  runApp(DoloresApp(chat: chat));
+  runApp(DoloresApp(chat: chat, desktopFrame: desktopFrame));
   unawaited(chat.initialize());
 }
 
@@ -42,11 +44,13 @@ class DoloresApp extends StatelessWidget {
   final ChatController chat;
   final ThemeMode? themeMode;
   final GlobalKey? captureKey;
+  final bool desktopFrame;
   const DoloresApp({
     super.key,
     required this.chat,
     this.themeMode,
     this.captureKey,
+    this.desktopFrame = false,
   });
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -63,8 +67,10 @@ class DoloresApp extends StatelessWidget {
             'dark' => ThemeMode.dark,
             _ => ThemeMode.system,
           },
-      builder: (context, child) =>
-          RepaintBoundary(key: captureKey, child: child!),
+      builder: (context, child) => RepaintBoundary(
+        key: captureKey,
+        child: desktopFrame ? DesktopFrame(child: child!) : child!,
+      ),
       home: ChatPage(chat: chat),
     ),
   );

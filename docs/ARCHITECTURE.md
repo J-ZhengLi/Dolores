@@ -2,6 +2,13 @@
 
 Dolores is a local desktop harness. Flutter is the selected UI; a bundled Rust host assembles the core and provider/storage/credential/tool plugins. Memories and reviewed skills change request context, not model weights. Outcome evidence helps judge selected changes without claiming consciousness or general autonomous competence.
 
+The normal Flutter entry point initializes `window_manager` before rendering.
+`DesktopFrame` owns only themed window chrome and event-driven desktop controls
+above the Navigator. The OS still owns window movement, resize, maximize and close;
+an initialization failure falls back to the native frame. It adds no host tool,
+model activity or background worker. Web/mobile and diagnostic entry points keep
+their existing frame behavior; macOS keeps native traffic lights.
+
 This document describes implemented behavior. The [evolving-harness specification](design/evolving-harness-architecture.md) and [behavior policy](design/dolores-behavior.md) describe the target architecture for [milestones 9–13](ROADMAP.md). Milestone 9's inspection, run ownership, registry and scoped settings are implemented; later adaptation/runtime contracts remain planned.
 
 ## Does the current architecture support self-evolution?
