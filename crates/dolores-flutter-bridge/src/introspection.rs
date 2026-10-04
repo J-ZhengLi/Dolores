@@ -147,6 +147,7 @@ impl Engine {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
             tools.push(crate::subagents::spec());
+            tools.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
             for c in self
                 .store
                 .mcp_connections(workspace.as_ref().unwrap().root.as_ref().unwrap())?
@@ -154,7 +155,7 @@ impl Engine {
                 tools.extend(c.specs());
             }
         }
-        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if tool.name == "inspect_harness" { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
+        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if tool.name == "inspect_harness" { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if matches!(tool.name.as_str(), "web_search" | "read_web_page") { "web adapter; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
         let sources: Vec<_> = SOURCES.iter().enumerate().map(|(n, (key, text))| json!({"id":key,"path":PATHS[n],"sourceId":source_id(text),"lines":text.lines().count()})).collect();
         let images = configured
             && self

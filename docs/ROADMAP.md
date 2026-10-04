@@ -8,6 +8,13 @@ The user subsequently authorized milestone 10 as a batch. **10.1–10.6 are impl
 
 ## Destination and scope
 
+Milestone 11 update: **11.1 scoped subagents and 11.2 attributable web search are
+implemented**. Search defaults to setup-free Mwmbl, with explicit Brave or public
+SearXNG configuration and bounded page reading. A Qwen search/read/citation probe
+passed; paid/custom service live acceptance and broad research reliability remain
+open. See [web contract](design/web-search.md) and acceptance. **11.3 on-demand
+browser use is next**; it is not included in page extraction.
+
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
 
 The [architecture specification](design/evolving-harness-architecture.md) defines component/state/lifecycle/authority contracts. The [behavior policy](design/dolores-behavior.md) defines reasoning, questioning, character and adaptation. These describe the target; [current architecture](ARCHITECTURE.md) describes the running app. No claim of consciousness, weight training or guaranteed daily improvement is made.

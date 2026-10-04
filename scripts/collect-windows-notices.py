@@ -13,7 +13,13 @@ from urllib.parse import unquote, urljoin, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUTS = ('Cargo.lock', 'apps/dolores_flutter/pubspec.lock',
-          'apps/dolores_flutter/pubspec.yaml', 'assets/LICENSE.material-icons')
+          'apps/dolores_flutter/pubspec.yaml', 'assets/LICENSE.material-icons',
+          'assets/notices/fxhash-0.2.1/NOTICE.txt',
+          'assets/notices/fxhash-0.2.1/LICENSE-APACHE',
+          'assets/notices/fxhash-0.2.1/LICENSE-MIT',
+          'assets/notices/mac-0.1.1/NOTICE.txt', 'assets/notices/mac-0.1.1/LICENSE-APACHE',
+          'assets/notices/match_token-0.35.0/NOTICE.txt', 'assets/notices/match_token-0.35.0/LICENSE-APACHE',
+          'assets/notices/selectors-0.31.0/NOTICE.txt', 'assets/notices/selectors-0.31.0/LICENSE-MPL-2.0')
 NOTICE_NAME = re.compile(r'^(licen[cs]e|copying|copyright|notice)([._-]|$)', re.I)
 MAX_NOTICE = 4 * 1024 * 1024
 
@@ -99,9 +105,15 @@ def collect(sdk, directory, bundle):
             raise ValueError('Review a non-registry/custom-license Rust dependency: '+p['name'])
         base = Path(p['manifest_path']).parent
         files = license_files(base)
+        notice_base = base
+        missing = {('fxhash','0.2.1'):'Apache-2.0/MIT', ('mac','0.1.1'):'MIT/Apache-2.0',
+                   ('match_token','0.35.0'):'MIT OR Apache-2.0', ('selectors','0.31.0'):'MPL-2.0'}
+        if not files and missing.get((p['name'],p['version'])) == p['license']:
+            notice_base = ROOT/'assets/notices'/(p['name']+'-'+p['version'])
+            files = license_files(notice_base)
         if p.get('license_file') and base/p['license_file'] not in files: files.append(base/p['license_file'])
         add(p['name'], p['version'], 'Rust', 'https://crates.io/crates/'+p['name']+'/'+p['version'],
-            p['license'], files, base)
+            p['license'], files, notice_base)
         components[-1]['sourceArchive'] = 'https://crates.io/api/v1/crates/'+p['name']+'/'+p['version']+'/download'
         if p['license'] == 'MPL-2.0':
             # Preserve corresponding source in the notice bundle as well as the versioned upstream URL.

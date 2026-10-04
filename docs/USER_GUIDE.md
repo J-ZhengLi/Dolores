@@ -35,6 +35,30 @@ file snapshots in **Changes**. Paused or failed children leave completed work
 intact and offer the parent's explicit Continue flow. **Stop** and **Revoke
 grants** reach both children and queued decisions. Restart never replays them.
 
+## Search and read public sources
+
+Project and temporary chats have web search and public page reading available
+by default. Ask Dolores to research a topic and cite sources. Review the exact
+query or URL before allowing it, under your selected task permission mode.
+Side chats have no tools. Search snippets and partial page excerpts are labeled
+in expandable tool cards and **Run history**.
+
+Open **Chat actions → Web search** to disable both web tools or change the global
+search connection. **Default (Mwmbl)** needs no account/key but has a smaller
+index. **Brave Search API** uses your separately supplied key and plan quota;
+blank keeps a saved key. **Custom SearXNG** needs a public HTTPS search endpoint
+that enables JSON results. Saving sends no test request. Changes apply to future
+working runs; stop active work before saving. Failed saves keep edits, and
+**Refresh (keep edits)** lets you review and retry after a stale change.
+
+Queries/URLs go to the displayed service, and results go to your chat model and
+local evidence. If a routing proxy supplies synthetic DNS addresses, Cloudflare
+resolves the public hostname. Private networks, cookies, login, scripts and
+redirects are unavailable. Each request has a 20-second deadline/256 KiB download
+bound; a page excerpt is at most 8 KiB. Empty results are not proof that no source
+exists. Refine the query, choose another provider or supply a direct primary URL.
+No paid fallback or retry occurs automatically. Browser interaction comes later.
+
 ## Start the Windows preview
 
 Extract the entire ZIP and open **Start-Dolores.cmd**. Keep all files together. If extraction is incomplete, extract into a new folder and try again. If the launcher reports a missing C++ runtime, install or repair Microsoft's **Visual C++ Redistributable for x64** using its displayed link, then reopen Dolores. It does not download or install anything automatically. History, saved connection and working files remain separate from the extracted app.

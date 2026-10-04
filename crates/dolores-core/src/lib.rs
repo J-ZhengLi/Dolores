@@ -10,6 +10,8 @@ mod feedback;
 pub use comparison::*;
 pub use feedback::*;
 mod agent;
+mod web;
+pub use web::*;
 mod runs;
 pub use runs::*;
 mod registry;
@@ -249,6 +251,16 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn web_configuration(&self) -> Result<WebConfiguration, String> {
+        Ok(Default::default())
+    }
+    fn save_web_configuration(
+        &self,
+        _: u32,
+        _: &WebConfiguration,
+    ) -> Result<WebConfiguration, String> {
+        Err("Web settings are unavailable in this store.".into())
+    }
     fn draft_attachments(&self, _: &str) -> Result<Vec<AttachmentRef>, String> {
         Ok(vec![])
     }

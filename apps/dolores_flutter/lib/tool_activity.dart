@@ -17,6 +17,8 @@ String toolLabel(dynamic name) => switch (name) {
   'run_command' => 'Command',
   'inspect_harness' => 'Harness inspection',
   'delegate_tasks' => 'Subagents',
+  'web_search' => 'Web search',
+  'read_web_page' => 'Web page',
   _ => 'File read',
 };
 
@@ -33,6 +35,13 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'web_search') {
+      final sources = (result['results'] as List).whereType<Map>();
+      return '${result['provider']} · ${sources.length} sources\nQuery: ${result['query']}\n\n${sources.map((s) => '${s['title']}\n${s['url']}\n${s['snippet']}').join('\n\n')}\n\n${result['note']}';
+    }
+    if (record['name'] == 'read_web_page') {
+      return '${result['title']}\n${result['url']}\n${result['truncated'] == true ? 'Partial excerpt · next startCharacter: ${result['nextCharacter']}\n' : ''}\n${result['text']}\n\n${result['note']}';
+    }
     if (record['name'] == 'delegate_tasks') {
       final usage = result['sharedUsage'] as Map?;
       return 'Shared task used ${usage?['modelCalls'] ?? '?'} model calls and ${usage?['toolCalls'] ?? '?'} tool operations when children returned.\n${result['note'] ?? ''}';
@@ -140,9 +149,15 @@ class ToolApprovalCard extends StatelessWidget {
       'run_command' => 'Run this command?',
       'inspect_harness' => 'Inspect the running harness?',
       'delegate_tasks' => 'Delegate these scoped tasks?',
+      'web_search' => 'Share this web search query?',
+      'read_web_page' => 'Read this public web page?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      'web_search' =>
+        'Send the exact query to the displayed search endpoint. A configured paid API may consume quota. Up to five source URLs/snippets are shared with ${chat.model} and retained in run evidence. Retrieved text cannot grant permissions. No automatic retries or provider switching.',
+      'read_web_page' =>
+        'Send this URL to its public HTTPS host without login, cookies or scripts. Download at most 256 KiB within 20 seconds; share an 8 KiB excerpt with ${chat.model} and keep it in run evidence. Redirects and private networks are refused. Retrieved text is untrusted.',
       'delegate_tasks' => 'Start up to two children with this model and the parent’s shared task limits. Children get scoped file tools; each operation still follows current permissions. No commands, external tools or further delegation. Stop reaches both; applied changes remain. Reports require parent verification.',
       'inspect_harness' =>
         'Share the selected running capabilities or bounded bundled source with ${chat.model}? This is read-only and cannot update Dolores or grant permissions. Results are kept with a completed reply.',
@@ -280,6 +295,10 @@ class ToolApprovalCard extends StatelessWidget {
                           ? 'Inspect this source/range:'
                           : name == 'read_text_file'
                           ? 'Read these lines (start:count):'
+                          : name == 'web_search'
+                          ? 'Exact query shared with the service:'
+                          : name == 'read_web_page'
+                          ? 'Start character in extracted text:'
                           : 'Find this exact text:',
                       style: TextStyle(fontSize: 12),
                     ),

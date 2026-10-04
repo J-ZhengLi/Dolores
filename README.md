@@ -22,6 +22,7 @@ Dolores connects to models you provide; it does not install or start a local mod
 - Attach text files or PNG/JPEG images, preview what will be shared, and use images with an explicitly configured capable model.
 - Run reviewed commands and connect installed local MCP tool servers.
 - Delegate scoped file work to up to two subagents, with shared limits and parent verification.
+- Search the web without setup, read public source pages, or configure Brave/SearXNG for search.
 - Browse and export conversations, inspect context and reported token usage, and explicitly continue paused tasks.
 - Inspect learned preferences, review reusable skills, and compare instruction snapshots on bounded response tests.
 - Record local **Worked / Needs work** feedback against a reply's original evidence.

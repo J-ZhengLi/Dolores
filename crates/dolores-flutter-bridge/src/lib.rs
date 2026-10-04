@@ -26,6 +26,7 @@ mod skill_drafts;
 mod skills;
 mod subagents;
 mod summaries;
+mod web;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
 use connection::ConnectionManager;
@@ -91,6 +92,17 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    WebSettings,
+    SaveWebSettings {
+        revision: u32,
+        enabled: bool,
+        provider: dolores_core::SearchProvider,
+        endpoint: Option<String>,
+        #[serde(rename = "apiKey")]
+        api_key: Option<String>,
+        #[serde(default, rename = "clearKey")]
+        clear_key: bool,
+    },
     DraftAttachments {
         session: String,
     },
@@ -553,6 +565,7 @@ impl Engine {
                 if let Some(run)=active.as_ref().filter(|r|r.thread.as_deref()==Some(&session)) { run.cancel.cancel(); }
                 return Ok(view);
             },
+            Command::WebSettings => return self.web_settings(),
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
             Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
@@ -668,6 +681,15 @@ impl Engine {
                 draft,
                 settings,
             } => self.start_comparison(&mut active, id, session, draft, settings),
+            Command::WebSettings => self.web_settings(),
+            Command::SaveWebSettings {
+                revision,
+                enabled,
+                provider,
+                endpoint,
+                api_key,
+                clear_key,
+            } => self.save_web_settings(revision, enabled, provider, endpoint, api_key, clear_key),
             Command::McpSettings { session } => self.mcp_settings(&session),
             Command::InspectMcp {
                 id,
@@ -888,6 +910,7 @@ impl Engine {
                     specs.push(dolores_tools_command::command_spec());
                     specs.push(introspection::spec());
                     specs.push(subagents::spec());
+                    specs.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
                     for connection in &mcp {
                         specs.extend(connection.specs());
                     }
@@ -1176,6 +1199,10 @@ impl Engine {
                         });
                         let mut plugins = dolores_tools_fs::journaled_folder_tools(&root, journal)?;
                         plugins.push(Arc::new(dolores_tools_command::RunCommand::new(&root)?));
+                        plugins.extend(dolores_tools_web::plugins(
+                            self.store.web_configuration()?,
+                            self.mcp_credentials.clone(),
+                        )?);
                         for connection in self.store.mcp_connections(
                             root.to_str().ok_or("Working folder path needs Unicode.")?,
                         )? {

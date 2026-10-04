@@ -1,0 +1,12 @@
+match_token 0.35.0
+Source: https://crates.io/crates/match_token/0.35.0
+Repository: https://github.com/servo/html5ever
+Declared license: MIT OR Apache-2.0
+
+The published package omits separate license files. Retained original source headers follow.
+
+
+
+This distribution uses the Apache-2.0 option declared by the package.
+
+Full license source: https://raw.githubusercontent.com/rust-lang/rust/1.12.0/LICENSE-APACHE

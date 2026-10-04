@@ -158,6 +158,35 @@ impl Engine {
             vec!["bounded-scoped-children".into()],
             vec!["delegate_tasks".into()],
         )?;
+        {
+            let web = self.store.web_configuration()?;
+            registry.register(ExtensionRegistration {
+                descriptor: ExtensionDescriptor {
+                    id: "web".into(),
+                    version: env!("CARGO_PKG_VERSION").into(),
+                    api_min: 1,
+                    api_max: 1,
+                    kind: dolores_core::ExtensionKind::Compiled,
+                    entry_identity: format!("{}:web", env!("DOLORES_BUILD_REVISION")),
+                    config_revision: web.revision.saturating_add(1),
+                    dependencies: vec![],
+                    capabilities: vec!["public-network-research".into()],
+                    tools: dolores_tools_web::specs(&web)
+                        .into_iter()
+                        .map(|s| s.name)
+                        .collect(),
+                    enabled: web.enabled,
+                    available: working,
+                    unavailable_reason: if working {
+                        String::new()
+                    } else {
+                        "Start a project or temporary working chat".into()
+                    },
+                    health: "on-demand; service availability not probed".into(),
+                },
+                hooks: vec![],
+            })?;
+        }
         if let Some(root) = root {
             for c in self.store.mcp_connections(&root)? {
                 let mut advertised = c.clone();

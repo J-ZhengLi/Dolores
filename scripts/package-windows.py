@@ -21,7 +21,13 @@ RUNTIME = {
 DOCUMENTS = {'START-HERE.md','USER_GUIDE.md','PRIVACY.md','LICENSE',
              'Start-Dolores.cmd','THIRD-PARTY-NOTICES.txt','DEPENDENCIES.json'}
 AUDIT_INPUTS = ('Cargo.lock', 'apps/dolores_flutter/pubspec.lock',
-                'apps/dolores_flutter/pubspec.yaml', 'assets/LICENSE.material-icons')
+                'apps/dolores_flutter/pubspec.yaml', 'assets/LICENSE.material-icons',
+                'assets/notices/fxhash-0.2.1/NOTICE.txt',
+                'assets/notices/fxhash-0.2.1/LICENSE-APACHE',
+                'assets/notices/fxhash-0.2.1/LICENSE-MIT',
+                'assets/notices/mac-0.1.1/NOTICE.txt', 'assets/notices/mac-0.1.1/LICENSE-APACHE',
+                'assets/notices/match_token-0.35.0/NOTICE.txt', 'assets/notices/match_token-0.35.0/LICENSE-APACHE',
+                'assets/notices/selectors-0.31.0/NOTICE.txt', 'assets/notices/selectors-0.31.0/LICENSE-MPL-2.0')
 PREFIX = 'Dolores/'
 MAX_BYTES = 256*1024*1024
 

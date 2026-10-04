@@ -9,6 +9,7 @@ import 'chat.dart';
 import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'message_frame.dart';
+import 'web_settings.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
@@ -848,6 +849,8 @@ class _ChatPageState extends State<ChatPage> {
                           showSkills(context, chat);
                         } else if (value == 'mcp') {
                           showMcp(context, chat);
+                        } else if (value == 'web') {
+                          showWebSettings(context, chat);
                         } else if (value == 'comparisons') {
                           showComparisons(context, chat);
                         } else {
@@ -869,6 +872,10 @@ class _ChatPageState extends State<ChatPage> {
                         const PopupMenuItem(
                           value: 'settings',
                           child: Text('Dolores settings'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'web',
+                          child: Text('Web search'),
                         ),
                         const PopupMenuItem(
                           value: 'capabilities',

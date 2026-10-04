@@ -33,6 +33,7 @@ mod message_timestamp_tests;
 mod runs;
 mod settings;
 mod threads;
+mod web;
 fn storage_error(_: impl std::fmt::Display) -> String {
     "Could not read or save local conversation data.".into()
 }
@@ -163,6 +164,11 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS message_timestamps(message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,saved_at INTEGER NOT NULL);
             PRAGMA user_version=25;COMMIT;").map_err(storage_error)?;
         }
+        if version < 26 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS web_configuration(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL);
+            PRAGMA user_version=26;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -173,6 +179,16 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn web_configuration(&self) -> Result<dolores_core::WebConfiguration, String> {
+        self.read_web_configuration()
+    }
+    fn save_web_configuration(
+        &self,
+        revision: u32,
+        configuration: &dolores_core::WebConfiguration,
+    ) -> Result<dolores_core::WebConfiguration, String> {
+        self.write_web_configuration(revision, configuration)
+    }
     fn draft_attachments(&self, id: &str) -> Result<Vec<dolores_core::AttachmentRef>, String> {
         let c = self.lock()?;
         attachments::draft(&c, id)
@@ -1119,7 +1135,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 25);
+        assert_eq!(version, 26);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

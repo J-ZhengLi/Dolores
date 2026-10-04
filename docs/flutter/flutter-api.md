@@ -10,6 +10,13 @@ This is an internal in-process integration, not an HTTP API. The Dart UI and bun
 
 ## Ownership and loading
 
+`webSettings` reads the global revisioned connection while busy; `saveWebSettings`
+accepts revision, enabled, provider (`mwmbl`/`brave`/`searxng`), optional endpoint,
+optional `apiKey` and `clearKey`. Mutations refuse during a run. The result exposes
+`hasSavedKey`, `cleanupPending` and a notice, never a key or vault identity.
+Blank preserves a saved Brave key; replacement/removal are mutually exclusive.
+Stale/invalid saves retain the caller's draft. See [web search](../design/web-search.md).
+
 The Rust library exports `dolores_call(const uint8_t* input, size_t length)` and `dolores_free(char* value)`. Input is UTF-8 JSON, at most 128 KiB, readable for the call duration. The result is an owned NUL-terminated UTF-8 JSON allocation. Copy it, then free exactly once through `dolores_free`; do not use the Dart allocator to free Rust results. Invalid pointers remain caller errors; Rust's error/panic envelope is not a memory sandbox.
 
 Every reply is `{"ok":true,"result":...}` or `{"ok":false,"error":"..."}`. Successful commands may return null. Dart `NativeBridge` serializes calls through a worker isolate; runtime network work occurs on Rust's bounded async runtime. Library loading/worker failure resolves pending UI calls with recovery guidance.

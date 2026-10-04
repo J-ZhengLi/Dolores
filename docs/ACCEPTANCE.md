@@ -1,5 +1,79 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 11.2 — default and configurable web research
+
+Working chats now have default unauthenticated Mwmbl search and public HTTPS
+page reads. Global settings can disable both or choose Brave/public SearXNG.
+Side chats/children remain without web tools. Exact queries/URLs, primary source
+links, partial coverage, retrieval receipts and manual recovery use existing
+approvals, budgets and run history. No idle service or automatic paid fallback.
+
+- Full Rust workspace: **257 passed, one intentionally ignored**, 22 suites;
+  final five web tests also pass after adding Brave/SearXNG parsing coverage.
+  Flutter: **184 passed**. Analysis and warnings-denied workspace Clippy are clean.
+- Transport fixtures exercise quota refusal, redirect-to-local refusal, declared
+  and chunked oversize bodies, malformed formats, Unicode excerpt continuation
+  and stale offsets. Deep/excessive markup refuses with simpler-source guidance,
+  preventing quadratic ancestry extraction under the byte ceiling. The ordinary
+  live adapter probe passes again with this final guard. URL tests reject
+  encoded/private/tunnel/authentication cases.
+  Cancellation before dispatch prevents credential reads; missing Brave keys
+  point to settings/default search. Hostile HTML instructions remain untrusted
+  quoted data, with hidden/script content removed; this is not general semantic
+  prompt-injection immunity, particularly under Full access.
+- Configuration tests cover no-setup default, disabled/side catalogues, stale
+  saves, locked vaults, atomic database failure preserving the existing key,
+  replacement cleanup and restart. Compact light/dark widgets cover fixed
+  controls, provider selection, failed-save draft retention/Refresh/manual retry,
+  literal approval sharing and readable partial/error receipts. The compact test
+  exposed and fixed a dropdown overflow.
+- Live public adapter probe returned five sources and an 8192-byte partial official
+  Rust page excerpt. This machine's resolver supplied a synthetic reserved IP;
+  validated public DNS resolution plus IP pinning fixed connectivity without
+  accepting local/private addresses. Mixed/private/malformed DNS answers refuse.
+- Isolated normal-release **Qwen3.5-2B** research completed in **13.89 seconds**:
+  approved search and official page read both completed, three ownership rules
+  were summarized with the official URL, three model calls had reported usage,
+  no task pause/error and no working-file changes. Credentials/settings/private
+  transcripts stayed out of tracked artifacts; ordinary model selection stayed
+  unchanged. This establishes one bounded task, not broad search reliability.
+- On the final normal bundle, repeating the same Qwen task completed both web
+  reads but attempted unrelated `search_text` and reached the four-call step
+  limit without the requested answer/citation. The saved paused reply and source
+  receipts survived and files remained unchanged. **Qwen consistency is not
+  accepted**; increasing the default budget would not address that behavior.
+  The identical bounded task with **DeepSeek V4.1 Flash** completed in **8.19
+  seconds**, with both web tools, official citation, two model calls, reported
+  usage and unchanged files. This is narrow passing evidence, not a guarantee.
+
+Normal Windows release built and opened visibly (initial PID 36176); a native screenshot
+confirmed the normal window. The final guarded bundle was rebuilt and relaunched
+(PID 7288); its returned window is titled Dolores, but final activation/screenshot
+recovery reports `failed to activate captured window`, so final native visibility
+is not independently confirmed. All **32 original table digests** match the fresh
+baseline; schema 26 adds one empty web configuration table (33 total). Inspector
+visual/recovery acceptance is widget-based: the desktop helper's stale element
+cache prevented completing native menu interaction. No native inspector visual
+pass is claimed. Idle samples show one app process, 266.77 MiB working set,
+268.4 MiB private bytes and 0% of one core over two intervals. These are this
+development machine/current history, without a matched pre-brick comparison;
+no low-end performance benefit is claimed.
+
+The locked HTML parser introduces transitive dependency notices. Four omitted
+upstream license files now have exact-version reviewed notice fallbacks; the
+collector retains verified MPL corresponding source. Collection succeeds for
+244 components without a network request, and four packaging integrity/recovery
+tests pass. The normal portable bundle also passes archive integrity/private-path
+checks (final bundle: 21 files, 17080954-byte ZIP), retained only in ignored local output.
+No installer/signing/public release was made.
+
+Remaining: Brave needs a user's service key for live quota/auth acceptance;
+custom SearXNG needs a JSON-enabled public instance. Default index coverage and
+availability vary. Browser/login/redirect/PDF/private networks are excluded.
+Other OS/physical input/accessibility/representative-device acceptance remains
+open. Credential cleanup across simultaneous vault/database failure is best
+effort, as documented. Browser use is the next brick.
+
 ## User bubble color
 
 User bubbles use the same soft background and normal text color as highlighted

@@ -1,0 +1,21 @@
+fxhash 0.2.1
+Source: https://crates.io/crates/fxhash/0.2.1
+Repository: https://github.com/cbreeden/fxhash
+
+The published package declares Apache-2.0/MIT but omits separate license files.
+The following original attribution is retained from its lib.rs header:
+
+Copyright 2015 The Rust Project Developers. See the COPYRIGHT
+file at the top-level directory of this distribution and at
+http://rust-lang.org/COPYRIGHT.
+
+Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+<LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+option. This file may not be copied, modified, or distributed
+except according to those terms.
+
+Full Rust license texts are retained alongside this notice from the upstream
+Rust 1.12.0 release (the fxhash package states its origin in Rustc):
+https://raw.githubusercontent.com/rust-lang/rust/1.12.0/LICENSE-APACHE
+https://raw.githubusercontent.com/rust-lang/rust/1.12.0/LICENSE-MIT

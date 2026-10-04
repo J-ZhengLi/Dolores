@@ -4,6 +4,16 @@ Task permission grants can retain literal command arguments locally and in run s
 
 ## When using Dolores
 
+Approved web operations send literal queries to the selected Mwmbl/Brave/SearXNG
+search service or URLs to their public HTTPS hosts. Results then enter the chat
+model's context and local run evidence/exports. Default Mwmbl needs no account;
+Brave uses a separate OS-vault key sent only to its fixed API endpoint. No model
+key, files, cookies or login are sent by this adapter. Queries and URL parameters
+can themselves contain private information: review them before allowing a call.
+Routing-proxy synthetic DNS addresses cause a public hostname lookup through
+Cloudflare's fixed DNS endpoint; private destinations remain blocked. Disable
+both web tools in **Chat actions → Web search**. See [boundaries](design/web-search.md).
+
 Approved delegation shares the prepared system instructions and original user
 request with children using the same configured provider, plus their scoped file
 results. Children do not receive full chat history or attachments. Goals, file

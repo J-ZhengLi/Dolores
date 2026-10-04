@@ -38,6 +38,7 @@ invoke commands/MCP, change grants or recurse. The parent verifies their reports
 | `crates/dolores-tools-fs` | Directory-capability reads/discovery and separately approved exact edits/creations/journal actions. |
 | `crates/dolores-tools-command` | Reviewed direct executable/arguments, bounded capture/deadline and owned process cleanup. |
 | `crates/dolores-tools-mcp` | Reviewed local stdio catalogs, selected tools, credential resolution and on-demand process transport. |
+| `crates/dolores-tools-web` | Setup-free Mwmbl search, configurable Brave/SearXNG and bounded public HTTPS page extraction. |
 
 ```mermaid
 flowchart TB
@@ -61,6 +62,16 @@ The [bridge contract](flutter/flutter-api.md) defines allocation ownership and c
 Iced (`crates/dolores-native`) and Tauri/Svelte (`src-tauri`, `src`) remain development comparisons using shared core ports. They do not have full Flutter feature parity. Trusted built-in plugins are compiled and explicitly registered; there is no generic native dynamic-loader or plugin installation UI.
 
 ## Context and learning
+
+Working chats pin the global [web connection](design/web-search.md) and two
+optional compiled web tools. Their approved literal queries/URLs consume the
+existing task allowance and retain attributable, untrusted results in run evidence.
+No idle service, browser process or search key is needed for default Mwmbl.
+Brave keys stay in the OS vault and are sent only to its fixed endpoint.
+Public DNS is validated and pinned; routing-proxy synthetic addresses use a
+disclosed bounded public DNS lookup without accepting private destinations.
+The registration ceiling is twelve tools (eight built-ins, two selected MCP
+tools and two web tools); execution budgets remain unchanged.
 
 Milestone 10 adds [task budgets](design/task-budgets.md), [thread permissions](design/task-permissions.md), [durable recovery](design/task-checkpoints.md), [forks and managed context](design/managed-threads.md) and [attachment snapshots](design/attachments.md). Reviewed file patches can bind snapshots up to 1 MiB while diffs/model-facing results remain bounded. Commands have explicit deadline/capture settings and optional owned local logs; they remain outside the file journal. Attachments use backward-readable message parts, immutable local assets and an explicit text/image provider adapter, with bounded sharing and cleanup.
 

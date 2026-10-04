@@ -13,6 +13,23 @@ and omit timestamps for older messages without recorded times. Streaming replies
 keep their working indicator and do not offer whole-message copy. Attachments,
 tool evidence, usage and recovery controls stay available in their existing forms.
 
+## Web search
+
+Saved-chat Chat actions offers Web search, a global connection inspector using
+InspectorFrame/system palette. Default Mwmbl needs no setup; the scrolling body
+offers enabled/provider, public SearXNG endpoint and obscured Brave key/removal.
+Disclose index coverage, query/URL/model sharing, quota, public network restrictions,
+routing-proxy DNS fallback and literal download/excerpt/deadline bounds. Use an
+expanded dropdown and fixed wrapping Save/Refresh controls in compact themes.
+Save errors remain visible and retain edits; Refresh keeps the draft and updates
+the revision. Busy work permits reading but locks saving/expansion. No test query
+is sent on Save. Keys are never returned into the form. Keep the composer unchanged.
+
+Inline web approvals show literal service/URL and query/offset with sharing and
+untrusted-content disclosure. Saved tool cards show selectable exact source URLs,
+snippets/excerpts and partial continuation offsets; literal errors remain usable.
+Use existing Allow once/Deny/Stop and task recovery rather than a new retry loop.
+
 ## Attachments
 
 Anchor the composer’s quiet plus action for Attach file at the left of its footer, vertically aligned with Send and the context ring. Reserve remaining width for a right-aligned model selector so short or long model names cannot push the plus toward the middle; keep model/context/send in that order. Snapshot chips wrap above the editable content and offer local text/image preview with sharing disclosure; draft removal is disabled during execution or state changes. Preview uses the system dialog theme and bounded scrolling/image dimensions. Chat actions offers explicit snapshot export and unused-asset cleanup. Model connection starts with the selected model’s settings: Supports image input (disabled by default) and the context window, followed by connection/model-list controls. Errors involving attached images offer Model settings directly. Failed saves bring the error into view and retain edits for explicit retry; Cancel leaves capabilities, draft and attachments unchanged. No silent OCR or upload is implied. Context inspection shows the approximate image token allowance only when images are included. Failed chat selection leaves the previous draft and its attachment scope together; attachments count as an occupied draft for Continue/recovery.
