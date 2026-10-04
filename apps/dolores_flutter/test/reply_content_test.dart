@@ -1,9 +1,11 @@
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
+import 'package:dolores_flutter/message_frame.dart';
 import 'package:dolores_flutter/reply_content.dart';
 import 'package:dolores_flutter/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -285,9 +287,14 @@ print('hello'); // a deliberately very long line that should scroll horizontally
       await tester.pumpAndSettle();
       expect(find.text('**literal prompt**'), findsOneWidget);
       expect(find.byType(ReplyContent), findsOneWidget);
-      await tester.tap(find.byTooltip('Copy message').last);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.byType(MessageFrame).last));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Copy message').hitTestable().last);
       await tester.pump();
       expect(copied, '**Formatted reply**');
+      await mouse.removePointer();
       await tester.pumpWidget(const SizedBox());
       chat.dispose();
     },

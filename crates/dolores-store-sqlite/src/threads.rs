@@ -91,7 +91,9 @@ impl SqliteStore {
                 params![id, role, content],
             )
             .map_err(storage_error)?;
+            let copied_id = tx.last_insert_rowid();
             tx.execute("INSERT INTO message_parts(message_id,data) SELECT ?1,data FROM message_parts WHERE message_id=?2",params![tx.last_insert_rowid(),source_id]).map_err(storage_error)?;
+            tx.execute("INSERT INTO message_timestamps(message_id,saved_at) SELECT ?1,saved_at FROM message_timestamps WHERE message_id=?2",params![copied_id,source_id]).map_err(storage_error)?;
             if let Some(data) = data {
                 let mut meta: TurnMetadata = serde_json::from_str(&data).map_err(storage_error)?;
                 // Historical receipts remain evidence, but cannot resume a parent task.
@@ -99,7 +101,7 @@ impl SqliteStore {
                 tx.execute(
                     "INSERT INTO turn_metadata(message_id,data) VALUES(?1,?2)",
                     params![
-                        tx.last_insert_rowid(),
+                        copied_id,
                         serde_json::to_string(&meta).map_err(storage_error)?
                     ],
                 )

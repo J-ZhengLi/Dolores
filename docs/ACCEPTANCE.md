@@ -1,5 +1,33 @@
 # Dolores acceptance — 2026-10-05
 
+## Conversation layout — alignment and hover controls
+
+User messages now use right-aligned, naturally sized bubbles; assistant content
+stays left-aligned. Sender names and profile images are removed from both roles.
+Hover or keyboard focus reveals Copy and a local saved timestamp in reserved
+space. Original Markdown source is copied, and existing attachment, tool,
+usage and recovery controls remain available. Streaming replies omit whole-message
+copy. Schema 25 adds optional atomic local save timestamps without rewriting old
+messages or inventing their dates; forks and JSON exports retain known times.
+
+All 179 Flutter tests pass, with clean analysis, including compact light/dark
+views, long unbroken/multiline prompts, role alignment, absent sender names/avatars,
+hover enter/exit without text movement, keyboard Copy and exact source copying.
+Unknown/invalid dates do not crash rendering or fabricate timestamps. All 52
+core, 61 bridge and 43 storage tests pass (156 total), with clean Clippy. New
+storage tests cover legacy migration, failed timestamp writes rolling back the
+entire turn, restart, original timestamps on forks/export and deletion cascades.
+The release-native attachment/restart regression also passes.
+
+The normal Windows release was rebuilt. Actual dark-mode screenshots of isolated
+synthetic messages confirmed right/left placement, removed names/avatars, user
+hover controls and bounded code rendering. The owned fixture instance was closed,
+and the normal user-data app reopened visibly (PID 21000). All 31 original table
+digests match the fresh baseline; schema 25 adds one empty timestamp table for this
+existing history. Provider settings, transcripts and drafts are preserved. These
+are presentation/storage checks; no model request was needed. Other-platform and
+spoken screen-reader acceptance remain open.
+
 ## Brick 11.1 — bounded subagents
 
 Implemented [scoped delegation](design/subagents.md): one batch of one or two

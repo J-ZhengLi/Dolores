@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 
 import 'bridge.dart';
 import 'chat.dart';
 import 'composer_controller.dart';
 import 'reply_content.dart';
+import 'message_frame.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
@@ -223,144 +223,101 @@ class _ChatPageState extends State<ChatPage> {
     Key? key,
     Map<String, dynamic>? metadata,
     int? messageId,
+    int? savedAt,
     Map<String, dynamic>? feedback,
     List<Map<String, dynamic>> parts = const [],
   }) {
     final user = role == 'user';
-    return Padding(
+    return MessageFrame(
       key: key,
-      padding: const EdgeInsets.only(bottom: 32),
-      child: Row(
+      user: user,
+      text: text,
+      streaming: streaming,
+      savedAt: savedAt,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: user ? p.border : p.soft,
-              borderRadius: BorderRadius.circular(9),
+          if (streaming)
+            Text(
+              chat.workspaceRoot == null ? 'Writing…' : 'Working…',
+              style: TextStyle(fontSize: 11, color: p.muted),
             ),
-            alignment: Alignment.center,
-            child: Icon(
-              user ? Icons.person_outline : Icons.all_inclusive_rounded,
-              size: 20,
-              color: user ? p.text : p.accent,
+          if (!user && streaming && chat.modelTexts.isNotEmpty)
+            ModelSteps(steps: chat.modelTexts, saved: false),
+          if (!user && !streaming && metadata?['agent']?['steps'] is List)
+            ModelSteps(steps: metadata!['agent']['steps'] as List),
+          if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
+          if (user || text.isEmpty)
+            SelectableText(
+              text.isEmpty && streaming ? 'Thinking…' : text,
+              style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
+            )
+          else
+            ReplyContent(
+              text: text,
+              streaming: streaming,
+              onRendered: _followReply,
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      user ? 'You' : 'Dolores',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: p.text,
-                      ),
+          if (!user && !streaming) ...[
+            if (metadata?['paused'] is Map) ...[
+              const SizedBox(height: 12),
+              Text(
+                metadata!['paused']['reason'] == 'outputLimit'
+                    ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
+                    : metadata['paused']['reason'] == 'commandReview'
+                    ? 'A command failed or verification was incomplete. Review its output before repair.'
+                    : metadata['paused']['reason'] == 'subagentReview'
+                    ? 'A subagent needs review. Inspect its report, Run history and Changes before continuing.'
+                    : 'Paused at this run’s step limit. Progress and tool results saved.',
+                style: TextStyle(color: p.muted, fontSize: 12),
+              ),
+              if (messageId == chat.latestPausedId)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const Key('continue-task'),
+                    onPressed:
+                        chat.busy ||
+                            chat.changing ||
+                            chat.loading ||
+                            chat.draft.isNotEmpty ||
+                            chat.attachments.isNotEmpty
+                        ? null
+                        : () => chat.continueTask(messageId!),
+                    icon: const Icon(Icons.play_arrow_outlined, size: 18),
+                    label: Text(
+                      metadata['paused']['reason'] == 'commandReview'
+                          ? 'Repair and verify'
+                          : 'Continue',
                     ),
-                    if (streaming) ...[
-                      const SizedBox(width: 10),
-                      Text(
-                        chat.workspaceRoot == null ? 'Writing…' : 'Working…',
-                        style: TextStyle(fontSize: 11, color: p.muted),
-                      ),
-                    ],
-                    const Spacer(),
-                    if (!streaming && text.isNotEmpty)
-                      IconButton(
-                        tooltip: 'Copy message',
-                        iconSize: 15,
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () =>
-                            Clipboard.setData(ClipboardData(text: text)),
-                        icon: Icon(Icons.copy_outlined, color: p.muted),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                if (!user && streaming && chat.modelTexts.isNotEmpty)
-                  ModelSteps(steps: chat.modelTexts, saved: false),
-                if (!user && !streaming && metadata?['agent']?['steps'] is List)
-                  ModelSteps(steps: metadata!['agent']['steps'] as List),
-                if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
-                if (user || text.isEmpty)
-                  SelectableText(
-                    text.isEmpty && streaming ? 'Thinking…' : text,
-                    style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
-                  )
-                else
-                  ReplyContent(
-                    text: text,
-                    streaming: streaming,
-                    onRendered: _followReply,
                   ),
-                if (!user && !streaming) ...[
-                  if (metadata?['paused'] is Map) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      metadata!['paused']['reason'] == 'outputLimit'
-                          ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
-                          : metadata['paused']['reason'] == 'commandReview'
-                          ? 'A command failed or verification was incomplete. Review its output before repair.'
-                          : metadata['paused']['reason'] == 'subagentReview'
-                          ? 'A subagent needs review. Inspect its report, Run history and Changes before continuing.'
-                          : 'Paused at this run’s step limit. Progress and tool results saved.',
-                      style: TextStyle(color: p.muted, fontSize: 12),
-                    ),
-                    if (messageId == chat.latestPausedId)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          key: const Key('continue-task'),
-                          onPressed:
-                              chat.busy ||
-                                  chat.changing ||
-                                  chat.loading ||
-                                  chat.draft.isNotEmpty ||
-                                  chat.attachments.isNotEmpty
-                              ? null
-                              : () => chat.continueTask(messageId!),
-                          icon: const Icon(Icons.play_arrow_outlined, size: 18),
-                          label: Text(
-                            metadata['paused']['reason'] == 'commandReview'
-                                ? 'Repair and verify'
-                                : 'Continue',
-                          ),
-                        ),
-                      ),
-                    Text(
-                      chat.draft.isNotEmpty || chat.attachments.isNotEmpty
-                          ? 'Send or clear your draft to continue. Each continuation uses your current model and limits.'
-                          : 'Continue starts another bounded run. New tool calls need fresh approval; incomplete calls have not run.',
-                      style: TextStyle(color: p.muted, fontSize: 12),
-                    ),
-                  ],
-                  if (metadata?['paused']?['reason'] == 'commandReview')
-                    ToolRecords(
-                      records: metadata!['paused']['receipts'] as List,
-                      maxRecords: 16,
-                    )
-                  else if (metadata?['agent']?['tools'] is List)
-                    ToolRecords(records: metadata!['agent']['tools'] as List),
-                  UsageDetails(metadata: metadata),
-                  if (messageId != null)
-                    TaskFeedbackButton(
-                      chat: chat,
-                      message: {
-                        'id': messageId,
-                        'content': text,
-                        'metadata': metadata,
-                        'feedback': feedback,
-                      },
-                    ),
-                ],
-              ],
-            ),
-          ),
+                ),
+              Text(
+                chat.draft.isNotEmpty || chat.attachments.isNotEmpty
+                    ? 'Send or clear your draft to continue. Each continuation uses your current model and limits.'
+                    : 'Continue starts another bounded run. New tool calls need fresh approval; incomplete calls have not run.',
+                style: TextStyle(color: p.muted, fontSize: 12),
+              ),
+            ],
+            if (metadata?['paused']?['reason'] == 'commandReview')
+              ToolRecords(
+                records: metadata!['paused']['receipts'] as List,
+                maxRecords: 16,
+              )
+            else if (metadata?['agent']?['tools'] is List)
+              ToolRecords(records: metadata!['agent']['tools'] as List),
+            UsageDetails(metadata: metadata),
+            if (messageId != null)
+              TaskFeedbackButton(
+                chat: chat,
+                message: {
+                  'id': messageId,
+                  'content': text,
+                  'metadata': metadata,
+                  'feedback': feedback,
+                },
+              ),
+          ],
         ],
       ),
     );
@@ -1062,6 +1019,7 @@ class _ChatPageState extends State<ChatPage> {
                                       parts: ((item['parts'] as List?) ?? [])
                                           .cast<Map<String, dynamic>>(),
                                       messageId: item['id'] as int?,
+                                      savedAt: item['savedAt'] as int?,
                                       feedback: (item['feedback'] as Map?)
                                           ?.cast<String, dynamic>(),
                                       key: ValueKey(

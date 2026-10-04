@@ -24,6 +24,10 @@ Every reply is `{"ok":true,"result":...}` or `{"ok":false,"error":"..."}`. Succe
 
 ## Command coordination
 
+History message items optionally include `savedAt` (Unix milliseconds): the local
+atomic turn commit time, not an inferred send/receive time. Legacy messages omit
+it; forks preserve the original value. These timestamps do not enter model context.
+
 Requests use a camelCase `command` discriminator. [`Command`](../../crates/dolores-flutter-bridge/src/lib.rs) is the source of truth for exact fields/defaults; typed core structs define nested request/receipt validation. Changes must update Dart callers, tests and affected design contracts together. This document is an integration map, not a duplicate generated field schema.
 
 | Family | Commands | Contract |

@@ -28,6 +28,8 @@ pub struct SqliteStore {
 }
 mod attachments;
 mod drafts;
+#[cfg(test)]
+mod message_timestamp_tests;
 mod runs;
 mod settings;
 mod threads;
@@ -155,6 +157,11 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS message_parts(message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS model_images(base_url TEXT PRIMARY KEY,data TEXT NOT NULL);
             PRAGMA user_version=24;COMMIT;").map_err(storage_error)?;
+        }
+        if version < 25 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS message_timestamps(message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,saved_at INTEGER NOT NULL);
+            PRAGMA user_version=25;COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -875,16 +882,25 @@ impl SqliteStore {
             }
         }
         transaction.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user',?2),(?1,'assistant',?3)", params![id,user,assistant]).map_err(storage_error)?;
-        attachments::commit_draft(&transaction, id, transaction.last_insert_rowid() - 1)?;
+        let assistant_id = transaction.last_insert_rowid();
+        attachments::commit_draft(&transaction, id, assistant_id - 1)?;
         if let Some(metadata) = metadata {
             let data = serde_json::to_string(metadata).map_err(storage_error)?;
             transaction
                 .execute(
                     "INSERT INTO turn_metadata(message_id,data) VALUES(?1,?2)",
-                    params![transaction.last_insert_rowid(), data],
+                    params![assistant_id, data],
                 )
                 .map_err(storage_error)?;
         }
+        // Both timestamps are local save times, not guessed send/receive times.
+        let saved_at = now();
+        transaction
+            .execute(
+                "INSERT INTO message_timestamps(message_id,saved_at) VALUES(?1,?3),(?2,?3)",
+                params![assistant_id - 1, assistant_id, saved_at],
+            )
+            .map_err(storage_error)?;
         let title: String = user
             .split_whitespace()
             .collect::<Vec<_>>()
@@ -1103,7 +1119,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 24);
+        assert_eq!(version, 25);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

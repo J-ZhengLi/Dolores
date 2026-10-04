@@ -115,6 +115,9 @@ pub struct HistoryPage<T> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StoredMessage {
+    /// Local commit time; legacy messages have no timestamp to infer.
+    #[serde(rename = "savedAt", skip_serializing_if = "Option::is_none")]
+    pub saved_at: Option<i64>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub parts: Vec<AttachmentRef>,
     pub id: i64,

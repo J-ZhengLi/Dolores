@@ -1,5 +1,17 @@
 # Universal UI style
 
+## Conversation messages
+
+User messages sit in a right-aligned, naturally sized rounded surface within
+88% of the conversation width; their text remains left-aligned and selectable.
+Assistant replies use the full left-aligned content width. Neither role shows a
+sender name or profile image. Copy and a local saved timestamp appear below the
+message on hover or keyboard focus; reserve that space to avoid layout jumps.
+Keep Copy reachable by keyboard, preserve the complete original Markdown source,
+and omit timestamps for older messages without recorded times. Streaming replies
+keep their working indicator and do not offer whole-message copy. Attachments,
+tool evidence, usage and recovery controls stay available in their existing forms.
+
 ## Attachments
 
 Anchor the composer’s quiet plus action for Attach file at the left of its footer, vertically aligned with Send and the context ring. Reserve remaining width for a right-aligned model selector so short or long model names cannot push the plus toward the middle; keep model/context/send in that order. Snapshot chips wrap above the editable content and offer local text/image preview with sharing disclosure; draft removal is disabled during execution or state changes. Preview uses the system dialog theme and bounded scrolling/image dimensions. Chat actions offers explicit snapshot export and unused-asset cleanup. Model connection starts with the selected model’s settings: Supports image input (disabled by default) and the context window, followed by connection/model-list controls. Errors involving attached images offer Model settings directly. Failed saves bring the error into view and retain edits for explicit retry; Cancel leaves capabilities, draft and attachments unchanged. No silent OCR or upload is implied. Context inspection shows the approximate image token allowance only when images are included. Failed chat selection leaves the previous draft and its attachment scope together; attachments count as an occupied draft for Continue/recovery.
@@ -41,7 +53,7 @@ composer controls and footer positions. No idle worker or new help label.
 
 ## Brand mark
 
-Keep the original `Icons.all_inclusive_rounded` infinity mark and existing semantic accent colors in Flutter's home, sidebar and assistant avatars. `assets/dolores.svg` retains that exact Material Icons outline for Windows, macOS, Linux and web/Tauri icons on the dark rounded tile. Do not redesign it as closed loops or reintroduce a letter monogram. Regenerate platform assets with `scripts/generate-icons.py`; Pillow is development-only and normal builds use checked-in outputs. Preserve the upstream attribution/license in `assets/LICENSE.material-icons`. The visible app name is Dolores; framework names stay out of its window title.
+Keep the original `Icons.all_inclusive_rounded` infinity mark and existing semantic accent colors in Flutter's home and sidebar. Chat messages have no sender avatars. `assets/dolores.svg` retains that exact Material Icons outline for Windows, macOS, Linux and web/Tauri icons on the dark rounded tile. Do not redesign it as closed loops or reintroduce a letter monogram. Regenerate platform assets with `scripts/generate-icons.py`; Pillow is development-only and normal builds use checked-in outputs. Preserve the upstream attribution/license in `assets/LICENSE.material-icons`. The visible app name is Dolores; framework names stay out of its window title.
 
 ## Instruction comparisons
 
