@@ -706,3 +706,11 @@ No optimization benefit is claimed from WebView2's inactive-memory control. Its 
 - Expand real-model acceptance beyond the specific authorized Qwen probes recorded above; provider/model reliability is not universal.
 - macOS/Linux builds and platform UI behavior remain unverified in this Windows workspace. Platform CI brick 8.4 is skipped; manual platform qualification is planned in 13.4 when suitable hosts exist, without reinstating CI.
 - Local unsigned Windows packaging, versioned dependency notices and preflight recovery are verified in bricks 8.1/8.2. Public distribution, signing and actual clean-machine prerequisite/version recovery remain open. Reusable skills and bounded automatic preference updates are implemented above; broader learning and model/task reliability remain unaccepted.
+
+## Brick 10.4 — durable drafts and linked recovery
+
+Verified 49 core, 54 bridge, 38 storage and 165 Flutter tests; clean Flutter analysis and Rust Clippy. Native restart fixture terminated after an applied edit: the file and receipt survived, the resumed run only read it, fresh model/output settings were used, and a stale source was refused. Draft tests cover restart, isolation, invalid saves preserving previous content and conditional clearing preserving newer edits. The native budget fixture also passed on the final bundle.
+
+A bounded Qwen3.5-2B probe resumed a synthetic interrupted checkpoint against the unchanged understand-project corpus. It returned without tool use and failed all required grounding facts; files remained unchanged. This is a model/prompt reliability gap, not a passed task or evidence of real-model interruption recovery.
+
+The normal release app was built and visibly launched (PID 24476). Original 22 user-data digests remained unchanged; schema 22 contains 26 tables. Draft persistence applies to saved chats with a 250 ms debounce and a switch flush; a crash before persistence can lose the newest edits. Latest 20 runs, eight linked ancestors and bounded receipts are explicit recovery limits. No automatic replay, detached execution, exactly-once external effects or cross-platform qualification is claimed.

@@ -120,6 +120,8 @@ Default order is sequential. Independent documents/measurements may proceed with
 
 ### 10.4 Durable checkpoints and resume
 
+**Implementation status:** durable goal/operation evidence, linked recovery, conditional submitted-draft clearing and local composer drafts are implemented. See acceptance for actual restart checks and model gaps.
+
 **Scope:** task goal, proposed plan, completed evidence, uncertain effects, pause reason, persisted draft and linked continuation. Reconcile on restart; checkboxes are not evidence.
 
 **Basic acceptance:** restart explicitly resumes a multi-step task with provenance and prior effects visible.

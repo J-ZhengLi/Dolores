@@ -109,7 +109,7 @@ impl ToolPlugin for LoggedTool {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        self.log.record(None,"toolIntent",json!({"callId":request.call_id,"name":request.name,"certainty":"Effect outcome is unknown until a result is recorded."})).await?;
+        self.log.record(None,"toolIntent",json!({"callId":request.call_id,"name":request.name,"target":request.target,"certainty":"Effect outcome is unknown until a result is recorded."})).await?;
         if cancel.is_cancelled() {
             return Err(crate::stopped());
         }
@@ -123,7 +123,7 @@ impl ToolPlugin for LoggedTool {
             }
             _ => None,
         };
-        self.log.record(None,"toolResult",json!({"callId":request.call_id,"name":request.name,"returned":result.is_ok(),"content":content,"oversized":content.is_none(),"note":"Returned errors do not establish that external effects were undone. Inspect Changes or command receipts."})).await.map_err(|_|"An operation returned but its run evidence could not be saved. Inspect Changes and external effects before retrying.")?;
+        self.log.record(None,"toolResult",json!({"callId":request.call_id,"name":request.name,"target":request.target,"returned":result.is_ok(),"content":content,"oversized":content.is_none(),"note":"Returned errors do not establish that external effects were undone. Inspect Changes or command receipts."})).await.map_err(|_|"An operation returned but its run evidence could not be saved. Inspect Changes and external effects before retrying.")?;
         result
     }
 }

@@ -173,9 +173,58 @@ class ChatController extends ChangeNotifier {
   List<String> enabledModels = [];
   String baseUrl = 'http://localhost:11434/v1',
       model = '',
-      draft = '',
+      _draft = '',
       pendingInput = '',
       partial = '';
+  bool durableDrafts = false;
+  String? resumeRun;
+  Timer? _draftTimer;
+  String get draft => _draft;
+  set draft(String value) {
+    if (_draft == value) return;
+    _draft = value;
+    if (value.trim().isEmpty && !busy) resumeRun = null;
+    _draftTimer?.cancel();
+    if (!durableDrafts || session == null || busy || changing || loading) {
+      return;
+    }
+    final target = session!, text = value;
+    _draftTimer = Timer(const Duration(milliseconds: 250), () async {
+      try {
+        await bridge.call({
+          'command': 'saveDraft',
+          'session': target,
+          'text': text,
+        });
+      } catch (failure) {
+        if (!_disposed && session == target) {
+          error =
+              'Draft could not be saved: $failure. Your text is still here; copy it or edit again to retry.';
+          _notify();
+        }
+      }
+    });
+  }
+
+  Future<void> prepareCheckpoint(String source) async {
+    if (busy || changing || loading || session == null) return;
+    if (draft.trim().isNotEmpty) {
+      throw StateError(
+        'Send or clear the current draft before preparing recovery.',
+      );
+    }
+    final value = await bridge.call({
+      'command': 'checkpointDraft',
+      'session': session,
+      'runId': source,
+    });
+    if (_disposed) return;
+    draft = value as String;
+    resumeRun = source;
+    viewRevision++;
+    _notify();
+  }
+
   String? session, error, connectionWarning;
   Map<String, dynamic>? recovery;
   String? _recoveryError;
@@ -257,6 +306,22 @@ class ChatController extends ChangeNotifier {
 
   void rememberScroll(double offset) => scrollOffset = offset;
   void _rememberView() {
+    if (durableDrafts && session != null && !busy) {
+      final target = session!, text = draft;
+      _draftTimer?.cancel();
+      unawaited(
+        bridge
+            .call({'command': 'saveDraft', 'session': target, 'text': text})
+            .catchError((Object failure) {
+              if (!_disposed) {
+                error =
+                    'Draft could not be saved: $failure. The text remains in this chat until you close the app.';
+                _notify();
+              }
+              return null;
+            }),
+      );
+    }
     final key = session ?? '';
     _views.remove(key);
     _views[key] = _ViewState(
@@ -351,6 +416,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> refresh() async {
     final state = await bridge.call({'command': 'bootstrap'});
+    durableDrafts = state['durableDrafts'] == true;
     sessions = (state['sessions'] as List).cast<Map<String, dynamic>>();
     projects = ((state['projects'] as List?) ?? [])
         .cast<Map<String, dynamic>>();
@@ -555,6 +621,7 @@ class ChatController extends ChangeNotifier {
     if (nextKind != 'project') workspaceRoot = null;
     workspaceKind = nextKind;
     session = null;
+    resumeRun = null;
     contextSummary = null;
     contextBasis = null;
     messages = [];
@@ -591,7 +658,14 @@ class ChatController extends ChangeNotifier {
       contextSummary = null;
       contextBasis = null;
       _restoreContext();
-      draft = state?.draft ?? '';
+      _draftTimer?.cancel();
+      _draft =
+          state?.draft ??
+          (durableDrafts
+              ? await bridge.call({'command': 'savedDraft', 'session': id})
+                    as String
+              : '');
+      resumeRun = null;
       scrollOffset = state?.scroll ?? double.infinity;
       viewRevision++;
       error = null;
@@ -798,6 +872,7 @@ class ChatController extends ChangeNotifier {
         'session': session,
         'input': pendingInput,
         'continuation': ?continuation,
+        'resumeRun': ?resumeRun,
       });
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});
@@ -909,6 +984,7 @@ class ChatController extends ChangeNotifier {
                   ? 'Last saved request'
                   : 'Saved agent input';
               busy = false;
+              resumeRun = null;
               stopping = false;
               pendingInput = '';
               partial = '';
@@ -976,6 +1052,7 @@ class ChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _draftTimer?.cancel();
     unawaited(bridge.close());
     super.dispose();
   }

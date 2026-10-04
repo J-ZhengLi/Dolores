@@ -228,6 +228,15 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn saved_draft(&self, _: &str) -> Result<String, String> {
+        Ok(String::new())
+    }
+    fn save_draft(&self, _: &str, _: &str) -> Result<(), String> {
+        Err("Persistent drafts are unavailable in this store.".into())
+    }
+    fn clear_draft_if(&self, _: &str, _: &str) -> Result<(), String> {
+        Ok(())
+    }
     fn scoped_settings(&self, _scope: SettingsScope, _key: &str) -> Result<ScopedSettings, String> {
         Ok(Default::default())
     }

@@ -46,7 +46,7 @@ impl ToolApproval for RunApproval {
         if let Some(policy) = &self.policy {
             if policy.automatic(request)? {
                 if let Some(log) = &self.log {
-                    log.record(None,"approvalAutomatic",json!({"callId":request.call_id,"mode":policy.policy.mode,"revision":policy.revision})).await?;
+                    log.record(None,"approvalAutomatic",json!({"callId":request.call_id,"name":request.name,"target":request.target,"mode":policy.policy.mode,"revision":policy.revision})).await?;
                 }
                 return Ok(true);
             }
@@ -55,7 +55,7 @@ impl ToolApproval for RunApproval {
             log.record(
                 Some(dolores_core::RunState::WaitingForApproval),
                 "approvalRequested",
-                json!({"callId":request.call_id,"name":request.name}),
+                json!({"callId":request.call_id,"name":request.name,"target":request.target,"command":request.command.as_ref().map(|c|&c.invocation)}),
             )
             .await?;
         }

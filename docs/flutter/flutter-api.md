@@ -46,3 +46,5 @@ Common event kinds include lifecycle/start, text deltas/public model commentary,
 Transport/Stop/malformed ordinary responses do not publish an incomplete chat turn; explicit output/step limits can save a paused reply with completed evidence. Continue requires the latest saved source and a fresh bounded run. File/command effects are independent of turn persistence. Feedback/comparison exports remain separate from provider-visible history.
 
 `run_command` now accepts optional `timeout_seconds` and `capture_bytes`; its approval preview includes their resolved values. `read_text_file` accepts `start_line`/`line_count`; ranged results include `snapshot`, usable as edit `expected_snapshot`. See [practical tools](../design/practical-tools.md).
+
+`savedDraft`, `saveDraft`, `runCheckpoint` and `checkpointDraft` are local APIs. `start.resumeRun` binds explicit recovery to the latest recoverable run; snapshots expose optional parentRun and accumulated segments. Old snapshot JSON defaults to the first segment. See [task checkpoints](../design/task-checkpoints.md).

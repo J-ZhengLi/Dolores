@@ -34,6 +34,10 @@ impl RunState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunSnapshot {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_run: Option<String>,
+    #[serde(default = "first_segment")]
+    pub segments: u32,
     pub id: String,
     pub thread: String,
     pub model: String,
@@ -59,3 +63,7 @@ pub struct RunEvent {
 }
 pub const MAX_RUN_EVENTS: u32 = 256;
 pub const MAX_RUN_EVENT_BYTES: usize = 128 * 1024;
+
+fn first_segment() -> u32 {
+    1
+}

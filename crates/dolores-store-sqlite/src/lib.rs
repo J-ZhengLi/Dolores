@@ -26,6 +26,7 @@ use std::{
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
+mod drafts;
 mod runs;
 mod settings;
 fn storage_error(_: impl std::fmt::Display) -> String {
@@ -139,6 +140,9 @@ impl SqliteStore {
             CREATE TRIGGER IF NOT EXISTS delete_thread_settings AFTER DELETE ON sessions BEGIN DELETE FROM scoped_settings WHERE scope='thread' AND scope_key=OLD.id; END;
             PRAGMA user_version=21; COMMIT;").map_err(storage_error)?;
         }
+        if version < 22 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS session_drafts(session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,text TEXT NOT NULL); PRAGMA user_version=22; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -149,6 +153,21 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn saved_draft(&self, id: &str) -> Result<String, String> {
+        self.read_draft(id)
+    }
+    fn save_draft(&self, id: &str, text: &str) -> Result<(), String> {
+        self.write_draft(id, text)
+    }
+    fn clear_draft_if(&self, id: &str, text: &str) -> Result<(), String> {
+        self.lock()?
+            .execute(
+                "DELETE FROM session_drafts WHERE session_id=?1 AND text=?2",
+                params![id, text],
+            )
+            .map_err(storage_error)?;
+        Ok(())
+    }
     fn scoped_settings(
         &self,
         scope: dolores_core::SettingsScope,
@@ -1027,7 +1046,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 21);
+        assert_eq!(version, 22);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

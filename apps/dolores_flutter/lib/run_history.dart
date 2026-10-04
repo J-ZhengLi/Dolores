@@ -20,6 +20,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
   late final String? session = widget.chat.session;
   List<dynamic> runs = [], events = [];
   String? selected, error;
+  Map<String, dynamic>? checkpoint;
   bool pending = false;
   @override
   void initState() {
@@ -72,8 +73,16 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
         'session': session,
         'runId': id,
       });
+      final saved = widget.chat.durableDrafts
+          ? await widget.chat.bridge.call({
+              'command': 'runCheckpoint',
+              'session': session,
+              'runId': id,
+            }) as Map
+          : null;
       if (mounted) {
         setState(() {
+          checkpoint = saved?.cast<String, dynamic>();
           events = result as List;
         });
       }
@@ -122,6 +131,37 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),
                 if (selected != null) const Divider(),
+                if (checkpoint != null) ...[
+                  SelectableText(
+                    'Goal: ${checkpoint!['goal']}\nProposed plan (unverified): ${checkpoint!['proposedPlan']}\nUncertain effects: ${checkpoint!['uncertainEffects']}\nPause/end: ${checkpoint!['pauseReason']}\n${checkpoint!['note']}',
+                  ),
+                  if (checkpoint!['savedDraft'] != '')
+                    SelectableText('Saved draft: ${checkpoint!['savedDraft']}'),
+                  TextButton(
+                    onPressed:
+                        pending ||
+                            widget.chat.busy ||
+                            checkpoint!['run']['state'] == 'completed' ||
+                            ![
+                              'paused',
+                              'failed',
+                              'cancelled',
+                              'interrupted',
+                            ].contains(checkpoint!['run']['state'])
+                        ? null
+                        : () async {
+                            try {
+                              await widget.chat.prepareCheckpoint(selected!);
+                              if (context.mounted) Navigator.pop(context);
+                            } catch (failure) {
+                              if (mounted) {
+                                setState(() => error = failure.toString());
+                              }
+                            }
+                          },
+                    child: const Text('Prepare resume draft'),
+                  ),
+                ],
                 for (final event in events)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),

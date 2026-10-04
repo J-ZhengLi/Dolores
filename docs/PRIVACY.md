@@ -21,3 +21,5 @@ Inspect publishable files, branches/tags and commit metadata before publishing. 
 Ignored `output/privacy/` may contain recovery copies of private history. Never upload it. Check archives separately: Git scans do not cover ignored data/build outputs. The Windows packager accepts reviewed runtime paths and user documents, refuses unexpected files/links, and excludes workspaces, databases, credentials and diagnostic outputs by construction.
 
 Compiled code can retain source-machine paths even when Git is clean. The Windows build removes known compiler paths and keeps debug symbols private; packaging refuses current workspace/home prefixes in its payload. Review binaries and third-party assets separately before public distribution. This local identity check is not a universal personal-data or secret detector.
+
+Saved-chat unsent drafts are stored in local session_drafts, bounded by the message allowance and deleted with the chat. They are excluded from conversation exports. Recovery checkpoints retain task goals, local tool evidence and parent provenance; explicit recovery shares bounded previews with the configured provider.

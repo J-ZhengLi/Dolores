@@ -128,7 +128,7 @@ impl SqliteStore {
             return Err("Run belongs to another chat or is unavailable.".into());
         }
         let mut stmt = conn
-            .prepare("SELECT data FROM run_events WHERE run_id=?1 ORDER BY sequence LIMIT 65")
+            .prepare("SELECT data FROM run_events WHERE run_id=?1 ORDER BY sequence LIMIT 257")
             .map_err(storage_error)?;
         let rows = stmt
             .query_map([id], |r| r.get::<_, String>(0))
@@ -189,6 +189,8 @@ mod tests {
         let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
         store.create("chat").unwrap();
         let run = RunSnapshot {
+            parent_run: None,
+            segments: 1,
             id: "11111111-1111-4111-8111-111111111111".into(),
             thread: "chat".into(),
             model: "fixture".into(),
@@ -244,7 +246,10 @@ mod tests {
                 &serde_json::json!({"message":"Inspect saved evidence before retrying"}),
             )
             .unwrap();
-        assert_eq!(store.run_events("chat", &run.id).unwrap().len(), 65);
+        assert_eq!(
+            store.run_events("chat", &run.id).unwrap().len(),
+            (MAX_RUN_EVENTS + 1) as usize
+        );
         store.delete("chat").unwrap();
         assert!(store.run_events("chat", &run.id).is_err());
     }
@@ -256,6 +261,8 @@ mod tests {
         store.create("thread").unwrap();
         store.create("other").unwrap();
         let run = RunSnapshot {
+            parent_run: None,
+            segments: 1,
             id: "11111111-1111-4111-8111-111111111111".into(),
             thread: "thread".into(),
             model: "fixture".into(),

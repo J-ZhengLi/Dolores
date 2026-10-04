@@ -183,3 +183,7 @@ Brick 6.3 keeps the existing External tools inspector and palette. Place the sav
 ## Practical tool evidence
 
 Read approvals label start/count ranges. Command approvals expose actual requested deadline/capture. Expandable receipts distinguish shortened previews, incomplete captures and log-write errors, name the local log and offer local opening/ranged-read guidance. Keep the existing palette, approval controls and composer unchanged.
+
+## Task checkpoints and draft recovery
+
+Run history keeps its existing system-themed inspector and scrollable evidence, adding original goal, unverified operation plan, uncertain effects and the saved draft. Prepare resume draft is explicit, excludes running/completed work and never replaces an occupied composer. Errors retain selection and text. Returning to the composer requires a normal Send. Saved chats restore local drafts; persistence failures explain copying or retrying without clearing the text.
