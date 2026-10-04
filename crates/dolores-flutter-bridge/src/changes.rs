@@ -251,17 +251,24 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "external");
         std::fs::write(&file, "after 世界\r\n").unwrap();
         let (_, events) = tokio::sync::mpsc::channel(1);
-        *engine.active.lock().unwrap() = Some(Run {
-            id: 1,
-            cancel: tokio_util::sync::CancellationToken::new(),
-            events,
-            approvals: Arc::new(std::sync::Mutex::new(None)),
-        });
-        for command in [
-            Command::ChangesPage {
+        engine
+            .active
+            .lock()
+            .unwrap()
+            .reserve(Run {
+                id: 1,
+                cancel: tokio_util::sync::CancellationToken::new(),
+                events,
+                approvals: Arc::new(std::sync::Mutex::new(None)),
+            })
+            .unwrap();
+        assert!(engine
+            .call(Command::ChangesPage {
                 session: "chat".into(),
                 cursor: None,
-            },
+            })
+            .is_ok());
+        for command in [
             Command::PreviewRevert {
                 session: "chat".into(),
                 change_id: id,

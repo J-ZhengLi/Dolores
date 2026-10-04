@@ -139,7 +139,7 @@ impl Engine {
     }
     pub(super) fn generate_skill_draft(
         &self,
-        active: &mut Option<Run>,
+        active: &mut crate::run_journal::RunCoordinator,
         id: u64,
         session: String,
         token: String,
@@ -185,12 +185,12 @@ impl Engine {
         )?;
         let (output, events) = mpsc::channel(8);
         let cancel = CancellationToken::new();
-        *active = Some(Run {
+        active.reserve(Run {
             id,
             cancel: cancel.clone(),
             events,
             approvals: Arc::new(Mutex::new(None)),
-        });
+        })?;
         let slot = self.skill_draft_review.clone();
         let store = self.store.clone();
         self.runtime.spawn(async move {
@@ -226,7 +226,7 @@ impl Engine {
     }
     pub(super) fn evaluate_skill_draft(
         &self,
-        active: &mut Option<Run>,
+        active: &mut crate::run_journal::RunCoordinator,
         id: u64,
         session: String,
         token: String,
@@ -303,12 +303,12 @@ impl Engine {
         *self.skill_draft_review.lock().map_err(|_| STALE)? = Some(review.clone());
         let (output, events) = mpsc::channel(8);
         let cancel = CancellationToken::new();
-        *active = Some(Run {
+        active.reserve(Run {
             id,
             cancel: cancel.clone(),
             events,
             approvals: Arc::new(Mutex::new(None)),
-        });
+        })?;
         let slot = self.skill_draft_review.clone();
         let store = self.store.clone();
         self.runtime.spawn(async move {
@@ -482,7 +482,7 @@ mod tests {
                 .review_skill_examples("side", SkillScope::Global)
                 .unwrap();
             assert_eq!(review["settings"], json!(saved_settings));
-            let mut active = None;
+            let mut active = crate::run_journal::RunCoordinator::default();
             let token = review["token"].as_str().unwrap().to_string();
             let invalid = engine
                 .generate_skill_draft(
@@ -499,7 +499,7 @@ mod tests {
                 )
                 .unwrap_err();
             assert!(invalid.contains("Output token limit"));
-            assert!(active.is_none());
+            assert!(!active.is_some());
             let override_settings = requested.map(|n| dolores_core::RequestSettings {
                 max_output_tokens: n,
                 timeout_seconds: 120,
@@ -592,7 +592,7 @@ mod tests {
             required: vec!["focused".into()],
             forbidden: vec![],
         }];
-        let mut active = None;
+        let mut active = crate::run_journal::RunCoordinator::default();
         let error = engine
             .evaluate_skill_draft(
                 &mut active,
@@ -604,13 +604,13 @@ mod tests {
             )
             .unwrap_err();
         assert!(error.contains("12 saved entries"));
-        assert!(active.is_none());
+        assert!(!active.is_some());
         draft.name = "entry-0".into();
         let error = engine
             .evaluate_skill_draft(&mut active, 2, "side".into(), review.token, draft, trials)
             .unwrap_err();
         assert!(error.contains("model connection"));
-        assert!(active.is_none());
+        assert!(!active.is_some());
     }
     #[test]
     fn source_review_is_local_scoped_bounded_and_requires_fresh_complete_exchanges() {

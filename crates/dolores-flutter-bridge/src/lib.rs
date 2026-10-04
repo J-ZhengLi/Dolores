@@ -12,6 +12,7 @@ mod mcp;
 mod memory;
 mod memory_suggestions;
 mod recovery;
+mod run_journal;
 mod skill_drafts;
 mod skills;
 mod summaries;
@@ -53,7 +54,8 @@ struct Engine {
     runtime: Runtime,
     store: Arc<dyn SessionStore>,
     connection: Mutex<ConnectionManager>,
-    active: Mutex<Option<Run>>,
+    active: Mutex<run_journal::RunCoordinator>,
+    data_lock: Option<std::fs::File>,
     workspace_directory: Option<PathBuf>,
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
@@ -70,6 +72,14 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Runs {
+        session: String,
+    },
+    RunEvents {
+        session: String,
+        #[serde(rename = "runId")]
+        run_id: String,
+    },
     HarnessInventory {
         session: Option<String>,
     },
@@ -424,7 +434,8 @@ impl Engine {
             runtime,
             store,
             connection: Mutex::new(connection),
-            active: Mutex::new(None),
+            active: Mutex::new(Default::default()),
+            data_lock: None,
             workspace_directory: None,
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
@@ -441,7 +452,17 @@ impl Engine {
         // Reserve/prepare/cancel are synchronized. Persistence runs on Dart's worker
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;
+        if active.closed() {
+            return Err("The app has shut down. Restart Dolores.".into());
+        }
         match command {
+            Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
+            Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
+            Command::Workspace {session} => return Ok(json!(self.store.workspace(&session)?)),
+            Command::SessionsPage {cursor,newer} => return self.session_page(cursor,newer),
+            Command::MessagesPage {session,cursor,newer} => return Ok(json!(self.store.messages_page(&session,cursor,newer,80)?)),
+            Command::ChangesPage {session,cursor} => return self.changes_page(&session,cursor),
+            Command::ChangeDetails {session,change_id} => return self.change_details(&session,change_id),
             Command::HarnessInventory { session } => return self.harness_inventory(session.as_deref()),
             Command::HarnessSource { source, start_line, line_count, checkout } => return introspection::source(&json!({"source":source,"startLine":start_line.unwrap_or(1),"lineCount":line_count.unwrap_or(60)}).to_string(), checkout.as_deref()),
             Command::Poll { id } => {
@@ -460,7 +481,7 @@ impl Engine {
                     }
                 }
                 if done {
-                    *active = None;
+                    active.remove(id);
                 }
                 return Ok(json!(events));
             }
@@ -499,6 +520,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                active.close();
                 self.clear_revert()?;
                 if let Some(run) = active.take() {
                     run.cancel.cancel();
@@ -985,6 +1007,32 @@ impl Engine {
                 } else {
                     None
                 };
+                let run_id = uuid::Uuid::new_v4().to_string();
+                self.store.begin_run(&dolores_core::RunSnapshot {
+                    id: run_id.clone(),
+                    thread: session.clone().unwrap(),
+                    model: model.clone(),
+                    settings: settings.unwrap_or_default(),
+                    input: input.clone(),
+                    state: dolores_core::RunState::Prepared,
+                    sequence: 0,
+                    created_at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64,
+                    build: env!("DOLORES_BUILD_REVISION").into(),
+                    tools: tools.iter().map(|t| t.spec().name).collect(),
+                })?;
+                let log = run_journal::RunLog::new(self.store.clone(), run_id);
+                tools = tools
+                    .into_iter()
+                    .map(|inner| {
+                        Arc::new(run_journal::LoggedTool {
+                            inner,
+                            log: log.clone(),
+                        }) as Arc<dyn dolores_core::ToolPlugin>
+                    })
+                    .collect();
                 let cancel = CancellationToken::new();
                 let (output, events) = mpsc::channel(32);
                 let approvals = Arc::new(Mutex::new(None));
@@ -992,18 +1040,21 @@ impl Engine {
                     id,
                     pending: approvals.clone(),
                     output: output.clone(),
+                    log: Some(log.clone()),
                 });
-                *active = Some(Run {
+                active.reserve(Run {
                     id,
                     cancel: cancel.clone(),
                     events,
                     approvals,
-                });
+                })?;
                 let store = self.store.clone();
                 self.runtime.spawn(async move {
                     let learning_session = session.clone();
                     let learning_model = model.clone();
-                    let result = execute(
+                    let result = match log.record(Some(dolores_core::RunState::Running),"started",json!({"clientId":id})).await {
+                    Err(error)=>Err(error),
+                    Ok(())=> execute(
                         store.clone(),
                         provider,
                         TurnRequest {
@@ -1019,17 +1070,21 @@ impl Engine {
                         cancel.clone(),
                         &output,
                     )
-                    .await;
+                    .await };
                     let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
                     let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
-                            automatic_memory::learn(store, learner, &session, &learning_model, cancel.clone(), &output, id).await
+                            automatic_memory::learn(store.clone(), learner, &session, &learning_model, cancel.clone(), &output, id).await
                         } else { None }
                     } else { None };
-                    let event = match result {
+                    let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
+                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err()})).await.err();
+                    let mut event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
+                    event["runId"]=json!(log.id);
+                    if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
                 Ok(Value::Null)
@@ -1299,11 +1354,14 @@ fn initialize() -> Result<Engine, String> {
             .join("dev.dolores.desktop"),
     };
     std::fs::create_dir_all(&directory).map_err(|_| "Could not create the data directory.")?;
+    let data_lock = run_journal::lock_directory(&directory)?;
     let credentials = Arc::new(dolores_credentials::OsCredentialStore::new(&directory)?);
     let mut engine = Engine::new(
         Arc::new(SqliteStore::open(&directory.join("dolores.db"))?),
         credentials,
     )?;
+    engine.store.interrupt_runs()?;
+    engine.data_lock = Some(data_lock);
     engine.workspace_directory = Some(directory.join("workspaces"));
     engine.global_skills_directory = Some(match std::env::var_os("DOLORES_GLOBAL_SKILLS_DIR") {
         Some(value) => {
@@ -1627,12 +1685,17 @@ mod tests {
             reply,
         })));
         let (_output, events) = mpsc::channel(4);
-        *engine.active.lock().unwrap() = Some(Run {
-            id: 7,
-            cancel: CancellationToken::new(),
-            events,
-            approvals: pending.clone(),
-        });
+        engine
+            .active
+            .lock()
+            .unwrap()
+            .reserve(Run {
+                id: 7,
+                cancel: CancellationToken::new(),
+                events,
+                approvals: pending.clone(),
+            })
+            .unwrap();
         for (id, call_id) in [(6, "one"), (7, "wrong")] {
             assert!(engine
                 .call(Command::ApproveTool {

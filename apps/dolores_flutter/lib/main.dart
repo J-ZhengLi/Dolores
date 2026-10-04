@@ -26,6 +26,7 @@ import 'session_summary.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
 import 'capabilities.dart';
+import 'run_history.dart';
 
 import 'theme.dart';
 export 'theme.dart' show Palette;
@@ -784,10 +785,12 @@ class _ChatPageState extends State<ChatPage> {
                     PopupMenuButton<String>(
                       key: const Key('export-chat'),
                       tooltip: 'Chat actions',
-                      enabled: !chat.busy && !chat.changing && !chat.loading,
+                      enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
                         if (value == 'capabilities') {
                           showCapabilities(context, chat);
+                        } else if (value == 'runs') {
+                          showRunHistory(context, chat);
                         } else if (value == 'skills') {
                           showSkills(context, chat);
                         } else if (value == 'mcp') {
@@ -810,24 +813,33 @@ class _ChatPageState extends State<ChatPage> {
                           child: Text('Dolores capabilities'),
                         ),
                         const PopupMenuItem(
+                          value: 'runs',
+                          child: Text('Run history'),
+                        ),
+                        PopupMenuItem(
+                          enabled: !chat.busy,
                           value: 'comparisons',
                           child: Text('Compare instructions'),
                         ),
                         if (chat.workspaceRoot != null)
-                          const PopupMenuItem(
+                          PopupMenuItem(
+                            enabled: !chat.busy,
                             value: 'mcp',
                             child: Text('External tools (MCP)'),
                           ),
                         if (constraints.maxWidth < 480)
-                          const PopupMenuItem(
+                          PopupMenuItem(
+                            enabled: !chat.busy,
                             value: 'skills',
                             child: Text('Skills'),
                           ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
+                          enabled: !chat.busy,
                           value: 'markdown',
                           child: Text('Export Markdown'),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
+                          enabled: !chat.busy,
                           value: 'json',
                           child: Text('Export JSON'),
                         ),

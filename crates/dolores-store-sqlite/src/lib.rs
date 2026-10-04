@@ -26,6 +26,7 @@ use std::{
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
+mod runs;
 fn storage_error(_: impl std::fmt::Display) -> String {
     "Could not read or save local conversation data.".into()
 }
@@ -125,6 +126,13 @@ impl SqliteStore {
                 CREATE INDEX comparisons_session ON context_comparisons(session_id,id);
                 PRAGMA user_version=19; COMMIT;").map_err(storage_error)?;
         }
+        if version < 20 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY, thread TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, data TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS runs_thread ON runs(thread);
+                CREATE TABLE IF NOT EXISTS run_events(run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE, sequence INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(run_id,sequence));
+                PRAGMA user_version=20; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -135,6 +143,28 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn begin_run(&self, run: &dolores_core::RunSnapshot) -> Result<(), String> {
+        self.insert_run(run)
+    }
+    fn append_run_event(
+        &self,
+        id: &str,
+        expected: u32,
+        state: Option<dolores_core::RunState>,
+        kind: &str,
+        data: &serde_json::Value,
+    ) -> Result<u32, String> {
+        self.append_event(id, expected, state, kind, data)
+    }
+    fn runs(&self, thread: &str) -> Result<Vec<dolores_core::RunSnapshot>, String> {
+        self.read_runs(thread)
+    }
+    fn run_events(&self, thread: &str, id: &str) -> Result<Vec<dolores_core::RunEvent>, String> {
+        self.read_run_events(thread, id)
+    }
+    fn interrupt_runs(&self) -> Result<(), String> {
+        self.mark_interrupted()
+    }
     fn create_comparison(
         &self,
         run: &dolores_core::ContextComparison,
@@ -973,7 +1003,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 19);
+        assert_eq!(version, 20);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

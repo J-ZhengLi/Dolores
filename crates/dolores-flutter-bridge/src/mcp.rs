@@ -50,7 +50,7 @@ impl Engine {
     }
     pub(super) fn inspect_mcp(
         &self,
-        active: &mut Option<Run>,
+        active: &mut crate::run_journal::RunCoordinator,
         id: u64,
         session: String,
         connection_id: String,
@@ -75,12 +75,12 @@ impl Engine {
         self.clear_mcp_review()?;
         let cancel = CancellationToken::new();
         let (output, events) = mpsc::channel(4);
-        *active = Some(Run {
+        active.reserve(Run {
             id,
             cancel: cancel.clone(),
             events,
             approvals: Arc::new(Mutex::new(None)),
-        });
+        })?;
         let store = self.store.clone();
         let slot = self.mcp_review.clone();
         let vault = self.mcp_credentials.clone();

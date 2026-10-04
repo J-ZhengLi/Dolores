@@ -923,6 +923,10 @@ class ChatController extends ChangeNotifier {
               _restoreContext();
             }
             await refresh();
+            if (event['evidenceWarning'] is String) {
+              error = event['evidenceWarning'] as String;
+              _record('Run evidence needs inspection');
+            }
             changing = false;
         }
       }

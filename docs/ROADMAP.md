@@ -2,7 +2,7 @@
 
 **Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, remains skipped**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
 
-Implementation update: the user authorized batching milestone 9. Brick **9.1 is implemented** with the bounded evidence in acceptance; 9.2–9.4 are the active cycle. Later milestones retain their planned scope and are not implicitly complete.
+Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.2 are implemented** with the bounded evidence in acceptance; 9.3–9.4 are the active cycle. Later milestones retain their planned scope and are not implicitly complete.
 
 ## Destination and scope
 

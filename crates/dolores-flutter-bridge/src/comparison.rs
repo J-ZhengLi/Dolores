@@ -72,7 +72,7 @@ impl Engine {
     }
     pub(super) fn start_comparison(
         &self,
-        active: &mut Option<Run>,
+        active: &mut crate::run_journal::RunCoordinator,
         id: u64,
         session: String,
         draft: ComparisonDraft,
@@ -129,12 +129,12 @@ impl Engine {
         let comparison_id = run.id;
         let (output, events) = mpsc::channel(8);
         let cancel = CancellationToken::new();
-        *active = Some(Run {
+        active.reserve(Run {
             id,
             cancel: cancel.clone(),
             events,
             approvals: Arc::new(Mutex::new(None)),
-        });
+        })?;
         let store = self.store.clone();
         self.runtime.spawn(async move {
             execute(store, provider, run, cancel, output, id).await;

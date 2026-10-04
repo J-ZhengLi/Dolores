@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Run evidence
+
+Saved-chat Chat actions keeps Run history and Dolores capabilities available during execution. Other actions that prepare or mutate state remain disabled. Run history uses InspectorFrame, a scrollable latest-20 list, selectable ordered evidence and a fixed Refresh footer. Show interruption and uncertain effects literally with inspection guidance, never an automatic Replay action. Changing the foreground chat still waits for Stop/completion; read-only backend inspection of another chat is allowed. No idle polling, new palette or composer change is added.
+
 ## Capability inspection
 
 Saved-chat Chat actions offers Dolores capabilities using InspectorFrame, system palette and fixed wrapping footer. Local inventory explains tools, approval/containment, window origin and limits without model requests. Source selection reads bounded bundled lines; Next/First lines and Compare checkout are explicit local actions. Stale/missing source and refresh errors remain readable, with usable compact controls. Model-requested inspection uses the existing approval card with read-only/sharing disclosure and Harness inspection result label. Composer layout is unchanged.

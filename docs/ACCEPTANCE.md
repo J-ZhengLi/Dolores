@@ -1,5 +1,13 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 9.2 — Run ownership and durable evidence
+
+Primary chat runs now have frozen snapshots and ordered approval/operation/terminal records. Run history is available during execution. Startup marks unfinished runs interrupted without replay; one process owns a data directory and one execution owns cancellation/decisions. See [implemented boundaries](design/run-ownership.md), including transient deltas, auxiliary job receipts and foreground-navigation limits.
+
+- **49 bridge / 36 store tests pass**: directory-lock refusal/release, single execution and shutdown, other-chat reads versus mutation refusal, wrong-ID Stop, scoped/stale event writes, restart uncertainty/idempotence, exhausted evidence with reserved terminal marker, invalid transition rollback and chat deletion. Existing backpressure/deadline tests pass. Migration fixtures preserve legacy history/settings; schema expectations advance to 20.
+- **156 Flutter tests pass**, including compact dark inspection during execution, failed refresh/recovery and safe menu actions versus disabled exports. Analysis and Rust Clippy are clean. A bounded live Qwen/Qwen3.5-2B inspection (512 output tokens / 60 seconds) completes with one saved tool receipt and six ordered durable events, including intent/result and terminal state. Original model/settings remain untouched.
+- A separate normal-library, two-process fixture refuses the second host and, after simulated effect-intent interruption, reopens with an interrupted/restart marker and unchanged fixture effect. This is deterministic failure injection, not a real interrupted command. Normal release build succeeds; a visible normal Dolores window is reopened. The original **22 table digests** are unchanged, with two empty schema-20 tables added. Physical native inspector interaction, cross-platform and representative resource acceptance remain open. Exactly-once external execution and automatic replay are excluded.
+
 ## Brick 9.1 — Capability and bundled-source introspection
 
 Working chats now advertise a reviewed read-only `inspect_harness` tool; saved chats offer **Chat actions → Dolores capabilities**. Inventory reports actual tool registration, approval/containment, model/configured state, limits and window origin. Model function-call reliability is explicitly unknown, images remain unsupported, and self-updates remain unavailable. Five public source components are bundled with bounded line reads; a selected checkout is compared byte-for-byte but never replaces running source. No private root, provider key or user transcript is included.

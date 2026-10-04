@@ -15,6 +15,7 @@ pub struct RunApproval {
     pub id: u64,
     pub pending: ApprovalSlot,
     pub output: mpsc::Sender<Value>,
+    pub log: Option<Arc<crate::run_journal::RunLog>>,
 }
 struct ClearPending(ApprovalSlot);
 impl Drop for ClearPending {
@@ -31,6 +32,14 @@ impl ToolApproval for RunApproval {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<bool, String> {
+        if let Some(log) = &self.log {
+            log.record(
+                Some(dolores_core::RunState::WaitingForApproval),
+                "approvalRequested",
+                json!({"callId":request.call_id,"name":request.name}),
+            )
+            .await?;
+        }
         let (reply, decision) = oneshot::channel();
         {
             let mut pending = self
@@ -52,10 +61,19 @@ impl ToolApproval for RunApproval {
             &cancel,
         )
         .await?;
-        tokio::select! { biased;
+        let allowed = tokio::select! { biased;
             _ = cancel.cancelled() => Err(stopped()),
             result = decision => result.map_err(|_| "Tool approval was closed.".into()),
+        }?;
+        if let Some(log) = &self.log {
+            log.record(
+                Some(dolores_core::RunState::Running),
+                "approvalDecided",
+                json!({"callId":request.call_id,"allow":allowed}),
+            )
+            .await?;
         }
+        Ok(allowed)
     }
 }
 
@@ -71,6 +89,7 @@ mod tests {
                 id: 7,
                 pending: pending.clone(),
                 output,
+                log: None,
             });
             let cancel = CancellationToken::new();
             let token = cancel.clone();

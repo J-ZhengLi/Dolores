@@ -8,6 +8,8 @@ mod feedback;
 pub use comparison::*;
 pub use feedback::*;
 mod agent;
+mod runs;
+pub use runs::*;
 mod command_outcome;
 mod continuation;
 pub use command_outcome::{unresolved_commands, CommandOutcome};
@@ -218,6 +220,28 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn begin_run(&self, _: &RunSnapshot) -> Result<(), String> {
+        Err("Run evidence is unavailable in this store.".into())
+    }
+    fn append_run_event(
+        &self,
+        _: &str,
+        _: u32,
+        _: Option<RunState>,
+        _: &str,
+        _: &serde_json::Value,
+    ) -> Result<u32, String> {
+        Err("Run evidence is unavailable in this store.".into())
+    }
+    fn runs(&self, _: &str) -> Result<Vec<RunSnapshot>, String> {
+        Ok(vec![])
+    }
+    fn run_events(&self, _: &str, _: &str) -> Result<Vec<RunEvent>, String> {
+        Err("Run evidence is unavailable in this store.".into())
+    }
+    fn interrupt_runs(&self) -> Result<(), String> {
+        Ok(())
+    }
     fn create_comparison(&self, _: &ContextComparison) -> Result<ContextComparison, String> {
         Err("Context comparisons are unavailable in this store.".into())
     }
