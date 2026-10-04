@@ -100,7 +100,7 @@ fn revert_receipts_are_atomic_bound_and_rollback_to_pending_on_failure() {
     let mut invalid = draft("elsewhere");
     assert!(store.begin_change(&invalid).is_err());
     invalid.root = "project".into();
-    invalid.after = "x".repeat(dolores_core::MAX_TOOL_BYTES + 1);
+    invalid.after = "x".repeat(dolores_core::MAX_FILE_SNAPSHOT_BYTES + 1);
     assert!(store.begin_change(&invalid).is_err());
 }
 

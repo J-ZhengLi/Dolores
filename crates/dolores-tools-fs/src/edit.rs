@@ -38,6 +38,8 @@ struct Arguments {
     path: String,
     old_text: String,
     new_text: String,
+    #[serde(default)]
+    expected_snapshot: Option<String>,
 }
 
 pub(super) fn checkpoint(cancel: &CancellationToken) -> Result<(), String> {
@@ -63,10 +65,10 @@ pub(super) fn snapshot(directory: &Dir, path: &str) -> Result<(String, Permissio
         return Err("Only writable regular text files can be edited.".into());
     }
     let mut bytes = Vec::new();
-    file.take((MAX_TOOL_BYTES + 1) as u64)
+    file.take((dolores_core::MAX_FILE_SNAPSHOT_BYTES + 1) as u64)
         .read_to_end(&mut bytes)
         .map_err(|_| "File could not be read.")?;
-    if bytes.len() > MAX_TOOL_BYTES || bytes.contains(&0) {
+    if bytes.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES || bytes.contains(&0) {
         return Err("File exceeds the text limit or is binary.".into());
     }
     Ok((
@@ -264,8 +266,8 @@ impl EditTextFile {
 pub fn edit_spec() -> ToolSpec {
     ToolSpec {
             name:"edit_text_file".into(),
-            description:"Replace one exact, unique old_text occurrence with new_text in an existing writable UTF-8 file under the working folder. LF/CRLF proposal line breaks use the file's uniform newline style; all other text and whitespace must match exactly. Mixed/lone-CR files require byte-exact text or a unique single-line edit. Relative direct paths only, files up to 16 KiB. The user must review the local diff and approve once before writing. No creation, deletion, shell, aliases or VCS/credential files. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
-            parameters:json!({"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string","minLength":1},"new_text":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}),
+            description:"Replace one exact, unique old_text occurrence with new_text in an existing writable UTF-8 file under the working folder. LF/CRLF proposal line breaks use the file's uniform newline style; all other text and whitespace must match exactly. Mixed/lone-CR files require byte-exact text or a unique single-line edit. Relative direct paths only, files up to 1 MiB; files above 16 KiB require expected_snapshot from a ranged read. The diff must fit 16 KiB. The user must review the local diff and approve once before writing. No creation, deletion, shell, aliases or VCS/credential files. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
+            parameters:json!({"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string","minLength":1},"new_text":{"type":"string"},"expected_snapshot":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}),
         }
 }
 #[async_trait]
@@ -296,8 +298,18 @@ impl ToolPlugin for EditTextFile {
                 .map_err(|_| "File folder is unavailable.")?,
         );
         let (before, permissions) = snapshot(&parent, filename)?;
+        if before.len() > MAX_TOOL_BYTES && args.expected_snapshot.is_none() {
+            return Err("Large file needs expected_snapshot from a ranged read. Read the relevant lines first.".into());
+        }
+        if args
+            .expected_snapshot
+            .as_ref()
+            .is_some_and(|s| s != &super::ranged::digest(&before))
+        {
+            return Err("Snapshot changed. Read the file again and prepare a fresh edit. No edit was applied.".into());
+        }
         let after = text::replace(&before, &args.old_text, &args.new_text)?;
-        if after.len() > MAX_TOOL_BYTES {
+        if after.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES {
             return Err("Edited file exceeds the 16 KiB limit.".into());
         }
         let preview = change_diff(&before, &after);
@@ -374,8 +386,8 @@ impl RevertPlan {
         restored: &str,
     ) -> Result<Self, String> {
         if expected == restored
-            || expected.len() > MAX_TOOL_BYTES
-            || restored.len() > MAX_TOOL_BYTES
+            || expected.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES
+            || restored.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES
             || restored.contains('\0')
         {
             return Err("Invalid revert snapshot.".into());

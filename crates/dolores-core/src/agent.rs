@@ -150,6 +150,8 @@ pub struct CommandSpec {
 pub struct CommandPreview {
     pub invocation: CommandSpec,
     pub executable: String,
+    pub timeout_seconds: u64,
+    pub capture_bytes: usize,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -484,13 +486,14 @@ pub async fn run_agent_with_budget(
                         }
                     } else if call.name == "edit_text_file" {
                         match error.as_str() {
+                            "Large file needs expected_snapshot from a ranged read. Read the relevant lines first." | "Snapshot changed. Read the file again and prepare a fresh edit. No edit was applied." => error,
                             "Invalid edit arguments." => "Edit arguments must contain exactly path, old_text and new_text as strings; use these snake_case field names and no extra fields.".into(),
                             "Exact edit text was not found." => "Exact old_text was not found. Read the file and use its actual text, including whitespace and line endings.".into(),
                             "Line-ending adaptation is unavailable for mixed or lone-CR files. Use an exact single-line match or copy the original line endings." => error,
                             "Edit text occurs more than once. Use a larger unique match." | "Edit text occurs more than once." => "old_text matches more than once. Include enough surrounding text for one unique occurrence.".into(),
                             "Edit needs different text and a nonempty match." => "old_text must be nonempty, new_text must differ, and replacement text cannot contain NUL.".into(),
                             "Edited file exceeds the 16 KiB limit." | "Edit diff exceeds the 16 KiB limit. Use a smaller edit." => "The proposed file or diff exceeds 16 KiB. Request a smaller edit.".into(),
-                            _ => "Edit preview was blocked. Use one unique exact match in an existing writable UTF-8 file up to 16 KiB within the working folder; aliases, credential and VCS paths are excluded.".into(),
+                            _ => "Edit preview was blocked. Use one unique exact match in an existing writable UTF-8 file up to 1 MiB within the working folder; above 16 KiB use a ranged read and expected_snapshot; aliases, credential and VCS paths are excluded.".into(),
                         }
                     } else if call.name == "create_text_file" {
                         match error.as_str() {

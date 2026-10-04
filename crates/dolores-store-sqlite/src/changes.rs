@@ -24,8 +24,8 @@ impl SqliteStore {
             || (!draft.after_exists && !draft.after.is_empty())
             || (!draft.before_exists && !draft.after_exists)
             || (!draft.after_exists && draft.reverts.is_none())
-            || draft.before.len() > dolores_core::MAX_TOOL_BYTES
-            || draft.after.len() > dolores_core::MAX_TOOL_BYTES
+            || draft.before.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES
+            || draft.after.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES
             || draft.root.len() > 32768
             || draft.target.is_empty()
             || draft.target.len() > 1024

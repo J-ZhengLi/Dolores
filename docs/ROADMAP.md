@@ -108,6 +108,8 @@ Default order is sequential. Independent documents/measurements may proceed with
 
 ### 10.3 Practical file and command work
 
+**Implementation status:** ranged reads, snapshot-bound larger-file edits and explicit command limits/local logs are implemented; observed validation and gaps are in acceptance.
+
 **Scope:** ranged reads/snapshot-bound patches, Unicode/line-ending/conflict semantics; configurable bounded command deadline/capture and inspectable large-log artifacts. Preserve journal/uncertain effects.
 
 **Basic acceptance:** larger-file task edits/verifies without source truncation; slow check completes under an explicit allowance.

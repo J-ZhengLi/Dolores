@@ -179,3 +179,7 @@ External tools keeps the existing InspectorFrame and semantic system palette. Op
 ## Multiple MCP servers
 
 Brick 6.3 keeps the existing External tools inspector and palette. Place the saved server list and Add server above the selected server form; show per-server enabled/disabled state and the shared two-slot count. Switching servers discards the current review and reloads only that server's fields. Enable, Disable and Forget operate independently, including masked credentials. Failed capacity saves retain the form, selected tools and review. Provide inline Disable beside another enabled server so users can free a slot and retry Enable without switching the form. Scrolling keeps the compact form reachable; status/error feedback returns to the top and footer actions remain available. Forget selects a remaining server or a new blank form. Busy operations disable duplicate actions.
+
+## Practical tool evidence
+
+Read approvals label start/count ranges. Command approvals expose actual requested deadline/capture. Expandable receipts distinguish shortened previews, incomplete captures and log-write errors, name the local log and offer local opening/ranged-read guidance. Keep the existing palette, approval controls and composer unchanged.

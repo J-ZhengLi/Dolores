@@ -44,6 +44,9 @@ String toolResultText(dynamic record) {
       return '$outcome${result['truncated'] == true ? ' · Output shortened' : ''}'
           '${result['lossyUtf8'] == true ? '\nSome bytes could not be displayed as UTF-8.' : ''}'
           '${result['outputError'] == true ? '\nSome output could not be read.' : ''}'
+          '${result['previewTruncated'] == true ? '\nPreview shortened; capture status is shown above.' : ''}'
+          '${result['localLog'] is String ? '\nLocal log in working folder: ${result['localLog']}\nOpen it locally or request a ranged read.' : ''}'
+          '${result['logError'] == true ? '\nLocal log could not be saved. Inspect files and rerun with a smaller capture.' : ''}'
           '\n\nStandard output:\n${result['stdout'] ?? ''}\n\nStandard error:\n${result['stderr'] ?? ''}';
     }
     if (record['name'] == 'create_text_file' && result['applied'] == true) {
@@ -133,7 +136,7 @@ class ToolApprovalCard extends StatelessWidget {
       'edit_text_file' => 'Review the diff before applying this one change. Local before and after snapshots are saved in Changes, even if the reply stops or fails. A changed file needs a fresh preview.',
       'create_text_file' => 'Review the complete addition. Create one small text file in an existing folder; an occupied path is never replaced. A local snapshot is saved in Changes, even if the reply stops or fails. Removing it later needs another review.',
       'run_command' =>
-        'Runs with your permissions. It can access or change files outside this folder and use the network. Command changes are not recorded in Changes and may remain after Stop. Output is shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB output.',
+        'Runs with your permissions. It can access or change files outside this folder and use the network. Command changes are not recorded in Changes and may remain after Stop. Output is shared with ${chat.model} and saved with a completed reply. Limit: ${request['command']?['timeout_seconds'] ?? 30} seconds · ${request['command']?['capture_bytes'] ?? 8192} bytes capture. Larger output is kept in a local log with a shortened preview.',
       _ =>
         'Share this file’s text with ${chat.model}? This allows one read. File contents are also kept with a completed reply.',
     };
@@ -249,6 +252,8 @@ class ToolApprovalCard extends StatelessWidget {
                     Text(
                       name == 'inspect_harness'
                           ? 'Inspect this source/range:'
+                          : name == 'read_text_file'
+                          ? 'Read these lines (start:count):'
                           : 'Find this exact text:',
                       style: TextStyle(fontSize: 12),
                     ),
@@ -256,7 +261,7 @@ class ToolApprovalCard extends StatelessWidget {
                       request['query'] as String,
                       style: const TextStyle(fontSize: 12),
                     ),
-                    if (name != 'inspect_harness')
+                    if (name == 'search_text')
                       const Text(
                         'Case-sensitive · Up to four folder levels',
                         style: TextStyle(fontSize: 11),

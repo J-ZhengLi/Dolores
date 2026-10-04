@@ -390,6 +390,8 @@ impl ToolPlugin for CommandMock {
             command: Some(CommandPreview {
                 invocation,
                 executable: "/runtime/node".into(),
+                timeout_seconds: 30,
+                capture_bytes: 8192,
             }),
             mcp: None,
         })

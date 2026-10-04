@@ -207,3 +207,42 @@ async fn parent_completion_closes_descendants_and_does_not_hang_on_inherited_pip
     tokio::time::sleep(Duration::from_millis(1400)).await;
     assert!(!dir.path().join("late").exists());
 }
+
+#[tokio::test]
+async fn explicit_capture_saves_large_log_and_fresh_deadline_recovers() {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let request = tool.prepare(&ToolCall { arguments: json!({"program":"node","args":["-e","process.stdout.write('世界\\n'.repeat(5000))"],"capture_bytes":65536,"timeout_seconds":5}).to_string(), ..call("") }).unwrap();
+    let value: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(value["exitCode"], 0);
+    assert_eq!(value["truncated"], false);
+    assert_eq!(value["previewTruncated"], true);
+    let saved =
+        std::fs::read_to_string(dir.path().join(value["localLog"].as_str().unwrap())).unwrap();
+    assert_eq!(saved.lines().filter(|s| *s == "世界").count(), 5000);
+    let request=tool.prepare(&ToolCall{id:"slow".into(),arguments:json!({"program":"node","args":["-e","setTimeout(()=>process.stdout.write('done'),1300)"],"timeout_seconds":1}).to_string(),..call("")}).unwrap();
+    let value: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(value["reason"], "timedOut");
+    let request=tool.prepare(&ToolCall{id:"retry".into(),arguments:json!({"program":"node","args":["-e","setTimeout(()=>process.stdout.write('done'),1300)"],"timeout_seconds":3}).to_string(),..call("")}).unwrap();
+    let value: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(value["stdout"], "done");
+    assert_eq!(value["exitCode"], 0);
+}

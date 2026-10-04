@@ -99,10 +99,11 @@ impl PermissionPolicy {
             && self.grants.iter().any(|grant| {
                 grant.tool == request.name
                     && match request.name.as_str() {
-                        "run_command" => request
-                            .command
-                            .as_ref()
-                            .is_some_and(|c| Some(&c.invocation) == grant.command.as_ref()),
+                        "run_command" => request.command.as_ref().is_some_and(|c| {
+                            Some(&c.invocation) == grant.command.as_ref()
+                                && c.timeout_seconds <= 30
+                                && c.capture_bytes <= 8192
+                        }),
                         "inspect_harness" => true,
                         name if name.starts_with("mcp_tool_") => {
                             request.mcp.as_ref().is_some_and(|m| {
@@ -189,6 +190,8 @@ mod tests {
         r.command = Some(crate::CommandPreview {
             invocation: command,
             executable: "/python".into(),
+            timeout_seconds: 30,
+            capture_bytes: 8192,
         });
         assert!(policy.automatic(&r, 0));
         r.command

@@ -74,3 +74,5 @@ Brick 8.2 adds full versioned notices and source references for the selected Win
 Brick 8.3 adds accessible composer names and composition-safe Send/language changes, with native keyboard smoke and bounded recovery tests. Its [verification matrix](design/native-input-verification.md) explicitly retains physical-keyboard, real IME and spoken screen-reader gaps; native automation is not a substitute for those checks.
 
 Brick 8.4 (cross-platform build CI) was skipped at the user's request. Future proposals and priorities are in [the roadmap](ROADMAP.md); this document records past implementation and its acceptance boundaries.
+
+- **10.3:** ranged reads and snapshot-bound larger-file edits; explicit command limits and inspectable local output logs, with conflict/timeout recovery and a live fixed larger-file check.

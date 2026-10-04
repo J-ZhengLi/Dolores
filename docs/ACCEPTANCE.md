@@ -1,5 +1,15 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 10.3 — Ranged files and explicit command limits
+
+Implemented [practical tools](design/practical-tools.md): bounded line reads with SHA-256 source snapshots, unique snapshot-bound edits/reverts up to 1 MiB, and reviewed command deadlines/capture with local large-log artifacts. Existing default command/model budgets remain unchanged. Large captures require explicit reviewed limits; literal automatic command grants cover only the default limits.
+
+49 core, 53 bridge, 37 store, 33 file-tool and 10 command-tool tests passed; Clippy warnings denied, Flutter analysis and 163 Flutter tests passed. New file cases preserve Unicode/CRLF and all untouched lines, reject a concurrent edit and stale digest, then succeed after a fresh read. Invalid ranges and oversized single lines explain recovery. Command cases retain all 5,000 Unicode output lines in a local log, keep model output bounded, report a one-second timeout truthfully and complete under a fresh three-second allowance. Existing child cleanup/output-budget cases still pass. The native task-budget fixture also passes.
+
+A bounded DeepSeek V4.1 Flash v1 larger-file baseline passed: all 1,600 prefix lines and check.py remained exact, the snapshot-bound edit was applied and the unchanged executable assertion passed. One extra command was denied by the synthetic test policy; the required check still completed. This is one small case, not general competence. Private credentials/transcripts and the normal selected model were preserved.
+
+Normal release build and visible launch passed (PID 32436); original 22 table digests remain unchanged, schema 21. Local logs are explicit user-managed working-folder files; no command-effect rollback, atomic multi-file operation or universal platform/input/resource acceptance is claimed. Physical log-opening/range UI UAT remains open; host conflict/range recovery and local artifact contents are exercised.
+
 ## Brick 10.2 — Thread permissions and revocation
 
 Review, explicit automatic grants and full task access now apply to working chats. Grants stay thread-local, are pinned to a revision and expiry, and are checked before dispatch. Commands/MCP retain their actual containment limits; task access cannot activate self-updates.

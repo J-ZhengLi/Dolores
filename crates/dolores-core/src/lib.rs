@@ -839,3 +839,6 @@ mod tests {
         }
     }
 }
+
+/// Local file snapshots are larger than the model-facing tool result allowance.
+pub const MAX_FILE_SNAPSHOT_BYTES: usize = 1024 * 1024;

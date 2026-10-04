@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use cap_std::fs::Dir;
-use dolores_core::{ToolCall, ToolPlugin, ToolRequest, ToolSpec, MAX_TOOL_BYTES};
+#[cfg(test)]
+use dolores_core::MAX_TOOL_BYTES;
+use dolores_core::{ToolCall, ToolPlugin, ToolRequest, ToolSpec};
 use serde::Deserialize;
 use serde_json::json;
 use std::{io::Read, path::Path, sync::Arc};
@@ -11,6 +13,9 @@ mod create_tests;
 mod discovery;
 mod edit;
 mod instructions;
+mod ranged;
+#[cfg(test)]
+mod ranged_tests;
 mod skills;
 pub use skills::{
     global_skill_catalog, global_skills_target, parse_skill_document, project_skill_catalog,
@@ -110,8 +115,8 @@ impl ReadTextFile {
 pub fn read_spec() -> ToolSpec {
     ToolSpec {
             name:"read_text_file".into(),
-            description:"Read a UTF-8 text file under the user's chosen folder. Use a relative path with forward slashes. Each read requires user approval. Maximum 16 KiB; no binary, secret or VCS files.".into(),
-            parameters:json!({"type":"object","properties":{"path":{"type":"string","description":"Relative file path"}},"required":["path"],"additionalProperties":false}),
+            description:"Read a UTF-8 text file under the user's chosen folder. Use a relative path with forward slashes. Each read requires user approval. Whole reads up to 16 KiB; files up to 1 MiB use start_line and line_count (1–120), returning a snapshot digest for expected_snapshot edits. No binary, secret or VCS files.".into(),
+            parameters:json!({"type":"object","properties":{"path":{"type":"string","description":"Relative file path"},"start_line":{"type":"integer","minimum":1},"line_count":{"type":"integer","minimum":1,"maximum":120}},"required":["path"],"additionalProperties":false}),
         }
 }
 #[async_trait]
@@ -124,9 +129,14 @@ impl ToolPlugin for ReadTextFile {
         #[serde(deny_unknown_fields)]
         struct Arguments {
             path: String,
+            #[serde(default)]
+            start_line: Option<usize>,
+            #[serde(default)]
+            line_count: Option<usize>,
         }
         let args: Arguments =
             serde_json::from_str(&call.arguments).map_err(|_| "Invalid file arguments.")?;
+        let range = ranged::range(args.start_line, args.line_count)?;
         let target = self.resolve(&args.path)?;
         if !self
             .directory
@@ -140,7 +150,7 @@ impl ToolPlugin for ReadTextFile {
             call_id: call.id.clone(),
             name: call.name.clone(),
             target,
-            query: None,
+            query: range,
             diff: None,
             command: None,
             mcp: None,
@@ -151,11 +161,12 @@ impl ToolPlugin for ReadTextFile {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        if request.name != "read_text_file" || request.query.is_some() || request.diff.is_some() {
+        if request.name != "read_text_file" || request.diff.is_some() {
             return Err("Approved file path changed.".into());
         }
         let directory = self.directory.clone();
         let path = request.target.clone();
+        let range = request.query.clone();
         let read_cancel = cancel.clone();
         let read = tokio::task::spawn_blocking(move || {
             if read_cancel.is_cancelled() {
@@ -188,13 +199,14 @@ impl ToolPlugin for ReadTextFile {
                 return Err("Only regular text files can be read.".to_string());
             }
             let mut bytes = Vec::new();
-            file.take((MAX_TOOL_BYTES + 1) as u64)
+            file.take((dolores_core::MAX_FILE_SNAPSHOT_BYTES + 1) as u64)
                 .read_to_end(&mut bytes)
                 .map_err(|_| "File could not be read.")?;
-            if bytes.len() > MAX_TOOL_BYTES || bytes.contains(&0) {
+            if bytes.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES || bytes.contains(&0) {
                 return Err("File exceeds the text limit or is binary.".to_string());
             }
-            String::from_utf8(bytes).map_err(|_| "File is not UTF-8 text.".into())
+            let text = String::from_utf8(bytes).map_err(|_| "File is not UTF-8 text.")?;
+            ranged::render(&text, range.as_deref())
         });
         tokio::select! { biased;
             _ = cancel.cancelled() => Err("Response stopped.".into()),
