@@ -247,7 +247,7 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("updated guidance"));
-        assert_eq!(context["tools"].as_array().unwrap().len(), 6);
+        assert_eq!(context["tools"].as_array().unwrap().len(), 7);
         assert_eq!(
             context["instructions"]["revision"],
             enabled["provenance"]["revision"]

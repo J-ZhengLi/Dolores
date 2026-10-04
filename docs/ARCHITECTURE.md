@@ -49,6 +49,8 @@ Iced (`crates/dolores-native`) and Tauri/Svelte (`src-tauri`, `src`) remain deve
 
 ## Context and learning
 
+Brick 9.1 adds local capability inspection and a reviewed `inspect_harness` tool in working chats. The report excludes keys/private roots, labels model reliability unknown and exposes existing limits. A bounded five-component source bundle corresponds to the running code; explicit checkout comparison never changes the source used for diagnosis. Build revision identifies checkout HEAD at compilation; bundled file identities capture local source differences. Neither source access nor the catalog grants self-update authority.
+
 Each saved Project/Temporary chat has a working folder; Side chats have none. Temporary folders are created lazily. Associations are immutable per chat and do not follow the last visited folder. Folder roots are private host state, excluded from automatic model context/exports. Chat deletion preserves files.
 
 Context combines host instructions, enabled root AGENTS.md guidance, bounded folder-first preferences/skills, a reviewed session summary and recent uncovered turns. Exact prepared context is inspectable. Model-window estimates reserve output and headroom; provider-reported usage remains separate from estimates. Retrieval retains whole entries and does not erase history.

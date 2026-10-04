@@ -2,6 +2,8 @@
 
 **Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, remains skipped**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
 
+Implementation update: the user authorized batching milestone 9. Brick **9.1 is implemented** with the bounded evidence in acceptance; 9.2–9.4 are the active cycle. Later milestones retain their planned scope and are not implicitly complete.
+
 ## Destination and scope
 
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.

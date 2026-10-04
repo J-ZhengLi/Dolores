@@ -7,6 +7,7 @@ mod connection;
 mod continuation;
 mod export;
 mod instructions;
+mod introspection;
 mod mcp;
 mod memory;
 mod memory_suggestions;
@@ -69,6 +70,17 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    HarnessInventory {
+        session: Option<String>,
+    },
+    HarnessSource {
+        source: String,
+        #[serde(rename = "startLine", default)]
+        start_line: Option<usize>,
+        #[serde(rename = "lineCount", default)]
+        line_count: Option<usize>,
+        checkout: Option<PathBuf>,
+    },
     ComparisonSources {
         session: String,
     },
@@ -430,6 +442,8 @@ impl Engine {
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;
         match command {
+            Command::HarnessInventory { session } => return self.harness_inventory(session.as_deref()),
+            Command::HarnessSource { source, start_line, line_count, checkout } => return introspection::source(&json!({"source":source,"startLine":start_line.unwrap_or(1),"lineCount":line_count.unwrap_or(60)}).to_string(), checkout.as_deref()),
             Command::Poll { id } => {
                 let Some(run) = active.as_mut().filter(|run| run.id == id) else {
                     return Ok(json!([]));
@@ -737,6 +751,7 @@ impl Engine {
                 };
                 if tools {
                     specs.push(dolores_tools_command::command_spec());
+                    specs.push(introspection::spec());
                     for connection in &mcp {
                         specs.extend(connection.specs());
                     }
@@ -931,7 +946,7 @@ impl Engine {
                     }
                 }
                 let workspace = saved.and_then(|s| s.root).map(PathBuf::from).or(workspace);
-                let tools = workspace
+                let mut tools = workspace
                     .map(|root| {
                         let journal = Arc::new(dolores_core::WorkspaceJournal {
                             store: self.store.clone(),
@@ -954,6 +969,11 @@ impl Engine {
                     })
                     .transpose()?
                     .unwrap_or_default();
+                if !tools.is_empty() {
+                    tools.push(Arc::new(introspection::InspectHarness(
+                        self.harness_inventory(session.as_deref())?,
+                    )));
+                }
                 let model = self.store.preferences()?.model;
                 let settings = provider.request_settings();
                 let learner = if self.store.automatic_memory_policy()?.enabled {

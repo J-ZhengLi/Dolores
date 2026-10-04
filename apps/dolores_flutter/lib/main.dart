@@ -25,6 +25,7 @@ import 'memory.dart';
 import 'session_summary.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
+import 'capabilities.dart';
 
 import 'theme.dart';
 export 'theme.dart' show Palette;
@@ -785,7 +786,9 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.busy && !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'skills') {
+                        if (value == 'capabilities') {
+                          showCapabilities(context, chat);
+                        } else if (value == 'skills') {
                           showSkills(context, chat);
                         } else if (value == 'mcp') {
                           showMcp(context, chat);
@@ -802,6 +805,10 @@ class _ChatPageState extends State<ChatPage> {
                         size: 20,
                       ),
                       itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'capabilities',
+                          child: Text('Dolores capabilities'),
+                        ),
                         const PopupMenuItem(
                           value: 'comparisons',
                           child: Text('Compare instructions'),

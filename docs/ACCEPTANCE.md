@@ -1,5 +1,14 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 9.1 — Capability and bundled-source introspection
+
+Working chats now advertise a reviewed read-only `inspect_harness` tool; saved chats offer **Chat actions → Dolores capabilities**. Inventory reports actual tool registration, approval/containment, model/configured state, limits and window origin. Model function-call reliability is explicitly unknown, images remain unsupported, and self-updates remain unavailable. Five public source components are bundled with bounded line reads; a selected checkout is compared byte-for-byte but never replaces running source. No private root, provider key or user transcript is included.
+
+- **39 core / 46 bridge tests pass**, including disconnected/Side inspection, bounded ranges, invalid names/ranges and matching versus stale checkout. The catalog maximum is nine (six original built-ins, introspection and two MCP aliases); model-call/tool-operation limits remain four each.
+- **154 Flutter tests pass**, including compact dark inspection/source selection, failed local inspection then Refresh, and correct read-only/sharing approval. Analysis and Rust Clippy are clean. Native physical keyboard/IME/accessibility and broader resource/platform acceptance remain open.
+- A bounded **Qwen/Qwen3.5-2B** probe uses isolated data, 512 output tokens / 60 seconds and disabled automatic memory: one inspection approval, one completed saved receipt and a completed response. No project-file/command request occurs. Original model/settings are unchanged. This verifies the narrow tool flow, not general reasoning.
+- Normal release build succeeds and a normal Dolores window is visibly reopened. All **22 schema-19 table digests** match the original configuration/history snapshot. FNV source identities are diagnostic, not cryptographic attestation; checkout matching compares full bytes. Bundled coverage is limited. Executable loading, source edits and automatic activation are excluded.
+
 ## Architecture and roadmap planning
 
 The clarified vision is captured in the [target architecture specification](design/evolving-harness-architecture.md), [behavior policy](design/dolores-behavior.md) and revised [roadmap](ROADMAP.md): 21 scoped bricks across milestones 9–13, with dependencies, basic acceptance, realistic failure/recovery checks, exclusions and milestone exit gates. All requested basic/special features have named coverage. Brick 8.4 remains skipped; no future runtime brick is claimed complete.

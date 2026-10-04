@@ -249,7 +249,7 @@ pub async fn run_agent(
     }
     let specs: Vec<_> = plugins.iter().map(|plugin| plugin.spec()).collect();
     let mut names = HashSet::new();
-    if specs.is_empty() || specs.len() > 8 || specs.iter().any(|s| !names.insert(s.name.clone())) {
+    if specs.is_empty() || specs.len() > 9 || specs.iter().any(|s| !names.insert(s.name.clone())) {
         return Err("Tool registration is invalid.".into());
     }
     let (context, _) = crate::prepare_token_context(

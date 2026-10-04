@@ -14,6 +14,7 @@ String toolLabel(dynamic name) => switch (name) {
   'edit_text_file' => 'File edit',
   'create_text_file' => 'File creation',
   'run_command' => 'Command',
+  'inspect_harness' => 'Harness inspection',
   _ => 'File read',
 };
 
@@ -117,9 +118,12 @@ class ToolApprovalCard extends StatelessWidget {
       'edit_text_file' => 'Apply this file change?',
       'create_text_file' => 'Create this file?',
       'run_command' => 'Run this command?',
+      'inspect_harness' => 'Inspect the running harness?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      'inspect_harness' =>
+        'Share the selected running capabilities or bounded bundled source with ${chat.model}? This is read-only and cannot update Dolores or grant permissions. Results are kept with a completed reply.',
       String value when value.startsWith('mcp_tool_') =>
         'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.${credentialNames.isEmpty ? '' : '\nServer receives saved credentials: ${credentialNames.join(', ')}.'}',
       'list_folder' =>
@@ -242,18 +246,21 @@ class ToolApprovalCard extends StatelessWidget {
                   ],
                   if (request['query'] is String) ...[
                     const SizedBox(height: 6),
-                    const Text(
-                      'Find this exact text:',
+                    Text(
+                      name == 'inspect_harness'
+                          ? 'Inspect this source/range:'
+                          : 'Find this exact text:',
                       style: TextStyle(fontSize: 12),
                     ),
                     SelectableText(
                       request['query'] as String,
                       style: const TextStyle(fontSize: 12),
                     ),
-                    const Text(
-                      'Case-sensitive · Up to four folder levels',
-                      style: TextStyle(fontSize: 11),
-                    ),
+                    if (name != 'inspect_harness')
+                      const Text(
+                        'Case-sensitive · Up to four folder levels',
+                        style: TextStyle(fontSize: 11),
+                      ),
                   ],
                   const SizedBox(height: 6),
                   if (!running && !external)
@@ -369,7 +376,7 @@ class ToolRecords extends StatelessWidget {
                     key: PageStorageKey(
                       'tool-query-${record['callId']}-${record['name']}-${record['target']}',
                     ),
-                    'Search: ${record['query']}',
+                    '${record['name'] == 'inspect_harness' ? 'Inspection' : 'Search'}: ${record['query']}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                 ConstrainedBox(
