@@ -1,5 +1,13 @@
 # Dolores acceptance — 2026-10-04
 
+## Attachment controls — visual placement and image settings
+
+Inspected screenshots of the normal Windows release before and after this refinement. The plus action had drifted toward the middle because unused model-selector width was distributed by the footer; it is now anchored at the left and vertically aligned with Send/context, while the model selector remains right-aligned. Per-model Supports image input and context-window controls now appear at the top of Model connection. Errors involving draft/history images offer Model settings directly. Cancel preserves capabilities, draft and attachments; failed saves retain edited values and reveal the error for explicit retry.
+
+The layout regression failed before the fix. All 171 Flutter tests and clean Flutter analysis pass, including wide/compact layouts, short/long model names, light/dark themes, visible image settings without scrolling, draft preservation on Cancel, history-image recovery, per-model isolation and failed-save retry. The release-native attachment/restart fixture passes. A fresh isolated Qwen3.5-2B probe refuses disabled image input while retaining the draft, then completes with the correct green color after explicit enabling (2.63 seconds). It ignores the single-word format requirement; that check remains failed, and reported usage is unavailable. This is a small vision probe, not broad model qualification.
+
+The normal desktop release was rebuilt and opened visibly (PID 8992). Its composer and image setting were inspected in screenshots. All 31 current user-data table digests match the baseline captured for this refinement; provider/model/settings and draft attachments remain unchanged. Real-window visual inspection covered Windows dark mode; compact/light behavior has widget-test coverage, while other-platform and broad image-format acceptance remain open.
+
 ## Brick 10.6 — file and image attachments
 
 Implemented [immutable local snapshots](design/attachments.md), backward-readable message references, draft preview/removal, explicit model image capability, bounded provider content parts, snapshot export and manual orphan cleanup. Text-only history/wire remain compatible. Image allowance is explicitly approximate; no OCR, unlimited upload or background sharing is added.

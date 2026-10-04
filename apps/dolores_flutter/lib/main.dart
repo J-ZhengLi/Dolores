@@ -491,6 +491,26 @@ class _ChatPageState extends State<ChatPage> {
                 chat.error!,
                 style: TextStyle(color: p.errorText, fontSize: 13),
               ),
+              if (chat.attachmentsAvailable &&
+                  (chat.attachments.any(
+                        (part) => (part['mime'] as String? ?? '').startsWith(
+                          'image/',
+                        ),
+                      ) ||
+                      chat.messages.any(
+                        (message) => ((message['parts'] as List?) ?? []).any(
+                          (part) => (part['mime'] as String? ?? '').startsWith(
+                            'image/',
+                          ),
+                        ),
+                      )))
+                TextButton(
+                  key: const Key('image-model-settings'),
+                  onPressed: chat.busy || chat.changing || chat.loading
+                      ? null
+                      : settings,
+                  child: const Text('Model settings'),
+                ),
               if (chat.activeRecovery != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -612,70 +632,82 @@ class _ChatPageState extends State<ChatPage> {
                 key: const Key('composer-actions'),
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (chat.attachmentsAvailable) ...[
-                    IconButton(
-                      key: const Key('attach-file'),
-                      tooltip: 'Attach file or image',
-                      onPressed: chat.busy || chat.changing || chat.loading
-                          ? null
-                          : () => chooseAttachment(chat),
-                      icon: const Icon(Icons.add, size: 20),
+                  if (chat.attachmentsAvailable)
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: IconButton(
+                        key: const Key('attach-file'),
+                        tooltip: 'Attach file or image',
+                        onPressed: chat.busy || chat.changing || chat.loading
+                            ? null
+                            : () => chooseAttachment(chat),
+                        icon: const Icon(Icons.add, size: 20),
+                      ),
                     ),
-                    const Spacer(),
-                  ],
                   if (chat.configured && chat.enabledModels.isNotEmpty)
-                    Flexible(
-                      child: PopupMenuButton<String>(
-                        key: const Key('chat-model-picker'),
-                        tooltip: 'Choose model',
-                        enabled: !chat.busy && !chat.changing && !chat.loading,
-                        initialValue: chat.model,
-                        onSelected: chat.selectModel,
-                        itemBuilder: (_) => [
-                          for (final model in chat.enabledModels)
-                            PopupMenuItem(
-                              value: model,
-                              child: SizedBox(
-                                width: 240,
-                                child: Text(
-                                  model,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                        ],
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 4,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_outlined,
-                                size: 14,
-                                color: p.muted,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  chat.model,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: p.muted,
-                                    fontSize: 12,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: PopupMenuButton<String>(
+                          key: const Key('chat-model-picker'),
+                          tooltip: 'Choose model',
+                          enabled:
+                              !chat.busy && !chat.changing && !chat.loading,
+                          initialValue: chat.model,
+                          onSelected: chat.selectModel,
+                          itemBuilder: (_) => [
+                            for (final model in chat.enabledModels)
+                              PopupMenuItem(
+                                value: model,
+                                child: SizedBox(
+                                  width: 240,
+                                  child: Text(
+                                    model,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),
-                              Icon(Icons.expand_more, size: 16, color: p.muted),
-                            ],
+                          ],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome_outlined,
+                                  size: 14,
+                                  color: p.muted,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    chat.model,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: p.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.expand_more,
+                                  size: 16,
+                                  color: p.muted,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    )
+                  else
+                    const Spacer(),
                   ContextIndicator(
                     summary: chat.contextSummary,
                     basis: chat.contextBasis,
@@ -1093,6 +1125,7 @@ class ConnectionDialog extends StatefulWidget {
 }
 
 class _ConnectionDialogState extends State<ConnectionDialog> {
+  final _scroll = ScrollController();
   late final url = TextEditingController(text: widget.chat.baseUrl);
   final manualModel = TextEditingController();
   final search = TextEditingController();
@@ -1187,6 +1220,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
 
   @override
   void dispose() {
+    _scroll.dispose();
     url.dispose();
     manualModel.dispose();
     search.dispose();
@@ -1241,6 +1275,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
               : failure.toString();
           saving = false;
         });
+        if (_scroll.hasClients) _scroll.jumpTo(0);
       }
     }
   }
@@ -1275,6 +1310,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
+          controller: _scroll,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1283,7 +1319,85 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                 'Use an OpenAI-compatible local or hosted API.',
                 style: TextStyle(fontSize: 13),
               ),
-              const SizedBox(height: 24),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              if (selected.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(
+                    'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
+                  ),
+                  initialValue: selected.contains(contextModel)
+                      ? contextModel
+                      : selected.first,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Model settings',
+                  ),
+                  items: [
+                    for (final id in selected)
+                      DropdownMenuItem(
+                        value: id,
+                        child: Text(id, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: working
+                      ? null
+                      : (id) => setState(() => contextModel = id),
+                ),
+                if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
+                  CheckboxListTile(
+                    key: const Key('model-image-input'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Supports image input'),
+                    subtitle: const Text(
+                      'Enable for a model that accepts images from your provider. Images are sent at low detail.',
+                    ),
+                    value: imageModels.contains(
+                      selected.contains(contextModel)
+                          ? contextModel
+                          : selected.first,
+                    ),
+                    onChanged: working
+                        ? null
+                        : (enabled) => setState(() {
+                            final id = selected.contains(contextModel)
+                                ? contextModel!
+                                : selected.first;
+                            enabled == true
+                                ? imageModels.add(id)
+                                : imageModels.remove(id);
+                          }),
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('context-window'),
+                  controller: contextInput(
+                    selected.contains(contextModel)
+                        ? contextModel!
+                        : selected.first,
+                  ),
+                  enabled: !working,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Context window (tokens)',
+                    hintText: '131072 (128K default)',
+                    helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
+                    helperMaxLines: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              const Divider(height: 24),
               TextField(
                 key: const Key('base-url'),
                 controller: url,
@@ -1432,73 +1546,6 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                     ),
                   ],
                 ),
-              if (selected.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(
-                    'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
-                  ),
-                  initialValue: selected.contains(contextModel)
-                      ? contextModel
-                      : selected.first,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Model settings',
-                  ),
-                  items: [
-                    for (final id in selected)
-                      DropdownMenuItem(
-                        value: id,
-                        child: Text(id, overflow: TextOverflow.ellipsis),
-                      ),
-                  ],
-                  onChanged: working
-                      ? null
-                      : (id) => setState(() => contextModel = id),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('context-window'),
-                  controller: contextInput(
-                    selected.contains(contextModel)
-                        ? contextModel!
-                        : selected.first,
-                  ),
-                  enabled: !working,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Context window (tokens)',
-                    hintText: '131072 (128K default)',
-                    helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
-                    helperMaxLines: 2,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
-                CheckboxListTile(
-                  key: const Key('model-image-input'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Image input for this model'),
-                  subtitle: const Text(
-                    'Enable only when the provider/model accepts OpenAI-compatible image content. Images use low detail; no OCR adapter is installed.',
-                  ),
-                  value: imageModels.contains(
-                    selected.contains(contextModel)
-                        ? contextModel
-                        : selected.first,
-                  ),
-                  onChanged: working
-                      ? null
-                      : (enabled) => setState(() {
-                          final id = selected.contains(contextModel)
-                              ? contextModel!
-                              : selected.first;
-                          enabled == true
-                              ? imageModels.add(id)
-                              : imageModels.remove(id);
-                        }),
-                ),
               CheckboxListTile(
                 key: const Key('remember-connection'),
                 contentPadding: EdgeInsets.zero,
@@ -1522,17 +1569,6 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                   key: const Key('forget-connection'),
                   onPressed: working ? null : forget,
                   child: const Text('Forget saved connection'),
-                ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 13,
-                    ),
-                  ),
                 ),
             ],
           ),

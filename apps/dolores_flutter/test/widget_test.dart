@@ -99,7 +99,11 @@ void main() {
       expect(find.text('Model name'), findsNothing);
       await tester.tap(find.byKey(const Key('fetch-models')));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('enable-model-faster')),
+      );
       await tester.tap(find.byKey(const ValueKey('enable-model-faster')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('save-connection')));
       await tester.pumpAndSettle();
       expect(chat.enabledModels, ['fixture', 'faster']);
