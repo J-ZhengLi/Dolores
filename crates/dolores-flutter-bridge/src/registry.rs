@@ -10,10 +10,15 @@ impl ToolProposalHook for ValidateProposal {
         if request.call_id.is_empty()
             || request.name.is_empty()
             || request.target.len() > 1024
-            || request
-                .query
-                .as_ref()
-                .is_some_and(|q| q.len() > 256 || q.chars().any(char::is_control))
+            || request.query.as_ref().is_some_and(|q| {
+                q.len()
+                    > if request.name == "delegate_tasks" {
+                        4096
+                    } else {
+                        256
+                    }
+                    || q.chars().any(char::is_control)
+            })
             || request
                 .diff
                 .as_ref()
@@ -145,6 +150,13 @@ impl Engine {
             working,
             vec!["read-bundled-source".into()],
             vec!["inspect_harness".into()],
+        )?;
+        add(
+            "subagents",
+            true,
+            working,
+            vec!["bounded-scoped-children".into()],
+            vec!["delegate_tasks".into()],
         )?;
         if let Some(root) = root {
             for c in self.store.mcp_connections(&root)? {

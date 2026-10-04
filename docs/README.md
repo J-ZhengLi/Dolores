@@ -19,6 +19,8 @@
 
 ## Selected design references
 
+- [Bounded subagents](design/subagents.md) explains file ownership, inherited permissions, shared budgets and cancellation.
+
 - [Attachment snapshots](design/attachments.md) explains supported formats, explicit image capability, sharing, export and retention.
 
 - [Task access and revocation](design/task-permissions.md) explains review, selected grants, full access and the real execution boundary.

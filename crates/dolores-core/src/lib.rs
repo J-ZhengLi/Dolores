@@ -16,6 +16,8 @@ mod registry;
 pub use registry::*;
 mod task_budget;
 pub use task_budget::*;
+mod shared_budget;
+pub use shared_budget::*;
 mod settings;
 pub use settings::*;
 mod permissions;

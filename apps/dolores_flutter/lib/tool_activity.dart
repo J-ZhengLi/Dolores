@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 import 'chat.dart';
 import 'theme.dart';
 import 'edit_diff.dart';
+import 'subagents.dart';
 
 String toolLabel(dynamic name) => switch (name) {
   String value when value.startsWith('mcp_tool_') => 'External tool',
@@ -15,6 +16,7 @@ String toolLabel(dynamic name) => switch (name) {
   'create_text_file' => 'File creation',
   'run_command' => 'Command',
   'inspect_harness' => 'Harness inspection',
+  'delegate_tasks' => 'Subagents',
   _ => 'File read',
 };
 
@@ -31,6 +33,10 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'delegate_tasks') {
+      final usage = result['sharedUsage'] as Map?;
+      return 'Shared task used ${usage?['modelCalls'] ?? '?'} model calls and ${usage?['toolCalls'] ?? '?'} tool operations when children returned.\n${result['note'] ?? ''}';
+    }
     if ('${record['name']}'.startsWith('mcp_tool_')) {
       return '${result['isError'] == true ? 'Tool reported an error\n\n' : ''}${result['text'] ?? ''}';
     }
@@ -98,6 +104,17 @@ String toolStatus(dynamic record) {
   }
 }
 
+List<dynamic> subagentReports(dynamic record) {
+  try {
+    final value = jsonDecode('${record['content']}');
+    return value is Map && value['children'] is List
+        ? (value['children'] as List).whereType<Map>().take(2).toList()
+        : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 class ToolApprovalCard extends StatelessWidget {
   final ChatController chat;
   const ToolApprovalCard({super.key, required this.chat});
@@ -122,9 +139,11 @@ class ToolApprovalCard extends StatelessWidget {
       'create_text_file' => 'Create this file?',
       'run_command' => 'Run this command?',
       'inspect_harness' => 'Inspect the running harness?',
+      'delegate_tasks' => 'Delegate these scoped tasks?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      'delegate_tasks' => 'Start up to two children with this model and the parent’s shared task limits. Children get scoped file tools; each operation still follows current permissions. No commands, external tools or further delegation. Stop reaches both; applied changes remain. Reports require parent verification.',
       'inspect_harness' =>
         'Share the selected running capabilities or bounded bundled source with ${chat.model}? This is read-only and cannot update Dolores or grant permissions. Results are kept with a completed reply.',
       String value when value.startsWith('mcp_tool_') =>
@@ -163,6 +182,11 @@ class ToolApprovalCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: TextStyle(fontWeight: FontWeight.w600)),
+                  if ('${request['callId']}'.startsWith('child.'))
+                    Text(
+                      'Requested by subagent ${'${request['callId']}'.split('.').elementAtOrNull(1) ?? ''}',
+                      style: TextStyle(color: p.muted, fontSize: 11),
+                    ),
                   const SizedBox(height: 6),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 60),
@@ -250,7 +274,9 @@ class ToolApprovalCard extends StatelessWidget {
                   if (request['query'] is String) ...[
                     const SizedBox(height: 6),
                     Text(
-                      name == 'inspect_harness'
+                      name == 'delegate_tasks'
+                          ? 'Exact child goals and file scopes:'
+                          : name == 'inspect_harness'
                           ? 'Inspect this source/range:'
                           : name == 'read_text_file'
                           ? 'Read these lines (start:count):'
@@ -355,6 +381,9 @@ class ToolRecords extends StatelessWidget {
               ),
               childrenPadding: const EdgeInsets.all(12),
               children: [
+                if (record['name'] == 'delegate_tasks' &&
+                    subagentReports(record).isNotEmpty)
+                  SubagentCards(children: subagentReports(record)),
                 if (record['mcp'] is Map)
                   SelectableText(
                     'Server: ${record['mcp']['server']}\nTool: ${record['mcp']['tool']}\nReviewed revision: ${record['mcp']['revision']}\nArguments: ${record['mcp']['arguments']}',
@@ -381,7 +410,11 @@ class ToolRecords extends StatelessWidget {
                     key: PageStorageKey(
                       'tool-query-${record['callId']}-${record['name']}-${record['target']}',
                     ),
-                    '${record['name'] == 'inspect_harness' ? 'Inspection' : 'Search'}: ${record['query']}',
+                    '${record['name'] == 'delegate_tasks'
+                        ? 'Plan'
+                        : record['name'] == 'inspect_harness'
+                        ? 'Inspection'
+                        : 'Search'}: ${record['query']}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                 ConstrainedBox(

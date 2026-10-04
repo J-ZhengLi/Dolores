@@ -4,6 +4,14 @@ Task permission grants can retain literal command arguments locally and in run s
 
 ## When using Dolores
 
+Approved delegation shares the prepared system instructions and original user
+request with children using the same configured provider, plus their scoped file
+results. Children do not receive full chat history or attachments. Goals, file
+scopes, reports, usage and bounded child tool/commentary evidence remain in local
+parent run records, including after a later parent failure. Completed delegation
+receipts also appear in saved conversations and exports. Inspect these before
+sharing; reports can contain approved file content.
+
 Selected text/image attachments are immutable local plaintext snapshots, identified by digest and basename. Preview is local; Send shares the included contents with your configured provider. Sent snapshots can be shared again when included in later context. Ordinary conversation exports retain references; the separate attachment export explicitly copies draft/sent bytes. Removing references and cleaning unused snapshots do not securely erase SQLite free pages, backups or export copies. See [attachment boundaries](design/attachments.md).
 
 Dolores sends selected context, enabled instructions/memories/skills and approved tool results to your configured endpoint. Provider retention belongs to that provider. The desktop app has no background telemetry or automatic model download.

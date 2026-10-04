@@ -11,6 +11,7 @@ const SOURCES: &[(&str, &str)] = &[
         "provider",
         include_str!("../../dolores-provider-openai/src/agent.rs"),
     ),
+    ("subagents", include_str!("subagents.rs")),
 ];
 const PATHS: &[&str] = &[
     "crates/dolores-core/src/lib.rs",
@@ -18,6 +19,7 @@ const PATHS: &[&str] = &[
     "crates/dolores-flutter-bridge/src/lib.rs",
     "crates/dolores-tools-fs/src/lib.rs",
     "crates/dolores-provider-openai/src/agent.rs",
+    "crates/dolores-flutter-bridge/src/subagents.rs",
 ];
 
 fn source_id(text: &str) -> String {
@@ -46,8 +48,8 @@ fn checkout_matches(path: &std::path::Path, text: &str) -> bool {
 pub fn spec() -> ToolSpec {
     ToolSpec {
         name: "inspect_harness".into(),
-        description: "Inspect the running Dolores capabilities, limits and version-matched bundled source. Empty arguments show inventory; source is one of core, agent, host, files, provider. Read-only, bounded, requires approval; never edits the harness or grants permissions.".into(),
-        parameters: json!({"type":"object","properties":{"source":{"type":"string","enum":["core","agent","host","files","provider"]},"startLine":{"type":"integer","minimum":1},"lineCount":{"type":"integer","minimum":1,"maximum":120}},"additionalProperties":false}),
+        description: "Inspect the running Dolores capabilities, limits and version-matched bundled source. Empty arguments show inventory; source is one of core, agent, host, files, provider, subagents. Read-only, bounded, requires approval; never edits the harness or grants permissions.".into(),
+        parameters: json!({"type":"object","properties":{"source":{"type":"string","enum":["core","agent","host","files","provider","subagents"]},"startLine":{"type":"integer","minimum":1},"lineCount":{"type":"integer","minimum":1,"maximum":120}},"additionalProperties":false}),
     }
 }
 #[derive(Deserialize, serde::Serialize)]
@@ -144,6 +146,7 @@ impl Engine {
         if working {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
+            tools.push(crate::subagents::spec());
             for c in self
                 .store
                 .mcp_connections(workspace.as_ref().unwrap().root.as_ref().unwrap())?
@@ -151,7 +154,7 @@ impl Engine {
                 tools.extend(c.specs());
             }
         }
-        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if tool.name == "inspect_harness" { "host" } else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
+        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if tool.name == "inspect_harness" { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
         let sources: Vec<_> = SOURCES.iter().enumerate().map(|(n, (key, text))| json!({"id":key,"path":PATHS[n],"sourceId":source_id(text),"lines":text.lines().count()})).collect();
         let images = configured
             && self

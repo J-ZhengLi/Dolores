@@ -158,6 +158,13 @@ Default order is sequential. Independent documents/measurements may proceed with
 
 ## Milestone 11 — Advanced optional tools
 
+**11.1 is implemented.** Two scoped children, shared allowances, inherited
+permissions and durable reports are exercised in fixtures and one bounded
+DeepSeek coding task. Qwen completed its read task directly despite an explicit
+delegation request, so dependable delegation across configured models remains
+open. See [acceptance](ACCEPTANCE.md#brick-111--bounded-subagents). Bricks
+11.2 and 11.3 remain planned.
+
 ### 11.1 Bounded subagents
 
 **Scope:** parent-linked child goals/ownership/evidence, inherited grant subsets, shared total budgets and bounded concurrency/depth using 9.2 coordination.

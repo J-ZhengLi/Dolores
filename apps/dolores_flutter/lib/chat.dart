@@ -118,6 +118,7 @@ class ChatController extends ChangeNotifier {
 
   Map<String, dynamic>? toolApproval;
   final toolRecords = <Map<String, dynamic>>[];
+  final subagents = <Map<String, dynamic>>[];
   final modelTexts = <Map<String, dynamic>>[];
   bool decidingTool = false;
   int modelStep = 0;
@@ -649,6 +650,7 @@ class ChatController extends ChangeNotifier {
 
   void _clearConversation() {
     toolRecords.clear();
+    subagents.clear();
     modelTexts.clear();
     toolApproval = null;
     contextSummary = null;
@@ -664,6 +666,7 @@ class ChatController extends ChangeNotifier {
   void newChat({String? kind}) {
     if (!busy && !changing) {
       toolRecords.clear();
+      subagents.clear();
       modelTexts.clear();
       toolApproval = null;
     }
@@ -734,6 +737,7 @@ class ChatController extends ChangeNotifier {
       session = id;
       _setWorkspace(workspace);
       toolRecords.clear();
+      subagents.clear();
       modelTexts.clear();
       toolApproval = null;
       _setMessages(history);
@@ -939,6 +943,7 @@ class ChatController extends ChangeNotifier {
     error = null;
     final id = ++_run;
     toolRecords.clear();
+    subagents.clear();
     modelTexts.clear();
     toolApproval = null;
     modelStep = 0;
@@ -1004,6 +1009,19 @@ class ChatController extends ChangeNotifier {
       for (final event in events as List) {
         if (event['id'] != id) continue;
         switch (event['type']) {
+          case 'subagent':
+            if (event['child'] is Map) {
+              final child = (event['child'] as Map).cast<String, dynamic>();
+              final index = subagents.indexWhere(
+                (v) => v['childId'] == child['childId'],
+              );
+              if (index >= 0) {
+                subagents[index] = child;
+              } else if (subagents.length < 2) {
+                subagents.add(child);
+              }
+              _record('Subagent ${child['scope']} · ${child['status']}');
+            }
           case 'compacting':
             _record('Compacting context · one bounded attempt');
           case 'compacted':
@@ -1058,6 +1076,12 @@ class ChatController extends ChangeNotifier {
           case 'memoryUpdating':
             _record('Reply saved · learning preferences');
           case 'done':
+            for (final child in subagents) {
+              if (['queued', 'running'].contains(child['status'])) {
+                child['status'] = 'interrupted';
+                child['note'] = 'Parent run ended. Inspect Run history and Changes before continuing.';
+              }
+            }
             toolApproval = null;
             changing = true;
             if (event['error'] != null) {
@@ -1083,6 +1107,7 @@ class ChatController extends ChangeNotifier {
               pendingInput = '';
               partial = '';
               toolRecords.clear();
+              subagents.clear();
               modelTexts.clear();
               _setMessages(
                 await bridge.call({

@@ -45,6 +45,17 @@ Run IDs are supplied by the host. `poll` drains a bounded batch and is the activ
 
 Common event kinds include lifecycle/start, text deltas/public model commentary, tool approval/results, usage/progress, automatic-memory activity and `done`. Detailed event fields depend on the operation; see the Rust emitter and corresponding Dart consumer rather than assuming all operations share a reply shape. Comparison `done` includes a full receipt, `persisted` flag and optional save error; a volatile receipt must not be shown as durably complete.
 
+`subagent` events carry the primary client `id` and a `child` object with durable
+`parentRunId`, `childId`, `goal`, `scope`, `readOnly` and `status`. Status updates
+replace the matching child, never the parent's text stream. Completed
+`delegate_tasks` tool results contain bounded `children` reports and
+`sharedUsage` attempt counts when the batch returned. Parent `AgentSummary`
+counts/usage remain parent-only; child usage is retained in run events. Child
+file approval IDs use `child.<id>.<call>` and still bind one waiting decision.
+`subagentReview` is an additional backward-readable pause reason; failed/blocked
+children retain reports and require explicit review/continuation. Shared step
+exhaustion uses `stepLimit`; neither automatically replays work.
+
 Transport/Stop/malformed ordinary responses do not publish an incomplete chat turn; explicit output/step limits can save a paused reply with completed evidence. Continue requires the latest saved source and a fresh bounded run. File/command effects are independent of turn persistence. Feedback/comparison exports remain separate from provider-visible history.
 
 `run_command` now accepts optional `timeout_seconds` and `capture_bytes`; its approval preview includes their resolved values. `read_text_file` accepts `start_line`/`line_count`; ranged results include `snapshot`, usable as edit `expected_snapshot`. See [practical tools](../design/practical-tools.md).

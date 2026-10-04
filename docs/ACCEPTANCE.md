@@ -1,4 +1,56 @@
-# Dolores acceptance — 2026-10-04
+# Dolores acceptance — 2026-10-05
+
+## Brick 11.1 — bounded subagents
+
+Implemented [scoped delegation](design/subagents.md): one batch of one or two
+children, inherited model/settings/permissions, non-overlapping writable scopes,
+shared model/tool allowances, depth one and parent-owned cancellation/deadline.
+Children have file tools only; the parent owns command verification. Child
+reports, model usage and tool evidence stay linked to the owning run. Existing
+default allowances remain unchanged. Failed/paused children retain completed
+work and require explicit review/Continue; restart never replays them.
+
+All 52 core, 61 bridge and 41 storage tests pass (154 total), with clean Clippy.
+Flutter analysis and all 175 widget tests pass, including stale event rejection,
+stopped-child/draft preservation, literal bounded reports, light/dark compact
+cards and malformed-result recovery. Release-native `scripts/test-subagents.py`
+verifies simultaneous children, separate batch/file approvals, shared allowance
+exhaustion, Stop at queued approvals and running requests, revocation without
+writes, Full access refusing scope escape, case-conflicting ownership, retained
+reports/Changes and fresh-process restart without connection/replay. The existing
+release-native task-budget fixture passes. Bridge tests also preserve one child's
+report when another model fails and bound JSON-escaped answers. An 8,000-fragment
+stream produces bounded per-step commentary instead of exhausting run events.
+
+Live probes used isolated synthetic data with the configured providers and no
+change to the normal selected model/settings. Qwen3.5-2B completed the routine
+read task in 4.66 seconds but ignored explicit delegation (zero child batches),
+so that is **not a delegation pass**. The first DeepSeek V4.1 Flash coding trial
+used all 12 model calls and paused after command repair. Its CommonJS `.js`
+fixture inherited an ancestor's module setting and prompted an extra package
+file; 223 durable events also exposed excessive per-fragment child logging.
+The original trial remains failed. Logging was coalesced and the fresh fixture
+used explicit `.cjs` files, with unchanged 1024-output/60-second request and
+12-model/12-tool/90-second task allowances.
+
+The corrected DeepSeek case passed in 11.39 seconds: one batch, two reported
+children (two model calls each), three parent calls, exactly two owned files and
+two applied change records. The parent separately ran the fixed Node assertions
+successfully, including strings, NaN and Infinity rejection, with complete
+capture and exit 0. Provider-reported usage is available in parent metadata and
+child run events; child usage is not silently folded into parent-only counts.
+One small passing case does not qualify general delegation reliability.
+
+The normal release app was rebuilt. Saved live child scopes/reports and their
+inner scrolling were inspected in its actual Windows dark-mode screenshots,
+using an isolated data directory. That owned test instance was closed and the
+normal user-data release launched visibly (PID 29944). All 31 table digests
+match the fresh baseline, schema 24; provider configuration/history are preserved.
+A development-machine point measured 242.87 MiB working set, 247.87 MiB private,
+49 threads and a 10,806,784-byte bridge; this is not attributable overhead or
+low-end qualification. Physical approval/keyboard and live progress UAT,
+other-platform/resource qualification and dependable Qwen delegation remain
+open. File scope is an application tool boundary, not an OS sandbox.
 
 ## Attachment controls — visual placement and image settings
 

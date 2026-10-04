@@ -17,6 +17,7 @@ import 'inspector.dart';
 import 'changes.dart';
 import 'request_settings.dart';
 import 'tool_activity.dart';
+import 'subagents.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
 import 'skills.dart';
@@ -305,6 +306,8 @@ class _ChatPageState extends State<ChatPage> {
                           ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
                           : metadata['paused']['reason'] == 'commandReview'
                           ? 'A command failed or verification was incomplete. Review its output before repair.'
+                          : metadata['paused']['reason'] == 'subagentReview'
+                          ? 'A subagent needs review. Inspect its report, Run history and Changes before continuing.'
                           : 'Paused at this run’s step limit. Progress and tool results saved.',
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
@@ -436,11 +439,18 @@ class _ChatPageState extends State<ChatPage> {
             child: ModelSteps(steps: chat.modelTexts, saved: false),
           ),
         ),
-      if (chat.toolRecords.isNotEmpty)
+      if (chat.toolRecords.isNotEmpty || chat.subagents.isNotEmpty)
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 160),
           child: SingleChildScrollView(
-            child: ToolRecords(records: chat.toolRecords),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (chat.subagents.isNotEmpty)
+                  SubagentCards(children: chat.subagents),
+                ToolRecords(records: chat.toolRecords),
+              ],
+            ),
           ),
         ),
       if (chat.toolApproval != null) ToolApprovalCard(chat: chat),

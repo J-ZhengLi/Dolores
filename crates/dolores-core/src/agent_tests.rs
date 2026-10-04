@@ -1,4 +1,31 @@
 use super::*;
+
+#[test]
+fn child_failure_and_shared_step_limit_have_distinct_recovery_reasons() {
+    let record = |status: &str, pause: Option<&str>| {
+        serde_json::from_value::<ToolRecord>(serde_json::json!({
+        "callId":"batch","name":"delegate_tasks","target":"1 scoped subagent(s)","status":"completed",
+        "content":serde_json::json!({"children":[{"status":status,"pause":pause}]}).to_string()
+    })).unwrap()
+    };
+    assert_eq!(subagent_pause(&[record("reported", None)]), None);
+    assert_eq!(
+        subagent_pause(&[record("needsReview", None)]),
+        Some(PauseReason::SubagentReview)
+    );
+    assert_eq!(
+        subagent_pause(&[record("failed", None)]),
+        Some(PauseReason::SubagentReview)
+    );
+    assert_eq!(
+        subagent_pause(&[record("paused", Some("outputLimit"))]),
+        Some(PauseReason::SubagentReview)
+    );
+    assert_eq!(
+        subagent_pause(&[record("paused", Some("stepLimit"))]),
+        Some(PauseReason::StepLimit)
+    );
+}
 use crate::{PluginDescriptor, Role};
 use serde_json::json;
 use std::sync::{

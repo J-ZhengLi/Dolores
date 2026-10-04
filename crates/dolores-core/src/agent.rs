@@ -74,6 +74,17 @@ pub fn prepare_agent_context_with_budget(
 fn budget_note(number: usize, used_tools: usize) -> String {
     budget_note_for(number, used_tools, crate::TaskBudget::default())
 }
+/// A child inherits prepared instructions but has its own smaller local cap.
+pub fn reset_agent_budget_note(
+    system: &str,
+    previous: crate::TaskBudget,
+    next: crate::TaskBudget,
+) -> String {
+    system.replace(
+        &budget_note_for(1, 0, previous),
+        &budget_note_for(1, 0, next),
+    )
+}
 fn budget_note_for(number: usize, used_tools: usize, budget: crate::TaskBudget) -> String {
     let max_models = budget.model_calls;
     format!(
@@ -196,6 +207,7 @@ pub enum PauseReason {
     OutputLimit,
     StepLimit,
     CommandReview,
+    SubagentReview,
 }
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -288,13 +300,38 @@ pub async fn run_agent_with_budget(
     cancel: CancellationToken,
     budget: crate::TaskBudget,
 ) -> Result<AgentReply, String> {
+    run_agent_with_shared_budget(
+        provider,
+        context,
+        plugins,
+        approval,
+        events,
+        cancel,
+        budget,
+        Arc::new(crate::SharedTaskBudget::new(budget)),
+        false,
+    )
+    .await
+}
+#[allow(clippy::too_many_arguments)]
+pub async fn run_agent_with_shared_budget(
+    provider: &dyn ModelProvider,
+    context: Vec<Message>,
+    plugins: &[Arc<dyn ToolPlugin>],
+    approval: &dyn ToolApproval,
+    events: mpsc::Sender<AgentEvent>,
+    cancel: CancellationToken,
+    budget: crate::TaskBudget,
+    shared: Arc<crate::SharedTaskBudget>,
+    child: bool,
+) -> Result<AgentReply, String> {
     budget.validate()?;
     if context.is_empty() {
         return Err("Tool context is empty.".into());
     }
     let specs: Vec<_> = plugins.iter().map(|plugin| plugin.spec()).collect();
     let mut names = HashSet::new();
-    if specs.is_empty() || specs.len() > 9 || specs.iter().any(|s| !names.insert(s.name.clone())) {
+    if specs.is_empty() || specs.len() > 10 || specs.iter().any(|s| !names.insert(s.name.clone())) {
         return Err("Tool registration is invalid.".into());
     }
     let (context, _) = crate::prepare_token_context(
@@ -328,6 +365,9 @@ pub async fn run_agent_with_budget(
     let mut denied = HashSet::new();
     let base_system = messages[0].content.clone();
     for number in 1..=budget.model_calls {
+        if !shared.reserve_model(child) {
+            return Ok(AgentReply { answer: "Paused at the shared task model-call limit. Completed tool effects and saved evidence remain. Review subagent reports and explicitly Continue or change Task limits; nothing was replayed.".into(), summary, pause: Some(PauseReason::StepLimit) });
+        }
         messages[0].content = base_system.replacen(
             &budget_note_for(1, 0, budget),
             &budget_note_for(number, summary.tools.len(), budget),
@@ -404,14 +444,18 @@ pub async fn run_agent_with_budget(
                 return Err("The model returned no text.".into());
             }
             return Ok(AgentReply {
-                pause: (!crate::unresolved_commands(&summary.tools).is_empty())
-                    .then_some(PauseReason::CommandReview),
+                pause: if !crate::unresolved_commands(&summary.tools).is_empty() {
+                    Some(PauseReason::CommandReview)
+                } else {
+                    subagent_pause(&summary.tools)
+                },
                 answer: turn.content,
                 summary,
             });
         }
         if number == budget.model_calls
             || summary.tools.len() + turn.calls.len() > budget.tool_calls
+            || !shared.reserve_tools(turn.calls.len())
         {
             return Ok(AgentReply {
                 answer: if turn.content.trim().is_empty() {
@@ -470,6 +514,8 @@ pub async fn run_agent_with_budget(
                         "Invalid or unavailable MCP tool".into()
                     } else if call.name == "run_command" {
                         "Invalid or unavailable command".into()
+                    } else if call.name == "delegate_tasks" {
+                        "Invalid subagent plan".into()
                     } else if call.name == "inspect_harness" {
                         "Invalid harness inspection".into()
                     } else {
@@ -478,8 +524,12 @@ pub async fn run_agent_with_budget(
                     "blocked",
                     if matches!(error.as_str(), "Extension policy hook failed. No operation was dispatched; inspect its registration." | "Extension changed a prepared tool plan. Prepare and review a fresh proposal.") {
                         error
+                    } else if child && matches!(error.as_str(), "Child file request is outside its assigned scope." | "Prepared file target is outside child scope.") {
+                        format!("{error} Use only the assigned relative file/folder; no operation ran.")
+                    } else if call.name == "delegate_tasks" {
+                        "delegate_tasks requires 1–2 tasks with goal (1–512 bytes), scope (direct relative file/folder or '.'), and readOnly (boolean). Writable scopes must not overlap any other child scope. One batch per run; commands, MCP and recursive delegation are unavailable. No child started.".into()
                     } else if call.name == "inspect_harness" {
-                        "Use inspect_harness with {} for inventory, or source set to core, agent, host, files or provider. Optional startLine must be positive and lineCount must be 1–120. No project path is accepted. No inspection ran.".into()
+                        "Use inspect_harness with {} for inventory, or source set to core, agent, host, files, provider or subagents. Optional startLine must be positive and lineCount must be 1–120. No project path is accepted. No inspection ran.".into()
                     } else if call.name.starts_with("mcp_tool_") {
                         "External tool arguments must be a JSON object within 4 KiB. Review the MCP connection if its launch files have changed.".into()
                     } else if call.name == "run_command" {
@@ -519,7 +569,8 @@ pub async fn run_agent_with_budget(
                         || request.name != call.name
                         || request.target.len() > 1024
                         || request.query.as_ref().is_some_and(|query| {
-                            query.len() > 256 || query.chars().any(char::is_control)
+                            query.len() > if request.name == "delegate_tasks" { 4096 } else { 256 }
+                                || query.chars().any(char::is_control)
                         })
                         || request.diff.as_ref().is_some_and(|diff| {
                             !matches!(request.name.as_str(), "edit_text_file" | "create_text_file")
@@ -610,6 +661,8 @@ pub async fn run_agent_with_budget(
                                         "This MCP connection accepts text results only; resource/image/audio content was not loaded." => format!("{error} External effects may remain."),
                                         _ => "MCP tool could not complete. Review the server, tool list and limits before trying again; external effects may remain.".into(),
                                     }
+                                } else if request.name == "delegate_tasks" {
+                                    "Subagent batch could not complete. Inspect Run history and Changes before continuing; completed file changes remain. Only one batch is allowed per run.".into()
                                 } else if request.name == "run_command" {
                                     "Command could not complete. Check the executable and permissions, then review a fresh request. Command file changes may remain.".into()
                                 } else if request.name == "edit_text_file" {
@@ -668,6 +721,31 @@ pub async fn run_agent_with_budget(
         }
     }
     Err("Agent reached its model-call limit.".into())
+}
+
+fn subagent_pause(tools: &[ToolRecord]) -> Option<PauseReason> {
+    let mut review = false;
+    for tool in tools.iter().filter(|t| t.name == "delegate_tasks") {
+        if tool.status == "error" {
+            review = true;
+        }
+        if let Ok(value) = serde_json::from_str::<Value>(&tool.content) {
+            if let Some(children) = value["children"].as_array() {
+                for child in children {
+                    if child["pause"] == "stepLimit" {
+                        return Some(PauseReason::StepLimit);
+                    }
+                    if matches!(
+                        child["status"].as_str(),
+                        Some("paused" | "failed" | "interrupted" | "needsReview")
+                    ) {
+                        review = true;
+                    }
+                }
+            }
+        }
+    }
+    review.then_some(PauseReason::SubagentReview)
 }
 
 async fn forward_model_text(

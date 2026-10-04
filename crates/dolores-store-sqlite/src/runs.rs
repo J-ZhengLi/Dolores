@@ -9,7 +9,7 @@ impl SqliteStore {
             || run.sequence != 0
             || run.id.len() != 36
             || run.input.len() > dolores_core::MAX_INPUT_BYTES
-            || run.tools.len() > 9
+            || run.tools.len() > 10
         {
             return Err("Run snapshot is invalid.".into());
         }

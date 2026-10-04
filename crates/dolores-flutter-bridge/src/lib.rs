@@ -24,6 +24,7 @@ mod run_journal;
 mod settings;
 mod skill_drafts;
 mod skills;
+mod subagents;
 mod summaries;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
@@ -51,6 +52,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    delegation: Option<Arc<subagents::DelegateTasks>>,
     log: Option<Arc<run_journal::RunLog>>,
     compaction_provider: Option<Arc<dyn ModelProvider>>,
     compacted: bool,
@@ -885,6 +887,7 @@ impl Engine {
                 if tools {
                     specs.push(dolores_tools_command::command_spec());
                     specs.push(introspection::spec());
+                    specs.push(subagents::spec());
                     for connection in &mcp {
                         specs.extend(connection.specs());
                     }
@@ -1186,7 +1189,10 @@ impl Engine {
                     })
                     .transpose()?
                     .unwrap_or_default();
-                if !tools.is_empty() {
+                let delegation =
+                    (!tools.is_empty()).then(|| Arc::new(subagents::DelegateTasks::default()));
+                if let Some(delegation) = &delegation {
+                    tools.push(delegation.clone());
                     tools.push(Arc::new(introspection::InspectHarness(
                         self.harness_inventory(session.as_deref())?,
                     )));
@@ -1319,6 +1325,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            delegation: delegation.clone(),
                             log: Some(log.clone()),
                             compaction_provider,
                     compacted: false,
@@ -1339,6 +1346,9 @@ impl Engine {
                         &output,
                     )
                     .await };
+                    let child_evidence_error = if let Some(delegation) = &delegation {
+                        delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
+                    } else { None };
                     let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
                     if result.is_ok() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
                     let memory_update = if result.is_ok() && !paused {
@@ -1347,12 +1357,13 @@ impl Engine {
                         } else { None }
                     } else { None };
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
-                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err()})).await.err();
+                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error})).await.err();
                     let mut event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
                     event["runId"]=json!(log.id);
+                    let evidence_error = evidence_error.or(child_evidence_error);
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
@@ -1378,6 +1389,7 @@ async fn execute(
 ) -> Result<String, String> {
     let started_at = std::time::Instant::now();
     let TurnRequest {
+        delegation,
         log,
         compaction_provider,
         compacted,
@@ -1548,6 +1560,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                delegation,
                 log,
                 compaction_provider: None,
                 compacted: true,
@@ -1593,10 +1606,37 @@ async fn execute(
     .await?;
     if !tools.is_empty() {
         let approval = approval.ok_or("Tool approval is unavailable.")?;
+        let shared = Arc::new(dolores_core::SharedTaskBudget::new(task));
+        if let (Some(delegation), Some(log)) = (&delegation, &log) {
+            delegation.bind(subagents::RuntimeContext {
+                provider: provider.clone(),
+                context: context.clone(),
+                tools: tools
+                    .iter()
+                    .filter(|p| {
+                        matches!(
+                            p.spec().name.as_str(),
+                            "read_text_file"
+                                | "list_folder"
+                                | "search_text"
+                                | "edit_text_file"
+                                | "create_text_file"
+                        )
+                    })
+                    .cloned()
+                    .collect(),
+                approval: approval.clone(),
+                shared: shared.clone(),
+                budget: task,
+                log: log.clone(),
+                output: output.clone(),
+                client_id: id,
+            })?;
+        }
         let running = async {
             let (events, mut receiver) = mpsc::channel(32);
             let plugins = tools;
-            let request = dolores_core::run_agent_with_budget(
+            let request = dolores_core::run_agent_with_shared_budget(
                 provider.as_ref(),
                 context,
                 &plugins,
@@ -1604,6 +1644,8 @@ async fn execute(
                 events,
                 cancel.clone(),
                 task,
+                shared,
+                false,
             );
             tokio::pin!(request);
             let reply = loop {
@@ -1928,6 +1970,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    delegation: None,
                     log: None,
                     compaction_provider: None,
                     compacted: false,
@@ -2181,6 +2224,7 @@ mod tests {
                     fail: false,
                 }),
                 TurnRequest {
+                    delegation: None,
                     log: None,
                     compaction_provider: None,
                     compacted: false,

@@ -12,6 +12,29 @@ Open **Chat actions → Dolores settings** to set task limits for this chat, its
 
 Dolores preserves saved progress at output/step limits. **Continue** uses a fresh bounded segment and fresh tool decisions. A task allows four segments by default; after that, review its progress and explicitly adjust Task limits before continuing. Applied files remain after a later failure. A saved reply or successful command alone does not establish that the whole task is finished.
 
+## Delegate scoped work
+
+In a project or temporary chat, a capable model can use `delegate_tasks` to run
+one batch of up to two children. Ask for separate goals and non-overlapping file
+ownership. Review each child's goal, relative file/folder scope and read-only or
+writable access before allowing the batch. Allowing delegation does not approve
+later file actions in Review mode. Side chats have no subagents.
+
+Children share your selected model, prepared instructions, original request,
+current permissions and total task allowance. They do not receive the full chat
+or attachments. Each has at most four model calls/four file operations; children
+cannot run commands, use external tools or spawn more children. The parent can
+run a separately approved verification command after they return. For a batch
+with two tool-using children, the four-call default may be too small; narrow the
+task or explicitly adjust Task limits, for example eight model calls, before
+sending. Dolores does not raise these settings automatically.
+
+Expandable progress and saved tool cards show child reports and statuses. A
+report is not proof of success: inspect detailed evidence in **Run history** and
+file snapshots in **Changes**. Paused or failed children leave completed work
+intact and offer the parent's explicit Continue flow. **Stop** and **Revoke
+grants** reach both children and queued decisions. Restart never replays them.
+
 ## Start the Windows preview
 
 Extract the entire ZIP and open **Start-Dolores.cmd**. Keep all files together. If extraction is incomplete, extract into a new folder and try again. If the launcher reports a missing C++ runtime, install or repair Microsoft's **Visual C++ Redistributable for x64** using its displayed link, then reopen Dolores. It does not download or install anything automatically. History, saved connection and working files remain separate from the extracted app.
