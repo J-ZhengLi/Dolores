@@ -26,6 +26,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
   final selected = <String>{};
   final scroll = ScrollController();
   bool pending = false, understood = false, command = false;
+  bool complexGrants = false;
   String? error, notice;
   @override
   void initState() {
@@ -54,6 +55,17 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
       if (!mounted) return;
       setState(() {
         report = value;
+        final savedGrants = (value['policy']['grants'] as List).cast<Map>();
+        complexGrants =
+            savedGrants.where((g) => g['tool'] == 'run_command').length > 1 ||
+            savedGrants
+                    .where((g) => g['pathPrefix'] != null)
+                    .map((g) => g['pathPrefix'])
+                    .toSet()
+                    .length >
+                1 ||
+            savedGrants.map((g) => g['tool']).toSet().length !=
+                savedGrants.length;
         understood = false;
         error = null;
         if (!keepDraft) {
@@ -85,6 +97,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
   }
 
   Future<void> save({bool revoke = false}) async {
+    if (!revoke && mode == 'auto' && complexGrants) return;
     final grants = <Map<String, dynamic>>[];
     if (!revoke && mode == 'auto') {
       for (final tool in selected) {
@@ -138,6 +151,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
         setState(() {
           report = Map<String, dynamic>.from(result as Map);
           mode = revoke ? 'review' : mode;
+          if (revoke) complexGrants = false;
           understood = false;
           notice = revoke
               ? 'Grants revoked. Active work is stopping; inspect effects already started.'
@@ -179,6 +193,10 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
                         children: [
                           if (error != null) SelectableText(error!),
                           if (notice != null) SelectableText(notice!),
+                          if (complexGrants)
+                            const Text(
+                              'These saved grants contain multiple scopes or commands. Revoke them before replacing them with this simple form; their existing boundaries remain unchanged.',
+                            ),
                           if (report != null) ...[
                             SelectableText(
                               'Saved access: ${report!['policy']['mode']} · revision ${report!['revision']}\nExpiry: ${report!['policy']['expiresAt'] ?? 'until revoked'}',
@@ -221,7 +239,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
                               DropdownButtonFormField<String>(
                                 initialValue: expiry,
                                 decoration: const InputDecoration(
-                                  labelText: 'Grant duration',
+                                  labelText: 'Duration renewed on Save',
                                 ),
                                 items: const [
                                   DropdownMenuItem(
@@ -366,6 +384,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
                         onPressed:
                             locked ||
                                 report == null ||
+                                (mode == 'auto' && complexGrants) ||
                                 (mode != 'review' && !understood)
                             ? null
                             : () => save(),

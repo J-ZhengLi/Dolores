@@ -26,6 +26,7 @@ use std::{
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
+mod attachments;
 mod drafts;
 mod runs;
 mod settings;
@@ -147,6 +148,14 @@ impl SqliteStore {
         if version < 23 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS thread_context(session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,auto_compact INTEGER NOT NULL DEFAULT 0,origin TEXT); PRAGMA user_version=23; COMMIT;").map_err(storage_error)?;
         }
+        if version < 24 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+            CREATE TABLE IF NOT EXISTS attachment_assets(digest TEXT PRIMARY KEY,data BLOB NOT NULL);
+            CREATE TABLE IF NOT EXISTS draft_attachments(session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS message_parts(message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS model_images(base_url TEXT PRIMARY KEY,data TEXT NOT NULL);
+            PRAGMA user_version=24;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -157,6 +166,36 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn draft_attachments(&self, id: &str) -> Result<Vec<dolores_core::AttachmentRef>, String> {
+        let c = self.lock()?;
+        attachments::draft(&c, id)
+    }
+    fn add_attachment(&self, id: &str, data: &dolores_core::AttachmentData) -> Result<(), String> {
+        self.save_attachment(id, data)
+    }
+    fn remove_attachment(&self, id: &str, digest: &str) -> Result<(), String> {
+        self.drop_attachment(id, digest)
+    }
+    fn attachment_data(
+        &self,
+        id: &str,
+        digest: &str,
+    ) -> Result<dolores_core::AttachmentData, String> {
+        self.read_attachment(id, digest)
+    }
+    fn cleanup_attachments(&self) -> Result<usize, String> {
+        let c = self.lock()?;
+        attachments::cleanup(&c)
+    }
+    fn image_models(&self, base: &str) -> Result<Vec<String>, String> {
+        let c = self.lock()?;
+        attachments::image_models(&c, base)
+    }
+    fn save_image_models(&self, base: &str, models: &[String]) -> Result<(), String> {
+        let c = self.lock()?;
+        attachments::save_image_models(&c, base, models)
+    }
+
     fn fork_session(&self, source: &str, through: i64, id: &str) -> Result<Session, String> {
         self.fork_thread(source, through, id)
     }
@@ -614,7 +653,7 @@ impl SessionStore for SqliteStore {
         if !count.is_multiple_of(2) {
             return Err("Stored conversation has an incomplete turn.".into());
         }
-        let mut statement = snapshot.prepare("SELECT role,content FROM (SELECT id,role,content FROM messages WHERE session_id=?1 ORDER BY id DESC LIMIT ?2) ORDER BY id ASC").map_err(storage_error)?;
+        let mut statement = snapshot.prepare("SELECT role,content,id FROM (SELECT id,role,content FROM messages WHERE session_id=?1 ORDER BY id DESC LIMIT ?2) ORDER BY id ASC").map_err(storage_error)?;
         let rows = statement
             .query_map(params![id, HISTORY_LIMIT as i64], |row| {
                 let role: String = row.get(0)?;
@@ -624,6 +663,9 @@ impl SessionStore for SqliteStore {
                     _ => return Err(rusqlite::Error::InvalidQuery),
                 };
                 Ok(Message {
+                    parts: attachments::parts(&snapshot, row.get(2)?).map_err(|e| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(e)))
+                    })?,
                     role,
                     content: row.get(1)?,
                 })
@@ -833,6 +875,7 @@ impl SqliteStore {
             }
         }
         transaction.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user',?2),(?1,'assistant',?3)", params![id,user,assistant]).map_err(storage_error)?;
+        attachments::commit_draft(&transaction, id, transaction.last_insert_rowid() - 1)?;
         if let Some(metadata) = metadata {
             let data = serde_json::to_string(metadata).map_err(storage_error)?;
             transaction
@@ -1060,7 +1103,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 23);
+        assert_eq!(version, 24);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

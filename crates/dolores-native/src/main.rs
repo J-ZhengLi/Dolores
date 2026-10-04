@@ -453,10 +453,12 @@ impl App {
                         match result {
                             Ok(answer) => {
                                 self.messages.push(ChatMessage {
+                                    parts: vec![],
                                     role: Role::User,
                                     content: active.user,
                                 });
                                 self.messages.push(ChatMessage {
+                                    parts: vec![],
                                     role: Role::Assistant,
                                     content: answer,
                                 });

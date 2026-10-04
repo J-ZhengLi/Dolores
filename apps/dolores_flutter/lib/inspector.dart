@@ -148,6 +148,7 @@ class ContextInspector extends StatelessWidget {
       p.syntaxString,
       p.syntaxValue,
       p.muted,
+      p.accent.withValues(alpha: .6),
     ];
     final tokens = report['tokens'] as Map?;
     final counts = [
@@ -157,6 +158,7 @@ class ContextInspector extends StatelessWidget {
         'draftTokens',
         'toolTokens',
         'framingTokens',
+        'imageTokens',
       ])
         tokens?[key] as int? ?? 0,
     ];
@@ -220,35 +222,45 @@ class ContextInspector extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           for (var i = 0; i < counts.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: colors[i],
-                      shape: BoxShape.circle,
+            if (i != 5 || counts[i] > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colors[i],
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      [...labels, 'Tool definitions', 'Message framing'][i],
-                      style: const TextStyle(fontSize: 12),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [
+                          ...labels,
+                          'Tool definitions',
+                          'Message framing',
+                          'Image allowance (estimated)',
+                        ][i],
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
-                  ),
-                  Text(
-                    tokens == null
-                        ? 'Unavailable'
-                        : '${formatTokens(counts[i])} tokens',
-                    style: TextStyle(fontSize: 12, color: p.muted),
-                  ),
-                ],
+                    Text(
+                      tokens == null
+                          ? 'Unavailable'
+                          : '${formatTokens(counts[i])} tokens',
+                      style: TextStyle(fontSize: 12, color: p.muted),
+                    ),
+                  ],
+                ),
               ),
-            ),
           const SizedBox(height: 14),
+          if ((tokens?['imageTokens'] as int? ?? 0) > 0)
+            const Text(
+              'Images reserve approximately 4096 tokens each for low-detail input. Provider usage may differ.',
+            ),
           Text(
             'Response reserved: ${formatTokens(tokens?['reservedOutputTokens'])} tokens',
           ),

@@ -113,6 +113,7 @@ pub struct ToolSpec {
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct AgentMessage {
+    pub parts: Vec<crate::AttachmentRef>,
     pub role: String,
     pub content: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -305,6 +306,7 @@ pub async fn run_agent_with_budget(
     let mut messages: Vec<_> = context
         .into_iter()
         .map(|m| AgentMessage {
+            parts: m.parts,
             role: serde_json::to_value(m.role)
                 .unwrap()
                 .as_str()
@@ -437,6 +439,7 @@ pub async fn run_agent_with_budget(
             });
         }
         messages.push(AgentMessage {
+            parts: vec![],
             role: "assistant".into(),
             content: turn.content,
             calls: turn.calls.clone(),
@@ -656,6 +659,7 @@ pub async fn run_agent_with_budget(
             .await?;
             summary.tools.push(record);
             messages.push(AgentMessage {
+                parts: vec![],
                 role: "tool".into(),
                 content,
                 calls: vec![],

@@ -12,19 +12,28 @@ impl OpenAiProvider {
         cancel: CancellationToken,
     ) -> Result<AgentTurn, String> {
         let request = async {
+            let wire_limit = MAX_CONTEXT_BYTES
+                + if messages
+                    .iter()
+                    .any(|m| m.parts.iter().any(|p| p.is_image()))
+                {
+                    12 * 1024 * 1024
+                } else {
+                    0
+                };
             let messages: Vec<_> = messages.iter().map(|message| {
-                let mut value = json!({"role":message.role,"content":message.content});
+                let mut value = json!({"role":message.role,"content":self.wire_content(&message.content,&message.parts)?});
                 if !message.calls.is_empty() {
                     value["tool_calls"] = json!(message.calls.iter().map(|call|
                         json!({"id":call.id,"type":"function","function":{"name":call.name,"arguments":call.arguments}})).collect::<Vec<_>>());
                 }
                 if let Some(id) = &message.call_id { value["tool_call_id"] = json!(id); }
-                value
-            }).collect();
+                Ok::<_,String>(value)
+            }).collect::<Result<Vec<_>,_>>()?;
             if serde_json::to_vec(&messages)
                 .map_err(|_| "Could not prepare tool request.")?
                 .len()
-                > MAX_CONTEXT_BYTES
+                > wire_limit
             {
                 return Err("Tool context exceeds the 128 KiB limit.".into());
             }
@@ -165,6 +174,7 @@ mod tests {
             parameters: json!({"type":"object"}),
         }];
         let mut messages = vec![AgentMessage {
+            parts: vec![],
             role: "user".into(),
             content: "read".into(),
             calls: vec![],
@@ -176,12 +186,14 @@ mod tests {
             .unwrap();
         assert_eq!(turn.usage.unwrap().input_tokens, Some(0));
         messages.push(AgentMessage {
+            parts: vec![],
             role: "assistant".into(),
             content: turn.content,
             calls: turn.calls,
             call_id: None,
         });
         messages.push(AgentMessage {
+            parts: vec![],
             role: "tool".into(),
             content: "Approved file".into(),
             calls: vec![],

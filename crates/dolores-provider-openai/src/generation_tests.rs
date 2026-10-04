@@ -48,6 +48,7 @@ async fn explicit_controls_reach_chat_streamed_and_strict_tool_requests() {
             .await
             .unwrap();
         let messages = vec![AgentMessage {
+            parts: vec![],
             role: "user".into(),
             content: "work".into(),
             calls: vec![],

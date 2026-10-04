@@ -1,5 +1,7 @@
 # Flutter/Rust bridge contract
 
+`draftAttachments`, `attachmentPreview`, `attachFile`, `removeAttachment`, `exportAttachments`, `cleanupAttachments` and `setImageModels` implement [attachment snapshots](../design/attachments.md). Bootstrap advertises `attachments` and configured `imageModels`; old hosts can omit them. Stored message pages/exports add optional `parts` with digest/name/MIME/bytes. Native previews alone may return bounded local `imageBase64`; raw images are not included in context reports or ordinary exports. Image sending uses an explicitly enabled provider adapter and refuses unsupported input without consuming the draft. Mutations are excluded during active execution.
+
 `taskPermissions` reads a saved chat's exact local policy/revision and reviewed MCP choices. `setTaskPermissions` saves an explicit policy with an expected revision. During an active run only review/revocation is allowed; matching primary work is cancelled. The scoped patch/effective run snapshot has a backward-readable `permissions` group. See [task access](../design/task-permissions.md).
 
 Scoped settings accept the optional [task allowance](../design/task-budgets.md) group. Started events include `taskBudget`; paused metadata includes backward-readable `segments`. Effective inventory/context/run snapshots report resolved task values. Continue refuses exhausted segments before issuing another model request.

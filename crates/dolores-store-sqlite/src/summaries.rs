@@ -192,17 +192,19 @@ impl SqliteStore {
         if !count.is_multiple_of(2) {
             return Err(STALE.into());
         }
-        let mut query=tx.prepare("SELECT role,content FROM (SELECT id,role,content FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id DESC LIMIT ?3) ORDER BY id").map_err(storage_error)?;
+        let mut query=tx.prepare("SELECT id,role,content FROM (SELECT id,role,content FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id DESC LIMIT ?3) ORDER BY id").map_err(storage_error)?;
         let messages = query
             .query_map(params![session, through, HISTORY_LIMIT], |r| {
-                let role: String = r.get(0)?;
+                let role: String = r.get(1)?;
                 Ok(Message {
+                    parts: super::attachments::parts(&tx, r.get(0)?)
+                        .map_err(|_| rusqlite::Error::InvalidQuery)?,
                     role: match role.as_str() {
                         "user" => Role::User,
                         "assistant" => Role::Assistant,
                         _ => return Err(rusqlite::Error::InvalidQuery),
                     },
-                    content: r.get(1)?,
+                    content: r.get(2)?,
                 })
             })
             .map_err(storage_error)?
@@ -308,6 +310,6 @@ mod tests {
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 23);
+        assert_eq!(version, 24);
     }
 }

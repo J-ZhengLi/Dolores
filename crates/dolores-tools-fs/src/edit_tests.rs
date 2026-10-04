@@ -454,10 +454,12 @@ async fn model_requests_and_denied_diffs_never_write_and_different_proposals_nee
     };
     let context = vec![
         Message {
+            parts: vec![],
             role: Role::System,
             content: "Local rules".into(),
         },
         Message {
+            parts: vec![],
             role: Role::User,
             content: "Change the note".into(),
         },

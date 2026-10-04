@@ -19,6 +19,8 @@
 
 ## Selected design references
 
+- [Attachment snapshots](design/attachments.md) explains supported formats, explicit image capability, sharing, export and retention.
+
 - [Task access and revocation](design/task-permissions.md) explains review, selected grants, full access and the real execution boundary.
 
 - [Task budgets and fixed baselines](design/task-budgets.md) describes scoped allowances, continuation accounting and observable task criteria.

@@ -1,5 +1,35 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 10.6 — file and image attachments
+
+Implemented [immutable local snapshots](design/attachments.md), backward-readable message references, draft preview/removal, explicit model image capability, bounded provider content parts, snapshot export and manual orphan cleanup. Text-only history/wire remain compatible. Image allowance is explicitly approximate; no OCR, unlimited upload or background sharing is added.
+
+Verified 50 core, 56 bridge, 33 provider and 41 storage tests (180 total), clean Rust Clippy, workspace compilation, Flutter analysis and 168 Flutter tests. Release-native `scripts/test-attachments.py` verifies source changes preserving the chosen Unicode snapshot, compatible text wire, exact image data URL, default-disabled images issuing no HTTP request, provider rejection retaining draft/reference without retry or private-body leakage, scoped access, four-file/size limits, export bytes, damaged assets refusing before HTTP then recovering through verified reattachment, retained fork references and cleanup/restart. Store tests also repair missing assets; provider checks preserve the original text-only wire allowance. Export beyond 240 messages refuses before creating a folder. Compact light/dark tests exercise preview/removal after refused Send, cleanup failure retaining the draft, and failed-selection isolation. Complex saved permission grants cannot be flattened by the simple form without explicit revocation.
+
+The configured Qwen3.5-2B live text/image probes returned the correct frozen number and dominant green color, in 0.61 / 1.42 seconds. Both ignored the requested exact terse answer format, so their original strict literal checks remain failed; the observed comprehension is recorded separately. Provider usage was unavailable for these calls. Normal connection/model/settings were preserved and synthetic transcripts/credentials stay outside tracked artifacts.
+
+The final normal release app was rebuilt and visibly launched (PID 26864). Original 22 user-data table digests remain unchanged; schema 24 has 31 tables. A development-machine point from the attachment release measured 233.48 MiB working set / 242.50 MiB private, 43 threads and a 10,632,192-byte bridge. These are point observations, not attribution, startup timing or low-end qualification. Header checks do not establish full image validity; native picker/physical-input, other-platform and broad vision acceptance remain open. Cleanup reclaims logical bytes, not guaranteed physical shrinking/secure erasure.
+
+## Milestone 10 — batch exit
+
+All six planned bricks are implemented and independently committed. Final release-library regression fixtures for task budgets, Review/Auto/Full permissions, restart after edit, managed compaction/forks and attachments pass. The fixed evaluator still rejects invented completion, weakened checks and discarded preserved prefixes. Existing model/task defaults remain unchanged.
+
+The unchanged v1 six-case corpus was rerun against isolated data using the configured Qwen3.5-2B for routine understanding and DeepSeek V4.1 Flash for coding/pressure cases:
+
+| Case | Observable result | Approval / recovery evidence |
+| --- | --- | --- |
+| Understand project | Qwen **failed**; a separate DeepSeek comparison **passed** unchanged facts/files | Qwen returned an unnecessary folder question without tool use; 0 approvals. DeepSeek inspected the same fresh fixture under the same request/task limits. |
+| Repair and fixed check | **Passed**: unchanged assertions execute successfully | DeepSeek, 5 approved operations, no denied operation. |
+| Multi-file edit | **Passed**: both intended files change and output is exactly Hello, World! | DeepSeek, 6 approvals and 1 denied extra command; fixed check still passes. |
+| Larger file | **Passed**: 1600-line prefix/check file unchanged and assertion passes | DeepSeek, 6 approved operations using a ranged read and source-bound patch. |
+| Limit recovery | **Passed after explicit Continue**: greeting bytes exactly match | Initial two-model-call segment pauses after one read. A linked second segment uses the same 2-model/4-tool allowance, reads and edits once, completing in 9.47 seconds; no silent increase or replay. |
+| Interruption | **Passed**: file unchanged after Stop at pending edit | One approved read, Stop at edit approval, cancelled run and no saved incomplete turn. |
+
+Repair/multi-file/larger-file use explicit 2048-output/90-second request and 8-model/12-tool/180-second task allowances; routine understanding uses 1024/60 and 6-model/8-tool/180. Recovery uses 1024/60, 2-model/4-tool/2-segment/180. The original four-call/four-operation defaults are not changed. Reported live usage remains unavailable in saved foreground metadata; per-case wall timing was not captured by the initial corpus driver, apart from the timed recovery. This timing/usage coverage gap is retained rather than inferred from token estimates or reply length.
+
+The initial routed corpus had five observable passes after explicit recovery. A separate fresh DeepSeek understanding case passed the same frozen criteria and limits, so each of the six cases now has passing evidence with the stronger model. The original Qwen failure remains recorded: consistent behavior across the configured models is **not accepted**. A completed response is not a task pass, and these small DeepSeek cases do not establish general coding competence. Advanced optional tools are planned next, while model grounding and broader native/platform/resource qualification remain explicit gaps. Executable self-evolution/automatic skill adaptation remain in milestones 13/12, respectively.
+
+
 ## Brick 10.3 — Ranged files and explicit command limits
 
 Implemented [practical tools](design/practical-tools.md): bounded line reads with SHA-256 source snapshots, unique snapshot-bound edits/reverts up to 1 MiB, and reviewed command deadlines/capture with local large-log artifacts. Existing default command/model budgets remain unchanged. Large captures require explicit reviewed limits; literal automatic command grants cover only the default limits.

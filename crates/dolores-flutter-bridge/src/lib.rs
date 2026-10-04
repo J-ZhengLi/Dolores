@@ -1,5 +1,6 @@
 //! C ABI for the selected Flutter shell. External processes require explicit review.
 mod approval;
+mod attachments;
 mod automatic_memory;
 mod changes;
 #[cfg(test)]
@@ -88,6 +89,29 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    DraftAttachments {
+        session: String,
+    },
+    AttachFile {
+        session: String,
+        path: PathBuf,
+    },
+    RemoveAttachment {
+        session: String,
+        digest: String,
+    },
+    AttachmentPreview {
+        session: String,
+        digest: String,
+    },
+    ExportAttachments {
+        session: String,
+        directory: PathBuf,
+    },
+    CleanupAttachments,
+    SetImageModels {
+        models: Vec<String>,
+    },
     ForkSession {
         session: String,
         through: i64,
@@ -537,6 +561,8 @@ impl Engine {
             Command::ChangeDetails {session,change_id} => return self.change_details(&session,change_id),
             Command::HarnessInventory { session } => return self.harness_inventory(session.as_deref()),
             Command::HarnessSource { source, start_line, line_count, checkout } => return introspection::source(&json!({"source":source,"startLine":start_line.unwrap_or(1),"lineCount":line_count.unwrap_or(60)}).to_string(), checkout.as_deref()),
+            Command::DraftAttachments{session}=>return Ok(json!(self.store.draft_attachments(&session)?)),
+            Command::AttachmentPreview{session,digest}=>return self.attachment_preview(&session,&digest),
             Command::Poll { id } => {
                 let Some(run) = active.as_mut().filter(|run| run.id == id) else {
                     return Ok(json!([]));
@@ -779,7 +805,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"durableDrafts":true,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"durableDrafts":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -828,7 +854,7 @@ impl Engine {
                     vec![]
                 };
                 let (history, count, session_summary) = match session {
-                    Some(session) => self.store.summary_context_history(&session)?,
+                    Some(ref session) => self.store.summary_context_history(session)?,
                     None => (vec![], Some(0), None),
                 };
                 let messages = dolores_core::prepare_behavior_context(
@@ -871,6 +897,11 @@ impl Engine {
                     .get(&preferences.model)
                     .copied()
                     .flatten();
+                let messages = if let Some(session) = session.as_deref() {
+                    attachments::prepare_text(self.store.as_ref(), session, messages)?
+                } else {
+                    messages
+                };
                 let (messages, tokens) = dolores_core::prepare_token_context(
                     messages,
                     &specs,
@@ -928,6 +959,31 @@ impl Engine {
             }
             Command::SetAutoCompact { session, enabled } => {
                 self.store.set_auto_compact(&session, enabled)?;
+                Ok(Value::Null)
+            }
+            Command::AttachFile { session, path } => self.attach_file(&session, &path),
+            Command::RemoveAttachment { session, digest } => {
+                self.store.remove_attachment(&session, &digest)?;
+                Ok(json!(self.store.draft_attachments(&session)?))
+            }
+            Command::ExportAttachments { session, directory } => {
+                self.export_attachments(&session, &directory)
+            }
+            Command::CleanupAttachments => Ok(json!({"removed":self.store.cleanup_attachments()?})),
+            Command::SetImageModels { models } => {
+                let p = self.store.preferences()?;
+                let enabled = self
+                    .connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .model_choices()?;
+                if models.iter().any(|m| !enabled.contains(m)) {
+                    return Err(
+                        "Image input must refer to enabled models. Refresh model configuration."
+                            .into(),
+                    );
+                }
+                self.store.save_image_models(&p.base_url, &models)?;
                 Ok(Value::Null)
             }
             Command::Delete { session } => {
@@ -1397,6 +1453,7 @@ async fn execute(
     let (context, skill_sources) = dolores_core::prepare_relevant_skill_context(context, &skills)?;
     let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
     let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
+    let context = attachments::prepare_text(store.as_ref(), &session, context)?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
@@ -1512,6 +1569,16 @@ async fn execute(
         ))
         .await;
     }
+    let assets = attachments::image_assets(store.as_ref(), &session, &context)?;
+    let provider = if assets.is_empty() {
+        provider
+    } else {
+        let prefs = store.preferences()?;
+        provider.with_attachment_assets(
+            assets,
+            store.image_models(&prefs.base_url)?.contains(&model),
+        )?
+    };
     let mut summary = ContextSummary::from_messages(&context, count);
     summary.tokens = Some(tokens);
     summary.instructions = guidance.map(|g| g.provenance);

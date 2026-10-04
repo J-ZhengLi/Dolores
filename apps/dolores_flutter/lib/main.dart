@@ -28,6 +28,7 @@ import 'model_steps.dart';
 import 'capabilities.dart';
 import 'run_history.dart';
 import 'thread_fork.dart';
+import 'attachments.dart';
 import 'dolores_settings.dart';
 import 'task_permissions.dart';
 
@@ -222,6 +223,7 @@ class _ChatPageState extends State<ChatPage> {
     Map<String, dynamic>? metadata,
     int? messageId,
     Map<String, dynamic>? feedback,
+    List<Map<String, dynamic>> parts = const [],
   }) {
     final user = role == 'user';
     return Padding(
@@ -283,6 +285,7 @@ class _ChatPageState extends State<ChatPage> {
                   ModelSteps(steps: chat.modelTexts, saved: false),
                 if (!user && !streaming && metadata?['agent']?['steps'] is List)
                   ModelSteps(steps: metadata!['agent']['steps'] as List),
+                if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
                 if (user || text.isEmpty)
                   SelectableText(
                     text.isEmpty && streaming ? 'Thinking…' : text,
@@ -314,7 +317,8 @@ class _ChatPageState extends State<ChatPage> {
                               chat.busy ||
                                   chat.changing ||
                                   chat.loading ||
-                                  chat.draft.isNotEmpty
+                                  chat.draft.isNotEmpty ||
+                                  chat.attachments.isNotEmpty
                               ? null
                               : () => chat.continueTask(messageId!),
                           icon: const Icon(Icons.play_arrow_outlined, size: 18),
@@ -326,7 +330,7 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       ),
                     Text(
-                      chat.draft.isNotEmpty
+                      chat.draft.isNotEmpty || chat.attachments.isNotEmpty
                           ? 'Send or clear your draft to continue. Each continuation uses your current model and limits.'
                           : 'Continue starts another bounded run. New tool calls need fresh approval; incomplete calls have not run.',
                       style: TextStyle(color: p.muted, fontSize: 12),
@@ -578,6 +582,12 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (chat.attachments.isNotEmpty)
+                AttachmentChips(
+                  chat: chat,
+                  parts: chat.attachments,
+                  removable: true,
+                ),
               RichComposer(
                 key: const Key('composer'),
                 controller: input,
@@ -602,6 +612,17 @@ class _ChatPageState extends State<ChatPage> {
                 key: const Key('composer-actions'),
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (chat.attachmentsAvailable) ...[
+                    IconButton(
+                      key: const Key('attach-file'),
+                      tooltip: 'Attach file or image',
+                      onPressed: chat.busy || chat.changing || chat.loading
+                          ? null
+                          : () => chooseAttachment(chat),
+                      icon: const Icon(Icons.add, size: 20),
+                    ),
+                    const Spacer(),
+                  ],
                   if (chat.configured && chat.enabledModels.isNotEmpty)
                     Flexible(
                       child: PopupMenuButton<String>(
@@ -679,7 +700,8 @@ class _ChatPageState extends State<ChatPage> {
                           : (chat.loading ||
                                     chat.changing ||
                                     !chat.configured ||
-                                    chat.draft.trim().isEmpty ||
+                                    (chat.draft.trim().isEmpty &&
+                                        chat.attachments.isEmpty) ||
                                     !input.value.composing.isCollapsed
                                 ? null
                                 : chat.send),
@@ -790,7 +812,30 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'fork') {
+                        if (value == 'attachments') {
+                          exportAttachments(context, chat);
+                        } else if (value == 'cleanupAttachments') {
+                          chat
+                              .inspectLocalSettings(() async {
+                                final result = await chat.bridge.call({
+                                  'command': 'cleanupAttachments',
+                                }) as Map;
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Removed ${result['removed']} unused snapshots. Referenced attachments are retained.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              })
+                              .catchError((Object failure) {
+                                chat.reportLocalError(
+                                  'Unused attachments could not be cleaned: $failure. Your draft remains.',
+                                );
+                              });
+                        } else if (value == 'fork') {
                           showThreadFork(context, chat);
                         } else if (value == 'permissions') {
                           showTaskPermissions(context, chat);
@@ -829,6 +874,16 @@ class _ChatPageState extends State<ChatPage> {
                         const PopupMenuItem(
                           value: 'capabilities',
                           child: Text('Dolores capabilities'),
+                        ),
+                        PopupMenuItem(
+                          value: 'attachments',
+                          enabled: !chat.busy,
+                          child: const Text('Export attachments'),
+                        ),
+                        PopupMenuItem(
+                          value: 'cleanupAttachments',
+                          enabled: !chat.busy,
+                          child: const Text('Clean unused attachments'),
                         ),
                         PopupMenuItem(
                           value: 'fork',
@@ -962,6 +1017,8 @@ class _ChatPageState extends State<ChatPage> {
                                       item['content'] as String,
                                       metadata: (item['metadata'] as Map?)
                                           ?.cast<String, dynamic>(),
+                                      parts: ((item['parts'] as List?) ?? [])
+                                          .cast<Map<String, dynamic>>(),
                                       messageId: item['id'] as int?,
                                       feedback: (item['feedback'] as Map?)
                                           ?.cast<String, dynamic>(),
@@ -1055,6 +1112,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
       ? null
       : widget.chat.model;
   bool contextEndpointChanged = false;
+  late final Set<String> imageModels = widget.chat.imageModels.toSet();
   final contextInputs = <String, TextEditingController>{};
   TextEditingController contextInput(String id) => contextInputs.putIfAbsent(
     id,
@@ -1077,6 +1135,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
       selected.clear();
       contextModel = null;
       contextEndpointChanged = true;
+      imageModels.clear();
       for (final input in contextInputs.values) {
         input.dispose();
       }
@@ -1166,6 +1225,13 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
         models: selected.toList(),
         contexts: contexts,
       );
+      if (widget.chat.attachmentsAvailable) {
+        await widget.chat.bridge.call({
+          'command': 'setImageModels',
+          'models': imageModels.where(selected.contains).toList(),
+        });
+        await widget.chat.refresh();
+      }
       if (mounted) Navigator.pop(context);
     } catch (failure) {
       if (mounted) {
@@ -1409,6 +1475,30 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                 ),
                 const SizedBox(height: 12),
               ],
+              if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
+                CheckboxListTile(
+                  key: const Key('model-image-input'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Image input for this model'),
+                  subtitle: const Text(
+                    'Enable only when the provider/model accepts OpenAI-compatible image content. Images use low detail; no OCR adapter is installed.',
+                  ),
+                  value: imageModels.contains(
+                    selected.contains(contextModel)
+                        ? contextModel
+                        : selected.first,
+                  ),
+                  onChanged: working
+                      ? null
+                      : (enabled) => setState(() {
+                          final id = selected.contains(contextModel)
+                              ? contextModel!
+                              : selected.first;
+                          enabled == true
+                              ? imageModels.add(id)
+                              : imageModels.remove(id);
+                        }),
+                ),
               CheckboxListTile(
                 key: const Key('remember-connection'),
                 contentPadding: EdgeInsets.zero,

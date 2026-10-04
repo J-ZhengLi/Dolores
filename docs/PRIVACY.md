@@ -4,6 +4,8 @@ Task permission grants can retain literal command arguments locally and in run s
 
 ## When using Dolores
 
+Selected text/image attachments are immutable local plaintext snapshots, identified by digest and basename. Preview is local; Send shares the included contents with your configured provider. Sent snapshots can be shared again when included in later context. Ordinary conversation exports retain references; the separate attachment export explicitly copies draft/sent bytes. Removing references and cleaning unused snapshots do not securely erase SQLite free pages, backups or export copies. See [attachment boundaries](design/attachments.md).
+
 Dolores sends selected context, enabled instructions/memories/skills and approved tool results to your configured endpoint. Provider retention belongs to that provider. The desktop app has no background telemetry or automatic model download.
 
 Conversations, preferences, source evidence, comparisons and change snapshots are local unencrypted SQLite data. Remembered model/MCP keys use the OS vault, scoped to the data directory. Launch-only keys stay in memory. Exports can retain approved content and evidence: inspect them before sharing.

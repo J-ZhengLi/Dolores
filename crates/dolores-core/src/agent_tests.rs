@@ -129,18 +129,22 @@ async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_mode
 fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     let context = vec![
         Message {
+            parts: vec![],
             role: Role::System,
             content: "Local instructions".into(),
         },
         Message {
+            parts: vec![],
             role: Role::User,
             content: "x".repeat(MAX_CONTEXT_BYTES - 100),
         },
         Message {
+            parts: vec![],
             role: Role::Assistant,
             content: "Old answer".into(),
         },
         Message {
+            parts: vec![],
             role: Role::User,
             content: "Current request".into(),
         },
@@ -155,10 +159,12 @@ fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     assert_eq!(repeated[1].content, prepared[1].content);
     assert!(prepare_agent_context(vec![
         Message {
+            parts: vec![],
             role: Role::System,
             content: "x".repeat(MAX_CONTEXT_BYTES)
         },
         Message {
+            parts: vec![],
             role: Role::User,
             content: "Current request".into()
         },
@@ -560,10 +566,12 @@ impl ToolApproval for Approval {
 fn context() -> Vec<Message> {
     vec![
         Message {
+            parts: vec![],
             role: Role::System,
             content: "system".into(),
         },
         Message {
+            parts: vec![],
             role: Role::User,
             content: "Read readme".into(),
         },

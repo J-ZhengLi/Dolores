@@ -177,6 +177,56 @@ class ChatController extends ChangeNotifier {
       pendingInput = '',
       partial = '';
   bool durableDrafts = false;
+  bool attachmentsAvailable = false;
+  List<Map<String, dynamic>> attachments = [];
+  List<String> imageModels = [];
+  void reportLocalError(String message) {
+    if (_disposed) return;
+    error = message;
+    _notify();
+  }
+
+  Future<void> addAttachment(String path) async {
+    if (busy || changing || loading) return;
+    changing = true;
+    _notify();
+    try {
+      await _ensureWorkingSession();
+      attachments = (await bridge.call({
+        'command': 'attachFile',
+        'session': session,
+        'path': path,
+      }) as List).cast<Map<String, dynamic>>();
+      invalidateContextPreview();
+      error = null;
+    } catch (failure) {
+      error = failure.toString();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  Future<void> removeAttachment(String digest) async {
+    if (busy || changing || loading || session == null) return;
+    changing = true;
+    _notify();
+    try {
+      attachments = (await bridge.call({
+        'command': 'removeAttachment',
+        'session': session,
+        'digest': digest,
+      }) as List).cast<Map<String, dynamic>>();
+      invalidateContextPreview();
+      error = null;
+    } catch (failure) {
+      error = failure.toString();
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
   String? resumeRun;
   Timer? _draftTimer;
   String get draft => _draft;
@@ -208,7 +258,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> prepareCheckpoint(String source) async {
     if (busy || changing || loading || session == null) return;
-    if (draft.trim().isNotEmpty) {
+    if (draft.trim().isNotEmpty || attachments.isNotEmpty) {
       throw StateError(
         'Send or clear the current draft before preparing recovery.',
       );
@@ -417,6 +467,8 @@ class ChatController extends ChangeNotifier {
   Future<void> refresh() async {
     final state = await bridge.call({'command': 'bootstrap'});
     durableDrafts = state['durableDrafts'] == true;
+    attachmentsAvailable = state['attachments'] == true;
+    imageModels = ((state['imageModels'] as List?) ?? []).cast<String>();
     sessions = (state['sessions'] as List).cast<Map<String, dynamic>>();
     projects = ((state['projects'] as List?) ?? [])
         .cast<Map<String, dynamic>>();
@@ -602,6 +654,7 @@ class ChatController extends ChangeNotifier {
     contextSummary = null;
     contextBasis = null;
     messages = [];
+    attachments = [];
     messagesOlder = messagesNewer = false;
     draft = '';
     scrollOffset = 0;
@@ -625,6 +678,7 @@ class ChatController extends ChangeNotifier {
     contextSummary = null;
     contextBasis = null;
     messages = [];
+    attachments = [];
     messagesOlder = messagesNewer = false;
     draft = '';
     scrollOffset = 0;
@@ -665,22 +719,30 @@ class ChatController extends ChangeNotifier {
         'session': id,
         'cursor': state?.cursor,
       });
+      final restoredDraft =
+          state?.draft ??
+          (durableDrafts
+              ? await bridge.call({'command': 'savedDraft', 'session': id})
+                    as String
+              : '');
+      final restoredAttachments = attachmentsAvailable
+          ? (await bridge.call({
+              'command': 'draftAttachments',
+              'session': id,
+            }) as List).cast<Map<String, dynamic>>()
+          : <Map<String, dynamic>>[];
       session = id;
       _setWorkspace(workspace);
       toolRecords.clear();
       modelTexts.clear();
       toolApproval = null;
       _setMessages(history);
+      attachments = restoredAttachments;
       contextSummary = null;
       contextBasis = null;
       _restoreContext();
       _draftTimer?.cancel();
-      _draft =
-          state?.draft ??
-          (durableDrafts
-              ? await bridge.call({'command': 'savedDraft', 'session': id})
-                    as String
-              : '');
+      _draft = restoredDraft;
       resumeRun = null;
       scrollOffset = state?.scroll ?? double.infinity;
       viewRevision++;
@@ -787,6 +849,7 @@ class ChatController extends ChangeNotifier {
         workspaceKind = 'temporary';
         workspaceRoot = null;
         messages = [];
+        attachments = [];
         messagesOlder = messagesNewer = false;
         draft = '';
         scrollOffset = 0;
@@ -822,7 +885,8 @@ class ChatController extends ChangeNotifier {
         changing ||
         loading ||
         sourceId != latestPausedId ||
-        draft.isNotEmpty) {
+        draft.isNotEmpty ||
+        attachments.isNotEmpty) {
       return;
     }
     if (!configured) {
@@ -835,7 +899,12 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> send({int? continuation}) async {
-    if (busy || changing || loading || draft.trim().isEmpty) return;
+    if (busy ||
+        changing ||
+        loading ||
+        (draft.trim().isEmpty && attachments.isEmpty)) {
+      return;
+    }
     if (!configured) {
       error = 'Set up a model connection first.';
       _notify();
@@ -862,7 +931,9 @@ class ChatController extends ChangeNotifier {
     busy = true;
     _continuing = continuation != null;
     stopping = false;
-    pendingInput = draft;
+    pendingInput = draft.trim().isEmpty
+        ? 'Please review the attached files.'
+        : draft;
     draft = '';
     partial = '';
     error = null;
@@ -996,6 +1067,7 @@ class ChatController extends ChangeNotifier {
               );
             } else {
               _record('Reply saved');
+              attachments = [];
               if (event['memoryUpdate'] is Map) {
                 final update = event['memoryUpdate'] as Map;
                 _record('Memory: ${update['status']} · ${update['note']}');

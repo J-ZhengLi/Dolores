@@ -86,10 +86,12 @@ mod tests {
             .flat_map(|n| {
                 [
                     Message {
+                        parts: vec![],
                         role: Role::User,
                         content: format!("你好 {n}"),
                     },
                     Message {
+                        parts: vec![],
                         role: Role::Assistant,
                         content: "answer".into(),
                     },
@@ -115,10 +117,12 @@ mod tests {
             .flat_map(|n| {
                 [
                     Message {
+                        parts: vec![],
                         role: Role::User,
                         content: "界".repeat(2000),
                     },
                     Message {
+                        parts: vec![],
                         role: Role::Assistant,
                         content: format!("{n}{}", "a".repeat(3000)),
                     },

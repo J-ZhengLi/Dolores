@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 mod accounting;
+mod attachments;
+pub use attachments::*;
 mod comparison;
 mod feedback;
 pub use comparison::*;
@@ -80,6 +82,8 @@ pub enum Role {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<AttachmentRef>,
     pub role: Role,
     pub content: String,
 }
@@ -109,6 +113,8 @@ pub struct HistoryPage<T> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StoredMessage {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<AttachmentRef>,
     pub id: i64,
     pub role: Role,
     pub content: String,
@@ -158,6 +164,14 @@ impl Default for ConnectionPreferences {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    fn with_attachment_assets(
+        &self,
+        _: Vec<AttachmentData>,
+        _: bool,
+    ) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
+        Err("This provider has no image adapter. Choose an image-capable model/adapter or remove the image; your draft is retained.".into())
+    }
+
     /// Chat-only outcome; strict structured consumers keep using stream_with_usage.
     async fn stream_chat_outcome(
         &self,
@@ -230,6 +244,28 @@ pub trait ModelProvider: Send + Sync {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn draft_attachments(&self, _: &str) -> Result<Vec<AttachmentRef>, String> {
+        Ok(vec![])
+    }
+    fn add_attachment(&self, _: &str, _: &AttachmentData) -> Result<(), String> {
+        Err("Attachments are unavailable.".into())
+    }
+    fn remove_attachment(&self, _: &str, _: &str) -> Result<(), String> {
+        Err("Attachments are unavailable.".into())
+    }
+    fn attachment_data(&self, _: &str, _: &str) -> Result<AttachmentData, String> {
+        Err("Attachment snapshot is unavailable. Reattach it or remove its reference.".into())
+    }
+    fn cleanup_attachments(&self) -> Result<usize, String> {
+        Err("Attachment cleanup is unavailable.".into())
+    }
+    fn image_models(&self, _: &str) -> Result<Vec<String>, String> {
+        Ok(vec![])
+    }
+    fn save_image_models(&self, _: &str, _: &[String]) -> Result<(), String> {
+        Err("Image configuration is unavailable.".into())
+    }
+
     fn fork_session(&self, _: &str, _: i64, _: &str) -> Result<Session, String> {
         Err("Thread forks are unavailable.".into())
     }
@@ -625,7 +661,7 @@ pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
     if !history.len().is_multiple_of(2) {
         return Err("Stored conversation has an incomplete turn.".into());
     }
-    let system = Message { role: Role::System, content: "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.".into() };
+    let system = Message { parts: vec![], role: Role::System, content: "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.".into() };
     let mut budget = MAX_CONTEXT_BYTES - input.len() - system.content.len();
     // Keep newest complete turns. Never start context with an orphaned assistant reply.
     let mut pairs = Vec::new();
@@ -645,6 +681,7 @@ pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
         messages.extend(pair);
     }
     messages.push(Message {
+        parts: vec![],
         role: Role::User,
         content: input.to_owned(),
     });
@@ -750,10 +787,12 @@ mod tests {
             .flat_map(|_| {
                 [
                     Message {
+                        parts: vec![],
                         role: Role::User,
                         content: "u".repeat(4096),
                     },
                     Message {
+                        parts: vec![],
                         role: Role::Assistant,
                         content: "a".repeat(4096),
                     },

@@ -488,6 +488,7 @@ mod tests {
     #[tokio::test]
     async fn overflow_and_closed_output_hung_provider_remain_cancelable_without_results() {
         let prompt = vec![Message {
+            parts: vec![],
             role: Role::User,
             content: "fixture".into(),
         }];

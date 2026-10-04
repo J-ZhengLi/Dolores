@@ -1,5 +1,7 @@
 # Dolores implementation history
 
+Bricks **10.1–10.6** were implemented as one authorized batch with separate commits: budgets, permissions, practical files/commands, checkpoints/drafts, managed threads/context, and file/image attachments. Release-native recovery checks and bounded live cases are recorded in acceptance; the unchanged corpus retains a Qwen grounding failure. Executable self-adaptation remains planned for milestone 13.
+
 Brick **10.2** adds explicit task access modes, thread-bound grants, expiry/revocation and separate saved automatic decisions. UI acknowledgement and stale-save recovery are tested; OS containment remains an explicit open boundary.
 
 Brick **10.1** implements fixed synthetic task criteria, scoped segment allowances and bounded continuation accounting. A DeepSeek repair/check passes with five operations; Qwen project understanding remains a recorded failure. See [acceptance](ACCEPTANCE.md) and [task contracts](design/task-budgets.md).
@@ -80,3 +82,5 @@ Brick 8.4 (cross-platform build CI) was skipped at the user's request. Future pr
 - **10.4:** durable checkpoints and linked explicit recovery; local saved-chat drafts and complete bounded event retrieval, with real journaled-write restart/no-replay fixture checks.
 
 - 10.5: complete-turn shared-folder forks, scoped guidance/relevant skill snapshots and opt-in bounded preflight compaction.
+
+- **10.6:** local immutable text/image attachments, explicit model modality, bounded sharing/export/cleanup and preserved-draft refusal/restart checks. Full batch evidence retains model-specific failures.

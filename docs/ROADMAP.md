@@ -4,6 +4,8 @@
 
 Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.4 are implemented**, with separate commits and bounded evidence in acceptance. The mechanical contracts are verified; consistent real-model task behavior, native input/platform and representative resource acceptance remain open. Later milestones retain their planned scope and are not implicitly complete.
 
+The user subsequently authorized milestone 10 as a batch. **10.1–10.6 are implemented**, with separate commits and release-native/widget/live evidence. The initial routed six-case corpus has five passing observable cases after explicit same-budget recovery; a separate DeepSeek understanding case passes unchanged criteria, completing passing evidence for the small fixed set. Qwen project grounding still fails. The mechanical foundation is delivered, while consistency across configured models remains unaccepted. See [batch results](ACCEPTANCE.md#milestone-10--batch-exit) before treating advanced tools as dependable.
+
 ## Destination and scope
 
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.

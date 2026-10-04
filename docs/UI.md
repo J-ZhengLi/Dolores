@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Attachments
+
+Use the composer’s quiet plus action for Attach file, wrapping snapshot chips above its editable content, and retain the model/context/send footer placement. Chips offer local text/image preview with sharing disclosure; draft removal is disabled during execution or state changes. Preview uses the system dialog theme and bounded scrolling/image dimensions. Chat actions offers explicit snapshot export and unused-asset cleanup. Model connection has an explicit per-enabled-model image input checkbox, disabled by default. Refusal preserves the draft and offers capable-model/removal recovery; no silent OCR or upload is implied. Context inspection shows the approximate image token allowance only when images are included. Failed chat selection leaves the previous draft and its attachment scope together; attachments count as an occupied draft for Continue/recovery.
+
 ## Task permissions
 
 Working saved chats offer Task permissions in Chat actions, including during execution. Reuse InspectorFrame/system palette with a scrolling mode, grant, expiry and acknowledgement form and fixed Refresh/Revoke grants/Save access controls. Full access and selected grants require explicit acknowledgement before Save; defaults are review mode with no automatic grant. Show saved mode/revision/expiry and actual user-account command/MCP boundary. Busy mode permits inspection/revocation, with expansion disabled. Stale saves retain the draft and Refresh requires renewed acknowledgement; errors remain visible. Budget/interaction reset does not change access. No composer/theme change or idle polling is introduced.

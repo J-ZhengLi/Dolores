@@ -229,6 +229,7 @@ async fn http_stream_preserves_usage_and_the_real_tool_message_contract() {
         parameters: json!({"type":"object"}),
     }];
     let mut messages = vec![AgentMessage {
+        parts: vec![],
         role: "user".into(),
         content: "read".into(),
         calls: vec![],
@@ -243,12 +244,14 @@ async fn http_stream_preserves_usage_and_the_real_tool_message_contract() {
     assert!(receiver.recv().await.is_none());
     assert_eq!(turn.usage.unwrap().input_tokens, Some(0));
     messages.push(AgentMessage {
+        parts: vec![],
         role: "assistant".into(),
         content: turn.content,
         calls: turn.calls,
         call_id: None,
     });
     messages.push(AgentMessage {
+        parts: vec![],
         role: "tool".into(),
         content: "Approved text".into(),
         calls: vec![],

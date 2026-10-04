@@ -85,12 +85,13 @@ impl SqliteStore {
         )
         .map_err(storage_error)?;
         tx.execute("INSERT INTO session_workspaces(session_id,kind,root) SELECT ?1,kind,root FROM session_workspaces WHERE session_id=?2",params![id,source]).map_err(storage_error)?;
-        for (_, role, content, data) in rows {
+        for (source_id, role, content, data) in rows {
             tx.execute(
                 "INSERT INTO messages(session_id,role,content) VALUES(?1,?2,?3)",
                 params![id, role, content],
             )
             .map_err(storage_error)?;
+            tx.execute("INSERT INTO message_parts(message_id,data) SELECT ?1,data FROM message_parts WHERE message_id=?2",params![tx.last_insert_rowid(),source_id]).map_err(storage_error)?;
             if let Some(data) = data {
                 let mut meta: TurnMetadata = serde_json::from_str(&data).map_err(storage_error)?;
                 // Historical receipts remain evidence, but cannot resume a parent task.

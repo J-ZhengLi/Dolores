@@ -44,6 +44,55 @@ class PermissionBridge implements ChatBridge {
 
 void main() {
   testWidgets(
+    'Complex saved grant boundaries require revocation before simplified replacement',
+    (tester) async {
+      final bridge = PermissionBridge()
+        ..policy = {
+          'mode': 'auto',
+          'expiresAt': null,
+          'grants': [
+            {'tool': 'read_text_file', 'pathPrefix': 'src', 'command': null},
+            {'tool': 'list_folder', 'pathPrefix': 'docs', 'command': null},
+          ],
+        };
+      final chat = ChatController(bridge)
+        ..session = 'a'
+        ..loading = false;
+      await tester.pumpWidget(
+        MaterialApp(home: TaskPermissionsInspector(chat: chat)),
+      );
+      await tester.pumpAndSettle();
+      final ack = find.text(
+        'I understand this scope and the access described above',
+      );
+      await tester.ensureVisible(ack);
+      await tester.tap(ack);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Save access'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        bridge.calls.where((c) => c['command'] == 'setTaskPermissions'),
+        isEmpty,
+      );
+      expect((bridge.policy['grants'] as List).map((g) => g['pathPrefix']), [
+        'src',
+        'docs',
+      ]);
+      await tester.tap(find.text('Revoke grants'));
+      await tester.pumpAndSettle();
+      expect(bridge.policy['mode'], 'review');
+      expect(bridge.policy['grants'], isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
+  testWidgets(
     'Full access needs acknowledgement; busy Revoke remains usable in compact themes',
     (tester) async {
       tester.view.physicalSize = const Size(700, 680);

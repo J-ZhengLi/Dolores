@@ -13,6 +13,19 @@ fn checked_limit(limit: usize, max: usize) -> Result<i64, String> {
 fn stored_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredMessage> {
     let role: String = row.get(1)?;
     Ok(StoredMessage {
+        parts: row
+            .get::<_, Option<String>>(5)?
+            .map(|v| {
+                serde_json::from_str(&v).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        5,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })
+            })
+            .transpose()?
+            .unwrap_or_default(),
         id: row.get(0)?,
         role: match role.as_str() {
             "user" => Role::User,
@@ -148,7 +161,7 @@ impl SqliteStore {
         } else {
             ("(?2 IS NULL OR id<?2)", "DESC")
         };
-        let mut statement = snapshot.prepare(&format!("SELECT id,role,content,(SELECT data FROM turn_metadata WHERE message_id=messages.id),(SELECT data FROM task_feedback WHERE message_id=messages.id) FROM messages WHERE session_id=?1 AND {predicate} ORDER BY id {order} LIMIT ?3")).map_err(storage_error)?;
+        let mut statement = snapshot.prepare(&format!("SELECT id,role,content,(SELECT data FROM turn_metadata WHERE message_id=messages.id),(SELECT data FROM task_feedback WHERE message_id=messages.id),(SELECT data FROM message_parts WHERE message_id=messages.id) FROM messages WHERE session_id=?1 AND {predicate} ORDER BY id {order} LIMIT ?3")).map_err(storage_error)?;
         let mut items = statement
             .query_map(params![id, cursor, limit], stored_message)
             .map_err(storage_error)?
@@ -224,7 +237,7 @@ impl SqliteStore {
             }
         }
         let mut statement = snapshot
-            .prepare("SELECT id,role,content,(SELECT data FROM turn_metadata WHERE message_id=messages.id),(SELECT data FROM task_feedback WHERE message_id=messages.id) FROM messages WHERE session_id=?1 ORDER BY id ASC")
+            .prepare("SELECT id,role,content,(SELECT data FROM turn_metadata WHERE message_id=messages.id),(SELECT data FROM task_feedback WHERE message_id=messages.id),(SELECT data FROM message_parts WHERE message_id=messages.id) FROM messages WHERE session_id=?1 ORDER BY id ASC")
             .map_err(storage_error)?;
         let mut rows = statement.query([id]).map_err(storage_error)?;
         let mut count = 0;
@@ -245,6 +258,18 @@ impl SqliteStore {
                     };
                     writeln!(output, "## {role}\n").map_err(error)?;
                     markdown_block(output, &message.content).map_err(error)?;
+                    if !message.parts.is_empty() {
+                        writeln!(
+                            output,
+                            "Local attachment references (export snapshot bytes separately):\n"
+                        )
+                        .map_err(error)?;
+                        markdown_block(
+                            output,
+                            &serde_json::to_string(&message.parts).map_err(storage_error)?,
+                        )
+                        .map_err(error)?;
+                    }
                     if let Some(feedback) = &message.feedback {
                         writeln!(output, "Local user feedback (not verification):\n")
                             .map_err(error)?;

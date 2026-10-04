@@ -69,10 +69,12 @@ async fn blocked_edit_returns_specific_safe_feedback_then_only_a_valid_reviewed_
     std::fs::write(root.path().join("note"), "before").unwrap();
     let context = vec![
         Message {
+            parts: vec![],
             role: Role::System,
             content: "Local rules".into(),
         },
         Message {
+            parts: vec![],
             role: Role::User,
             content: "Change the note".into(),
         },

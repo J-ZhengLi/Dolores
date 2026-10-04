@@ -11,6 +11,8 @@ use url::{Host, Url};
 mod agent;
 mod agent_stream;
 #[cfg(test)]
+mod attachment_tests;
+#[cfg(test)]
 mod generation_tests;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
@@ -42,6 +44,19 @@ fn check_generation_rejection(value: &Value) -> Result<(), String> {
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_ascii_lowercase();
+    if (param.contains("image") || message.contains("image") || message.contains("vision"))
+        && [
+            "unsupported",
+            "not supported",
+            "does not support",
+            "not permitted",
+            "text only",
+        ]
+        .iter()
+        .any(|word| message.contains(word))
+    {
+        return Err("Model rejected image input. Choose a capable model in Model connection, or remove the image. Conversion/OCR requires an explicit adapter; your draft remains and nothing was retried.".into());
+    }
     if [
         "thinking",
         "reasoning_effort",
@@ -154,7 +169,10 @@ async fn usage_option_rejected(
         .any(|word| message.contains(word)))
 }
 
+#[derive(Clone)]
 pub struct OpenAiProvider {
+    assets: std::sync::Arc<std::collections::BTreeMap<String, dolores_core::AttachmentData>>,
+    images: bool,
     client: reqwest::Client,
     endpoint: Url,
     model: String,
@@ -203,6 +221,29 @@ pub fn validate_preferences(preferences: &ConnectionPreferences) -> Result<Url, 
 }
 
 impl OpenAiProvider {
+    fn wire_content(
+        &self,
+        text: &str,
+        parts: &[dolores_core::AttachmentRef],
+    ) -> Result<Value, String> {
+        if !parts.iter().any(|p| p.is_image()) {
+            return Ok(json!(text));
+        }
+        if !self.images {
+            return Err("Image input is disabled for this model. Choose a capable model or remove the image; your draft remains.".into());
+        }
+        let mut content = vec![json!({"type":"text","text":text})];
+        use base64::Engine;
+        for part in parts.iter().filter(|p| p.is_image()) {
+            part.validate()?;
+            let asset = self
+                .assets
+                .get(&part.digest)
+                .ok_or("Image snapshot is missing. Reattach it or remove it before sending.")?;
+            content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{}",part.mime,base64::engine::general_purpose::STANDARD.encode(&asset.data)),"detail":"low"}}));
+        }
+        Ok(json!(content))
+    }
     fn apply_generation_settings(&self, body: &mut Value) {
         use dolores_core::ReasoningControl::*;
         match self.settings.reasoning {
@@ -241,6 +282,8 @@ impl OpenAiProvider {
             .build()
             .map_err(|_| "Could not initialize the connection.".to_string())?;
         Ok(Self {
+            assets: Default::default(),
+            images: false,
             client,
             endpoint,
             model: preferences.model.trim().into(),
@@ -307,6 +350,29 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    fn with_attachment_assets(
+        &self,
+        assets: Vec<dolores_core::AttachmentData>,
+        images: bool,
+    ) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
+        if assets.len() > 16 || assets.iter().map(|a| a.data.len()).sum::<usize>() > 8 * 1024 * 1024
+        {
+            return Err("Included attachments exceed 16 assets or 8 MiB. Compact history, remove attachments or start a new chat.".into());
+        }
+        if !images && assets.iter().any(|a| a.reference.is_image()) {
+            return Err("This model has image input disabled. Select an image-capable model, enable its image adapter in model settings, or remove the image. Your draft and attachments are retained.".into());
+        }
+        let mut next = self.clone();
+        next.images = images;
+        next.assets = std::sync::Arc::new(
+            assets
+                .into_iter()
+                .map(|a| (a.reference.digest.clone(), a))
+                .collect(),
+        );
+        Ok(std::sync::Arc::new(next))
+    }
+
     async fn stream_tool_turn(
         &self,
         messages: &[dolores_core::AgentMessage],
@@ -334,6 +400,8 @@ impl ModelProvider for OpenAiProvider {
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;
         Ok(std::sync::Arc::new(Self {
+            assets: self.assets.clone(),
+            images: self.images,
             client: self.client.clone(),
             endpoint: self.endpoint.clone(),
             model: model.trim().into(),
@@ -455,6 +523,10 @@ impl OpenAiProvider {
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
     ) -> Result<dolores_core::StreamOutcome, String> {
+        let messages: Vec<_> = messages
+            .iter()
+            .map(|m| Ok(json!({"role":m.role,"content":self.wire_content(&m.content,&m.parts)?})))
+            .collect::<Result<_, String>>()?;
         let mut include_usage = true;
         let mut response = loop {
             let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": self.settings.max_output_tokens });
@@ -954,6 +1026,7 @@ mod tests {
         provider
             .stream(
                 vec![Message {
+                    parts: vec![],
                     role: dolores_core::Role::User,
                     content: "hi".into(),
                 }],

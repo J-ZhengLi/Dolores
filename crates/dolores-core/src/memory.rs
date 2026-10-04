@@ -327,6 +327,7 @@ mod tests {
         .is_err());
         let history = (0..80)
             .map(|n| Message {
+                parts: vec![],
                 role: if n % 2 == 0 {
                     Role::User
                 } else {

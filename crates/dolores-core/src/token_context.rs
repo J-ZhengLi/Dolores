@@ -30,6 +30,8 @@ pub fn estimate_text_tokens(text: &str) -> u64 {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenContext {
+    #[serde(default)]
+    pub image_tokens: u64,
     pub estimator: String,
     pub input_tokens: u64,
     pub system_tokens: u64,
@@ -55,6 +57,9 @@ pub fn input_token_allowance(
     }).transpose()
 }
 
+fn image_allowance(parts: &[crate::AttachmentRef]) -> u64 {
+    parts.iter().filter(|p| p.is_image()).count() as u64 * 4096
+}
 fn tool_tokens(tools: &[ToolSpec]) -> Result<u64, String> {
     if tools.is_empty() {
         return Ok(0);
@@ -68,7 +73,7 @@ fn tool_tokens(tools: &[ToolSpec]) -> Result<u64, String> {
 pub fn estimate_agent_tokens(messages: &[AgentMessage], tools: &[ToolSpec]) -> Result<u64, String> {
     let mut tokens = tool_tokens(tools)? + 3;
     for message in messages {
-        tokens += estimate_text_tokens(&message.content) + 4;
+        tokens += estimate_text_tokens(&message.content) + 4 + image_allowance(&message.parts);
         if !message.calls.is_empty() {
             let calls: Vec<_> = message.calls.iter().map(|c| serde_json::json!({"id":c.id,"type":"function","function":{"name":c.name,"arguments":c.arguments}})).collect();
             tokens += estimate_text_tokens(
@@ -102,12 +107,21 @@ pub fn prepare_token_context(
             .map(|m| estimate_text_tokens(&m.content))
             .sum();
         let framing_tokens = messages.len() as u64 * 4 + 3;
-        let input_tokens =
-            system_tokens + draft_tokens + history_tokens + tool_tokens + framing_tokens;
+        let image_tokens = messages
+            .iter()
+            .map(|m| image_allowance(&m.parts))
+            .sum::<u64>();
+        let input_tokens = system_tokens
+            + draft_tokens
+            + history_tokens
+            + tool_tokens
+            + framing_tokens
+            + image_tokens;
         if max_input.is_none_or(|limit| input_tokens <= limit) {
             return Ok((
                 messages,
                 TokenContext {
+                    image_tokens,
                     estimator: "utf8-div4-v1".into(),
                     input_tokens,
                     system_tokens,
@@ -159,6 +173,7 @@ mod tests {
         let mut agent: Vec<_> = messages
             .iter()
             .map(|m| AgentMessage {
+                parts: vec![],
                 role: format!("{:?}", m.role),
                 content: m.content.clone(),
                 calls: vec![],
@@ -183,10 +198,12 @@ mod tests {
             .flat_map(|n| {
                 [
                     Message {
+                        parts: vec![],
                         role: Role::User,
                         content: format!("{n}{}", "x".repeat(400)),
                     },
                     Message {
+                        parts: vec![],
                         role: Role::Assistant,
                         content: "a".repeat(400),
                     },
