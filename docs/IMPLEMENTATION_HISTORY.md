@@ -1,5 +1,7 @@
 # Dolores implementation history
 
+Brick **10.1** implements fixed synthetic task criteria, scoped segment allowances and bounded continuation accounting. A DeepSeek repair/check passes with five operations; Qwen project understanding remains a recorded failure. See [acceptance](ACCEPTANCE.md) and [task contracts](design/task-budgets.md).
+
 Build one usable brick at a time. Each new brick needs a small design decision, scoped implementation, behavior checks, resource measurements where relevant, and an updated acceptance record. Commit each completed brick separately before proceeding to the next, as requested by the user. Do not equate compilation with product acceptance.
 
 | Brick | Usable result | Acceptance boundary |

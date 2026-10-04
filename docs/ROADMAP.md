@@ -84,6 +84,8 @@ Default order is sequential. Independent documents/measurements may proceed with
 
 ### 10.1 Fixed task baselines and coherent budgets
 
+**Implementation status:** implemented; numerical defaults retained, six-case criteria frozen, native budget/recovery contracts verified and two bounded live baselines recorded. Whole milestone reliability remains an exit gate after 10.2–10.6.
+
 **Scope:** synthetic projects for understand-project, repair-check, small multi-file feature, larger-file edit and interruption/limit recovery. Freeze observable criteria. Classify failures before choosing task/model/tool/elapsed/continuation controls and defaults. Track accumulated segments; retain model context/output configuration and 128K blank default.
 
 **Basic acceptance:** corpus runs with recorded settings; bounded configurable allowances are effective/visible. Distinguish harness, model and provider failures.

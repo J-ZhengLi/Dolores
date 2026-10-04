@@ -57,5 +57,5 @@ pub struct RunEvent {
     pub state: RunState,
     pub data: serde_json::Value,
 }
-pub const MAX_RUN_EVENTS: u32 = 64;
+pub const MAX_RUN_EVENTS: u32 = 256;
 pub const MAX_RUN_EVENT_BYTES: usize = 128 * 1024;

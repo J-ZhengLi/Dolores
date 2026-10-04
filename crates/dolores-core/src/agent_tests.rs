@@ -197,6 +197,43 @@ struct Scripted {
     loop_forever: bool,
 }
 #[tokio::test]
+async fn configured_limits_allow_a_fifth_operation_and_stop_the_next_without_effect() {
+    for tools in [2, 5] {
+        let read = Arc::new(Read {
+            count: AtomicUsize::new(0),
+        });
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let provider = Scripted {
+            calls: Mutex::new(vec![]),
+            loop_forever: true,
+        };
+        let (events, _receiver) = mpsc::channel(64);
+        let plugins: Vec<Arc<dyn ToolPlugin>> = vec![read.clone()];
+        let reply = run_agent_with_budget(
+            &provider,
+            context(),
+            &plugins,
+            &approval,
+            events,
+            CancellationToken::new(),
+            crate::TaskBudget {
+                model_calls: 8,
+                tool_calls: tools,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.pause, Some(PauseReason::StepLimit));
+        assert_eq!(read.count.load(Ordering::SeqCst), tools);
+        assert_eq!(reply.summary.tools.len(), tools);
+        assert_eq!(approval.count.load(Ordering::SeqCst), tools);
+    }
+}
+#[tokio::test]
 async fn inspection_preparation_refusal_has_actionable_recovery_without_approval_or_effect() {
     struct InvalidInspection;
     #[async_trait]

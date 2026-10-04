@@ -1,5 +1,7 @@
 # Flutter/Rust bridge contract
 
+Scoped settings accept the optional [task allowance](../design/task-budgets.md) group. Started events include `taskBudget`; paused metadata includes backward-readable `segments`. Effective inventory/context/run snapshots report resolved task values. Continue refuses exhausted segments before issuing another model request.
+
 This is an internal in-process integration, not an HTTP API. The Dart UI and bundled Rust bridge are built together; there is no independently versioned external client compatibility promise. See [module notes](../../apps/dolores_flutter/README.md) and [architecture](../ARCHITECTURE.md).
 
 ## Ownership and loading

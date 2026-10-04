@@ -37,7 +37,7 @@ pub fn prepare_agent_context(mut context: Vec<Message>) -> Result<Vec<Message>, 
         context[0].content.push_str(CODING_GUIDANCE);
     }
     let budget = budget_note(1, 0);
-    if !context[0].content.contains(&budget) {
+    if !context[0].content.contains("\n\nThis run: model call ") {
         context[0].content.push_str(&budget);
     }
     while context
@@ -59,12 +59,27 @@ pub fn prepare_agent_context(mut context: Vec<Message>) -> Result<Vec<Message>, 
     }
     Ok(context)
 }
+pub fn prepare_agent_context_with_budget(
+    context: Vec<Message>,
+    budget: crate::TaskBudget,
+) -> Result<Vec<Message>, String> {
+    budget.validate()?;
+    let mut context = prepare_agent_context(context)?;
+    context[0].content = context[0]
+        .content
+        .replace(&budget_note(1, 0), &budget_note_for(1, 0, budget));
+    Ok(context)
+}
 
 fn budget_note(number: usize, used_tools: usize) -> String {
+    budget_note_for(number, used_tools, crate::TaskBudget::default())
+}
+fn budget_note_for(number: usize, used_tools: usize, budget: crate::TaskBudget) -> String {
+    let max_models = budget.model_calls;
     format!(
-        "\n\nThis run: model call {number}/{MAX_MODEL_CALLS}; {} tool operations remain; {} tool-producing model calls remain including this one. The final model call must report results without tools. For coding, reserve a tool operation and a tool-producing call for validation before more optional work. Failed or incomplete command receipts require repair and a fresh approved rerun of the same check; do not weaken tests merely to make them pass. If that cannot fit, report remaining work and pause for explicit continuation.",
-        MAX_TOOL_CALLS - used_tools,
-        MAX_MODEL_CALLS - number,
+        "\n\nThis run: model call {number}/{max_models}; {} tool operations remain; {} tool-producing model calls remain including this one. The final model call must report results without tools. For coding, reserve a tool operation and a tool-producing call for validation before more optional work. Failed or incomplete command receipts require repair and a fresh approved rerun of the same check; do not weaken tests merely to make them pass. If that cannot fit, report remaining work and pause for explicit continuation.",
+        budget.tool_calls.saturating_sub(used_tools),
+        budget.model_calls.saturating_sub(number),
     )
 }
 pub fn prepare_external_tool_context(
@@ -244,6 +259,27 @@ pub async fn run_agent(
     events: mpsc::Sender<AgentEvent>,
     cancel: CancellationToken,
 ) -> Result<AgentReply, String> {
+    run_agent_with_budget(
+        provider,
+        context,
+        plugins,
+        approval,
+        events,
+        cancel,
+        crate::TaskBudget::default(),
+    )
+    .await
+}
+pub async fn run_agent_with_budget(
+    provider: &dyn ModelProvider,
+    context: Vec<Message>,
+    plugins: &[Arc<dyn ToolPlugin>],
+    approval: &dyn ToolApproval,
+    events: mpsc::Sender<AgentEvent>,
+    cancel: CancellationToken,
+    budget: crate::TaskBudget,
+) -> Result<AgentReply, String> {
+    budget.validate()?;
     if context.is_empty() {
         return Err("Tool context is empty.".into());
     }
@@ -253,7 +289,7 @@ pub async fn run_agent(
         return Err("Tool registration is invalid.".into());
     }
     let (context, _) = crate::prepare_token_context(
-        prepare_external_tool_context(prepare_agent_context(context)?, &specs)?,
+        prepare_external_tool_context(prepare_agent_context_with_budget(context, budget)?, &specs)?,
         &specs,
         provider.context_window_tokens(),
         provider.request_settings().unwrap_or_default(),
@@ -281,10 +317,10 @@ pub async fn run_agent(
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
     let base_system = messages[0].content.clone();
-    for number in 1..=MAX_MODEL_CALLS {
+    for number in 1..=budget.model_calls {
         messages[0].content = base_system.replacen(
-            &budget_note(1, 0),
-            &budget_note(number, summary.tools.len()),
+            &budget_note_for(1, 0, budget),
+            &budget_note_for(number, summary.tools.len(), budget),
             1,
         );
         let bytes = serde_json::to_vec(&messages).map_err(|_| "Could not prepare tool context.")?;
@@ -364,7 +400,9 @@ pub async fn run_agent(
                 summary,
             });
         }
-        if number == MAX_MODEL_CALLS || summary.tools.len() + turn.calls.len() > MAX_TOOL_CALLS {
+        if number == budget.model_calls
+            || summary.tools.len() + turn.calls.len() > budget.tool_calls
+        {
             return Ok(AgentReply {
                 answer: if turn.content.trim().is_empty() {
                     "Paused at this run's step limit. Saved tool results are available below; the remaining tool requests have not run.".into()

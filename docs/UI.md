@@ -1,5 +1,9 @@
 # Universal UI style
 
+## Task limits
+
+Dolores settings includes a scoped Task limits override in its existing scrollable inspector: model calls, tool operations, total task segments and optional task deadline. Blank deadline inherits existing behavior. Fixed Save/Refresh/Use inherited controls retain drafts after invalid/stale saves. Describe that Continue consumes a segment, preserves work and grants no access. Keep the composer, system palette and native typography unchanged. Segment refusal keeps the saved paused card and points to Task limits; do not silently restart a task.
+
 ## Run evidence
 
 Saved-chat Chat actions keeps Run history and Dolores capabilities available during execution. Other actions that prepare or mutate state remain disabled. Run history uses InspectorFrame, a scrollable latest-20 list, selectable ordered evidence and a fixed Refresh footer. Show interruption and uncertain effects literally with inspection guidance, never an automatic Replay action. Changing the foreground chat still waits for Stop/completion; read-only backend inspection of another chat is allowed. No idle polling, new palette or composer change is added.

@@ -43,6 +43,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    task: dolores_core::TaskBudget,
     interaction: dolores_core::InteractionPolicy,
     continuation: Option<i64>,
     id: u64,
@@ -777,7 +778,7 @@ impl Engine {
                     effective.interaction,
                 )?;
                 let messages = if tools {
-                    dolores_core::prepare_agent_context(messages)?
+                    dolores_core::prepare_agent_context_with_budget(messages, effective.task)?
                 } else {
                     messages
                 };
@@ -980,6 +981,14 @@ impl Engine {
                     }
                 };
                 let effective = self.effective_settings(session.as_deref())?;
+                if let Some(source_id) = continuation {
+                    let (source, _) = continuation::source(
+                        self.store.as_ref(),
+                        session.as_deref().unwrap(),
+                        source_id,
+                    )?;
+                    effective.task.check_segment(source.segments)?;
+                }
                 let _entered = self.runtime.enter();
                 let provider = self
                     .connection
@@ -1098,6 +1107,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            task: effective.task,
                             interaction:effective.interaction,
                             continuation,
                             id,
@@ -1149,6 +1159,7 @@ async fn execute(
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
     let TurnRequest {
+        task,
         interaction,
         continuation,
         id,
@@ -1193,7 +1204,7 @@ async fn execute(
         context.last_mut().unwrap().content = paused.prompt(partial)?;
     }
     let context = if !tools.is_empty() {
-        dolores_core::prepare_agent_context(context)?
+        dolores_core::prepare_agent_context_with_budget(context, task)?
     } else {
         context
     };
@@ -1216,7 +1227,7 @@ async fn execute(
     dolores_core::account_summary(&mut summary, session_summary.as_ref());
     forward(
         output,
-        json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings}),
+        json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings,"taskBudget":task}),
         &cancel,
     )
     .await?;
@@ -1225,13 +1236,14 @@ async fn execute(
         let running = async {
             let (events, mut receiver) = mpsc::channel(32);
             let plugins = tools;
-            let request = dolores_core::run_agent(
+            let request = dolores_core::run_agent_with_budget(
                 provider.as_ref(),
                 context,
                 &plugins,
                 approval.as_ref(),
                 events,
                 cancel.clone(),
+                task,
             );
             tokio::pin!(request);
             let reply = loop {
@@ -1253,7 +1265,7 @@ async fn execute(
             }
             Ok::<_, String>(reply)
         };
-        let seconds = settings.unwrap_or_default().timeout_seconds.min(300);
+        let seconds = task.deadline(settings.unwrap_or_default().timeout_seconds);
         let reply = tokio::select! { biased;
             _ = cancel.cancelled() => return Err(stopped()),
             result = tokio::time::timeout(std::time::Duration::from_secs(seconds.into()), running) => match result {
@@ -1279,6 +1291,9 @@ async fn execute(
         });
         let metadata = TurnMetadata {
             paused: pause.map(|reason| dolores_core::PausedTask {
+                segments: prior
+                    .as_ref()
+                    .map_or(1, |(p, _)| p.segments.saturating_add(1)),
                 reason,
                 task: prior
                     .as_ref()
@@ -1330,7 +1345,7 @@ async fn execute(
         Some(settings) => tokio::select! {
             biased;
             _ = cancel.cancelled() => return Err(stopped()),
-            result = tokio::time::timeout(std::time::Duration::from_secs(settings.timeout_seconds.into()), streaming) =>
+            result = tokio::time::timeout(std::time::Duration::from_secs(task.elapsed_seconds.unwrap_or(settings.timeout_seconds).into()), streaming) =>
                 result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.")??,
         },
         None => streaming.await?,
@@ -1341,6 +1356,9 @@ async fn execute(
     let saved = answer.answer.clone();
     let metadata = TurnMetadata {
         paused: answer.output_limit.then(|| dolores_core::PausedTask {
+            segments: prior
+                .as_ref()
+                .map_or(1, |(p, _)| p.segments.saturating_add(1)),
             reason: dolores_core::PauseReason::OutputLimit,
             task: prior
                 .as_ref()
@@ -1550,6 +1568,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    task: Default::default(),
                     interaction: Default::default(),
                     continuation: None,
                     id: 1,
@@ -1796,6 +1815,7 @@ mod tests {
                     fail: false,
                 }),
                 TurnRequest {
+                    task: Default::default(),
                     interaction: Default::default(),
                     continuation: None,
                     id: 1,

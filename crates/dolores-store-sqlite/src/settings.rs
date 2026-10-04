@@ -95,6 +95,7 @@ mod tests {
         store.create("chat").unwrap();
         store.create("other").unwrap();
         let patch = SettingsPatch {
+            task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 512,
                 timeout_seconds: 60,
@@ -114,6 +115,7 @@ mod tests {
             .generation
             .is_none());
         let invalid = SettingsPatch {
+            task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 0,
                 timeout_seconds: 0,

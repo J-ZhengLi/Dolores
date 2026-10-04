@@ -5,9 +5,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PausedTask {
+    #[serde(default = "first_segment")]
+    pub segments: u32,
     pub reason: PauseReason,
     pub task: String,
     pub receipts: Vec<ToolRecord>,
+}
+fn first_segment() -> u32 {
+    1
 }
 impl PausedTask {
     pub fn prompt(&self, partial: &str) -> Result<String, String> {
@@ -18,7 +23,7 @@ impl PausedTask {
         } else {
             format!("{text}\nSome commands failed or their evidence was incomplete. Inspect the saved error output and current files, repair the implementation, and request fresh approval to rerun the same literal checks. Preserve existing tests unless their requirements are demonstrably wrong; explain any proposed test change. An unrelated command's success does not resolve the failed check. If repair or verification remains unfinished, say so explicitly.")
         };
-        if text.len() > 96 * 1024 || self.receipts.len() > 16 {
+        if text.len() > 96 * 1024 || self.receipts.len() > 256 {
             return Err("Saved progress is too large to continue in one request. Review the saved results and start a new chat with a summary.".into());
         }
         Ok(text)
@@ -30,6 +35,7 @@ mod tests {
     #[test]
     fn saved_progress_is_bounded_and_never_grants_replay_permission() {
         let pause = PausedTask {
+            segments: 1,
             reason: PauseReason::StepLimit,
             task: "Original task 世界".into(),
             receipts: vec![],

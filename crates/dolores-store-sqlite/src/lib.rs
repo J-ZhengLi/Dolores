@@ -853,6 +853,7 @@ mod tests {
             request_settings: None,
             agent: None,
             paused: Some(dolores_core::PausedTask {
+                segments: 1,
                 reason: dolores_core::PauseReason::OutputLimit,
                 task: "Keep 世界".into(),
                 receipts: vec![],

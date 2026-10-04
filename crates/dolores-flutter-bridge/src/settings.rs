@@ -154,6 +154,7 @@ mod tests {
         )
         .unwrap();
         let large = SettingsPatch {
+            task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 16384,
                 timeout_seconds: 60,
@@ -169,6 +170,7 @@ mod tests {
                 SettingsScope::Thread,
                 0,
                 SettingsPatch {
+                    task: None,
                     generation: Some(GenerationOverride {
                         max_output_tokens: 512,
                         timeout_seconds: 60,
@@ -245,6 +247,7 @@ mod tests {
         )
         .unwrap();
         let patch = SettingsPatch {
+            task: None,
             generation: Some(GenerationOverride {
                 max_output_tokens: 512,
                 timeout_seconds: 60,

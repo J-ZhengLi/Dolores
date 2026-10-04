@@ -14,6 +14,8 @@ Retain Flutter/Rust and existing data/ports. Add read-only introspection first, 
 
 ## Components
 
+Primary working runs use [scoped task budgets](design/task-budgets.md), retaining four-call/four-operation defaults while allowing explicit bounded overrides. Continue tracks the saved task's accumulated segments. Fixed synthetic files/checks evaluate actual outcomes; completed provider replies do not imply completed tasks.
+
 | Component | Responsibility |
 | --- | --- |
 | `apps/dolores_flutter` | System-theme widgets, editable rich draft, history and local inspectors. |
