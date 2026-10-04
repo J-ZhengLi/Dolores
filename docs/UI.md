@@ -2,8 +2,9 @@
 
 ## Conversation messages
 
-User messages sit in a right-aligned, naturally sized rounded surface within
-88% of the conversation width; their text remains left-aligned and selectable.
+User messages sit in a right-aligned, naturally sized rounded primary-color bubble
+within 88% of the conversation width. Use the theme's matching on-primary text color
+for contrast in both themes; text remains left-aligned and selectable.
 Assistant replies use the full left-aligned content width. Neither role shows a
 sender name or profile image. Copy and a local saved timestamp appear below the
 message on hover or keyboard focus; reserve that space to avoid layout jumps.

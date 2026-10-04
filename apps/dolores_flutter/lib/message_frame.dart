@@ -78,7 +78,7 @@ class _MessageFrameState extends State<MessageFrame> {
                           : EdgeInsets.zero,
                       decoration: widget.user
                           ? BoxDecoration(
-                              color: p.surface,
+                              color: Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(18),
                             )
                           : null,

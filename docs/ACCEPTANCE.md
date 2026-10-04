@@ -1,5 +1,19 @@
 # Dolores acceptance — 2026-10-05
 
+## User bubble color
+
+User bubbles use the theme's primary background and matching on-primary text.
+The 12 focused message-frame/reply-rendering tests pass, including compact
+light/dark layouts, long/multiline text, hover stability and keyboard Copy.
+Flutter analysis is clean. No additional model request or new limit is involved.
+
+The normal Windows release was rebuilt. An actual dark-mode screenshot of
+isolated synthetic messages confirmed the primary bubble and readable text.
+The fixture instance was closed and the normal user-data release reopened visibly
+(PID 35496). All 32 table digests match the fresh baseline, preserving settings
+and history. Light mode has widget coverage; native light-mode and other-platform
+visual acceptance were not repeated for this color refinement.
+
 ## Conversation layout — alignment and hover controls
 
 User messages now use right-aligned, naturally sized bubbles; assistant content
