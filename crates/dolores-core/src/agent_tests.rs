@@ -196,6 +196,54 @@ struct Scripted {
     calls: Mutex<Vec<ToolCall>>,
     loop_forever: bool,
 }
+#[tokio::test]
+async fn inspection_preparation_refusal_has_actionable_recovery_without_approval_or_effect() {
+    struct InvalidInspection;
+    #[async_trait]
+    impl ToolPlugin for InvalidInspection {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "inspect_harness".into(),
+                description: "inspect".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
+            Err("Invalid harness inspection arguments.".into())
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            panic!("invalid inspection cannot dispatch")
+        }
+    }
+    let provider = Scripted {
+        calls: Mutex::new(vec![ToolCall {
+            id: "one".into(),
+            name: "inspect_harness".into(),
+            arguments: r#"{"source":"inventory"}"#.into(),
+        }]),
+        loop_forever: false,
+    };
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &[Arc::new(InvalidInspection)],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    assert_eq!(reply.summary.tools[0].status, "blocked");
+    assert!(reply.summary.tools[0].content.contains("{} for inventory"));
+    assert!(!reply.summary.tools[0].content.contains("File request"));
+    assert_eq!(reply.answer, "Final answer");
+}
 #[async_trait]
 impl ModelProvider for Scripted {
     fn descriptor(&self) -> PluginDescriptor {

@@ -28,6 +28,20 @@ class CapabilityBridge extends HistoryBridge {
         'selfUpdate': 'not available',
         'limits': {'modelCalls': 4, 'toolOperations': 4},
         'tools': [],
+        'extensionApi': 1,
+        'extensions': [
+          {
+            'active': false,
+            'reason': 'Unsupported host API; update or disable',
+            'descriptor': {
+              'id': 'fixture-extension',
+              'kind': 'externalMcp',
+              'version': '2',
+              'configRevision': 3,
+              'health': 'lazy startup',
+            },
+          },
+        ],
         'unavailableReason': 'No working folder',
         'sources': [
           {'id': 'core'},

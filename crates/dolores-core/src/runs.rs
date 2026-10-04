@@ -44,6 +44,8 @@ pub struct RunSnapshot {
     pub created_at: i64,
     pub build: String,
     pub tools: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extensions: Vec<crate::ResolvedExtension>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

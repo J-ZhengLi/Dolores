@@ -1,5 +1,13 @@
 # Dolores acceptance — 2026-10-04
 
+## Brick 9.3 — Extension registry and pinned contracts
+
+Compiled components and MCP entries now share [bounded descriptors and dependency resolution](design/extension-registry.md). Primary runs pin exact registration/configuration snapshots and tool ownership. A compiled proposal hook fails closed; external servers cannot install hooks or confer authority. The capability inspector adds a collapsed registry view without new polling/services.
+
+- **43 core / 50 bridge / 36 store tests pass**, followed by a new focused inspection-refusal test: dependency/API/cycle isolation, retirement cleanup, failed/retargeting hook refusal, external-hook rejection, server failure isolation and removal without stale new-run tools. **11 MCP tests pass** including malformed/flood/nonresponsive servers, changed manifests, independent servers, Stop/process cleanup and credential handling. Analysis/Clippy are clean.
+- The first bounded Qwen probe requested an inspection that failed preparation; the generic recovery incorrectly called it a file-access refusal. Recovery now explains valid inventory/source arguments without relaxing validation. The separate deterministic case confirms zero approvals/effects for malformed inspection. A fresh Qwen/Qwen3.5-2B probe (same 512-token / 60-second allowance) completes one saved inspection receipt, six durable events and **nine pinned registrations**. This is a narrow integration pass, not general model reliability or proof the earlier model request had a particular malformed field.
+- Existing **156 Flutter cases pass** before the new registry expansion case; its compact scrolling/unsupported-API/Refresh flow passes after the test explicitly scrolls into view. Normal release build succeeds, a visible normal window is reopened and all original 22 table digests remain unchanged. A point sample across 9.2→9.3 gives bridge size +111,104 bytes, working set 227.54→225.82 MiB, private bytes 235.36→238.03 MiB and 40→46 threads. Startup timing differs, so memory/thread differences are not attributable overhead or low-end qualification. No registry service/poller is added. Executable loading/activation, broader hooks, native inspector interaction and cross-platform/resource qualification remain open.
+
 ## Brick 9.2 — Run ownership and durable evidence
 
 Primary chat runs now have frozen snapshots and ordered approval/operation/terminal records. Run history is available during execution. Startup marks unfinished runs interrupted without replay; one process owns a data directory and one execution owns cancellation/decisions. See [implemented boundaries](design/run-ownership.md), including transient deltas, auxiliary job receipts and foreground-navigation limits.

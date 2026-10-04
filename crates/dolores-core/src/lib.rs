@@ -10,6 +10,8 @@ pub use feedback::*;
 mod agent;
 mod runs;
 pub use runs::*;
+mod registry;
+pub use registry::*;
 mod command_outcome;
 mod continuation;
 pub use command_outcome::{unresolved_commands, CommandOutcome};

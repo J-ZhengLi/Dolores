@@ -193,10 +193,18 @@ void main() {
             .enabled,
         true,
       );
-      final menu = tester.widget<PopupMenuButton<String>>(find.byKey(const Key('export-chat')));
-      final entries = menu.itemBuilder(tester.element(find.byKey(const Key('export-chat')))).whereType<PopupMenuItem<String>>().toList();
+      final menu = tester.widget<PopupMenuButton<String>>(
+        find.byKey(const Key('export-chat')),
+      );
+      final entries = menu
+          .itemBuilder(tester.element(find.byKey(const Key('export-chat'))))
+          .whereType<PopupMenuItem<String>>()
+          .toList();
       expect(entries.singleWhere((item) => item.value == 'runs').enabled, true);
-      expect(entries.singleWhere((item) => item.value == 'json').enabled, false);
+      expect(
+        entries.singleWhere((item) => item.value == 'json').enabled,
+        false,
+      );
       await tester.pumpWidget(const SizedBox());
       chat.dispose();
     },

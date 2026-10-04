@@ -12,6 +12,7 @@ mod mcp;
 mod memory;
 mod memory_suggestions;
 mod recovery;
+mod registry;
 mod run_journal;
 mod skill_drafts;
 mod skills;
@@ -1008,6 +1009,11 @@ impl Engine {
                     None
                 };
                 let run_id = uuid::Uuid::new_v4().to_string();
+                let registry = self.extension_registry(session.as_deref())?;
+                tools = tools
+                    .into_iter()
+                    .map(|tool| registry.pin_tool(tool))
+                    .collect::<Result<Vec<_>, _>>()?;
                 self.store.begin_run(&dolores_core::RunSnapshot {
                     id: run_id.clone(),
                     thread: session.clone().unwrap(),
@@ -1022,6 +1028,7 @@ impl Engine {
                         .as_secs() as i64,
                     build: env!("DOLORES_BUILD_REVISION").into(),
                     tools: tools.iter().map(|t| t.spec().name).collect(),
+                    extensions: registry.entries.clone(),
                 })?;
                 let log = run_journal::RunLog::new(self.store.clone(), run_id);
                 tools = tools

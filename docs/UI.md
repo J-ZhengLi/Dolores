@@ -8,6 +8,8 @@ Saved-chat Chat actions keeps Run history and Dolores capabilities available dur
 
 Saved-chat Chat actions offers Dolores capabilities using InspectorFrame, system palette and fixed wrapping footer. Local inventory explains tools, approval/containment, window origin and limits without model requests. Source selection reads bounded bundled lines; Next/First lines and Compare checkout are explicit local actions. Stale/missing source and refresh errors remain readable, with usable compact controls. Model-requested inspection uses the existing approval card with read-only/sharing disclosure and Harness inspection result label. Composer layout is unchanged.
 
+Keep Extension registry collapsed initially. Expand it for each entry's enabled/available resolution, kind, version, configuration revision, health or actionable incompatibility reason. Registry errors never appear as tool approval or automatic authority. Local refresh and source inspection remain usable when an entry is unavailable.
+
 ## Composer input and accessibility
 
 Name native editable blocks as Message plus their heading level, code language or paragraph position. Retain editable values and native focus in the semantic tree; expose the code-language button's current language and enabled state without repeating its tooltip. Send and code-language changes wait for active IME composition to commit, preserving unfinished candidates; Stop remains available during a response. Keep the existing model/context/send footer and palette. See [native input checks](design/native-input-verification.md) for verified flows and pending physical-keyboard, real-IME and spoken screen-reader acceptance.

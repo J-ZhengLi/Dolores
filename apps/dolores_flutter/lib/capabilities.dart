@@ -122,6 +122,26 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
                     SelectableText(
                       'Run: ${data['limits']['modelCalls']} model calls / ${data['limits']['toolOperations']} tool operations\nSelf-updates: ${data['selfUpdate']}',
                     ),
+                    if (data['extensions'] is List)
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text('Extension registry'),
+                        subtitle: Text(
+                          'Host API ${data['extensionApi']} · versions are pinned for each run',
+                        ),
+                        children: [
+                          for (final entry in data['extensions'] as List)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                '${entry['descriptor']['id']} · ${entry['active'] == true ? 'Available' : 'Unavailable'}',
+                              ),
+                              subtitle: Text(
+                                '${entry['descriptor']['kind']} · version ${entry['descriptor']['version']} · configuration ${entry['descriptor']['configRevision']}\n${entry['reason'].toString().isEmpty ? entry['descriptor']['health'] : entry['reason']}',
+                              ),
+                            ),
+                        ],
+                      ),
                     if (tools.isEmpty)
                       SelectableText(data['unavailableReason'] as String),
                     for (final tool in tools)

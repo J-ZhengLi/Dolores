@@ -421,11 +421,17 @@ pub async fn run_agent(
                         "Invalid or unavailable MCP tool".into()
                     } else if call.name == "run_command" {
                         "Invalid or unavailable command".into()
+                    } else if call.name == "inspect_harness" {
+                        "Invalid harness inspection".into()
                     } else {
                         "Invalid or unavailable path".into()
                     },
                     "blocked",
-                    if call.name.starts_with("mcp_tool_") {
+                    if matches!(error.as_str(), "Extension policy hook failed. No operation was dispatched; inspect its registration." | "Extension changed a prepared tool plan. Prepare and review a fresh proposal.") {
+                        error
+                    } else if call.name == "inspect_harness" {
+                        "Use inspect_harness with {} for inventory, or source set to core, agent, host, files or provider. Optional startLine must be positive and lineCount must be 1–120. No project path is accepted. No inspection ran.".into()
+                    } else if call.name.starts_with("mcp_tool_") {
                         "External tool arguments must be a JSON object within 4 KiB. Review the MCP connection if its launch files have changed.".into()
                     } else if call.name == "run_command" {
                         match error.as_str() {
