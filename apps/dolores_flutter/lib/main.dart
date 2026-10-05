@@ -279,6 +279,8 @@ class _ChatPageState extends State<ChatPage> {
                     ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
                     : metadata['paused']['reason'] == 'commandReview'
                     ? 'A command failed or verification was incomplete. Review its output before repair.'
+                    : metadata['paused']['reason'] == 'desktopReview'
+                    ? 'Computer use paused. Inspect the window and fresh screenshot before reconciling saved progress.'
                     : metadata['paused']['reason'] == 'subagentReview'
                     ? 'A subagent needs review. Inspect its report, Run history and Changes before continuing.'
                     : 'Paused at this run’s step limit. Progress and tool results saved.',
@@ -296,10 +298,26 @@ class _ChatPageState extends State<ChatPage> {
                             chat.draft.isNotEmpty ||
                             chat.attachments.isNotEmpty
                         ? null
-                        : () => chat.continueTask(messageId!),
+                        : () =>
+                              ((metadata['agent']?['tools'] as List? ?? []).any(
+                                    (r) => r['name'] == 'desktop_control',
+                                  ) ||
+                                  metadata['paused']['reason'] ==
+                                      'desktopReview')
+                              ? showSettings(
+                                  context,
+                                  chat,
+                                  initial: SettingsCategory.desktop,
+                                )
+                              : chat.continueTask(messageId!),
                     icon: const Icon(Icons.play_arrow_outlined, size: 18),
                     label: Text(
-                      metadata['paused']['reason'] == 'commandReview'
+                      metadata['paused']['reason'] == 'desktopReview' ||
+                              (metadata['agent']?['tools'] as List? ?? []).any(
+                                (r) => r['name'] == 'desktop_control',
+                              )
+                          ? 'Inspect computer use'
+                          : metadata['paused']['reason'] == 'commandReview'
                           ? 'Repair and verify'
                           : 'Continue',
                     ),
@@ -308,6 +326,10 @@ class _ChatPageState extends State<ChatPage> {
               Text(
                 chat.draft.isNotEmpty || chat.attachments.isNotEmpty
                     ? 'Send or clear your draft to continue. Each continuation uses your current model and limits.'
+                    : (metadata['agent']?['tools'] as List? ?? []).any(
+                        (r) => r['name'] == 'desktop_control',
+                      )
+                    ? 'Input may already have occurred. Inspect saved receipts and capture the original window again; approvals are never replayed.'
                     : 'Continue starts another bounded run. New tool calls need fresh approval; incomplete calls have not run.',
                 style: TextStyle(color: p.muted, fontSize: 12),
               ),
@@ -531,6 +553,17 @@ class _ChatPageState extends State<ChatPage> {
                   Wrap(
                     spacing: 8,
                     children: [
+                      if (chat.activeRecovery!['kind'] == 'desktop')
+                        TextButton(
+                          onPressed: chat.busy || chat.changing
+                              ? null
+                              : () => showSettings(
+                                  context,
+                                  chat,
+                                  initial: SettingsCategory.desktop,
+                                ),
+                          child: const Text('Computer use'),
+                        ),
                       if (chat.activeRecovery!['kind'] == 'instructions')
                         TextButton(
                           key: const Key('failure-instructions'),

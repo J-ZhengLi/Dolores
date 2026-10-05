@@ -337,3 +337,11 @@ errors above the scrolling form. During a run show the active title and Revoke
 above the existing composer, with the normal Stop control. Input approvals display
 literal JSON in existing cards and disclose possible external effects and the
 need for fresh post-input observation. No permanent idle composer toggle is added.
+# Computer-use recovery (14.3)
+
+Paused or stopped computer use routes to Settings → Computer use. Show the saved
+original goal, bounded receipts and uncertain effects; distinguish input insertion
+from verified application success. Recovery requires a new local screenshot,
+current selected-window access and explicit inspection. Do not replay an action
+or an approval. Preserve an unrelated composer draft. Compact light/dark layouts
+keep inspection controls scrollable and error guidance visible.

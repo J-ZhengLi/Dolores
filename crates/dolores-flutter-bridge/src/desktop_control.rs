@@ -18,6 +18,12 @@ fn now() -> u64 {
         .unwrap_or_default()
         .as_secs()
 }
+pub(super) fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
 pub(super) struct Grant {
     pub token: String,
     pub target: Value,
@@ -133,6 +139,7 @@ impl Engine {
                 usable: false,
                 assets,
                 parts: vec![],
+                unchanged: 0,
             }),
         }))
     }
@@ -149,6 +156,7 @@ struct State {
     usable: bool,
     assets: BTreeMap<String, AttachmentData>,
     parts: Vec<AttachmentRef>,
+    unchanged: usize,
 }
 pub(super) struct Control {
     pub grant: Arc<Grant>,
@@ -290,10 +298,29 @@ impl ToolPlugin for Control {
                 .state
                 .lock()
                 .map_err(|_| "Desktop state unavailable.")?;
+            let previous = state.capture.observation["visualSignature"]
+                .as_str()
+                .unwrap_or("");
+            let next = saved.observation["visualSignature"].as_str().unwrap_or("");
+            let similar = previous.len() == 1024
+                && next.len() == 1024
+                && previous
+                    .bytes()
+                    .zip(next.bytes())
+                    .filter(|(a, b)| a != b)
+                    .take(5)
+                    .count()
+                    <= 4;
+            state.unchanged = if similar { state.unchanged + 1 } else { 1 };
             state.parts = vec![asset.reference.clone()];
             state.assets.insert(asset.reference.name.clone(), asset);
             state.capture = saved;
             state.usable = true;
+            if state.unchanged >= 3 {
+                state.usable = false;
+                state.parts.clear();
+                return Err("Desktop screen remained unchanged across three bounded observations. Pause and inspect for slow redraw, a blocked control or unavailable accessibility. The latest capture is retained; explicitly reconcile before continuing.".into());
+            }
             Ok(content)
         } else {
             // Re-validate after approval and consume BEFORE starting the native process.
@@ -307,6 +334,10 @@ impl ToolPlugin for Control {
                     .lock()
                     .map_err(|_| "Desktop state unavailable.")?
                     .usable = false;
+                self.state
+                    .lock()
+                    .map_err(|_| "Desktop state unavailable.")?
+                    .unchanged = 0;
             }
             let automatic = self.automatic(&value);
             let mut action = value.clone();
@@ -471,6 +502,7 @@ mod tests {
             id: uuid::Uuid::new_v4().to_string(),
             session: "one".into(),
             created_at: now(),
+            created_millis: now_millis(),
             observation: json!({"target":target,"width":640,"height":360}),
             reference: AttachmentRef {
                 digest: "0".repeat(64),
@@ -488,6 +520,7 @@ mod tests {
                 usable: true,
                 assets: Default::default(),
                 parts: vec![],
+                unchanged: 0,
             }),
         };
         let call = ToolCall {
@@ -497,11 +530,25 @@ mod tests {
                 .to_string(),
         };
         // Identical bytes are distinct evidence receipts, not interchangeable IDs.
-        let a=AttachmentData{reference:capture.reference.clone(),data:vec![1,2,3]};
-        let mut b=a.clone();b.reference.name="another-capture.jpg".into();
-        {let mut s=control.state.lock().unwrap();s.assets.insert(a.reference.name.clone(),a.clone());s.assets.insert(b.reference.name.clone(),b.clone());}
-        assert_eq!(control.resolve(&a.reference).unwrap().reference,a.reference);
-        assert_eq!(control.resolve(&b.reference).unwrap().reference,b.reference);
+        let a = AttachmentData {
+            reference: capture.reference.clone(),
+            data: vec![1, 2, 3],
+        };
+        let mut b = a.clone();
+        b.reference.name = "another-capture.jpg".into();
+        {
+            let mut s = control.state.lock().unwrap();
+            s.assets.insert(a.reference.name.clone(), a.clone());
+            s.assets.insert(b.reference.name.clone(), b.clone());
+        }
+        assert_eq!(
+            control.resolve(&a.reference).unwrap().reference,
+            a.reference
+        );
+        assert_eq!(
+            control.resolve(&b.reference).unwrap().reference,
+            b.reference
+        );
         assert!(control.prepare(&call).is_ok());
         let wrong=ToolCall{arguments:json!({"operation":"type","capture":uuid::Uuid::new_v4().to_string(),"text":"draft"}).to_string(),..call.clone()};
         assert!(control.prepare(&wrong).is_err());

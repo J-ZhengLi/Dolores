@@ -19,6 +19,8 @@ pub(super) struct Capture {
     pub reference: AttachmentRef,
     pub observation: Value,
     pub created_at: u64,
+    #[serde(default)]
+    pub created_millis: u64,
 }
 pub(super) fn helper() -> Result<PathBuf, String> {
     if !cfg!(windows) {
@@ -214,6 +216,7 @@ pub(super) fn save(root: &Path, session: &str, mut observation: Value) -> Result
             bytes: bytes.len(),
         },
         observation,
+        created_millis: super::desktop_control::now_millis(),
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -389,7 +392,7 @@ impl Engine {
         }
         captures.sort_by_key(|c| std::cmp::Reverse(c.created_at));
         Ok(
-            json!({"available":helper().is_ok(),"reason":helper().err(),"captures":captures,"models":models,"access":self.desktop_access_view(session),
+            json!({"available":helper().is_ok(),"reason":helper().err(),"captures":captures,"models":models,"access":self.desktop_access_view(session),"recovery":self.desktop_recovery_view(session)?,
             "adapter":"Windows Graphics Capture · selected window · optional scoped input","bounds":"5 seconds · 1024 px · 512 KiB · 64 saved captures","sharing":"Window list and capture stay local. Analyze shares one chosen screenshot and this chat's prepared context with your selected model. Input requires separate selected-window consent; ordinary file permissions never grant desktop access."}),
         )
     }

@@ -1,6 +1,100 @@
 use super::*;
 
 #[tokio::test]
+async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry() {
+    struct Batch;
+    #[async_trait]
+    impl ModelProvider for Batch {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "fixture",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            _: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            unreachable!()
+        }
+        async fn tool_turn(
+            &self,
+            _: &[AgentMessage],
+            _: &[ToolSpec],
+            _: CancellationToken,
+        ) -> Result<AgentTurn, String> {
+            Ok(AgentTurn {
+                content: String::new(),
+                output_limit: false,
+                usage: None,
+                calls: ["first", "must-not-dispatch"]
+                    .into_iter()
+                    .map(|id| ToolCall {
+                        id: id.into(),
+                        name: "desktop_control".into(),
+                        arguments: "{}".into(),
+                    })
+                    .collect(),
+            })
+        }
+    }
+    struct Uncertain(AtomicUsize);
+    #[async_trait]
+    impl ToolPlugin for Uncertain {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "desktop_control".into(),
+                description: "Fixture".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            Ok(ToolRequest {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                target: "local form".into(),
+                query: Some(call.arguments.clone()),
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err("Input may already have occurred. Inspect before continuing.".into())
+        }
+    }
+    for allow in [true, false] {
+        let plugin = Arc::new(Uncertain(AtomicUsize::new(0)));
+        let approval = Approval {
+            allow,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let plugins: Vec<Arc<dyn ToolPlugin>> = vec![plugin.clone()];
+        let reply = run_agent(
+            &Batch,
+            context(),
+            &plugins,
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.pause, Some(PauseReason::DesktopReview));
+        assert_eq!(reply.summary.model_calls, 1);
+        assert_eq!(reply.summary.tools.len(), 1);
+        assert_eq!(approval.count.load(Ordering::SeqCst), 1);
+        assert_eq!(plugin.0.load(Ordering::SeqCst), usize::from(allow));
+        assert!(reply.answer.contains("No later queued action"));
+    }
+}
+
+#[tokio::test]
 async fn snapshot_image_context_refuses_before_model_and_legacy_records_keep_empty_parts() {
     struct Snapshot;
     #[async_trait]

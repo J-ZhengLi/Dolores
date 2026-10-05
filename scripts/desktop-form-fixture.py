@@ -44,7 +44,7 @@ def tick():
             last=value
             if value.get('operation')=='move': window.geometry('640x360+120+140')
             elif value.get('operation')=='minimize':window.iconify()
-            elif value.get('operation')=='restore':window.deiconify();window.lift();entry.focus_force()
+            elif value.get('operation')=='restore':window.deiconify();window.lift();window.focus_force();entry.focus_force()
             elif value.get('operation')=='clear':entry.delete(0,tk.END);status.set('Ready');entry.focus_force()
             elif value.get('operation')=='close':window.destroy();return
     publish();window.after(50,tick)

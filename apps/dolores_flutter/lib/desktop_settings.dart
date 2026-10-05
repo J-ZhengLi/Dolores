@@ -18,7 +18,12 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
   List<Map> windows = [];
   Uint8List? image;
   String? error, model;
-  bool pending = false, consent = false, automatic = false;
+  bool pending = false,
+      consent = false,
+      automatic = false,
+      resume = false,
+      inspected = false;
+  Map? get recovery => report?['recovery'] as Map?;
   Map? get access => report?['access'] as Map?;
   int? operation;
   final question = TextEditingController(
@@ -131,6 +136,7 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
       }
       if (mounted) {
         setState(() {
+          if (capture?['id'] != value['id']) inspected = false;
           capture = value;
           image = bytes;
         });
@@ -194,6 +200,12 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
 
   Future<void> share({bool control = false}) async {
     final text = question.text.trim();
+    if (control && resume && !inspected) {
+      setState(
+        () => error = 'Inspect the fresh screenshot and prior effects, then confirm inspection before reconciling. Nothing was sent.',
+      );
+      return;
+    }
     if (widget.chat.busy ||
         widget.chat.changing ||
         (widget.chat.draft.isNotEmpty && widget.chat.draft.trim() != text) ||
@@ -213,6 +225,8 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
       desktopCapture: selected,
       observationModel: selectedModel,
       desktopGrant: control ? (access?['token'] as String?) : null,
+      desktopResume: control && resume ? (recovery?['runId'] as String?) : null,
+      desktopReconciled: control && resume && inspected,
       desktopTarget: control
           ? (capture?['observation']['target'] as Map?)
           : null,
@@ -358,6 +372,64 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 ),
               ],
               const SizedBox(height: 20),
+              if (recovery != null) ...[
+                Text(
+                  'Saved computer-use progress',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(recovery!['note'] as String),
+                ExpansionTile(
+                  title: const Text(
+                    'Inspect saved receipts and uncertain effects',
+                  ),
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          const JsonEncoder.withIndent('  ').convert({
+                            'evidence': recovery!['evidence'],
+                            'uncertainEffects': recovery!['uncertainEffects'],
+                          }),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: pending || widget.chat.busy
+                      ? null
+                      : () => setState(
+                          () => question.text = recovery!['goal'] as String,
+                        ),
+                  child: const Text('Use saved original goal'),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Continue this saved computer-use task'),
+                  subtitle: const Text(
+                    'Uses a new screenshot, current access and another bounded segment. Earlier inputs are never replayed automatically.',
+                  ),
+                  value: resume,
+                  onChanged: pending || widget.chat.busy
+                      ? null
+                      : (v) => setState(() => resume = v ?? false),
+                ),
+                if (resume)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'I inspected the fresh screenshot and prior effects',
+                    ),
+                    value: inspected,
+                    onChanged: pending || capture == null
+                        ? null
+                        : (v) => setState(() => inspected = v ?? false),
+                  ),
+                const SizedBox(height: 20),
+              ],
               Text(
                 'Desktop access',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -477,7 +549,11 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                               access?['target'].toString()
                       ? null
                       : () => share(control: true),
-                  child: const Text('Start computer-use task'),
+                  child: Text(
+                    resume
+                        ? 'Reconcile and continue'
+                        : 'Start computer-use task',
+                  ),
                 ),
               FilledButton(
                 onPressed:

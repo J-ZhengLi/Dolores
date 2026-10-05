@@ -935,6 +935,8 @@ class ChatController extends ChangeNotifier {
     int? continuation,
     String? desktopCapture,
     String? desktopGrant,
+    String? desktopResume,
+    bool desktopReconciled = false,
     Map? desktopTarget,
     String? observationModel,
   }) async {
@@ -1000,7 +1002,8 @@ class ChatController extends ChangeNotifier {
         'session': session,
         'input': pendingInput,
         'continuation': ?continuation,
-        'resumeRun': ?resumeRun,
+        'resumeRun': ?(desktopGrant != null ? desktopResume : resumeRun),
+        'desktopReconciled': desktopReconciled,
         'desktopCapture': ?desktopCapture,
         'desktopGrant': ?desktopGrant,
         'observationModel': ?observationModel,

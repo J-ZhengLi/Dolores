@@ -162,6 +162,7 @@ mod tests {
             .call(Command::Start {
                 desktop_capture: None,
                 desktop_grant: None,
+                desktop_reconciled: false,
                 observation_model: None,
                 resume_run: None,
                 continuation: None,

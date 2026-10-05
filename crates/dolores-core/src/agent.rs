@@ -231,6 +231,7 @@ pub enum PauseReason {
     StepLimit,
     CommandReview,
     SubagentReview,
+    DesktopReview,
 }
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -791,7 +792,11 @@ pub async fn run_agent_with_shared_budget(
                 &cancel,
             )
             .await?;
+            let desktop_failed = record.name == "desktop_control" && record.status != "completed";
             summary.tools.push(record);
+            if desktop_failed {
+                return Ok(AgentReply{pause:Some(PauseReason::DesktopReview),answer:format!("Computer use paused. {content} Inspect the selected window in Settings → Computer use, capture it again, and explicitly reconcile saved progress before continuing. No later queued action was dispatched."),summary});
+            }
             messages.push(AgentMessage {
                 parts,
                 role: "tool".into(),

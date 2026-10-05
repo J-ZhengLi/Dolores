@@ -1485,3 +1485,34 @@ provider/history digests remained unchanged. No private captures/transcripts or
 credentials are committed. Uncertain-effect reconciliation belongs to 14.3;
 low-end, multi-monitor/DPI transitions, arbitrary applications and macOS/Linux
 qualification remain open. Input insertion is not task success or an OS sandbox.
+## Brick 14.3 — interruption and reconciliation
+
+Implemented immediate desktop-review pauses, durable uncertain-effect receipts,
+post-stop local screenshot/target proof, explicit inspection, original-goal run
+lineage and current-grant recovery. Stop/failure guidance directs users to
+Computer use instead of suggesting an ordinary retry. Three near-identical
+observations pause; current-session availability gates both capture and input.
+
+Exercised `scripts/test-desktop-recovery.py` against the normal release with a
+test-only wrapper around the actual native helper and the disposable local form:
+input applied before lost receipt, immediate pause without a later provider call,
+cold restart dropping access, stale screenshot and absent inspection refusals,
+fresh explicit recovery without duplicate typing, unchanged-screen pause after
+three observations, injected locked target, Stop after actual input before receipt
+and the five-second broker deadline. Owned helpers exit and entered text remains.
+The wrapper is a debug example and is never shipped. The locked-target fixture
+is failure injection, not a passed physical lock/unlock qualification.
+
+Rust core/provider/bridge/helper checks: 183 tests passed across seven suites;
+Clippy and Flutter analysis clean. Full Flutter suite: 218 passed, including
+420×480 light/dark recovery controls, no automatic inspection/grant, and preserved
+unrelated draft. A normal release was rebuilt and visibly inspected in Computer
+use, plus saved receipts and recovery controls in an isolated normal release
+instance. The 37-table user-data comparison remains unchanged.
+
+Observed Windows locking during verification exposed why a desktop-name check
+alone is insufficient; current-session active/unlocked flags now fail closed.
+Actual locked-session refusal and physical recovery still need qualification.
+Slow redraw, arbitrary application effects, IME/screen reader, mixed-monitor DPI,
+elevated targets and non-Windows hosts remain gaps. A later image receipt is
+available evidence, not proof of exactly-once effects or semantic correctness.

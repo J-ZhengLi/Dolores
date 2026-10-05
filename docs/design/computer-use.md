@@ -117,3 +117,31 @@ Literal input intentions and returned receipts remain in durable run evidence.
 Generic Continue/checkpoint recovery cannot silently re-enable desktop access.
 No common task defaults are raised; a longer workflow needs an explicit scoped
 task budget. Platform/DPI and semantic model reliability gaps belong in acceptance.
+
+## Interruption and reconciliation (14.3)
+
+A refused, denied or failed desktop action pauses immediately, including the
+remaining actions in the same model response. Stop and the five-second broker
+deadline kill and reap the owned helper. Anything after the host's dispatch
+acknowledgement is conservatively uncertain; no retry or input replay follows.
+An input receipt remains uncertain until a later screenshot is returned in that
+run. Pixels are evidence to inspect, not an exactly-once application guarantee.
+
+Computer use shows bounded saved receipts and uncertain effects. Recovery uses
+the original goal and a new segment in its run lineage, current model/limits,
+and explicit inspection. It requires a locally captured image made after the
+run stopped, for the same HWND/PID/process-start/title target, plus a current
+grant. Restart drops grants; an interrupted run without a finish marker needs
+an image captured in the new host process. Saved in-run pictures and old approvals
+cannot qualify. Older checkpoints lacking target proof remain inspectable but
+need a fresh scoped task. An unrelated chat draft is preserved.
+
+Three near-identical observations without intervening input pause for inspection;
+a 32×32 quantized signature tolerates small caret changes (at most four cells).
+This bounds futile refresh loops; it cannot infer slow application redraw or
+whether a remote effect succeeded. Capture and input check the current Windows
+session is active and explicitly unlocked via
+[WTS session information](https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/ns-wtsapi32-wtsinfoex_level1_w),
+as well as the input desktop. Unknown state refuses. Only availability flags are
+used; account names and other session metadata are never retained. Windows 7 is
+outside this backend's supported envelope.

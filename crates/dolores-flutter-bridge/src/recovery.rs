@@ -12,6 +12,7 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error.starts_with("Desktop ") || error.starts_with("Observation model ") => ("desktop", false, "Open Settings → Computer use. Inspect the selected window and saved receipts, make a fresh capture, then explicitly reconcile the original goal. Input may already have occurred; nothing is replayed automatically."),
         error if error.starts_with("Model rejected generation settings.") => ("generationSettings", false, "Open Request settings for this model. Choose Provider default or a supported output limit, then send the restored draft. Completed file changes remain; Dolores will not retry automatically."),
         error if error.starts_with("Model returned incomplete or invalid tool arguments.") => ("malformedTools", false, "Review completed work in Changes, then narrow the task or choose another tool-capable model. The unfinished call did not run; your draft is restored. No automatic retry."),
         error if error.starts_with("Memory ") || error.starts_with("Saved memory ") => ("memory", false, "Open Memory to review, shorten or disable preferences. Your message was not saved; your draft is restored."),

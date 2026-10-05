@@ -17,6 +17,7 @@ mod connection;
 mod continuation;
 mod desktop;
 mod desktop_control;
+mod desktop_recovery;
 mod experience;
 #[cfg(test)]
 mod experience_tests;
@@ -99,6 +100,7 @@ struct Engine {
     mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
     mcp_credentials: Arc<dyn CredentialStore>,
     desktop_access: desktop_control::Grants,
+    desktop_boot_ms: u64,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
@@ -614,6 +616,8 @@ enum Command {
         desktop_capture: Option<String>,
         #[serde(default, rename = "desktopGrant")]
         desktop_grant: Option<String>,
+        #[serde(default, rename = "desktopReconciled")]
+        desktop_reconciled: bool,
         #[serde(rename = "observationModel")]
         observation_model: Option<String>,
         #[serde(rename = "resumeRun")]
@@ -688,6 +692,7 @@ impl Engine {
             mcp_review: Arc::new(Mutex::new(None)),
             mcp_credentials: credentials,
             desktop_access: Mutex::new(Default::default()),
+            desktop_boot_ms: desktop_control::now_millis(),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -1376,6 +1381,7 @@ impl Engine {
             Command::Start {
                 desktop_capture,
                 desktop_grant,
+                desktop_reconciled,
                 observation_model,
                 resume_run,
                 continuation,
@@ -1420,7 +1426,9 @@ impl Engine {
                 };
                 if desktop_capture.is_some() != observation_model.is_some()
                     || (desktop_capture.is_some()
-                        && (continuation.is_some() || resume_run.is_some()))
+                        && (continuation.is_some()
+                            || (resume_run.is_some()
+                                && (desktop_grant.is_none() || !desktop_reconciled))))
                 {
                     return Err(
                         "Choose one capture and observation model for a fresh analysis run.".into(),
@@ -1455,12 +1463,22 @@ impl Engine {
                 let parent = resume_run
                     .as_ref()
                     .map(|source| {
-                        checkpoints::resume_source(
-                            self.store.as_ref(),
-                            session.as_deref().unwrap(),
-                            source,
-                            true,
-                        )
+                        if let Some(control) = &control {
+                            self.desktop_resume_source(
+                                session.as_deref().unwrap(),
+                                source,
+                                desktop_capture.as_deref().unwrap(),
+                                control,
+                                desktop_reconciled,
+                            )
+                        } else {
+                            checkpoints::resume_source(
+                                self.store.as_ref(),
+                                session.as_deref().unwrap(),
+                                source,
+                                true,
+                            )
+                        }
                     })
                     .transpose()?;
                 if continuation.is_some() && parent.is_some() {
@@ -1731,7 +1749,7 @@ impl Engine {
                     let _desktop_lifetime=control;
                     let learning_session = session.clone();
                     let learning_model = model.clone();
-                    let result = match log.record(Some(dolores_core::RunState::Running),"started",json!({"clientId":id})).await {
+                    let result = match log.record(Some(dolores_core::RunState::Running),"started",json!({"clientId":id,"desktop":_desktop_lifetime.as_ref().map(|c|json!({"target":c.grant.target,"capture":desktop_capture}))})).await {
                     Err(error)=>Err(error),
                     Ok(())=> execute(
                         store.clone(),
@@ -1771,11 +1789,14 @@ impl Engine {
                         } else { None }
                     } else { None };
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
-                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error})).await.err();
+                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
                     let mut event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update,"learningUpdate":learning_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
+                    if _desktop_lifetime.is_some() && event["error"].is_string() {
+                        event["recovery"] = json!({"kind":"desktop","retryable":false,"guidance":"Computer use stopped or failed. The original goal and action receipts remain in Settings → Computer use. Input may already have occurred; inspect the selected window, capture it again, and explicitly reconcile before continuing. No input or approval was replayed."});
+                    }
                     event["runId"]=json!(log.id);
                     let evidence_error = evidence_error.or(child_evidence_error);
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
@@ -1859,7 +1880,11 @@ async fn execute(
     let mut context =
         dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
     if let Some(source) = &resume_run {
-        let prompt = checkpoints::resume_prompt(store.as_ref(), &session, source, false)?;
+        let prompt = if tools.iter().any(|t| t.spec().name == "desktop_control") {
+            desktop_recovery::resume_prompt(store.as_ref(), &session, source)?
+        } else {
+            checkpoints::resume_prompt(store.as_ref(), &session, source, false)?
+        };
         let last = context.last_mut().unwrap();
         if last.content != prompt {
             last.content.push_str(&format!(
@@ -2765,6 +2790,7 @@ mod tests {
                 .call(Command::Start {
                     desktop_capture: None,
                     desktop_grant: None,
+                    desktop_reconciled: false,
                     observation_model: None,
                     resume_run: None,
                     continuation: None,

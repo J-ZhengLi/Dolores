@@ -80,7 +80,79 @@ class InputDesktopBridge extends DesktopBridge {
   }
 }
 
+class RecoveryDesktopBridge extends InputDesktopBridge {
+  @override
+  Future<dynamic> call(Map<String, dynamic> value) async {
+    final result = await super.call(value);
+    if (value['command'] == 'desktopState') {
+      result['recovery'] = {
+        'runId': 'retained-run',
+        'goal': 'Preserve the existing local note',
+        'note': 'Input may already have occurred. Inspect before continuing.',
+        'evidence': [],
+        'uncertainEffects': [
+          {'operation': 'type', 'text': 'Existing note'},
+        ],
+      };
+    }
+    return result;
+  }
+}
+
 void main() {
+  testWidgets(
+    'compact recovery requires inspection without changing the chat draft',
+    (tester) async {
+      tester.view.physicalSize = const Size(420, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        final bridge = RecoveryDesktopBridge();
+        final chat = ChatController(bridge)
+          ..session = 'one'
+          ..workspaceRoot = 'fixture'
+          ..draft = 'Keep my unrelated draft';
+        addTearDown(chat.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(brightness: brightness),
+            home: DesktopSettingsInspector(chat: chat),
+          ),
+        );
+        await tester.pumpAndSettle();
+        Future<void> reveal(String text) async {
+          await tester.scrollUntilVisible(find.text(text), 150);
+          await Scrollable.ensureVisible(
+            tester.element(find.text(text)),
+            alignment: .5,
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await reveal('Use saved original goal');
+        await tester.tap(find.text('Use saved original goal'));
+        await tester.pumpAndSettle();
+        expect(chat.draft, 'Keep my unrelated draft');
+        await reveal('Continue this saved computer-use task');
+        await tester.tap(find.text('Continue this saved computer-use task'));
+        await tester.pumpAndSettle();
+        await reveal('I inspected the fresh screenshot and prior effects');
+        final tile = tester.widget<CheckboxListTile>(
+          find.widgetWithText(
+            CheckboxListTile,
+            'I inspected the fresh screenshot and prior effects',
+          ),
+        );
+        expect(tile.value, isFalse);
+        expect(tile.onChanged, isNull);
+        expect(bridge.calls.contains('start'), isFalse);
+        expect(bridge.calls.contains('desktopGrant'), isFalse);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
   testWidgets(
     'desktop consent stays explicit and failed grants retain draft and preview in compact themes',
     (tester) async {

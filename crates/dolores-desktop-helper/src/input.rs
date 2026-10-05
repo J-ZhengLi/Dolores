@@ -12,6 +12,7 @@ use windows_sys::Win32::{
 };
 
 fn check(request: &Value) -> Result<(Target, Input), String> {
+    desktop_available()?;
     let target: Target =
         serde_json::from_value(request["target"].clone()).map_err(|_| "Invalid input target.")?;
     capture::recheck(&target)?;
@@ -49,31 +50,7 @@ fn check(request: &Value) -> Result<(Target, Input), String> {
                 return Err("User input changed since observation. No input dispatched; inspect and capture again.".into());
             }
         }
-        let desktop = windows_sys::Win32::System::StationsAndDesktops::OpenInputDesktop(
-            0,
-            0,
-            windows_sys::Win32::System::StationsAndDesktops::DESKTOP_READOBJECTS,
-        );
-        if desktop.is_null() {
-            return Err(
-                "Desktop is unavailable or locked. No input dispatched; unlock and capture again."
-                    .into(),
-            );
-        }
-        let mut name = [0u16; 128];
-        let mut needed = 0;
-        let named = windows_sys::Win32::System::StationsAndDesktops::GetUserObjectInformationW(
-            desktop,
-            windows_sys::Win32::System::StationsAndDesktops::UOI_NAME,
-            name.as_mut_ptr() as *mut _,
-            std::mem::size_of_val(&name) as u32,
-            &mut needed,
-        );
-        windows_sys::Win32::System::StationsAndDesktops::CloseDesktop(desktop);
-        let end = name.iter().position(|c| *c == 0).unwrap_or(name.len());
-        if named == 0 || String::from_utf16_lossy(&name[..end]) != "Default" {
-            return Err("Secure or locked desktop is unavailable. No input dispatched; return to your normal desktop and capture again.".into());
-        }
+        desktop_available()?;
     }
     Ok((target, action))
 }
@@ -299,5 +276,78 @@ pub fn run<R: BufRead>(request: Value, reader: &mut R) -> Result<Value, String> 
         Ok(
             json!({"dispatched":true,"events":sent,"verification":"Input was inserted, not verified as an application effect. Observe again before any further input."}),
         )
+    }
+}
+
+pub(crate) fn desktop_available() -> Result<(), String> {
+    unsafe {
+        use windows_sys::Win32::System::RemoteDesktop::*;
+        let mut buffer = std::ptr::null_mut();
+        let mut bytes = 0;
+        if WTSQuerySessionInformationW(
+            std::ptr::null_mut(),
+            WTS_CURRENT_SESSION,
+            WTSSessionInfoEx,
+            &mut buffer,
+            &mut bytes,
+        ) == 0
+        {
+            return Err("Windows session availability could not be verified. No capture or input dispatched; return to the unlocked desktop and try again.".into());
+        }
+        // Inspect only current-session state. Never retain account names or the
+        // other personal fields in the native structure.
+        let available =
+            !buffer.is_null() && bytes as usize >= std::mem::size_of::<WTSINFOEXW>() && {
+                let information = &*(buffer as *const WTSINFOEXW);
+                information.Level == 1
+                    && session_available(
+                        information.Data.WTSInfoExLevel1.SessionState,
+                        information.Data.WTSInfoExLevel1.SessionFlags,
+                    )
+            };
+        WTSFreeMemory(buffer as *mut _);
+        if !available {
+            return Err("Windows session is locked, disconnected or unavailable. No capture or input dispatched; unlock Windows and capture again.".into());
+        }
+        let desktop = windows_sys::Win32::System::StationsAndDesktops::OpenInputDesktop(
+            0,
+            0,
+            windows_sys::Win32::System::StationsAndDesktops::DESKTOP_READOBJECTS,
+        );
+        if desktop.is_null() {
+            return Err(
+                "Desktop is unavailable or locked. No input dispatched; unlock and capture again."
+                    .into(),
+            );
+        }
+        let mut name = [0u16; 128];
+        let mut needed = 0;
+        let named = windows_sys::Win32::System::StationsAndDesktops::GetUserObjectInformationW(
+            desktop,
+            windows_sys::Win32::System::StationsAndDesktops::UOI_NAME,
+            name.as_mut_ptr() as *mut _,
+            std::mem::size_of_val(&name) as u32,
+            &mut needed,
+        );
+        windows_sys::Win32::System::StationsAndDesktops::CloseDesktop(desktop);
+        let end = name.iter().position(|c| *c == 0).unwrap_or(name.len());
+        if named == 0 || String::from_utf16_lossy(&name[..end]) != "Default" {
+            return Err("Secure or locked desktop is unavailable. No input dispatched; return to your normal desktop and capture again.".into());
+        }
+    }
+    Ok(())
+}
+
+fn session_available(state: i32, flags: i32) -> bool {
+    state == windows_sys::Win32::System::RemoteDesktop::WTSActive && flags == 1
+}
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn only_active_explicitly_unlocked_session_is_available() {
+        assert!(super::session_available(0, 1));
+        for (state, flags) in [(0, 0), (0, -1), (4, 1), (1, 1)] {
+            assert!(!super::session_available(state, flags));
+        }
     }
 }

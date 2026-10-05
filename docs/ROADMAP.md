@@ -24,7 +24,7 @@ are implemented**. Automatic activation's real-workflow acceptance gate remains
 unaccepted; reviewed skill updates remain available.
 
 **Planning addition — 2026-10-05:** the user approved a dedicated computer-use
-milestone. **14.1–14.2 are implemented; 14.3–14.4 remain planned.** Existing milestone numbers
+milestone. **14.1–14.3 are implemented; 14.4 qualification is underway.** Existing milestone numbers
 and order are preserved. Windows selected-application interaction and visual
 verification are the first target; arbitrary-app reliability and other platforms
 need separate evidence. The subsequent “next” authorized the first observation brick.

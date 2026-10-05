@@ -162,6 +162,18 @@ impl GraphicsCaptureApiHandler for Capture {
                 .resize(1024, 1024, image::imageops::FilterType::Triangle)
                 .to_rgb8();
             let mut jpeg = Vec::new();
+            let tiny =
+                image::imageops::resize(&resized, 32, 32, image::imageops::FilterType::Triangle);
+            let signature: String = tiny
+                .pixels()
+                .map(|p| {
+                    char::from_digit(
+                        (u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2])) / 3 / 16,
+                        16,
+                    )
+                    .unwrap_or('0')
+                })
+                .collect();
             image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 80)
                 .encode_image(&resized)
                 .map_err(|_| "Capture encoding unavailable.")?;
@@ -185,7 +197,7 @@ impl GraphicsCaptureApiHandler for Capture {
             Ok(
                 json!({"target":self.target,"originalWidth":width,"originalHeight":height,
                 "width":resized.width(),"height":resized.height(),"dpi":dpi,"mime":"image/jpeg",
-                "geometry":geometry_after,"lastInput":last_input.dwTime,
+                "geometry":geometry_after,"lastInput":last_input.dwTime,"visualSignature":signature,
                 "imageBase64":STANDARD.encode(jpeg),"coordinateSpace":"image pixels; not desktop coordinates",
                 "accessibility":"Unavailable in this adapter; screenshot evidence only."}),
             )
@@ -211,6 +223,7 @@ impl GraphicsCaptureApiHandler for Capture {
     }
 }
 pub fn run(request: Value) -> Result<Value, String> {
+    crate::input::desktop_available()?;
     match request["operation"].as_str() {
         Some("list") => {
             let windows = Window::enumerate().map_err(|_| "Window list unavailable.")?;

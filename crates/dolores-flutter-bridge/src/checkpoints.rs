@@ -37,6 +37,7 @@ pub(super) fn view(store: &dyn SessionStore, session: &str, id: &str) -> Result<
     let mut events = store.run_events(session, id)?;
     for event in &mut events {
         event.data["runId"] = json!(id);
+        event.data["sequence"] = json!(event.sequence);
     }
     let mut lineage = vec![run.id.clone()];
     while let Some(parent) = &source.parent_run {
@@ -47,6 +48,7 @@ pub(super) fn view(store: &dyn SessionStore, session: &str, id: &str) -> Result<
         let mut earlier = store.run_events(session, &p.id)?;
         for event in &mut earlier {
             event.data["runId"] = json!(p.id);
+            event.data["sequence"] = json!(event.sequence);
         }
         earlier.extend(events);
         events = earlier;
@@ -67,11 +69,27 @@ pub(super) fn view(store: &dyn SessionStore, session: &str, id: &str) -> Result<
         .iter()
         .filter(|i| {
             i["name"].as_str().is_some_and(|n| {
-                matches!(n, "edit_text_file" | "create_text_file" | "run_command")
-                    || n.starts_with("mcp_tool_")
-            }) && !results.iter().any(|r| {
-                r["runId"] == i["runId"] && r["callId"] == i["callId"] && r["returned"] == true
-            })
+                matches!(
+                    n,
+                    "edit_text_file" | "create_text_file" | "run_command" | "desktop_control"
+                ) || n.starts_with("mcp_tool_")
+            }) && if i["name"] == "desktop_control" {
+                let action = i["arguments"]
+                    .as_str()
+                    .and_then(|s| serde_json::from_str::<Value>(s).ok());
+                action.as_ref().is_none_or(|a| a["operation"] != "observe")
+                    && !results.iter().any(|r| {
+                        r["runId"] == i["runId"]
+                            && r["sequence"].as_u64() > i["sequence"].as_u64()
+                            && r["returned"] == true
+                            && r["name"] == "desktop_control"
+                            && r["parts"].as_array().is_some_and(|p| !p.is_empty())
+                    })
+            } else {
+                !results.iter().any(|r| {
+                    r["runId"] == i["runId"] && r["callId"] == i["callId"] && r["returned"] == true
+                })
+            }
         })
         .cloned()
         .collect();
