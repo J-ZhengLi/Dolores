@@ -12,6 +12,9 @@ mod compaction_tests;
 mod comparison;
 mod connection;
 mod continuation;
+mod experience;
+#[cfg(test)]
+mod experience_tests;
 mod export;
 mod instructions;
 mod introspection;
@@ -94,6 +97,16 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    TrialSources {
+        session: String,
+    },
+    StartToolTrial {
+        id: u64,
+        session: String,
+        name: String,
+        revision: u32,
+        text: String,
+    },
     SaveAppearance {
         theme: dolores_core::Appearance,
     },
@@ -600,6 +613,7 @@ impl Engine {
             },
             Command::WebSettings => return self.web_settings(),
             Command::ProjectKnowledge {session} => return self.project_knowledge(&session),
+            Command::TrialSources {session} => return self.trial_sources(&session),
             Command::BrowserSettings => return self.browser_settings(),
             Command::BrowserCapture { capture } => return self.browser_capture(&capture),
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
@@ -718,6 +732,14 @@ impl Engine {
                 settings,
             } => self.start_comparison(&mut active, id, session, draft, settings),
             Command::WebSettings => self.web_settings(),
+            Command::TrialSources { session } => self.trial_sources(&session),
+            Command::StartToolTrial {
+                id,
+                session,
+                name,
+                revision,
+                text,
+            } => self.start_trial(&mut active, id, session, name, revision, text),
             Command::ProjectKnowledge { session } => self.project_knowledge(&session),
             Command::SetKnowledgePolicy {
                 session,

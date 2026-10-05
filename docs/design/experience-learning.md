@@ -37,7 +37,19 @@ revision checks. Monitoring distinguishes matching workflow regressions from
 unrelated transport/model failures. Interrupted or conflicting changes remain
 explicitly unresolved; completed external effects cannot be rolled back.
 
-Exact fixture criteria, budgets and activation whitelist are frozen before the
-corresponding brick is implemented. Acceptance records fixtures, real-model
+The 12.2 fixture suite is `config-command-v1`: the original case enables one
+JSON flag; the independent case adds Unicode and a nested flag/list that must
+remain unchanged. Both require preserved companion/manifest files and a
+successful **simulated** `node verify.cjs` check after the final write. The only
+mutable resource is an in-memory `config.json` (2 KiB). All outside paths and
+evaluator writes fail; attempted boundary violations prevent qualification.
+Each phase receives a fresh world, the same configured model and reasoning
+profile, 1024 output tokens per call, five model calls/eight operations and a
+30-second whole-case deadline. Four sequential cases are the maximum. No OS
+filesystem or process is available. A tie is not improvement. Twenty receipts
+per chat are retained; failed saves/Stop/unfinished runs cannot qualify. Full
+documents, files, tool receipts and reported usage are local evidence.
+
+The activation whitelist is frozen before 12.3. Acceptance records real-model
 results and unsupported paths separately. No general daily-improvement claim is
 made from this small corpus.

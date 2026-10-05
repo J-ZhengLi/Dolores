@@ -6,7 +6,7 @@ import 'mcp.dart';
 import 'model_settings.dart';
 import 'request_settings.dart';
 import 'settings_frame.dart';
-import 'skills.dart';
+import 'tool_trials.dart';
 import 'task_permissions.dart';
 import 'theme.dart';
 import 'web_settings.dart';
@@ -102,11 +102,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
           ? unavailable(
               'Finish or stop the current response before editing skills.',
             )
-          : SkillsInspector(
-              bridge: widget.chat.bridge,
-              session: widget.chat.session!,
-              hasProject: widget.chat.workspaceRoot != null,
-            ),
+          : SkillSettings(chat: widget.chat),
     SettingsCategory.appearance => AppearanceSettings(chat: widget.chat),
     SettingsCategory.models => switch (modelPage) {
       ModelsPage.connection => ConnectionDialog(chat: widget.chat),

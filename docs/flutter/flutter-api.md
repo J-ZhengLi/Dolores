@@ -99,3 +99,14 @@ require refresh and explicit retry. Side chats cannot save project knowledge.
 Context summaries retain exact selected knowledge provenance. A successful done
 event may include knowledgeUpdate for the activity log; learning failure does
 not discard the saved reply or automatically replay work.
+
+### Independent tool trials (12.2)
+
+`trialSources {session}` returns saved project skills and at most 20 full trial
+receipts, plus fixed suite/model metadata. `startToolTrial {id,session,name,
+revision,text}` compares the current enabled project snapshot with parsed
+candidate SKILL.md. Poll receives trialProgress and done with trial, persisted
+and error. Cancel uses the ordinary run owner. No skill is activated; incomplete
+or unsaved evidence cannot qualify. Baseline/candidate share frozen budgets and
+the same provider/settings; exact requests and append-only receipts survive
+restart. Existing tool-free comparisons remain separate.

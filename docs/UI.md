@@ -51,6 +51,11 @@ tool evidence, usage and recovery controls stay available in their existing form
 
 ## Browser use
 
+Settings → Skills retains Library and Tool trials as cached embedded editors.
+Pending trials block switching/closing and expose Stop; saved receipts, errors
+and candidate drafts remain inspectable. Trial settings are frozen separately
+from chat settings. Do not describe simulated checks as executed OS commands.
+
 Settings → Browser uses the same embedded inspector with a scrolling status/setup
 body and fixed Refresh action. It starts no browser. Reuse tool approvals for
 literal browser JSON, profile/sharing/effects disclosure and fresh click/input

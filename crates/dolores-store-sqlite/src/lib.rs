@@ -23,12 +23,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 28;
+pub const SCHEMA_VERSION: i64 = 29;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
 mod attachments;
 mod drafts;
+mod experience;
 mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;
@@ -179,6 +180,9 @@ impl SqliteStore {
         if version < 28 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS project_knowledge(root TEXT PRIMARY KEY,data TEXT NOT NULL); PRAGMA user_version=28; COMMIT;").map_err(storage_error)?;
         }
+        if version < 29 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS experience_trials(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,created_at INTEGER NOT NULL,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS experience_session ON experience_trials(session,created_at); PRAGMA user_version=29; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -189,6 +193,24 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn experience_trials(
+        &self,
+        session: &str,
+    ) -> Result<Vec<dolores_core::ExperienceTrial>, String> {
+        self.trials(session)
+    }
+    fn create_experience_trial(
+        &self,
+        run: &dolores_core::ExperienceTrial,
+    ) -> Result<dolores_core::ExperienceTrial, String> {
+        self.write_trial(run, true)
+    }
+    fn save_experience_trial(
+        &self,
+        run: &dolores_core::ExperienceTrial,
+    ) -> Result<dolores_core::ExperienceTrial, String> {
+        self.write_trial(run, false)
+    }
     fn knowledge(&self, root: &str) -> Result<dolores_core::KnowledgeState, String> {
         self.read_knowledge(root)
     }

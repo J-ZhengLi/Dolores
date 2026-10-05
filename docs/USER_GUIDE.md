@@ -235,3 +235,12 @@ context. Correct a fact to protect your choice, or disable it to stop reuse.
 Feedback-note eligibility is a separate opt-in; this brick does not upload notes
 or run reflection. The activity Log reports learning failures without losing the
 saved reply. Refresh and explicitly retry a correction after a revision conflict.
+
+Settings → Skills → Tool trials compares an enabled project skill with an edited
+candidate on fixed disposable config tasks. It shares those skill snapshots
+with the selected provider, uses separate fixed allowances and preserves chat
+settings. Inspect files, tool calls and simulated checks in the receipts.
+Nothing activates from this page. Stop retains completed cases; a tie, partial
+response, unfinished run or failed evidence save cannot qualify. The narrow
+fixture suite does not establish general coding ability. Global skills and real
+process/network trials are excluded.

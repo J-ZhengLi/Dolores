@@ -6,6 +6,8 @@ mod accounting;
 mod attachments;
 pub use attachments::*;
 mod comparison;
+mod experience;
+pub use experience::*;
 mod feedback;
 pub use comparison::*;
 pub use feedback::*;
@@ -262,6 +264,15 @@ pub enum Appearance {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn experience_trials(&self, _: &str) -> Result<Vec<ExperienceTrial>, String> {
+        Ok(vec![])
+    }
+    fn create_experience_trial(&self, _: &ExperienceTrial) -> Result<ExperienceTrial, String> {
+        Err("Tool trials unavailable.".into())
+    }
+    fn save_experience_trial(&self, _: &ExperienceTrial) -> Result<ExperienceTrial, String> {
+        Err("Tool trials unavailable.".into())
+    }
     fn knowledge(&self, _: &str) -> Result<KnowledgeState, String> {
         Ok(Default::default())
     }

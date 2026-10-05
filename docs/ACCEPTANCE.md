@@ -1,5 +1,32 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 12.2 — independent tool trials
+
+Implemented the fixed config-command-v1 suite with in-memory file tools and
+simulated checks. Original and independent Unicode/nested-value regression
+cases share the same model/profile and fixed 1024-token, five-model/eight-tool,
+30-second allowances. Local append-only receipts retain files, calls and usage.
+False claims, evaluator/outside writes, output limits, Stop, stale saves,
+criterion tampering and failed storage are exercised; incomplete or unsaved
+work does not qualify. Restart retains baseline and partial evidence.
+
+Core/store/bridge: 169 tests passed before the final receipt-grade validation;
+final focused three trial tests passed. Flutter: nine focused trial/settings
+tests and analysis passed; failed preparation/Refresh preserve the candidate.
+Final Rust Clippy passed with warnings denied.
+
+DeepSeek V4.1 Flash completed the first pair (both passed), then reached an
+output limit in regression: 32.98 seconds, three retained phases, non-qualifying.
+Qwen3.5-2B retained an unsuccessful baseline and incomplete candidate in 5.75
+seconds, also non-qualifying. Neither run activated anything. A small fixture
+pass is not real-model reliability; these live attempts establish preservation
+and refusal under pressure, not an improved real workflow.
+
+Normal release built/launched; original user-data tables remain unchanged
+(schema 29, 36 tables). Windows became locked before screenshot verification;
+visual launch inspection remains pending. No OS process/network trials or
+general skill qualification is claimed.
+
 ## Brick 12.1 — scoped knowledge
 
 Rust core/store/bridge: 166 tests passed; focused observer tests and Clippy
