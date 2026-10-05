@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from desktop_resource_probe import children, memory
 
 
 def main():
@@ -20,7 +21,7 @@ def main():
         directory = Path(temporary)
         os.environ['DOLORES_DATA_DIR'] = str(directory / 'data')
         os.environ['DOLORES_GLOBAL_SKILLS_DIR'] = str(directory / 'skills')
-        os.environ['DOLORES_BROWSER_ADAPTER_DIR'] = str(root / 'adapters/browser')
+        os.environ['DOLORES_BROWSER_ADAPTER_DIR'] = os.environ.get('DOLORES_TEST_BROWSER_ADAPTER_DIR', str(root / 'adapters/browser'))
         loader = os.add_dll_directory(str(bundle))
         native = ctypes.CDLL(str(bundle / 'dolores_flutter_bridge.dll'))
         native.dolores_call.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
@@ -47,8 +48,11 @@ def main():
         active_cost = None
 
         def cost():
-            measured = subprocess.run(['rtk', 'proxy', 'powershell', '-NoProfile', '-File', str(root / 'scripts/measure-browser.ps1')], capture_output=True, text=True, check=True)
-            return json.loads(measured.stdout.strip().splitlines()[-1])
+            owned = children(os.getpid(), names=None)
+            values = [memory(pid) or {} for pid in owned]
+            return {'workers': len(owned), 'workingBytes': sum(v.get('workingBytes', 0) for v in values),
+                    'privateBytes': sum(v.get('privateBytes', 0) for v in values),
+                    'limit': 'Point-in-time sample of this test host descendants; short-lived processes can be missed.'}
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):

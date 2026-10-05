@@ -12,7 +12,7 @@ Platform CI (8.4) remains deferred until explicit user instruction.
 | Computer-use observation/targeting reliability | Pending diagnosis; frozen criteria retained |
 | Automatic preference extraction | Pending diagnosis; preserve verified-only storage |
 | Useful skill improvement and regression restoration | Pending live qualification |
-| Browser installation convenience and bounded input | Pending |
+| Browser installation convenience and bounded input | Python pinned installer and native fixture qualified; in-app installer/live model reliability remain open |
 | Native theme/layout/input verification | Pending available-host checks |
 | Current documentation paths/status | In progress |
 

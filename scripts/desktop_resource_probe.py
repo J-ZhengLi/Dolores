@@ -35,7 +35,7 @@ def memory(pid):
         return {'workingBytes':value.working,'privateBytes':value.private} if get(handle,ctypes.byref(value),value.size) else None
     finally:kernel.CloseHandle(handle)
 
-def children(parent):
+def children(parent, names=('dolores-desktop-helper.exe', 'native-desktop-helper.exe')):
     kernel=ctypes.windll.kernel32;kernel.CreateToolhelp32Snapshot.restype=w.HANDLE;kernel.CloseHandle.argtypes=[w.HANDLE]
     snapshot=kernel.CreateToolhelp32Snapshot(2,0)
     if snapshot in (None,ctypes.c_void_p(-1).value):return []
@@ -45,7 +45,7 @@ def children(parent):
     try:
         found=first(snapshot,ctypes.byref(entry))
         while found:
-            if entry.name.lower() in ['dolores-desktop-helper.exe','native-desktop-helper.exe']:
+            if names is None or entry.name.lower() in names:
                 result.append((entry.pid,entry.parent))
             found=next_(snapshot,ctypes.byref(entry))
     finally:kernel.CloseHandle(snapshot)

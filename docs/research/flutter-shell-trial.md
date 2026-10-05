@@ -24,7 +24,7 @@ Same two-turn SQLite fixture, one launch per app, visible unminimized windows, 1
 
 Flutter has a smaller resident working set than Tauri in this observation, while its private committed allocation is higher. Iced remains much smaller by both measures. Rounded zero CPU values mean no measured processor-time increase in these short sample intervals; they do not prove zero work. Working-set sums can count shared pages more than once. GPU allocations and whole-system memory changes were not measured. Installed system runtimes are excluded for all shells; Flutter's engine DLL, Rust DLL, AOT library, ICU data and assets are included. Its 90,624-byte launcher alone is not a valid application-size comparison.
 
-Source evidence: private local benchmark report (excluded from Git). Reproduce with `scripts/build-flutter.ps1`, `scripts/test-flutter.ps1` and `scripts/compare-shells.ps1`; rebuild without `-Smoke` before measuring. Window checks disable the measurement thread's Windows DPI virtualization and assert visible, unminimized client dimensions.
+Source evidence: private local benchmark report (excluded from Git). The original multi-shell comparison and PowerShell runners were retired on 2026-10-06. This is historical technology-selection evidence, not a current reproduction guide. Use the Python desktop workflow in CONTRIBUTING.md for the maintained Flutter app; current resource limits are recorded separately.
 
 ## Decision boundary
 

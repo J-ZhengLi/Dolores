@@ -142,7 +142,8 @@ python scripts/test-desktop-corpus.py
 python scripts/qualify-desktop.py --case native-draft --directory <absolute-output-directory>
 python scripts/qualify-desktop.py --case native-save-once --directory <absolute-output-directory>
 python scripts/qualify-desktop.py --case generated-app-visual --directory <absolute-output-directory>
-powershell -NoProfile -File scripts/measure-desktop-release.ps1 -Directory <absolute-output-directory>
+python scripts/desktop.py launch --data-directory <absolute-profile-directory> --pid-file <absolute-output-record>
+python scripts/measure-desktop.py --pid-file <same-record> --seconds 15
 ```
 
 Live cases require `DOLORES_TEST_BASE_URL` and `DOLORES_TEST_API_KEY` supplied by

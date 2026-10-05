@@ -119,13 +119,14 @@ This optional feature needs Node 20 or newer and an installed Edge on Windows,
 or Chrome on Linux/macOS. It does not download a browser. From a source checkout,
 install the pinned adapter next to your built desktop executable:
 
-```powershell
-powershell -NoProfile -File scripts/install-browser-adapter.ps1 -Destination "apps/dolores_flutter/build/windows/x64/runner/Release/browser-adapter"
+```text
+python scripts/install-browser-adapter.py
 ```
 
-On Linux/macOS, copy `adapters/browser/package.json` and `package-lock.json` to
-a `browser-adapter` directory next to the executable, then run
-`npm ci --ignore-scripts --no-audit --no-fund` in that directory. Restart Dolores
+The Python command also selects the executable's adapter directory on Linux/macOS.
+Use `--destination <directory>` for a separate installation. Failed downloads leave
+the target unchanged; existing unrelated or incomplete directories are retained.
+Restart Dolores
 if you installed Node while it was open, then use **Refresh** in Browser settings.
 Runtime readiness does not verify that every website or model can use it.
 Screenshots stay in the local folder shown in Browser settings after the run.

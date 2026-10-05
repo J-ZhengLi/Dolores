@@ -1,5 +1,31 @@
 # Dolores acceptance — 2026-10-05
 
+## Maintenance follow-up — Python qualification and optional browser setup
+
+2026-10-06: Retired the remaining PowerShell qualification wrappers. Python now
+runs the pinned optional adapter installer, diagnostic smoke/history/restart
+entries and experimental mod resource probes. The normal resource helpers replace
+old desktop-shell measurements. The Flutter diagnostic entry must match the
+requested case; diagnostic checks cannot count as a normal app handoff.
+
+Three installer tests PASS: pinned atomic publication/offline repeat, failed or
+timed-out download cleanup, and retention of an unrelated existing destination.
+Two diagnostic-runner tests PASS cover failed-report retention and deadline
+cleanup of its own process. A real pinned npm download and offline repeat PASS.
+The normal native bridge browser fixture passes using that newly installed
+adapter: three fresh input reviews, stale action without replay, capture recovery,
+step exhaustion, Stop during slow navigation, file-tool recovery and delegated
+read/browser flow. Eleven active descendants were sampled; zero remained after
+completion. Sampling is not peak memory or low-end qualification.
+
+Python mod probes also ran: three point-in-time memory samples each for Wasm and
+Rhai plus the own-file worker boundary demonstration. These research probes are
+not production mod or desktop qualification. Historical connection/history/smoke
+diagnostic entries were consolidated, not independently rerun in this follow-up.
+The normal desktop release remains visibly available with the user's history and
+provider preserved. Optional browser setup still needs Node and Edge/Chrome;
+an in-app installer and general model reliability remain open.
+
 ## Maintenance follow-up — truthful build and resource checks
 
 2026-10-06: Four Python launcher tests PASS, including refusal to hand off a

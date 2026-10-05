@@ -9,7 +9,7 @@ evaluators or the composer. Wider hooks need a new ABI and qualification.
 
 Run `cargo run -p dolores-mod-runtime --release --example compare`, build the
 `wasm_probe` and `rhai_probe` examples, then run
-`powershell -File scripts/measure-mod-runtime.ps1`. The probes exercise the same
+`python scripts/measure-mod-runtime.py`. The probes exercise the same
 scalar classification workload; their sizes are separate executable measurements,
 not the incremental size of the app. Rhai is a development-only dependency.
 
