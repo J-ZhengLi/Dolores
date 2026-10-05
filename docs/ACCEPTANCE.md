@@ -1,5 +1,22 @@
 # Dolores acceptance — 2026-10-05
 
+## Maintenance follow-up — approved project evidence after command review
+
+2026-10-06: A native bridge regression reproduced lost approved manifest evidence
+after a failed check paused the task. Post-chat project knowledge now retains
+eligible completed observations for command-review pauses. Other pause categories,
+execution approval and continuation behavior remain unchanged.
+
+The new native fixture PASS covers the actual post-run path, failed independent
+trial recovery, output-limit exclusion and denied-source exclusion. Saved replies
+and baseline skills remain. All 92 bridge tests PASS. Bounded DeepSeek live tasks
+preserved unrelated files; the final task learned the current declaration and
+completed four independent trials. Both versions passed both cases: a tie, so no
+activation. Useful automatic improvement and live regression restoration remain
+unqualified; [learning evidence](qualification/learning-followup.md) records the
+earlier output limit, exact allowances and reproduction. The normal release was
+rebuilt and visibly inspected with all 37 original profile tables unchanged.
+
 ## Maintenance follow-up — computer-use contract qualification
 
 2026-10-06: Clarified that an observation takes only `operation`, with no unused

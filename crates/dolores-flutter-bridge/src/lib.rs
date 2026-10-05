@@ -1853,9 +1853,12 @@ impl Engine {
                     let child_evidence_error = if let Some(delegation) = &delegation {
                         delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
                     } else { None };
-                    let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
+                    let pause_reason = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).map(|p|p.reason);
+                    let paused = pause_reason.is_some();
                     if result.is_ok() && !desktop_handoff {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
-                    let knowledge_update = if desktop_capture.is_none() && result.is_ok() && !paused { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
+                    // A failed check can justify inspecting a skill. Its approved,
+                    // completed reads remain evidence even while the task is paused.
+                    let knowledge_update = if desktop_capture.is_none() && result.is_ok() && pause_reason.is_none_or(|reason|reason==dolores_core::PauseReason::CommandReview) { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
                     let learning_update = if desktop_capture.is_none() && result.is_ok(){if let Some(s)=learning_session.as_deref(){adaptation::reflect(store.clone(),reflection_provider,s,&learning_model,cancel.clone(),&output,id).await.unwrap_or_else(|e|Some(format!("{e} Saved reply and prior evidence remain; inspect Skills → Learning. No retry.")))}else{None}}else{None};
                     let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
