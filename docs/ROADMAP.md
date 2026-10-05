@@ -33,8 +33,9 @@ verification are the first target; arbitrary-app reliability and other platforms
 need separate evidence. The subsequent “next” authorized the first observation brick.
 
 **UX milestone — 2026-10-05:** the user requested a dedicated simplification
-milestone after computer use proved difficult to reach. **15.1 audit and target
-contract are complete; 15.2–15.8 are planned below.** The
+milestone after computer use proved difficult to reach. **15.1–15.8 implementation
+and qualification tooling are delivered in the authorized batch. Native/model/
+resource acceptance has explicit gaps in the [UX qualification report](qualification/everyday-ux.md).** The
 [settings audit and UX contract](design/ux-simplification.md) covers every settings
 category, related configuration surfaces and conversation-first tool access.
 The audit does not change the running UI or close milestone 14's model-quality gate.

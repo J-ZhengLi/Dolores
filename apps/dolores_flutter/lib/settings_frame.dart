@@ -1,10 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+/// Protected routes disable Flutter's default Escape dismissal. Route Escape
+/// through the editor's existing pending and unsaved-change checks instead.
+class CloseOnEscape extends StatelessWidget {
+  final VoidCallback onClose;
+  final Widget child;
+  const CloseOnEscape({super.key, required this.onClose, required this.child});
+
+  @override
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.escape): () {
+        if (ModalRoute.of(context)?.isCurrent != false) onClose();
+      },
+    },
+    child: Focus(autofocus: true, child: child),
+  );
+}
 
 /// Editors report live values, rather than assuming every keystroke rebuilt them.
 class SettingsDraft {
   bool Function()? isDirty;
   Future<bool> Function()? save;
   bool get dirty => isDirty?.call() ?? false;
+}
+
+class SettingsDetails extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const SettingsDetails({
+    super.key,
+    this.title = 'Details',
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) => ExpansionTile(
+    title: Text(title),
+    tilePadding: EdgeInsets.zero,
+    maintainState: true,
+    childrenPadding: const EdgeInsets.only(bottom: 12),
+    children: children,
+  );
 }
 
 void reportSettingsDraft(

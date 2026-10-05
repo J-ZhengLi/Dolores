@@ -260,167 +260,170 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    onPopInvokedWithResult: (didPop, _) {
-      if (!didPop) close();
-    },
-    child: Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 620),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.model,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
+  Widget build(BuildContext context) => CloseOnEscape(
+    onClose: close,
+    child: PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) close();
+      },
+      child: Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 620),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.model,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: pending ? null : close,
-                    tooltip: 'Close model details',
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
+                    IconButton(
+                      onPressed: pending ? null : close,
+                      tooltip: 'Close model details',
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  if (error != null)
-                    Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    if (error != null)
+                      Text(
+                        error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    if (notice != null) Text(notice!),
+                    TextField(
+                      key: const Key('model-detail-context'),
+                      controller: contextTokens,
+                      enabled: !pending,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Context window (tokens)',
+                        hintText: '131072',
+                        helperText: 'Blank uses 128K',
                       ),
                     ),
-                  if (notice != null) Text(notice!),
-                  TextField(
-                    key: const Key('model-detail-context'),
-                    controller: contextTokens,
-                    enabled: !pending,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Context window (tokens)',
-                      hintText: '131072',
-                      helperText: 'Blank uses 128K',
-                    ),
-                  ),
-                  SwitchListTile(
-                    key: const Key('model-detail-images'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Image input'),
-                    subtitle: Text(
-                      images ? 'Enabled in model configuration' : 'Unknown or disabled. Enable only if your provider supports images.',
-                    ),
-                    value: images,
-                    onChanged: pending
-                        ? null
-                        : (v) => setState(() => images = v),
-                  ),
-                  const Text(
-                    'Window sharing can check image support before sending a private screenshot.',
-                  ),
-                  ExpansionTile(
-                    key: const Key('model-detail-advanced'),
-                    title: const Text('Response settings'),
-                    subtitle: Text(
-                      custom ? 'Custom for this model' : 'Using app defaults',
-                    ),
-                    children: [
-                      SwitchListTile(
-                        title: const Text('Customize responses'),
-                        value: custom,
-                        onChanged: pending
-                            ? null
-                            : (v) => setState(() => custom = v),
+                    SwitchListTile(
+                      key: const Key('model-detail-images'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Image input'),
+                      subtitle: Text(
+                        images ? 'Enabled in model configuration' : 'Unknown or disabled. Enable only if your provider supports images.',
                       ),
-                      if (custom) ...[
-                        TextField(
-                          key: const Key('model-detail-output'),
-                          controller: output,
-                          enabled: !pending,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Maximum output tokens',
-                          ),
-                        ),
-                        TextField(
-                          key: const Key('model-detail-timeout'),
-                          controller: timeout,
-                          enabled: !pending,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Timeout (seconds)',
-                          ),
-                        ),
-                        DropdownButtonFormField<String>(
-                          initialValue: reasoning,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Reasoning',
-                          ),
-                          items: [
-                            for (final r in [
-                              'providerDefault',
-                              'deepseekThinkingOff',
-                              'openaiLow',
-                              'openaiMedium',
-                              'openaiHigh',
-                            ])
-                              DropdownMenuItem(
-                                value: r,
-                                child: Text(switch (r) {
-                                  'providerDefault' => 'Provider default',
-                                  'deepseekThinkingOff' =>
-                                    'DeepSeek thinking off',
-                                  'openaiLow' => 'OpenAI low',
-                                  'openaiMedium' => 'OpenAI medium',
-                                  _ => 'OpenAI high',
-                                }),
-                              ),
-                          ],
+                      value: images,
+                      onChanged: pending
+                          ? null
+                          : (v) => setState(() => images = v),
+                    ),
+                    const Text(
+                      'Window sharing can check image support before sending a private screenshot.',
+                    ),
+                    ExpansionTile(
+                      key: const Key('model-detail-advanced'),
+                      title: const Text('Response settings'),
+                      subtitle: Text(
+                        custom ? 'Custom for this model' : 'Using app defaults',
+                      ),
+                      children: [
+                        SwitchListTile(
+                          title: const Text('Customize responses'),
+                          value: custom,
                           onChanged: pending
                               ? null
-                              : (v) => setState(() => reasoning = v!),
+                              : (v) => setState(() => custom = v),
+                        ),
+                        if (custom) ...[
+                          TextField(
+                            key: const Key('model-detail-output'),
+                            controller: output,
+                            enabled: !pending,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Maximum output tokens',
+                            ),
+                          ),
+                          TextField(
+                            key: const Key('model-detail-timeout'),
+                            controller: timeout,
+                            enabled: !pending,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Timeout (seconds)',
+                            ),
+                          ),
+                          DropdownButtonFormField<String>(
+                            initialValue: reasoning,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Reasoning',
+                            ),
+                            items: [
+                              for (final r in [
+                                'providerDefault',
+                                'deepseekThinkingOff',
+                                'openaiLow',
+                                'openaiMedium',
+                                'openaiHigh',
+                              ])
+                                DropdownMenuItem(
+                                  value: r,
+                                  child: Text(switch (r) {
+                                    'providerDefault' => 'Provider default',
+                                    'deepseekThinkingOff' =>
+                                      'DeepSeek thinking off',
+                                    'openaiLow' => 'OpenAI low',
+                                    'openaiMedium' => 'OpenAI medium',
+                                    _ => 'OpenAI high',
+                                  }),
+                                ),
+                            ],
+                            onChanged: pending
+                                ? null
+                                : (v) => setState(() => reasoning = v!),
+                          ),
+                        ],
+                        const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text(
+                            'Project/chat output and timeout overrides take precedence. Changes apply to the next task.',
+                          ),
                         ),
                       ],
-                      const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Text(
-                          'Project/chat output and timeout overrides take precedence. Changes apply to the next task.',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  TextButton(
-                    onPressed: pending ? null : () => load(keepEdits: true),
-                    child: const Text('Refresh · keep edits'),
-                  ),
-                  FilledButton(
-                    key: const Key('save-model-details'),
-                    onPressed: pending || expected == null ? null : save,
-                    child: Text(pending ? 'Saving…' : 'Save'),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: pending ? null : () => load(keepEdits: true),
+                      child: const Text('Refresh · keep edits'),
+                    ),
+                    FilledButton(
+                      key: const Key('save-model-details'),
+                      onPressed: pending || expected == null ? null : save,
+                      child: Text(pending ? 'Saving…' : 'Save'),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),

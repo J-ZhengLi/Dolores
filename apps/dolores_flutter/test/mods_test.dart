@@ -65,6 +65,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
+        find.text('Edit extension source'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.text('Edit extension source'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit extension source'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
         find.byKey(const Key('mod-source')),
         150,
         scrollable: find.byType(Scrollable).first,
@@ -110,6 +119,15 @@ void main() {
       expect(bridge.tests, 0);
       expect(find.textContaining('output tokens'), findsOneWidget);
       await tester.scrollUntilVisible(
+        find.text('Edit extension source'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.text('Edit extension source'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit extension source'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
         find.byKey(const Key('mod-source')),
         150,
         scrollable: find.byType(Scrollable).first,
@@ -144,6 +162,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.textContaining('quarantined fixture'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Edit extension source'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.text('Edit extension source'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit extension source'));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('mod-source')),
         150,

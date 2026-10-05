@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import 'bridge.dart';
+import 'settings_frame.dart';
 
 class SkillCreateDialog extends StatefulWidget {
   final ChatBridge bridge;
@@ -149,100 +150,103 @@ class _SkillCreateState extends State<SkillCreateDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    onPopInvokedWithResult: (didPop, _) {
-      if (!didPop) close();
-    },
-    child: AlertDialog(
-      title: Text(
-        review != null
-            ? 'Review skill'
-            : widget.importing
-            ? 'Import skill'
-            : 'Create skill',
-      ),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (error != null) Text(error!),
-              if (review == null) ...[
-                if (widget.importing)
-                  TextButton.icon(
-                    onPressed: pending ? null : readFile,
-                    icon: const Icon(Icons.file_open_outlined),
-                    label: const Text('Choose SKILL.md'),
-                  ),
-                TextField(
-                  key: const Key('create-skill-name'),
-                  controller: name,
-                  enabled: !pending,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'code-review',
-                  ),
-                ),
-                if (!widget.importing)
+  Widget build(BuildContext context) => CloseOnEscape(
+    onClose: close,
+    child: PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) close();
+      },
+      child: AlertDialog(
+        title: Text(
+          review != null
+              ? 'Review skill'
+              : widget.importing
+              ? 'Import skill'
+              : 'Create skill',
+        ),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (error != null) Text(error!),
+                if (review == null) ...[
+                  if (widget.importing)
+                    TextButton.icon(
+                      onPressed: pending ? null : readFile,
+                      icon: const Icon(Icons.file_open_outlined),
+                      label: const Text('Choose SKILL.md'),
+                    ),
                   TextField(
-                    key: const Key('create-skill-description'),
-                    controller: description,
+                    key: const Key('create-skill-name'),
+                    controller: name,
                     enabled: !pending,
                     decoration: const InputDecoration(
-                      labelText: 'When to use it',
+                      labelText: 'Name',
+                      hintText: 'code-review',
                     ),
                   ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('create-skill-text'),
-                  controller: body,
-                  enabled: !pending,
-                  minLines: 5,
-                  maxLines: 10,
-                  decoration: InputDecoration(
-                    labelText: widget.importing ? 'SKILL.md' : 'Instructions',
+                  if (!widget.importing)
+                    TextField(
+                      key: const Key('create-skill-description'),
+                      controller: description,
+                      enabled: !pending,
+                      decoration: const InputDecoration(
+                        labelText: 'When to use it',
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('create-skill-text'),
+                    controller: body,
+                    enabled: !pending,
+                    minLines: 5,
+                    maxLines: 10,
+                    decoration: InputDecoration(
+                      labelText: widget.importing ? 'SKILL.md' : 'Instructions',
+                    ),
                   ),
-                ),
-              ] else ...[
-                Text(
-                  'Use ${widget.scope == 'global' ? 'in all projects' : 'in this project'}. Activation shares these instructions with your model. Tools keep their existing access rules.',
-                ),
-                const SizedBox(height: 12),
-                SelectableText(review!['document']['text'] as String),
+                ] else ...[
+                  Text(
+                    'Use ${widget.scope == 'global' ? 'in all projects' : 'in this project'}. Activation shares these instructions with your model. Tools keep their existing access rules.',
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(review!['document']['text'] as String),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: pending ? null : close,
-          child: const Text('Cancel'),
-        ),
-        if (review != null)
+        actions: [
           TextButton(
-            onPressed: pending ? null : () => setState(() => review = null),
-            child: const Text('Edit'),
+            onPressed: pending ? null : close,
+            child: const Text('Cancel'),
           ),
-        FilledButton(
-          key: const Key('create-skill-review'),
-          onPressed: pending
-              ? null
-              : review == null
-              ? inspect
-              : activateSkill,
-          child: Text(
-            pending
-                ? 'Working…'
+          if (review != null)
+            TextButton(
+              onPressed: pending ? null : () => setState(() => review = null),
+              child: const Text('Edit'),
+            ),
+          FilledButton(
+            key: const Key('create-skill-review'),
+            onPressed: pending
+                ? null
                 : review == null
-                ? 'Review'
-                : 'Activate skill',
+                ? inspect
+                : activateSkill,
+            child: Text(
+              pending
+                  ? 'Working…'
+                  : review == null
+                  ? 'Review'
+                  : 'Activate skill',
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

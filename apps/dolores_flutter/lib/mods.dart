@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+import 'settings_frame.dart';
 
 const modManifest = {
   'id': 'recovery-hints',
@@ -176,8 +177,8 @@ class _ModsState extends State<ModsInspector> {
   Widget build(BuildContext context) => PopScope(
     canPop: !pending,
     child: InspectorFrame(
-      title: 'Harness mods',
-      subtitle: 'This working folder · executable recovery guidance',
+      title: 'Harness extensions',
+      subtitle: 'Recovery guidance for this project',
       canClose: !pending,
       child: Column(
         children: [
@@ -191,7 +192,7 @@ class _ModsState extends State<ModsInspector> {
                   ),
                 if (report != null) ...[
                   const Text(
-                    'Mods can refine recovery hints. The host keeps permissions, credentials, budgets and tests. No arbitrary native or UI code runs.',
+                    'Improve recovery hints with tested, reversible extensions.',
                   ),
                   const SizedBox(height: 12),
                   if ((state['draftNotice'] as String? ?? '').isNotEmpty)
@@ -200,7 +201,7 @@ class _ModsState extends State<ModsInspector> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Activate qualifying mods automatically'),
                     subtitle: const Text(
-                      'Off by default. Only strict improvement on six fixed ABI 1 cases; restore is available. This does not enable general self-modification.',
+                      'Off by default. Only tested improvements; restore is available.',
                     ),
                     value: state['automatic'] == true,
                     onChanged: pending
@@ -265,26 +266,43 @@ class _ModsState extends State<ModsInspector> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SettingsDetails(
+                    title: 'Sharing & test limits',
+                    children: [
+                      Text(
+                        'The host keeps permissions, credentials, budgets and tests. No arbitrary native or UI code runs. Automatic activation requires strict improvement on six fixed ABI 1 cases and does not enable general self-modification.',
+                      ),
+                      Text(
+                        'Draft a repair shares only the current mod source with your selected model. One request, up to 1024 output tokens and 30 seconds. Partial or malformed drafts remain editable and cannot activate.',
+                      ),
+                    ],
+                  ),
                   const Text(
-                    'Draft a repair shares only the current mod source with your selected model. One request, up to 1024 output tokens and 30 seconds. Partial or malformed drafts remain editable and cannot activate.',
+                    'Drafting sends this extension source to your model provider.',
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    key: const Key('mod-source'),
-                    controller: source,
-                    enabled: !pending,
-                    minLines: 4,
-                    maxLines: 9,
-                    maxLength: 8192,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'WebAssembly text source',
-                      hintText: '(module (func (export "recovery_hint") …))',
-                    ),
+                  SettingsDetails(
+                    key: const Key('mod-source-details'),
+                    title: 'Edit extension source',
+                    children: [
+                      TextField(
+                        key: const Key('mod-source'),
+                        controller: source,
+                        enabled: !pending,
+                        minLines: 4,
+                        maxLines: 9,
+                        maxLength: 8192,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'WebAssembly text source',
+                          hintText:
+                              '(module (func (export "recovery_hint") …))',
+                        ),
+                      ),
+                    ],
                   ),
                   for (final v in (state['versions'] as List?) ?? [])
                     ExpansionTile(

@@ -1,7 +1,8 @@
 # Everyday Dolores UX — milestone 15
 
-Status: **audit and target contract**, 2026-10-05. This document defines the next
-UX milestone; it does not describe features as already implemented. The user asked
+Status: **audit, target contract and selected design**, 2026-10-05; implementation
+delivered in milestone 15. The audit below preserves its original baseline;
+[qualification](../qualification/everyday-ux.md) distinguishes delivered behavior from acceptance gaps. The user asked
 for conversation-first access, useful defaults and simpler settings throughout
 the app. Milestone 14's model-reliability gaps remain open independently.
 
@@ -224,6 +225,12 @@ input review rules remain enforced unless a separately tested explicit policy
 change qualifies coverage; fewer screens must not mean hidden authority expansion.
 
 ## Defaults, wording and save behavior
+
+Follow-up refinement, 2026-10-06: Advanced opens a short task chooser. Individual
+editors show status and necessary controls first; long explanations, budgets,
+provenance and source use named details. Sharing, experimental status and action
+effects remain beside the relevant decision. Advanced is not exempt from the
+short-copy targets below.
 
 - Routine settings show the current value directly. Global preferences default to
   All chats. Optional project/chat overrides show their source and a clear reset;

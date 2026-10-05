@@ -327,11 +327,16 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           )
                         else if (widget.group == SettingsGroup.task)
                           SelectableText(
-                            'Model calls per segment: ${effective!['task']?['modelCalls'] ?? 4}\nTool operations per segment: ${effective['task']?['toolCalls'] ?? 4}\nTotal task segments: ${effective['task']?['segments'] ?? 4}',
+                            '${effective!['task']?['modelCalls'] ?? 4} model calls · ${effective['task']?['toolCalls'] ?? 4} tools · ${effective['task']?['segments'] ?? 4} segments',
                           )
                         else
-                          SelectableText(
-                            'Effective output: ${effective!['request']['maxOutputTokens']} tokens · ${effective['requestOrigin']}\nTimeout: ${effective['request']['timeoutSeconds']} seconds\nContext: ${effective['contextWindowTokens']} tokens · ${effective['contextOrigin']}\nInteraction: ${effective['interactionOrigin']}',
+                          SettingsDetails(
+                            title: 'Effective settings',
+                            children: [
+                              SelectableText(
+                                'Effective output: ${effective!['request']['maxOutputTokens']} tokens · ${effective['requestOrigin']}\nTimeout: ${effective['request']['timeoutSeconds']} seconds\nContext: ${effective['contextWindowTokens']} tokens · ${effective['contextOrigin']}\nInteraction: ${effective['interactionOrigin']}',
+                              ),
+                            ],
                           ),
                         if (shows(SettingsGroup.task))
                           CheckboxListTile(
@@ -368,7 +373,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Text(
-                              'Edit model generation defaults in Models → Responses. Context windows are in Models → Connection & models.',
+                              'Change response defaults in Advanced. Change context size in Models.',
                             ),
                           ),
                         if (shows(SettingsGroup.generation) &&

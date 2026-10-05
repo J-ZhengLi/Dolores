@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+import 'settings_frame.dart';
 
 class LearningInspector extends StatefulWidget {
   final ChatController chat;
@@ -176,8 +177,8 @@ class _LearningState extends State<LearningInspector> {
   Widget build(BuildContext context) => PopScope(
     canPop: !pending,
     child: InspectorFrame(
-      title: 'Skill learning',
-      subtitle: 'This working folder · targeted repairs and evidence',
+      title: 'Learning experiments',
+      subtitle: 'Test and review skill improvements',
       canClose: !pending,
       child: Column(
         children: [
@@ -199,18 +200,16 @@ class _LearningState extends State<LearningInspector> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Reflect on saved task evidence'),
                     subtitle: const Text(
-                      'Off by default. Inspect one relevant saved event once; private notes are used only locally when separately eligible.',
+                      'Off by default. Inspect eligible task evidence locally.',
                     ),
                     value: state['enabled'] == true,
                     onChanged: pending ? null : (v) => policy(enabled: v),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Activate tested command repairs automatically',
-                    ),
+                    title: const Text('Activate tested repairs'),
                     subtitle: const Text(
-                      'Experimental; live improvement acceptance is pending. Only the exact host config-check-v1 workflow. Unknown instruction impact, global skills and new authority require review. Passing tests alone is not permission.',
+                      'Experimental. Only supported project repairs; broader changes need review.',
                     ),
                     value: state['automatic'] == true,
                     onChanged: pending ? null : (v) => policy(automatic: v),
@@ -219,38 +218,55 @@ class _LearningState extends State<LearningInspector> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Pause learning'),
                     subtitle: const Text(
-                      'Keeps facts, skills and history. No new reflection or activation while paused.',
+                      'Stops new learning; keeps existing work.',
                     ),
                     value: state['paused'] == true,
                     onChanged: pending ? null : (v) => policy(paused: v),
                   ),
-                  const Text(
-                    'One proposed command repair can use four isolated cases: at most 20 model calls, 32 tool operations and 120 seconds total, 1024 output tokens per call. Only skill snapshots and disposable fixtures go to the configured provider. Original replies and baseline snapshots remain. No model-authored JSON draft, global rewrite or process execution is enabled.',
+                  const SettingsDetails(
+                    title: 'How learning works',
+                    children: [
+                      Text(
+                        'Off by default. Inspect one relevant saved event once; private notes are used only locally when separately eligible. Automatic activation is experimental; live improvement acceptance is pending. Only the exact host config-check-v1 workflow qualifies. Unknown instruction impact, global skills and new authority require review. Passing tests alone is not permission.',
+                      ),
+                      Text(
+                        'One proposed command repair can use four isolated cases: at most 20 model calls, 32 tool operations and 120 seconds total, 1024 output tokens per call. Only skill snapshots and disposable fixtures go to the configured provider. Original replies and baseline snapshots remain. No model-authored JSON draft, global rewrite or process execution is enabled.',
+                      ),
+                      Text(
+                        'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate Library reviews remain available.',
+                      ),
+                    ],
                   ),
                   const Text(
-                    'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate Library reviews remain available.',
+                    'Tests send skill snapshots and disposable examples to your model provider.',
                   ),
                   if (report!['workflowAvailable'] == true) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Optional supported workflow: enable the top-level config.json flag and run one project check. Review its command before creating the saved project skill. This does not grant command permission.',
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('learning-command'),
-                      controller: command,
-                      enabled: !pending,
-                      decoration: const InputDecoration(
-                        labelText: 'Current check command (node and one .cjs filename)',
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: pending
-                          ? null
-                          : () => action('createCheckWorkflow', {
-                              'command_text': command.text,
-                            }),
-                      child: const Text('Create check workflow'),
+                    const SizedBox(height: 12),
+                    SettingsDetails(
+                      key: const Key('learning-workflow-details'),
+                      title: 'Create a check workflow',
+                      children: [
+                        const Text(
+                          'Optional supported workflow: enable the top-level config.json flag and run one project check. Review its command before creating the saved project skill. This does not grant command permission.',
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          key: const Key('learning-command'),
+                          controller: command,
+                          enabled: !pending,
+                          decoration: const InputDecoration(
+                            labelText: 'Current check command (node and one .cjs filename)',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: pending
+                              ? null
+                              : () => action('createCheckWorkflow', {
+                                  'command_text': command.text,
+                                }),
+                          child: const Text('Create check workflow'),
+                        ),
+                      ],
                     ),
                   ],
                   for (final event in (state['events'] as List?) ?? [])

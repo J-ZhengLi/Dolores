@@ -128,91 +128,94 @@ class _ChatDetailsState extends State<ChatDetails> {
         child: create(selected),
       );
     });
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) close();
-      },
-      child: Dialog(
-        key: const Key('chat-details'),
-        alignment: Alignment.centerRight,
-        insetPadding: EdgeInsets.zero,
-        backgroundColor: p.bg,
-        shape: const RoundedRectangleBorder(),
-        child: SizedBox(
-          width: 520,
-          height: double.infinity,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Chat details',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      key: const Key('close-chat-details'),
-                      tooltip: 'Close details',
-                      onPressed: pending ? null : close,
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    for (final page in ChatDetail.values)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          child: ChoiceChip(
-                            label: Text(switch (page) {
-                              ChatDetail.context => 'Context',
-                              ChatDetail.activity => 'Activity',
-                              ChatDetail.changes => 'Changes',
-                            }),
-                            selected: selected == page,
-                            onSelected: pending
-                                ? null
-                                : (_) => setState(() => selected = page),
+    return CloseOnEscape(
+      onClose: close,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) close();
+        },
+        child: Dialog(
+          key: const Key('chat-details'),
+          alignment: Alignment.centerRight,
+          insetPadding: EdgeInsets.zero,
+          backgroundColor: p.bg,
+          shape: const RoundedRectangleBorder(),
+          child: SizedBox(
+            width: 520,
+            height: double.infinity,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Chat details',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
-              const Divider(height: 20),
-              if (widget.chat.workspaceRoot != null &&
-                  widget.chat.session != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: pending || widget.chat.busy
-                        ? null
-                        : () => showInstructions(context, widget.chat),
-                    icon: const Icon(Icons.rule_folder_outlined, size: 18),
-                    label: const Text('Project instructions'),
+                      IconButton(
+                        key: const Key('close-chat-details'),
+                        tooltip: 'Close details',
+                        onPressed: pending ? null : close,
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
                   ),
                 ),
-              Expanded(
-                child: IndexedStack(
-                  index: selected.index,
-                  children: [
-                    for (final page in ChatDetail.values)
-                      panels[page] ?? const SizedBox.shrink(),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      for (final page in ChatDetail.values)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ChoiceChip(
+                              label: Text(switch (page) {
+                                ChatDetail.context => 'Context',
+                                ChatDetail.activity => 'Activity',
+                                ChatDetail.changes => 'Changes',
+                              }),
+                              selected: selected == page,
+                              onSelected: pending
+                                  ? null
+                                  : (_) => setState(() => selected = page),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const Divider(height: 20),
+                if (widget.chat.workspaceRoot != null &&
+                    widget.chat.session != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: pending || widget.chat.busy
+                          ? null
+                          : () => showInstructions(context, widget.chat),
+                      icon: const Icon(Icons.rule_folder_outlined, size: 18),
+                      label: const Text('Project instructions'),
+                    ),
+                  ),
+                Expanded(
+                  child: IndexedStack(
+                    index: selected.index,
+                    children: [
+                      for (final page in ChatDetail.values)
+                        panels[page] ?? const SizedBox.shrink(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

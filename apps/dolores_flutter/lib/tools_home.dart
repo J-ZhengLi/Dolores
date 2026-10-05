@@ -67,6 +67,13 @@ class _ToolsHomeState extends State<ToolsHome> {
             onTap: () => widget.open(tool.$1),
           ),
         ListTile(
+          leading: const Icon(Icons.school_outlined),
+          title: const Text('Skills'),
+          subtitle: const Text('Import, create or learn from a chat'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => widget.open('skills'),
+        ),
+        ListTile(
           leading: const Icon(Icons.extension_outlined),
           title: const Text('Connections'),
           subtitle: const Text('Add external tools'),

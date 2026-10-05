@@ -6,6 +6,11 @@ Open **Settings** at the bottom left (open Conversations first in a narrow windo
 
 **General** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
+**Advanced** starts with a short list of tasks. Testing/learning and diagnostics
+expand only when needed. Within each editor, Details contains exact limits and
+technical explanations. Escape closes a form through the same unsaved-change
+checks as Close; it cannot dismiss an operation still saving or running.
+
 Drag the sidebar’s right border to make it wider or narrower. Double-click the
 border to reset its width. You can also focus it and use Left/Right arrows to
 resize or Home to reset. The chosen width stays for the current window; smaller

@@ -1743,3 +1743,41 @@ Header keeps icon-only Changes / Activity / Chat actions with hints. The compose
 Actual output/step pauses expose View progress and the relevant Adjust limits link alongside bounded continuation. Uncertain desktop effects still require inspection without replay. Access labels refresh after Settings changes; no access/budget/privacy defaults changed. Updated README/user guide and old-to-new control map reflect implemented navigation, including Windows input rather than its obsolete planned label.
 
 Exercised: all 233 Flutter tests PASS; analyzer clean. Includes 420x480 light/dark panel paths, no eager context request, failed context plus unsaved correction across tabs/Close, failed attachment cleanup with draft retained, source/approval expansion, Stop and existing continuation/uncertainty tests. Normal Windows release built and launched visibly; 37 user tables unchanged. Native panel matrix and model qualification remain tracked in 15.8.
+
+### 15.8 Everyday-flow qualification and Advanced refinement — implemented, acceptance gaps
+
+Advanced now starts with a short chooser. Skill testing/learning and diagnostics/
+storage are collapsed groups; technical policy, limits and source explanations
+appear on demand inside the editors. Sharing consequences and experimental status
+remain visible. Tools includes a direct Skills entry. The System theme preview
+uses one continuous scene. No numerical, privacy or approval defaults changed.
+
+Native verification exposed Escape failing on protected modal routes. A real-route
+widget test reproduced the failure before the fix; Escape now takes the existing
+Close path with pending-operation and Save/Discard/Keep editing protections.
+Cancellation retains edited model text and saves nothing. An error inserted during
+workflow creation also exposed a collapsing editor; its stable identity now keeps
+the open form and values. All 238 Flutter tests PASS, analyzer clean, preview Python
+scripts compile. Compact 420x480 light/dark coverage includes the new chooser.
+
+The final normal Windows release built and was visually inspected: dark General/
+Advanced/Harness extensions and light General/Advanced/Context/Activity/Changes.
+Native Escape closed Settings and Chat details. Earlier wide review covered all
+six sections, model details and populated memory. These are sampled native checks;
+the full light/dark/compact nested-screen matrix remains open. The user's normal
+provider/history profile is restored for the visible final launch, with preservation
+checked against all 37 tables.
+
+Frozen computer-use reruns remain FAIL: Qwen3.5-2B stopped at screenshot receipt
+validation before input; DeepSeek V4.1 Flash typed the exact text and observed it,
+but the proposed Save target was refused by the unchanged review. Zero saves,
+no blind retry or repeated submission. These do not close milestone 14 reliability.
+Bounded learning results remain separate: DeepSeek draft parsed without activation;
+Qwen ordinary chat survived but extraction saved no verified preference.
+
+The [qualification report](qualification/everyday-ux.md) records navigation counts,
+reproduction and resource observations. Two settled final-release samples used
+6.81–6.92% of one CPU core; the final endpoint was 322 MiB working set / 326 MiB
+private bytes. Sustained idle cost, a matched performance baseline, exhaustive
+native layouts, physical IME/accessibility, other OS and lower-end hosts remain
+acceptance gaps. Optional browser installation still uses setup instructions.

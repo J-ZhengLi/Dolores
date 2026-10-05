@@ -1,18 +1,24 @@
 # Universal UI style
 
-Milestone 15's [UX audit and target contract](design/ux-simplification.md) plans
+Milestone 15's [UX audit and target contract](design/ux-simplification.md) defines
 conversation-first computer use, simpler settings navigation and progressive
 disclosure across configuration. Current sections below describe implemented UI.
-Update each affected section with its runtime brick; the target is not yet the
-running app. Preserve this document's palette/brand/focus/compact rules during
+The selected A hierarchy is implemented; [qualification](qualification/everyday-ux.md)
+records native/model/platform gaps. Preserve this document's palette/brand/focus/compact rules during
 the UX work. The contract now also covers conversation controls, summary, activity,
 changes and recovery; three layouts are captured for review on
 `codex/prototype-everyday-ux`. The user selected A's drawer layout with the existing
 icon set, icon-only header actions with hover/focus hints and retained theme preview
 tiles. Status cards use the normal surface and uniform border; avoid decorative
-colored left edges. This selected target is not yet an adopted runtime UI.
+colored left edges.
 Earlier restrictions on adding task controls are revised by the
 named milestone 15 scope when that brick is implemented.
+
+Advanced starts with a short task chooser, with testing/learning and diagnostics/
+storage groups closed. Nested pages show controls and status before explanation;
+named Details retains exact budgets, source and provenance. Sharing and experimental
+status remain visible beside their actions. Escape follows Close's draft/pending
+checks. Expanded editors retain state when errors or status notices appear.
 
 ## Desktop window frame
 
@@ -45,9 +51,9 @@ anchored at the bottom. Section labels ellipsize before clipping their chevrons.
 
 One labeled gear entry, **Settings**, sits below the sidebar divider at the bottom left. Remove separate Memory, Model connection and Request settings entries and configuration entries from Chat actions. The latter uses `Icons.more_horiz` in every size and keeps Branch chat / Export / Chat details actions. Skills management lives in Settings too; workspace instructions remain a conversation-context action.
 
-Use one 960×720 maximum system-themed window with 16-pixel outer margins, a 200-pixel scrolling category list and a scrolling editor with fixed wrapping save controls. Selected categories use the existing soft selected-session color. Categories are Appearance, Models, Personalization, Memory, Web search, Browser, External tools, Skills, Permissions and Task limits. Below 640 pixels, replace the category list with a labeled dropdown; Models uses a second dropdown alongside it. Wide Models uses Connection & models / Responses / Scope overrides chips. Avoid nesting settings dialogs; explicit detail/review dialogs remain separate modal routes.
+Use one 960×720 maximum system-themed window with 16-pixel outer margins, a 200-pixel scrolling category list and a scrolling editor with fixed wrapping save controls. Selected categories use the existing soft selected-session color. Sections are General, Models, Personalization, Memory, Tools and Advanced. Below 640 pixels, use a labeled section dropdown. Tools and Advanced retain named subpages and direct search links. Models lists enabled models; its detail editor combines context, image and response controls. Avoid nesting settings dialogs; explicit detail/review dialogs remain separate modal routes.
 
-Create editors only on first visit and retain their drafts for this window. Pending operations block category switching, Close and Escape; failed saves preserve edits with visible recovery. Close discards unsaved drafts. Appearance offers System / Light / Dark cards using local preview illustrations, applies and persists after storage acknowledgement, and retains the old theme on failure. Theme changes update open panels and the app. Default System follows device brightness. Other saves retain explicit scope/revision/credential/review rules; each scope reset affects only its section. Deep links from recovery open the relevant category in this same window. Workspace-dependent pages explain prerequisites rather than disappearing. No theme-dependent network requests or idle polling.
+Create editors only on first visit and retain their drafts for this window. Pending operations block category switching, Close and Escape; failed saves preserve edits with visible recovery. Close and Escape offer Save / Discard / Keep editing for unsaved drafts. Appearance offers System / Light / Dark cards using local preview illustrations, applies and persists after storage acknowledgement, and retains the old theme on failure. Theme changes update open panels and the app. Default System follows device brightness. Other saves retain explicit scope/revision/credential/review rules; each scope reset affects only its section. Deep links from recovery open the relevant category in this same window. Workspace-dependent pages explain prerequisites rather than disappearing. No theme-dependent network requests or idle polling.
 
 
 ## Conversation messages
@@ -65,7 +71,7 @@ tool evidence, usage and recovery controls stay available in their existing form
 
 ## Browser use
 
-Settings → Skills retains Library, Tool trials and Learning as cached embedded editors.
+Settings → Tools offers Skills; Advanced offers Skill testing and Learning experiments as cached embedded editors.
 Learning exposes off-by-default reflection/automatic activation, project pause,
 the optional host check workflow, local causes and independent receipts. Failed
 saves retain drafts; explicit Refresh never replays a claimed event. No new
@@ -78,7 +84,7 @@ Pending trials block switching/closing and expose Stop; saved receipts, errors
 and candidate drafts remain inspectable. Trial settings are frozen separately
 from chat settings. Do not describe simulated checks as executed OS commands.
 
-Settings → Browser uses the same embedded inspector with a scrolling status/setup
+Settings → Tools → Browser uses the same embedded inspector with a scrolling status/setup
 body and fixed Refresh action. It starts no browser. Reuse tool approvals for
 literal browser JSON, profile/sharing/effects disclosure and fresh click/input
 review. Browser cards label stale state as no action dispatched, and uncertain
@@ -88,7 +94,7 @@ does not repeat the browser action. Add no header/composer control or idle polli
 
 ## Web search
 
-Settings → Web search offers a global connection editor using
+Settings → Tools → Web search offers a global connection editor using
 InspectorFrame/system palette. Default Mwmbl needs no setup; the scrolling body
 offers enabled/provider, public SearXNG endpoint and obscured Brave key/removal.
 Disclose index coverage, query/URL/model sharing, quota, public network restrictions,

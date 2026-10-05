@@ -98,6 +98,8 @@ void main() {
         find.textContaining('Output reservation exceeds model window.'),
         findsOneWidget,
       );
+      await tester.tap(find.text('Effective settings'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('8192 tokens'), findsOneWidget);
       await tester.tap(find.text('Use inherited settings'));
       await tester.pumpAndSettle();
@@ -122,6 +124,8 @@ void main() {
         ..loading = false
         ..draft = 'Keep my work';
       await show(tester, chat);
+      await tester.tap(find.text('Effective settings'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('256 tokens · Thread'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const Key('scoped-output')));
       await tester.enterText(find.byKey(const Key('scoped-output')), '512');

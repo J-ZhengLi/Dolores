@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'chat.dart';
 import 'inspector.dart';
 import 'theme.dart';
+import 'settings_frame.dart';
 
 Future<void> showComparisons(BuildContext context, ChatController chat) =>
     chat.inspectLocalSettings(() async {
@@ -497,11 +498,21 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
                     ),
                   if (loading) const LinearProgressIndicator(),
                   const Text(
-                    'Compare two memory / skill instruction snapshots with the same model and 1–3 tests. Up to six paid responses. Chat history, other active instructions and tools are excluded. Selected text and responses are saved locally and included in chat exports.',
+                    'Compare two instruction versions with the same model.',
                   ),
-                  const SizedBox(height: 12),
                   const Text(
-                    'Exact snippet checks measure these responses only; they do not establish general task quality, statistical improvement or permission to activate a change.',
+                    'Selected text goes to your provider. Up to six paid responses.',
+                  ),
+                  const SettingsDetails(
+                    title: 'Comparison details',
+                    children: [
+                      Text(
+                        'Compare two memory / skill instruction snapshots with the same model and 1–3 tests. Up to six paid responses. Chat history, other active instructions and tools are excluded. Selected text and responses are saved locally and included in chat exports.',
+                      ),
+                      Text(
+                        'Exact snippet checks measure these responses only; they do not establish general task quality, statistical improvement or permission to activate a change.',
+                      ),
+                    ],
                   ),
                   if (selected != null)
                     receipt(p)

@@ -9,7 +9,11 @@ import 'dart:convert';
 class RequestSettingsDialog extends StatefulWidget {
   final ChatController chat;
   final bool appDefaults;
-  const RequestSettingsDialog({super.key, required this.chat, this.appDefaults = false});
+  const RequestSettingsDialog({
+    super.key,
+    required this.chat,
+    this.appDefaults = false,
+  });
   @override
   State<RequestSettingsDialog> createState() => _RequestSettingsDialogState();
 }
@@ -32,7 +36,9 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   late String endpoint, model;
   String reasoning = 'providerDefault';
   bool inherited = false;
-  Map<String, dynamic> get selectedSettings => widget.appDefaults ? widget.chat.defaultRequestSettings : model == widget.chat.model
+  Map<String, dynamic> get selectedSettings => widget.appDefaults
+      ? widget.chat.defaultRequestSettings
+      : model == widget.chat.model
       ? widget.chat.requestSettings
       : (widget.chat.modelRequestSettings[model] as Map?)
                 ?.cast<String, dynamic>() ??
@@ -238,9 +244,14 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                       : (value) => setState(() => reasoning = value!),
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  'Saved for this model and endpoint. Project/chat output and timeout overrides in Models → Scope overrides take precedence. Check them when adjusting a failed run’s limit. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
-                  style: TextStyle(color: p.muted, fontSize: 12),
+                SettingsDetails(
+                  title: 'How response limits apply',
+                  children: [
+                    Text(
+                      'Project/chat output and timeout overrides in Advanced → Scope overrides take precedence. Check them when adjusting a failed run’s limit. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 TextButton(

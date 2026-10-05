@@ -20,8 +20,10 @@ import 'desktop_settings.dart';
 import 'comparison.dart';
 import 'capabilities.dart';
 import 'attachment_storage.dart';
+import 'advanced_home.dart';
 
 enum SettingsCategory {
+  advancedHome,
   appearance,
   models,
   personalization,
@@ -91,6 +93,7 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
             : SettingsSection.models,
       SettingsCategory.personalization => SettingsSection.personalization,
       SettingsCategory.memory => SettingsSection.memory,
+      SettingsCategory.advancedHome ||
       SettingsCategory.mods ||
       SettingsCategory.limits ||
       SettingsCategory.skillTesting ||
@@ -124,6 +127,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsSection.advanced: ('Advanced', Icons.settings_outlined),
   };
   static const destinations = <(String, SettingsCategory, ModelsPage, String)>[
+    (
+      'Advanced overview',
+      SettingsCategory.advancedHome,
+      ModelsPage.connection,
+      'tuning testing troubleshooting',
+    ),
     (
       'Compare instructions',
       SettingsCategory.comparisons,
@@ -264,7 +273,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
 
   void selectSection(SettingsSection value) {
     final target = destinations.firstWhere(
-      (d) => sectionFor(d.$2, d.$3) == value,
+      (d) =>
+          sectionFor(d.$2, d.$3) == value &&
+          (value != SettingsSection.advanced ||
+              d.$2 == SettingsCategory.advancedHome),
     );
     navigate(target.$2, target.$3);
   }
@@ -324,6 +336,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.advancedHome => AdvancedHome(
+      open: (category, page) => navigate(
+        SettingsCategory.values.byName(category),
+        ModelsPage.values.byName(page),
+      ),
+    ),
     SettingsCategory.comparisons =>
       widget.chat.session == null
           ? unavailable('Start a chat before comparing instruction snapshots.')
@@ -424,215 +442,223 @@ class _SettingsWindowState extends State<SettingsWindow> {
               sectionFor(d.$2, d.$3) == section && d.$3 != ModelsPage.responses,
         )
         .toList();
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) close();
-      },
-      child: Dialog(
-        key: const Key('settings-window'),
-        insetPadding: const EdgeInsets.all(16),
-        backgroundColor: p.bg,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 960, maxHeight: 720),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Settings',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
+    return CloseOnEscape(
+      onClose: close,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) close();
+        },
+        child: Dialog(
+          key: const Key('settings-window'),
+          insetPadding: const EdgeInsets.all(16),
+          backgroundColor: p.bg,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960, maxHeight: 720),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Settings',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      key: const Key('close-settings'),
-                      onPressed: pending ? null : close,
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: TextField(
-                  key: const Key('settings-search'),
-                  controller: search,
-                  enabled: !pending,
-                  onChanged: (_) => changed(),
-                  decoration: const InputDecoration(
-                    hintText: 'Search settings',
-                    prefixIcon: Icon(Icons.search, size: 18),
-                    isDense: true,
+                      TextButton(
+                        key: const Key('close-settings'),
+                        onPressed: pending ? null : close,
+                        child: const Text('Close'),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              Divider(height: 1, color: p.border),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 640;
-                    final content = Stack(
-                      children: [
-                        Column(
-                          children: [
-                            if (pages.length > 1)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  8,
-                                  16,
-                                  0,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: TextField(
+                    key: const Key('settings-search'),
+                    controller: search,
+                    enabled: !pending,
+                    onChanged: (_) => changed(),
+                    decoration: const InputDecoration(
+                      hintText: 'Search settings',
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: p.border),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 640;
+                      final content = Stack(
+                        children: [
+                          Column(
+                            children: [
+                              if (pages.length > 1)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    0,
+                                  ),
+                                  child: DropdownButtonFormField<int>(
+                                    key: ValueKey(
+                                      'settings-page-${section.name}-${selected.name}-${modelPage.name}',
+                                    ),
+                                    initialValue: pages.indexWhere(
+                                      (d) =>
+                                          d.$2 == selected &&
+                                          (selected !=
+                                                  SettingsCategory.models ||
+                                              d.$3 == modelPage),
+                                    ),
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                    ),
+                                    items: [
+                                      for (var i = 0; i < pages.length; i++)
+                                        DropdownMenuItem(
+                                          value: i,
+                                          child: Text(pages[i].$1),
+                                        ),
+                                    ],
+                                    onChanged: pending
+                                        ? null
+                                        : (i) => navigate(
+                                            pages[i!].$2,
+                                            pages[i].$3,
+                                          ),
+                                  ),
                                 ),
-                                child: DropdownButtonFormField<int>(
-                                  key: ValueKey(
-                                    'settings-page-${section.name}-${selected.name}-${modelPage.name}',
-                                  ),
-                                  initialValue: pages.indexWhere(
-                                    (d) =>
-                                        d.$2 == selected &&
-                                        (selected != SettingsCategory.models ||
-                                            d.$3 == modelPage),
-                                  ),
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                  ),
-                                  items: [
-                                    for (var i = 0; i < pages.length; i++)
-                                      DropdownMenuItem(
-                                        value: i,
-                                        child: Text(pages[i].$1),
+                              Expanded(
+                                key: const ValueKey('cached-settings-editors'),
+                                child: IndexedStack(
+                                  key: editorStackKey,
+                                  sizing: StackFit.expand,
+                                  index: panels.keys.toList().indexOf(panelKey),
+                                  children: panels.entries
+                                      .map(
+                                        (e) => KeyedSubtree(
+                                          key: ValueKey(e.key),
+                                          child: e.value,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (query.isNotEmpty)
+                            Positioned.fill(
+                              child: Material(
+                                color: p.bg,
+                                child: ListView(
+                                  children: [
+                                    if (matches.isEmpty)
+                                      const ListTile(
+                                        title: Text('No matching settings'),
+                                      ),
+                                    for (final d in matches)
+                                      ListTile(
+                                        key: Key(
+                                          'setting-result-${d.$2.name}-${d.$3.name}',
+                                        ),
+                                        title: Text(d.$1),
+                                        subtitle: Text(
+                                          labels[sectionFor(d.$2, d.$3)]!.$1,
+                                        ),
+                                        onTap: pending
+                                            ? null
+                                            : () => navigate(d.$2, d.$3),
                                       ),
                                   ],
-                                  onChanged: pending
-                                      ? null
-                                      : (i) =>
-                                            navigate(pages[i!].$2, pages[i].$3),
                                 ),
                               ),
-                            Expanded(
-                              key: const ValueKey('cached-settings-editors'),
-                              child: IndexedStack(
-                                key: editorStackKey,
-                                sizing: StackFit.expand,
-                                index: panels.keys.toList().indexOf(panelKey),
-                                children: panels.entries
-                                    .map(
-                                      (e) => KeyedSubtree(
-                                        key: ValueKey(e.key),
-                                        child: e.value,
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
                             ),
-                          ],
-                        ),
-                        if (query.isNotEmpty)
-                          Positioned.fill(
-                            child: Material(
-                              color: p.bg,
-                              child: ListView(
-                                children: [
-                                  if (matches.isEmpty)
-                                    const ListTile(
-                                      title: Text('No matching settings'),
-                                    ),
-                                  for (final d in matches)
-                                    ListTile(
-                                      key: Key(
-                                        'setting-result-${d.$2.name}-${d.$3.name}',
-                                      ),
-                                      title: Text(d.$1),
-                                      subtitle: Text(
-                                        labels[sectionFor(d.$2, d.$3)]!.$1,
-                                      ),
-                                      onTap: pending
-                                          ? null
-                                          : () => navigate(d.$2, d.$3),
+                        ],
+                      );
+                      if (compact) {
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: DropdownButtonFormField<SettingsSection>(
+                                key: ValueKey(
+                                  'settings-category-${section.name}',
+                                ),
+                                initialValue: section,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                ),
+                                items: [
+                                  for (final value in SettingsSection.values)
+                                    DropdownMenuItem(
+                                      value: value,
+                                      child: Text(labels[value]!.$1),
                                     ),
                                 ],
+                                onChanged: pending
+                                    ? null
+                                    : (value) => selectSection(value!),
                               ),
                             ),
-                          ),
-                      ],
-                    );
-                    if (compact) {
-                      return Column(
+                            Expanded(child: content),
+                          ],
+                        );
+                      }
+                      return Row(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: DropdownButtonFormField<SettingsSection>(
-                              key: ValueKey(
-                                'settings-category-${section.name}',
-                              ),
-                              initialValue: section,
-                              isExpanded: true,
-                              decoration: const InputDecoration(isDense: true),
-                              items: [
+                          Container(
+                            width: 180,
+                            color: p.sidebar,
+                            child: ListView(
+                              padding: const EdgeInsets.all(12),
+                              children: [
                                 for (final value in SettingsSection.values)
-                                  DropdownMenuItem(
-                                    value: value,
-                                    child: Text(labels[value]!.$1),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: TextButton.icon(
+                                      key: Key('settings-${value.name}'),
+                                      onPressed: pending
+                                          ? null
+                                          : () => selectSection(value),
+                                      style: TextButton.styleFrom(
+                                        alignment: Alignment.centerLeft,
+                                        foregroundColor: p.text,
+                                        backgroundColor: section == value
+                                            ? p.soft
+                                            : null,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      icon: Icon(labels[value]!.$2, size: 18),
+                                      label: Text(labels[value]!.$1),
+                                    ),
                                   ),
                               ],
-                              onChanged: pending
-                                  ? null
-                                  : (value) => selectSection(value!),
                             ),
                           ),
+                          VerticalDivider(width: 1, color: p.border),
                           Expanded(child: content),
                         ],
                       );
-                    }
-                    return Row(
-                      children: [
-                        Container(
-                          width: 180,
-                          color: p.sidebar,
-                          child: ListView(
-                            padding: const EdgeInsets.all(12),
-                            children: [
-                              for (final value in SettingsSection.values)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: TextButton.icon(
-                                    key: Key('settings-${value.name}'),
-                                    onPressed: pending
-                                        ? null
-                                        : () => selectSection(value),
-                                    style: TextButton.styleFrom(
-                                      alignment: Alignment.centerLeft,
-                                      foregroundColor: p.text,
-                                      backgroundColor: section == value
-                                          ? p.soft
-                                          : null,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 16,
-                                      ),
-                                    ),
-                                    icon: Icon(labels[value]!.$2, size: 18),
-                                    label: Text(labels[value]!.$1),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        VerticalDivider(width: 1, color: p.border),
-                        Expanded(child: content),
-                      ],
-                    );
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

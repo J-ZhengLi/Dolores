@@ -16,7 +16,7 @@ technical controls are expandable. These are implemented paths, not prototype li
 | Permissions | Composer Access, or Settings → Tools → Chat access |
 | External tools | Settings → Tools → Connections → Add / Import JSON → review launch |
 | Skills | Settings → Tools → Skills → Import / Create / Draft from chat |
-| Tool trials / skill learning | Settings → Advanced → Skill testing / Learning experiments |
+| Tool trials / skill learning | Settings → Advanced → Skill testing & learning → Skill testing / Learning experiments |
 | Harness mods | Settings → Advanced → Harness extensions |
 | Task limits | Settings → Advanced → Task limits; paused replies link directly |
 | Summary / context preview | Composer context ring → Context; Usage details / Summary details expand |
@@ -26,8 +26,8 @@ technical controls are expandable. These are implemented paths, not prototype li
 | Workspace instructions | Chat details → Project instructions |
 | Fork conversation | Chat actions → Branch chat |
 | Markdown / JSON / attachment exports | Chat actions → Export → select format |
-| Unused-attachment cleanup | Settings → Advanced → Attachment storage |
-| Compare instructions / capabilities / source | Settings → Advanced → named destination |
+| Unused-attachment cleanup | Settings → Advanced → Diagnostics & storage → Attachment storage |
+| Compare instructions / capabilities / source | Settings → Advanced → Diagnostics & storage → named destination |
 | Feedback / usage / attachment previews | Existing reply and attachment controls |
 
 Side chats retain no file tools. Global preference/skill management is available

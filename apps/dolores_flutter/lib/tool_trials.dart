@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'chat.dart';
 import 'inspector.dart';
 import 'skills.dart';
+import 'settings_frame.dart';
 
 class SkillSettings extends StatelessWidget {
   final ChatController chat;
@@ -166,8 +167,8 @@ class _ToolTrialsState extends State<ToolTrialsInspector> {
   Widget build(BuildContext context) => PopScope(
     canPop: !pending,
     child: InspectorFrame(
-      title: 'Tool trials',
-      subtitle: 'Fixed fixtures · isolated data · no activation',
+      title: 'Skill testing',
+      subtitle: 'Compare a skill without activating it',
       canClose: !pending,
       child: Column(
         children: [
@@ -175,8 +176,17 @@ class _ToolTrialsState extends State<ToolTrialsInspector> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                const Text('Test a project skill using isolated examples.'),
                 const Text(
-                  'Compare a project skill on an original config change and an independent regression case. Only in-memory fixture files and simulated checks are available. No process, project data, network or credentials are accessible. All four cases use the same model and allowances: 5 model calls, 8 tools, 1024 output tokens per call and 30 seconds per case. A claimed success alone cannot pass.',
+                  'Skill snapshots and test responses use your model provider.',
+                ),
+                const SettingsDetails(
+                  title: 'Test details',
+                  children: [
+                    Text(
+                      'Compare a project skill on an original config change and an independent regression case. Only in-memory fixture files and simulated checks are available. No process, project data, network or credentials are accessible. All four cases use the same model and allowances: 5 model calls, 8 tools, 1024 output tokens per call and 30 seconds per case. A claimed success alone cannot pass.',
+                    ),
+                  ],
                 ),
                 if (widget.chat.workspaceRoot == null)
                   const Padding(

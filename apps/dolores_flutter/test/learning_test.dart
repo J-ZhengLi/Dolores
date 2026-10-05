@@ -91,8 +91,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
+        find.text('Create a check workflow'),
+        150,
+      );
+      await tester.tap(find.text('Create a check workflow'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
         find.byKey(const Key('learning-command')),
         300,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.enterText(
         find.byKey(const Key('learning-command')),

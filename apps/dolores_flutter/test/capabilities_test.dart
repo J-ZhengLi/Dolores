@@ -109,6 +109,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('No working folder'), findsOneWidget);
+      await tester.ensureVisible(find.text('Browse matching source'));
+      await tester.tap(find.text('Browse matching source'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
       await tester.tap(find.byType(DropdownButtonFormField<String>));
       await tester.pumpAndSettle();

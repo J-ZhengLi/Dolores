@@ -3,6 +3,7 @@ import 'package:file_selector/file_selector.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+import 'settings_frame.dart';
 
 Future<void> showCapabilities(BuildContext context, ChatController chat) =>
     showDialog<void>(
@@ -99,8 +100,8 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
     final data = inventory;
     final tools = (data?['tools'] as List?) ?? [];
     return InspectorFrame(
-      title: 'Dolores capabilities',
-      subtitle: 'Running tools, limits and matching source · local inspection',
+      title: 'Capabilities & source',
+      subtitle: 'Inspect this app locally',
       child: Column(
         children: [
           Expanded(
@@ -115,12 +116,17 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
                       'Dolores ${data['version']} · ${data['workspace'] ?? 'No saved session'}',
                     ),
                     const SizedBox(height: 12),
-                    SelectableText(
-                      'Model: ${data['model']}\nContext: ${data['contextWindowTokens']} tokens (${data['contextOrigin']})\nApproval: ${data['approval']}\n${data['containment']}',
-                    ),
-                    const SizedBox(height: 12),
-                    SelectableText(
-                      'Run: ${data['limits']['modelCalls']} model calls / ${data['limits']['toolOperations']} tool operations\nSelf-updates: ${data['selfUpdate']}',
+                    SettingsDetails(
+                      title: 'Runtime details',
+                      children: [
+                        SelectableText(
+                          'Model: ${data['model']}\nContext: ${data['contextWindowTokens']} tokens (${data['contextOrigin']})\nApproval: ${data['approval']}\n${data['containment']}',
+                        ),
+                        const SizedBox(height: 12),
+                        SelectableText(
+                          'Run: ${data['limits']['modelCalls']} model calls / ${data['limits']['toolOperations']} tool operations\nSelf-updates: ${data['selfUpdate']}',
+                        ),
+                      ],
                     ),
                     if (data['extensions'] is List)
                       ExpansionTile(
@@ -149,35 +155,51 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
                         contentPadding: EdgeInsets.zero,
                         title: Text(tool['id'] as String),
                         subtitle: Text(
-                          '${tool['available'] == true ? 'Available after review' : 'Needs model connection'} · ${tool['source']}\nModel reliability: ${tool['empiricallyTested']}',
+                          tool['available'] == true
+                              ? 'Available after review'
+                              : 'Needs model connection',
                         ),
                       ),
-                    const Divider(),
-                    const Text(
-                      'Bundled source matches this build. A checkout is only compared; it never replaces this source.',
-                    ),
-                    DropdownButtonFormField<String>(
-                      initialValue: selected,
-                      decoration: const InputDecoration(
-                        labelText: 'Source component',
-                      ),
-                      items: [
-                        for (final item in data['sources'] as List)
-                          DropdownMenuItem(
-                            value: item['id'] as String,
-                            child: Text(item['id'] as String),
+                    SettingsDetails(
+                      title: 'Tool evidence',
+                      children: [
+                        for (final tool in tools)
+                          SelectableText(
+                            '${tool['id']} · ${tool['source']}\nModel reliability: ${tool['empiricallyTested']}',
                           ),
                       ],
-                      onChanged: pending
-                          ? null
-                          : (value) {
-                              setState(() {
-                                selected = value;
-                                source = null;
-                                line = 1;
-                              });
-                              readSource();
-                            },
+                    ),
+                    const Divider(),
+                    SettingsDetails(
+                      title: 'Browse matching source',
+                      children: [
+                        const Text(
+                          'Bundled source matches this build. A checkout is only compared; it never replaces this source.',
+                        ),
+                        DropdownButtonFormField<String>(
+                          initialValue: selected,
+                          decoration: const InputDecoration(
+                            labelText: 'Source component',
+                          ),
+                          items: [
+                            for (final item in data['sources'] as List)
+                              DropdownMenuItem(
+                                value: item['id'] as String,
+                                child: Text(item['id'] as String),
+                              ),
+                          ],
+                          onChanged: pending
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    selected = value;
+                                    source = null;
+                                    line = 1;
+                                  });
+                                  readSource();
+                                },
+                        ),
+                      ],
                     ),
                     if (source != null) ...[
                       SelectableText(
