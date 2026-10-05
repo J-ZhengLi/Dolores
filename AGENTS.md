@@ -6,6 +6,8 @@ When a limit causes real tasks to fail, trace its effect before changing default
 
 Write commit subjects and bodies in English.
 
+Build and launch through `python scripts/desktop.py build` and `python scripts/desktop.py launch`; do not use PowerShell helpers. Keep platform CI (8.4) deferred until the user explicitly requests it.
+
 After each completed brick or task, build and launch the updated normal desktop app visibly for user verification. Preserve the existing provider configuration and history, replace only an owned preview process when needed, and confirm the app window is visible before reporting completion. Diagnostic builds do not satisfy this launch requirement.
 
 Use the configured provider's Qwen3.5-2B model for routine live tests and DeepSeek V4.1 Flash for harder live cases. Keep prompts and token usage bounded, preserve the user's selected model/settings, and keep credentials and private transcripts out of test artifacts. Use deterministic fixtures for failure injection; a fixture pass alone does not establish real-model reliability.

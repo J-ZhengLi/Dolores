@@ -13,7 +13,7 @@ provider credentials. Its local response fixture prepares history only; it does
 not establish model reliability. Never point these scripts at a personal profile.
 
 ```text
-powershell -NoProfile -File scripts/build-flutter.ps1
+python scripts/desktop.py build
 python scripts/prepare-ux-preview.py --directory <absolute-output-directory>
 python scripts/measure-ux-preview.py --directory <same-preview-directory>
 ```

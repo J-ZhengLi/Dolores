@@ -107,7 +107,7 @@ def main():
             ('rust-format',['cargo','fmt','--all','--check'],ROOT,60,None),
             ('rust-lint',['cargo','clippy','--workspace','--all-targets','--locked','--','-D','warnings'],ROOT,300,None),
             ('rust-tests',['cargo','test','--workspace','--locked'],ROOT,300,None),
-            ('normal-build',['powershell','-NoProfile','-File',str(ROOT/'scripts/build-flutter.ps1'),'-FlutterSdk',str(args.flutter_sdk.resolve())],ROOT,900,None),
+            ('normal-build',[sys.executable,str(ROOT/'scripts/desktop.py'),'build','--flutter-sdk',str(args.flutter_sdk.resolve())],ROOT,900,None),
             ('flutter-analysis',[str(flutter),'--no-version-check','--suppress-analytics','analyze','--no-pub'],ROOT/'apps/dolores_flutter',120,None),
             ('flutter-tests',[str(flutter),'--no-version-check','--suppress-analytics','test','--no-pub'],ROOT/'apps/dolores_flutter',180,None),
         ]
@@ -120,7 +120,7 @@ def main():
               'coverageGaps':['general model competence','native input/accessibility','macOS/Linux','low-end resources','packaging/signing']}
     # Working-copy identities make a local report traceable even before a commit.
     report['sources'] = {}
-    for source in [Path(__file__), ROOT/'scripts/test-regression-runner.py', ROOT/'scripts/build-flutter.ps1',
+    for source in [Path(__file__), ROOT/'scripts/test-regression-runner.py', ROOT/'scripts/desktop.py',
                    ROOT/'Cargo.lock', ROOT/'apps/dolores_flutter/pubspec.lock',
                    *[ROOT/'scripts'/('test-'+case+'.py') for case in cases]]:
         with source.open('rb') as stream:

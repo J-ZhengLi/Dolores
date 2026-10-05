@@ -5,34 +5,9 @@
   "type": "module",
   "packageManager": "pnpm@11.1.2",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
-    "build": "pnpm check && vite build",
-    "preview": "vite preview --host 127.0.0.1",
-    "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
-    "desktop": "node scripts/flutter-desktop.mjs",
-    "desktop:build": "node scripts/flutter-desktop.mjs --build-only",
-    "desktop:iced": "cargo run -p dolores-native --locked",
-    "desktop:iced:build": "cargo build -p dolores-native --release --locked",
-    "desktop:web": "node node_modules/@tauri-apps/cli/tauri.js dev",
-    "desktop:web:build": "node node_modules/@tauri-apps/cli/tauri.js build --no-bundle",
+    "desktop": "python scripts/desktop.py build && python scripts/desktop.py launch",
+    "desktop:build": "python scripts/desktop.py build",
     "test:core": "cargo test -p dolores-core -p dolores-provider-openai -p dolores-store-sqlite --locked",
-    "test:native": "cargo test -p dolores-native --locked",
-    "demo:server": "node scripts/mock-provider.mjs",
-    "format": "prettier --write src vite.config.ts index.html",
-    "format:check": "prettier --check src vite.config.ts index.html"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.10.1",
-    "svelte": "^5.57.1"
-  },
-  "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tauri-apps/cli": "^2.12.1",
-    "prettier": "^3.9.9",
-    "prettier-plugin-svelte": "^4.1.1",
-    "svelte-check": "^4.4.2",
-    "typescript": "^5.9.3",
-    "vite": "^8.3.1"
+    "demo:server": "node scripts/mock-provider.mjs"
   }
 }

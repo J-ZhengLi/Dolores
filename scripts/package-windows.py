@@ -52,7 +52,7 @@ def sha(stream, name=None):
         if name:
             window=tail+chunk.lower()
             if any(prefix in window for prefix in PRIVATE_PREFIXES):
-                raise ValueError('Local build path in '+name+'. Rebuild with scripts/build-flutter.ps1 before packaging.')
+                raise ValueError('Local build path in '+name+'. Rebuild with python scripts/desktop.py build before packaging.')
             tail=window[-max(map(len,PRIVATE_PREFIXES)):]
     return digest.hexdigest()
 

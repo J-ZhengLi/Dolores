@@ -31,13 +31,12 @@ def outputs():
     image=Image.new('RGBA',(2048,2048));draw=ImageDraw.Draw(image)
     draw.rounded_rectangle((0,0,2047,2047),radius=float(tile.attrib['rx'])*8,fill=tile.attrib['fill'])
     draw.polygon([(x*8,y*8) for x,y in points],fill=mark.attrib['fill'])
-    result={ROOT/'public/dolores.svg':SVG.read_bytes()}
+    result={}
     def encoded(size,kind,**options):
         stream=io.BytesIO();image.resize((size,size),Image.Resampling.LANCZOS).save(stream,format=kind,**options);return stream.getvalue()
-    for target in ('assets/dolores.png','src-tauri/icons/icon.png'): result[ROOT/target]=encoded(256,'PNG')
+    result[ROOT/'assets/dolores.png']=encoded(256,'PNG')
     ico=encoded(1024,'ICO',sizes=[(n,n) for n in (16,24,32,48,64,128,256)])
-    for target in ('src-tauri/icons/icon.ico','apps/dolores_flutter/windows/runner/resources/app_icon.ico'): result[ROOT/target]=ico
-    result[ROOT/'src-tauri/icons/icon.icns']=encoded(1024,'ICNS')
+    result[ROOT/'apps/dolores_flutter/windows/runner/resources/app_icon.ico']=ico
     for size in (16,32,64,128,256,512,1024):
         result[ROOT/f'apps/dolores_flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_{size}.png']=encoded(size,'PNG')
     png=encoded(64,'PNG')

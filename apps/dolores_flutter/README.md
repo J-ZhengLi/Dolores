@@ -7,7 +7,7 @@ This is the selected desktop UI. Widgets call the Rust host through a bundled C 
 | Native loading and worker lifecycle | `lib/bridge.dart` |
 | Chat, history and run state | `lib/chat.dart`, `lib/main.dart` |
 | System-theme tokens | `lib/theme.dart` |
-| Rich editable draft | `lib/composer.dart` |
+| Rich editable draft | `lib/rich_composer.dart`, `lib/composer_controller.dart` |
 | Reply Markdown/code | `lib/reply_content.dart`, `lib/code_syntax.dart` |
 | Inspectors | Memory, skills, changes, instructions, MCP, feedback and comparisons modules |
 

@@ -76,7 +76,7 @@ preview. The worker inherits only selected OS directory/display hints, never
 model keys or Node startup options. Owned process groups/Job Objects control
 lifetime rather than account authority. Browsers do not join delegated children.
 
-Iced (`crates/dolores-native`) and Tauri/Svelte (`src-tauri`, `src`) remain development comparisons using shared core ports. They do not have full Flutter feature parity. Trusted built-in plugins are compiled and explicitly registered; there is no generic native dynamic-loader or plugin installation UI.
+Flutter is the only maintained desktop shell; the earlier Iced and Tauri/Svelte experiments have been removed. Trusted built-in plugins are compiled and explicitly registered; there is no generic native dynamic-loader or plugin installation UI.
 
 ### Restricted executable mods
 

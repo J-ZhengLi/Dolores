@@ -9,18 +9,18 @@ The default desktop app is Flutter with a bundled Rust bridge. Start with [archi
 - Visual Studio C++ desktop tools, Windows SDK and CMake; see [Windows setup](https://docs.flutter.dev/platform-integration/windows/setup).
 - Python **3.11+** for verification/packaging scripts.
 
-Node is optional development tooling, absent from the Flutter app. The pnpm helper/alternative shells need Node ≥22.12 (24 recommended), pnpm 11 and `pnpm install --frozen-lockfile`.
+Node is optional development tooling, absent from the Flutter app. Browser fixtures and the optional browser adapter need Node ≥22.12 (24 recommended). Build and launch use Python directly.
 
 From the repository root:
 
-```powershell
-powershell -NoProfile -File scripts/build-flutter.ps1 -FlutterSdk C:/path/to/flutter
-powershell -NoProfile -File scripts/launch-flutter.ps1
+```text
+python scripts/desktop.py build --flutter-sdk C:/path/to/flutter
+python scripts/desktop.py launch
 ```
 
-The helper uses `-FlutterSdk`, `FLUTTER_SDK`, ignored `output/toolchains/flutter`, or PATH. It builds/copies the Rust bridge, prepares plugin junctions without symlink privileges and assembles the normal release. If Visual Studio lacks CMake, pass `-CMake C:/path/to/cmake.exe` and, when needed, the installed `-Generator`. It does not enable Developer Mode or patch Flutter.
+The helper uses `--flutter-sdk`, `FLUTTER_SDK`, ignored `output/toolchains/flutter`, or PATH. It builds/copies the Rust bridge, prepares plugin junctions without symlink privileges and assembles the normal release. If Visual Studio lacks CMake, pass `--cmake C:/path/to/cmake.exe` and, when needed, the installed `--generator`. It does not enable Developer Mode or patch Flutter.
 
-Close your owned preview before rebuilding locked files. Keep the complete `apps/dolores_flutter/build/windows/x64/runner/Release/` directory. For an isolated launch, pass `-DataDirectory` with an absolute ignored output directory; this does not migrate another directory's vault keys/history.
+Close your owned preview before rebuilding locked files. Keep the complete `apps/dolores_flutter/build/windows/x64/runner/Release/` directory. For an isolated launch, pass `--data-directory` with an absolute ignored output directory; this does not migrate another directory's vault keys/history. `launch --pid-file <absolute-output-record> --replace-owned` replaces only a preview whose PID, executable and creation time match. Other processes are retained. Window presence is checked separately from native visual verification.
 
 Release builds remap Rust source paths and keep Flutter debug symbols under a fresh ignored `output/release-symbols/` directory. Retain matching symbols privately when investigating crashes. The helper temporarily aliases Flutter's generated registrant to a stable package URI and restores the generated package configuration afterward. See [build privacy details](docs/design/windows-portable.md).
 
@@ -57,13 +57,13 @@ The packager accepts reviewed runtime paths, checks required files/x64 binaries,
 
 ## Cross-platform and diagnostics
 
-The infinity logo source is `assets/dolores.svg`, the original rounded Material Icons outline used by Flutter. To regenerate platform assets, install development-only Pillow (`python -m pip install Pillow`), run `python -I -B scripts/generate-icons.py`, then `python -I -B scripts/generate-icons.py --check`. This updates platform icons and web SVG; Flutter keeps its original `Icons.all_inclusive_rounded`. Preserve the upstream icon license. Normal builds do not need Pillow.
+The infinity logo source is `assets/dolores.svg`, the original rounded Material Icons outline used by Flutter. To regenerate platform assets, install development-only Pillow (`python -m pip install Pillow`), run `python -I -B scripts/generate-icons.py`, then `python -I -B scripts/generate-icons.py --check`. This updates maintained platform icons; Flutter keeps its original `Icons.all_inclusive_rounded`. Preserve the upstream icon license. Normal builds do not need Pillow.
 
-`.github/workflows/ci.yml` defines Windows/macOS/Linux builds; local Windows work does not verify the other targets. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service for credentials. macOS needs its desktop toolchain and signing after adding the Rust library.
+Platform CI (8.4) is deferred until explicitly requested. Retired Iced and Tauri/Svelte shells and their automatic build workflow have been removed. macOS/Linux runner definitions remain; Windows verification does not qualify them. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service. macOS needs its desktop toolchain and signing after adding the Rust library.
 
-The optional `pnpm desktop:build` helper assembles Flutter for the current host. The bridge belongs beside the Windows EXE, in Linux `lib/`, or macOS `Contents/Frameworks/`. See [Flutter module notes](apps/dolores_flutter/README.md). Iced/Tauri remain comparisons: `pnpm desktop:iced:build` and `pnpm desktop:web:build`; they do not have every Flutter feature. `pnpm build` checks Svelte and `pnpm dev` previews it without a model connection.
+`python scripts/desktop.py build` assembles Flutter for the current host. The bridge belongs beside the Windows EXE, in Linux `lib/`, or macOS `Contents/Frameworks/`. See [Flutter module notes](apps/dolores_flutter/README.md). No alternative desktop shell is maintained.
 
-For diagnostics, start `pnpm demo:server`, use the matching `-Smoke`, `-RestartSmoke` or `-HistorySmoke` build switch and `scripts/test-flutter.ps1`, `scripts/test-connection-restart.ps1` or `scripts/test-history.ps1`. Data/generated keys are isolated. Rebuild with **no diagnostic switch** afterward. Controller screenshots are not native pointer/keyboard/IME UAT. Native vault tests are opt-in and create/delete their own entry.
+Diagnostic entry points use `build --diagnostic smoke`, `restart` or `history`. Rebuild without that option before handing the app to a user or packaging it. Data/generated keys stay isolated. Diagnostics do not establish physical keyboard/IME acceptance. Native vault tests are opt-in and create/delete only their own entry.
 
 After a normal Windows build, `python scripts/test-scoped-settings.py` verifies actual HTTP allowances, scope inheritance, frozen runs and changed-window recovery against an isolated local fixture. It needs no model key and releases the child host before removing its temporary data. This does not replace bounded real-model task checks.
 

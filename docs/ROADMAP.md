@@ -1,6 +1,6 @@
 # Dolores roadmap
 
-**Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, remains skipped**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
+**Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, is deferred until the user explicitly requests it**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
 
 Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.4 are implemented**, with separate commits and bounded evidence in acceptance. The mechanical contracts are verified; consistent real-model task behavior, native input/platform and representative resource acceptance remain open. Later milestones retain their planned scope and are not implicitly complete.
 
@@ -46,7 +46,9 @@ The [architecture specification](design/evolving-harness-architecture.md) define
 
 This replaces the prior working-agent/context/learning/plugin proposal. Extension contracts move first; permission modes, advanced tools and executable adaptation are scheduled explicitly. Existing recovery, memory, skills and MCP are extended rather than rebuilt. Every requested feature maps to a named brick.
 
-## Starting point
+## Historical starting point before milestone 9
+
+This table records the planning baseline, not current missing features. See the milestone implementation updates and acceptance for current status.
 
 | Implemented | Remaining work |
 | --- | --- |
@@ -358,8 +360,8 @@ The tool port now supports optional typed image references, with literal text
 and a following untrusted image projection in the OpenAI-compatible adapter.
 Browser screenshots remain local evidence. Desktop use offers separate snapshot
 analysis and a bounded observe → act → observe run with explicit window access.
-Ordinary chat does not yet negotiate desktop access; milestone 15 addresses that
-UX gap. See the [selected-window contract](design/computer-use.md) and
+Milestone 15 now negotiates desktop access from ordinary working chat;
+model reliability remains separately unaccepted. See the [selected-window contract](design/computer-use.md) and
 [acceptance](ACCEPTANCE.md). Desktop grants bind the selected window and dispatch checks;
 a project folder grant cannot authorize arbitrary desktop interaction.
 

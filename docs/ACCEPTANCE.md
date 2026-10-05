@@ -1,5 +1,32 @@
 # Dolores acceptance — 2026-10-05
 
+## Maintenance follow-up — Python desktop workflow and retired shells
+
+2026-10-06: Python `scripts/desktop.py build` and `launch` replace the former
+PowerShell/Node build and launch wrappers. The build retains path remapping,
+private debug symbols, temporary registrant alias/restoration, generated plugin
+junctions and asset-stamp invalidation. Windows CMake fallback built the normal
+release without modifying Flutter or requiring Developer Mode. Launch preserves
+the selected data directory and strips diagnostic environment; owned replacement
+verifies PID, executable and process creation time through the terminating handle.
+An already exited recorded preview is handled without touching another process.
+
+Removed the retired Iced and Tauri/Svelte implementations, comparison/native-shell
+scripts, root web tooling and obsolete automatic platform workflow. 8.4 remains
+deferred until explicit user instruction. The Rust lockfile pruned 384 package
+entries with no added package/version identities; retained versions are unchanged.
+Browser tooling and Flutter's maintained platform runners remain.
+
+Exercised: three Python checks PASS (failed-build exact config restoration, stale
+PID identity refusal, Unicode/space junction reuse and unexpected-directory
+preservation), two regression-runner checks PASS, 306 Rust workspace tests PASS
+with one native-vault check explicitly ignored. Ten logo outputs match; document
+check PASS for 71 documents / 236 local links. The normal Windows release built
+and was launched through Python, then visually inspected in the native dark
+conversation. All 37 provider/history tables remained unchanged. macOS/Linux
+execution and platform CI are not claimed. The rest of the authorized follow-up
+is tracked in [remaining work](qualification/remaining-work.md).
+
 ## Brick 14.1 — selected-window observation
 
 The normal Windows release bridge passes `scripts/test-desktop-observation.py`
