@@ -5,7 +5,10 @@ conversation-first computer use, simpler settings navigation and progressive
 disclosure across configuration. Current sections below describe implemented UI.
 Update each affected section with its runtime brick; the target is not yet the
 running app. Preserve this document's palette/brand/focus/compact rules during
-the UX work. Earlier restrictions on adding task controls are revised by the
+the UX work. The contract now also covers conversation controls, summary, activity,
+changes and recovery; three layouts are captured for review on
+`codex/prototype-everyday-ux`. Their recommendation is not an adopted runtime UI.
+Earlier restrictions on adding task controls are revised by the
 named milestone 15 scope when that brick is implemented.
 
 ## Desktop window frame

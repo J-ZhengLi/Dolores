@@ -77,6 +77,81 @@ under `apps/dolores_flutter/lib/`.
 6. Save, immediate-save toggles, Refresh, Reload and inherited reset semantics
    differ, and Close discards drafts without a visible unsaved-state warning.
 
+## Conversation surfaces — expanded review and prototype
+
+The 2026-10-05 follow-up extends this milestone beyond configuration. The user
+wants everyday work to feel simple without removing capabilities: fewer concepts
+to learn, clear actions in context, and information revealed when it is useful.
+Reducing prose alone is insufficient if the same confusing navigation remains.
+
+Source inspection confirms five separate header affordances for instructions,
+changes, summary, trajectory and Chat actions. The eight-item Chat actions menu
+mixes exports, storage cleanup, branching, run evidence and harness diagnostics.
+Session summary separately exposes compaction, source review, draft generation,
+editing and deletion, while Context and reply usage have their own inspectors.
+Run history puts IDs, event counts, effective-setting origins and raw event data
+in its routine view. These are source findings; this follow-up did not re-inspect
+every native conversation inspector or claim a user-study result.
+
+| Current surface | Proposed everyday experience | Deeper controls retained |
+| --- | --- | --- |
+| Header icons / Chat actions | Labeled useful actions; a short chat menu for branching, export and chat details | Workspace guidance, evidence and developer tools remain reachable with explicit names |
+| Session summary / Context ring | One Context view: estimated usage, readable summary and per-chat automatic compaction | Source review, correct/update/remove summary, provenance, covered turns, token breakdown and output reserve |
+| Trajectory / Run history / reply usage | Activity: readable task steps, outcome and pending verification, with earlier tasks available | Exact tool/command receipts, child reports, checkpoints, saved events and per-call usage; unavailable usage remains unknown |
+| Changes | File names and purpose first; select a file to inspect its diff | Full paths, before/after snapshots, status, conflict checks and concrete restore review |
+| Project instructions / comparisons | Readable project guidance; deliberate edit/review | Source bindings, exact prompts, baseline/candidate evaluation and retained receipts under Advanced |
+| Branch / export / attachments | Branch chat and one Export chat flow; Markdown as the ordinary format | Completed-turn selection, JSON and attachment-copy options; unused-asset cleanup under storage settings |
+| Feedback / approvals | One short decision beside the relevant reply or operation | Optional notes, exact arguments and evidence expand; preserve effect/target/sharing disclosure before approval |
+| Pause / unavailable state | Actual problem and one useful next step beside the task | Limits, saved progress, diagnostics and uncertain-effect reconciliation; no blind replay |
+
+### Prototype before implementation
+
+The throwaway source is captured on **`codex/prototype-everyday-ux`** at
+`apps/dolores_flutter/prototype-chat-ux.html`, with its run/review instructions in
+`apps/dolores_flutter/PROTOTYPE-CHAT-UX.md`. It uses the existing Dolores shell,
+palette, infinity outline and synthetic project data. A single browser route
+switches `?variant=A/B/C`; nothing changes the production Flutter app or profile.
+Because the desktop app has no browser route to swap, this is a standalone HTML
+sketch of that existing page, located next to its Flutter owner on the prototype
+branch. It is not a proposed web implementation or new product route.
+
+| Option | Information hierarchy | Cost |
+| --- | --- | --- |
+| A — quiet header / details drawer | Changes and Activity are labeled; Context/summary opens from the existing ring; details appear only on request | Drawer temporarily covers part of the conversation |
+| B — labeled workspace / docked panel | An explicit Workspace panel groups Overview, Changes, Activity and Context | Easier discovery, more occupied space and visible controls |
+| C — conversation / contextual actions | Change review, activity and recovery sit beside the relevant response; details expand in the conversation | Strong task association, more scrolling with expanded evidence |
+
+**Recommendation, not a selected decision:** use A as the base with C's small
+task-specific change/recovery actions. Keep B as an alternative if discovery
+matters more than chat space. The user has not selected a layout. Preview review
+comes before production implementation of these surfaces. Capture the chosen
+layout and rationale here, then rewrite it using native components and the actual
+handlers; do not merge the mock HTML or switcher into the release.
+
+### Information and copy rules
+
+- First view answers: what is happening, what needs my attention, and what can I
+  do next? Technical diagnostics should not compete with the answer.
+- Use one concept per destination: Context for what the model sees, Activity for
+  what the task did, Changes for files, Settings for preferences/connections.
+  Different data may share a view while retaining its original provenance.
+- Lead with one useful sentence. Put IDs, revisions, raw events, exact limits and
+  long explanations behind named details. Show a pending verification or uncertain
+  effect beside the outcome; it must not disappear into diagnostics.
+- Keep sharing, authority, destructive effects and the exact target visible before
+  deciding. Expand exact evidence without replacing it with model-written claims.
+- Label unknown values and unavailable features honestly; give the relevant retry,
+  setup or inspection action instead of a lecture or a generic Refresh button.
+- Preserve all existing controls through an explicit old-to-new map in 15.7 and
+  validate those paths in 15.8. Fewer routine controls is not permission to remove
+  capabilities, change defaults, auto-share, weaken review or discard evidence.
+
+Prototype browser review exercised all three layouts, unified Context, compact
+light Settings, simulated summary-save failure/retry and occupied-draft
+continuation. These are design affordances only. Native keyboard/accessibility,
+full nested editor behavior, truthful durable save/recovery and performance remain
+runtime acceptance work. No participant has validated the recommendation yet.
+
 ## Target information architecture
 
 | Settings section | Routine content | Optional deeper content |

@@ -484,7 +484,11 @@ use cannot automatically modify its own permission or evaluation boundary.
 Reduce setup and decision overhead throughout Dolores. The
 [audit and target contract](design/ux-simplification.md) defines every affected
 screen, the six-section information architecture, defaults, copy/save rules and
-conversation-first capability negotiation. Retain the existing Flutter/theme/brand.
+conversation-first capability negotiation. The follow-up conversation review also
+covers Chat actions, Context/session summary, Activity/run history, Changes,
+instructions, export/branching, approvals and recovery. Review the three-layout
+prototype on `codex/prototype-everyday-ux` before implementing those surfaces.
+Retain the existing Flutter/theme/brand.
 This work improves how users reach capabilities; it does not establish universal
 model competence, implement new OS backends or silently expand permissions.
 
@@ -606,18 +610,27 @@ deliberate working-session action.
 **Excluded:** changing learning/activation defaults, a new evaluator, arbitrary
 native modification and claiming broad self-improvement from narrow fixtures.
 
-### 15.7 Context, task recovery and advanced controls
+### 15.7 Conversation controls, context and task recovery
 
-**Scope:** one Context view for ring usage/summary/compaction; advanced execution and
-scope tuning; task-specific pause/approval cards with short next steps and expanded
-evidence. Instructions remains a project action; comparison/source/diagnostics are
-advanced actions. Fix obsolete settings names and capability claims. Configuration
+**Scope:** implement the reviewed prototype's information hierarchy with native
+components. Simplify the header/Chat actions; unify Context usage/summary/compaction
+and Activity's task steps/earlier-run evidence; put change review beside useful task
+results. Consolidate export choices, keep deliberate branching, advanced execution
+and scope tuning. Use task-specific pause/approval cards with short next steps and
+expanded evidence. Instructions remains a project action; comparison/source/diagnostics
+are advanced actions. Maintain an explicit old-to-new control map; all existing
+summary corrections/source reviews, restore checks, exports, checkpoints and exact
+receipts stay reachable. Fix obsolete settings names and capability claims. Configuration
 repairs happen in place where possible, preserve draft/attachments and affect the
 intended next run only.
 
 **Basic acceptance:** reach the correct effective setting from an output/context/tool
 pause, inspect retained work and explicitly continue within the recorded allowance.
 Find all existing diagnostic/evaluation controls through search/deep links.
+Find Context, Activity and Changes without decoding an unlabeled icon collection;
+review a summary and export/branch a chat through short deliberate flows. Measure
+visible decisions and detours against the recorded baseline without claiming user
+study gains. Record the user's prototype choice before production UI edits.
 
 **Failure/recovery:** exhausted segments and uncertain desktop effects offer the
 correct inspection path without blind replay; failed compaction/conflicting saves

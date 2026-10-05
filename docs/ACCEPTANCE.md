@@ -1579,3 +1579,27 @@ profile; the existing user-data digest baseline predates this task and no longer
 matches conversation/run tables, so it does not establish a fresh whole-history
 preservation pass for this audit. A fresh before/after baseline is required for
 the upcoming runtime bricks.
+
+### Conversation UX follow-up — prototype, not runtime delivery
+
+Extended milestone 15's design review to Chat actions, Session summary/Context,
+trajectory/run evidence, Changes, instructions, branch/export, feedback and task
+recovery. Source findings and retained-control mapping are recorded in the UX
+contract; production changes belong to 15.7 after the prototype is reviewed.
+
+Three structurally different layouts are captured on
+`codex/prototype-everyday-ux`: temporary details drawer, docked workspace panel and
+conversation-local actions/details. Browser review exercised all three desktop
+layouts and compact light Settings at 420×480. Simulated edge flows retained
+summary edits after a failed Save and succeeded on an explicit second Save;
+Continue refused an occupied draft, retained it and worked after clearing; unknown
+context showed unavailable rather than zero and offered Retry. Full secondary
+forms, modal focus/accessibility and native Flutter behavior are not qualified by
+this sketch. Actions are local stubs; no provider requests, user-data changes or
+desktop input/capture occur. No real-model or performance pass is implied.
+
+The prototype is outside the release source on a separate branch and is visibly
+open in the browser for review. The current desktop UI is unchanged, so no normal
+desktop rebuild/relaunch is applicable. This preserves the requested prototype
+before implementation boundary. The recommendation is provisional; there is no
+user-selected layout or demonstrated usability gain yet.
