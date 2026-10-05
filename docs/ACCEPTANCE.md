@@ -1516,3 +1516,39 @@ Actual locked-session refusal and physical recovery still need qualification.
 Slow redraw, arbitrary application effects, IME/screen reader, mixed-monitor DPI,
 elevated targets and non-Windows hosts remain gaps. A later image receipt is
 available evidence, not proof of exactly-once effects or semantic correctness.
+
+## Brick 14.4 — bounded workflow qualification
+
+Delivered a frozen three-case corpus, isolated live runner, trusted renderer for a
+model-generated declarative dashboard, native budget-pressure fixture, owned
+helper memory sampler and normal release startup probe. Full evidence and
+reproduction instructions are in [computer-use qualification](qualification/computer-use.md).
+
+The fixed DeepSeek generated-view inspection passed all visible facts with fresh
+evidence and no input (4.07 seconds, two inspection model calls plus one separate
+generation request). Qwen draft failed because it skipped the required observe;
+the host refused before input. DeepSeek save-once retained the exact note but
+proposed a click outside Save; the operator denied it and the host paused. These
+failures remain failures. Foreground token usage was unavailable; image-file bytes
+are recorded separately. No defaults, criteria or user configuration were relaxed.
+
+Native tool exhaustion after input preserved text and an uncertain-effect
+checkpoint; output truncation retained a partial answer without input. Helpers
+were reaped. Receipt-loss, restart, explicit recovery and Stop/deadline checks
+passed in 14.3. Rust 183 / Flutter 218 checks pass; analysis and Clippy clean.
+The normal release's light/dark recovery views were visually inspected; compact
+420×480 coverage is widget-based, not an additional native resize pass. User
+provider/history digests across 37 tables remain unchanged.
+
+One isolated normal launch exposed a window in 1,513 ms, with 227.2 MiB working
+memory after settling. The native pressure fixture sampled a largest helper of
+55.5 MiB and a Python-host/owned-helper tree of 89.7 MiB; this is not a Flutter
+active-capture peak. Available hardware has 24 logical processors/about 32 GiB RAM.
+Sampling, first usable frame, representative low-end hardware and sustained
+desktop costs remain qualification gaps. macOS/Wayland authority differences were
+reviewed against primary docs; no other-platform backend was enabled.
+
+Milestone 14's planned implementation/reporting work is complete. **Its full
+real-model acceptance gate is not passed.** Observation adherence, coordinate
+grounding, arbitrary-app reliability, physical lock/unlock, mixed-monitor DPI,
+IME/accessibility and other-platform/low-end execution require follow-up evidence.
