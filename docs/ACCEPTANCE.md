@@ -1603,3 +1603,13 @@ open in the browser for review. The current desktop UI is unchanged, so no norma
 desktop rebuild/relaunch is applicable. This preserves the requested prototype
 before implementation boundary. The recommendation is provisional; there is no
 user-selected layout or demonstrated usability gain yet.
+
+The subsequent user review selected **A**, with existing icons, icon-only header
+actions with hover hints, retained theme previews and no colored left-edge status
+cards. The refined branch embeds the exact Material glyph outlines already used
+by Flutter; no font or production dependency was added. Browser inspection checked
+the plain paused card, System/Light/Dark preview tiles and light theme switching.
+At 420×480 the icon header remained usable, and Enter on Activity opened the
+expected details. The simulated failed summary save still retained edits and
+succeeded on explicit retry. These checks qualify the updated prototype only;
+native hover/keyboard/accessibility and runtime acceptance remain pending.

@@ -95,7 +95,7 @@ every native conversation inspector or claim a user-study result.
 
 | Current surface | Proposed everyday experience | Deeper controls retained |
 | --- | --- | --- |
-| Header icons / Chat actions | Labeled useful actions; a short chat menu for branching, export and chat details | Workspace guidance, evidence and developer tools remain reachable with explicit names |
+| Header icons / Chat actions | Fewer familiar icons with hover/focus hints; a short chat menu for branching, export and chat details | Workspace guidance, evidence and developer tools remain reachable with explicit names |
 | Session summary / Context ring | One Context view: estimated usage, readable summary and per-chat automatic compaction | Source review, correct/update/remove summary, provenance, covered turns, token breakdown and output reserve |
 | Trajectory / Run history / reply usage | Activity: readable task steps, outcome and pending verification, with earlier tasks available | Exact tool/command receipts, child reports, checkpoints, saved events and per-call usage; unavailable usage remains unknown |
 | Changes | File names and purpose first; select a file to inspect its diff | Full paths, before/after snapshots, status, conflict checks and concrete restore review |
@@ -117,21 +117,28 @@ branch. It is not a proposed web implementation or new product route.
 
 | Option | Information hierarchy | Cost |
 | --- | --- | --- |
-| A — quiet header / details drawer | Changes and Activity are labeled; Context/summary opens from the existing ring; details appear only on request | Drawer temporarily covers part of the conversation |
+| A — quiet header / details drawer | Existing Changes/Activity icons with hover/focus hints; Context/summary opens from the existing ring; details appear only on request | Drawer temporarily covers part of the conversation |
 | B — labeled workspace / docked panel | An explicit Workspace panel groups Overview, Changes, Activity and Context | Easier discovery, more occupied space and visible controls |
 | C — conversation / contextual actions | Change review, activity and recovery sit beside the relevant response; details expand in the conversation | Strong task association, more scrolling with expanded evidence |
 
-**Recommendation, not a selected decision:** use A as the base with C's small
-task-specific change/recovery actions. Keep B as an alternative if discovery
-matters more than chat space. The user has not selected a layout. Preview review
-comes before production implementation of these surfaces. Capture the chosen
-layout and rationale here, then rewrite it using native components and the actual
-handlers; do not merge the mock HTML or switcher into the release.
+**Selected decision, 2026-10-05:** the user chose A as the overall design, retaining
+the existing New chat/project/chat and other icons. Changes, Activity and Chat
+actions remain icon-only with hover hints and keyboard-accessible names/hints.
+Keep System/Light/Dark theme preview tiles. Use ordinary surfaces and uniform
+borders for paused/error/information cards; do not add decorative colored left
+edges. These refinements preserve the app's identity while keeping A's simpler
+information hierarchy. C's additional inline change layout has not been selected.
+B/C remain archived alternatives. Rewrite A using native components and the actual
+handlers; do not merge the mock HTML or switcher into the release. The refined
+prototype remains a preview, not a delivered desktop feature.
 
 ### Information and copy rules
 
 - First view answers: what is happening, what needs my attention, and what can I
   do next? Technical diagnostics should not compete with the answer.
+- Preserve the established icon set and theme previews. Header actions use those
+  icons with concise hover/focus hints and semantic names. Status cards use normal
+  surfaces/borders; an accent-colored left edge is not the information hierarchy.
 - Use one concept per destination: Context for what the model sees, Activity for
   what the task did, Changes for files, Settings for preferences/connections.
   Different data may share a view while retaining its original provenance.
@@ -150,7 +157,8 @@ Prototype browser review exercised all three layouts, unified Context, compact
 light Settings, simulated summary-save failure/retry and occupied-draft
 continuation. These are design affordances only. Native keyboard/accessibility,
 full nested editor behavior, truthful durable save/recovery and performance remain
-runtime acceptance work. No participant has validated the recommendation yet.
+runtime acceptance work. The user's layout preference is recorded above; it is
+not a measured usability or native acceptance result.
 
 ## Target information architecture
 

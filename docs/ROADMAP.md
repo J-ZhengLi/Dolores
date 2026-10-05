@@ -488,6 +488,8 @@ conversation-first capability negotiation. The follow-up conversation review als
 covers Chat actions, Context/session summary, Activity/run history, Changes,
 instructions, export/branching, approvals and recovery. Review the three-layout
 prototype on `codex/prototype-everyday-ux` before implementing those surfaces.
+The selected direction is A's quiet header/drawer, retaining the existing icons,
+hover/focus hints and theme previews, without colored left-edge status decoration.
 Retain the existing Flutter/theme/brand.
 This work improves how users reach capabilities; it does not establish universal
 model competence, implement new OS backends or silently expand permissions.
@@ -627,10 +629,11 @@ intended next run only.
 **Basic acceptance:** reach the correct effective setting from an output/context/tool
 pause, inspect retained work and explicitly continue within the recorded allowance.
 Find all existing diagnostic/evaluation controls through search/deep links.
-Find Context, Activity and Changes without decoding an unlabeled icon collection;
+Find Context, Activity and Changes through familiar icons and concise hints;
 review a summary and export/branch a chat through short deliberate flows. Measure
 visible decisions and detours against the recorded baseline without claiming user
-study gains. Record the user's prototype choice before production UI edits.
+study gains. Follow the recorded A selection and its icon/theme/status-card
+refinements; the preview does not establish native behavior or acceptance.
 
 **Failure/recovery:** exhausted segments and uncertain desktop effects offer the
 correct inspection path without blind replay; failed compaction/conflicting saves

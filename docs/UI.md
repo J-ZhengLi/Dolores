@@ -7,7 +7,10 @@ Update each affected section with its runtime brick; the target is not yet the
 running app. Preserve this document's palette/brand/focus/compact rules during
 the UX work. The contract now also covers conversation controls, summary, activity,
 changes and recovery; three layouts are captured for review on
-`codex/prototype-everyday-ux`. Their recommendation is not an adopted runtime UI.
+`codex/prototype-everyday-ux`. The user selected A's drawer layout with the existing
+icon set, icon-only header actions with hover/focus hints and retained theme preview
+tiles. Status cards use the normal surface and uniform border; avoid decorative
+colored left edges. This selected target is not yet an adopted runtime UI.
 Earlier restrictions on adding task controls are revised by the
 named milestone 15 scope when that brick is implemented.
 
