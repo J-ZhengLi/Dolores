@@ -32,6 +32,13 @@ and order are preserved. Windows selected-application interaction and visual
 verification are the first target; arbitrary-app reliability and other platforms
 need separate evidence. The subsequent “next” authorized the first observation brick.
 
+**UX milestone — 2026-10-05:** the user requested a dedicated simplification
+milestone after computer use proved difficult to reach. **15.1 audit and target
+contract are complete; 15.2–15.8 are planned below.** The
+[settings audit and UX contract](design/ux-simplification.md) covers every settings
+category, related configuration surfaces and conversation-first tool access.
+The audit does not change the running UI or close milestone 14's model-quality gate.
+
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search, browser use and scoped desktop computer use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
 
 The [architecture specification](design/evolving-harness-architecture.md) defines component/state/lifecycle/authority contracts. The [behavior policy](design/dolores-behavior.md) defines reasoning, questioning, character and adaptation. These describe the target; [current architecture](ARCHITECTURE.md) describes the running app. No claim of consciousness, weight training or guaranteed daily improvement is made.
@@ -60,6 +67,7 @@ This replaces the prior working-agent/context/learning/plugin proposal. Extensio
 | **12 — Learn from experience** | Scoped knowledge, independent trials, qualifying automatic skill updates and transparent recovery | 12.1–12.4 | Requires trustworthy task evidence. Demonstrate an improvement, rejection and rollback under fixed criteria. |
 | **13 — Adapt the executable harness** | Chosen runtime, transactional lifecycle, agent-authored mods and integrated qualification | 13.1–13.4 | Requires 9's contracts and 12's trials. Verified containment gates automatic executable activation. |
 | **14 — Computer use and visual verification** | Model-visible screenshots, scoped Windows interaction, recovery and measured real-workflow results | 14.1–14.4 | Requires 9–11's ownership, grants, provider/image and browser contracts. Independently qualify desktop control; executable self-adaptation does not grant desktop authority. |
+| **15 — Everyday UX** | Conversation-first tools, useful defaults and settings for general users | 15.1–15.8 | Uses delivered state/permission/tool contracts. Model reliability remains separately measured; simplification preserves configuration, evidence and authority. |
 
 Default order is sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
 
@@ -336,7 +344,9 @@ Codex runtime or general native self-replacement is part of this implementation.
 
 ## Milestone 14 — Computer use and visual verification
 
-**Status:** 14.1 observation and 14.2 scoped input are delivered; 14.3–14.4 are planned.
+**Status:** 14.1–14.4 implementation and qualification tooling are delivered.
+The fixed real-model corpus has passing visual inspection but failing input
+workflows; full acceptance remains open. See [qualification](qualification/computer-use.md).
 Deliver a useful Windows selected-application workflow first,
 with a provider-independent observation/action contract and on-demand native
 helper. Preserve the existing browser adapter and Flutter UI. Choose the native
@@ -345,11 +355,11 @@ do not assume access to Codex's private desktop runtime.
 
 The tool port now supports optional typed image references, with literal text
 and a following untrusted image projection in the OpenAI-compatible adapter.
-Browser screenshots remain local evidence. Desktop observation is an explicit
-saved snapshot analysis, not a continuous observation/action loop. See the
-[selected-window contract](design/computer-use.md) and [acceptance](ACCEPTANCE.md).
-Existing
-permission modes need desktop-specific resource scopes and dispatch checks;
+Browser screenshots remain local evidence. Desktop use offers separate snapshot
+analysis and a bounded observe → act → observe run with explicit window access.
+Ordinary chat does not yet negotiate desktop access; milestone 15 addresses that
+UX gap. See the [selected-window contract](design/computer-use.md) and
+[acceptance](ACCEPTANCE.md). Desktop grants bind the selected window and dispatch checks;
 a project folder grant cannot authorize arbitrary desktop interaction.
 
 ### 14.1 Multimodal tool results and desktop observation
@@ -469,6 +479,178 @@ supported model/app/platform envelope in acceptance. Broader app coverage and
 other-platform backends remain explicit follow-up work until qualified. Computer
 use cannot automatically modify its own permission or evaluation boundary.
 
+## Milestone 15 — Everyday UX
+
+Reduce setup and decision overhead throughout Dolores. The
+[audit and target contract](design/ux-simplification.md) defines every affected
+screen, the six-section information architecture, defaults, copy/save rules and
+conversation-first capability negotiation. Retain the existing Flutter/theme/brand.
+This work improves how users reach capabilities; it does not establish universal
+model competence, implement new OS backends or silently expand permissions.
+
+### 15.1 Complete settings audit and UX contract — delivered
+
+**Scope:** inspect every settings category/subpage and related configuration flow;
+separate task initiation, routine preferences, evidence and advanced authoring.
+Define target navigation, first-use paths, copy and save conventions before edits.
+
+**Acceptance:** all 12 categories/17 views visually inspected in the normal Windows
+release with isolated synthetic data; source review covers prerequisites, forms,
+save/error semantics and conversation configuration. Findings map to the following
+bricks. Light/compact native, populated histories and other OS checks remain explicit.
+
+**Excluded:** runtime UX changes or claims that target metrics are already achieved.
+
+### 15.2 Computer use from the conversation — first runtime brick
+
+**Scope:** standard working-chat runs advertise a host-mediated desktop access
+request; composer Share window reaches the same local chooser. One scoped sharing
+decision resolves target/capture/model readiness and continues the original goal.
+Retain active-target/Stop/revoke and read-only sharing. Add a durable bounded mode
+handoff; preserve lineage, remaining budgets, draft and attachments. Surface expired
+access or missing image support in place, without a Settings detour or silent model
+switch. No grant, screenshot upload or input occurs merely from tool discovery.
+
+**Basic acceptance:** a normal prompt inspects a disposable app and a second prompt
+types reversible text with fresh verification. Ready-model path: zero Settings
+visits, one target selection and at most one initial sharing confirmation; count
+effect reviews separately. Test the direct composer path too.
+
+**Failure/recovery:** deny sharing during handoff (no upload/input; prompt retained),
+and expire/revoke access or use unsupported vision (in-place recovery, no unrelated
+target or duplicated work). Stop/cold restart preserves uncertain-effect rules.
+Use deterministic host fixtures and a bounded DeepSeek live input case; record
+Qwen behavior separately. Failed live criteria stay failures.
+
+**Excluded:** implicit full-desktop access, agent self-grants, broader desktop input
+approval, task-budget resets and other-platform adapters.
+
+### 15.3 Settings structure and routine preferences
+
+**Scope:** General / Models / Personalization / Memory / Tools / Advanced, searchable
+settings and typed backwards-compatible deep links. Theme/style controls work
+directly; general preferences default to All chats. Put project/chat overrides behind
+deliberate customization with origin/reset. Consistent draft/unsaved-state handling,
+short descriptions, useful prerequisites and details expansion. Preserve cached
+editor drafts, keyboard focus and compact navigation.
+
+**Basic acceptance:** locate every audited control through the new map/search;
+change theme/style with truthful saved state and clear scope. Existing overrides,
+configurations and recovery links remain effective.
+
+**Failure/recovery:** failed save retains/reverts appropriate state; navigation/Close
+does not quietly lose edits; stale revisions cannot overwrite newer settings.
+Check native light/dark and 420×480 widget/keyboard coverage.
+
+**Excluded:** changing access/learning defaults or rebuilding the visual identity.
+
+### 15.4 One coherent model setup flow
+
+**Scope:** connection → fetch/select → model details, with context/image/response
+configuration in one place. Fetch after an explicit Connect; keep manual entry as
+fallback. Capability discovery/cache has visible provenance; unknown/text-only
+models have an in-place image recovery. Advanced output/timeout/reasoning remain
+configurable. Effective scope/origin is readable without a separate precedence page.
+
+**Basic acceptance:** connect a synthetic endpoint, discover/select models and use
+the picker; edit context window (blank 128K), image support and response settings
+for one model. Run one bounded Qwen connection/chat check without changing the
+user's chosen provider/model; image readiness uses a separate capable-model case.
+
+**Failure/recovery:** unavailable/empty/malformed model list keeps manual setup and
+prior connection; partial/stale save or unsupported image transport retains draft
+and gives an exact recovery. Do not claim capability solely from a model's name.
+
+**Excluded:** provider subscriptions, invented API keys, silent provider fallback
+and increased numerical defaults.
+
+### 15.5 Tools, access and guided connections
+
+**Scope:** built-in readiness cards and relevant first-use actions for search/browser;
+optional search-provider editor; visible per-chat access selector and custom grants
+under details. External Connections uses a list and guided local-MCP import/manual
+setup with concrete launch/tool review. Approval cards lead with the proposed effect,
+scope and target; exact arguments remain expandable before approval. Browser setup
+is guided only when missing, with explicit installation/connection actions.
+
+**Basic acceptance:** default search from chat without setup; available browser works
+without an install lecture. Review a synthetic MCP import and enable only chosen
+tools. Display the saved access mode accurately and keep current grant boundaries.
+
+**Failure/recovery:** unavailable browser/server offers its actual next action;
+malformed import/stale metadata never launches or enables a different program.
+Access expansion still requires the concrete user decision. Stop reaps owned work.
+
+**Excluded:** silent package installation, unreviewed MCP launch, remote/persistent
+MCP support and removing host containment/effect checks.
+
+### 15.6 Memory, skills and visible learning
+
+**Scope:** My preferences / Project facts with short controls and context-specific
+Remember this; accessible global management before first send. Skills offers Import,
+Create and Draft from chat, readable scope/status and versions. Put trials,
+experimental learning and harness-extension source under Advanced; normal views
+show current status/suggestions/restore. Keep each sharing/reflection/activation
+policy independent and preserve truthful experimental limits.
+
+**Basic acceptance:** add/edit/disable a scoped memory, import/review a skill and
+create a draft from a completed exchange using the guided flow. Find source/trials
+when requested without needing to create folders/YAML for ordinary use. Verify a
+bounded Qwen routine memory case and DeepSeek skill drafting, retaining criteria.
+
+**Failure/recovery:** malformed import or output-limited draft retains useful text
+and cannot activate; stale version/sharing opt-out protects current memory/skill
+state. Global management is usable with no saved chat; project operations offer a
+deliberate working-session action.
+
+**Excluded:** changing learning/activation defaults, a new evaluator, arbitrary
+native modification and claiming broad self-improvement from narrow fixtures.
+
+### 15.7 Context, task recovery and advanced controls
+
+**Scope:** one Context view for ring usage/summary/compaction; advanced execution and
+scope tuning; task-specific pause/approval cards with short next steps and expanded
+evidence. Instructions remains a project action; comparison/source/diagnostics are
+advanced actions. Fix obsolete settings names and capability claims. Configuration
+repairs happen in place where possible, preserve draft/attachments and affect the
+intended next run only.
+
+**Basic acceptance:** reach the correct effective setting from an output/context/tool
+pause, inspect retained work and explicitly continue within the recorded allowance.
+Find all existing diagnostic/evaluation controls through search/deep links.
+
+**Failure/recovery:** exhausted segments and uncertain desktop effects offer the
+correct inspection path without blind replay; failed compaction/conflicting saves
+retain summary, user edits and recorded provenance. Error details redact secrets.
+
+**Excluded:** unbounded retries, increasing defaults to disguise failures, claiming
+input receipts prove external effects and deleting useful diagnostic evidence.
+
+### 15.8 Everyday-flow qualification
+
+**Scope:** compare baseline/updated clicks, settings detours and visible decisions
+on a fixed small first-use corpus: connection, search, desktop inspection/input,
+style, memory/skill management and interrupted-task recovery. Inspect every mapped
+screen in native light/dark and compact layout with populated/empty/unavailable
+states; verify keyboard/focus and long names/errors. Measure added startup/idle
+cost and preserve all user configuration/history.
+
+**Basic acceptance:** six top-level sections; ordinary computer use has no Settings
+detour; ready search/browser need no extra configuration; routine pages meet the
+copy/control targets in the UX contract. Each former control remains reachable in
+the appropriate routine/advanced surface. Report model/task results separately.
+
+**Failure/recovery:** unavailable tools/models, interrupted setup and stale settings
+retain work and provide one useful next step. Re-run the failed 14.4 model cases
+with unchanged criteria; UI improvements cannot turn failed actions into passes.
+
+**Excluded:** user-study claims without participants, other-OS/low-end passes without
+hosts, new palettes and quiet changes to privacy/authority or acceptance criteria.
+
+**Exit:** general users can start useful work from chat, change common preferences
+directly and recover without reading developer documentation. Advanced users retain
+exact configuration/evidence access. Remaining model/platform gaps stay visible.
+
 ## Validation and change control
 
 - Freeze behavior, numerical defaults, criteria and exclusions before each brick; discuss material technical choices. Evidence may correct an assumption, but added scope requires a named spec/roadmap revision before implementation.
@@ -487,6 +669,7 @@ use cannot automatically modify its own permission or evaluation boundary.
 | Desktop computer use/model-visible screenshots/visual verification | 14.1–14.4 |
 | File/image attachments | 10.6 |
 | Settings/effective limits | 9.4, 10.1, 10.2 |
+| Conversation-first tools and settings simplification | 15.1–15.8 |
 | Self-inspection/editable versus protected modules | 9.1, 9.3, 13.1–13.3 |
 | Experience-driven skills | 12.1–12.4 |
 | Questions/scoped answers/humane character | 9.4 and every milestone; continuity 12.1 |

@@ -1552,3 +1552,30 @@ Milestone 14's planned implementation/reporting work is complete. **Its full
 real-model acceptance gate is not passed.** Observation adherence, coordinate
 grounding, arbitrary-app reliability, physical lock/unlock, mixed-monitor DPI,
 IME/accessibility and other-platform/low-end execution require follow-up evidence.
+
+## Brick 15.1 — complete settings audit and UX contract
+
+Audited all 12 Settings categories and 17 views in the normal Windows release at
+`c1e4f7e`, using an isolated synthetic project and example model IDs. Read the
+configuration forms/handlers, prerequisites, scope/save/error paths and related
+conversation surfaces. No provider request, credentials or access/sharing/learning
+policy changes were made. Findings and delivery mapping are in the
+[UX contract](design/ux-simplification.md).
+
+Defined milestone 15 with seven subsequent runtime/qualification bricks, beginning
+with conversation-first computer use, then navigation/preferences, model setup,
+tools/access/connections, memory/skills, context/recovery and final flow qualification.
+Numerical and authority defaults remain unchanged. Target usability metrics are
+explicitly goals; this audit does not claim a runtime UX improvement or close
+milestone 14's live-model gate. Corrected stale milestone 14 status in the roadmap.
+
+Native audit covered wide dark screens. Compact/light behavior and populated,
+unavailable/stale cases were reviewed in source/existing tests; fresh native
+qualification remains scheduled per runtime brick. Physical assistive technology,
+other platforms and a user study were not exercised. Documentation/link/diff checks
+apply here; no new app build or live model request is required for this audit.
+All 74 local documentation links passed. Audit writes used only the isolated
+profile; the existing user-data digest baseline predates this task and no longer
+matches conversation/run tables, so it does not establish a fresh whole-history
+preservation pass for this audit. A fresh before/after baseline is required for
+the upcoming runtime bricks.

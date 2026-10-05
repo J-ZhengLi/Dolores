@@ -1,5 +1,13 @@
 # Universal UI style
 
+Milestone 15's [UX audit and target contract](design/ux-simplification.md) plans
+conversation-first computer use, simpler settings navigation and progressive
+disclosure across configuration. Current sections below describe implemented UI.
+Update each affected section with its runtime brick; the target is not yet the
+running app. Preserve this document's palette/brand/focus/compact rules during
+the UX work. Earlier restrictions on adding task controls are revised by the
+named milestone 15 scope when that brick is implemented.
+
 ## Desktop window frame
 
 The normal desktop app uses a 32-pixel custom title strip above the conversation
