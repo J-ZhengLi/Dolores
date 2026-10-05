@@ -56,3 +56,12 @@ Ignored `output/privacy/` may contain recovery copies of private history. Never 
 Compiled code can retain source-machine paths even when Git is clean. The Windows build removes known compiler paths and keeps debug symbols private; packaging refuses current workspace/home prefixes in its payload. Review binaries and third-party assets separately before public distribution. This local identity check is not a universal personal-data or secret detector.
 
 Saved-chat unsent drafts are stored in local session_drafts, bounded by the message allowance and deleted with the chat. They are excluded from conversation exports. Recovery checkpoints retain task goals, local tool evidence and parent provenance; explicit recovery shares bounded previews with the configured provider.
+
+Project knowledge is local unencrypted project-scoped SQLite data. Enabling
+receipt learning permits selected approved evidence to enter future requests
+from that folder. At most four current facts (4 KiB total) enter next-message
+context. Direct source files are rechecked locally; no background scanning or
+extra learning request is made. Conservative secret checks are not a guarantee
+that all sensitive text can be detected: inspect facts before enabling reuse.
+Feedback sharing is independently off by default and currently only records
+eligibility for milestone 12 reflection; ordinary task feedback remains local.

@@ -1,5 +1,27 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 12.1 — scoped knowledge
+
+Rust core/store/bridge: 166 tests passed; focused observer tests and Clippy
+passed after the final Windows path correction. Flutter: 206 tests passed,
+analysis clean. Fixtures exercise opt-in/scoping, deduplication, missing/changed
+sources and folders, expiry, protected corrections, secret/oversized rejection,
+atomic stale/failed saves and restart. Compact light/dark editor fixtures retain
+drafts after a failed save; Refresh does not replay the save.
+
+A bounded Qwen3.5-2B live read learned one package script declaration and the
+next request included exactly one knowledge fact without another tool call.
+It named the exact command; calls took 1.72 and 0.86 seconds. Feedback sharing
+stayed off. The first live attempt exposed normal versus extended Windows path
+comparison; it was fixed and the probe repeated. This establishes this simple
+evidence-reuse flow, not broader model reliability or tested script execution.
+
+Normal release rebuilt and visibly launched; all 34 original user-data tables
+were unchanged and the new table empty (schema 28, 35 tables). No policy or
+selected model changed in the user's data. Knowledge is deterministic and
+bounded; feedback eligibility does not upload notes yet. Other-platform and
+physical keyboard/IME acceptance remain open.
+
 ## Brick 11.3 — on-demand browser use
 
 Implemented the [owned browser contract](design/browser-use.md): optional pinned

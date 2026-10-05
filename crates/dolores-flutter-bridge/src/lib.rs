@@ -15,6 +15,7 @@ mod continuation;
 mod export;
 mod instructions;
 mod introspection;
+mod knowledge;
 mod mcp;
 mod memory;
 mod memory_suggestions;
@@ -97,6 +98,26 @@ enum Command {
         theme: dolores_core::Appearance,
     },
     WebSettings,
+    ProjectKnowledge {
+        session: String,
+    },
+    SetKnowledgePolicy {
+        session: String,
+        revision: u32,
+        learning: bool,
+        share_feedback: bool,
+    },
+    SaveKnowledgeFact {
+        session: String,
+        revision: u32,
+        id: Option<String>,
+        title: String,
+        text: String,
+        kind: String,
+        enabled: bool,
+        #[serde(default)]
+        inferred: bool,
+    },
     BrowserSettings,
     BrowserCapture {
         capture: String,
@@ -578,6 +599,7 @@ impl Engine {
                 return Ok(view);
             },
             Command::WebSettings => return self.web_settings(),
+            Command::ProjectKnowledge {session} => return self.project_knowledge(&session),
             Command::BrowserSettings => return self.browser_settings(),
             Command::BrowserCapture { capture } => return self.browser_capture(&capture),
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
@@ -696,6 +718,34 @@ impl Engine {
                 settings,
             } => self.start_comparison(&mut active, id, session, draft, settings),
             Command::WebSettings => self.web_settings(),
+            Command::ProjectKnowledge { session } => self.project_knowledge(&session),
+            Command::SetKnowledgePolicy {
+                session,
+                revision,
+                learning,
+                share_feedback,
+            } => self.knowledge_policy(&session, revision, learning, share_feedback),
+            Command::SaveKnowledgeFact {
+                session,
+                revision,
+                id,
+                title,
+                text,
+                kind,
+                enabled,
+                inferred,
+            } => self.write_fact(
+                &session,
+                revision,
+                knowledge::FactInput {
+                    id,
+                    title,
+                    text,
+                    kind,
+                    enabled,
+                    inferred,
+                },
+            ),
             Command::BrowserSettings => self.browser_settings(),
             Command::BrowserCapture { capture } => self.browser_capture(&capture),
             Command::SaveWebSettings {
@@ -915,6 +965,12 @@ impl Engine {
                     dolores_core::prepare_relevant_skill_context(messages, &skills)?;
                 let (messages, memory_context) =
                     dolores_core::prepare_memory_context(messages, memories.clone())?;
+                let knowledge_facts = session
+                    .as_deref()
+                    .map(|s| knowledge::facts(self.store.as_ref(), s))
+                    .transpose()?
+                    .unwrap_or_default();
+                let messages = dolores_core::knowledge_context(messages, &knowledge_facts)?;
                 let messages =
                     dolores_core::prepare_summary_context(messages, session_summary.as_ref())?;
                 let mut specs = if tools {
@@ -958,6 +1014,7 @@ impl Engine {
                 summary.instructions = guidance.map(|g| g.provenance);
                 summary.skills = skill_sources;
                 summary.memory = memory_context;
+                summary.knowledge = knowledge_facts;
                 dolores_core::account_summary(&mut summary, session_summary.as_ref());
                 let mut report = json!(summary);
                 report["messages"] = json!(messages);
@@ -1400,6 +1457,7 @@ impl Engine {
                     } else { None };
                     let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
                     if result.is_ok() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
+                    let knowledge_update = if result.is_ok() && !paused { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
                     let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
                             automatic_memory::learn(store.clone(), learner, &session, &learning_model, cancel.clone(), &output, id).await
@@ -1408,7 +1466,7 @@ impl Engine {
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
                     let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error})).await.err();
                     let mut event = match result {
-                        Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update}),
+                        Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
                     event["runId"]=json!(log.id);
@@ -1513,6 +1571,8 @@ async fn execute(
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
     let (context, skill_sources) = dolores_core::prepare_relevant_skill_context(context, &skills)?;
     let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
+    let knowledge_facts = knowledge::facts(store.as_ref(), &session)?;
+    let context = dolores_core::knowledge_context(context, &knowledge_facts)?;
     let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
     let context = attachments::prepare_text(store.as_ref(), &session, context)?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
@@ -1646,6 +1706,7 @@ async fn execute(
     summary.instructions = guidance.map(|g| g.provenance);
     summary.skills = skill_sources;
     summary.memory = memory_context;
+    summary.knowledge = knowledge_facts;
     dolores_core::account_summary(&mut summary, session_summary.as_ref());
     forward(
         output,

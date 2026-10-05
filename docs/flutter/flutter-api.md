@@ -87,3 +87,15 @@ Transport/Stop/malformed ordinary responses do not publish an incomplete chat tu
 ### Desktop appearance
 
 `bootstrap.appearance` is `system`, `light` or `dark` (absent legacy values use System). `saveAppearance {theme}` persists the typed local choice and returns the acknowledged theme. Invalid strings are rejected. It is allowed during a run because it changes presentation only, and does not change profiles, task authority, provider requests or conversation history. Storage failure leaves the previous acknowledged UI theme. Schema 27 adds an `appearance` singleton without rewriting existing tables.
+
+### Project knowledge (12.1)
+
+projectKnowledge {session} returns revision, learning, shareFeedback, notice
+and facts with computed fresh status. setKnowledgePolicy {session, revision,
+learning, share_feedback} changes only this working folder's opt-in choices.
+saveKnowledgeFact {session, revision, id?, title, text, kind, enabled, inferred?}
+saves a protected manual correction. Revisions are checked atomically; conflicts
+require refresh and explicit retry. Side chats cannot save project knowledge.
+Context summaries retain exact selected knowledge provenance. A successful done
+event may include knowledgeUpdate for the activity log; learning failure does
+not discard the saved reply or automatically replay work.

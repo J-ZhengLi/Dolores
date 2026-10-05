@@ -203,7 +203,7 @@ mod tests {
                 .unwrap()
                 .query_row::<i64, _, _>("PRAGMA user_version", [], |r| r.get(0))
                 .unwrap(),
-            27
+            SCHEMA_VERSION
         );
     }
 }

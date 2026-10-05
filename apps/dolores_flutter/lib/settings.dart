@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'dolores_settings.dart';
-import 'memory.dart';
 import 'mcp.dart';
 import 'model_settings.dart';
 import 'request_settings.dart';
@@ -12,6 +11,7 @@ import 'task_permissions.dart';
 import 'theme.dart';
 import 'web_settings.dart';
 import 'browser_settings.dart';
+import 'knowledge.dart';
 
 enum SettingsCategory {
   appearance,
@@ -129,10 +129,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
           ? unavailable(
               'Finish or stop the current response before editing memory.',
             )
-          : MemoryInspector(
-              bridge: widget.chat.bridge,
-              session: widget.chat.session,
-            ),
+          : MemorySettings(chat: widget.chat),
     SettingsCategory.web => WebSettingsInspector(chat: widget.chat),
     SettingsCategory.browser => BrowserSettingsInspector(chat: widget.chat),
     SettingsCategory.tools =>

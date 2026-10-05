@@ -47,7 +47,9 @@ pub use skills::{
     SkillScope, SkillSource, SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES,
     MAX_SKILL_VERSIONS,
 };
+mod knowledge;
 mod memory;
+pub use knowledge::*;
 mod memory_suggestions;
 mod summary;
 pub use agent::*;
@@ -260,6 +262,17 @@ pub enum Appearance {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn knowledge(&self, _: &str) -> Result<KnowledgeState, String> {
+        Ok(Default::default())
+    }
+    fn save_knowledge(
+        &self,
+        _: &str,
+        _: u32,
+        _: &KnowledgeState,
+    ) -> Result<KnowledgeState, String> {
+        Err("Project knowledge is unavailable in this store.".into())
+    }
     fn appearance(&self) -> Result<Appearance, String> {
         Ok(Appearance::System)
     }

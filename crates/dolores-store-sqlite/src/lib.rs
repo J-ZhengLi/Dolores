@@ -23,11 +23,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+pub const SCHEMA_VERSION: i64 = 28;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
 mod attachments;
 mod drafts;
+mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;
 mod runs;
@@ -174,6 +176,9 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS appearance(id INTEGER PRIMARY KEY CHECK(id=1),theme TEXT NOT NULL CHECK(theme IN ('system','light','dark')));
             PRAGMA user_version=27;COMMIT;").map_err(storage_error)?;
         }
+        if version < 28 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS project_knowledge(root TEXT PRIMARY KEY,data TEXT NOT NULL); PRAGMA user_version=28; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -184,6 +189,17 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn knowledge(&self, root: &str) -> Result<dolores_core::KnowledgeState, String> {
+        self.read_knowledge(root)
+    }
+    fn save_knowledge(
+        &self,
+        root: &str,
+        revision: u32,
+        state: &dolores_core::KnowledgeState,
+    ) -> Result<dolores_core::KnowledgeState, String> {
+        self.write_knowledge(root, revision, state)
+    }
     fn appearance(&self) -> Result<dolores_core::Appearance, String> {
         let theme: Option<String> = self
             .lock()?
@@ -1164,7 +1180,7 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 27);
+        assert_eq!(version, SCHEMA_VERSION);
         assert_eq!(store.list().unwrap()[0].title, "Original title");
     }
     #[test]

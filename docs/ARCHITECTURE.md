@@ -144,3 +144,10 @@ See [contributor guide](../CONTRIBUTING.md), [roadmap](ROADMAP.md), [design refe
 ## Desktop settings presentation
 
 Flutter uses one settings window with lazily created, retained editors and a shared pending-operation gate. The existing scoped settings, model profiles, memory, skills, MCP and permission ports remain authoritative. InspectorFrame embeds only on its Settings route; nested reviews retain their own dialog boundary. Models unifies connection/capabilities/context, responses and project/chat generation overrides. Scoped editors preserve other patch groups and retain compare-and-swap revisions. Theme is a separate typed local appearance preference, persisted in an additive schema-27 singleton and returned by bootstrap; it is never included in model context or grants. SaveAppearance is independent of active generation.
+
+Milestone 12.1 adds revisioned project knowledge beside preference memory.
+A deterministic post-reply observer, disabled by default, extracts at most two
+bounded approved receipt facts. It never changes manual corrections, permissions
+or model settings. Sources bind direct paths/digests or completed command
+receipts; future context carries at most four fresh enabled facts with exact
+provenance. This is evidence reuse, not automatic skill adaptation yet.

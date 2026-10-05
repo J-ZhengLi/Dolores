@@ -222,3 +222,16 @@ Drafts in saved chats are kept locally after a short typing pause. Failed sends 
 ## Forking and compacting a chat
 
 Use Chat actions → Fork conversation to continue from a completed turn. The new chat shares the same files and starts with fresh permissions. In Session summary, enable Automatically compact this chat to permit one bounded summary attempt when older turns would otherwise be omitted. The draft survives failure; review the summary or increase the configured context window when recovery asks you to. See [managed threads](design/managed-threads.md) for coverage and limits.
+
+## Project knowledge
+
+Settings → Memory → Project knowledge retains small project facts separately
+from personal preferences. Learning from approved task evidence starts off per
+working folder. Enable it to retain complete successful command receipts,
+package script declarations and direct conventional folders. A declaration is
+not a successful execution. Facts show their source and freshness. Changed or
+missing sources and observations older than seven days are excluded from future
+context. Correct a fact to protect your choice, or disable it to stop reuse.
+Feedback-note eligibility is a separate opt-in; this brick does not upload notes
+or run reflection. The activity Log reports learning failures without losing the
+saved reply. Refresh and explicitly retry a correction after a revision conflict.

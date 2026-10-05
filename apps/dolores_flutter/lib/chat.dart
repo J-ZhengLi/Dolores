@@ -1109,6 +1109,9 @@ class ChatController extends ChangeNotifier {
             } else {
               _record('Reply saved');
               attachments = [];
+              if (event['knowledgeUpdate'] is String) {
+                _record('Project knowledge: ${event['knowledgeUpdate']}');
+              }
               if (event['memoryUpdate'] is Map) {
                 final update = event['memoryUpdate'] as Map;
                 _record('Memory: ${update['status']} · ${update['note']}');
