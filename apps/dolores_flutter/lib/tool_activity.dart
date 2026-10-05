@@ -277,7 +277,9 @@ class ToolApprovalCard extends StatelessWidget {
                   if (running || external) ...[
                     const SizedBox(height: 6),
                     Text(
-                      disclosure,
+                      external || running
+                          ? 'Runs with your OS permissions; may change files or use the network. Effects may remain after Stop.'
+                          : disclosure,
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
                   ],
@@ -372,10 +374,29 @@ class ToolApprovalCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 6),
                   if (!running && !external)
-                    Text(
-                      disclosure,
-                      style: TextStyle(color: p.muted, fontSize: 12),
+                    Text(switch (name) {
+                      'desktop_control' => 'Input affects the selected window. Submission or deletion may be irreversible.',
+                      'browser' => 'Click or input may submit data or change this website.',
+                      'web_search' => 'The query and returned sources are shared with the search service and your model.',
+                      'read_web_page' => 'The URL is sent to its host; extracted text is shared with your model.',
+                      _ =>
+                        editing || creating
+                            ? 'Applies this change to the displayed file.'
+                            : 'Shares this result with your model.',
+                    }, style: TextStyle(color: p.muted, fontSize: 12)),
+                  Material(
+                    color: Colors.transparent,
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: const Text('Operation details'),
+                      children: [
+                        SelectableText(
+                          disclosure,
+                          style: TextStyle(color: p.muted, fontSize: 12),
+                        ),
+                      ],
                     ),
+                  ),
                   if ((editing || creating) && request['diff'] is String) ...[
                     const SizedBox(height: 8),
                     EditDiff(

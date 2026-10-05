@@ -1,3 +1,5 @@
+import 'tools_home.dart';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -20,6 +22,7 @@ enum SettingsCategory {
   models,
   personalization,
   memory,
+  toolHome,
   web,
   browser,
   desktop,
@@ -142,6 +145,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
       SettingsCategory.memory,
       ModelsPage.connection,
       'preferences project facts remember sharing',
+    ),
+    (
+      'Tools overview',
+      SettingsCategory.toolHome,
+      ModelsPage.connection,
+      'readiness built-in',
     ),
     (
       'Web search',
@@ -294,7 +303,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
         chat: widget.chat,
         initialDetail: true,
       ),
-      ModelsPage.defaults => RequestSettingsDialog(chat: widget.chat, appDefaults: true),
+      ModelsPage.defaults => RequestSettingsDialog(
+        chat: widget.chat,
+        appDefaults: true,
+      ),
       ModelsPage.overrides => DoloresSettingsInspector(
         chat: widget.chat,
         group: SettingsGroup.generation,
@@ -314,6 +326,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
               'Finish or stop the current response before editing memory.',
             )
           : MemorySettings(chat: widget.chat),
+    SettingsCategory.toolHome => ToolsHome(
+      chat: widget.chat,
+      open: (name) => navigate(SettingsCategory.values.byName(name)),
+    ),
     SettingsCategory.web => WebSettingsInspector(chat: widget.chat),
     SettingsCategory.browser => BrowserSettingsInspector(chat: widget.chat),
     SettingsCategory.desktop => DesktopSettingsInspector(chat: widget.chat),

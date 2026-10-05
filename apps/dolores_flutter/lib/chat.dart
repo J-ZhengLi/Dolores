@@ -577,7 +577,10 @@ class ChatController extends ChangeNotifier {
       });
       // The acknowledged command changed only these settings. A second
       // bootstrap read could fail after a successful save and misreport it.
-      requestSettings = Map.of(settings);
+      defaultRequestSettings = Map.of(settings);
+      requestSettings =
+          (modelRequestSettings[model] as Map?)?.cast<String, dynamic>() ??
+          Map.of(settings);
       contextSummary = null;
       contextBasis = null;
     } finally {

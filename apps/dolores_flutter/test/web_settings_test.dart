@@ -59,10 +59,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(
-          find.textContaining('without an account or API key'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('No account or key needed'), findsOneWidget);
         expect(find.byKey(const Key('web-api-key')), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.tap(find.byKey(const Key('web-save')));
@@ -83,6 +80,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(home: WebSettingsInspector(chat: chat)),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Search connection'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('web-provider')));
       await tester.pumpAndSettle();
@@ -194,6 +193,8 @@ void main() {
     expect(find.text('Share this web search query?'), findsOneWidget);
     expect(find.text('https://api.mwmbl.org/search/'), findsOneWidget);
     expect(find.textContaining('Rust ownership'), findsOneWidget);
+    await tester.tap(find.text('Operation details'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('cannot grant permissions'), findsOneWidget);
     expect(bridge.calls, isEmpty);
     expect(tester.takeException(), isNull);

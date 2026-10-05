@@ -1,3 +1,6 @@
+﻿import 'mcp_import.dart';
+import 'settings_frame.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -50,6 +53,58 @@ class _CredentialRow {
 }
 
 class _McpInspectorState extends State<McpInspector> {
+  bool editing = false;
+  String? baseline;
+  String get draft => jsonEncode([
+    _name.text,
+    _program.text,
+    _args.map((a) => a.text).toList(),
+    _credentials.map((r) => [r.name.text, r.value.text]).toList(),
+  ]);
+  bool get dirty => baseline != null && (draft != baseline || _review != null);
+  Future<bool> saveDraft() async {
+    if (_review == null || _selected.isEmpty) {
+      setState(
+        () => _error = 'Review the launch and choose tools before saving. Nothing was started.',
+      );
+      return false;
+    }
+    await _enable();
+    return !dirty;
+  }
+
+  Future<void> switchConnection({bool fresh = false, String? id}) async {
+    if (dirty && !await resolveSettingsDraft(context, save: saveDraft)) return;
+    final token = _review?['token'];
+    if (token != null) await _call('discardMcpReview', {'token': token});
+    await _act(() => _load(newConnection: fresh, chooseId: id));
+    if (mounted) setState(() => editing = true);
+  }
+
+  Future<void> importConnection() async {
+    if (dirty && !await resolveSettingsDraft(context, save: saveDraft)) return;
+    if (!mounted) return;
+    final value = await showMcpImport(context);
+    if (value == null || !mounted) return;
+    final token = _review?['token'];
+    if (token != null) await _call('discardMcpReview', {'token': token});
+    await _act(() => _load(newConnection: true));
+    if (!mounted) return;
+    setState(() {
+      editing = true;
+      _name.text = value['label'];
+      _program.text = value['executable'];
+      for (final arg in value['args']) {
+        _args.add(TextEditingController(text: arg));
+      }
+      for (final entry in (value['env'] as Map).entries) {
+        final row = _CredentialRow(entry.key);
+        row.value.text = entry.value;
+        _credentials.add(row);
+      }
+    });
+  }
+
   final _name = TextEditingController(), _program = TextEditingController();
   final _args = <TextEditingController>[];
   final _credentials = <_CredentialRow>[];
@@ -63,7 +118,7 @@ class _McpInspectorState extends State<McpInspector> {
   final _selected = <String>{};
   bool _busy = false, _stopping = false;
   int? _run;
-  String? _error, _notice, _directory;
+  String? _error, _notice;
   Future<dynamic> _call(
     String command, [
     Map<String, dynamic> fields = const {},
@@ -142,7 +197,7 @@ class _McpInspectorState extends State<McpInspector> {
       _connections = entries;
       _editingId = id;
       _connection = saved;
-      _directory = result['directory'] as String?;
+
       _review = null;
       _selected.clear();
       _name.text = saved?['launch']['label'] as String? ?? '';
@@ -151,6 +206,7 @@ class _McpInspectorState extends State<McpInspector> {
         _args.add(TextEditingController(text: arg as String));
       }
     });
+    baseline = draft;
     _status();
   }
 
@@ -184,7 +240,49 @@ class _McpInspectorState extends State<McpInspector> {
       _edited();
     }
   });
-  Future<void> _inspect() => _act(() async {
+  Future<void> _inspect() async {
+    final allowed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Review connection launch'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Starts this installed program with your OS permissions to discover its tools. It may access files or the network.',
+              ),
+              const SizedBox(height: 12),
+              SelectableText(_program.text),
+              for (var i = 0; i < _args.length; i++)
+                SelectableText('${i + 1}. ${jsonEncode(_args[i].text)}'),
+              if (_credentials.isNotEmpty)
+                Text(
+                  'Credentials sent to this program: ${_credentials.map((r) => r.name.text).join(', ')}',
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('mcp-launch-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Inspect tools'),
+          ),
+        ],
+      ),
+    );
+    if (allowed != true || !mounted) return;
+    await _inspectApproved();
+  }
+
+  Future<void> _inspectApproved() => _act(() async {
     if (_name.text.trim().isEmpty || _program.text.trim().isEmpty) {
       throw 'Choose a server name and its direct executable first.';
     }
@@ -270,7 +368,7 @@ class _McpInspectorState extends State<McpInspector> {
     await _load();
     if (mounted) {
       setState(
-        () => _notice = result?['warning'] as String? ?? 'Selected tools enabled for this folder. Each call still needs approval.',
+        () => _notice = result?['warning'] as String? ?? 'Selected tools enabled for this folder. Chat access controls each request.',
       );
       _status();
     }
@@ -338,10 +436,11 @@ class _McpInspectorState extends State<McpInspector> {
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
+    reportSettingsDraft(context, dirty: () => dirty, save: saveDraft);
     return PopScope(
       canPop: !_busy,
       child: InspectorFrame(
-        title: 'External tools',
+        title: 'Connections',
         subtitle: 'MCP · this working folder',
         canClose: !_busy,
         child: Column(
@@ -364,15 +463,7 @@ class _McpInspectorState extends State<McpInspector> {
                     Text(_notice!),
                     const SizedBox(height: 12),
                   ],
-                  const Text(
-                    'Inspect server starts the program below to list its tools. It runs with your OS permissions and may access files or the network. Connect only a program you trust. Tool approval controls what Dolores requests; it does not sandbox the program.',
-                  ),
-                  const SizedBox(height: 12),
-                  if (_directory != null)
-                    SelectableText(
-                      _directory!,
-                      style: TextStyle(color: p.muted, fontSize: 12),
-                    ),
+                  const Text('Connect external tools to this working folder.'),
                   const SizedBox(height: 12),
                   Text(
                     'Servers · ${_connections.length}/4 saved · ${_connections.where((c) => c['enabled'] == true).fold<int>(0, (n, c) => n + (c['tools'] as List).length)}/2 external tools enabled',
@@ -406,10 +497,8 @@ class _McpInspectorState extends State<McpInspector> {
                       ),
                       onTap: _busy
                           ? null
-                          : () => _act(
-                              () => _load(
-                                chooseId: server['id'] as String? ?? 'legacy',
-                              ),
+                          : () => switchConnection(
+                              id: server['id'] as String? ?? 'legacy',
                             ),
                     ),
                   Align(
@@ -418,75 +507,143 @@ class _McpInspectorState extends State<McpInspector> {
                       key: const Key('mcp-add-server'),
                       onPressed: _busy || _connections.length >= 4
                           ? null
-                          : () => _act(() => _load(newConnection: true)),
-                      child: const Text('Add server'),
-                    ),
-                  ),
-                  if (_connection == null)
-                    const Text('New connection · inspect before enabling'),
-                  if (_connection != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      '${_connection!['enabled'] == true ? 'Enabled' : 'Disabled'} · ${_connection!['launch']['label']}',
-                    ),
-                    Text(
-                      'Saved tools: ${(_connection!['tools'] as List).map((t) => t['name']).join(', ')}',
-                      style: TextStyle(color: p.muted),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  TextField(
-                    key: const Key('mcp-name'),
-                    controller: _name,
-                    enabled: !_busy,
-                    onChanged: (_) => _edited(),
-                    maxLength: 128,
-                    decoration: const InputDecoration(labelText: 'Server name'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('mcp-program'),
-                    controller: _program,
-                    enabled: !_busy,
-                    onChanged: (_) => _edited(),
-                    decoration: const InputDecoration(
-                      labelText: 'Executable',
-                      hintText: 'Choose a direct installed program',
+                          : () => switchConnection(fresh: true),
+                      child: const Text('Add connection'),
                     ),
                   ),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      key: const Key('mcp-choose-program'),
-                      onPressed: _busy ? null : _choose,
-                      child: const Text('Choose executable'),
+                    child: TextButton.icon(
+                      key: const Key('mcp-import'),
+                      onPressed: _busy || _connections.length >= 4
+                          ? null
+                          : importConnection,
+                      icon: const Icon(Icons.file_download_outlined),
+                      label: const Text('Import JSON'),
                     ),
                   ),
-                  const Text(
-                    'Arguments are passed literally, in order. No shell command, package installation or variable expansion. Keep secrets out of these saved fields.',
-                  ),
-                  for (var i = 0; i < _args.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
+                  if (editing || _connection != null) ...[
+                    if (_connection == null)
+                      const Text('New connection · inspect before enabling'),
+                    if (_connection != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        '${_connection!['enabled'] == true ? 'Enabled' : 'Disabled'} · ${_connection!['launch']['label']}',
+                      ),
+                      Text(
+                        'Saved tools: ${(_connection!['tools'] as List).map((t) => t['name']).join(', ')}',
+                        style: TextStyle(color: p.muted),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const Key('mcp-name'),
+                      controller: _name,
+                      enabled: !_busy,
+                      onChanged: (_) => _edited(),
+                      maxLength: 128,
+                      decoration: const InputDecoration(
+                        labelText: 'Server name',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('mcp-program'),
+                      controller: _program,
+                      enabled: !_busy,
+                      onChanged: (_) => _edited(),
+                      decoration: const InputDecoration(
+                        labelText: 'Executable',
+                        hintText: 'Choose a direct installed program',
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('mcp-choose-program'),
+                        onPressed: _busy ? null : _choose,
+                        child: const Text('Choose executable'),
+                      ),
+                    ),
+                    const Text(
+                      'Arguments are passed literally, in order. No shell command, package installation or variable expansion. Keep secrets out of these saved fields.',
+                    ),
+                    for (var i = 0; i < _args.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: Key('mcp-arg-$i'),
+                                controller: _args[i],
+                                enabled: !_busy,
+                                onChanged: (_) => _edited(),
+                                decoration: InputDecoration(
+                                  labelText: 'Argument ${i + 1}',
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove argument ${i + 1}',
+                              onPressed: _busy
+                                  ? null
+                                  : () {
+                                      final removed = _args.removeAt(i);
+                                      _edited();
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback(
+                                            (_) => removed.dispose(),
+                                          );
+                                    },
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('mcp-add-argument'),
+                        onPressed: _busy || _args.length >= 32
+                            ? null
+                            : () {
+                                _args.add(TextEditingController());
+                                _edited();
+                              },
+                        child: const Text('Add argument'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Credentials'),
+                    const Text(
+                      'Optional keys for this server. Inspect sends them to the program; Enable saves them in secure storage. Saved keys stay masked. Leave a saved value blank to reuse it, or remove its row to revoke it when enabling. A changed program needs the key entered again.',
+                    ),
+                    for (var i = 0; i < _credentials.length; i++) ...[
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
                           Expanded(
                             child: TextField(
-                              key: Key('mcp-arg-$i'),
-                              controller: _args[i],
+                              key: Key('mcp-credential-name-$i'),
+                              controller: _credentials[i].name,
                               enabled: !_busy,
+                              maxLength: 64,
+                              autocorrect: false,
+                              enableSuggestions: false,
                               onChanged: (_) => _edited(),
-                              decoration: InputDecoration(
-                                labelText: 'Argument ${i + 1}',
+                              decoration: const InputDecoration(
+                                labelText: 'Environment name',
+                                hintText: 'SERVICE_API_KEY',
                               ),
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Remove argument ${i + 1}',
+                            tooltip: 'Remove credential ${i + 1}',
                             onPressed: _busy
                                 ? null
                                 : () {
-                                    final removed = _args.removeAt(i);
+                                    final removed = _credentials.removeAt(i);
                                     _edited();
                                     WidgetsBinding.instance
                                         .addPostFrameCallback(
@@ -497,156 +654,104 @@ class _McpInspectorState extends State<McpInspector> {
                           ),
                         ],
                       ),
-                    ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      key: const Key('mcp-add-argument'),
-                      onPressed: _busy || _args.length >= 32
-                          ? null
-                          : () {
-                              _args.add(TextEditingController());
-                              _edited();
-                            },
-                      child: const Text('Add argument'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Credentials'),
-                  const Text(
-                    'Optional keys for this server. Inspect sends them to the program; Enable saves them in secure storage. Saved keys stay masked. Leave a saved value blank to reuse it, or remove its row to revoke it when enabling. A changed program needs the key entered again.',
-                  ),
-                  for (var i = 0; i < _credentials.length; i++) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            key: Key('mcp-credential-name-$i'),
-                            controller: _credentials[i].name,
-                            enabled: !_busy,
-                            maxLength: 64,
-                            autocorrect: false,
-                            enableSuggestions: false,
-                            onChanged: (_) => _edited(),
-                            decoration: const InputDecoration(
-                              labelText: 'Environment name',
-                              hintText: 'SERVICE_API_KEY',
-                            ),
-                          ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        key: Key('mcp-credential-value-$i'),
+                        controller: _credentials[i].value,
+                        enabled: !_busy,
+                        obscureText: true,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        onChanged: (_) => _edited(),
+                        decoration: InputDecoration(
+                          labelText: 'Secret value',
+                          hintText:
+                              _credentials[i].savedName ==
+                                  _credentials[i].name.text.trim()
+                              ? 'Saved securely · leave blank to reuse'
+                              : 'Required for a new credential',
                         ),
-                        IconButton(
-                          tooltip: 'Remove credential ${i + 1}',
-                          onPressed: _busy
-                              ? null
-                              : () {
-                                  final removed = _credentials.removeAt(i);
-                                  _edited();
-                                  WidgetsBinding.instance.addPostFrameCallback(
-                                    (_) => removed.dispose(),
-                                  );
-                                },
-                          icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                    ],
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('mcp-add-credential'),
+                        onPressed: _busy || _credentials.length >= 8
+                            ? null
+                            : () {
+                                _credentials.add(_CredentialRow());
+                                _edited();
+                              },
+                        child: const Text('Add credential'),
+                      ),
+                    ),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: const Text('Limits and supported features'),
+                      children: [
+                        Text(
+                          'Up to four saved connections per folder, sharing two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
+                          style: TextStyle(color: p.muted, fontSize: 12),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      key: Key('mcp-credential-value-$i'),
-                      controller: _credentials[i].value,
-                      enabled: !_busy,
-                      obscureText: true,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      onChanged: (_) => _edited(),
-                      decoration: InputDecoration(
-                        labelText: 'Secret value',
-                        hintText:
-                            _credentials[i].savedName ==
-                                _credentials[i].name.text.trim()
-                            ? 'Saved securely · leave blank to reuse'
-                            : 'Required for a new credential',
-                      ),
-                    ),
-                  ],
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      key: const Key('mcp-add-credential'),
-                      onPressed: _busy || _credentials.length >= 8
-                          ? null
-                          : () {
-                              _credentials.add(_CredentialRow());
-                              _edited();
-                            },
-                      child: const Text('Add credential'),
-                    ),
-                  ),
-                  ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: const Text('Limits and supported features'),
-                    children: [
+                    if (_review != null) ...[
                       Text(
-                        'Up to four saved connections per folder, sharing two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
-                        style: TextStyle(color: p.muted, fontSize: 12),
+                        '${2 - _otherTools} external tool slots available. If Enable exceeds the limit, select fewer tools or disable another server; the current review stays available.',
                       ),
-                    ],
-                  ),
-                  if (_review != null) ...[
-                    Text(
-                      '${2 - _otherTools} external tool slots available. If Enable exceeds the limit, select fewer tools or disable another server; the current review stays available.',
-                    ),
-                    Text(
-                      '${_review!['serverName']} · ${_review!['serverVersion']} · MCP ${_review!['protocolVersion']}',
-                    ),
-                    const SizedBox(height: 8),
-                    for (final tool in _review!['tools'] as List)
-                      Card(
-                        elevation: 0,
-                        color: p.surface,
-                        child: Column(
-                          children: [
-                            CheckboxListTile(
-                              key: Key('mcp-tool-${tool['name']}'),
-                              title: Text(tool['name'] as String),
-                              subtitle: Text(tool['description'] as String),
-                              value: _selected.contains(tool['name']),
-                              onChanged: _busy
-                                  ? null
-                                  : (checked) {
-                                      setState(() {
-                                        if (checked == true) {
-                                          if (_selected.length >= 2) {
-                                            _error = 'Choose at most two MCP tools. This folder shares two external tool slots across servers.';
-                                            _status();
+                      Text(
+                        '${_review!['serverName']} · ${_review!['serverVersion']} · MCP ${_review!['protocolVersion']}',
+                      ),
+                      const SizedBox(height: 8),
+                      for (final tool in _review!['tools'] as List)
+                        Card(
+                          elevation: 0,
+                          color: p.surface,
+                          child: Column(
+                            children: [
+                              CheckboxListTile(
+                                key: Key('mcp-tool-${tool['name']}'),
+                                title: Text(tool['name'] as String),
+                                subtitle: Text(tool['description'] as String),
+                                value: _selected.contains(tool['name']),
+                                onChanged: _busy
+                                    ? null
+                                    : (checked) {
+                                        setState(() {
+                                          if (checked == true) {
+                                            if (_selected.length >= 2) {
+                                              _error = 'Choose at most two MCP tools. This folder shares two external tool slots across servers.';
+                                              _status();
+                                            } else {
+                                              _selected.add(
+                                                tool['name'] as String,
+                                              );
+                                              _error = null;
+                                            }
                                           } else {
-                                            _selected.add(
-                                              tool['name'] as String,
-                                            );
+                                            _selected.remove(tool['name']);
                                             _error = null;
                                           }
-                                        } else {
-                                          _selected.remove(tool['name']);
-                                          _error = null;
-                                        }
-                                      });
-                                    },
-                            ),
-                            ExpansionTile(
-                              title: const Text('Input schema'),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: SelectableText(
-                                    const JsonEncoder.withIndent('  ')
-                                        .convert(tool['inputSchema']),
+                                        });
+                                      },
+                              ),
+                              ExpansionTile(
+                                title: const Text('Input schema'),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: SelectableText(
+                                      const JsonEncoder.withIndent('  ')
+                                          .convert(tool['inputSchema']),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                    ],
                   ],
                 ],
               ),
@@ -660,7 +765,9 @@ class _McpInspectorState extends State<McpInspector> {
                 children: [
                   TextButton(
                     key: const Key('mcp-refresh'),
-                    onPressed: _busy ? null : () => _act(_load),
+                    onPressed: _busy
+                        ? null
+                        : () => switchConnection(id: _editingId),
                     child: const Text('Refresh'),
                   ),
                   if (_connection != null)
@@ -683,7 +790,9 @@ class _McpInspectorState extends State<McpInspector> {
                     ),
                   FilledButton(
                     key: const Key('mcp-inspect'),
-                    onPressed: _busy ? null : _inspect,
+                    onPressed: _busy || (!editing && _connection == null)
+                        ? null
+                        : _inspect,
                     child: const Text('Inspect server'),
                   ),
                   if (_review != null)

@@ -141,7 +141,7 @@ class _WebSettingsState extends State<WebSettingsInspector> {
                       if (report == null && pending)
                         const LinearProgressIndicator(),
                       const Text(
-                        'Default search works without an account or API key. Queries go to Mwmbl’s public index; its coverage is smaller than commercial engines. You can choose another connection below.',
+                        'Default search is ready. No account or key needed.',
                       ),
                       const SizedBox(height: 12),
                       SwitchListTile(
@@ -155,85 +155,96 @@ class _WebSettingsState extends State<WebSettingsInspector> {
                             ? null
                             : (value) => setState(() => enabled = value),
                       ),
-                      DropdownButtonFormField<String>(
-                        key: const Key('web-provider'),
-                        isExpanded: true,
-                        initialValue: provider,
-                        decoration: const InputDecoration(
-                          labelText: 'Search provider',
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'mwmbl',
-                            child: Text('Default (Mwmbl · no key)'),
+                      ExpansionTile(
+                        title: const Text('Search connection'),
+                        initiallyExpanded: provider != 'mwmbl',
+                        children: [
+                          DropdownButtonFormField<String>(
+                            key: const Key('web-provider'),
+                            isExpanded: true,
+                            initialValue: provider,
+                            decoration: const InputDecoration(
+                              labelText: 'Search provider',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'mwmbl',
+                                child: Text('Default (Mwmbl · no key)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'brave',
+                                child: Text('Brave Search API'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'searxng',
+                                child: Text('Custom SearXNG'),
+                              ),
+                            ],
+                            onChanged: locked
+                                ? null
+                                : (value) => setState(() => provider = value!),
                           ),
-                          DropdownMenuItem(
-                            value: 'brave',
-                            child: Text('Brave Search API'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'searxng',
-                            child: Text('Custom SearXNG'),
-                          ),
+                          if (provider == 'searxng') ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              key: const Key('web-endpoint'),
+                              controller: endpoint,
+                              enabled: !locked,
+                              decoration: const InputDecoration(
+                                labelText: 'Public HTTPS search endpoint',
+                                hintText: 'https://search.example.org/search',
+                              ),
+                            ),
+                            const Text(
+                              'The instance must enable JSON search. No private-network endpoint, login or embedded key is supported.',
+                            ),
+                          ],
+                          if (provider == 'brave') ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              key: const Key('web-api-key'),
+                              controller: apiKey,
+                              enabled: !locked && !clearKey,
+                              obscureText: true,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              decoration: InputDecoration(
+                                labelText: report?['hasSavedKey'] == true
+                                    ? 'Replace API key (blank keeps saved key)'
+                                    : 'API key',
+                              ),
+                            ),
+                            const Text(
+                              'Stored in the OS credential vault. Brave queries may consume your plan’s quota; Dolores does not purchase a subscription or increase limits.',
+                            ),
+                          ],
+                          if (report?['hasSavedKey'] == true)
+                            CheckboxListTile(
+                              key: const Key('web-clear-key'),
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Remove saved Brave key'),
+                              value: clearKey,
+                              onChanged: locked
+                                  ? null
+                                  : (value) => setState(() {
+                                      clearKey = value!;
+                                      if (clearKey) apiKey.clear();
+                                    }),
+                            ),
                         ],
-                        onChanged: locked
-                            ? null
-                            : (value) => setState(() => provider = value!),
                       ),
-                      if (provider == 'searxng') ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const Key('web-endpoint'),
-                          controller: endpoint,
-                          enabled: !locked,
-                          decoration: const InputDecoration(
-                            labelText: 'Public HTTPS search endpoint',
-                            hintText: 'https://search.example.org/search',
-                          ),
-                        ),
-                        const Text(
-                          'The instance must enable JSON search. No private-network endpoint, login or embedded key is supported.',
-                        ),
-                      ],
-                      if (provider == 'brave') ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const Key('web-api-key'),
-                          controller: apiKey,
-                          enabled: !locked && !clearKey,
-                          obscureText: true,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          decoration: InputDecoration(
-                            labelText: report?['hasSavedKey'] == true
-                                ? 'Replace API key (blank keeps saved key)'
-                                : 'API key',
-                          ),
-                        ),
-                        const Text(
-                          'Stored in the OS credential vault. Brave queries may consume your plan’s quota; Dolores does not purchase a subscription or increase limits.',
-                        ),
-                      ],
-                      if (report?['hasSavedKey'] == true)
-                        CheckboxListTile(
-                          key: const Key('web-clear-key'),
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Remove saved Brave key'),
-                          value: clearKey,
-                          onChanged: locked
-                              ? null
-                              : (value) => setState(() {
-                                  clearKey = value!;
-                                  if (clearKey) apiKey.clear();
-                                }),
-                        ),
                       const SizedBox(height: 16),
                       const Text(
                         'Web operations share the exact query or URL with the displayed service. Results are shared with your chat model and retained in run evidence. No files, cookies or model keys are sent by this adapter. Task permissions and limits still apply.',
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'One query returns up to five sources. Page reads accept public HTTPS HTML/plain text only: 20 seconds, 256 KiB download and 8 KiB excerpt. No redirects, scripts, login or automatic provider switching. If your routing proxy supplies synthetic DNS addresses, the public hostname is resolved through Cloudflare DNS; local/private addresses remain blocked. If blocked or empty, refine the query, supply a source URL or choose another provider.',
+                      ExpansionTile(
+                        title: const Text('Limits and privacy'),
+                        children: [
+                          const Text(
+                            'One query returns up to five sources. Page reads accept public HTTPS HTML/plain text only: 20 seconds, 256 KiB download and 8 KiB excerpt. No redirects, scripts, login or automatic provider switching. If your routing proxy supplies synthetic DNS addresses, the public hostname is resolved through Cloudflare DNS; local/private addresses remain blocked. If blocked or empty, refine the query, supply a source URL or choose another provider.',
+                          ),
+                        ],
                       ),
                       if (report?['cleanupPending'] == true)
                         const Text(

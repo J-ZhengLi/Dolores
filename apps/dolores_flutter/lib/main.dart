@@ -1,3 +1,5 @@
+import 'access_selector.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -713,6 +715,7 @@ class _ChatPageState extends State<ChatPage> {
                         icon: const Icon(Icons.add, size: 20),
                       ),
                     ),
+                  if (chat.workspaceKind != 'side') AccessSelector(chat: chat),
                   if (chat.configured && chat.enabledModels.isNotEmpty)
                     Expanded(
                       child: Align(

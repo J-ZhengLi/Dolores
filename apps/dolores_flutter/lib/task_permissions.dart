@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'settings_frame.dart';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -21,6 +25,16 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
   final prefix = TextEditingController(text: '.'),
       program = TextEditingController(),
       args = TextEditingController();
+  String? baseline;
+  String get draft => jsonEncode([
+    mode,
+    expiry,
+    selected.toList()..sort(),
+    prefix.text,
+    program.text,
+    args.text,
+    command,
+  ]);
   Map<String, dynamic>? report;
   String mode = 'review', expiry = '24';
   final selected = <String>{};
@@ -88,6 +102,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
           }
         }
       });
+      if (!keepDraft) baseline = draft;
     } catch (failure) {
       if (mounted) setState(() => error = failure.toString());
       if (scroll.hasClients) scroll.jumpTo(0);
@@ -158,6 +173,7 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
               : 'Task access saved for this chat.';
         });
       }
+      baseline = draft;
       widget.chat.invalidateContext();
       if (scroll.hasClients) scroll.jumpTo(0);
     } catch (failure) {
@@ -172,10 +188,21 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
     animation: widget.chat,
     builder: (context, _) {
       final busy = widget.chat.busy, locked = pending || busy;
+      reportSettingsDraft(
+        context,
+        dirty: () => baseline != null && baseline != draft,
+        save: () async {
+          if (locked || report == null || (mode != 'review' && !understood)) {
+            return false;
+          }
+          await save();
+          return baseline == draft;
+        },
+      );
       return PopScope(
         canPop: !pending,
         child: InspectorFrame(
-          title: 'Task permissions',
+          title: 'Chat access',
           subtitle: 'This chat · its saved working folder',
           canClose: !pending,
           child: SizedBox(
@@ -198,12 +225,10 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
                               'These saved grants contain multiple scopes or commands. Revoke them before replacing them with this simple form; their existing boundaries remain unchanged.',
                             ),
                           if (report != null) ...[
-                            SelectableText(
-                              'Saved access: ${report!['policy']['mode']} · revision ${report!['revision']}\nExpiry: ${report!['policy']['expiresAt'] ?? 'until revoked'}',
+                            Text(
+                              'Saved: ${report!['expired'] == true ? 'Review (expired)' : report!['policy']['mode']} · this chat',
                             ),
-                            SelectableText(
-                              '${report!['containment']}\n${report!['adaptation']}',
-                            ),
+                            const SizedBox(height: 8),
                             if (report!['expired'] == true)
                               const Text(
                                 'The saved grant expired. Renew it or revoke it before tool use.',
@@ -352,6 +377,17 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
                                     ? null
                                     : (v) => setState(() => understood = v!),
                               ),
+                            ExpansionTile(
+                              title: const Text('Access details'),
+                              children: [
+                                SelectableText(
+                                  '${report!['containment']}\n${report!['adaptation']}',
+                                ),
+                                SelectableText(
+                                  'Revision: ${report!['revision']} · Expires: ${report!['policy']['expiresAt'] ?? 'until revoked'}',
+                                ),
+                              ],
+                            ),
                             if (busy)
                               const Text(
                                 'Revoke is available during a run. Stop first to expand access.',

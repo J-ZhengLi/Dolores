@@ -145,6 +145,8 @@ void main() {
         'https://draft.example/v1',
       );
       await category(tester, 'web', 'Web search');
+      await tester.tap(find.text('Search connection'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('web-provider')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Custom SearXNG').last);

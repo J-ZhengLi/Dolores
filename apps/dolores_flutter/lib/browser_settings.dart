@@ -56,8 +56,8 @@ class _BrowserSettingsState extends State<BrowserSettingsInspector> {
               if (report != null) ...[
                 Text(
                   report!['available'] == true
-                      ? 'Browser runtime installed'
-                      : 'Browser adapter unavailable',
+                      ? 'Ready to browse'
+                      : 'Needs setup',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (report!['reason'] != null)
@@ -65,30 +65,44 @@ class _BrowserSettingsState extends State<BrowserSettingsInspector> {
                     padding: const EdgeInsets.only(top: 12),
                     child: SelectableText('${report!['reason']}'),
                   ),
-                for (final field in ['adapter', 'profile', 'bounds', 'setup'])
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: SelectableText('${report![field]}'),
+                const SizedBox(height: 12),
+                Text(
+                  report!['available'] == true
+                      ? 'Ask Dolores to open a website in a working chat.'
+                      : 'Open Setup below, then check again.',
+                ),
+                ExpansionTile(
+                  title: Text(
+                    report!['available'] == true ? 'Browser details' : 'Setup',
                   ),
-                if (report!['captureFolder'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: SelectableText(
-                      'Local captures: ${report!['captureFolder']}\nAt 128 images, remove older captures here before taking another.',
-                    ),
-                  ),
+                  children: [
+                    for (final field in [
+                      'adapter',
+                      'profile',
+                      'bounds',
+                      'setup',
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: SelectableText('${report![field]}'),
+                      ),
+                    if (report!['captureFolder'] != null)
+                      SelectableText(
+                        'Local captures: ${report!['captureFolder']}',
+                      ),
+                  ],
+                ),
               ],
-              const SizedBox(height: 16),
               const Text(
-                'Project and temporary chats can use one fresh visible browser. Side chats and subagents cannot. Clicks and input need fresh review even under Full access. Approve external actions only when they match your intent.',
+                'Clicks and input need your review. Stop closes the browser; submitted changes may remain.',
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Only the selected origin loads; cross-origin resources, popups, uploads, downloads and password input are unavailable. Manual login is your explicit action in this new browser; it is not saved between runs. Stop or run end closes the owned process tree and does not undo submitted actions.',
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Viewport screenshots stay in the local Dolores capture folder and can be viewed from tool evidence. They are not automatically sent as image input to the model. No browser process runs while idle.',
+              ExpansionTile(
+                title: const Text('Privacy and limits'),
+                children: [
+                  const Text(
+                    'A fresh profile is used for each run. Only the selected origin loads; no saved passwords, file uploads, downloads or popups. Screenshots stay local. Page text is shared with your model. Side chats have no tools.',
+                  ),
+                ],
               ),
             ],
           ),

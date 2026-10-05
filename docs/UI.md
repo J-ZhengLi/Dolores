@@ -404,3 +404,12 @@ check. Keep response defaults and scoped overrides under Advanced/search.
 Model details save atomically with a comparison against the loaded values.
 Refresh retains edits; a failed save or Close never silently discards them.
 An acknowledged save followed by a failed list refresh still reports Saved.
+
+
+Milestone 15.5: Tools begins with readiness, optional search connections stay
+closed, and ready browser details do not lead with installation instructions.
+Composer access is a short saved-policy label beside Add; unknown/expired access
+must never imply a grant. Connections imports configure only: concrete launch
+review precedes inspection and tool activation is separate. Approval cards retain
+target/effect/sharing before the decision, with full bounds under Operation details.
+No colored left status stripe is introduced.

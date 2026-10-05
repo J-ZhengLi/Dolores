@@ -147,6 +147,7 @@ Future<void> open(WidgetTester t, McpBridge b, bool dark) async {
   );
   await t.tap(find.text('Open'));
   await t.pumpAndSettle();
+  if (b.saved == null) await press(t, 'mcp-add-server');
   await t.scrollUntilVisible(
     find.byKey(const Key('mcp-name')),
     120,
@@ -168,6 +169,10 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
   await Scrollable.ensureVisible(t.element(target), alignment: .5);
   await t.pump();
   await t.tap(target);
+  if (key == 'mcp-inspect') {
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('mcp-launch-confirm')));
+  }
   if (settle) {
     await t.pumpAndSettle();
   } else {
@@ -434,7 +439,13 @@ void main() {
         expect(find.text('Run once').hitTestable(), findsOneWidget);
         expect(find.text('Deny').hitTestable(), findsOneWidget);
         expect(find.textContaining('does not sandbox'), findsNothing);
-        expect(find.textContaining('Effects may remain'), findsOneWidget);
+        expect(find.textContaining('Effects may remain'), findsWidgets);
+        if(find.textContaining('Server receives saved credentials').evaluate().isEmpty){
+          await t.ensureVisible(find.text('Operation details'));
+          await t.pumpAndSettle();
+          await t.tap(find.text('Operation details'));
+          await t.pumpAndSettle();
+        }
         expect(
           find.textContaining(
             'Server receives saved credentials: SERVICE_API_KEY',

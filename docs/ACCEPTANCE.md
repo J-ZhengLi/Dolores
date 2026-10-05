@@ -1691,3 +1691,41 @@ or transcripts were saved as public artifacts; the user's 37-table digest remain
 unchanged. These establish the bounded setup/chat path, not general task reliability.
 The normal desktop release built; native visual/image-readiness qualification
 remains pending while Windows is locked. Milestone 14.4 live failures remain open.
+
+
+### 15.5 Tools, access and guided connections — implementation
+
+Tools opens a readiness overview for built-in search/browser/computer use. Default
+search has no key/setup step; optional connections and technical details are closed.
+Browser setup appears only under Setup when unavailable. No package is installed
+silently. Chat access is visible beside the composer plus button; Review/Custom/
+Full access comes from saved policy, expired grants display Review, unavailable
+policy displays Access rather than inventing authority. Custom grants, expiry,
+containment and concrete consent remain reachable. Authoring participates in
+Save/Discard/Keep editing; conflicts preserve values for explicit review.
+
+Connections starts with a list and Add connection / Import JSON. Import validates
+one to four local MCP configurations, preserves literal arguments and masks imported
+credentials; remote/unknown/malformed/oversized configurations are rejected without
+launch. A separate concrete launch review names the executable, arguments and
+credential bindings before inspection. Only subsequently selected tools can be
+enabled. Changing a reviewed launch invalidates its token; switching connections
+protects unsaved edits. Saving uninspected fields cannot start a program implicitly.
+Approval cards lead with effect, target and sharing; operation details retain
+the full bounds. Existing host checks, defaults and approval rules are unchanged.
+
+Exercised: compact light/dark MCP inspection, explicit tool selection and enable,
+shared-slot refusal/retry, stale/failed saves, masked credential reuse, Stop and
+review invalidation; malformed and oversized imports plus retained-text correction/
+cancel. Web stale save and endpoint recovery remain covered. The acknowledged
+response-default update preserves a selected model override in controller state.
+Normal Windows release build/launch is required for this brick; detailed native
+screen qualification is recorded in 15.8 rather than inferred from widget tests.
+
+15.2 follow-up after Windows unlock: owned native window handoff fixture PASS
+(original goal/lineage, remaining model/tool allowance, fresh image, unrelated
+draft/attachment retained and not uploaded, zero submission). Qwen live handoff
+hit the bounded response deadline; DeepSeek live handoff paused at outputLimit
+before sharing any window. These are failures, not model-reliability passes.
+Native General settings/theme previews visually inspected in the normal app;
+System uses a single continuous scene. No user configuration was saved during it.
