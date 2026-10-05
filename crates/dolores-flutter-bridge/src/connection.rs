@@ -23,6 +23,17 @@ pub struct ConnectionManager {
     active_base_url: Option<String>,
 }
 impl ConnectionManager {
+    pub(super) fn pipe_provider(
+        &self,
+        model: Option<&str>,
+        settings: RequestSettings,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
+        if let Some(model) = model {
+            self.observation_provider(model, settings)
+        } else {
+            self.foreground_provider(settings)
+        }
+    }
     pub(super) fn foreground_provider(
         &self,
         settings: RequestSettings,
@@ -33,6 +44,43 @@ impl ConnectionManager {
             }
         }
         self.review_provider_with_settings(u32::MAX, u32::MAX, Some(settings))
+    }
+    pub(super) fn observation_provider(
+        &self,
+        model: &str,
+        settings: RequestSettings,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
+        let mut preferences = self.store.preferences()?;
+        if self.provider.is_none()
+            || self.active_base_url.as_deref() != Some(preferences.base_url.as_str())
+        {
+            return Err("Reconnect the configured provider first.".into());
+        }
+        if !self
+            .store
+            .model_choices(&preferences.base_url)?
+            .contains(&model.to_string())
+            || !self
+                .store
+                .image_models(&preferences.base_url)?
+                .contains(&model.to_string())
+        {
+            return Err(
+                "Choose a configured image-capable model in Settings → Models. Nothing was shared."
+                    .into(),
+            );
+        }
+        preferences.model = model.into();
+        Ok(Arc::new(
+            OpenAiProvider::with_settings(
+                &preferences,
+                self.active_key
+                    .clone()
+                    .ok_or("Reconnect the model first.")?,
+                settings,
+            )?
+            .with_context_window(self.context_window(&preferences)?),
+        ))
     }
     pub(super) fn review_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         self.bounded_review_provider(1024, 30)

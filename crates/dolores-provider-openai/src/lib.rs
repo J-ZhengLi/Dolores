@@ -364,12 +364,14 @@ impl ModelProvider for OpenAiProvider {
         }
         let mut next = self.clone();
         next.images = images;
-        next.assets = std::sync::Arc::new(
-            assets
-                .into_iter()
-                .map(|a| (a.reference.digest.clone(), a))
-                .collect(),
-        );
+        let mut combined = (*self.assets).clone();
+        combined.extend(assets.into_iter().map(|a| (a.reference.digest.clone(), a)));
+        if combined.len() > 16
+            || combined.values().map(|a| a.data.len()).sum::<usize>() > 8 * 1024 * 1024
+        {
+            return Err("Included attachments exceed 16 assets or 8 MiB. Compact history, remove attachments or start a new chat.".into());
+        }
+        next.assets = std::sync::Arc::new(combined);
         Ok(std::sync::Arc::new(next))
     }
 

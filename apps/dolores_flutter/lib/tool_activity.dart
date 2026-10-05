@@ -22,6 +22,7 @@ String toolLabel(dynamic name) => switch (name) {
   'web_search' => 'Web search',
   'read_web_page' => 'Web page',
   'browser' => 'Browser',
+  'inspect_desktop_capture' => 'Desktop screenshot',
   _ => 'File read',
 };
 
@@ -47,6 +48,11 @@ String toolResultText(dynamic record) {
     }
     if (record['name'] == 'browser') {
       return '${result['outcome']} · ${result['title'] ?? ''}\n${result['url'] ?? ''}\n${result['partial'] == true ? 'Partial page state\n' : ''}${result['recovery'] ?? ''}\n${result['text'] ?? ''}\n\n${result['controls'] ?? ''}\n${result['note'] ?? ''}';
+    }
+    if (record['name'] == 'inspect_desktop_capture') {
+      final capture = result['capture'] as Map;
+      final observation = capture['observation'] as Map;
+      return 'Shared screenshot · ${observation['target']['title']}\n${observation['width']} × ${observation['height']} image pixels · ${observation['dpi']} DPI\nCapture: ${capture['id']}\n${result['freshness']}\nUntrusted observation; no desktop input authority.';
     }
     if (record['name'] == 'delegate_tasks') {
       final usage = result['sharedUsage'] as Map?;
@@ -136,6 +142,22 @@ String? browserCaptureId(dynamic record) {
               r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
             ).hasMatch(id)
         ? id
+        : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+Map? desktopCaptureReference(dynamic record) {
+  try {
+    final capture = jsonDecode('${record['content']}')['capture'];
+    return capture is Map &&
+            capture['session'] is String &&
+            capture['id'] is String &&
+            RegExp(
+              r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+            ).hasMatch(capture['id'])
+        ? capture
         : null;
   } catch (_) {
     return null;
@@ -438,6 +460,14 @@ class ToolRecords extends StatelessWidget {
               ),
               childrenPadding: const EdgeInsets.all(12),
               children: [
+                if (record['name'] == 'inspect_desktop_capture' &&
+                    bridge != null &&
+                    desktopCaptureReference(record) != null)
+                  BrowserCapturePreview(
+                    bridge: bridge!,
+                    capture: desktopCaptureReference(record)!['id'],
+                    desktopSession: desktopCaptureReference(record)!['session'],
+                  ),
                 if (record['name'] == 'browser' &&
                     bridge != null &&
                     browserCaptureId(record) != null)

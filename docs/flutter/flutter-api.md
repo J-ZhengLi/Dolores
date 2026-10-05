@@ -1,5 +1,25 @@
 # Flutter/Rust bridge contract
 
+## Selected-window observation (14.1)
+
+`desktopState {session?}` returns local adapter availability, capture bounds,
+configured image-capable models and retained chat captures. `desktopObserve
+{id,session,target?}` reserves the normal run owner: omitted target lists windows;
+an exact returned identity captures only that selected window. Poll returns a
+done event with `observation` or an actionable error. Cancel kills/reaps the owned
+helper. `desktopPreview {session,capture}` returns bounded verified JPEG bytes as
+local base64; `desktopRemove {session,capture}` deletes only matching evidence.
+Neither preview nor observation contacts the provider.
+
+`start` adds optional paired `desktopCapture` / `observationModel`. This chooses
+one saved screenshot and configured image-capable profile for a fresh run with
+only `inspect_desktop_capture`; it cannot combine with continuation/resume. The
+normal selected model is unchanged. Successful tool records add optional `parts`
+image references, never inline binary data. Old text-only history omits the field
+and remains readable. A completed answer without successful image evidence fails
+with a retained draft. Paused/failed observation cannot use ordinary recovery;
+explicit fresh sharing is required. See [observation contract](../design/computer-use.md).
+
 `generateMod {id,session,revision,model?}` reserves a bounded active run. `poll`
 returns done with source/usage/error; malformed/truncated source remains local and
 cannot activate. Model is a configured choice and does not change the selected

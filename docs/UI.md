@@ -310,3 +310,21 @@ quarantine. Latest recovery receipts remain visible even with a full history.
 No arbitrary HTML/Dart, mod-supplied handlers, credential fields or new composer
 controls are contributed by generated mods. Theme and existing interaction
 constraints apply equally to the supported literal card.
+
+## Computer use observation
+
+Keep Computer use inside the unified Settings window, using InspectorFrame and
+the existing theme. Window refresh, selection and Capture locally are separate
+from explicit provider sharing. Show the saved local image, dimensions/DPI,
+snapshot age, removal and an independent configured image-model chooser. Keep
+the ordinary composer/model/header unchanged. Use a scrollable body and wrapping
+footer with Refresh, Stop observation while pending, and Analyze this screenshot.
+Pin bounded scrollable errors above the body so recovery remains visible on a
+compact viewport. Block duplicate local operations and dismissal while pending.
+
+Unavailability and working-folder/image-model prerequisites must be explicit.
+Retain local evidence and inspection text on failed analysis; display a retained
+text draft as the inspection question without replacing unrelated draft edits or
+attachments. Tool cards use the existing literal evidence style and optional
+View local screenshot. No automatic image loading/sharing, recording toggle,
+desktop input or new palette is introduced.

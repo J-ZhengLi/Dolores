@@ -24,10 +24,10 @@ are implemented**. Automatic activation's real-workflow acceptance gate remains
 unaccepted; reviewed skill updates remain available.
 
 **Planning addition — 2026-10-05:** the user approved a dedicated computer-use
-milestone. **14.1–14.4 are planned, not implemented.** Existing milestone numbers
+milestone. **14.1 is implemented; 14.2–14.4 remain planned.** Existing milestone numbers
 and order are preserved. Windows selected-application interaction and visual
 verification are the first target; arbitrary-app reliability and other platforms
-need separate evidence. This addition authorizes planning, not runtime execution.
+need separate evidence. The subsequent “next” authorized the first observation brick.
 
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search, browser use and scoped desktop computer use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
 
@@ -333,20 +333,30 @@ Codex runtime or general native self-replacement is part of this implementation.
 
 ## Milestone 14 — Computer use and visual verification
 
-**Status:** planned. Deliver a useful Windows selected-application workflow first,
+**Status:** 14.1 selected-window observation is delivered; 14.2–14.4 are planned.
+Deliver a useful Windows selected-application workflow first,
 with a provider-independent observation/action contract and on-demand native
 helper. Preserve the existing browser adapter and Flutter UI. Choose the native
 backend and provider transport in a design specification before implementation;
 do not assume access to Codex's private desktop runtime.
 
-The current tool port returns text, and browser screenshots are local evidence,
-not model vision. Image attachments alone do not provide a continuous desktop
-observation loop. This milestone explicitly extends tool results, provider
-projection, context budgets, durable evidence and sharing controls. Existing
+The tool port now supports optional typed image references, with literal text
+and a following untrusted image projection in the OpenAI-compatible adapter.
+Browser screenshots remain local evidence. Desktop observation is an explicit
+saved snapshot analysis, not a continuous observation/action loop. See the
+[selected-window contract](design/computer-use.md) and [acceptance](ACCEPTANCE.md).
+Existing
 permission modes need desktop-specific resource scopes and dispatch checks;
 a project folder grant cannot authorize arbitrary desktop interaction.
 
 ### 14.1 Multimodal tool results and desktop observation
+
+**Implementation:** Windows on-demand capture, local preview, explicit one-run
+image-model selection, retained evidence and bounded recovery are implemented.
+The adapter reports accessibility observations unavailable. Qwen and DeepSeek
+each passed a bounded synthetic control-identification probe; earlier Qwen
+misses remain recorded. Other platforms, protected/large windows and general
+model competence are not qualified. No desktop input is enabled by this brick.
 
 **Scope:** bounded structured text/image results with backward-readable history,
 host-owned screenshot references, resolution/coordinate metadata and retention

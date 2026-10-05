@@ -919,7 +919,11 @@ class ChatController extends ChangeNotifier {
     await send(continuation: sourceId);
   }
 
-  Future<void> send({int? continuation}) async {
+  Future<void> send({
+    int? continuation,
+    String? desktopCapture,
+    String? observationModel,
+  }) async {
     if (busy ||
         changing ||
         loading ||
@@ -966,7 +970,7 @@ class ChatController extends ChangeNotifier {
     modelStep = 0;
     recovery = null;
     _recoveryError = null;
-    _requestModel = model;
+    _requestModel = observationModel ?? model;
     _firstDelta = false;
     _terminal = false;
     _clock
@@ -982,6 +986,8 @@ class ChatController extends ChangeNotifier {
         'input': pendingInput,
         'continuation': ?continuation,
         'resumeRun': ?resumeRun,
+        'desktopCapture': ?desktopCapture,
+        'observationModel': ?observationModel,
       });
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});

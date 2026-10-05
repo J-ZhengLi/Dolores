@@ -21,6 +21,7 @@
 
 - [Bounded subagents](design/subagents.md) explains file ownership, inherited permissions, shared budgets and cancellation.
 - [Browser use](design/browser-use.md) explains the optional runtime, fresh profiles, reviewed actions, local captures and cleanup.
+- [Computer use](design/computer-use.md) explains selected-window capture, explicit screenshot/model sharing and the planned desktop-input boundary.
 
 - [Attachment snapshots](design/attachments.md) explains supported formats, explicit image capability, sharing, export and retention.
 

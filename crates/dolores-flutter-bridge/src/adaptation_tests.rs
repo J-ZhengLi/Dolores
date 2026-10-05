@@ -44,6 +44,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, Arc<SqliteStore>, String) {
         rollback_from: None,
     });
     let rec = |name: &str, target: &str, content: &str, command: Option<CommandSpec>| ToolRecord {
+        parts: vec![],
         call_id: name.into(),
         name: name.into(),
         target: target.into(),

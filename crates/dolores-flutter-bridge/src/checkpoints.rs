@@ -17,6 +17,9 @@ pub(super) fn resume_source(
     if latest && runs.first().is_none_or(|r| r.id != id) {
         return Err("A newer run exists. Inspect its progress before recovery.".into());
     }
+    if run.tools.iter().any(|t| t == "inspect_desktop_capture") {
+        return Err("Screenshot analysis needs explicit sharing again. Open Settings → Computer use, select the retained or a fresh capture and its model, then Analyze. Your evidence remains; ordinary checkpoint recovery cannot grant desktop access.".into());
+    }
     Ok(run.clone())
 }
 pub(super) fn view(store: &dyn SessionStore, session: &str, id: &str) -> Result<Value, String> {

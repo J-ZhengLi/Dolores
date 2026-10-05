@@ -160,6 +160,8 @@ mod tests {
             .unwrap();
         assert!(engine
             .call(Command::Start {
+                desktop_capture: None,
+                observation_model: None,
                 resume_run: None,
                 continuation: None,
                 id: 99,

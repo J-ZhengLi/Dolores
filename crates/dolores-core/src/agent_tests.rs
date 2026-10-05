@@ -1,5 +1,87 @@
 use super::*;
 
+#[tokio::test]
+async fn snapshot_image_context_refuses_before_model_and_legacy_records_keep_empty_parts() {
+    struct Snapshot;
+    #[async_trait]
+    impl ToolPlugin for Snapshot {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "snapshot".into(),
+                description: "image".into(),
+                parameters: serde_json::json!({}),
+            }
+        }
+        fn image_results(&self) -> Vec<crate::AttachmentRef> {
+            vec![crate::AttachmentRef {
+                digest: "a".repeat(64),
+                name: "fixture.jpg".into(),
+                mime: "image/jpeg".into(),
+                bytes: 3,
+            }]
+        }
+        fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
+            unreachable!()
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            unreachable!()
+        }
+    }
+    struct ImageBudgetProvider(BudgetProvider);
+    #[async_trait]
+    impl ModelProvider for ImageBudgetProvider {
+        fn descriptor(&self) -> PluginDescriptor {
+            self.0.descriptor()
+        }
+        fn context_window_tokens(&self) -> Option<u32> {
+            Some(4096)
+        }
+        fn request_settings(&self) -> Option<crate::RequestSettings> {
+            self.0.request_settings()
+        }
+        async fn stream(
+            &self,
+            m: Vec<Message>,
+            o: mpsc::Sender<String>,
+            c: CancellationToken,
+        ) -> Result<(), String> {
+            self.0.stream(m, o, c).await
+        }
+        async fn tool_turn(
+            &self,
+            m: &[AgentMessage],
+            t: &[ToolSpec],
+            c: CancellationToken,
+        ) -> Result<AgentTurn, String> {
+            self.0.tool_turn(m, t, c).await
+        }
+    }
+    let provider = ImageBudgetProvider(BudgetProvider {
+        calls: AtomicUsize::new(0),
+    });
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _) = mpsc::channel(32);
+    let error = run_agent(
+        &provider,
+        context(),
+        &[Arc::new(Snapshot)],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .err()
+    .unwrap();
+    assert!(error.contains("Selected screenshot exceeds"), "{error}");
+    assert_eq!(provider.0.calls.load(Ordering::SeqCst), 0);
+    let old:ToolRecord=serde_json::from_value(serde_json::json!({"callId":"old","name":"read_text_file","target":"fixture","status":"read","content":"legacy"})).unwrap();
+    assert!(old.parts.is_empty());
+    assert!(serde_json::to_value(old).unwrap().get("parts").is_none());
+}
+
 #[test]
 fn child_failure_and_shared_step_limit_have_distinct_recovery_reasons() {
     let record = |status: &str, pause: Option<&str>| {

@@ -396,6 +396,7 @@ mod tests {
             },
         ];
         let record = ToolRecord {
+            parts: vec![],
             call_id: "read".into(),
             name: "read_text_file".into(),
             target: "package.json".into(),
@@ -418,6 +419,7 @@ mod tests {
                 tools: vec![
                     record,
                     ToolRecord {
+                        parts: vec![],
                         call_id: "list".into(),
                         name: "list_folder".into(),
                         target: ".".into(),

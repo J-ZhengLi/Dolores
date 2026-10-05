@@ -234,6 +234,9 @@ struct RegistryTool {
 }
 #[async_trait]
 impl ToolPlugin for RegistryTool {
+    fn image_results(&self) -> Vec<crate::AttachmentRef> {
+        self.inner.image_results()
+    }
     fn spec(&self) -> ToolSpec {
         self.inner.spec()
     }

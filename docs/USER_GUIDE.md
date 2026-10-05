@@ -2,7 +2,7 @@
 
 ## Settings
 
-The single **Settings** entry sits at the bottom left of the sidebar (open Conversations first in a narrow window). It opens one window with **Appearance**, **Models**, **Personalization**, **Memory**, **Web search**, **Browser**, **External tools**, **Skills**, **Permissions** and **Task limits**. Chat actions uses an ellipsis and contains conversation actions such as export, forks and run history.
+The single **Settings** entry sits at the bottom left of the sidebar (open Conversations first in a narrow window). It opens one window with **Appearance**, **Models**, **Personalization**, **Memory**, **Web search**, **Browser**, **Computer use**, **External tools**, **Skills**, **Permissions**, **Task limits** and **Harness mods**. Chat actions uses an ellipsis and contains conversation actions such as export, forks and run history.
 
 **Appearance** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
@@ -19,7 +19,41 @@ shortcuts and border resizing are available too.
 **Models** combines Connection & models (provider, enabled models, image support and context windows), Responses (output tokens, timeout and reasoning) and Scope overrides (project/chat output and timeout). Configuration remains scoped as before. Each section saves explicitly, except theme selection; switching sections keeps drafts, while Close discards unsaved edits. If a connection changes while a response draft is open, reload response settings before saving. Workspace-specific pages explain when a working chat is required; opening Settings creates no workspace or model request.
 
 
+## Inspect a Windows application
+
+In a saved project or temporary working chat, open **Settings → Computer use**.
+Choose **Refresh windows**, select a visible application, then **Capture locally**.
+Previewing or refreshing makes no model request. Missing, closed or minimized
+windows require restoring the application and refreshing; Dolores never switches
+to another window. Other platforms currently report observation unavailable.
+
+Choose a **Model for this screenshot**, enter what to inspect, then explicitly
+choose **Analyze this screenshot**. This sends the selected saved image and
+prepared chat context to your configured provider. Enable image input for a
+capable model in **Settings → Models** first. The selected observation model is
+recorded in run history; your ordinary chat model stays unchanged. The analysis
+can read only that screenshot and cannot click, type or use file tools.
+
+Saved screenshots survive restart and are available from this chat's selector or
+an expanded screenshot tool card. They are snapshots, not live views. Capture
+again after the application changes. Images are bounded to 1024 pixels on their
+longest edge and 512 KiB; large original surfaces can be refused. The local cache
+has 64 slots and a 32 MiB limit. **Remove local screenshot** frees a slot but
+cannot retract an image already sent to a provider.
+
+Errors retain the screenshot and question. An answer that skips reading the
+screenshot is rejected as an unobserved guess. A model that reads it can still
+misidentify controls: inspect the result before relying on it. After output or
+task limits, progress remains in history. Reopen **Computer use**, select the
+retained or a fresh screenshot and model, and explicitly analyze again; ordinary
+Continue/checkpoint recovery cannot silently turn observation into file-tool work.
+The inspector reuses your retained text draft as its inspection question; unrelated
+edits or draft attachments must be sent or cleared first. **Stop observation**
+ends a pending local capture. Capture/share never starts a recording or background
+worker, and there is no desktop input yet.
+
 ## Choose tool access
+
 
 In a saved project or temporary chat, open **Settings → Permissions**. **Review every operation** is the default. **Approve within selected grants** lets you choose file/discovery actions in a relative folder prefix, an exact command, or individual reviewed external tools. **Full access for this chat** skips prompts for advertised tools, except browser clicks/input, which always need fresh review. Choose a duration and acknowledge the displayed scope before saving.
 

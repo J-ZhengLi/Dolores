@@ -1,5 +1,60 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 14.1 — selected-window observation
+
+The normal Windows release bridge passes `scripts/test-desktop-observation.py`
+save/reopen in separate disposable processes. The native helper captures only the
+synthetic selected window: a 1024 × 626 JPEG, 40,806 bytes. Listing, capture and
+preview issue no provider request. A local SSE fixture verifies the exact text
+tool-result/image projection, retained typed image receipts, original chat model,
+and old text/paired image history after restart. Unsupported vision, missing or
+oversized image bytes, closed target, and a completed answer that skips the image
+are refused without fallback. The draft/evidence remains. Five bounded local
+requests exercise success, a skipped tool and output exhaustion; partial progress
+survives and ordinary Continue/checkpoint recovery cannot escalate into file tools
+or replay provider work. Unit checks cover image-context refusal before the first
+request, wrong-session/digest checks and cache exhaustion/removal recovery.
+
+A deliberately stalled helper exercises the real normal-release process owner:
+the five-second deadline returned in 5.69 seconds and Stop in 0.02 seconds. Both
+kill/reap their helper and preserve local evidence. No credentials or user history
+are passed to the helper. No resident observation worker is added.
+
+Bounded configured-provider probes use only the disposable synthetic application
+and isolated test data. Final Qwen/Qwen3.5-2B (2.09 seconds) and DeepSeek V4.1 Flash
+(4.12 seconds) each used two calls, received the image and correctly identified
+the button “Save note” and status “Ready”, with a 1024-token output limit and
+unchanged ordinary model selection. Earlier Qwen probes returned an incomplete
+identification or skipped the image entirely. The provider reported completion
+for those probes, so output-token exhaustion cannot be claimed as their cause.
+The new evidence guard rejects the skipped-image case; it does not prove that a
+model which reads the image describes it accurately. Provider token usage was
+unavailable, not zero. This is one small passing observation per model, not
+consistent general desktop-task qualification.
+
+Checks pass 225 Rust tests across eight suites and 216 Flutter tests; final focused
+Computer use tests, Rust Clippy and Flutter analysis pass. Widget checks cover
+compact light/dark layouts, unsupported image models, a closed-window error
+surviving refresh, retained draft and no implicit retry. Packaging fixtures pass
+four tests and the payload contract includes the helper and existing window
+plugins. Actual dependency-notice qualification remains blocked by missing
+upstream notice text for the existing Wasmi runtime; the optional installed browser
+adapter also lies outside the strict portable payload. No new distributable archive
+is qualified by this brick.
+
+The normal app was rebuilt and launched (PID 31560). Original preferences/history
+remain unchanged across 37 table digests. Final native visual verification is
+pending: the computer-use tool returned “failed to activate captured window” after
+refresh/retry. Do not treat widget/FFI passes as that native check.
+
+Desktop click/type, accessibility observations, other platforms, protected/locked
+desktops, DPI/movement corpus, and representative low-end resource measurements
+remain open under 14.2–14.4. Images survive chat deletion: remove them while their
+chat exists; orphan-cache cleanup currently needs manual local maintenance.
+The initial cache has no automatic expiry or secure erasure. General browser
+screenshots still are not projected to the model. Nothing qualifies arbitrary
+applications, implicit sharing or unattended desktop actions.
+
 ## Milestone 13.4 — integrated recovery and qualification boundary
 
 The normal Windows release bridge passes `scripts/test-mods.py` save/reopen in

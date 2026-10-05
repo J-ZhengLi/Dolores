@@ -165,6 +165,32 @@ The normal Windows helper assembles Flutter/Rust/plugins with generated junction
 
 See [contributor guide](../CONTRIBUTING.md), [roadmap](ROADMAP.md), [design references](README.md#selected-design-references), and dated [architecture research](research/architecture-options.md) for implementation details/history and alternatives.
 
+## Selected-window observation
+
+The on-demand `dolores-desktop-helper` is a separate Windows Graphics Capture
+process adjacent to the bridge DLL. The host passes only a typed observation
+request, clears its inherited environment except Windows runtime paths, and
+kills/reaps it on Stop or a five-second deadline. HWND/PID/process creation time
+and visibility are checked before/after capture. No monitor or foreground fallback
+is exposed. Other operating systems and accessibility observation report unavailable.
+
+The bridge owns session-bound UUID/digest JPEG evidence, local preview/removal and
+an explicit one-run snapshot tool. Capture/preview make no provider request. The
+observation run advertises only `inspect_desktop_capture`, uses the chosen enabled
+image-model profile and shares the primary task's limits. It does not alter global
+model selection or trigger memory/skill reflection. Missing evidence or a completed
+answer without the screenshot receipt is an actionable failure. Interrupted or
+paused analysis requires explicit sharing again; generic recovery cannot substitute
+the ordinary tool set. See [limits and transport](design/computer-use.md).
+
+`ToolRecord` and tool-role `AgentMessage` carry optional typed image references;
+legacy text history remains readable. The provider keeps function-result messages
+as literal text and projects images after their complete result group into a
+host-labelled untrusted user image message. Raw images do not enter logs/exports;
+local previews resolve bounded verified bytes on demand. Image estimates use the
+existing 4096-token allowance, and input preflight refuses an impossible snapshot
+before issuing a model request.
+
 ## Desktop settings presentation
 
 Flutter uses one settings window with lazily created, retained editors and a shared pending-operation gate. The existing scoped settings, model profiles, memory, skills, MCP and permission ports remain authoritative. InspectorFrame embeds only on its Settings route; nested reviews retain their own dialog boundary. Models unifies connection/capabilities/context, responses and project/chat generation overrides. Scoped editors preserve other patch groups and retain compare-and-swap revisions. Theme is a separate typed local appearance preference, persisted in an additive schema-27 singleton and returned by bootstrap; it is never included in model context or grants. SaveAppearance is independent of active generation.

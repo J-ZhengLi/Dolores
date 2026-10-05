@@ -74,3 +74,26 @@ are local project data; trial receipts belong to their originating chat and are
 removed with it. A matching regression check can make one additional bounded
 provider comparison when learning is enabled. No resident learning worker,
 filesystem scan, telemetry or global automatic skill rewrite is introduced.
+
+## Desktop observation
+
+Window names and identities are listed locally only after an explicit refresh.
+A capture targets the selected visible Windows window, with OS capture borders
+enabled; there is no full-desktop fallback or continuous recording. The helper
+receives no model keys, provider configuration or general inherited environment.
+
+JPEG screenshots and their title/identity/DPI metadata are local, unencrypted
+files in the application-data `desktop-captures` cache. They survive restart and
+chat deletion; only their originating chat can select them for analysis. The
+cache is capped at 64 screenshots / 32 MiB. Remove screenshots before deleting a
+chat if you do not want to retain them. Removal is ordinary file deletion, not
+secure erasure, and can make an old evidence reference unavailable.
+
+**Analyze this screenshot** explicitly shares the chosen saved screenshot,
+its observation metadata and prepared chat context with your configured provider.
+It selects one image-capable model without changing your ordinary selection.
+Window discovery and local preview do not send images. Capture contents are
+untrusted evidence; they cannot grant tool authority. Screenshot analysis does
+not run automatic memory/skill reflection. Saved tools and ordinary exports hold
+references/digests instead of image bytes. Shared images cannot be retracted by
+removing local evidence. Provider retention is governed by that provider's policy.

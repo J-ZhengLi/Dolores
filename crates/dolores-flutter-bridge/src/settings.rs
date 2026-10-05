@@ -53,7 +53,17 @@ impl Engine {
         &self,
         layers: &[(SettingsScope, ScopedSettings)],
     ) -> Result<EffectiveSettings, String> {
-        let prefs = self.store.preferences()?;
+        self.inspect_model_layers(layers, None)
+    }
+    fn inspect_model_layers(
+        &self,
+        layers: &[(SettingsScope, ScopedSettings)],
+        model: Option<&str>,
+    ) -> Result<EffectiveSettings, String> {
+        let mut prefs = self.store.preferences()?;
+        if let Some(model) = model {
+            prefs.model = model.into();
+        }
         let profile = self
             .store
             .model_request_settings(&prefs.base_url)?
@@ -80,6 +90,16 @@ impl Engine {
         session: Option<&str>,
     ) -> Result<EffectiveSettings, String> {
         let result = self.inspect_layers(&self.settings_layers(session)?)?;
+        result.validate()?;
+        Ok(result)
+    }
+    pub(super) fn observation_settings(
+        &self,
+        session: &str,
+        model: &str,
+    ) -> Result<EffectiveSettings, String> {
+        let result =
+            self.inspect_model_layers(&self.settings_layers(Some(session))?, Some(model))?;
         result.validate()?;
         Ok(result)
     }

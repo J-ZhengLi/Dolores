@@ -95,7 +95,8 @@ def collect(sdk, directory, bundle):
     packages = {p['id']: p for p in metadata['packages']}
     nodes = {p['id']: p for p in metadata['resolve']['nodes']}
     bridge = next(p['id'] for p in packages.values() if p['name'] == 'dolores-flutter-bridge')
-    selected = production_closure(nodes, [bridge], lambda n:
+    helper = next(p['id'] for p in packages.values() if p['name'] == 'dolores-desktop-helper')
+    selected = production_closure(nodes, [bridge, helper], lambda n:
         [d['pkg'] for d in n['deps'] if any(k['kind'] != 'dev' for k in d['dep_kinds'])])
     locked = tomllib.loads((ROOT/'Cargo.lock').read_text(encoding='utf-8'))['package']
     for key in selected:

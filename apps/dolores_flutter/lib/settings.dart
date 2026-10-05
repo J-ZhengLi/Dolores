@@ -13,6 +13,7 @@ import 'web_settings.dart';
 import 'browser_settings.dart';
 import 'knowledge.dart';
 import 'mods.dart';
+import 'desktop_settings.dart';
 
 enum SettingsCategory {
   appearance,
@@ -21,6 +22,7 @@ enum SettingsCategory {
   memory,
   web,
   browser,
+  desktop,
   tools,
   skills,
   mods,
@@ -75,6 +77,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsCategory.memory: ('Memory', Icons.bookmarks_outlined),
     SettingsCategory.web: ('Web search', Icons.travel_explore),
     SettingsCategory.browser: ('Browser', Icons.web_outlined),
+    SettingsCategory.desktop: ('Computer use', Icons.desktop_windows_outlined),
     SettingsCategory.tools: ('External tools', Icons.extension_outlined),
     SettingsCategory.skills: ('Skills', Icons.auto_stories_outlined),
     SettingsCategory.mods: ('Harness mods', Icons.widgets_outlined),
@@ -137,6 +140,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
           : MemorySettings(chat: widget.chat),
     SettingsCategory.web => WebSettingsInspector(chat: widget.chat),
     SettingsCategory.browser => BrowserSettingsInspector(chat: widget.chat),
+    SettingsCategory.desktop => DesktopSettingsInspector(chat: widget.chat),
     SettingsCategory.tools =>
       widget.chat.session == null || widget.chat.workspaceRoot == null
           ? unavailable(

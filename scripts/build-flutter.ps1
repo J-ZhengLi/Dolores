@@ -48,7 +48,7 @@ try {
     }
     try {
         $env:CARGO_ENCODED_RUSTFLAGS = $buildFlags -join [char]31
-        & cargo build -p dolores-flutter-bridge --release --locked
+        & cargo build -p dolores-flutter-bridge -p dolores-desktop-helper --release --locked
         if ($LASTEXITCODE) { throw 'Rust bridge build failed.' }
     } finally { $env:CARGO_ENCODED_RUSTFLAGS = $savedEncodedFlags }
     # Keep matching private debug symbols per build, outside the runtime bundle.
@@ -122,6 +122,7 @@ try {
         if ($LASTEXITCODE) { throw 'Flutter desktop build failed.' }
         $bundle = Join-Path $workspace 'apps/dolores_flutter/build/windows/x64/runner/Release'
         Copy-Item -LiteralPath "$workspace/target/release/dolores_flutter_bridge.dll" -Destination $bundle
+        Copy-Item -LiteralPath "$workspace/target/release/dolores-desktop-helper.exe" -Destination $bundle
         Write-Output "Built $bundle/dolores_flutter.exe (ship the entire directory)."
     } finally {
         if ($null -ne $savedPackageConfig) { [IO.File]::WriteAllBytes($packageConfigPath, $savedPackageConfig) }

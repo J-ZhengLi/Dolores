@@ -108,10 +108,12 @@ class _BrowserSettingsState extends State<BrowserSettingsInspector> {
 class BrowserCapturePreview extends StatefulWidget {
   final ChatBridge bridge;
   final String capture;
+  final String? desktopSession;
   const BrowserCapturePreview({
     super.key,
     required this.bridge,
     required this.capture,
+    this.desktopSession,
   });
   @override
   State<BrowserCapturePreview> createState() => _BrowserCaptureState();
@@ -128,7 +130,10 @@ class _BrowserCaptureState extends State<BrowserCapturePreview> {
     });
     try {
       final data = await widget.bridge.call({
-        'command': 'browserCapture',
+        'command': widget.desktopSession == null
+            ? 'browserCapture'
+            : 'desktopPreview',
+        'session': ?widget.desktopSession,
         'capture': widget.capture,
       });
       final decoded = base64Decode(data['data'] as String);
@@ -161,7 +166,9 @@ class _BrowserCaptureState extends State<BrowserCapturePreview> {
           bytes!,
           height: 220,
           fit: BoxFit.contain,
-          semanticLabel: 'Local browser viewport',
+          semanticLabel: widget.desktopSession == null
+              ? 'Local browser viewport'
+              : 'Local selected-window screenshot',
           errorBuilder: (_, _, _) =>
               const Text('Capture could not be displayed.'),
         ),

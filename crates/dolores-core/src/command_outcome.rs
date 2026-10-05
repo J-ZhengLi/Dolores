@@ -115,6 +115,7 @@ mod tests {
     #[test]
     fn only_exact_successful_rerun_clears_failure_including_legacy_receipts() {
         let record = |arg: &str, code: i64, status: &str| ToolRecord {
+            parts: vec![],
             call_id: "check".into(),
             name: "run_command".into(),
             target: "node".into(),

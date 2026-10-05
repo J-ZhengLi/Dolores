@@ -152,6 +152,13 @@ impl Engine {
             vec!["inspect_harness".into()],
         )?;
         add(
+            "desktop/observation",
+            true,
+            working,
+            vec!["selected-screenshot-sharing".into()],
+            vec!["inspect_desktop_capture".into()],
+        )?;
+        add(
             "subagents",
             true,
             working,

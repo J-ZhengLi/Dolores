@@ -15,6 +15,7 @@ mod compaction_tests;
 mod comparison;
 mod connection;
 mod continuation;
+mod desktop;
 mod experience;
 #[cfg(test)]
 mod experience_tests;
@@ -102,6 +103,22 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    DesktopState {
+        session: Option<String>,
+    },
+    DesktopObserve {
+        id: u64,
+        session: String,
+        target: Option<Value>,
+    },
+    DesktopPreview {
+        session: String,
+        capture: String,
+    },
+    DesktopRemove {
+        session: String,
+        capture: String,
+    },
     GenerateMod {
         id: u64,
         session: String,
@@ -582,6 +599,10 @@ enum Command {
         run_id: String,
     },
     Start {
+        #[serde(rename = "desktopCapture")]
+        desktop_capture: Option<String>,
+        #[serde(rename = "observationModel")]
+        observation_model: Option<String>,
         #[serde(rename = "resumeRun")]
         resume_run: Option<String>,
         #[serde(default)]
@@ -683,6 +704,8 @@ impl Engine {
             Command::TrialSources {session} => return self.trial_sources(&session),
             Command::LearningState {session} => return self.learning_view(&session),
             Command::BrowserSettings => return self.browser_settings(),
+            Command::DesktopState { session } => return self.desktop_state(session.as_deref()),
+            Command::DesktopPreview { session, capture } => return self.desktop_preview(&session,&capture),
             Command::BrowserCapture { capture } => return self.browser_capture(&capture),
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
@@ -886,6 +909,16 @@ impl Engine {
                 },
             ),
             Command::BrowserSettings => self.browser_settings(),
+            Command::DesktopState { session } => self.desktop_state(session.as_deref()),
+            Command::DesktopPreview { session, capture } => {
+                self.desktop_preview(&session, &capture)
+            }
+            Command::DesktopObserve {
+                id,
+                session,
+                target,
+            } => self.start_observation(&mut active, id, session, target),
+            Command::DesktopRemove { session, capture } => self.desktop_remove(&session, &capture),
             Command::BrowserCapture { capture } => self.browser_capture(&capture),
             Command::SaveWebSettings {
                 revision,
@@ -1316,6 +1349,8 @@ impl Engine {
                 Ok(Value::Null)
             }
             Command::Start {
+                desktop_capture,
+                observation_model,
                 resume_run,
                 continuation,
                 id,
@@ -1357,7 +1392,25 @@ impl Engine {
                         Some(created["session"]["id"].as_str().unwrap().to_owned())
                     }
                 };
-                let effective = self.effective_settings(session.as_deref())?;
+                if desktop_capture.is_some() != observation_model.is_some()
+                    || (desktop_capture.is_some()
+                        && (continuation.is_some() || resume_run.is_some()))
+                {
+                    return Err(
+                        "Choose one capture and observation model for a fresh analysis run.".into(),
+                    );
+                }
+                let observation = desktop_capture.as_ref().map(|capture| {
+                    let session=session.as_deref().unwrap();
+                    if self.store.workspace(session)?.root.is_none() {return Err("Choose a working chat for computer use.".into());}
+                    if !self.store.draft_attachments(session)?.is_empty() {return Err("Send or remove the draft's attachments before screenshot analysis. Your draft remains.".into());}
+                    self.observation_tool(session,capture)
+                }).transpose()?;
+                let effective = if let Some(model) = &observation_model {
+                    self.observation_settings(session.as_deref().unwrap(), model)?
+                } else {
+                    self.effective_settings(session.as_deref())?
+                };
                 let parent = resume_run
                     .as_ref()
                     .map(|source| {
@@ -1381,14 +1434,28 @@ impl Engine {
                         session.as_deref().unwrap(),
                         source_id,
                     )?;
+                    if self
+                        .store
+                        .runs(session.as_deref().unwrap())?
+                        .iter()
+                        .any(|run| {
+                            run.input == source.task
+                                && run.tools.iter().any(|t| t == "inspect_desktop_capture")
+                        })
+                    {
+                        return Err("Screenshot analysis needs explicit sharing again. Open Settings → Computer use and Analyze the retained or a fresh capture with your chosen model. Progress remains; nothing was replayed.".into());
+                    }
                     effective.task.check_segment(source.segments)?;
                 }
                 let _entered = self.runtime.enter();
-                let provider = self
+                let mut provider = self
                     .connection
                     .lock()
                     .map_err(|_| "Connection unavailable.")?
-                    .foreground_provider(effective.request)?;
+                    .pipe_provider(observation_model.as_deref(), effective.request)?;
+                if let Some((_, asset)) = &observation {
+                    provider = provider.with_attachment_assets(vec![asset.clone()], true)?;
+                }
                 // Legacy callers can choose a folder when starting a new chat.
                 // A saved workspace is authoritative and cannot be redirected per request.
                 let saved = session
@@ -1404,6 +1471,11 @@ impl Engine {
                     }
                 }
                 let workspace = saved.and_then(|s| s.root).map(PathBuf::from).or(workspace);
+                let workspace = if observation.is_some() {
+                    None
+                } else {
+                    workspace
+                };
                 let mut tools = workspace
                     .map(|root| {
                         let journal = Arc::new(dolores_core::WorkspaceJournal {
@@ -1434,15 +1506,20 @@ impl Engine {
                     })
                     .transpose()?
                     .unwrap_or_default();
-                let delegation =
-                    (!tools.is_empty()).then(|| Arc::new(subagents::DelegateTasks::default()));
+                if let Some((tool, _)) = observation {
+                    tools = vec![tool];
+                }
+                let delegation = (!tools.is_empty() && desktop_capture.is_none())
+                    .then(|| Arc::new(subagents::DelegateTasks::default()));
                 if let Some(delegation) = &delegation {
                     tools.push(delegation.clone());
                     tools.push(Arc::new(introspection::InspectHarness(
                         self.harness_inventory(session.as_deref())?,
                     )));
                 }
-                let compaction_provider = if self.store.auto_compact(session.as_deref().unwrap())? {
+                let compaction_provider = if desktop_capture.is_none()
+                    && self.store.auto_compact(session.as_deref().unwrap())?
+                {
                     Some(
                         self.connection
                             .lock()
@@ -1452,14 +1529,15 @@ impl Engine {
                 } else {
                     None
                 };
-                let model = self.store.preferences()?.model;
+                let model = observation_model.unwrap_or(self.store.preferences()?.model);
                 let settings = provider.request_settings();
-                let reflection_provider = if session
-                    .as_deref()
-                    .and_then(|s| self.store.workspace(s).ok())
-                    .and_then(|w| w.root)
-                    .and_then(|r| self.store.adaptation(&r).ok())
-                    .is_some_and(|s| s.enabled && !s.paused)
+                let reflection_provider = if desktop_capture.is_none()
+                    && session
+                        .as_deref()
+                        .and_then(|s| self.store.workspace(s).ok())
+                        .and_then(|w| w.root)
+                        .and_then(|r| self.store.adaptation(&r).ok())
+                        .is_some_and(|s| s.enabled && !s.paused)
                 {
                     self.connection
                         .lock()
@@ -1473,15 +1551,16 @@ impl Engine {
                 } else {
                     None
                 };
-                let learner = if self.store.automatic_memory_policy()?.enabled {
-                    self.connection
-                        .lock()
-                        .map_err(|_| "Connection unavailable.")?
-                        .automatic_memory_provider()
-                        .ok()
-                } else {
-                    None
-                };
+                let learner =
+                    if desktop_capture.is_none() && self.store.automatic_memory_policy()?.enabled {
+                        self.connection
+                            .lock()
+                            .map_err(|_| "Connection unavailable.")?
+                            .automatic_memory_provider()
+                            .ok()
+                    } else {
+                        None
+                    };
                 let run_id = uuid::Uuid::new_v4().to_string();
                 let registry = self.extension_registry(session.as_deref())?;
                 tools = tools
@@ -1572,6 +1651,15 @@ impl Engine {
                     output: output.clone(),
                     log: Some(log.clone()),
                 });
+                let approval: Arc<dyn dolores_core::ToolApproval> =
+                    if let Some(capture) = &desktop_capture {
+                        Arc::new(desktop::SnapshotApproval {
+                            inner: approval,
+                            capture: capture.clone(),
+                        })
+                    } else {
+                        approval
+                    };
                 active.reserve(Run {
                     thread: session.clone(),
                     id,
@@ -1615,8 +1703,8 @@ impl Engine {
                     } else { None };
                     let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
                     if result.is_ok() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
-                    let knowledge_update = if result.is_ok() && !paused { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
-                    let learning_update = if result.is_ok(){if let Some(s)=learning_session.as_deref(){adaptation::reflect(store.clone(),reflection_provider,s,&learning_model,cancel.clone(),&output,id).await.unwrap_or_else(|e|Some(format!("{e} Saved reply and prior evidence remain; inspect Skills → Learning. No retry.")))}else{None}}else{None};
+                    let knowledge_update = if desktop_capture.is_none() && result.is_ok() && !paused { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
+                    let learning_update = if desktop_capture.is_none() && result.is_ok(){if let Some(s)=learning_session.as_deref(){adaptation::reflect(store.clone(),reflection_provider,s,&learning_model,cancel.clone(),&output,id).await.unwrap_or_else(|e|Some(format!("{e} Saved reply and prior evidence remain; inspect Skills → Learning. No retry.")))}else{None}}else{None};
                     let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
                             automatic_memory::learn(store.clone(), learner, &session, &learning_model, cancel.clone(), &output, id).await
@@ -1882,6 +1970,9 @@ async fn execute(
     )
     .await?;
     if !tools.is_empty() {
+        let observation_run = tools
+            .iter()
+            .any(|t| t.spec().name == "inspect_desktop_capture");
         let approval = approval.ok_or("Tool approval is unavailable.")?;
         let shared = Arc::new(dolores_core::SharedTaskBudget::new(task));
         if let (Some(delegation), Some(log)) = (&delegation, &log) {
@@ -1957,6 +2048,9 @@ async fn execute(
         };
         if cancel.is_cancelled() {
             return Err(stopped());
+        }
+        if observation_run && reply.pause.is_none() {
+            desktop::require_evidence(&reply.summary)?;
         }
         let saved = reply.answer.clone();
         let mut receipts = prior
@@ -2606,6 +2700,8 @@ mod tests {
                 .unwrap();
             engine
                 .call(Command::Start {
+                    desktop_capture: None,
+                    observation_model: None,
                     resume_run: None,
                     continuation: None,
                     id: 7,

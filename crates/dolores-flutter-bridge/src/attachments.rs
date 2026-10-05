@@ -9,7 +9,7 @@ use std::{
     path::Path,
 };
 
-fn image_dimensions(bytes: &[u8], mime: &str) -> Result<(), String> {
+pub(super) fn image_dimensions(bytes: &[u8], mime: &str) -> Result<(), String> {
     let (width, height) = if mime == "image/png" {
         if bytes.len() < 24 || &bytes[12..16] != b"IHDR" {
             return Err("PNG header is invalid. Choose another image.".into());

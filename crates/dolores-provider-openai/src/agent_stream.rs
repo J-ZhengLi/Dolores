@@ -198,15 +198,7 @@ impl OpenAiProvider {
             } else {
                 0
             };
-        let messages: Vec<_> = messages.iter().map(|message| {
-            let mut value = json!({"role":message.role,"content":self.wire_content(&message.content,&message.parts)?});
-            if !message.calls.is_empty() {
-                value["tool_calls"] = json!(message.calls.iter().map(|call|
-                    json!({"id":call.id,"type":"function","function":{"name":call.name,"arguments":call.arguments}})).collect::<Vec<_>>());
-            }
-            if let Some(id) = &message.call_id { value["tool_call_id"] = json!(id); }
-            Ok::<_,String>(value)
-        }).collect::<Result<Vec<_>,_>>()?;
+        let messages = self.wire_agent_messages(messages)?;
         if serde_json::to_vec(&messages)
             .map_err(|_| "Could not prepare tool request.")?
             .len()
