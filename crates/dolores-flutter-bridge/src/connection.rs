@@ -50,6 +50,14 @@ impl ConnectionManager {
         model: &str,
         settings: RequestSettings,
     ) -> Result<Arc<dyn ModelProvider>, String> {
+        self.image_provider(model, settings, false)
+    }
+    pub(super) fn image_provider(
+        &self,
+        model: &str,
+        settings: RequestSettings,
+        probe: bool,
+    ) -> Result<Arc<dyn ModelProvider>, String> {
         let mut preferences = self.store.preferences()?;
         if self.provider.is_none()
             || self.active_base_url.as_deref() != Some(preferences.base_url.as_str())
@@ -60,10 +68,11 @@ impl ConnectionManager {
             .store
             .model_choices(&preferences.base_url)?
             .contains(&model.to_string())
-            || !self
-                .store
-                .image_models(&preferences.base_url)?
-                .contains(&model.to_string())
+            || (!probe
+                && !self
+                    .store
+                    .image_models(&preferences.base_url)?
+                    .contains(&model.to_string()))
         {
             return Err(
                 "Choose a configured image-capable model in Settings → Models. Nothing was shared."

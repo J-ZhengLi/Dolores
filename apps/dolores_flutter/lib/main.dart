@@ -29,6 +29,7 @@ import 'attachments.dart';
 import 'theme.dart';
 import 'settings.dart';
 import 'desktop_frame.dart';
+import 'desktop_share.dart';
 import 'sidebar_resize.dart';
 export 'model_settings.dart' show ConnectionDialog;
 export 'theme.dart' show Palette;
@@ -279,6 +280,8 @@ class _ChatPageState extends State<ChatPage> {
                     ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
                     : metadata['paused']['reason'] == 'commandReview'
                     ? 'A command failed or verification was incomplete. Review its output before repair.'
+                    : metadata['paused']['reason'] == 'desktopAccess'
+                    ? 'Choose a window to continue. Nothing has been shared yet.'
                     : metadata['paused']['reason'] == 'desktopReview'
                     ? 'Computer use paused. Inspect the window and fresh screenshot before reconciling saved progress.'
                     : metadata['paused']['reason'] == 'subagentReview'
@@ -295,15 +298,20 @@ class _ChatPageState extends State<ChatPage> {
                         chat.busy ||
                             chat.changing ||
                             chat.loading ||
-                            chat.draft.isNotEmpty ||
-                            chat.attachments.isNotEmpty
+                            (chat.draft.isNotEmpty &&
+                                metadata['paused']['reason'] !=
+                                    'desktopAccess') ||
+                            (chat.attachments.isNotEmpty &&
+                                metadata['paused']['reason'] != 'desktopAccess')
                         ? null
-                        : () =>
-                              ((metadata['agent']?['tools'] as List? ?? []).any(
-                                    (r) => r['name'] == 'desktop_control',
-                                  ) ||
-                                  metadata['paused']['reason'] ==
-                                      'desktopReview')
+                        : () => metadata['paused']['reason'] == 'desktopAccess'
+                              ? shareWindow(context, chat, handoff: true)
+                              : ((metadata['agent']?['tools'] as List? ?? [])
+                                        .any(
+                                          (r) => r['name'] == 'desktop_control',
+                                        ) ||
+                                    metadata['paused']['reason'] ==
+                                        'desktopReview')
                               ? showSettings(
                                   context,
                                   chat,
@@ -312,10 +320,11 @@ class _ChatPageState extends State<ChatPage> {
                               : chat.continueTask(messageId!),
                     icon: const Icon(Icons.play_arrow_outlined, size: 18),
                     label: Text(
-                      metadata['paused']['reason'] == 'desktopReview' ||
-                              (metadata['agent']?['tools'] as List? ?? []).any(
-                                (r) => r['name'] == 'desktop_control',
-                              )
+                      metadata['paused']['reason'] == 'desktopAccess'
+                          ? 'Share window'
+                          : metadata['paused']['reason'] == 'desktopReview' ||
+                                (metadata['agent']?['tools'] as List? ?? [])
+                                    .any((r) => r['name'] == 'desktop_control')
                           ? 'Inspect computer use'
                           : metadata['paused']['reason'] == 'commandReview'
                           ? 'Repair and verify'
@@ -683,12 +692,24 @@ class _ChatPageState extends State<ChatPage> {
                     SizedBox(
                       width: 36,
                       height: 36,
-                      child: IconButton(
+                      child: PopupMenuButton<String>(
                         key: const Key('attach-file'),
-                        tooltip: 'Attach file or image',
-                        onPressed: chat.busy || chat.changing || chat.loading
-                            ? null
-                            : () => chooseAttachment(chat),
+                        tooltip: 'Add to chat',
+                        enabled: !chat.busy && !chat.changing && !chat.loading,
+                        onSelected: (value) => value == 'window'
+                            ? shareWindow(context, chat)
+                            : chooseAttachment(chat),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: 'file',
+                            child: Text('Attach file or image'),
+                          ),
+                          if (chat.workspaceKind != 'side')
+                            const PopupMenuItem(
+                              value: 'window',
+                              child: Text('Share window'),
+                            ),
+                        ],
                         icon: const Icon(Icons.add, size: 20),
                       ),
                     ),

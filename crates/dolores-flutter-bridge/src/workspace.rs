@@ -160,6 +160,7 @@ mod tests {
             .unwrap();
         assert!(engine
             .call(Command::Start {
+                desktop_handoff: false,
                 desktop_capture: None,
                 desktop_grant: None,
                 desktop_reconciled: false,

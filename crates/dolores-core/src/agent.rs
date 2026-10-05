@@ -13,7 +13,7 @@ pub const MAX_MODEL_CALLS: usize = 4;
 pub const MAX_TOOL_CALLS: usize = 4;
 pub const MAX_TOOL_BYTES: usize = 16 * 1024;
 // Five file tools, command/inspection/delegation, two MCP, two web and browser.
-pub const MAX_REGISTERED_TOOLS: usize = 13;
+pub const MAX_REGISTERED_TOOLS: usize = 14;
 pub const MAX_FILE_ARGUMENT_BYTES: usize = 64 * 1024;
 pub fn tool_argument_limit(name: &str) -> usize {
     match name {
@@ -232,6 +232,7 @@ pub enum PauseReason {
     CommandReview,
     SubagentReview,
     DesktopReview,
+    DesktopAccess,
 }
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -794,6 +795,13 @@ pub async fn run_agent_with_shared_budget(
             .await?;
             let desktop_failed = record.name == "desktop_control" && record.status != "completed";
             summary.tools.push(record);
+            if summary
+                .tools
+                .last()
+                .is_some_and(|r| r.name == "request_desktop_access" && r.status == "completed")
+            {
+                return Ok(AgentReply { pause: Some(PauseReason::DesktopAccess), answer: "Choose a window to continue this task. Nothing has been shared or controlled yet.".into(), summary });
+            }
             if desktop_failed {
                 return Ok(AgentReply{pause:Some(PauseReason::DesktopReview),answer:format!("Computer use paused. {content} Inspect the selected window in Settings → Computer use, capture it again, and explicitly reconcile saved progress before continuing. No later queued action was dispatched."),summary});
             }

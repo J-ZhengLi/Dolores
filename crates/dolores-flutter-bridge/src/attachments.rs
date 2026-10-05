@@ -139,6 +139,14 @@ pub(super) fn prepare_text(
     if let Some(last) = messages.last_mut() {
         last.parts = store.draft_attachments(session)?;
     }
+    prepare_history(store, session, messages)
+}
+
+pub(super) fn prepare_history(
+    store: &dyn SessionStore,
+    session: &str,
+    mut messages: Vec<Message>,
+) -> Result<Vec<Message>, String> {
     for message in &mut messages {
         for part in &message.parts {
             part.validate()?;

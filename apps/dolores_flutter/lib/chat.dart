@@ -119,6 +119,17 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<void> prepareWindowSharing() async {
+    if (busy || changing || loading) return;
+    if (workspaceKind == 'side') {
+      throw StateError(
+        'Side chats have no tools. Choose a project or temporary workspace first.',
+      );
+    }
+    await _ensureWorkingSession();
+    _notify();
+  }
+
   Future<void> openProject(String root) async {
     if (busy || changing || loading) return;
     changing = true;
@@ -905,6 +916,8 @@ class ChatController extends ChangeNotifier {
   }
 
   bool _continuing = false;
+  String? _desktopDraft;
+  bool _desktopKeepsAttachments = false;
   int? get latestPausedId =>
       !messagesNewer &&
           messages.isNotEmpty &&
@@ -932,6 +945,8 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> send({
+    String? taskInput,
+    bool desktopHandoff = false,
     int? continuation,
     String? desktopCapture,
     String? desktopGrant,
@@ -943,7 +958,7 @@ class ChatController extends ChangeNotifier {
     if (busy ||
         changing ||
         loading ||
-        (draft.trim().isEmpty && attachments.isEmpty)) {
+        (taskInput == null && draft.trim().isEmpty && attachments.isEmpty)) {
       return;
     }
     if (!configured) {
@@ -973,9 +988,11 @@ class ChatController extends ChangeNotifier {
     activeDesktopTarget = desktopGrant == null ? null : desktopTarget;
     _continuing = continuation != null;
     stopping = false;
-    pendingInput = draft.trim().isEmpty
-        ? 'Please review the attached files.'
-        : draft;
+    if (taskInput != null) _desktopDraft = draft;
+    _desktopKeepsAttachments = desktopHandoff;
+    pendingInput =
+        taskInput ??
+        (draft.trim().isEmpty ? 'Please review the attached files.' : draft);
     draft = '';
     partial = '';
     error = null;
@@ -1002,7 +1019,8 @@ class ChatController extends ChangeNotifier {
         'session': session,
         'input': pendingInput,
         'continuation': ?continuation,
-        'resumeRun': ?(desktopGrant != null ? desktopResume : resumeRun),
+        'resumeRun': ?(desktopResume ?? resumeRun),
+        'desktopHandoff': desktopHandoff,
         'desktopReconciled': desktopReconciled,
         'desktopCapture': ?desktopCapture,
         'desktopGrant': ?desktopGrant,
@@ -1139,7 +1157,7 @@ class ChatController extends ChangeNotifier {
               );
             } else {
               _record('Reply saved');
-              attachments = [];
+              if (!_desktopKeepsAttachments) attachments = [];
               if (event['knowledgeUpdate'] is String) {
                 _record('Project knowledge: ${event['knowledgeUpdate']}');
               }
@@ -1159,6 +1177,10 @@ class ChatController extends ChangeNotifier {
               resumeRun = null;
               stopping = false;
               pendingInput = '';
+              if (_desktopDraft != null) {
+                draft = _desktopDraft!;
+                _desktopDraft = null;
+              }
               partial = '';
               toolRecords.clear();
               subagents.clear();
@@ -1209,7 +1231,8 @@ class ChatController extends ChangeNotifier {
     }
     _clock.stop();
     error = failure;
-    draft = _continuing ? '' : pendingInput;
+    draft = _desktopDraft ?? (_continuing ? '' : pendingInput);
+    _desktopDraft = null;
     _continuing = false;
     pendingInput = '';
     partial = '';

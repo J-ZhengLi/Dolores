@@ -359,3 +359,20 @@ from verified application success. Recovery requires a new local screenshot,
 current selected-window access and explicit inspection. Do not replay an action
 or an approval. Preserve an unrelated composer draft. Compact light/dark layouts
 keep inspection controls scrollable and error guidance visible.
+
+## Conversation window sharing (15.2)
+
+The composer plus menu offers Attach file or image and Share window for working
+chats. A model can request the same local picker through a saved Window access
+pause. Use the existing icons, palette and uniform borders. Show View only /
+Control this window, local window titles, an explicit model choice and one Share
+and continue action. A first-use image check shares only a generated color image;
+failed checks keep the task and offer another model. Do not list private windows
+to the provider before sharing or silently change the chat's selected model.
+
+Closing the picker shares nothing. A saved handoff preserves the original goal,
+remaining calls/deadline/segments, and an unrelated draft with its attachments.
+Reusing enabled access must match the exact chosen target. Input reviews, Stop,
+revocation and fresh post-input observation remain required. The legacy desktop
+inspector remains available for reconciliation while the unified recovery view
+is implemented in 15.7.

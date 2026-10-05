@@ -16,6 +16,7 @@ mod comparison;
 mod connection;
 mod continuation;
 mod desktop;
+mod desktop_access;
 mod desktop_control;
 mod desktop_recovery;
 mod experience;
@@ -107,6 +108,13 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    CheckImageSupport {
+        id: u64,
+        model: String,
+        session: Option<String>,
+        #[serde(rename = "runId")]
+        run_id: Option<String>,
+    },
     DesktopGrant {
         session: String,
         capture: String,
@@ -612,6 +620,8 @@ enum Command {
         run_id: String,
     },
     Start {
+        #[serde(default, rename = "desktopHandoff")]
+        desktop_handoff: bool,
         #[serde(rename = "desktopCapture")]
         desktop_capture: Option<String>,
         #[serde(default, rename = "desktopGrant")]
@@ -814,6 +824,12 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::CheckImageSupport {
+                id,
+                model,
+                session,
+                run_id,
+            } => self.check_image_support(&mut active, id, model, session, run_id),
             Command::DesktopGrant {
                 session,
                 capture,
@@ -1379,6 +1395,7 @@ impl Engine {
                 Ok(Value::Null)
             }
             Command::Start {
+                desktop_handoff,
                 desktop_capture,
                 desktop_grant,
                 desktop_reconciled,
@@ -1428,6 +1445,7 @@ impl Engine {
                     || (desktop_capture.is_some()
                         && (continuation.is_some()
                             || (resume_run.is_some()
+                                && !desktop_handoff
                                 && (desktop_grant.is_none() || !desktop_reconciled))))
                 {
                     return Err(
@@ -1452,10 +1470,15 @@ impl Engine {
                 let observation = desktop_capture.as_ref().map(|capture| {
                     let session=session.as_deref().unwrap();
                     if self.store.workspace(session)?.root.is_none() {return Err("Choose a working chat for computer use.".into());}
-                    if !self.store.draft_attachments(session)?.is_empty() {return Err("Send or remove the draft's attachments before screenshot analysis. Your draft remains.".into());}
+                    if !desktop_handoff && !self.store.draft_attachments(session)?.is_empty() {return Err("Send or remove the draft's attachments before screenshot analysis. Your draft remains.".into());}
                     self.observation_tool(session,capture)
                 }).transpose()?;
-                let effective = if let Some(model) = &observation_model {
+                if desktop_handoff && (desktop_capture.is_none() || resume_run.is_none()) {
+                    return Err(
+                        "Window sharing requires its saved task and selected capture.".into(),
+                    );
+                }
+                let mut effective = if let Some(model) = &observation_model {
                     self.observation_settings(session.as_deref().unwrap(), model)?
                 } else {
                     self.effective_settings(session.as_deref())?
@@ -1463,7 +1486,18 @@ impl Engine {
                 let parent = resume_run
                     .as_ref()
                     .map(|source| {
-                        if let Some(control) = &control {
+                        if desktop_handoff {
+                            let (parent, remaining) = desktop_access::source(
+                                self.store.as_ref(),
+                                session.as_deref().unwrap(),
+                                source,
+                                &input,
+                                effective.task,
+                                effective.request.timeout_seconds,
+                            )?;
+                            effective.task = remaining;
+                            Ok(parent)
+                        } else if let Some(control) = &control {
                             self.desktop_resume_source(
                                 session.as_deref().unwrap(),
                                 source,
@@ -1587,6 +1621,9 @@ impl Engine {
                     tools.push(Arc::new(introspection::InspectHarness(
                         self.harness_inventory(session.as_deref())?,
                     )));
+                    if desktop::helper().is_ok() {
+                        tools.push(Arc::new(desktop_access::RequestAccess));
+                    }
                 }
                 let compaction_provider = if desktop_capture.is_none()
                     && self.store.auto_compact(session.as_deref().unwrap())?
@@ -1638,7 +1675,9 @@ impl Engine {
                     .into_iter()
                     .map(|tool| registry.pin_tool(tool))
                     .collect::<Result<Vec<_>, _>>()?;
-                self.store.save_draft(session.as_deref().unwrap(), &input)?;
+                if !desktop_handoff {
+                    self.store.save_draft(session.as_deref().unwrap(), &input)?;
+                }
                 self.store.begin_run(&dolores_core::RunSnapshot {
                     parent_run: resume_run.clone().or_else(|| {
                         continuation.and_then(|_| {
@@ -1780,7 +1819,7 @@ impl Engine {
                         delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
                     } else { None };
                     let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
-                    if result.is_ok() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
+                    if result.is_ok() && !desktop_handoff {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
                     let knowledge_update = if desktop_capture.is_none() && result.is_ok() && !paused { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
                     let learning_update = if desktop_capture.is_none() && result.is_ok(){if let Some(s)=learning_session.as_deref(){adaptation::reflect(store.clone(),reflection_provider,s,&learning_model,cancel.clone(),&output,id).await.unwrap_or_else(|e|Some(format!("{e} Saved reply and prior evidence remain; inspect Skills → Learning. No retry.")))}else{None}}else{None};
                     let memory_update = if result.is_ok() && !paused {
@@ -1880,7 +1919,11 @@ async fn execute(
     let mut context =
         dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
     if let Some(source) = &resume_run {
-        let prompt = if tools.iter().any(|t| t.spec().name == "desktop_control") {
+        let handoff = store
+            .run_events(&session, source)?
+            .iter()
+            .any(|e| e.kind == "desktopHandoff");
+        let prompt = if !handoff && tools.iter().any(|t| t.spec().name == "desktop_control") {
             desktop_recovery::resume_prompt(store.as_ref(), &session, source)?
         } else {
             checkpoints::resume_prompt(store.as_ref(), &session, source, false)?
@@ -1914,7 +1957,21 @@ async fn execute(
     let knowledge_facts = knowledge::facts(store.as_ref(), &session)?;
     let context = dolores_core::knowledge_context(context, &knowledge_facts)?;
     let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
-    let context = attachments::prepare_text(store.as_ref(), &session, context)?;
+    let preserve_draft = resume_run.as_ref().is_some_and(|source| {
+        tools.iter().any(|t| {
+            matches!(
+                t.spec().name.as_str(),
+                "desktop_control" | "inspect_desktop_capture"
+            )
+        }) && store
+            .run_events(&session, source)
+            .is_ok_and(|events| events.iter().any(|e| e.kind == "desktopHandoff"))
+    });
+    let context = if preserve_draft {
+        attachments::prepare_history(store.as_ref(), &session, context)?
+    } else {
+        attachments::prepare_text(store.as_ref(), &session, context)?
+    };
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
@@ -2100,7 +2157,7 @@ async fn execute(
                 events,
                 cancel.clone(),
                 task,
-                shared,
+                shared.clone(),
                 false,
             );
             tokio::pin!(request);
@@ -2136,6 +2193,17 @@ async fn execute(
         };
         if cancel.is_cancelled() {
             return Err(stopped());
+        }
+        if reply.pause == Some(dolores_core::PauseReason::DesktopAccess) {
+            let log = log
+                .as_ref()
+                .ok_or("Window sharing needs a durable task journal.")?;
+            let usage = shared.usage();
+            let saved_budget = dolores_core::TaskBudget {
+                elapsed_seconds: Some(task.deadline(settings.unwrap_or_default().timeout_seconds)),
+                ..task
+            };
+            log.record(None, "desktopHandoff", json!({"modelCalls":usage.model_calls,"toolCalls":usage.tool_calls,"elapsedSeconds":started_at.elapsed().as_secs(),"budget":saved_budget})).await?;
         }
         if observation_run && reply.pause.is_none() {
             desktop::require_evidence(&reply.summary)?;
@@ -2185,6 +2253,8 @@ async fn execute(
         blocking(move || {
             if let Some(source_id) = continuation {
                 store.commit_continuation(&session, source_id, &input, &saved, &metadata)
+            } else if preserve_draft {
+                store.commit_turn_preserving_draft(&session, &input, &saved, &metadata)
             } else {
                 store.commit_turn_metadata(&session, &input, &saved, &metadata)
             }
@@ -2357,6 +2427,17 @@ pub unsafe extern "C" fn dolores_free(value: *mut c_char) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn window_sharing_commands_keep_camel_case_handoff_fields() {
+        let command: Command = serde_json::from_value(json!({
+            "command":"checkImageSupport", "id":1, "model":"fixture", "runId":"parent"
+        })).unwrap();
+        assert!(matches!(command, Command::CheckImageSupport { run_id: Some(id), .. } if id == "parent"));
+        let command: Command = serde_json::from_value(json!({
+            "command":"start", "id":2, "input":"original goal", "desktopHandoff":true
+        })).unwrap();
+        assert!(matches!(command, Command::Start { desktop_handoff: true, .. }));
+    }
     use async_trait::async_trait;
     use dolores_core::{Message, PluginDescriptor};
     struct Fixture {
@@ -2788,6 +2869,7 @@ mod tests {
                 .unwrap();
             engine
                 .call(Command::Start {
+                    desktop_handoff: false,
                     desktop_capture: None,
                     desktop_grant: None,
                     desktop_reconciled: false,

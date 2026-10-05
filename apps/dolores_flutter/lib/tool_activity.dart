@@ -24,6 +24,7 @@ String toolLabel(dynamic name) => switch (name) {
   'browser' => 'Browser',
   'inspect_desktop_capture' => 'Desktop screenshot',
   'desktop_control' => 'Computer use',
+  'request_desktop_access' => 'Window access',
   _ => 'File read',
 };
 

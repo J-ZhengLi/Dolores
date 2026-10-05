@@ -1613,3 +1613,37 @@ At 420×480 the icon header remained usable, and Enter on Activity opened the
 expected details. The simulated failed summary save still retained edits and
 succeeded on explicit retry. These checks qualify the updated prototype only;
 native hover/keyboard/accessibility and runtime acceptance remain pending.
+
+### 15.2 — Conversation window access implementation; qualification pending
+
+Working-chat tools now advertise a host-only window-access request. It saves a
+pause before later queued tools dispatch; discovery grants no access or pixels.
+The composer plus menu and saved pause reach a local window picker, with View
+only / Control this window and one sharing confirmation. An unconfigured image
+capability receives a bounded generated-image check (64 output tokens, 15 seconds);
+success enables image transport without changing the selected chat model. This
+checks transport and a simple color observation, not general visual competence.
+
+The desktop segment records its parent and original goal, subtracts prior shared
+model/tool attempts and elapsed work, and cannot replenish limits through a model
+switch or larger settings. Image checks for a handoff use a separately journaled
+child with a reserved call/time allowance; interrupted checks never grant input.
+Handoffs do not consume or upload unrelated draft attachments. Failed starts
+retain drafts and revoke any newly created control grant. Existing input effect
+reviews, expiry, cancellation and reconciliation checks remain unchanged.
+
+Checks so far: 200 core/bridge/store tests and 221 Flutter tests passed, plus the
+new atomic draft/attachment preservation test after restart and an injected save
+failure. The three picker tests cover closing without sharing, failed image support
+at 420×480, and a stale handoff retaining an unrelated draft. Rust Clippy and
+Flutter analysis passed. The normal Windows release built and launched with an
+app window handle; a fresh 37-table user-data digest comparison was unchanged.
+
+The deterministic full native handoff reached its saved access pause, then the
+helper correctly refused window listing because Windows was locked. A screenshot
+confirmed the lock screen, so no native input was attempted. Native visual
+inspection, successful fixture handoff, first-use image check, bounded Qwen/
+DeepSeek computer-use tests and ready-path measurements remain pending until
+Windows is unlocked. This is implementation progress, not a delivered milestone
+or a new model-reliability pass. Later 15.7 work also replaces the legacy desktop
+reconciliation screen with unified conversation recovery.

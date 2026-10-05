@@ -159,7 +159,11 @@ impl Engine {
             true,
             working,
             vec!["selected-screenshot-sharing".into()],
-            vec!["inspect_desktop_capture".into(), "desktop_control".into()],
+            vec![
+                "inspect_desktop_capture".into(),
+                "desktop_control".into(),
+                "request_desktop_access".into(),
+            ],
         )?;
         add(
             "subagents",

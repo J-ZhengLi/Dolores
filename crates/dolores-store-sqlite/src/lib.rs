@@ -826,7 +826,7 @@ impl SessionStore for SqliteStore {
         Ok(())
     }
     fn commit_turn(&self, id: &str, user: &str, assistant: &str) -> Result<(), String> {
-        self.save_turn(id, user, assistant, None, None)
+        self.save_turn(id, user, assistant, None, None, true)
     }
     fn commit_turn_metadata(
         &self,
@@ -835,7 +835,16 @@ impl SessionStore for SqliteStore {
         assistant: &str,
         metadata: &TurnMetadata,
     ) -> Result<(), String> {
-        self.save_turn(id, user, assistant, Some(metadata), None)
+        self.save_turn(id, user, assistant, Some(metadata), None, true)
+    }
+    fn commit_turn_preserving_draft(
+        &self,
+        id: &str,
+        user: &str,
+        assistant: &str,
+        metadata: &TurnMetadata,
+    ) -> Result<(), String> {
+        self.save_turn(id, user, assistant, Some(metadata), None, false)
     }
     fn commit_continuation(
         &self,
@@ -845,7 +854,7 @@ impl SessionStore for SqliteStore {
         assistant: &str,
         metadata: &TurnMetadata,
     ) -> Result<(), String> {
-        self.save_turn(id, user, assistant, Some(metadata), Some(expected))
+        self.save_turn(id, user, assistant, Some(metadata), Some(expected), true)
     }
     fn preferences(&self) -> Result<ConnectionPreferences, String> {
         self.read_preferences()
@@ -1002,6 +1011,7 @@ impl SqliteStore {
         assistant: &str,
         metadata: Option<&TurnMetadata>,
         expected: Option<i64>,
+        consume_draft: bool,
     ) -> Result<(), String> {
         let mut connection = self.lock()?;
         let transaction = connection.transaction().map_err(storage_error)?;
@@ -1019,7 +1029,9 @@ impl SqliteStore {
         }
         transaction.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user',?2),(?1,'assistant',?3)", params![id,user,assistant]).map_err(storage_error)?;
         let assistant_id = transaction.last_insert_rowid();
-        attachments::commit_draft(&transaction, id, assistant_id - 1)?;
+        if consume_draft {
+            attachments::commit_draft(&transaction, id, assistant_id - 1)?;
+        }
         if let Some(metadata) = metadata {
             let data = serde_json::to_string(metadata).map_err(storage_error)?;
             transaction
@@ -1067,6 +1079,56 @@ impl SqliteStore {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn desktop_handoff_does_not_share_or_consume_an_unrelated_draft() {
+        use dolores_core::{AttachmentData, AttachmentRef, ContextSummary, TurnMetadata};
+        use sha2::{Digest, Sha256};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("handoff.db");
+        let store = super::SqliteStore::open(&path).unwrap();
+        store.create("chat").unwrap();
+        store.save_draft("chat", "Unrelated draft").unwrap();
+        let data = b"Unrelated attachment".to_vec();
+        let asset = AttachmentData {
+            reference: AttachmentRef {
+                digest: format!("{:x}", Sha256::digest(&data)),
+                name: "pending.txt".into(),
+                mime: "text/plain".into(),
+                bytes: data.len(),
+            },
+            data,
+        };
+        store.add_attachment("chat", &asset).unwrap();
+        let metadata = TurnMetadata {
+            model: "fixture".into(),
+            usage: None,
+            context: ContextSummary::from_messages(&[], Some(0)),
+            request_settings: None,
+            agent: None,
+            paused: None,
+        };
+        store
+            .commit_turn_preserving_draft("chat", "Original goal", "Observed result", &metadata)
+            .unwrap();
+        assert!(store
+            .messages("chat")
+            .unwrap()
+            .iter()
+            .all(|m| m.parts.is_empty()));
+        drop(store);
+        let store = super::SqliteStore::open(&path).unwrap();
+        assert_eq!(store.saved_draft("chat").unwrap(), "Unrelated draft");
+        assert_eq!(
+            store.draft_attachments("chat").unwrap(),
+            vec![asset.reference]
+        );
+        store.lock().unwrap().execute_batch("CREATE TRIGGER reject_message BEFORE INSERT ON messages BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(store
+            .commit_turn_preserving_draft("chat", "Original goal", "Another result", &metadata)
+            .is_err());
+        assert_eq!(store.messages("chat").unwrap().len(), 2);
+        assert_eq!(store.draft_attachments("chat").unwrap().len(), 1);
+    }
     use super::*;
     #[test]
     fn paused_continuation_is_atomic_persistent_and_refuses_reused_source() {

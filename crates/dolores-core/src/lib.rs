@@ -660,6 +660,15 @@ pub trait SessionStore: Send + Sync {
         self.commit_turn(id, user, assistant)
     }
     fn preferences(&self) -> Result<ConnectionPreferences, String>;
+    fn commit_turn_preserving_draft(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &TurnMetadata,
+    ) -> Result<(), String> {
+        Err("This store cannot preserve a separate draft during window sharing.".into())
+    }
     fn save_preferences(&self, preferences: &ConnectionPreferences) -> Result<(), String>;
     fn request_settings(&self) -> Result<RequestSettings, String> {
         Ok(RequestSettings::default())
