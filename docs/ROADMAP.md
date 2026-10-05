@@ -23,7 +23,13 @@ execution remain open. See [web contract](design/web-search.md),
 are implemented**. Automatic activation's real-workflow acceptance gate remains
 unaccepted; reviewed skill updates remain available.
 
-Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
+**Planning addition — 2026-10-05:** the user approved a dedicated computer-use
+milestone. **14.1–14.4 are planned, not implemented.** Existing milestone numbers
+and order are preserved. Windows selected-application interaction and visual
+verification are the first target; arbitrary-app reliability and other platforms
+need separate evidence. This addition authorizes planning, not runtime execution.
+
+Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search, browser use and scoped desktop computer use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
 
 The [architecture specification](design/evolving-harness-architecture.md) defines component/state/lifecycle/authority contracts. The [behavior policy](design/dolores-behavior.md) defines reasoning, questioning, character and adaptation. These describe the target; [current architecture](ARCHITECTURE.md) describes the running app. No claim of consciousness, weight training or guaranteed daily improvement is made.
 
@@ -50,6 +56,7 @@ This replaces the prior working-agent/context/learning/plugin proposal. Extensio
 | **11 — Advanced optional tools** | Bounded subagents, attributable search and on-demand browser use | 11.1–11.3 | Requires 10's grant/task/evidence contracts. Stop and resource ownership work across tools. |
 | **12 — Learn from experience** | Scoped knowledge, independent trials, qualifying automatic skill updates and transparent recovery | 12.1–12.4 | Requires trustworthy task evidence. Demonstrate an improvement, rejection and rollback under fixed criteria. |
 | **13 — Adapt the executable harness** | Chosen runtime, transactional lifecycle, agent-authored mods and integrated qualification | 13.1–13.4 | Requires 9's contracts and 12's trials. Verified containment gates automatic executable activation. |
+| **14 — Computer use and visual verification** | Model-visible screenshots, scoped Windows interaction, recovery and measured real-workflow results | 14.1–14.4 | Requires 9–11's ownership, grants, provider/image and browser contracts. Independently qualify desktop control; executable self-adaptation does not grant desktop authority. |
 
 Default order is sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
 
@@ -309,6 +316,131 @@ self-evolution from the host check workflow.
 
 **Exit:** the demonstrated self-evolution envelope is explicit; unsupported paths remain disabled/reviewed. Further release/scope needs its own plan. This cycle does not promise unlimited future capability.
 
+## Milestone 14 — Computer use and visual verification
+
+**Status:** planned. Deliver a useful Windows selected-application workflow first,
+with a provider-independent observation/action contract and on-demand native
+helper. Preserve the existing browser adapter and Flutter UI. Choose the native
+backend and provider transport in a design specification before implementation;
+do not assume access to Codex's private desktop runtime.
+
+The current tool port returns text, and browser screenshots are local evidence,
+not model vision. Image attachments alone do not provide a continuous desktop
+observation loop. This milestone explicitly extends tool results, provider
+projection, context budgets, durable evidence and sharing controls. Existing
+permission modes need desktop-specific resource scopes and dispatch checks;
+a project folder grant cannot authorize arbitrary desktop interaction.
+
+### 14.1 Multimodal tool results and desktop observation
+
+**Scope:** bounded structured text/image results with backward-readable history,
+host-owned screenshot references, resolution/coordinate metadata and retention
+rules. List/select applications and capture the selected window on demand;
+bounded accessibility observations supplement screenshots when available.
+Distinguish local inspection from provider sharing. Validate vision/tool-result
+support and expose unsupported capability honestly. Allow an explicitly selected
+computer-use model/profile without silently changing the ordinary chat model;
+attribute its usage and share the parent task's allowances.
+
+**Basic acceptance:** a capable configured model receives a current screenshot
+and correctly identifies an observable control in a synthetic application;
+reload preserves its evidence reference and old text-only history still works.
+Local observation makes no provider request. An image-input checkbox alone is
+not computer-use qualification.
+
+**Failure/recovery:** unsupported image projection, missing capture or image/context
+budget exhaustion preserves the task and offers explicit model/profile or fresh
+capture recovery. A closed window gives an actionable unavailable result rather
+than another app's screen. Exercise unsupported vision and missing/oversized
+capture fixtures alongside one bounded live observation.
+
+**Excluded:** continuous recording, implicit full-desktop sharing, unlimited image
+history, bundled vision models and unmeasured model competence claims.
+
+### 14.2 Scoped Windows desktop interaction
+
+**Scope:** host-brokered click, double-click, type, scroll, key and drag operations
+against a selected application/window. Bind proposals to observed window identity,
+capture revision and coordinate space; validate/recheck at dispatch. Define
+session-scoped desktop grants with clear user consent, revocation, visible active
+target and Stop. Covered ordinary actions may use explicit auto approval;
+consequential actions retain review under the user's grants. Keep desktop
+authority separate from filesystem, browser and self-update permissions.
+
+**Basic acceptance:** a bounded real-model task fills and edits a reversible form
+in a disposable local app, then verifies the resulting UI through a fresh
+observation. A second task visually checks a generated app using fixed criteria.
+Actions and observations appear in the trajectory with truthful outcomes.
+
+**Failure/recovery:** moved/rescaled window or focus change invalidates a stale
+action; revoked access/Stop prevents queued dispatch. Refuse a replaced window
+handle or out-of-scope target. Exercise stale coordinates and revocation during
+pending dispatch without interacting with unrelated applications.
+
+**Excluded:** elevated/secure-desktop access, invisible arbitrary script execution,
+self-granted access, unattended purchases/messages/deployments and universal app
+support. Native input runs with user OS authority; target checks are not an OS
+sandbox or a guarantee about downstream application effects.
+
+### 14.3 Interruption, uncertain actions and observation recovery
+
+**Scope:** bounded observe → act → observe execution with durable action intent,
+receipts, verification and checkpoints. Handle locked desktops, unavailable
+accessibility trees, closed/minimized windows, slow redraw and user takeover.
+Refresh observations after state changes; expose uncertainty when an action may
+have run. Restart requires deliberate reconciliation before resuming. Helper
+startup/cleanup and deadlines remain owned by the run; Stop releases resources.
+Screen text is untrusted data and cannot grant authority or alter task policy.
+
+**Basic acceptance:** interrupt a partially completed UI task, inspect retained
+progress and explicitly resume after a fresh observation without duplicating a
+completed action. A temporarily unavailable target can recover within bounded
+allowances with the original goal preserved.
+
+**Failure/recovery:** Stop after input but before its receipt marks the effect
+uncertain and requires inspection, never blind replay. A locked desktop or
+repeated unchanged screen pauses with a useful next step instead of an endless
+loop. Exercise both effect-before-receipt interruption and stalled/locked target
+fixtures; verify recovery notices and retained work in the normal desktop UI.
+
+**Excluded:** exactly-once external UI effects, automatic reversal of clicks/forms,
+silent background takeover and unlimited wait/retry loops.
+
+### 14.4 Real-workflow, resource and portability qualification
+
+**Scope:** freeze a small corpus covering native form editing, generated-app
+visual verification and a multi-step workflow, plus DPI/window movement and
+interruption/budget pressure. Record model/profile, observable outcome, recovery,
+actions, elapsed time, image/token usage and helper/process-tree memory. Inspect
+the normal release visually in light/dark and compact layouts. Measure startup,
+active capture and idle cleanup on available hardware. Review macOS/Linux backend
+and permission differences; enable each platform only after native execution
+and its failure/recovery checks on a suitable host.
+
+**Basic acceptance:** unchanged corpus criteria pass with bounded live-model
+evidence and user takeover/Stop demonstrated. Routine probes use Qwen3.5-2B and
+harder cases DeepSeek V4.1 Flash when their configured endpoints support the
+required vision path; unsupported capability is recorded, not bypassed. Any
+alternative computer-use provider requires an explicit configured choice. Report
+reliability separately per model and application, keeping user profiles/history
+unchanged and private screenshots/transcripts out of committed artifacts.
+
+**Failure/recovery:** model/provider/output/image/context limits retain usable
+progress and an explicit continuation path; helper crash does not block chat or
+leave owned resources running. Include one budget-exhaustion and one helper-crash
+case in addition to the ordinary workflows. Missing platform/hardware access is
+an open acceptance gap, not a portability or low-end pass.
+
+**Excluded:** Codex-equivalent reliability claims from a tiny corpus, always-on
+recording/services, a mandatory bundled VM, silently increased defaults and
+automatic expansion to every installed application.
+
+**Exit:** demonstrate useful Windows computer use and visual verification with
+bounded cost, scoped authority, prompt Stop and truthful recovery. Record the
+supported model/app/platform envelope in acceptance. Broader app coverage and
+other-platform backends remain explicit follow-up work until qualified. Computer
+use cannot automatically modify its own permission or evaluation boundary.
+
 ## Validation and change control
 
 - Freeze behavior, numerical defaults, criteria and exclusions before each brick; discuss material technical choices. Evidence may correct an assumption, but added scope requires a named spec/roadmap revision before implementation.
@@ -324,11 +456,12 @@ self-evolution from the host check workflow.
 | Threads, resume/fork/compaction | 9.2, 10.4, 10.5 |
 | Auto approval/full access | 9.4, 10.2; containment 13.1 |
 | Subagents/search/browser | 11.1–11.3 |
+| Desktop computer use/model-visible screenshots/visual verification | 14.1–14.4 |
 | File/image attachments | 10.6 |
 | Settings/effective limits | 9.4, 10.1, 10.2 |
 | Self-inspection/editable versus protected modules | 9.1, 9.3, 13.1–13.3 |
 | Experience-driven skills | 12.1–12.4 |
 | Questions/scoped answers/humane character | 9.4 and every milestone; continuity 12.1 |
-| Lean cross-platform design | Per-brick measurements, portability 13.1, manual qualification 13.4 |
+| Lean cross-platform design | Per-brick measurements, portability 13.1, manual qualification 13.4; desktop backend qualification 14.4 |
 
 Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync, remote/persistent MCP, vector memory, bundled model hosting, automatic worktree isolation, plugin marketplace, general native self-replacement and unattended swarms. These are not silently included elsewhere. Physical IME/screen-reader, low-end and other-OS gaps remain visible alongside scheduled work.
