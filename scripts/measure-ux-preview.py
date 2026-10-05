@@ -4,33 +4,14 @@ Reports observations, not an added-cost comparison or a low-end qualification.
 Leaves the app visible for native review. Never reads the user's profile.
 """
 import argparse
-import ctypes
-from ctypes import wintypes as w
 import json
 import os
 from pathlib import Path
 import subprocess
 import time
-from desktop_resource_probe import ResourceProbe
+from desktop_resource_probe import ResourceProbe, cpu_seconds
+from desktop import require_normal_build
 from desktop_test_support import ROOT
-
-
-def cpu_seconds(pid):
-    kernel = ctypes.windll.kernel32
-    kernel.OpenProcess.restype = w.HANDLE
-    kernel.CloseHandle.argtypes = [w.HANDLE]
-    handle = kernel.OpenProcess(0x1000, False, pid)
-    if not handle:
-        raise RuntimeError('Owned preview exited during sampling')
-    try:
-        values = [w.FILETIME() for _ in range(4)]
-        fn = kernel.GetProcessTimes
-        fn.argtypes = [w.HANDLE] + [ctypes.POINTER(w.FILETIME)] * 4
-        if not fn(handle, *(ctypes.byref(v) for v in values)):
-            raise OSError('Process time query failed')
-        return sum((v.dwHighDateTime << 32) + v.dwLowDateTime for v in values[2:]) / 10_000_000
-    finally:
-        kernel.CloseHandle(handle)
 
 
 def main():
@@ -43,6 +24,7 @@ def main():
     if not (directory / 'data' / 'dolores.db').is_file():
         raise ValueError('Prepare the synthetic preview first')
     executable = ROOT / 'apps/dolores_flutter/build/windows/x64/runner/Release/dolores_flutter.exe'
+    require_normal_build()
     env = dict(os.environ, DOLORES_DATA_DIR=str(directory / 'data'),
                DOLORES_GLOBAL_SKILLS_DIR=str(directory / 'skills'))
     env.pop('DOLORES_SMOKE_DIR', None)

@@ -15,6 +15,19 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / 'apps/dolores_flutter'
+BUILD_STATE = APP / 'build/.dolores-entry.json'
+
+
+def require_normal_build(allow_diagnostic=False):
+    if not BUILD_STATE.is_file():
+        raise ValueError('Build identity missing. Rebuild with python scripts/desktop.py build')
+    state = json.loads(BUILD_STATE.read_text(encoding='utf-8'))
+    binary = executable()
+    if state.get('size') != binary.stat().st_size or state.get('modifiedNs') != binary.stat().st_mtime_ns:
+        raise ValueError('Build identity changed. Rebuild with python scripts/desktop.py build')
+    if state.get('entry') != 'main' and not allow_diagnostic:
+        raise ValueError('Diagnostic build cannot serve as the normal app. Run python scripts/desktop.py build')
+    return state['entry']
 
 
 def platform_name():
@@ -103,6 +116,8 @@ def registrant_alias(app=APP):
 def build(args):
     platform = platform_name()
     flutter = flutter_path(args.flutter_sdk)
+    # Invalidate before work: a failed or partial build cannot inherit normal identity.
+    BUILD_STATE.unlink(missing_ok=True)
     env = dict(os.environ, FLUTTER_SUPPRESS_ANALYTICS='true', DART_SUPPRESS_ANALYTICS='true')
     encoded = env.get('CARGO_ENCODED_RUSTFLAGS')
     flags = encoded.split('\x1f') if encoded else shlex.split(env.get('RUSTFLAGS', ''))
@@ -155,7 +170,10 @@ def build(args):
     shutil.copy2(ROOT / 'target/release' / library, library_dir / library)
     if platform == 'windows':
         shutil.copy2(ROOT / 'target/release/dolores-desktop-helper.exe', destination)
-    print(f'Built {executable()} (ship the complete bundle).')
+    stat = executable().stat()
+    BUILD_STATE.write_text(json.dumps({'entry': entry, 'size': stat.st_size,
+                                      'modifiedNs': stat.st_mtime_ns}), encoding='utf-8')
+    print(f'Built {entry} desktop entry: {executable()} (use the complete bundle).')
 
 
 def process_identity(pid, terminate_expected=None):
@@ -242,6 +260,9 @@ def launch(args):
     binary = executable()
     if not binary.is_file():
         raise ValueError('Build the normal desktop release first: python scripts/desktop.py build')
+    entry = require_normal_build(args.allow_diagnostic)
+    if args.replace_owned and not args.pid_file:
+        raise ValueError('--replace-owned requires an explicit --pid-file.')
     env = dict(os.environ)
     env.pop('DOLORES_SMOKE_DIR', None)
     if args.data_directory:
@@ -266,6 +287,7 @@ def launch(args):
     if app.poll() is not None:
         raise RuntimeError('Dolores exited before opening its window.')
     print(json.dumps({'processId': app.pid, 'windowVisible': visible is not None,
+                      'entry': entry,
                       'visibilityCheck': 'Windows window presence; inspect foreground separately' if os.name == 'nt' else 'Native visual verification required'}))
 
 
@@ -281,6 +303,7 @@ def main():
     starter.add_argument('--data-directory')
     starter.add_argument('--pid-file')
     starter.add_argument('--replace-owned', action='store_true')
+    starter.add_argument('--allow-diagnostic', action='store_true', help='Explicit diagnostic testing only; not a normal-app handoff.')
     stopper = commands.add_parser('stop-owned')
     stopper.add_argument('--pid-file', required=True, type=Path)
     args = parser.parse_args()

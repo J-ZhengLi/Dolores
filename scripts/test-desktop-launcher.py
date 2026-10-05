@@ -13,6 +13,19 @@ spec.loader.exec_module(desktop)
 
 
 class DesktopTests(unittest.TestCase):
+    def test_diagnostic_and_changed_binary_cannot_be_handed_off_as_normal(self):
+        with tempfile.TemporaryDirectory() as temp:
+            binary = Path(temp) / 'app.exe'; binary.write_bytes(b'fixture')
+            state = Path(temp) / 'entry.json'; stat = binary.stat()
+            state.write_text(json.dumps({'entry': 'smoke', 'size': stat.st_size, 'modifiedNs': stat.st_mtime_ns}))
+            with patch.object(desktop, 'BUILD_STATE', state), patch.object(desktop, 'executable', return_value=binary):
+                with self.assertRaisesRegex(ValueError, 'Diagnostic build'):
+                    desktop.require_normal_build()
+                self.assertEqual(desktop.require_normal_build(True), 'smoke')
+                binary.write_bytes(b'changed fixture')
+                with self.assertRaisesRegex(ValueError, 'identity changed'):
+                    desktop.require_normal_build(True)
+
     def test_build_failure_restores_exact_package_configuration(self):
         with tempfile.TemporaryDirectory() as temp:
             app = Path(temp) / 'space & unicode 测试'; (app / '.dart_tool').mkdir(parents=True)

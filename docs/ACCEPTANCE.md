@@ -1,5 +1,20 @@
 # Dolores acceptance — 2026-10-05
 
+## Maintenance follow-up — truthful build and resource checks
+
+2026-10-06: Four Python launcher tests PASS, including refusal to hand off a
+diagnostic or subsequently changed binary as normal. A failed build invalidates
+its entry identity. Explicit owned replacement requires a record. The normal
+Windows app was rebuilt and visibly launched; all 37 provider/history tables
+remain unchanged. The actual idle app widget test PASS confirms no continuously
+scheduled frame after settling. Shared process-time sampling replaces duplicated
+measurement code and distinguishes normal from diagnostic builds.
+
+[Idle investigation](qualification/idle-resources.md) retains the native CPU
+results and limits: normal empty-profile samples still use 3.12–4.37% of one core,
+while a minimal diagnostic Flutter window uses 1.72–1.87%. No CPU fix or low-end
+qualification is claimed. Temporary diagnostic source was restored exactly.
+
 ## Maintenance follow-up — Python desktop workflow and retired shells
 
 2026-10-06: Python `scripts/desktop.py build` and `launch` replace the former

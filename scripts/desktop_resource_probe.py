@@ -9,6 +9,17 @@ import os
 import threading
 import time
 
+def cpu_seconds(pid):
+    kernel=ctypes.windll.kernel32;kernel.OpenProcess.restype=w.HANDLE;kernel.CloseHandle.argtypes=[w.HANDLE]
+    handle=kernel.OpenProcess(0x1000,False,pid)
+    if not handle:raise RuntimeError('Owned preview exited during CPU sampling')
+    try:
+        values=[w.FILETIME() for _ in range(4)]
+        fn=kernel.GetProcessTimes;fn.argtypes=[w.HANDLE]+[ctypes.POINTER(w.FILETIME)]*4
+        if not fn(handle,*(ctypes.byref(v) for v in values)):raise OSError('Process time query failed')
+        return sum((v.dwHighDateTime<<32)+v.dwLowDateTime for v in values[2:])/10_000_000
+    finally:kernel.CloseHandle(handle)
+
 class Entry(ctypes.Structure):
     _fields_=[('size',w.DWORD),('usage',w.DWORD),('pid',w.DWORD),('heap',ctypes.c_size_t),('module',w.DWORD),('threads',w.DWORD),('parent',w.DWORD),('priority',w.LONG),('flags',w.DWORD),('name',w.WCHAR*260)]
 class Memory(ctypes.Structure):

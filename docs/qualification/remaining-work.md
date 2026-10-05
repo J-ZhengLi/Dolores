@@ -8,7 +8,7 @@ Platform CI (8.4) remains deferred until explicit user instruction.
 | Work | Status |
 | --- | --- |
 | Python build/launch and retired-shell cleanup | Delivered; normal Windows build/native launch verified |
-| Sustained idle CPU and resource baseline | Pending diagnosis |
+| Sustained idle CPU and resource baseline | Reproduced and narrowed; native profile/low-end qualification still open, see idle-resources.md |
 | Computer-use observation/targeting reliability | Pending diagnosis; frozen criteria retained |
 | Automatic preference extraction | Pending diagnosis; preserve verified-only storage |
 | Useful skill improvement and regression restoration | Pending live qualification |
