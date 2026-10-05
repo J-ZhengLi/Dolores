@@ -128,6 +128,8 @@ void main() {
         );
         await tester.tap(find.byKey(const Key('image-model-settings')));
         await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('model-image-input')));
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('model-image-input')).hitTestable(),
           findsOneWidget,
@@ -143,6 +145,8 @@ void main() {
         await tester.tap(find.byKey(const Key('model-image-input')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('close-settings')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Discard'));
         await tester.pumpAndSettle();
         expect(chat.imageModels, isEmpty);
         expect(chat.attachments.single['name'], 'sample.png');

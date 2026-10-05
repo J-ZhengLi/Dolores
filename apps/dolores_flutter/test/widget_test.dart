@@ -96,6 +96,15 @@ void main() {
       await tester.pumpWidget(DoloresApp(chat: chat));
       await tester.tap(find.byKey(const Key('settings')));
       await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('settings-search')),
+        'Connection',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('setting-result-models-connection')),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Model name'), findsNothing);
       await tester.ensureVisible(find.byKey(const Key('fetch-models')));
       await tester.tap(find.byKey(const Key('fetch-models')));
@@ -194,6 +203,15 @@ void main() {
       expect(find.byKey(const Key('connection-warning')), findsNothing);
       await tester.tap(find.byKey(const Key('settings')));
       await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('settings-search')),
+        'Connection',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('setting-result-models-connection')),
+      );
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<TextField>(find.byKey(const Key('api-key')))
@@ -262,6 +280,13 @@ void main() {
     await tester.tap(find.byTooltip('Conversations'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('settings-search')),
+      'Connection',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('setting-result-models-connection')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('base-url')), findsOneWidget);
     expect(find.byKey(const Key('api-key')), findsOneWidget);

@@ -35,7 +35,7 @@ enum ModelsPage { connection, responses, overrides }
 Future<void> showSettings(
   BuildContext context,
   ChatController chat, {
-  SettingsCategory initial = SettingsCategory.models,
+  SettingsCategory initial = SettingsCategory.appearance,
   ModelsPage modelsPage = ModelsPage.connection,
 }) async {
   await showDialog<void>(
@@ -61,31 +61,158 @@ class SettingsWindow extends StatefulWidget {
   State<SettingsWindow> createState() => _SettingsWindowState();
 }
 
+enum SettingsSection {
+  general,
+  models,
+  personalization,
+  memory,
+  tools,
+  advanced,
+}
+
+SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
+    switch (category) {
+      SettingsCategory.appearance => SettingsSection.general,
+      SettingsCategory.models =>
+        page == ModelsPage.overrides
+            ? SettingsSection.advanced
+            : SettingsSection.models,
+      SettingsCategory.personalization => SettingsSection.personalization,
+      SettingsCategory.memory => SettingsSection.memory,
+      SettingsCategory.mods ||
+      SettingsCategory.limits => SettingsSection.advanced,
+      _ => SettingsSection.tools,
+    };
+
 class _SettingsWindowState extends State<SettingsWindow> {
   late SettingsCategory selected = widget.initial;
   late ModelsPage modelPage = widget.modelsPage;
   final panels = <String, Widget>{};
   final locks = <String, ValueNotifier<bool>>{};
+  final drafts = <String, SettingsDraft>{};
+  final search = TextEditingController();
+  final editorStackKey = GlobalKey();
+  bool closing = false;
+  SettingsSection get section => sectionFor(selected, modelPage);
   String get panelKey => selected == SettingsCategory.models
       ? 'models-${modelPage.name}'
       : selected.name;
-  bool get pending => locks.values.any((lock) => lock.value);
+  bool get pending => closing || locks.values.any((lock) => lock.value);
   static const labels = {
-    SettingsCategory.appearance: ('Appearance', Icons.contrast),
-    SettingsCategory.models: ('Models', Icons.auto_awesome_outlined),
-    SettingsCategory.personalization: ('Personalization', Icons.tune),
-    SettingsCategory.memory: ('Memory', Icons.bookmarks_outlined),
-    SettingsCategory.web: ('Web search', Icons.travel_explore),
-    SettingsCategory.browser: ('Browser', Icons.web_outlined),
-    SettingsCategory.desktop: ('Computer use', Icons.desktop_windows_outlined),
-    SettingsCategory.tools: ('External tools', Icons.extension_outlined),
-    SettingsCategory.skills: ('Skills', Icons.auto_stories_outlined),
-    SettingsCategory.mods: ('Harness mods', Icons.widgets_outlined),
-    SettingsCategory.permissions: ('Permissions', Icons.shield_outlined),
-    SettingsCategory.limits: ('Task limits', Icons.timer_outlined),
+    SettingsSection.general: ('General', Icons.contrast),
+    SettingsSection.models: ('Models', Icons.auto_awesome_outlined),
+    SettingsSection.personalization: ('Personalization', Icons.tune),
+    SettingsSection.memory: ('Memory', Icons.bookmarks_outlined),
+    SettingsSection.tools: ('Tools', Icons.extension_outlined),
+    SettingsSection.advanced: ('Advanced', Icons.settings_outlined),
   };
+  static const destinations = <(String, SettingsCategory, ModelsPage, String)>[
+    (
+      'Theme',
+      SettingsCategory.appearance,
+      ModelsPage.connection,
+      'appearance system light dark',
+    ),
+    (
+      'Connection & models',
+      SettingsCategory.models,
+      ModelsPage.connection,
+      'api provider key context image vision',
+    ),
+    (
+      'Responses',
+      SettingsCategory.models,
+      ModelsPage.responses,
+      'request settings output timeout reasoning',
+    ),
+    (
+      'Explanation style',
+      SettingsCategory.personalization,
+      ModelsPage.connection,
+      'personalization assumptions discuss brief',
+    ),
+    (
+      'Memory',
+      SettingsCategory.memory,
+      ModelsPage.connection,
+      'preferences project facts remember sharing',
+    ),
+    (
+      'Web search',
+      SettingsCategory.web,
+      ModelsPage.connection,
+      'brave searxng default search',
+    ),
+    (
+      'Browser',
+      SettingsCategory.browser,
+      ModelsPage.connection,
+      'browser setup capture',
+    ),
+    (
+      'Computer use',
+      SettingsCategory.desktop,
+      ModelsPage.connection,
+      'desktop screenshot window access recovery',
+    ),
+    (
+      'Connections',
+      SettingsCategory.tools,
+      ModelsPage.connection,
+      'external tools mcp import credentials',
+    ),
+    (
+      'Skills',
+      SettingsCategory.skills,
+      ModelsPage.connection,
+      'global project import create draft',
+    ),
+    (
+      'Access',
+      SettingsCategory.permissions,
+      ModelsPage.connection,
+      'permissions review automatic full access grants',
+    ),
+    (
+      'Task limits',
+      SettingsCategory.limits,
+      ModelsPage.connection,
+      'execution model calls tool segments deadline',
+    ),
+    (
+      'Scope overrides',
+      SettingsCategory.models,
+      ModelsPage.overrides,
+      'project chat generation inheritance',
+    ),
+    (
+      'Harness extensions',
+      SettingsCategory.mods,
+      ModelsPage.connection,
+      'mods source tests restore',
+    ),
+  ];
+  void navigate(
+    SettingsCategory category, [
+    ModelsPage page = ModelsPage.connection,
+  ]) {
+    setState(() {
+      selected = category;
+      modelPage = page;
+      search.clear();
+    });
+  }
+
+  void selectSection(SettingsSection value) {
+    final target = destinations.firstWhere(
+      (d) => sectionFor(d.$2, d.$3) == value,
+    );
+    navigate(target.$2, target.$3);
+  }
+
   @override
   void dispose() {
+    search.dispose();
     for (final lock in locks.values) {
       lock.dispose();
     }
@@ -94,6 +221,45 @@ class _SettingsWindowState extends State<SettingsWindow> {
 
   void changed() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> close() async {
+    if (pending) return;
+    final unsaved = drafts.entries.where((e) => e.value.dirty).toList();
+    if (unsaved.isNotEmpty) {
+      final leave = await resolveSettingsDraft(
+        context,
+        save: () async {
+          setState(() => closing = true);
+          try {
+            for (final entry in unsaved) {
+              if (entry.value.save == null || !await entry.value.save!()) {
+                if (mounted) {
+                  setState(() {
+                    final target = destinations.firstWhere(
+                      (d) =>
+                          (d.$2 == SettingsCategory.models
+                              ? 'models-${d.$3.name}'
+                              : d.$2.name) ==
+                          entry.key,
+                    );
+                    selected = target.$2;
+                    modelPage = target.$3;
+                    search.clear();
+                  });
+                }
+                return false;
+              }
+            }
+            return true;
+          } finally {
+            if (mounted) setState(() => closing = false);
+          }
+        },
+      );
+      if (!leave || !mounted) return;
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   Widget unavailable(String message) =>
@@ -167,14 +333,27 @@ class _SettingsWindowState extends State<SettingsWindow> {
     if (!panels.containsKey(panelKey)) {
       final lock = ValueNotifier(false)..addListener(changed);
       locks[panelKey] = lock;
+      final draft = SettingsDraft();
+      drafts[panelKey] = draft;
       panels[panelKey] = SettingsEmbedding(
         pending: lock,
+        draft: draft,
         route: ModalRoute.of(context),
         child: editor(),
       );
     }
+    final query = search.text.trim().toLowerCase();
+    final matches = destinations
+        .where((d) => '${d.$1} ${d.$4}'.toLowerCase().contains(query))
+        .toList();
+    final pages = destinations
+        .where((d) => sectionFor(d.$2, d.$3) == section)
+        .toList();
     return PopScope(
-      canPop: !pending,
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) close();
+      },
       child: Dialog(
         key: const Key('settings-window'),
         insetPadding: const EdgeInsets.all(16),
@@ -184,7 +363,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
                 child: Row(
                   children: [
                     const Expanded(
@@ -198,10 +377,24 @@ class _SettingsWindowState extends State<SettingsWindow> {
                     ),
                     TextButton(
                       key: const Key('close-settings'),
-                      onPressed: pending ? null : () => Navigator.pop(context),
+                      onPressed: pending ? null : close,
                       child: const Text('Close'),
                     ),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: TextField(
+                  key: const Key('settings-search'),
+                  controller: search,
+                  enabled: !pending,
+                  onChanged: (_) => changed(),
+                  decoration: const InputDecoration(
+                    hintText: 'Search settings',
+                    prefixIcon: Icon(Icons.search, size: 18),
+                    isDense: true,
+                  ),
                 ),
               ),
               Divider(height: 1, color: p.border),
@@ -209,47 +402,90 @@ class _SettingsWindowState extends State<SettingsWindow> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final compact = constraints.maxWidth < 640;
-                    final content = Column(
+                    final content = Stack(
                       children: [
-                        if (selected == SettingsCategory.models && !compact)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final page in ModelsPage.values)
-                                  ChoiceChip(
-                                    key: Key('models-${page.name}'),
-                                    label: Text(switch (page) {
-                                      ModelsPage.connection =>
-                                        'Connection & models',
-                                      ModelsPage.responses => 'Responses',
-                                      ModelsPage.overrides => 'Scope overrides',
-                                    }),
-                                    selected: modelPage == page,
-                                    onSelected: pending
-                                        ? null
-                                        : (_) =>
-                                              setState(() => modelPage = page),
+                        Column(
+                          children: [
+                            if (pages.length > 1)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  0,
+                                ),
+                                child: DropdownButtonFormField<int>(
+                                  key: ValueKey(
+                                    'settings-page-${section.name}-${selected.name}-${modelPage.name}',
                                   ),
-                              ],
+                                  initialValue: pages.indexWhere(
+                                    (d) =>
+                                        d.$2 == selected &&
+                                        (selected != SettingsCategory.models ||
+                                            d.$3 == modelPage),
+                                  ),
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                  ),
+                                  items: [
+                                    for (var i = 0; i < pages.length; i++)
+                                      DropdownMenuItem(
+                                        value: i,
+                                        child: Text(pages[i].$1),
+                                      ),
+                                  ],
+                                  onChanged: pending
+                                      ? null
+                                      : (i) =>
+                                            navigate(pages[i!].$2, pages[i].$3),
+                                ),
+                              ),
+                            Expanded(
+                              key: const ValueKey('cached-settings-editors'),
+                                child: IndexedStack(
+                                  key: editorStackKey,
+                                sizing: StackFit.expand,
+                                index: panels.keys.toList().indexOf(panelKey),
+                                children: panels.entries
+                                    .map(
+                                      (e) => KeyedSubtree(
+                                        key: ValueKey(e.key),
+                                        child: e.value,
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (query.isNotEmpty)
+                          Positioned.fill(
+                            child: Material(
+                              color: p.bg,
+                              child: ListView(
+                                children: [
+                                  if (matches.isEmpty)
+                                    const ListTile(
+                                      title: Text('No matching settings'),
+                                    ),
+                                  for (final d in matches)
+                                    ListTile(
+                                      key: Key(
+                                        'setting-result-${d.$2.name}-${d.$3.name}',
+                                      ),
+                                      title: Text(d.$1),
+                                      subtitle: Text(
+                                        labels[sectionFor(d.$2, d.$3)]!.$1,
+                                      ),
+                                      onTap: pending
+                                          ? null
+                                          : () => navigate(d.$2, d.$3),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
-                        Expanded(
-                          child: IndexedStack(
-                            sizing: StackFit.expand,
-                            index: panels.keys.toList().indexOf(panelKey),
-                            children: panels.entries
-                                .map(
-                                  (entry) => KeyedSubtree(
-                                    key: ValueKey(entry.key),
-                                    child: entry.value,
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
                       ],
                     );
                     if (compact) {
@@ -257,65 +493,23 @@ class _SettingsWindowState extends State<SettingsWindow> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child:
-                                      DropdownButtonFormField<SettingsCategory>(
-                                        key: const Key('settings-category'),
-                                        initialValue: selected,
-                                        isExpanded: true,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Category',
-                                        ),
-                                        items: [
-                                          for (final category
-                                              in SettingsCategory.values)
-                                            DropdownMenuItem(
-                                              value: category,
-                                              child: Text(labels[category]!.$1),
-                                            ),
-                                        ],
-                                        onChanged: pending
-                                            ? null
-                                            : (value) => setState(
-                                                () => selected = value!,
-                                              ),
-                                      ),
-                                ),
-                                if (selected == SettingsCategory.models) ...[
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: DropdownButtonFormField<ModelsPage>(
-                                      key: const Key('models-page'),
-                                      initialValue: modelPage,
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Model settings',
-                                      ),
-                                      items: [
-                                        for (final page in ModelsPage.values)
-                                          DropdownMenuItem(
-                                            value: page,
-                                            child: Text(switch (page) {
-                                              ModelsPage.connection =>
-                                                'Connection',
-                                              ModelsPage.responses =>
-                                                'Responses',
-                                              ModelsPage.overrides =>
-                                                'Scope overrides',
-                                            }, overflow: TextOverflow.ellipsis),
-                                          ),
-                                      ],
-                                      onChanged: pending
-                                          ? null
-                                          : (value) => setState(
-                                              () => modelPage = value!,
-                                            ),
-                                    ),
+                            child: DropdownButtonFormField<SettingsSection>(
+                              key: ValueKey(
+                                'settings-category-${section.name}',
+                              ),
+                              initialValue: section,
+                              isExpanded: true,
+                              decoration: const InputDecoration(isDense: true),
+                              items: [
+                                for (final value in SettingsSection.values)
+                                  DropdownMenuItem(
+                                    value: value,
+                                    child: Text(labels[value]!.$1),
                                   ),
-                                ],
                               ],
+                              onChanged: pending
+                                  ? null
+                                  : (value) => selectSection(value!),
                             ),
                           ),
                           Expanded(child: content),
@@ -325,37 +519,32 @@ class _SettingsWindowState extends State<SettingsWindow> {
                     return Row(
                       children: [
                         Container(
-                          width: 200,
+                          width: 180,
                           color: p.sidebar,
                           child: ListView(
                             padding: const EdgeInsets.all(12),
                             children: [
-                              for (final category in SettingsCategory.values)
+                              for (final value in SettingsSection.values)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 4),
                                   child: TextButton.icon(
-                                    key: Key('settings-${category.name}'),
+                                    key: Key('settings-${value.name}'),
                                     onPressed: pending
                                         ? null
-                                        : () => setState(
-                                            () => selected = category,
-                                          ),
+                                        : () => selectSection(value),
                                     style: TextButton.styleFrom(
                                       alignment: Alignment.centerLeft,
                                       foregroundColor: p.text,
-                                      backgroundColor: selected == category
+                                      backgroundColor: section == value
                                           ? p.soft
                                           : null,
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
                                         vertical: 16,
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
                                     ),
-                                    icon: Icon(labels[category]!.$2, size: 18),
-                                    label: Text(labels[category]!.$1),
+                                    icon: Icon(labels[value]!.$2, size: 18),
+                                    label: Text(labels[value]!.$1),
                                   ),
                                 ),
                             ],
@@ -403,7 +592,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
 
   @override
   Widget build(BuildContext context) => EmbeddedSettingsFrame(
-    title: 'Appearance',
+    title: 'General',
     subtitle: 'Choose how Dolores looks',
     pending: SettingsEmbedding.of(context)!.pending,
     canClose: !pending,
@@ -417,95 +606,120 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           ),
         const Text('Theme', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final mode in ['system', 'light', 'dark'])
-              SizedBox(
-                width: 144,
-                child: OutlinedButton(
-                  key: Key('theme-$mode'),
-                  onPressed: pending ? null : () => save(mode),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+        LayoutBuilder(
+          builder: (context, constraints) => Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final mode in ['system', 'light', 'dark'])
+                SizedBox(
+                  width: ((constraints.maxWidth - 24) / 3).clamp(84, 144),
+                  child: OutlinedButton(
+                    key: Key('theme-$mode'),
+                    onPressed: pending ? null : () => save(mode),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.all(18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(
+                        color: widget.chat.appearance == mode
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).dividerColor,
+                        width: widget.chat.appearance == mode ? 2 : 1,
+                      ),
                     ),
-                    side: BorderSide(
-                      color: widget.chat.appearance == mode
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).dividerColor,
-                      width: widget.chat.appearance == mode ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      ExcludeSemantics(
-                        child: Container(
-                          height: 64,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: mode == 'light'
-                                ? const Color(0xfff5f5f5)
-                                : const Color(0xff191b20),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 25,
-                                decoration: BoxDecoration(
-                                  color: mode == 'light'
-                                      ? const Color(0xffe4e5e9)
-                                      : const Color(0xff2a2d36),
-                                  borderRadius: const BorderRadius.horizontal(
-                                    left: Radius.circular(8),
-                                  ),
-                                ),
-                              ),
-                              const Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.all(8),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      LinearProgressIndicator(
-                                        value: 0.65,
-                                        color: Color(0xff9bb0ff),
-                                        backgroundColor: Color(0xff50545d),
-                                      ),
-                                      SizedBox(height: 8),
-                                      LinearProgressIndicator(
-                                        value: 0.4,
-                                        color: Color(0xff9bb0ff),
-                                        backgroundColor: Color(0xff50545d),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                    child: Column(
+                      children: [
+                        ExcludeSemantics(
+                          child: SizedBox(
+                            height: 64,
+                            width: double.infinity,
+                            child: CustomPaint(
+                              painter: ThemePreviewPainter(mode),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(switch (mode) {
-                        'system' => 'System',
-                        'light' => 'Light',
-                        _ => 'Dark',
-                      }),
-                    ],
+                        const SizedBox(height: 10),
+                        Text(switch (mode) {
+                          'system' => 'System',
+                          'light' => 'Light',
+                          _ => 'Dark',
+                        }),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         const Text(
-          'System follows your device. Changes apply immediately and are saved for the next launch.',
+          'System follows your device. Theme changes save immediately.',
         ),
         if (pending) const LinearProgressIndicator(),
       ],
     ),
   );
+}
+
+/// One miniature window, split by palette rather than duplicating its layout.
+class ThemePreviewPainter extends CustomPainter {
+  final String mode;
+  const ThemePreviewPainter(this.mode);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.save();
+    canvas.clipRRect(RRect.fromRectAndRadius(bounds, const Radius.circular(8)));
+    void scene(bool dark) {
+      final p = Palette(dark);
+      canvas.drawRect(bounds, Paint()..color = p.bg);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width * .23, size.height),
+        Paint()..color = p.sidebar,
+      );
+      for (final line in [(0.36, .27, .53), (0.36, .44, .32)]) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              size.width * line.$1,
+              size.height * line.$2,
+              size.width * line.$3,
+              4,
+            ),
+            const Radius.circular(2),
+          ),
+          Paint()..color = p.muted,
+        );
+      }
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            size.width * .53,
+            size.height * .66,
+            size.width * .36,
+            10,
+          ),
+          const Radius.circular(4),
+        ),
+        Paint()..color = p.soft,
+      );
+    }
+
+    scene(mode == 'dark');
+    if (mode == 'system') {
+      canvas.save();
+      canvas.clipRect(
+        Rect.fromLTWH(size.width * .5, 0, size.width * .5, size.height),
+      );
+      scene(true);
+      canvas.restore();
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(ThemePreviewPainter oldDelegate) =>
+      oldDelegate.mode != mode;
 }

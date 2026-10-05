@@ -13,6 +13,22 @@ class ConnectionDialog extends StatefulWidget {
 }
 
 class _ConnectionDialogState extends State<ConnectionDialog> {
+  late String savedDraft;
+  String get draftValue => jsonEncode([
+    url.text,
+    keyInput.text,
+    clearKey,
+    remember,
+    selected.toList()..sort(),
+    imageModels.toList()..sort(),
+    {for (final id in selected.toList()..sort()) id: contextInput(id).text},
+  ]);
+  @override
+  void initState() {
+    super.initState();
+    savedDraft = draftValue;
+  }
+
   final _scroll = ScrollController();
   late final url = TextEditingController(text: widget.chat.baseUrl);
   final manualModel = TextEditingController();
@@ -164,6 +180,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
             keyInput.clear();
             clearKey = false;
             notice = 'Connection saved.';
+            savedDraft = draftValue;
           });
         }
       }
@@ -208,288 +225,303 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !working,
-    child: SettingsFormFrame(
-      title: 'Connection & models',
-      canClose: !working,
-      content: SingleChildScrollView(
-        controller: _scroll,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Use an OpenAI-compatible local or hosted API.',
-              style: TextStyle(fontSize: 13),
-            ),
-            if (notice != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(notice!),
+  Widget build(BuildContext context) {
+    reportSettingsDraft(
+      context,
+      dirty: () => draftValue != savedDraft,
+      save: () async {
+        if (working || selected.isEmpty) return false;
+        await save();
+        return draftValue == savedDraft;
+      },
+    );
+    return PopScope(
+      canPop: !working,
+      child: SettingsFormFrame(
+        title: 'Connection & models',
+        canClose: !working,
+        content: SingleChildScrollView(
+          controller: _scroll,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Use an OpenAI-compatible local or hosted API.',
+                style: TextStyle(fontSize: 13),
               ),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(
-                  error!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontSize: 13,
-                  ),
+              if (notice != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(notice!),
                 ),
-              ),
-            if (selected.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: ValueKey(
-                  'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
-                ),
-                initialValue: selected.contains(contextModel)
-                    ? contextModel
-                    : selected.first,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Model settings'),
-                items: [
-                  for (final id in selected)
-                    DropdownMenuItem(
-                      value: id,
-                      child: Text(id, overflow: TextOverflow.ellipsis),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 13,
                     ),
-                ],
-                onChanged: working
-                    ? null
-                    : (id) => setState(() => contextModel = id),
-              ),
-              if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
-                CheckboxListTile(
-                  key: const Key('model-image-input'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Supports image input'),
-                  subtitle: const Text(
-                    'Enable for a model that accepts images from your provider. Images are sent at low detail.',
                   ),
-                  value: imageModels.contains(
-                    selected.contains(contextModel)
-                        ? contextModel
-                        : selected.first,
+                ),
+              if (selected.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(
+                    'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
                   ),
+                  initialValue: selected.contains(contextModel)
+                      ? contextModel
+                      : selected.first,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Model settings',
+                  ),
+                  items: [
+                    for (final id in selected)
+                      DropdownMenuItem(
+                        value: id,
+                        child: Text(id, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
                   onChanged: working
                       ? null
-                      : (enabled) => setState(() {
-                          final id = selected.contains(contextModel)
-                              ? contextModel!
-                              : selected.first;
-                          enabled == true
-                              ? imageModels.add(id)
-                              : imageModels.remove(id);
-                        }),
+                      : (id) => setState(() => contextModel = id),
                 ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('context-window'),
-                controller: contextInput(
-                  selected.contains(contextModel)
-                      ? contextModel!
-                      : selected.first,
-                ),
-                enabled: !working,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Context window (tokens)',
-                  hintText: '131072 (128K default)',
-                  helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
-                  helperMaxLines: 2,
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            const Divider(height: 24),
-            TextField(
-              key: const Key('base-url'),
-              controller: url,
-              enabled: !working,
-              onChanged: endpointChanged,
-              decoration: const InputDecoration(
-                labelText: 'Base URL',
-                hintText: 'http://localhost:11434/v1',
-              ),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              key: const Key('api-key'),
-              controller: keyInput,
-              enabled: !working,
-              obscureText: true,
-              enableSuggestions: false,
-              autocorrect: false,
-              onChanged: (_) => setState(() => clearKey = false),
-              decoration: InputDecoration(
-                labelText: 'API key (optional for local servers)',
-                helperText: clearKey
-                    ? 'This connection will use no key.'
-                    : widget.chat.hasSavedKey || widget.chat.configured
-                    ? 'Leave blank to keep the current key.'
-                    : null,
-              ),
-            ),
-            if (widget.chat.hasSavedKey || widget.chat.configured)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: working
-                      ? null
-                      : () => setState(() {
-                          clearKey = !clearKey;
-                          keyInput.clear();
-                        }),
-                  child: Text(
-                    clearKey ? 'Keep existing key' : 'Use without a key',
+                if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
+                  CheckboxListTile(
+                    key: const Key('model-image-input'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Supports image input'),
+                    subtitle: const Text(
+                      'Enable for a model that accepts images from your provider. Images are sent at low detail.',
+                    ),
+                    value: imageModels.contains(
+                      selected.contains(contextModel)
+                          ? contextModel
+                          : selected.first,
+                    ),
+                    onChanged: working
+                        ? null
+                        : (enabled) => setState(() {
+                            final id = selected.contains(contextModel)
+                                ? contextModel!
+                                : selected.first;
+                            enabled == true
+                                ? imageModels.add(id)
+                                : imageModels.remove(id);
+                          }),
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('context-window'),
+                  controller: contextInput(
+                    selected.contains(contextModel)
+                        ? contextModel!
+                        : selected.first,
+                  ),
+                  enabled: !working,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Context window (tokens)',
+                    hintText: '131072 (128K default)',
+                    helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
+                    helperMaxLines: 2,
                   ),
                 ),
-              ),
-            const SizedBox(height: 18),
-            OutlinedButton.icon(
-              key: const Key('fetch-models'),
-              onPressed: working ? null : fetch,
-              icon: fetching
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh, size: 16),
-              label: Text(fetching ? 'Fetching models…' : 'Fetch models'),
-            ),
-            if (available.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                '${selected.length} selected · Available in the chat model picker',
-                style: const TextStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 12),
+              ],
+              const Divider(height: 24),
               TextField(
-                key: const Key('model-search'),
-                controller: search,
-                onChanged: (_) => setState(() {}),
+                key: const Key('base-url'),
+                controller: url,
                 enabled: !working,
+                onChanged: endpointChanged,
                 decoration: const InputDecoration(
-                  hintText: 'Search models',
-                  prefixIcon: Icon(Icons.search, size: 18),
+                  labelText: 'Base URL',
+                  hintText: 'http://localhost:11434/v1',
                 ),
               ),
-              const SizedBox(height: 6),
-              SizedBox(
-                height: (available.length * 44.0).clamp(44, 176),
-                child: Builder(
-                  builder: (_) {
-                    final filtered = available
-                        .where(
-                          (id) => id.toLowerCase().contains(
-                            search.text.toLowerCase(),
-                          ),
-                        )
-                        .toList();
-                    return ListView.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (_, index) {
-                        final id = filtered[index];
-                        return CheckboxListTile(
-                          key: ValueKey('enable-model-$id'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            id,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          value: selected.contains(id),
-                          onChanged: working
-                              ? null
-                              : (value) => setState(() {
-                                  if (value! && selected.length >= 32) {
-                                    error = 'Choose up to 32 models.';
-                                  } else {
-                                    value
-                                        ? selected.add(id)
-                                        : selected.remove(id);
-                                    error = null;
-                                  }
-                                }),
-                        );
-                      },
-                    );
-                  },
+              const SizedBox(height: 18),
+              TextField(
+                key: const Key('api-key'),
+                controller: keyInput,
+                enabled: !working,
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                onChanged: (_) => setState(() => clearKey = false),
+                decoration: InputDecoration(
+                  labelText: 'API key (optional for local servers)',
+                  helperText: clearKey
+                      ? 'This connection will use no key.'
+                      : widget.chat.hasSavedKey || widget.chat.configured
+                      ? 'Leave blank to keep the current key.'
+                      : null,
                 ),
               ),
-            ],
-            TextButton(
-              key: const Key('manual-model-toggle'),
-              onPressed: working
-                  ? null
-                  : () => setState(() => manual = !manual),
-              child: const Text('Add a model manually'),
-            ),
-            if (manual)
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('manual-model'),
-                      controller: manualModel,
-                      enabled: !working,
-                      onSubmitted: (_) => addManual(),
-                      decoration: const InputDecoration(labelText: 'Model ID'),
+              if (widget.chat.hasSavedKey || widget.chat.configured)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: working
+                        ? null
+                        : () => setState(() {
+                            clearKey = !clearKey;
+                            keyInput.clear();
+                          }),
+                    child: Text(
+                      clearKey ? 'Keep existing key' : 'Use without a key',
                     ),
                   ),
-                  IconButton(
-                    key: const Key('add-manual-model'),
-                    tooltip: 'Add model',
-                    onPressed: working ? null : addManual,
-                    icon: const Icon(Icons.add),
+                ),
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                key: const Key('fetch-models'),
+                onPressed: working ? null : fetch,
+                icon: fetching
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh, size: 16),
+                label: Text(fetching ? 'Fetching models…' : 'Fetch models'),
+              ),
+              if (available.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '${selected.length} selected · Available in the chat model picker',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('model-search'),
+                  controller: search,
+                  onChanged: (_) => setState(() {}),
+                  enabled: !working,
+                  decoration: const InputDecoration(
+                    hintText: 'Search models',
+                    prefixIcon: Icon(Icons.search, size: 18),
                   ),
-                ],
-              ),
-            CheckboxListTile(
-              key: const Key('remember-connection'),
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Remember connection',
-                style: TextStyle(fontSize: 14),
-              ),
-              subtitle: Text(
-                remember
-                    ? 'Store your key in the OS credential store.'
-                    : 'Use this connection until Dolores closes.',
-                style: const TextStyle(fontSize: 12),
-              ),
-              value: remember,
-              onChanged: working
-                  ? null
-                  : (value) => setState(() => remember = value!),
-            ),
-            if (widget.chat.rememberConnection)
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: (available.length * 44.0).clamp(44, 176),
+                  child: Builder(
+                    builder: (_) {
+                      final filtered = available
+                          .where(
+                            (id) => id.toLowerCase().contains(
+                              search.text.toLowerCase(),
+                            ),
+                          )
+                          .toList();
+                      return ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (_, index) {
+                          final id = filtered[index];
+                          return CheckboxListTile(
+                            key: ValueKey('enable-model-$id'),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              id,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            value: selected.contains(id),
+                            onChanged: working
+                                ? null
+                                : (value) => setState(() {
+                                    if (value! && selected.length >= 32) {
+                                      error = 'Choose up to 32 models.';
+                                    } else {
+                                      value
+                                          ? selected.add(id)
+                                          : selected.remove(id);
+                                      error = null;
+                                    }
+                                  }),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
               TextButton(
-                key: const Key('forget-connection'),
-                onPressed: working ? null : forget,
-                child: const Text('Forget saved connection'),
+                key: const Key('manual-model-toggle'),
+                onPressed: working
+                    ? null
+                    : () => setState(() => manual = !manual),
+                child: const Text('Add a model manually'),
               ),
-          ],
-        ),
-      ),
-      actions: [
-        if (SettingsEmbedding.of(context) == null)
-          TextButton(
-            onPressed: working ? null : () => Navigator.pop(context),
-            child: const Text('Cancel'),
+              if (manual)
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('manual-model'),
+                        controller: manualModel,
+                        enabled: !working,
+                        onSubmitted: (_) => addManual(),
+                        decoration: const InputDecoration(
+                          labelText: 'Model ID',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: const Key('add-manual-model'),
+                      tooltip: 'Add model',
+                      onPressed: working ? null : addManual,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
+              CheckboxListTile(
+                key: const Key('remember-connection'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Remember connection',
+                  style: TextStyle(fontSize: 14),
+                ),
+                subtitle: Text(
+                  remember
+                      ? 'Store your key in the OS credential store.'
+                      : 'Use this connection until Dolores closes.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                value: remember,
+                onChanged: working
+                    ? null
+                    : (value) => setState(() => remember = value!),
+              ),
+              if (widget.chat.rememberConnection)
+                TextButton(
+                  key: const Key('forget-connection'),
+                  onPressed: working ? null : forget,
+                  child: const Text('Forget saved connection'),
+                ),
+            ],
           ),
-        FilledButton(
-          key: const Key('save-connection'),
-          onPressed: working || selected.isEmpty ? null : save,
-          child: Text(saving ? 'Saving…' : 'Save connection'),
         ),
-      ],
-    ),
-  );
+        actions: [
+          if (SettingsEmbedding.of(context) == null)
+            TextButton(
+              onPressed: working ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          FilledButton(
+            key: const Key('save-connection'),
+            onPressed: working || selected.isEmpty ? null : save,
+            child: Text(saving ? 'Saving…' : 'Save connection'),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -376,3 +376,17 @@ Reusing enabled access must match the exact chosen target. Input reviews, Stop,
 revocation and fresh post-input observation remain required. The legacy desktop
 inspector remains available for reconciliation while the unified recovery view
 is implemented in 15.7.
+
+## Everyday settings (15.3)
+
+Use six main sections: General, Models, Personalization, Memory, Tools and
+Advanced. Search names and legacy terms route to the original typed destination;
+Tools and Advanced use a secondary view selector. Cached editors stay mounted
+while searching and across wide/compact navigation. General opens from the
+sidebar; contextual model recovery still opens Models directly.
+
+Personalization starts at All chats, with explanation/assumption controls visible.
+Project/chat customization is deliberate. Close and changing a dirty scope ask
+Save / Discard / Keep editing; failed saves retain edits at their destination.
+Theme changes persist before applying. The System preview paints a single
+miniature window in two palettes, sharing one layout and sidebar.

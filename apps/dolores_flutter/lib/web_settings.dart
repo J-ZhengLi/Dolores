@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+import 'settings_frame.dart';
+
+import 'dart:convert';
 
 Future<void> showWebSettings(BuildContext context, ChatController chat) =>
     showDialog<void>(
@@ -17,6 +20,9 @@ class WebSettingsInspector extends StatefulWidget {
 }
 
 class _WebSettingsState extends State<WebSettingsInspector> {
+  String? savedDraft;
+  String get draftValue =>
+      jsonEncode([enabled, provider, endpoint.text, apiKey.text, clearKey]);
   final endpoint = TextEditingController(), apiKey = TextEditingController();
   final scroll = ScrollController();
   Map? report;
@@ -52,6 +58,7 @@ class _WebSettingsState extends State<WebSettingsInspector> {
           endpoint.text = value['endpoint'] as String? ?? '';
           apiKey.clear();
           clearKey = false;
+          savedDraft = draftValue;
         }
       });
     } catch (failure) {
@@ -85,6 +92,7 @@ class _WebSettingsState extends State<WebSettingsInspector> {
         notice = value['notice'] as String?;
         apiKey.clear();
         clearKey = false;
+        savedDraft = draftValue;
       });
       widget.chat.invalidateContextPreview();
     } catch (failure) {
@@ -104,6 +112,15 @@ class _WebSettingsState extends State<WebSettingsInspector> {
     animation: widget.chat,
     builder: (context, _) {
       final locked = pending || widget.chat.busy || widget.chat.changing;
+      reportSettingsDraft(
+        context,
+        dirty: () => savedDraft != null && draftValue != savedDraft,
+        save: () async {
+          if (locked || report == null) return false;
+          await save();
+          return draftValue == savedDraft;
+        },
+      );
       return PopScope(
         canPop: !pending,
         child: InspectorFrame(

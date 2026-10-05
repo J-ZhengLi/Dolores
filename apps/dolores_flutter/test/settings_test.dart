@@ -53,17 +53,77 @@ void size(WidgetTester tester, Size value) {
 }
 
 Future<void> category(WidgetTester tester, String name, String label) async {
-  if (find.byKey(Key('settings-$name')).evaluate().isNotEmpty) {
-    await tester.tap(find.byKey(Key('settings-$name')));
-  } else {
-    await tester.tap(find.byKey(const Key('settings-category')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(label).last);
-  }
+  await tester.enterText(
+    find.byKey(const Key('settings-search')),
+    label == 'Appearance' ? 'Theme' : label,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key('setting-result-$name-connection')));
   await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets(
+    'Six sections fit 420x480 and search keeps cached drafts on failed close',
+    (tester) async {
+      size(tester, const Size(420, 480));
+      final bridge = HarnessSettingsBridge()..web.stale = true;
+      final chat = ChatController(bridge)..loading = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showSettings(context, chat),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DropdownButton<SettingsSection>>(
+              find.byWidgetPredicate(
+                (w) => w is DropdownButton<SettingsSection>,
+              ),
+            )
+            .items!
+            .length,
+        6,
+      );
+      expect(find.text('General'), findsWidgets);
+      await category(tester, 'web', 'Web search');
+      final toggle = find.descendant(
+        of: find.byKey(const Key('web-enabled')),
+        matching: find.byType(Switch),
+      );
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('close-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('settings-window')), findsOneWidget);
+      expect(
+        tester
+            .widget<SwitchListTile>(find.byKey(const Key('web-enabled')))
+            .value,
+        false,
+      );
+      expect(find.textContaining('retained draft'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('close-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('settings-window')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
   testWidgets(
     'One entry, retained edits across categories, and explicit saves',
     (tester) async {
@@ -79,6 +139,7 @@ void main() {
       expect(find.byKey(const Key('memory')), findsNothing);
       await tester.tap(find.byKey(const Key('settings')));
       await tester.pumpAndSettle();
+      await category(tester, 'models', 'Models');
       await tester.enterText(
         find.byKey(const Key('base-url')),
         'https://draft.example/v1',
@@ -115,6 +176,14 @@ void main() {
       );
       expect(find.byType(Dialog), findsOneWidget);
       await tester.tap(find.byKey(const Key('close-settings')));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved changes'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('settings-window')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('close-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
       await tester.pumpAndSettle();
       expect(chat.draft, 'Unsent work');
       expect(
@@ -225,13 +294,23 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('scoped-output')), findsNothing);
+    expect(find.text('All chats'), findsOneWidget);
+    expect(find.text('Keep explanations brief'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('settings-scope')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('This chat').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Use inherited settings'));
     await tester.pumpAndSettle();
     expect(bridge.scoped.patch['interaction'], isNull);
     expect(bridge.scoped.patch['generation']['maxOutputTokens'], 256);
     expect(bridge.scoped.patch['task']['modelCalls'], 6);
-    await category(tester, 'models', 'Models');
-    await tester.tap(find.byKey(const Key('models-overrides')));
+    await tester.enterText(
+      find.byKey(const Key('settings-search')),
+      'Scope overrides',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('setting-result-models-overrides')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('scoped-output')), findsOneWidget);
     expect(find.text('Override interaction for this scope'), findsNothing);

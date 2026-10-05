@@ -212,7 +212,7 @@ void main() {
       await show(tester, chat);
       await tester.tap(find.byKey(const Key('settings-scope')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('User defaults').last);
+      await tester.tap(find.text('All chats').last);
       await tester.pumpAndSettle();
       expect(find.text('Keep explanations brief'), findsOneWidget);
       chat.busy = true;

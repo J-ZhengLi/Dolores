@@ -1647,3 +1647,24 @@ DeepSeek computer-use tests and ready-path measurements remain pending until
 Windows is unlocked. This is implementation progress, not a delivered milestone
 or a new model-reliability pass. Later 15.7 work also replaces the legacy desktop
 reconciliation screen with unified conversation recovery.
+
+## Milestone 15.3 — Settings structure (implementation; native review pending)
+
+Six sections replace the twelve main destinations. Search and typed legacy links
+retain the old editors, including model responses/overrides and desktop recovery.
+General is the ordinary entry. Personalization defaults to All chats and exposes
+style directly; switching a dirty scope requires a decision. Connection, response,
+web and scoped settings register live drafts, with Save/Discard/Keep editing on
+Close. Remaining authoring editors receive the same protocol in 15.5/15.6.
+
+Focused checks passed: 21 navigation/style/web/connection tests followed by 20
+affected settings/model/attachment/context tests. The added 420×480 case confirms
+six sections and a stale Close→Save failure retaining the actual switch value;
+search navigation retains endpoint drafts and allows cancellation/discard. Theme
+failure, pending dismissal, override reset and stale model-response recovery remain
+covered. The System tile now uses one continuously laid-out miniature scene.
+
+The normal release built and launched with a native window. Windows remains locked
+and its screenshot is the lock screen, so light/dark native visual acceptance and
+physical keyboard/assistive technology checks remain pending. No native app input
+was dispatched. Model reliability and the milestone 14.4 gates are unchanged.

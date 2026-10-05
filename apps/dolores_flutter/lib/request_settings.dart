@@ -4,6 +4,8 @@ import 'chat.dart';
 import 'theme.dart';
 import 'settings_frame.dart';
 
+import 'dart:convert';
+
 class RequestSettingsDialog extends StatefulWidget {
   final ChatController chat;
   const RequestSettingsDialog({super.key, required this.chat});
@@ -12,6 +14,15 @@ class RequestSettingsDialog extends StatefulWidget {
 }
 
 class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
+  late String savedDraft;
+  String get draftValue => jsonEncode([
+    model,
+    endpoint,
+    inherited,
+    tokens.text,
+    timeout.text,
+    reasoning,
+  ]);
   final _form = GlobalKey<FormState>();
   final _scroll = ScrollController();
   late final TextEditingController tokens, timeout;
@@ -37,6 +48,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
       text: '${widget.chat.requestSettings['timeoutSeconds']}',
     );
     reasoning = selectedSettings['reasoning'] as String? ?? 'providerDefault';
+    savedDraft = draftValue;
   }
 
   @override
@@ -85,6 +97,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
         );
       }
       if (mounted) {
+        savedDraft = draftValue;
         if (SettingsEmbedding.of(context) == null) {
           Navigator.pop(context);
         } else {
@@ -102,6 +115,15 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
+    reportSettingsDraft(
+      context,
+      dirty: () => draftValue != savedDraft,
+      save: () async {
+        if (saving) return false;
+        await _save();
+        return draftValue == savedDraft;
+      },
+    );
     return PopScope(
       canPop: !saving,
       child: SettingsFormFrame(
@@ -263,6 +285,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                           'providerDefault';
                       failure = null;
                       notice = 'Response settings reloaded.';
+                      savedDraft = draftValue;
                     }),
               child: const Text('Reload response settings'),
             ),

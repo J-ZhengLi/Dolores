@@ -63,6 +63,15 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('settings')));
         await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('settings-search')),
+          'Connection',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('setting-result-models-connection')),
+        );
+        await tester.pumpAndSettle();
         final window = find.byKey(const Key('context-window'));
         await tester.ensureVisible(window);
         expect(tester.widget<TextField>(window).controller!.text, '32768');
@@ -100,10 +109,21 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('settings')));
         await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('settings-search')),
+          'Connection',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('setting-result-models-connection')),
+        );
+        await tester.pumpAndSettle();
         await tester.ensureVisible(window);
         expect(tester.widget<TextField>(window).controller!.text, '65536');
         await tester.enterText(window, '16384');
         await tester.tap(find.byKey(const Key('close-settings')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Discard'));
         await tester.pumpAndSettle();
         expect(chat.modelContexts['fixture'], 65536);
         expect(tester.takeException(), isNull);

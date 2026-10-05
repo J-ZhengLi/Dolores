@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+import 'settings_frame.dart';
+
+import 'dart:convert';
 
 Future<void> showDoloresSettings(BuildContext context, ChatController chat) =>
     showDialog<void>(
@@ -25,6 +28,27 @@ class DoloresSettingsInspector extends StatefulWidget {
 }
 
 class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
+  String? savedDraft;
+  String get draftValue => jsonEncode([
+    scope,
+    task,
+    generation,
+    interaction,
+    discussion,
+    question,
+    calls.text,
+    tools.text,
+    segments.text,
+    elapsed.text,
+    output.text,
+    timeout.text,
+  ]);
+  Future<bool> saveDraft() async {
+    if (pending || widget.chat.busy || report == null) return false;
+    await save();
+    return draftValue == savedDraft;
+  }
+
   bool shows(SettingsGroup group) =>
       widget.group == SettingsGroup.all || widget.group == group;
   late final String? session = widget.chat.session;
@@ -45,7 +69,9 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
   @override
   void initState() {
     super.initState();
-    scope = session == null ? 'user' : 'thread';
+    scope = widget.group == SettingsGroup.personalization || session == null
+        ? 'user'
+        : 'thread';
     load();
   }
 
@@ -79,13 +105,21 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
     segments.text = t['segments'].toString();
     elapsed.text = t['elapsedSeconds']?.toString() ?? '';
     generation = patch['generation'] != null;
-    interaction = patch['interaction'] != null;
-    final g = (patch['generation'] ?? effective['request']) as Map,
-        i = (patch['interaction'] ?? effective['interaction']) as Map;
+    interaction =
+        patch['interaction'] != null ||
+        (widget.group == SettingsGroup.personalization && scope == 'user');
+    Map style = {'discussion': 'discuss', 'questionAssumptions': true};
+    for (final item in report!['scopes'] as List) {
+      final value = item['record']['patch']['interaction'];
+      if (value is Map) style = value;
+      if (item['scope'] == scope) break;
+    }
+    final g = (patch['generation'] ?? effective['request']) as Map, i = style;
     output.text = g['maxOutputTokens'].toString();
     timeout.text = g['timeoutSeconds'].toString();
     discussion = i['discussion'] as String;
     question = i['questionAssumptions'] as bool;
+    savedDraft = draftValue;
   }
 
   Future<void> load({bool keepDraft = false}) async {
@@ -208,7 +242,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
   }
 
   String label(String value) => switch (value) {
-    'user' => 'User defaults',
+    'user' => 'All chats',
     'project' => 'This project',
     _ => 'This chat',
   };
@@ -218,6 +252,11 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
     builder: (context, _) {
       final data = report, effective = data?['effective'] as Map?;
       final locked = pending || widget.chat.busy || widget.chat.changing;
+      reportSettingsDraft(
+        context,
+        dirty: () => savedDraft != null && draftValue != savedDraft,
+        save: saveDraft,
+      );
       return PopScope(
         canPop: !pending,
         child: InspectorFrame(
@@ -226,7 +265,9 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
             SettingsGroup.task => 'Task limits',
             _ => 'Personalization',
           },
-          subtitle: 'Scoped overrides · applies to future runs',
+          subtitle: widget.group == SettingsGroup.personalization
+              ? 'How Dolores works with you'
+              : 'Applies to the next task',
           canClose: !pending,
           child: Column(
             children: [
@@ -259,7 +300,16 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           ],
                           onChanged: locked
                               ? null
-                              : (value) {
+                              : (value) async {
+                                  if (savedDraft != null &&
+                                      draftValue != savedDraft &&
+                                      !await resolveSettingsDraft(
+                                        context,
+                                        save: saveDraft,
+                                      )) {
+                                    return;
+                                  }
+                                  if (!mounted) return;
                                   setState(() {
                                     scope = value!;
                                     error = null;
@@ -271,7 +321,9 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                         const SizedBox(height: 12),
                         if (widget.group == SettingsGroup.personalization)
                           SelectableText(
-                            'Interaction style · ${effective!['interactionOrigin']}',
+                            scope == 'user'
+                                ? 'Default for all chats'
+                                : 'Custom style for ${label(scope).toLowerCase()}',
                           )
                         else if (widget.group == SettingsGroup.task)
                           SelectableText(
@@ -353,7 +405,8 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                             ),
                           ],
                         ],
-                        if (shows(SettingsGroup.personalization))
+                        if (shows(SettingsGroup.personalization) &&
+                            scope != 'user')
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text(
@@ -397,14 +450,15 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                 : (value) => setState(() => question = value!),
                           ),
                         ],
-                        if (shows(SettingsGroup.personalization))
-                          const Text(
-                            'Dolores stays calm and candid, uses available evidence, and asks only useful questions. These controls cannot guarantee model behavior.',
+                        if (widget.group != SettingsGroup.personalization)
+                          ExpansionTile(
+                            title: const Text('Details'),
+                            children: [
+                              SelectableText(
+                                '${data['taskAccess']}\n${data['adaptation']}',
+                              ),
+                            ],
                           ),
-                        const SizedBox(height: 12),
-                        SelectableText(
-                          '${data['taskAccess']}\n${data['adaptation']}',
-                        ),
                         if (widget.chat.busy)
                           const Text(
                             'The current run keeps its snapshot. Save after it finishes or is stopped.',
