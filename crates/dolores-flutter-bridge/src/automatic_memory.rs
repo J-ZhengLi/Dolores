@@ -48,7 +48,17 @@ pub(super) async fn learn(
         note: "No eligible explicit preference; no extra model request.".into(),
         usage: None,
     };
-    if automatic_source_allowed(&source.text) && !cancel.is_cancelled() {
+    let literal = if cancel.is_cancelled() {
+        None
+    } else {
+        literal_response_preference(&source)
+    };
+    if let Some(candidate) = literal {
+        update.candidates = vec![candidate];
+        update.model = "local-excerpt".into();
+        update.status = "completed".into();
+        update.note = "Exact response preference extracted locally; no extra model request.".into();
+    } else if automatic_source_allowed(&source.text) && !cancel.is_cancelled() {
         let learning_cancel = cancel.child_token();
         let result = async {
             let prompt = automatic_memory_prompt(&source, &update.existing)?;

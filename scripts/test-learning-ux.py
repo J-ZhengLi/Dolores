@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--directory', required=True)
     parser.add_argument('--model', required=True)
     parser.add_argument('--case', choices=['memory', 'skill'], required=True)
+    parser.add_argument('--correction', action='store_true', help='Memory case: independently verify an explicit preference correction.')
     args = parser.parse_args()
     directory = Path(args.directory).resolve()
     if directory.exists() or not directory.is_relative_to(ROOT / 'output'):
@@ -35,7 +36,18 @@ def main():
             update = done.get('memoryUpdate') or {}
             result['learningStatus'] = update.get('status')
             result['saved'] = update.get('saved', 0)
-            result['passed'] = result['saved'] > 0 and bool(host.call('memories', session=session)['items'])
+            memories = host.call('memories', session=session)['items']
+            expected = 'I prefer concise replies with one short example.'
+            result['exactPreference'] = any(item['text'] == expected and item.get('source') == 'automatic' for item in memories)
+            result['passed'] = result['saved'] > 0 and result['exactPreference']
+            if args.correction and result['passed']:
+                expected = 'From now on I prefer detailed replies with two examples instead.'
+                host.call('start', id=2, session=session, input=expected + ' Acknowledge in one sentence.', tools=False)
+                corrected, _ = host.finish(2, seconds=55)
+                memories = host.call('memories', session=session)['items']
+                result['correctionSaved'] = (corrected.get('memoryUpdate') or {}).get('saved', 0)
+                result['exactCorrection'] = any(item['text'] == expected and item.get('source') == 'automatic' for item in memories)
+                result['passed'] = not bool(corrected.get('error')) and result['correctionSaved'] == 1 and result['exactCorrection']
         else:
             sources = host.call('reviewSkillExamples', session=session, scope='global')
             host.call('generateSkillDraft', id=2, session=session, token=sources['token'],

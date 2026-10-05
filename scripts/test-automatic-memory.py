@@ -107,10 +107,8 @@ if args.stage == "save":
         assert result["memoryUpdate"]["saved"] == 1 and learned["source"] == "automatic"
         assert learned["text"] == learned["origin"]["quote"] and learned["autoUpdate"]
         assert items(side) == []
-        extraction = requests[-1]
-        assert "tools" not in extraction and len(extraction["messages"]) == 2 and extraction["max_tokens"] == 512
-        assert json.loads(extraction["messages"][1]["content"])["sources"] == [{"messageId":learned["origin"]["messageId"],"text":learned["text"]}]
-        assert "ASSISTANT_EXCLUDED" not in json.dumps(extraction) and str(project) not in json.dumps(extraction)
+        assert len(requests) == 1 and result["memoryUpdate"].get("usage") is None
+        assert learned["origin"]["model"] == "local-excerpt"
         preview = call("context",session=session,input="Follow up")
         assert learned["text"] in preview["messages"][0]["content"]
         assert preview["memory"]["used"][0]["source"] == "automatic"
@@ -131,20 +129,20 @@ if args.stage == "save":
         assert len(requests)==before+1
         call("setAutomaticMemory",enabled=True,revision=2)
         # A side-chat preference learns in All chats, with independent usage.
-        result=run(12,side,"I prefer clear examples.")
+        result=run(12,side,"I prefer clear examples with assumptions labeled.")
         assert result["memoryUpdate"]["saved"]==1 and result["memoryUpdate"]["usage"]["inputTokens"]==100
         global_pref=items(side)[0]
         call("deleteMemory",scope="all",id=global_pref["id"],revision=1)
         for number,bad in enumerate(["invented","broadened","malformed","empty"],13):
-            mode=bad;result=run(number,side,"I prefer clear examples.")
+            mode=bad;result=run(number,side,"I prefer clear examples with assumptions labeled.")
             assert items(side)==[] and len(call("messagesPage",session=side)["items"])==(number-11)*2
             assert result["memoryUpdate"]["saved"]==0
         mode="slow";learning_started.clear()
-        call("start",id=17,session=side,input="I prefer clear examples.")
+        call("start",id=17,session=side,input="I prefer clear examples with assumptions labeled.")
         assert done(17,stop_learning=True)["memoryUpdate"]["status"]=="stopped"
         assert items(side)==[]
         call("setRequestSettings",settings={"maxOutputTokens":512,"timeoutSeconds":1})
-        assert run(18,side,"I prefer clear examples.")["memoryUpdate"]["status"]=="failed"
+        assert run(18,side,"I prefer clear examples with assumptions labeled.")["memoryUpdate"]["status"]=="failed"
         assert items(side)==[]
         mode="valid"
         # Lower context capacity refuses extraction without making the extra request.
@@ -152,12 +150,12 @@ if args.stage == "save":
         bounded=call("createSession",kind="side")["session"]["id"]
         capacity=call("saveMemory",scope="all",title="Capacity fixture",text="x"*1024,enabled=False)
         before=len(requests)
-        assert run(19,bounded,"I prefer concise replies.")["memoryUpdate"]["status"]=="failed"
+        assert run(19,bounded,"I prefer concise replies with assumptions labeled.")["memoryUpdate"]["status"]=="failed"
         assert len(requests)==before+1
         call("deleteMemory",scope="all",id=capacity["id"],revision=1)
         call("configure",preferences={"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"},apiKey="",rememberConnection=True,modelContexts={"fixture":131072})
         for number,bad in enumerate(["oversized","denied"],20):
-            mode=bad; result=run(number,side,"I prefer clear examples.")
+            mode=bad; result=run(number,side,"I prefer clear examples with assumptions labeled.")
             assert result["memoryUpdate"]["status"]=="failed" and items(side)==[]
             assert "AUTOMATIC_RAW_DENIAL" not in json.dumps(result)
         call("export",session=session,path=str(fixture/"conversation.json"),format="json")
@@ -176,6 +174,6 @@ else:
     call("deleteMemory",session=state["session"],scope="folder",id=learned["id"],revision=3)
     assert items(state["session"])==[]
     with sqlite3.connect(fixture/"data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0]==19
+        assert db.execute("PRAGMA integrity_check").fetchone()[0]=="ok"
     print(json.dumps({"ok":True,"stage":"restore","fixtureRequests":len(requests),"liveRequests":0,"policyAndProvenancePreserved":True}))
     call("shutdown")

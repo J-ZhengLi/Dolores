@@ -1,5 +1,22 @@
 # Dolores acceptance — 2026-10-05
 
+## Maintenance follow-up — exact automatic response preferences
+
+2026-10-06: A bounded literal extractor saves simple explicit response-style
+preferences without a second model request. It keeps the exact words and excludes
+temporary acknowledgement requests. Unrecognized wording uses the existing
+reviewed model path; this is not general semantic memory qualification. Storage
+still enforces scope, source, cancellation, revisions and manual protection.
+
+Two independent Qwen3.5-2B live checks PASS for exact preference capture and an
+explicit correction. Core grammar checks PASS for exact qualifiers and ambiguous,
+temporary, quoted, secret-like and permission-changing inputs. The native fixture
+save/restart checks PASS for scope, duplicate/correction handling, manual protection,
+Stop, timeout, low context, malformed/oversized/denied extraction and retained
+conversation/provenance. The stale schema-version assertion was replaced by an
+integrity check; restart checks still verify the actual saved policy and memory.
+The normal release was built, launched and inspected with disposable data.
+
 ## Maintenance follow-up — Python qualification and optional browser setup
 
 2026-10-06: Retired the remaining PowerShell qualification wrappers. Python now

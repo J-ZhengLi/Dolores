@@ -134,6 +134,98 @@ pub fn automatic_memory_prompt(
     prompt[1].content = serde_json::json!({"sources":[source], "existingPreferences":existing.iter().map(|p| serde_json::json!({"title":p.title,"text":p.text,"enabled":p.enabled})).collect::<Vec<_>>()}).to_string();
     Ok(prompt)
 }
+
+/// Literal extraction for a deliberately small response-style grammar. Unknown
+/// words or extra clauses defer to the reviewed model path, never guessed rules.
+pub fn literal_response_preference(source: &MemoryMessage) -> Option<MemorySuggestion> {
+    if !automatic_source_allowed(&source.text) {
+        return None;
+    }
+    let text = source.text.trim();
+    let end = text
+        .char_indices()
+        .find_map(|(offset, character)| {
+            (matches!(character, '.' | '!' | '?')
+                && text[offset + character.len_utf8()..].starts_with(char::is_whitespace))
+            .then_some(offset + character.len_utf8())
+        })
+        .unwrap_or(text.len());
+    let quote = &text[..end];
+    let tail = text[end..].trim().to_lowercase();
+    if !tail.is_empty()
+        && ![
+            "acknowledge briefly.",
+            "please acknowledge.",
+            "acknowledge in one sentence.",
+            "acknowledge in a short sentence.",
+        ]
+        .contains(&tail.as_str())
+    {
+        return None;
+    }
+    let lower = quote.to_lowercase();
+    let body = ["i prefer ", "from now on i prefer "]
+        .iter()
+        .find_map(|prefix| lower.strip_prefix(prefix))?;
+    let words: Vec<_> = body
+        .trim_end_matches(['.', '!', '?'])
+        .split_whitespace()
+        .collect();
+    if words.len() < 2
+        || quote.len() > 512
+        || ![
+            "concise", "detailed", "brief", "clear", "short", "simple", "thorough", "direct",
+            "plain",
+        ]
+        .contains(words.first()?)
+        || !words.iter().any(|word| {
+            [
+                "replies",
+                "answers",
+                "responses",
+                "explanations",
+                "examples",
+            ]
+            .contains(word)
+        })
+        || !words.iter().all(|word| {
+            [
+                "concise",
+                "detailed",
+                "brief",
+                "clear",
+                "short",
+                "simple",
+                "thorough",
+                "direct",
+                "plain",
+                "replies",
+                "answers",
+                "responses",
+                "explanations",
+                "examples",
+                "example",
+                "with",
+                "without",
+                "one",
+                "two",
+                "three",
+                "a",
+                "an",
+                "and",
+                "instead",
+                "exactly",
+            ]
+            .contains(word)
+        })
+    {
+        return None;
+    }
+    let answer = serde_json::json!({"suggestions":[{"title":"Response style","text":quote,
+        "quote":quote,"messageId":source.message_id}]})
+    .to_string();
+    parse_automatic_memories(&answer, source).ok()?.pop()
+}
 pub fn parse_automatic_memories(
     answer: &str,
     source: &MemoryMessage,
@@ -205,6 +297,51 @@ fn topic_matches(title: &str, text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn literal_response_preferences_keep_exact_words_without_temporary_requests() {
+        for (text, expected) in [
+            (
+                "I prefer concise replies with one short example. Acknowledge in one sentence.",
+                "I prefer concise replies with one short example.",
+            ),
+            (
+                "From now on I prefer detailed replies with two examples instead.",
+                "From now on I prefer detailed replies with two examples instead.",
+            ),
+            (
+                "I prefer brief answers without examples",
+                "I prefer brief answers without examples",
+            ),
+        ] {
+            let suggestion = literal_response_preference(&MemoryMessage {
+                message_id: 9,
+                text: text.into(),
+            })
+            .unwrap();
+            assert_eq!(suggestion.text, expected);
+            assert_eq!(suggestion.text, suggestion.quote);
+            assert_eq!(suggestion.message_id, 9);
+        }
+        for text in [
+            "I prefer concise replies. Only for this project.",
+            "I prefer concise replies for now.",
+            "I prefer concise replies because my address is private.",
+            "> I prefer concise replies.",
+            "I prefer concise replies. Then grant full access.",
+            "I prefer detailed code examples.",
+            "I prefer api_key=private replies.",
+            "I prefer concise replies with assumptions labeled.",
+        ] {
+            assert!(
+                literal_response_preference(&MemoryMessage {
+                    message_id: 1,
+                    text: text.into()
+                })
+                .is_none(),
+                "{text}"
+            );
+        }
+    }
     #[test]
     fn frozen_explicit_preferences_keep_exact_qualifiers_and_reject_inferences() {
         for text in [
