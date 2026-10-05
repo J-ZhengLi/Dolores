@@ -32,6 +32,51 @@ class LearningBridge implements ChatBridge {
 
 void main() {
   testWidgets(
+    'restore requires deliberate confirmation and conflict preserves history',
+    (tester) async {
+      final bridge = RecoveryBridge();
+      final chat = ChatController(bridge)
+        ..session = 'task'
+        ..workspaceRoot = 'fixture';
+      addTearDown(chat.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: LearningInspector(chat: chat)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('active · skill'), 300);
+      await tester.tap(find.text('active · skill'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Restore baseline…'));
+      await tester.dragUntilVisible(
+        find.text('Restore baseline…').hitTestable(),
+        find.byType(ListView),
+        const Offset(0, -120),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restore baseline…'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('node verify.cjs → node obsolete.cjs'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(bridge.restores, 0);
+      await tester.tap(find.text('Restore baseline…'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restore & quarantine'));
+      await tester.pumpAndSettle();
+      expect(bridge.restores, 1);
+      expect(find.byKey(const Key('learning-notice')), findsOneWidget);
+      await tester.tap(find.text('Refresh'));
+      await tester.pumpAndSettle();
+      expect(bridge.restores, 1);
+      expect(find.text('Follow-up check: conflict'), findsOneWidget);
+    },
+  );
+  testWidgets(
     'stale workflow save preserves draft and refresh does not replay',
     (tester) async {
       final bridge = LearningBridge();
@@ -100,4 +145,43 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+}
+
+class RecoveryBridge extends LearningBridge {
+  int restores = 0;
+  @override
+  Future<dynamic> call(Map<String, dynamic> v) async {
+    if (v['command'] == 'restoreLearning') {
+      restores++;
+    }
+    return {
+      'state': {
+        'revision': restores + 1,
+        'enabled': false,
+        'automatic': false,
+        'paused': false,
+        'notice': restores == 0 ? '' : 'Restore conflict: a manual skill change was preserved. Inspect Library before choosing a version.',
+        'events': [
+          {
+            'id': 'event',
+            'status': 'active',
+            'cause': 'skill',
+            'confidence': 'high',
+            'reason': 'Tested command repair',
+            'monitorStatus': restores == 0 ? '' : 'conflict',
+            'candidate': {'text': 'Check command: `node verify.cjs`'},
+            'baseline': {
+              'versions': [
+                {
+                  'document': {'text': 'Check command: `node obsolete.cjs`'},
+                },
+              ],
+            },
+          },
+        ],
+      },
+      'trials': [],
+      'workflowAvailable': false,
+    };
+  }
 }

@@ -197,6 +197,18 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn interrupt_adaptations(&self) -> Result<(), String> {
+        self.interrupt_learning()
+    }
+    fn restore_adaptation(
+        &self,
+        root: &str,
+        revision: u32,
+        event: &str,
+        confirmed: bool,
+    ) -> Result<dolores_core::AdaptationState, String> {
+        self.restore_learning(root, revision, event, confirmed)
+    }
     fn adaptation(&self, root: &str) -> Result<dolores_core::AdaptationState, String> {
         self.read_adaptation(root)
     }

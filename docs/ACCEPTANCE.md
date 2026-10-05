@@ -1,5 +1,45 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 12.4 — learning history and regression recovery
+
+Implemented durable reasons/snapshots across originating project chats,
+pause/disable, deliberate restore preview, atomic restore/quarantine and one
+bounded matching regression comparison. Quarantine prevents automatic
+reactivation. A manual change produces a conflict without overriding it;
+provider/output/step-limit incidents do not justify restoration. Unfinished
+reflection/monitoring becomes interrupted on startup and is not replayed.
+Recovery notices remain visible in the settings footer while inspecting history.
+
+Rust core/store/bridge full suites: 177 tests passed; final six focused
+adaptation tests include an added in-flight Stop test and passed. Clippy with
+warnings denied passed. Fixtures exercise qualifying repair followed by
+independent regression restoration, harmful-candidate refusal/quarantine,
+unrelated limits, incomplete checks/no retry, stale choices, retention failure
+atomicity, restart and preserved manual edits. Flutter: **211 tests passed**;
+analysis clean. Restore confirmation/Cancel, conflict notices, preserved drafts
+and Refresh without replay are covered.
+
+DeepSeek V4.1 Flash used a synthetic activation/incident in a disposable DB and
+real tool comparisons: **38.63 seconds**, all four phases complete and passing
+for both versions. It correctly retained the active skill (no regression).
+An explicit native API restore then quarantined the candidate. This verifies
+the comparison/preservation/manual restore flow, not live improvement or
+automatic regression restoration. Qwen's incomplete 12.3 probe is retained above.
+
+Normal final release built and launched with a Dolores window handle. Original
+34 user-data tables remain unchanged; schema 30/37 tables and new learning
+tables empty in the user's DB. Windows remains locked, so **native visual
+verification is pending**; launch/window presence is not screenshot acceptance.
+A post-launch snapshot measured 246.6 MiB working set and 286.3 MiB private
+memory; no low-end/idle performance claim follows from it. Learning adds no
+resident worker, new child process or idle model requests.
+
+Milestone 12 implementation batch is delivered. The required real-workflow
+improvement/automatic restoration gate remains **unaccepted**; keep reviewed
+updates as the dependable path and experimental automatic policy off by default.
+Executable containment, broad skill competence, native visual/manual behavior
+review, low-end and other-platform qualification remain open.
+
 ## Brick 12.3 — targeted project skill adaptation
 
 Implemented opt-in, deduplicated local attribution and the exact host

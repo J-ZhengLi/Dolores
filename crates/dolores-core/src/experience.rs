@@ -131,4 +131,15 @@ impl ExperienceTrial {
         b.results.clear();
         a == b
     }
+    pub fn regressed(&self) -> bool {
+        self.status == "completed"
+            && self.results.len() == 4
+            && self.results.iter().all(|r| r.complete)
+            && self
+                .results
+                .iter()
+                .filter(|r| !r.candidate)
+                .all(|r| r.passed)
+            && self.results.iter().any(|r| r.candidate && !r.passed)
+    }
 }

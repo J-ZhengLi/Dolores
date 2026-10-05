@@ -253,3 +253,13 @@ Other imported/global skills retain reviewed Library updates. Inspect reasons
 and receipts here; partial, tied or failed trials keep the original skill.
 Trials send skill snapshots and disposable fixtures, not your private feedback
 notes. This is a narrow workflow feature, not general autonomous self-rewriting.
+
+Expand a learning event to inspect its command, cause and source snapshots.
+For an active update, **Restore baseline…** previews the retained command and
+asks you to restore and quarantine it. Quarantine prevents automatic reactivation
+of that candidate; Library still supports deliberate review. Files and completed
+commands remain. A manual skill edit blocks restoration and produces a conflict
+notice. Pause/disable stop new learning without removing history. One matching
+workflow failure can trigger an additional bounded check under the enabled policy;
+only complete independent regression evidence permits automatic restoration.
+Stop, failed storage and restart do not replay an unfinished learning attempt.

@@ -65,3 +65,12 @@ extra learning request is made. Conservative secret checks are not a guarantee
 that all sensitive text can be detected: inspect facts before enabling reuse.
 Feedback sharing is independently off by default and currently only records
 eligibility for milestone 12 reflection; ordinary task feedback remains local.
+
+Skill learning is a separate off-by-default project policy. Its bounded trials
+send exact skill snapshots and disposable fixture data to the configured model;
+local inspection, settings and restore make no provider request. Private feedback
+notes are not uploaded by reflection. Causes, baselines and quarantine history
+are local project data; trial receipts belong to their originating chat and are
+removed with it. A matching regression check can make one additional bounded
+provider comparison when learning is enabled. No resident learning worker,
+filesystem scan, telemetry or global automatic skill rewrite is introduced.

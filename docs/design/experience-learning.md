@@ -67,3 +67,27 @@ until live improvement and regression acceptance succeed.
 Acceptance records real-model
 results and unsupported paths separately. No general daily-improvement claim is
 made from this small corpus.
+
+12.4 keeps the original baseline independently of the five-version Library
+window. Restore & quarantine appends a new rollback version and commits the
+skill/history together. It checks the exact activated revision/document/enabled
+state; a manual change yields a conflict and remains untouched. Storage failure
+keeps both prior records, including after restart. Quarantine blocks subsequent
+automatic activation of that exact candidate; deliberate Library review remains
+available. It restores skill instructions only, never files or command effects.
+
+Monitoring is event-driven, not a worker: one matching failed check after an
+activation can use another four-case fixed comparison (same 20-call/32-tool/
+120-second maximum). The task must include the exact active skill version and
+literal failed check while enabling config.json. Denials, unrelated goals and
+output/step limits do not initiate rollback. Restoration requires completed
+independent baseline passes and an observed candidate failure, with unchanged
+criteria; incomplete/tied checks retain the active version without retry. This
+small comparison is a local qualification rule, not statistical certainty about
+a model. Automatic restore needs enabled, unpaused automatic policy; manual
+restore is available even when learning is disabled. Pending reflection or
+monitoring is marked interrupted on startup without replay. If recovery storage
+fails, ordinary chat remains available and unfinished state stays ineligible.
+History includes receipts from all originating project chats; deleting a chat
+removes its trial receipts while project snapshots/reasons remain. The release
+gate stays unaccepted until actual model improvement and rollback are demonstrated.

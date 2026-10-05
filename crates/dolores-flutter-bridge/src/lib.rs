@@ -123,6 +123,11 @@ enum Command {
         revision: u32,
         event: String,
     },
+    RestoreLearning {
+        session: String,
+        revision: u32,
+        event: String,
+    },
     TrialSources {
         session: String,
     },
@@ -592,6 +597,8 @@ impl Engine {
             .build()
             .map_err(|_| "Could not start the chat runtime.")?;
         let mut connection = ConnectionManager::new(store.clone(), credentials.clone());
+        // Learning recovery never makes ordinary history/chat unavailable.
+        let _ = store.interrupt_adaptations();
         {
             let _entered = runtime.enter();
             let _ = connection.recover(); // Recovery warnings keep history available.
@@ -779,6 +786,11 @@ impl Engine {
                 revision,
                 event,
             } => self.approve_learning(&session, revision, &event),
+            Command::RestoreLearning {
+                session,
+                revision,
+                event,
+            } => self.restore_learning(&session, revision, &event),
             Command::TrialSources { session } => self.trial_sources(&session),
             Command::StartToolTrial {
                 id,

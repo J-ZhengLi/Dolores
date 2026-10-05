@@ -55,7 +55,7 @@ impl ModelProvider for Fixture {
             )),
             2 => Some((
                 "trial_check",
-                json!({"command":if old{"node obsolete.cjs"}else{"node verify.cjs"}}),
+                json!({"command":if self.mode=="regression" {if old{"node verify.cjs"}else{"node obsolete.cjs"}}else if old{"node obsolete.cjs"}else{"node verify.cjs"}}),
             )),
             _ => None,
         };

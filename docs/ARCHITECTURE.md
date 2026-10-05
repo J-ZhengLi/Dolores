@@ -150,4 +150,11 @@ A deterministic post-reply observer, disabled by default, extracts at most two
 bounded approved receipt facts. It never changes manual corrections, permissions
 or model settings. Sources bind direct paths/digests or completed command
 receipts; future context carries at most four fresh enabled facts with exact
-provenance. This is evidence reuse, not automatic skill adaptation yet.
+provenance. Independent in-memory tool trials add observable files/checks under
+equal fixed allowances. Project skill adaptation is opt-in and limited to an
+exact host config-check-v1 command slot; broader edits remain reviewed. Exact
+policy/source/candidate/evaluator/skill revisions gate atomic activation.
+Retained baselines, quarantine and one bounded matching regression comparison
+support recovery without overriding manual edits. Startup interruption never
+replays learning; reflection errors preserve the saved foreground reply. No
+executable self-replacement or general model-competence claim is enabled.

@@ -25,7 +25,8 @@ Dolores connects to models you provide; it does not install or start a local mod
 - Search the web without setup, read public source pages, or configure Brave/SearXNG for search.
 - Use an optional fresh browser for reviewed page interaction and local screenshots; see [browser setup](docs/USER_GUIDE.md#browser-setup).
 - Browse and export conversations, inspect context and reported token usage, and explicitly continue paused tasks.
-- Inspect learned preferences, review reusable skills, and compare instruction snapshots on bounded response tests.
+- Inspect preferences and scoped project knowledge, review reusable skills, and compare snapshots on bounded response or disposable tool tests.
+- Opt into narrow experimental project skill learning, inspect its evidence, and restore or quarantine an update.
 - Record local **Worked / Needs work** feedback against a reply's original evidence.
 - Inspect running capabilities and run evidence, and configure project/chat request and interaction overrides.
 - Choose task permissions, restore saved drafts, fork completed turns and opt into bounded automatic context compaction.

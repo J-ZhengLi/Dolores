@@ -56,6 +56,10 @@ Learning exposes off-by-default reflection/automatic activation, project pause,
 the optional host check workflow, local causes and independent receipts. Failed
 saves retain drafts; explicit Refresh never replays a claimed event. No new
 composer/header controls are added. Automatic activation is labeled experimental.
+Learning history expands reasons/command/source snapshots. Restore baseline…
+opens a concrete command preview with Cancel / Restore & quarantine. Keep
+recovery notices and active progress above the fixed footer actions so scrolling
+cannot hide the outcome. A conflict keeps the active card and manual version.
 Pending trials block switching/closing and expose Stop; saved receipts, errors
 and candidate drafts remain inspectable. Trial settings are frozen separately
 from chat settings. Do not describe simulated checks as executed OS commands.

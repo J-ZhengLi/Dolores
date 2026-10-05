@@ -132,6 +132,46 @@ class _LearningState extends State<LearningInspector> {
     }
   }
 
+  String checkCommand(dynamic document) {
+    final text = (document as Map?)?['text'] as String? ?? '';
+    return RegExp(r'Check command: `([^`]+)`').firstMatch(text)?.group(1) ??
+        'Inspect snapshot';
+  }
+
+  Future<void> restore(Map event) async {
+    final revision = state['revision'];
+    final versions = (event['baseline'] as Map?)?['versions'] as List? ?? [];
+    final before = checkCommand(event['candidate']);
+    final after = checkCommand(
+      versions.isEmpty ? null : (versions.last as Map)['document'],
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restore skill baseline?'),
+        content: Text(
+          '$before → $after\n\nThis restores the retained project skill snapshot and quarantines the candidate. Files and completed commands stay as they are. A manual skill change will prevent restoration.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restore & quarantine'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await action('restoreLearning', {
+        'revision': revision,
+        'event': event['id'],
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !pending,
@@ -187,6 +227,9 @@ class _LearningState extends State<LearningInspector> {
                   const Text(
                     'One proposed command repair can use four isolated cases: at most 20 model calls, 32 tool operations and 120 seconds total, 1024 output tokens per call. Only skill snapshots and disposable fixtures go to the configured provider. Original replies and baseline snapshots remain. No model-authored JSON draft, global rewrite or process execution is enabled.',
                   ),
+                  const Text(
+                    'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate Library reviews remain available.',
+                  ),
                   if (report!['workflowAvailable'] == true) ...[
                     const SizedBox(height: 16),
                     const Text(
@@ -209,8 +252,6 @@ class _LearningState extends State<LearningInspector> {
                       child: const Text('Create check workflow'),
                     ),
                   ],
-                  if ((state['notice'] as String? ?? '').isNotEmpty)
-                    SelectableText(state['notice'] as String),
                   for (final event in (state['events'] as List?) ?? [])
                     ExpansionTile(
                       title: Text('${event['status']} · ${event['cause']}'),
@@ -218,8 +259,36 @@ class _LearningState extends State<LearningInspector> {
                         '${event['confidence']} confidence · ${event['reason']}',
                       ),
                       children: [
-                        SelectableText(
-                          const JsonEncoder.withIndent('  ').convert(event),
+                        if (event['candidate'] != null)
+                          SelectableText(
+                            'Candidate check: ${checkCommand(event['candidate'])}',
+                          ),
+                        if ((event['monitorStatus'] as String? ?? '')
+                            .isNotEmpty)
+                          Text('Follow-up check: ${event['monitorStatus']}'),
+                        if (event['status'] == 'active')
+                          TextButton(
+                            onPressed: pending
+                                ? null
+                                : () => restore(event as Map),
+                            child: const Text('Restore baseline…'),
+                          ),
+                        if (event['status'] == 'quarantined')
+                          const Text(
+                            'Candidate quarantined. Automatic learning will not reactivate it. Inspect Library for deliberate edits.',
+                          ),
+                        if (event['status'] == 'pending' ||
+                            event['status'] == 'interrupted')
+                          const Text(
+                            'Unfinished evidence is not eligible for activation and will not replay. Review Library for a new deliberate change.',
+                          ),
+                        ExpansionTile(
+                          title: const Text('Snapshots & source'),
+                          children: [
+                            SelectableText(
+                              const JsonEncoder.withIndent('  ').convert(event),
+                            ),
+                          ],
                         ),
                         if (event['status'] == 'review')
                           TextButton(
@@ -245,35 +314,52 @@ class _LearningState extends State<LearningInspector> {
                       ],
                     ),
                 ],
-                if (progress != null) Text(progress!),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Wrap(
-              spacing: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextButton(
-                  onPressed: pending ? null : load,
-                  child: const Text('Refresh'),
-                ),
-                if (run != null)
-                  TextButton(
-                    onPressed: stopping ? null : stop,
-                    child: Text(stopping ? 'Stopping…' : 'Stop learning'),
-                  )
-                else
-                  FilledButton(
-                    onPressed:
-                        pending ||
-                            report == null ||
-                            state['enabled'] != true ||
-                            state['paused'] == true
-                        ? null
-                        : reflect,
-                    child: const Text('Inspect latest task'),
+                if (error != null)
+                  const Text(
+                    'Change was not saved. Scroll up for details; refresh before retrying.',
                   ),
+                if (progress != null)
+                  Text(progress!, maxLines: 3, overflow: TextOverflow.ellipsis),
+                if ((state['notice'] as String? ?? '').isNotEmpty)
+                  Text(
+                    state['notice'] as String,
+                    key: const Key('learning-notice'),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: pending ? null : load,
+                      child: const Text('Refresh'),
+                    ),
+                    if (run != null)
+                      TextButton(
+                        onPressed: stopping ? null : stop,
+                        child: Text(stopping ? 'Stopping…' : 'Stop learning'),
+                      )
+                    else
+                      FilledButton(
+                        onPressed:
+                            pending ||
+                                report == null ||
+                                state['enabled'] != true ||
+                                state['paused'] == true
+                            ? null
+                            : reflect,
+                        child: const Text('Inspect latest task'),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

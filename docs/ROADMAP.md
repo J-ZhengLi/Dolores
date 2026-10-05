@@ -19,8 +19,9 @@ Playwright runtime, reviewed input and bounded local evidence. Synthetic host
 flows and cleanup pass; general website/model reliability and other-platform
 execution remain open. See [web contract](design/web-search.md),
 [browser contract](design/browser-use.md) and acceptance. **12.1 scoped knowledge
-12.2 independent tool trials and 12.3 targeted skill adaptation are implemented**; the authorized milestone 12 batch continues with
-adaptation below.
+12.2 independent tool trials, 12.3 targeted skill adaptation and 12.4 recovery
+are implemented**. Automatic activation's real-workflow acceptance gate remains
+unaccepted; reviewed skill updates remain available.
 
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.
 
@@ -214,6 +215,13 @@ milestone does not establish general research or website reliability.
 **Exit:** combined parent/child/retrieval flow respects total usage/cancellation/grants. Measure active process-tree cost and idle cleanup; one tool failure leaves other work usable.
 
 ## Milestone 12 — Learn from experience
+
+Implementation batch delivered. Deterministic improvement/rejection/rollback
+fixtures pass, but configured-model trials were incomplete or non-improving.
+Automatic qualification is experimental and off by default; useful real-model
+improvement and restoration remain an open exit gate. See acceptance for actual
+costs, preserved outcomes and pending native visual checks. Do not infer broad
+self-evolution from the host check workflow.
 
 ### 12.1 Scoped knowledge and evidence use
 

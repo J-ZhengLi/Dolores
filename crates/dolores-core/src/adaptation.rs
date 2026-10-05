@@ -30,6 +30,12 @@ pub struct AdaptationEvent {
     pub trial_id: Option<String>,
     pub activated_revision: Option<u32>,
     pub monitor_message: i64,
+    #[serde(default)]
+    pub monitor_session: Option<String>,
+    #[serde(default)]
+    pub monitor_trial_id: Option<String>,
+    #[serde(default)]
+    pub monitor_status: String,
 }
 pub fn check_workflow(command: &str) -> Result<SkillDocument, String> {
     let script = command
@@ -97,6 +103,22 @@ impl AdaptationState {
                 .contains(&e.status.as_str())
                 || e.policy_revision > self.policy_revision
                 || e.monitor_message < 0
+                || e.monitor_session
+                    .as_ref()
+                    .is_some_and(|s| !crate::valid_memory_id(s))
+                || e.monitor_trial_id
+                    .as_ref()
+                    .is_some_and(|s| !crate::valid_memory_id(s))
+                || ![
+                    "",
+                    "running",
+                    "checked",
+                    "inconclusive",
+                    "interrupted",
+                    "regressed",
+                    "conflict",
+                ]
+                .contains(&e.monitor_status.as_str())
             {
                 return Err("Invalid learning event. Earlier history was preserved.".into());
             }

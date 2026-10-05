@@ -98,6 +98,192 @@ pub(super) fn fixture() -> (tempfile::TempDir, Arc<SqliteStore>, String) {
     (dir, store, root)
 }
 
+fn failed_followup(store: &SqliteStore, root: &str, unrelated: bool) {
+    let mut metadata = store
+        .messages_page("task", None, false, 2)
+        .unwrap()
+        .items
+        .last()
+        .unwrap()
+        .metadata
+        .clone()
+        .unwrap();
+    metadata.paused = None;
+    metadata.context.skills[0].version = store.project_skills(root).unwrap()[0].current().version;
+    let record = metadata.agent.as_mut().unwrap().tools.last_mut().unwrap();
+    record.command.as_mut().unwrap().args[0] = "verify.cjs".into();
+    if unrelated {
+        metadata.paused = Some(PausedTask {
+            segments: 1,
+            reason: PauseReason::OutputLimit,
+            task: "Enable config.json".into(),
+            receipts: vec![],
+        });
+    }
+    store
+        .commit_turn_metadata(
+            "task",
+            "Enable config.json using project-check",
+            "Check failed",
+            &metadata,
+        )
+        .unwrap();
+}
+
+#[tokio::test]
+async fn confirmed_regression_restores_and_quarantine_blocks_reactivation() {
+    let (_dir, store, root) = fixture();
+    let (tx, _rx) = mpsc::channel(8);
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "good" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        1,
+    )
+    .await
+    .unwrap();
+    failed_followup(store.as_ref(), &root, false);
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "regression" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        2,
+    )
+    .await
+    .unwrap();
+    let state = store.adaptation(&root).unwrap();
+    assert_eq!(state.events[0].status, "quarantined");
+    assert_eq!(state.events[0].monitor_status, "regressed");
+    let skill = store.project_skills(&root).unwrap().remove(0);
+    assert_eq!(
+        workflow_command(&skill.current().document).as_deref(),
+        Some("node obsolete.cjs")
+    );
+    assert_eq!(skill.current().rollback_from, Some(2));
+    failed_followup(store.as_ref(), &root, false);
+    // A subsequent stale-command failure cannot reactivate the quarantined candidate.
+    let mut metadata = store
+        .messages_page("task", None, false, 2)
+        .unwrap()
+        .items
+        .last()
+        .unwrap()
+        .metadata
+        .clone()
+        .unwrap();
+    metadata
+        .agent
+        .as_mut()
+        .unwrap()
+        .tools
+        .last_mut()
+        .unwrap()
+        .command
+        .as_mut()
+        .unwrap()
+        .args[0] = "obsolete.cjs".into();
+    store
+        .commit_turn_metadata(
+            "task",
+            "Enable config.json using project-check",
+            "Old command failed again",
+            &metadata,
+        )
+        .unwrap();
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "good" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        3,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        store
+            .adaptation(&root)
+            .unwrap()
+            .events
+            .last()
+            .unwrap()
+            .status,
+        "rejected"
+    );
+    assert_eq!(store.project_skills(&root).unwrap()[0], skill);
+}
+
+#[tokio::test]
+async fn unrelated_limits_and_incomplete_monitor_do_not_restore_or_retry() {
+    let (_dir, store, root) = fixture();
+    let (tx, _rx) = mpsc::channel(8);
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "good" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        1,
+    )
+    .await
+    .unwrap();
+    failed_followup(store.as_ref(), &root, true);
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "regression" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        2,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        store.adaptation(&root).unwrap().events[0].monitor_status,
+        ""
+    );
+    assert_eq!(store.project_skills(&root).unwrap()[0].revision, 2);
+    failed_followup(store.as_ref(), &root, false);
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "limit" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        3,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        store.adaptation(&root).unwrap().events[0].monitor_status,
+        "inconclusive"
+    );
+    let trials = store.experience_trials("task").unwrap().len();
+    reflect(
+        store.clone(),
+        Some(Arc::new(Fixture { mode: "regression" })),
+        "task",
+        "fixture",
+        CancellationToken::new(),
+        &tx,
+        4,
+    )
+    .await
+    .unwrap();
+    assert_eq!(store.experience_trials("task").unwrap().len(), trials);
+    assert_eq!(store.project_skills(&root).unwrap()[0].revision, 2);
+}
+
 #[tokio::test]
 async fn targeted_repair_is_activated_once_with_baseline_retained() {
     let (_dir, store, root) = fixture();
@@ -148,6 +334,47 @@ async fn targeted_repair_is_activated_once_with_baseline_retained() {
     .unwrap()
     .is_none());
     assert_eq!(store.adaptation(&root).unwrap(), state);
+}
+
+#[tokio::test]
+async fn stop_during_reflection_retains_saved_reply_and_interrupts_eligibility() {
+    let (_dir, store, root) = fixture();
+    let (tx, mut rx) = mpsc::channel(8);
+    let cancel = CancellationToken::new();
+    let worker_store = store.clone();
+    let worker_cancel = cancel.clone();
+    let worker = tokio::spawn(async move {
+        reflect(
+            worker_store,
+            Some(Arc::new(Fixture { mode: "hang" })),
+            "task",
+            "fixture",
+            worker_cancel,
+            &tx,
+            1,
+        )
+        .await
+    });
+    let _ = rx.recv().await.unwrap();
+    cancel.cancel();
+    worker.await.unwrap().unwrap();
+    let state = store.adaptation(&root).unwrap();
+    assert_eq!(state.events[0].status, "interrupted");
+    assert_eq!(store.project_skills(&root).unwrap()[0].revision, 1);
+    assert_eq!(
+        store
+            .messages_page("task", None, false, 2)
+            .unwrap()
+            .items
+            .last()
+            .unwrap()
+            .content,
+        "Old check failed"
+    );
+    assert_eq!(
+        store.experience_trials("task").unwrap()[0].status,
+        "stopped"
+    );
 }
 #[tokio::test]
 async fn tamper_limits_and_false_claims_cannot_activate() {

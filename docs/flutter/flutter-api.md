@@ -122,3 +122,11 @@ and done events through normal polling/cancellation. `approveLearning {session,
 revision,event}` requires a completed qualifying review, unchanged skill,
 knowledge and policy. Foreground done may carry learningUpdate; reflection
 failure preserves its saved reply. Schema 30 adds project_adaptation locally.
+
+`restoreLearning {session,revision,event}` restores an exact active update and
+quarantines its candidate. It returns the actual saved view; a manual change
+returns a conflict notice with the current skill intact. Post-activation receipts
+bind monitorSession/monitorMessage/monitorTrialId; automatic restore requires a
+complete matching regressed trial and unchanged activation/policy. Startup marks
+pending events/monitoring interrupted, never eligible/replayed. All originating
+chat receipts are included in the project Learning view when still retained.

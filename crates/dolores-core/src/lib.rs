@@ -266,6 +266,18 @@ pub enum Appearance {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn interrupt_adaptations(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn restore_adaptation(
+        &self,
+        _: &str,
+        _: u32,
+        _: &str,
+        _: bool,
+    ) -> Result<AdaptationState, String> {
+        Err("Learning restore is unavailable in this store.".into())
+    }
     fn adaptation(&self, _: &str) -> Result<AdaptationState, String> {
         Ok(Default::default())
     }
