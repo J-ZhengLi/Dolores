@@ -52,9 +52,16 @@ impl SqliteStore {
             rows.collect::<Result<Vec<_>, _>>().map_err(storage_error)?
         };
         for root in roots {
-            let mut state = read(&tx, &root)?;
+            // An unreadable project's mod state must not block recovery elsewhere.
+            // Its inspector reports the local error; ordinary chats stay usable.
+            let Ok(mut state) = read(&tx, &root) else {
+                continue;
+            };
             if state.pending.take().is_some() {
-                state.events.push("Interrupted activation discarded on restart. Last working version retained; test again explicitly.".into());
+                state.recovery_receipt = "Interrupted activation discarded on restart. Last working version retained; test again explicitly.".into();
+                if state.events.len() < 32 {
+                    state.events.push(state.recovery_receipt.clone());
+                }
                 state.revision = state
                     .revision
                     .checked_add(1)
@@ -74,6 +81,46 @@ impl SqliteStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn malformed_project_cannot_block_another_projects_pending_recovery() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("mods.db");
+        let store = SqliteStore::open(&path).unwrap();
+        let root = folder.path().to_str().unwrap();
+        let id = "a".repeat(64);
+        let state = ModState {
+            pending: Some(id.clone()),
+            versions: vec![dolores_core::ModVersion {
+                identity: id,
+                manifest: Default::default(),
+                source: "(module)".into(),
+                baseline: None,
+                results: vec![],
+                baseline_results: vec![],
+                status: "review".into(),
+                reason: "fixture".into(),
+                model: "fixture".into(),
+            }],
+            ..Default::default()
+        };
+        store.save_mod_state(root, 0, &state).unwrap();
+        let broken = folder.path().join("broken");
+        store
+            .lock()
+            .unwrap()
+            .execute(
+                "INSERT INTO project_mods(root,data) VALUES(?1,'malformed fixture')",
+                [broken.to_str().unwrap()],
+            )
+            .unwrap();
+        store.recover_mod_activations().unwrap();
+        let recovered = store.mod_state(root).unwrap();
+        assert!(recovered.pending.is_none() && recovered.active.is_none());
+        assert!(recovered
+            .recovery_receipt
+            .contains("Interrupted activation"));
+        assert!(store.mod_state(broken.to_str().unwrap()).is_err());
+    }
     #[test]
     fn revision_restart_and_failed_receipt_preserve_pointer() {
         let folder = tempfile::tempdir().unwrap();

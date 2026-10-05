@@ -1,5 +1,67 @@
 # Dolores acceptance — 2026-10-05
 
+## Milestone 13.4 — integrated recovery and qualification boundary
+
+The normal Windows release bridge passes `scripts/test-mods.py` save/reopen in
+separate processes with disposable data and a local SSE provider. Exercised
+fixed repair/activation, a paused output-limited task's pinned hint in live and
+durable events, active-run mutation refusal, unsupported capabilities/imports/
+card/schema refusal, source-drift health failure, rollback with all 32 audit slots
+occupied, and ordinary chat afterward. Two bounded incomplete drafts exercise
+output-token exhaustion and Stop after the first delta. Both preserve editable
+source, keep the baseline, and issue no implicit retry. Restart retains messages,
+preferences, partial source and quarantine, clears an interrupted activation and
+does not replay provider work. The fixture made four local requests, no external
+requests and used no real credentials or private transcripts.
+
+Pressure checks found and fixed two recovery defects: Stop used to lose received
+source; full audit capacity used to block restore. A UTF-8-safe prefix now survives
+oversized deltas, and a separate bounded latest recovery receipt lets restore and
+restart reconciliation proceed without deleting old audit entries. A failed
+receipt transaction still retains the old active pointer. Eight retained
+candidates exhaust the catalog explicitly; existing active guidance remains
+usable and can still be restored. No limits were silently increased.
+Malformed mod state in one project also no longer blocks pending activation
+recovery in another project; the broken project's inspector keeps its local error.
+
+Broader Rust checks pass 224 tests across ten suites, followed by the added
+candidate-capacity and malformed-project recovery cases (two additional passes).
+The final Flutter suite passes
+214 tests, including three Mods cases covering stale refresh, output truncation
+and compact 800 × 600 recovery with an empty stopped request. Rust Clippy and
+Flutter analysis pass. The documentation check passes 65 Markdown documents and
+215 local links; external links were not rechecked. The existing runtime cases
+also exercise runaway bytecode/fuel and undeclared resource refusal.
+
+Screenshots of the normal release at 1127 × 813 show the Settings → Harness mods
+panel in system-dark and light themes, with no overflow and footer actions
+visible. System theme was restored. Compact recovery has widget evidence only;
+the native resize attempt retained the original dimensions and does not count
+as compact native acceptance. All 37 noninternal data tables match the fresh
+pre-verification hashes, including history, provider/model choices and policies.
+The final normal app was rebuilt and visibly relaunched.
+
+Resource observations on this Windows development device: the release bridge DLL
+is 15,398,912 bytes and runner EXE 91,648 bytes, excluding Flutter assets/runtime.
+During settings interaction one sample reached 340.57 MiB working set / 348.84 MiB
+private bytes. Later samples were 252.55–274.03 / 258.26–282.84 MiB respectively;
+one quiet one-second interval showed zero CPU-time increase at timer resolution.
+There was one app process, no resident mod helper and no owned browser worker.
+These are unpaired observations, not proof of a memory improvement, cold-start
+latency or steady-state target compliance. The provisional 150 MiB working-set
+target is not met by these samples; low-end acceptance stays open. The selected
+runtime's compile/call/probe measurements are recorded under 13.1.
+
+Milestone 13's implemented envelope is stateless recovery hints, bounded drafting,
+fixed independent trials, transactional activation and reversible quarantine.
+The live DeepSeek repair below passed; Qwen drafting reliability and milestone
+12's useful automatic skill-improvement gate remain open. General agent/context/
+UI replacement, stateful migrations, native self-replacement, sustained large
+history/catalog/browser-plus-child pressure, cold-start timing, physical IME/
+screen readers, representative low-end hardware and macOS/Linux execution remain
+unqualified. No OS sandbox, general self-improvement or Codex-equivalent ability
+is claimed. Milestone 14 remains planned and was not started in this batch.
+
 ## Milestone 13.3 — model-authored recovery mods
 
 Settings → Harness mods exposes scoped source/tests, activation, change history,

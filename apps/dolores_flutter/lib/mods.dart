@@ -103,7 +103,9 @@ class _ModsState extends State<ModsInspector> {
             done = true;
             setState(() {
               error = e['error'] as String?;
-              if (e['source'] != null) source.text = e['source'] as String;
+              if ((e['source'] as String? ?? '').isNotEmpty) {
+                source.text = e['source'] as String;
+              }
             });
           }
         }
@@ -249,6 +251,9 @@ class _ModsState extends State<ModsInspector> {
                           ),
                           const SizedBox(height: 8),
                           SelectableText('${report!['card']['text']}'),
+                          if ((state['recoveryReceipt'] as String? ?? '')
+                              .isNotEmpty)
+                            SelectableText('${state['recoveryReceipt']}'),
                           if (report!['card']['notice'] != null)
                             SelectableText('${report!['card']['notice']}'),
                           if (state['active'] != null)

@@ -72,7 +72,9 @@ provider reasoning choice and saves reported usage. Complete valid drafts are
 tested automatically; all-pass strict improvement enters review, or activates
 under the separately opted-in ABI 1 policy. Ties/failures never activate.
 Malformed/truncated drafts retain bounded source and a notice across restart;
-the user can edit/test it explicitly. No silent retry or model switch occurs.
+the user can edit/test it explicitly. Stop also retains received text; oversized
+deltas retain a UTF-8-safe prefix within 8 KiB. An empty stopped request preserves
+the previous draft. No silent retry or model switch occurs.
 The generation intent/receipt is retained; restart does not replay drafting.
 
 Runs clone immutable active source before requesting model work. Paused working
@@ -81,3 +83,25 @@ and trajectory. A hint changes guidance only; Continue, grants and limits retain
 their existing user-controlled flows. Inspector health failures restore and
 quarantine the active source; missing/invalid mod state leaves ordinary chat
 usable. The initial interface supports one recovery hook/card per working folder.
+
+## Integrated recovery and remaining qualification (13.4)
+
+The bounded audit retains at most 32 events. A separate bounded latest recovery
+receipt lets restore and interrupted-activation reconciliation succeed even when
+all audit slots are occupied, preserving earlier evidence. The pointer,
+quarantine state and receipt still share a transaction. New trials/drafting
+refuse exhausted capacity with an explicit notice; no background retry runs.
+Unreadable state in one project stays local and cannot prevent pending activation
+reconciliation for another working folder.
+
+`scripts/test-mods.py` save/reopen uses the normal release bridge with synthetic
+local SSE and isolated data. It covers qualifying activation, pinned guidance
+on output exhaustion, active-run conflicts, capability/import refusal, changed
+source health rollback with full audit, ordinary chat afterward, Stop/partial
+retention and separate-process restart without replay. Runtime tests cover
+fuel exhaustion. Live results and measurements are recorded in acceptance.
+
+This envelope supports only guidance, not broader agent/context/UI replacement.
+Windows native execution is exercised; other-OS, representative low-end,
+sustained history/catalog, physical input and accessibility qualification stays
+open. Fixed enum tests cannot prove useful general self-improvement.

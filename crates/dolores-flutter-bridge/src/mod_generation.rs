@@ -50,11 +50,16 @@ pub(super) async fn draft(
             break;
         }
         tokio::select! {biased;
-            _=cancel.cancelled()=>return Err("Mod draft stopped. Baseline retained; no retry or activation.".into()),
+            _=cancel.cancelled()=>{notice=Some("Mod draft stopped. Partial source retained; baseline unchanged. No retry or activation.".into());break;},
             _=&mut deadline=>{cancel.cancel();notice=Some("Mod draft timed out. Partial source retained for review; retry explicitly.".into());break;},
             result=&mut request,if !finished=>{match result {Ok(v)=>outcome=Some(v),Err(error)=>notice=Some(error)};finished=true;},
             delta=receiver.recv(),if !closed=>match delta {
-                Some(delta)=>{if text.len()+delta.len()>8192 {notice=Some("Mod draft exceeded 8192 bytes. Partial source retained; shorten it and test explicitly.".into());break;}text.push_str(&delta);},None=>closed=true,
+                Some(delta)=>{if text.len()+delta.len()>8192 {
+                    let mut end=8192-text.len();
+                    while !delta.is_char_boundary(end){end-=1;}
+                    text.push_str(&delta[..end]);cancel.cancel();
+                    notice=Some("Mod draft exceeded 8192 bytes. Partial source retained; shorten it and test explicitly.".into());break;
+                }text.push_str(&delta);},None=>closed=true,
             }
         }
     }
@@ -190,7 +195,7 @@ impl Engine {
             }
             // Retain a bounded receipt even for malformed/truncated drafts.
             if let Ok(mut latest)=store.mod_state(&root) {
-                if let Some(source)=response["source"].as_str(){latest.draft=source.into();}
+                if let Some(source)=response["source"].as_str().filter(|s| !s.is_empty()){latest.draft=source.into();}
                 latest.draft_notice=response["error"].as_str().unwrap_or("").chars().take(256).collect();
                 if latest.events.len()<32 {
                     latest.events.push(format!("Draft receipt: {}; usage {}.",if response["error"].is_null(){"tested"}else{"incomplete; baseline retained"},response.get("usage").unwrap_or(&Value::Null)));
@@ -284,16 +289,17 @@ mod tests {
     async fn stop_and_oversized_source_do_not_retry() {
         let cancel = CancellationToken::new();
         cancel.cancel();
-        assert!(draft(
+        let (source, _, notice) = draft(
             Arc::new(Fixture {
                 text: "(module".into(),
-                limited: false
+                limited: false,
             }),
             dolores_mod_runtime::BASELINE,
-            cancel
+            cancel,
         )
         .await
-        .is_err());
+        .unwrap();
+        assert!(source.is_empty() && notice.unwrap().contains("stopped"));
         let (source, _, notice) = draft(
             Arc::new(Fixture {
                 text: "x".repeat(8193),
@@ -304,6 +310,53 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(source.is_empty() && notice.is_some());
+        assert_eq!(source.len(), 8192);
+        assert!(notice.is_some());
+    }
+    struct StopFixture;
+    #[async_trait]
+    impl ModelProvider for StopFixture {
+        fn descriptor(&self) -> dolores_core::PluginDescriptor {
+            dolores_core::PluginDescriptor {
+                id: "stop-fixture",
+                kind: "test",
+                api_version: 1,
+            }
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            output: mpsc::Sender<String>,
+            cancel: CancellationToken,
+        ) -> Result<(), String> {
+            output.send("(module".into()).await.unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            cancel.cancel();
+            std::future::pending().await
+        }
+    }
+    #[tokio::test]
+    async fn stop_preserves_received_source_and_unicode_overflow_is_bounded() {
+        let (source, _, notice) = draft(
+            Arc::new(StopFixture),
+            dolores_mod_runtime::BASELINE,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(source, "(module");
+        assert!(notice.unwrap().contains("stopped"));
+        let (source, _, notice) = draft(
+            Arc::new(Fixture {
+                text: "界".repeat(3000),
+                limited: false,
+            }),
+            dolores_mod_runtime::BASELINE,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(source.len(), 8190);
+        assert!(notice.unwrap().contains("8192 bytes"));
     }
 }

@@ -274,6 +274,21 @@ self-evolution from the host check workflow.
 
 ## Milestone 13 — Adapt the executable harness
 
+**Implementation status:** 13.1–13.4 delivered for the selected narrow ABI 1
+recovery-hint envelope. Wasmi runs import-free stateless modules; fixed trials,
+transactional activation, pinned versions, opt-in bounded drafting and themed
+cards, rollback/quarantine and restart recovery are implemented. The integrated
+normal-release corpus passes. A bounded DeepSeek repair passed; Qwen returned
+non-improvement and was withheld. See [runtime contract](design/executable-mods.md)
+and [acceptance](ACCEPTANCE.md) for results and exclusions.
+
+**Qualification status:** broader self-evolution, stateful/general hooks,
+representative low-end resource targets, sustained long-history/catalog pressure,
+physical accessibility/IME and macOS/Linux native execution remain open. Windows
+development-machine checks do not close these gates. Milestone 12's useful
+automatic skill-improvement gate also remains open independently. No private
+Codex runtime or general native self-replacement is part of this implementation.
+
 ### 13.1 Runtime and containment decision
 
 **Scope:** bounded comparisons of capability-limited scripting, restricted Wasm and workers. Measure release/startup/idle/active cost, access boundaries, cancellation, state/API portability and diagnostics; specify actual OS enforcement.

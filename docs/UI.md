@@ -297,3 +297,16 @@ Run history keeps its existing system-themed inspector and scrollable evidence, 
 ## Managed threads
 
 Fork conversation uses a completed-turn chooser with explicit shared-folder disclosure; disable it while running. Session summary keeps its inspector layout and adds the chat-specific automatic compaction switch only when the host advertises support. Progress appears in trajectory and durable run evidence; failures preserve the composer draft and link manual recovery. Scoped guidance displays relative paths and precedence in the existing Instructions review.
+
+## Harness mods
+
+Use the unified Settings entry and existing InspectorFrame surfaces. Display a
+working-folder prerequisite, separate default-off automatic policy, recovery-case
+chooser, literal guidance card, bounded source editor and expandable versions and
+history. Refresh, Draft a repair, Test source and Stop stay in the footer while
+content scrolls. Errors preserve editable source and explain explicit recovery;
+Refresh never replays generation. A separate restore confirmation explains
+quarantine. Latest recovery receipts remain visible even with a full history.
+No arbitrary HTML/Dart, mod-supplied handlers, credential fields or new composer
+controls are contributed by generated mods. Theme and existing interaction
+constraints apply equally to the supported literal card.

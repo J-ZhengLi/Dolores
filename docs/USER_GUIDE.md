@@ -263,3 +263,24 @@ notice. Pause/disable stop new learning without removing history. One matching
 workflow failure can trigger an additional bounded check under the enabled policy;
 only complete independent regression evidence permits automatic restoration.
 Stop, failed storage and restart do not replay an unfinished learning attempt.
+
+## Experimental recovery mods
+
+Open a working chat, then **Settings → Harness mods**. A mod can suggest one of
+Dolores's built-in recovery views for output/context/tool limits, denied access
+or interrupted work. It cannot run an action, change permissions or raise limits.
+Side chats do not have a project mod.
+
+**Test source** runs local fixed checks without a model request. **Draft a repair**
+sends only the current mod source to your selected model, with one bounded
+request. Inspect the retained source, candidate/baseline results and change
+history. A complete strict improvement offers **Activate tested mod**. Automatic
+activation is a separate switch, off by default, for this narrow recovery feature.
+
+Stop and incomplete output preserve received source for editing; complete it and
+test explicitly. Refresh reloads state without resubmitting. A full trial history
+refuses new trials rather than dropping evidence. **Restore baseline…** separately
+confirms restoration and quarantine, and remains available with a full audit.
+Restart reconciles interrupted activation without replaying it. Failed mod health
+restores the retained baseline; ordinary chat remains available. This experimental
+feature has a small tested scope, described in [acceptance](ACCEPTANCE.md).

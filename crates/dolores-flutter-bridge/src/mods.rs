@@ -134,9 +134,6 @@ pub(super) fn restore(
             "Mods changed or activation is pending. Restart/refresh before restore.".into(),
         );
     }
-    if s.events.len() >= 32 {
-        return Err("Mod recovery history is full. Baseline retained.".into());
-    }
     let active = s.active.take().ok_or("No active mod to restore.")?;
     if let Some(old) = &s.previous {
         let v = s
@@ -154,10 +151,13 @@ pub(super) fn restore(
             v.status = "active".into();
         }
     }
-    s.events.push(format!(
+    s.recovery_receipt = format!(
         "Restored baseline; quarantined {}. Task history unchanged.",
         &active[..12]
-    ));
+    );
+    if s.events.len() < 32 {
+        s.events.push(s.recovery_receipt.clone());
+    }
     store.save_mod_state(&root, revision, &s)
 }
 pub(super) fn hint(
@@ -357,6 +357,57 @@ mod tests {
         assert!(recovered.revision > s.revision);
     }
     #[test]
+    fn exhausted_candidates_preserve_active_guidance_and_allow_restore() {
+        let (store, folder) = fixture();
+        let root = folder.path().to_str().unwrap();
+        let token = CancellationToken::new();
+        let mut s = stage(
+            &store,
+            "test",
+            0,
+            ModManifest::default(),
+            dolores_mod_runtime::REPAIRED.into(),
+            "fixture".into(),
+            &token,
+        )
+        .unwrap();
+        let id = s.versions[0].identity.clone();
+        s = activate(&store, "test", s.revision, &id, &token).unwrap();
+        for n in 1..8 {
+            s = stage(
+                &store,
+                "test",
+                s.revision,
+                ModManifest::default(),
+                format!("{BASELINE} ;; rejected attempt {n}"),
+                "fixture".into(),
+                &token,
+            )
+            .unwrap();
+            assert_eq!(s.versions.last().unwrap().status, "rejected");
+        }
+        assert!(stage(
+            &store,
+            "test",
+            s.revision,
+            ModManifest::default(),
+            format!("{BASELINE} ;; ninth attempt"),
+            "fixture".into(),
+            &token
+        )
+        .unwrap_err()
+        .contains("history is full"));
+        assert_eq!(store.mod_state(root).unwrap(), s);
+        assert_eq!(
+            hint(s.active_version(), 1, &token).unwrap()["action"],
+            "continue"
+        );
+        assert!(restore(&store, "test", s.revision)
+            .unwrap()
+            .active
+            .is_none());
+    }
+    #[test]
     fn failed_activation_receipt_keeps_old_pointer_and_recovers() {
         let (store, folder) = fixture();
         let root = folder.path().to_str().unwrap();
@@ -390,5 +441,41 @@ mod tests {
         )
         .unwrap();
         assert_eq!(active.active.as_ref(), Some(&s.versions[0].identity));
+    }
+    #[test]
+    fn exhausted_audit_slots_cannot_block_restore_or_restart_recovery() {
+        let (store, folder) = fixture();
+        let root = folder.path().to_str().unwrap();
+        let token = CancellationToken::new();
+        let s = stage(
+            &store,
+            "test",
+            0,
+            ModManifest::default(),
+            dolores_mod_runtime::REPAIRED.into(),
+            "fixture".into(),
+            &token,
+        )
+        .unwrap();
+        let id = s.versions[0].identity.clone();
+        let mut s = activate(&store, "test", s.revision, &id, &token).unwrap();
+        s.events = vec!["retained evidence".into(); 32];
+        let s = store.save_mod_state(root, s.revision, &s).unwrap();
+        let mut restored = restore(&store, "test", s.revision).unwrap();
+        assert!(restored.active.is_none());
+        assert_eq!(restored.events, s.events);
+        assert!(restored.recovery_receipt.contains("quarantined"));
+        // A restart also has its own receipt even when the audit ceiling is reached.
+        restored.pending = Some(id);
+        store
+            .save_mod_state(root, restored.revision, &restored)
+            .unwrap();
+        store.recover_mod_activations().unwrap();
+        let recovered = store.mod_state(root).unwrap();
+        assert!(recovered.pending.is_none());
+        assert_eq!(recovered.events, s.events);
+        assert!(recovered
+            .recovery_receipt
+            .contains("Interrupted activation"));
     }
 }

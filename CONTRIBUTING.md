@@ -67,4 +67,17 @@ For diagnostics, start `pnpm demo:server`, use the matching `-Smoke`, `-RestartS
 
 After a normal Windows build, `python scripts/test-scoped-settings.py` verifies actual HTTP allowances, scope inheritance, frozen runs and changed-window recovery against an isolated local fixture. It needs no model key and releases the child host before removing its temporary data. This does not replace bounded real-model task checks.
 
+For executable recovery mods, run the following in separate processes after a
+normal Windows build, replacing the example with a new absolute directory under
+the repository's `output/` folder:
+
+```powershell
+python scripts/test-mods.py save --directory D:/path/to/project_dolores/output/mod-check
+python scripts/test-mods.py reopen --directory D:/path/to/project_dolores/output/mod-check
+```
+
+The synthetic local provider needs no key and exercises output/Stop recovery,
+activation, health rollback and durable restart. Never point this fixture at your
+normal data directory. Live model competence is a separate acceptance check.
+
 Measure normal release builds with `scripts/measure-runtime.ps1 -AppProcessId <pid>`, recording hardware, cache state, DPI/window size and startup separately. Shared working-set pages can be counted repeatedly. Keep raw results ignored; publish aggregate observations with their boundary.

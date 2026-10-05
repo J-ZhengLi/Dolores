@@ -35,3 +35,4 @@
 - [Run ownership](design/run-ownership.md), [extension registry](design/extension-registry.md) and [scoped settings](design/scoped-settings.md).
 - [Task feedback](design/task-feedback.md), [comparisons](design/context-comparisons.md) and [regressions](design/regression-runner.md).
 - [Windows portable preview](design/windows-portable.md).
+- [Executable recovery mods](design/executable-mods.md) explains the restricted runtime, fixed tests, activation and rollback boundary.

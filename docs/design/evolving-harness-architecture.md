@@ -4,7 +4,10 @@ Date: 2026-10-04. Status: planning baseline requested by the user; target contra
 
 ## Decision and architectural fit
 
-Retain Flutter for the desktop and Rust for the host/core. Evolve the existing ports and stores incrementally. A rewrite is not required. The present architecture supports persistent preferences, reviewed/versioned skills and compile-time replaceable adapters; it does **not** yet support a self-evolving executable runtime. Being able to edit source files is not equivalent to safely activating a new running implementation.
+Retain Flutter for the desktop and Rust for the host/core. Evolve the existing ports and stores incrementally. A rewrite is not required. At this specification's original baseline, persistent preferences, reviewed/versioned skills and compiled adapters existed, but an executable adaptation runtime did not. Milestones 9–13 have since delivered the narrow [recovery-mod envelope](executable-mods.md); see [current architecture](../ARCHITECTURE.md) and [acceptance](../ACCEPTANCE.md) for implemented behavior and remaining gaps. Being able to edit source files is not equivalent to safely activating a new running implementation.
+
+The following table records the original foundations and refactor plan, not a
+claim that every listed gap is still open.
 
 | Existing foundation | Reuse | Gap to close |
 | --- | --- | --- |

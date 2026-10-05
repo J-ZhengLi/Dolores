@@ -71,6 +71,9 @@ pub struct ModState {
     pub draft: String,
     #[serde(default)]
     pub draft_notice: String,
+    /// Reserved recovery receipt: recovery must not depend on free audit slots.
+    #[serde(default)]
+    pub recovery_receipt: String,
 }
 impl ModState {
     pub fn active_version(&self) -> Option<&ModVersion> {
@@ -81,6 +84,7 @@ impl ModState {
     pub fn validate(&self) -> Result<(), String> {
         if self.draft.len() > 8192
             || self.draft_notice.len() > 1024
+            || self.recovery_receipt.len() > 1024
             || self.versions.len() > 8
             || self.events.len() > 32
             || self.events.iter().any(|s| s.len() > 512)
