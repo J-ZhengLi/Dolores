@@ -10,6 +10,7 @@ class MessageFrame extends StatefulWidget {
   final int? savedAt;
   final bool streaming;
   final Widget child;
+  final VoidCallback? onRemember;
 
   const MessageFrame({
     super.key,
@@ -18,6 +19,7 @@ class MessageFrame extends StatefulWidget {
     required this.child,
     this.savedAt,
     this.streaming = false,
+    this.onRemember,
   });
 
   @override
@@ -95,6 +97,17 @@ class _MessageFrameState extends State<MessageFrame> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              if (widget.onRemember != null)
+                                IconButton(
+                                  tooltip: 'Remember this',
+                                  iconSize: 15,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: widget.onRemember,
+                                  icon: Icon(
+                                    Icons.bookmark_add_outlined,
+                                    color: p.muted,
+                                  ),
+                                ),
                               if (time != null)
                                 Flexible(
                                   child: Tooltip(

@@ -420,6 +420,14 @@ enum Command {
         #[serde(default)]
         scope: dolores_core::SkillScope,
     },
+    ReviewSkillText {
+        #[serde(default)]
+        session: String,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
+        name: String,
+        text: String,
+    },
     ActivateSkill {
         session: String,
         token: String,
@@ -1042,6 +1050,12 @@ impl Engine {
             Command::DiscardSkillDraft { token } => self.discard_skill_draft(&token),
             Command::ReviewSummary { session } => self.review_summary(&session),
             Command::ProjectSkills { session, scope } => self.scoped_skills(&session, scope),
+            Command::ReviewSkillText {
+                session,
+                scope,
+                name,
+                text,
+            } => self.review_skill_text(&session, scope, &name, text),
             Command::ReviewSkill {
                 session,
                 name,

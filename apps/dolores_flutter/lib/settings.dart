@@ -1,3 +1,4 @@
+import 'learning.dart';
 import 'tools_home.dart';
 
 import 'package:flutter/material.dart';
@@ -28,6 +29,8 @@ enum SettingsCategory {
   desktop,
   tools,
   skills,
+  skillTesting,
+  skillLearning,
   mods,
   permissions,
   limits,
@@ -83,7 +86,9 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
       SettingsCategory.personalization => SettingsSection.personalization,
       SettingsCategory.memory => SettingsSection.memory,
       SettingsCategory.mods ||
-      SettingsCategory.limits => SettingsSection.advanced,
+      SettingsCategory.limits ||
+      SettingsCategory.skillTesting ||
+      SettingsCategory.skillLearning => SettingsSection.advanced,
       _ => SettingsSection.tools,
     };
 
@@ -181,6 +186,18 @@ class _SettingsWindowState extends State<SettingsWindow> {
       SettingsCategory.skills,
       ModelsPage.connection,
       'global project import create draft',
+    ),
+    (
+      'Skill testing',
+      SettingsCategory.skillTesting,
+      ModelsPage.connection,
+      'tool trials baseline candidate evaluation',
+    ),
+    (
+      'Learning experiments',
+      SettingsCategory.skillLearning,
+      ModelsPage.connection,
+      'reflection activation policy pause suggestions',
     ),
     (
       'Access',
@@ -287,15 +304,11 @@ class _SettingsWindowState extends State<SettingsWindow> {
             )
           : ModsInspector(chat: widget.chat),
     SettingsCategory.skills =>
-      widget.chat.session == null
-          ? unavailable(
-              'Select a saved chat to manage global and project skills.',
-            )
-          : widget.chat.busy
-          ? unavailable(
-              'Finish or stop the current response before editing skills.',
-            )
+      widget.chat.busy
+          ? unavailable('Stop the current response before editing skills.')
           : SkillSettings(chat: widget.chat),
+    SettingsCategory.skillTesting => ToolTrialsInspector(chat: widget.chat),
+    SettingsCategory.skillLearning => LearningInspector(chat: widget.chat),
     SettingsCategory.appearance => AppearanceSettings(chat: widget.chat),
     SettingsCategory.models => switch (modelPage) {
       ModelsPage.connection => ModelsSettings(chat: widget.chat),

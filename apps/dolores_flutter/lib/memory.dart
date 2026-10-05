@@ -1,3 +1,5 @@
+import 'settings_frame.dart';
+
 import 'dart:convert';
 import 'dart:async';
 
@@ -21,13 +23,20 @@ Future<void> showMemory(BuildContext context, ChatController chat) =>
 
 class MemoryInspector extends StatefulWidget {
   final ChatBridge bridge;
-  final String? session;
-  const MemoryInspector({super.key, required this.bridge, this.session});
+  final String? session, initialText;
+  const MemoryInspector({
+    super.key,
+    required this.bridge,
+    this.session,
+    this.initialText,
+  });
   @override
   State<MemoryInspector> createState() => _MemoryInspectorState();
 }
 
 class _MemoryInspectorState extends State<MemoryInspector> {
+  String? baseline;
+  String get draft => jsonEncode([title.text, text.text, scope, enabled]);
   final title = TextEditingController(), text = TextEditingController();
   List<Map<String, dynamic>> items = [];
   Map<String, dynamic>? editing;
@@ -47,7 +56,14 @@ class _MemoryInspectorState extends State<MemoryInspector> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    _refresh().then((_) {
+      if (mounted && widget.initialText != null) {
+        _edit();
+        text.text = widget.initialText!;
+        title.text = 'Remembered preference';
+        baseline = '';
+      }
+    });
   }
 
   @override
@@ -102,7 +118,35 @@ class _MemoryInspectorState extends State<MemoryInspector> {
     });
   }
 
-  Future<void> _refresh() => _act(_load);
+  Future<void> _refresh() => _act(() async {
+    await _load();
+    if (editing != null && mounted) {
+      final current = items.where((i) => i['id'] == editing!['id']);
+      if (current.isNotEmpty) {
+        setState(() => editing = current.first);
+      } else {
+        throw const FormatException(
+          'This preference was removed. Copy your edits, then create a new preference.',
+        );
+      }
+    }
+  });
+  Future<void> _close() async {
+    if (busy) return;
+    if (form &&
+        baseline != draft &&
+        !await resolveSettingsDraft(
+          context,
+          save: () async {
+            await _save();
+            return !form;
+          },
+        )) {
+      return;
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
   Future<void> _setAutomatic(bool value) => _act(() async {
     await _call('setAutomaticMemory', {
       'enabled': value,
@@ -123,6 +167,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       error = null;
       notice = null;
     });
+    baseline = draft;
   }
 
   void _cancel() {
@@ -175,7 +220,13 @@ class _MemoryInspectorState extends State<MemoryInspector> {
             'Preference saved${enabled ? ' and enabled for new messages' : ''}.';
       });
     }
-    await _load();
+    try {
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = 'Preference saved. Refresh to update the list.');
+      }
+    }
   });
 
   Future<void> _loadSources({bool keepSelection = false}) async {
@@ -372,12 +423,24 @@ class _MemoryInspectorState extends State<MemoryInspector> {
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
+    reportSettingsDraft(
+      context,
+      dirty: () => form && baseline != draft,
+      save: () async {
+        await _save();
+        return !form;
+      },
+    );
     return PopScope(
-      canPop: !busy,
+      canPop: !busy && !(form && baseline != draft),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && SettingsEmbedding.of(context) == null) _close();
+      },
       child: InspectorFrame(
         title: 'Memory',
         subtitle: 'How Dolores remembers your preferences',
         canClose: !busy,
+        onClose: _close,
         child: Column(
           children: [
             if (busy) const LinearProgressIndicator(minHeight: 2),
@@ -389,9 +452,14 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                     'Saved preferences are shared with the model when enabled. Keep credentials and other secrets out of Memory.',
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Delete or disable preferences to stop using them in new messages. Editing or disabling a learned preference protects it from automatic replacement; past replies keep their original context.',
-                    style: TextStyle(color: p.muted, fontSize: 12),
+                  ExpansionTile(
+                    title: const Text('Memory details'),
+                    children: [
+                      Text(
+                        'Delete or disable preferences to stop using them in new messages. Editing or disabling a learned preference protects it from automatic replacement; past replies keep their original context.',
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
+                    ],
                   ),
                   if (automaticPolicy != null && !form && !sourceMode) ...[
                     SwitchListTile(
@@ -401,12 +469,17 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                       value: automaticPolicy!['enabled'] == true,
                       onChanged: busy ? null : _setAutomatic,
                       subtitle: const Text(
-                        'After a saved reply, learn explicit work or response preferences from your message. Working chats use this folder; side chats use All chats. Turn off to use manual review only.',
+                        'May send your explicit preferences in one small extra model request.',
                       ),
                     ),
-                    Text(
-                      'Eligible messages may use one extra model request, up to 10 seconds and 512 output tokens. No files, tools or assistant replies are used. Quoted text and common sensitive patterns are skipped; this is a conservative filter, not a complete classifier.',
-                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ExpansionTile(
+                      title: const Text('Learning details'),
+                      children: [
+                        Text(
+                          'Eligible messages may use one extra model request, up to 10 seconds and 512 output tokens. No files, tools or assistant replies are used. Quoted text and common sensitive patterns are skipped; this is a conservative filter, not a complete classifier.',
+                          style: TextStyle(color: p.muted, fontSize: 12),
+                        ),
+                      ],
                     ),
                     if (automaticAttempt != null)
                       ExpansionTile(

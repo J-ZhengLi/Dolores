@@ -1,4 +1,5 @@
 import 'access_selector.dart';
+import 'memory.dart';
 
 import 'dart:async';
 
@@ -250,6 +251,21 @@ class _ChatPageState extends State<ChatPage> {
       text: text,
       streaming: streaming,
       savedAt: savedAt,
+      onRemember:
+          user && !streaming && text.isNotEmpty && !chat.busy && !chat.changing
+          ? () async {
+              await showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => MemoryInspector(
+                  bridge: chat.bridge,
+                  session: chat.session,
+                  initialText: text,
+                ),
+              );
+              chat.invalidateContext();
+            }
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

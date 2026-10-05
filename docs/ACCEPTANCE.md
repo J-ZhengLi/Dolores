@@ -1729,3 +1729,9 @@ hit the bounded response deadline; DeepSeek live handoff paused at outputLimit
 before sharing any window. These are failures, not model-reliability passes.
 Native General settings/theme previews visually inspected in the normal app;
 System uses a single continuous scene. No user configuration was saved during it.
+
+### 15.6 Memory and skills — implemented
+
+Memory uses My preferences / Project facts, short sharing controls and expandable learning details. Remember this opens an editable preference from your own message; nothing is saved implicitly. Drafts survive failed saves and stale revisions; Refresh keeps edits and refreshes the expected revision. Closing an edited preference offers Save/Discard/Keep editing. Global skills work without a saved chat. Import and Create produce exact host-validated reviews before separate activation, with single-use tokens and stale-state checks. Trials and learning experiments are under Advanced; their policies and evaluation criteria are unchanged.
+
+Exercised: 41 focused Flutter tests passed, including malformed/stale skill drafts retaining text and discard cancellation; Rust no-chat global import, malformed/oversized input, explicit activation and concurrent revision refusal passed, with Clippy clean. Normal Windows release built and launched visibly. Provider/history preservation check: all 37 tables unchanged. Bounded configured DeepSeek V4.1 Flash draft PASS (4096 tokens / 90 seconds, no activation). Qwen3.5-2B memory FAIL: ordinary reply saved, extraction used 61 output tokens but produced no verified preference; no retry or memory write. This remains a model acceptance gap, not an output-limit diagnosis.

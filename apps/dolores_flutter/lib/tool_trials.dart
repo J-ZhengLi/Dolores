@@ -5,101 +5,16 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
-import 'settings_frame.dart';
 import 'skills.dart';
-import 'learning.dart';
 
-class SkillSettings extends StatefulWidget {
+class SkillSettings extends StatelessWidget {
   final ChatController chat;
   const SkillSettings({super.key, required this.chat});
   @override
-  State<SkillSettings> createState() => _SkillSettingsState();
-}
-
-class _SkillSettingsState extends State<SkillSettings> {
-  int index = 0;
-  final panels = <int, Widget>{};
-  final locks = [
-    ValueNotifier(false),
-    ValueNotifier(false),
-    ValueNotifier(false),
-  ];
-  ValueNotifier<bool>? outer;
-  bool get pending => locks.any((l) => l.value);
-  void changed() {
-    outer?.value = pending;
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    for (final l in locks) {
-      l.addListener(changed);
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    outer = SettingsEmbedding.of(context)?.pending;
-  }
-
-  @override
-  void dispose() {
-    for (final l in locks) {
-      l.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 8,
-          children: [
-            for (var i = 0; i < 3; i++)
-              ChoiceChip(
-                label: Text(['Library', 'Tool trials', 'Learning'][i]),
-                selected: index == i,
-                onSelected: pending ? null : (_) => setState(() => index = i),
-              ),
-          ],
-        ),
-      ),
-      Expanded(
-        child: Builder(
-          builder: (context) {
-            panels.putIfAbsent(
-              index,
-              () => SettingsEmbedding(
-                pending: locks[index],
-                route: ModalRoute.of(context),
-                child: index == 0
-                    ? SkillsInspector(
-                        bridge: widget.chat.bridge,
-                        session: widget.chat.session!,
-                        hasProject: widget.chat.workspaceRoot != null,
-                      )
-                    : index == 1
-                    ? ToolTrialsInspector(chat: widget.chat)
-                    : LearningInspector(chat: widget.chat),
-              ),
-            );
-            return IndexedStack(
-              index: index,
-              children: [
-                for (var i = 0; i < 3; i++)
-                  panels[i] ?? const SizedBox.shrink(),
-              ],
-            );
-          },
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => SkillsInspector(
+    bridge: chat.bridge,
+    session: chat.session ?? '',
+    hasProject: chat.workspaceRoot != null,
   );
 }
 

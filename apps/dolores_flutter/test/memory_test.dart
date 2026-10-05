@@ -246,6 +246,9 @@ void main() {
       await tester.tap(find.byKey(const Key('delete-memory-manual')));
       await tester.pumpAndSettle();
       expect(bridge.items, isEmpty);
+      await tester.ensureVisible(find.text('Memory details'));
+      await tester.tap(find.text('Memory details'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('past replies'), findsWidgets);
       expect(tester.takeException(), isNull);
     },

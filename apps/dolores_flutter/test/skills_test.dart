@@ -336,13 +336,13 @@ void main() {
   ) async {
     final bridge = ScopedSkillBridge();
     await open(tester, bridge, true);
-    await tester.tap(find.text('Global'));
+    await tester.tap(find.text('All projects'));
     await tester.pumpAndSettle();
     await press(tester, 'review-skill-review');
     await press(tester, 'activate-skill');
     expect(bridge.global.enabled, isTrue);
     expect(bridge.project.enabled, isFalse);
-    await tester.tap(find.text('Project'));
+    await tester.tap(find.text('This project'));
     await tester.pumpAndSettle();
     await press(tester, 'review-skill-review');
     await press(tester, 'activate-skill');

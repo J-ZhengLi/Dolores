@@ -22,12 +22,14 @@ class InspectorFrame extends StatelessWidget {
   final String title, subtitle;
   final Widget child;
   final bool canClose;
+  final VoidCallback? onClose;
   const InspectorFrame({
     super.key,
     required this.title,
     required this.subtitle,
     required this.child,
     this.canClose = true,
+    this.onClose,
   });
 
   @override
@@ -73,7 +75,9 @@ class InspectorFrame extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: canClose ? () => Navigator.pop(context) : null,
+                    onPressed: canClose
+                        ? onClose ?? () => Navigator.pop(context)
+                        : null,
                     child: const Text('Close'),
                   ),
                 ],

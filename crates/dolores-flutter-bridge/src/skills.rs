@@ -16,6 +16,7 @@ pub(super) struct SkillReview {
     document: SkillDocument,
     saved: Option<ProjectSkill>,
     rollback: Option<u32>,
+    imported: bool,
     created: Instant,
 }
 pub(super) fn for_session(
@@ -37,10 +38,44 @@ fn read_document(root: &str, name: &str, scope: SkillScope) -> Result<SkillDocum
     }
 }
 impl Engine {
+    pub(super) fn review_skill_text(
+        &self,
+        session: &str,
+        scope: SkillScope,
+        name: &str,
+        text: String,
+    ) -> Result<Value, String> {
+        // Read no imported paths, execute no metadata and activate nothing here.
+        let document = dolores_tools_fs::parse_skill_document(name, text)?;
+        let root = self.skill_root(session, scope)?;
+        let saved = self
+            .saved_skills(&root, scope)?
+            .into_iter()
+            .find(|s| s.name == name);
+        let token = uuid::Uuid::new_v4().to_string();
+        let response = json!({"scope":scope,"token":token,"document":document,"enabled":saved.as_ref().is_some_and(|s|s.enabled),"revision":saved.as_ref().map(|s|s.revision),"versions":[],"reviewVersion":null,"alreadyActive":saved.as_ref().is_some_and(|s|s.enabled && s.current().document==document),"sourceMatches":false,"imported":true});
+        *self
+            .skill_review
+            .lock()
+            .map_err(|_| "Skills are unavailable.")? = Some(SkillReview {
+            token,
+            session: session.into(),
+            root,
+            scope,
+            target: None,
+            document,
+            saved,
+            rollback: None,
+            imported: true,
+            created: Instant::now(),
+        });
+        Ok(response)
+    }
     fn skill_root(&self, session: &str, scope: SkillScope) -> Result<String, String> {
-        let workspace = self.store.workspace(session)?;
         match scope {
-            SkillScope::Project => workspace
+            SkillScope::Project => self
+                .store
+                .workspace(session)?
                 .root
                 .ok_or("Side chats do not use project skills.".into()),
             SkillScope::Global => self
@@ -73,11 +108,14 @@ impl Engine {
             SkillScope::Global => dolores_tools_fs::global_skill_catalog(Path::new(&root)),
         };
         let project_names: BTreeSet<_> = if scope == SkillScope::Global {
-            for_session(self.store.as_ref(), Some(session))?
-                .into_iter()
-                .filter(|s| s.scope == SkillScope::Project && s.enabled)
-                .map(|s| s.name)
-                .collect()
+            for_session(
+                self.store.as_ref(),
+                (!session.is_empty()).then_some(session),
+            )?
+            .into_iter()
+            .filter(|s| s.scope == SkillScope::Project && s.enabled)
+            .map(|s| s.name)
+            .collect()
         } else {
             BTreeSet::new()
         };
@@ -164,6 +202,7 @@ impl Engine {
             document,
             saved,
             rollback: version,
+            imported: false,
             created: Instant::now(),
         });
         Ok(response)
@@ -189,7 +228,8 @@ impl Engine {
         if saved != review.saved {
             return Err("Skill changed after review. Refresh Skills.".into());
         }
-        if review.rollback.is_none()
+        if !review.imported
+            && review.rollback.is_none()
             && (read_document(&review.root, &review.document.name, review.scope)?
                 != review.document
                 || (review.scope == SkillScope::Global
@@ -308,6 +348,53 @@ mod tests {
     use dolores_core::{SessionWorkspace, WorkspaceKind};
     use dolores_store_sqlite::SqliteStore;
     use std::sync::Arc;
+    #[test]
+    fn imported_global_skill_without_chat_requires_review_and_refuses_stale_activation() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Arc::new(SqliteStore::open(&temp.path().join("state.db")).unwrap());
+        let mut engine = Engine::new(
+            store.clone(),
+            Arc::new(crate::connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        engine.global_skills_directory = Some(temp.path().join("global-skills"));
+        assert!(
+            engine.scoped_skills("", SkillScope::Global).unwrap()["items"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(engine.scoped_skills("", SkillScope::Project).is_err());
+        for text in ["broken".into(), "x".repeat(8193)] {
+            assert!(engine
+                .review_skill_text("", SkillScope::Global, "review", text)
+                .is_err());
+        }
+        let text = "---\nname: review\ndescription: Review code\n---\nCheck changed behavior.";
+        let review = engine
+            .review_skill_text("", SkillScope::Global, "review", text.into())
+            .unwrap();
+        assert!(store.global_skills().unwrap().is_empty());
+        engine
+            .activate_skill("", review["token"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(
+            store.global_skills().unwrap()[0].current().document.text,
+            text
+        );
+        assert!(engine
+            .activate_skill("", review["token"].as_str().unwrap())
+            .is_err());
+        let next = engine
+            .review_skill_text("", SkillScope::Global, "review", text.into())
+            .unwrap();
+        store.disable_global_skill("review", 1).unwrap();
+        assert!(engine
+            .activate_skill("", next["token"].as_str().unwrap())
+            .is_err());
+        assert!(!store.global_skills().unwrap()[0].enabled);
+        assert!(store.sessions_page(None, false, 50).unwrap().items.is_empty());
+    }
     #[test]
     fn skill_export_binds_exact_retained_review_and_preserves_activation_in_both_scopes() {
         let temp = tempfile::tempdir().unwrap();

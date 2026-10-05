@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -16,6 +18,7 @@ class _MemorySettingsState extends State<MemorySettings> {
   bool project = false;
   final locks = [ValueNotifier(false), ValueNotifier(false)];
   final panels = <int, Widget>{};
+  final drafts = [SettingsDraft(), SettingsDraft()];
   ValueNotifier<bool>? outer;
   bool get busy => locks.any((l) => l.value);
   @override
@@ -46,55 +49,70 @@ class _MemorySettingsState extends State<MemorySettings> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 8,
-          children: [
-            ChoiceChip(
-              label: const Text('Preferences'),
-              selected: !project,
-              onSelected: busy ? null : (_) => setState(() => project = false),
-            ),
-            ChoiceChip(
-              label: const Text('Project knowledge'),
-              selected: project,
-              onSelected: busy ? null : (_) => setState(() => project = true),
-            ),
-          ],
-        ),
-      ),
-      Expanded(
-        child: Builder(
-          builder: (context) {
-            final index = project ? 1 : 0;
-            panels.putIfAbsent(
-              index,
-              () => SettingsEmbedding(
-                pending: locks[index],
-                route: ModalRoute.of(context),
-                child: index == 1
-                    ? KnowledgeInspector(chat: widget.chat)
-                    : MemoryInspector(
-                        bridge: widget.chat.bridge,
-                        session: widget.chat.session,
-                      ),
+  Widget build(BuildContext context) {
+    reportSettingsDraft(
+      context,
+      dirty: () => drafts.any((d) => d.dirty),
+      save: () async {
+        for (final d in drafts) {
+          if (d.dirty && !await d.save!()) return false;
+        }
+        return true;
+      },
+    );
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('My preferences'),
+                selected: !project,
+                onSelected: busy
+                    ? null
+                    : (_) => setState(() => project = false),
               ),
-            );
-            return IndexedStack(
-              index: index,
-              children: [
-                for (var i = 0; i < 2; i++)
-                  panels[i] ?? const SizedBox.shrink(),
-              ],
-            );
-          },
+              ChoiceChip(
+                label: const Text('Project facts'),
+                selected: project,
+                onSelected: busy ? null : (_) => setState(() => project = true),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+        Expanded(
+          child: Builder(
+            builder: (context) {
+              final index = project ? 1 : 0;
+              panels.putIfAbsent(
+                index,
+                () => SettingsEmbedding(
+                  draft: drafts[index],
+                  pending: locks[index],
+                  route: ModalRoute.of(context),
+                  child: index == 1
+                      ? KnowledgeInspector(chat: widget.chat)
+                      : MemoryInspector(
+                          bridge: widget.chat.bridge,
+                          session: widget.chat.session,
+                        ),
+                ),
+              );
+              return IndexedStack(
+                index: index,
+                children: [
+                  for (var i = 0; i < 2; i++)
+                    panels[i] ?? const SizedBox.shrink(),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class KnowledgeInspector extends StatefulWidget {
@@ -105,6 +123,23 @@ class KnowledgeInspector extends StatefulWidget {
 }
 
 class _KnowledgeState extends State<KnowledgeInspector> {
+  String? baseline;
+  String get draft =>
+      jsonEncode([title.text, text.text, kind, enabled, inferred]);
+  Future<bool> saveFact() async {
+    await action('saveKnowledgeFact', {
+      'revision': report!['revision'],
+      'id': editing?['id'],
+      'title': title.text,
+      'text': text.text,
+      'kind': kind,
+      'enabled': enabled,
+      'inferred': inferred,
+    });
+    if (mounted && error == null) setState(() => form = false);
+    return !form;
+  }
+
   Map? report, editing;
   bool pending = false, form = false, enabled = true, inferred = false;
   String kind = 'convention';
@@ -164,177 +199,188 @@ class _KnowledgeState extends State<KnowledgeInspector> {
       enabled = fact?['enabled'] ?? true;
       inferred = fact?['basis'] == 'inferred';
     });
+    baseline = draft;
   }
 
   @override
-  Widget build(BuildContext context) => InspectorFrame(
-    title: 'Project knowledge',
-    subtitle: 'This working folder · evidence and corrections',
-    canClose: !pending,
-    child: Column(
-      children: [
-        if (pending) const LinearProgressIndicator(minHeight: 2),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              if (!available)
-                const Text(
-                  'Open a project or temporary working chat to keep scoped knowledge. Side chats use Preferences.',
-                ),
-              if (error != null) SelectableText(error!),
-              if (report != null) ...[
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Learn from approved task evidence'),
-                  subtitle: const Text(
-                    'Reuse at most two brief observations after a saved reply. Current facts enter future model context. No extra model request for receipt learning.',
+  Widget build(BuildContext context) {
+    reportSettingsDraft(
+      context,
+      dirty: () => form && baseline != draft,
+      save: saveFact,
+    );
+    return InspectorFrame(
+      title: 'Project facts',
+      subtitle: 'This working folder · evidence and corrections',
+      canClose: !pending,
+      child: Column(
+        children: [
+          if (pending) const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                if (!available)
+                  const Text(
+                    'Project facts belong to a working folder. Side chats use My preferences.',
                   ),
-                  value: report!['learning'] == true,
-                  onChanged: pending
-                      ? null
-                      : (v) => action('setKnowledgePolicy', {
-                          'revision': report!['revision'],
-                          'learning': v,
-                          'share_feedback': report!['shareFeedback'],
-                        }),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Allow feedback notes for learning'),
-                  subtitle: const Text(
-                    'Separate opt-in: eligible local Worked / Needs work notes may be sent to your configured provider during reflection. Does not enable reflection by itself.',
+                if (!available && widget.chat.workspaceKind != 'side')
+                  TextButton.icon(
+                    icon: const Icon(Icons.create_new_folder_outlined),
+                    label: const Text('Start working session'),
+                    onPressed: pending ? null : () async {
+                      try {
+                        await widget.chat.prepareWindowSharing();
+                        if (mounted && available) await load();
+                      } catch (e) {
+                        if (mounted) setState(() => error = '$e');
+                      }
+                    },
                   ),
-                  value: report!['shareFeedback'] == true,
-                  onChanged: pending
-                      ? null
-                      : (v) => action('setKnowledgePolicy', {
-                          'revision': report!['revision'],
-                          'learning': report!['learning'],
-                          'share_feedback': v,
-                        }),
+                if (error != null) SelectableText(error!),
+                if (report != null) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Learn from approved task evidence'),
+                    subtitle: const Text(
+                      'Reuse brief verified observations in this project.',
+                    ),
+                    value: report!['learning'] == true,
+                    onChanged: pending
+                        ? null
+                        : (v) => action('setKnowledgePolicy', {
+                            'revision': report!['revision'],
+                            'learning': v,
+                            'share_feedback': report!['shareFeedback'],
+                          }),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Allow feedback notes for learning'),
+                    subtitle: const Text(
+                      'Send eligible feedback notes to your model during reflection. Reflection stays a separate choice.',
+                    ),
+                    value: report!['shareFeedback'] == true,
+                    onChanged: pending
+                        ? null
+                        : (v) => action('setKnowledgePolicy', {
+                            'revision': report!['revision'],
+                            'learning': report!['learning'],
+                            'share_feedback': v,
+                          }),
+                  ),
+                  ExpansionTile(
+                    title: const Text('Learning details'),
+                    children: [
+                      const Text(
+                        'File observations become stale when their source changes. Other observations expire after seven days. A declared script is not a tested command. Corrections are protected; knowledge never grants tool access.',
+                      ),
+                    ],
+                  ),
+                  if ('${report!['notice'] ?? ''}'.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: SelectableText('${report!['notice']}'),
+                    ),
+                  if (form) ...[
+                    TextField(
+                      controller: title,
+                      enabled: !pending,
+                      decoration: const InputDecoration(labelText: 'Title'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: text,
+                      enabled: !pending,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Fact or correction (512 bytes maximum)',
+                      ),
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: kind,
+                      isExpanded: true,
+                      items: [
+                        for (final k in ['command', 'structure', 'convention'])
+                          DropdownMenuItem(value: k, child: Text(k)),
+                      ],
+                      onChanged: pending
+                          ? null
+                          : (v) => setState(() => kind = v!),
+                    ),
+                    CheckboxListTile(
+                      title: const Text(
+                        'Inference — verify before relying on it',
+                      ),
+                      value: inferred,
+                      onChanged: pending
+                          ? null
+                          : (v) => setState(() => inferred = v!),
+                    ),
+                    CheckboxListTile(
+                      title: const Text('Include in future context'),
+                      value: enabled,
+                      onChanged: pending
+                          ? null
+                          : (v) => setState(() => enabled = v!),
+                    ),
+                  ] else
+                    for (final fact in report!['facts'] as List) ...[
+                      const Divider(),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('${fact['title']}'),
+                        subtitle: Text(
+                          '${fact['basis']} · ${fact['fresh'] == true ? 'Current' : 'Stale — excluded'} · ${fact['enabled'] == true ? 'Enabled' : 'Disabled'}${fact['protected'] == true ? ' · Protected correction' : ''}',
+                        ),
+                        trailing: TextButton(
+                          onPressed: pending ? null : () => edit(fact as Map),
+                          child: const Text('Edit'),
+                        ),
+                      ),
+                      SelectableText('${fact['text']}'),
+                      if (fact['source'] != null)
+                        ExpansionTile(
+                          title: const Text('Source evidence'),
+                          children: [SelectableText('${fact['source']}')],
+                        ),
+                    ],
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: pending || !available ? null : load,
+                  child: const Text('Refresh'),
                 ),
-                const Text(
-                  'File observations become stale when their source changes. Other observations expire after seven days. A declared script is not a tested command. Corrections are protected; knowledge never grants tool access.',
-                ),
-                if ('${report!['notice'] ?? ''}'.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: SelectableText('${report!['notice']}'),
+                if (report != null && !form)
+                  TextButton(
+                    onPressed: pending ? null : () => edit(null),
+                    child: const Text('New fact'),
                   ),
                 if (form) ...[
-                  TextField(
-                    controller: title,
-                    enabled: !pending,
-                    decoration: const InputDecoration(labelText: 'Title'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: text,
-                    enabled: !pending,
-                    minLines: 2,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Fact or correction (512 bytes maximum)',
-                    ),
-                  ),
-                  DropdownButtonFormField<String>(
-                    initialValue: kind,
-                    isExpanded: true,
-                    items: [
-                      for (final k in ['command', 'structure', 'convention'])
-                        DropdownMenuItem(value: k, child: Text(k)),
-                    ],
-                    onChanged: pending
+                  TextButton(
+                    onPressed: pending
                         ? null
-                        : (v) => setState(() => kind = v!),
+                        : () => setState(() => form = false),
+                    child: const Text('Cancel'),
                   ),
-                  CheckboxListTile(
-                    title: const Text(
-                      'Inference — verify before relying on it',
-                    ),
-                    value: inferred,
-                    onChanged: pending
-                        ? null
-                        : (v) => setState(() => inferred = v!),
+                  FilledButton(
+                    onPressed: pending ? null : saveFact,
+                    child: const Text('Save correction'),
                   ),
-                  CheckboxListTile(
-                    title: const Text('Include in future context'),
-                    value: enabled,
-                    onChanged: pending
-                        ? null
-                        : (v) => setState(() => enabled = v!),
-                  ),
-                ] else
-                  for (final fact in report!['facts'] as List) ...[
-                    const Divider(),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${fact['title']}'),
-                      subtitle: Text(
-                        '${fact['basis']} · ${fact['fresh'] == true ? 'Current' : 'Stale — excluded'} · ${fact['enabled'] == true ? 'Enabled' : 'Disabled'}${fact['protected'] == true ? ' · Protected correction' : ''}',
-                      ),
-                      trailing: TextButton(
-                        onPressed: pending ? null : () => edit(fact as Map),
-                        child: const Text('Edit'),
-                      ),
-                    ),
-                    SelectableText('${fact['text']}'),
-                    if (fact['source'] != null)
-                      ExpansionTile(
-                        title: const Text('Source evidence'),
-                        children: [SelectableText('${fact['source']}')],
-                      ),
-                  ],
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Wrap(
-            spacing: 8,
-            children: [
-              TextButton(
-                onPressed: pending || !available ? null : load,
-                child: const Text('Refresh'),
-              ),
-              if (report != null && !form)
-                TextButton(
-                  onPressed: pending ? null : () => edit(null),
-                  child: const Text('New fact'),
-                ),
-              if (form) ...[
-                TextButton(
-                  onPressed: pending
-                      ? null
-                      : () => setState(() => form = false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: pending
-                      ? null
-                      : () async {
-                          await action('saveKnowledgeFact', {
-                            'revision': report!['revision'],
-                            'id': editing?['id'],
-                            'title': title.text,
-                            'text': text.text,
-                            'kind': kind,
-                            'enabled': enabled,
-                            'inferred': inferred,
-                          });
-                          if (mounted && error == null) {
-                            setState(() => form = false);
-                          }
-                        },
-                  child: const Text('Save correction'),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

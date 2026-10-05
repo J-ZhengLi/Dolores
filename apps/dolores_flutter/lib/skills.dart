@@ -1,3 +1,5 @@
+import 'skill_create.dart';
+
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 
@@ -34,7 +36,7 @@ class SkillsInspector extends StatefulWidget {
   const SkillsInspector({
     super.key,
     required this.bridge,
-    required this.session,
+    this.session = '',
     this.hasProject = true,
     this.chooseExportPath,
   });
@@ -98,6 +100,21 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   }
 
   Future<void> _list() => _act(_loadList);
+  Future<void> _create(bool importing) => _act(() async {
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SkillCreateDialog(
+        bridge: widget.bridge,
+        session: widget.session,
+        scope: scope,
+        importing: importing,
+      ),
+    );
+    if (!mounted) return;
+    if (saved == true) notice = 'Skill activated for future messages.';
+    await _loadList();
+  });
   Future<void> _draft() => _act(() async {
     final promoted = await showDialog<bool>(
       context: context,
@@ -208,9 +225,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
       canPop: !busy,
       child: InspectorFrame(
         title: 'Skills',
-        subtitle: scope == 'global'
-            ? '~/.agents/skills · shared across all chats'
-            : '.agents/skills · this working folder',
+        subtitle: scope == 'global' ? 'All projects' : 'This project',
         canClose: !busy,
         child: Column(
           children: [
@@ -221,10 +236,13 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                 segments: [
                   ButtonSegment(
                     value: 'project',
-                    label: const Text('Project'),
+                    label: const Text('This project'),
                     enabled: widget.hasProject,
                   ),
-                  const ButtonSegment(value: 'global', label: Text('Global')),
+                  const ButtonSegment(
+                    value: 'global',
+                    label: Text('All projects'),
+                  ),
                 ],
                 selected: {scope},
                 onSelectionChanged: busy
@@ -250,7 +268,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     const SizedBox(height: 12),
                   ],
                   Text(
-                    'Choose a skill, review its text, then activate it ${scope == 'global' ? 'for all chats, including side chats' : 'for chats in this folder'}. Activation shares the text with your model and saves it locally. Each tool still needs your approval.',
+                    'Review instructions before activation. Tools keep their existing access rules.',
                   ),
                   const SizedBox(height: 8),
                   ExpansionTile(
@@ -365,8 +383,8 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     if (items.isEmpty && !busy) ...[
                       Text('No $scope skills yet.'),
                       const SizedBox(height: 8),
-                      SelectableText(
-                        'Add ${scope == 'global' ? '~/' : ''}.agents/skills/<skill-name>/SKILL.md ${scope == 'global' ? 'under your home directory' : 'in this folder'}, then Refresh. Use YAML name and description, followed by Markdown instructions.',
+                      const Text(
+                        'Import a skill, create one, or draft it from a completed chat.',
                       ),
                     ],
                     for (final item in items)
@@ -443,7 +461,21 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (review == null)
+                  if (review == null) ...[
+                    TextButton.icon(
+                      key: const Key('import-skill'),
+                      onPressed: busy ? null : () => _create(true),
+                      icon: const Icon(Icons.file_download_outlined),
+                      label: const Text('Import'),
+                    ),
+                    TextButton.icon(
+                      key: const Key('create-skill'),
+                      onPressed: busy ? null : () => _create(false),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create'),
+                    ),
+                  ],
+                  if (review == null && widget.session.isNotEmpty)
                     TextButton(
                       key: const Key('draft-skill'),
                       onPressed: busy ? null : _draft,
