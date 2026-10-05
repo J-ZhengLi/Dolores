@@ -121,3 +121,23 @@ screen remains open; widget coverage and reviewed native screens are reported
 separately. Optional browser runtime setup still supplies instructions rather than
 a one-click installer. The model-quality failures above require further harness/
 model work with unchanged observable criteria.
+
+## 2026-10-06 maintenance follow-up
+
+Current build, launch, resource and qualification commands use Python. Retired
+Iced/Tauri/Svelte source and root build/dependency caches were removed. Platform
+CI remains deferred. The normal release was rechecked in wide dark/light General
+and light Advanced. A narrow light window verified wrapped conversation text,
+composer controls, the Conversations drawer, compact General, section selection
+and Escape. This extends the sampled review; it does not close the exhaustive
+nested-screen or physical-input/accessibility gaps.
+
+Two Qwen preference/correction runs now save exact wording through bounded local
+extraction. General-language extraction remains model-dependent. Real DeepSeek
+testing reproduced and fixed missing approved project evidence after a failed
+check; four independent skill trials then tied, retaining the baseline. Useful
+automatic improvement and live regression restoration remain open. The frozen
+computer-use corpus still has failures. [Learning](learning-followup.md),
+[computer use](computer-use.md) and [idle resources](idle-resources.md) retain the
+actual results; [remaining work](remaining-work.md) lists open gates. Original
+provider, selected model and all 37 profile tables remain unchanged.
