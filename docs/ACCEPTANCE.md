@@ -1,5 +1,20 @@
 # Dolores acceptance — 2026-10-05
 
+## Maintenance follow-up — computer-use contract qualification
+
+2026-10-06: Clarified that an observation takes only `operation`, with no unused
+defaults. Native-control tests PASS for extra capture, false and null fields,
+pure observe, stale/consumed capture and revoked access. The 92-test bridge suite
+and two frozen-corpus checks PASS. Runtime validation and consent were unchanged.
+
+Frozen live cases still FAIL: Qwen first supplied invalid observe fields, then a
+fresh run with clearer guidance failed the initial screenshot-reading check.
+DeepSeek entered the exact draft and obtained a fresh post-input image, but hit
+the output limit before Save. No repeated input, hidden retry or criterion change.
+See [computer-use qualification](qualification/computer-use.md). These results
+do not establish dependable general computer use. The normal release was rebuilt,
+visibly launched and inspected; original provider/history tables are unchanged.
+
 ## Maintenance follow-up — exact automatic response preferences
 
 2026-10-06: A bounded literal extractor saves simple explicit response-style
@@ -1434,7 +1449,7 @@ A real Flutter 3.47.5 Windows release now shares the same Rust core/provider/sto
 
 The same two-turn fixture was copied into isolated directories for each normal release. Windows were visible and unminimized, with verified 1120×780 logical client areas at 144 DPI. Five samples after eight seconds of settling, one launch each, on the Windows development machine. Flutter's working set is lower than Tauri's, but private allocation is higher. GPU/system-wide memory is not included. The Flutter bundle includes its engine and Rust DLLs, AOT library and assets; its tiny launcher is not the bundle size. All entries exclude already-installed system runtimes.
 
-Evidence: private local benchmark report (excluded from Git), [design/resource comparison](research/flutter-shell-trial.md), [build/run instructions](../apps/dolores_flutter/README.md). Reproduce with `scripts/compare-shells.ps1` after rebuilding Flutter without diagnostic switches. Flutter was subsequently selected. Low-end hardware, real model/OS input/IME, theme switching, accessibility, startup/scrolling and macOS/Linux acceptance remain open; CI definitions have not been executed.
+Evidence: private local benchmark report (excluded from Git), [historical resource comparison](research/flutter-shell-trial.md), [current build/run instructions](../apps/dolores_flutter/README.md). The comparison runner was retired after Flutter was selected; this is historical evidence, not a current reproduction command. Low-end hardware, real model/OS input/IME, accessibility and macOS/Linux acceptance remain open; platform CI is deferred.
 
 ## Brick 1.1 — retained comparison
 
@@ -1452,7 +1467,7 @@ Working set is 93.16% lower in this paired observation. Shared pages can be coun
 
 Earlier launches showed roughly one core of CPU consumption, including a native 1040×760 run. That did not recur in subsequent native launches, and the renderer trace showed five startup redraws rather than a continuous redraw loop. The cause was not established; repeat startup, foreground/background and sustained interaction checks before accepting performance. No driver, framework or app fix is claimed from that observation. The CPU script also now uses floating-point arithmetic to avoid rounding sub-second deltas to integers.
 
-Raw machine-specific evidence is retained locally and excluded from Git. Measurement helper: `scripts/measure-runtime.ps1`. Local screenshots and detailed traces: ignored `output/native-comparison`; repeatable controller/renderer runner: `scripts/test-native.ps1` (requires a smoke-feature build and the fixture server).
+Raw machine-specific evidence is retained locally and excluded from Git. This retired-shell measurement used helpers that have since been removed. Local screenshots and detailed traces remain ignored historical evidence; use the current Python helpers for the maintained Flutter release.
 
 | Native check | Result and limit |
 | --- | --- |
@@ -1502,7 +1517,7 @@ A Windows development machine; release executable with two short stored turns. T
 | With CDP testing attached | Mean 445.26 MiB working set; about 210 MiB private bytes | Test instrumentation increases the observation; it does not explain the whole gap. |
 | Warm process start → UI ready | 1.3914 seconds in one instrumented run | Process start timestamp to `dolores-interactive` mark (initial history loaded and rendered). Cold startup target remains unverified. |
 
-Normal-run working set was measured with `scripts/measure-runtime.ps1`, including the native host and all its descendants, after removing the browser debugging argument. It excludes the separate fixture server, browser preview and build tools. Raw evidence: `output/playwright/runtime-metrics.json`. Warm startup was measured before any page reload; absolute activity timestamps remain private.
+This historical normal-run working set included the native host and all its descendants after removing the browser debugging argument. Its shell measurement helper has since been retired. It excluded the separate fixture server, browser preview and build tools. Raw evidence remains ignored; warm startup was measured before any page reload, and absolute activity timestamps remain private. It is not a current Flutter baseline.
 
 No optimization benefit is claimed from WebView2's inactive-memory control. Its documented Low mode is best effort and can affect responsiveness; see [research](research/architecture-options.md). Do not weaken sandboxing or silently lower acceptance thresholds to label this target achieved.
 

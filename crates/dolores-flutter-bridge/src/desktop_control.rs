@@ -208,7 +208,7 @@ impl ToolPlugin for Control {
             .unwrap_or_default()
     }
     fn spec(&self) -> ToolSpec {
-        ToolSpec{name:"desktop_control".into(),description:"Operate ONLY the explicitly granted window. First observe to obtain a capture UUID and image pixels. Before EVERY input copy that UUID; after EVERY input observe again. No scripts, clipboard, other-window selection or system shortcuts. Coordinates refer to the resized screenshot; use only client controls. Click/doubleClick/drag/Enter/deletion/Escape always require user review. Set consequential true for any action that may submit data or cause external effects, even typing. Never repeat uncertain input. A dispatch receipt is NOT application success; verify fresh pixels. Budget-limited work must report remaining work.".into(),parameters:json!({"type":"object","properties":{"operation":{"type":"string","enum":["observe","click","doubleClick","type","scroll","key","drag"]},"capture":{"type":"string"},"x":{"type":"integer"},"y":{"type":"integer"},"endX":{"type":"integer"},"endY":{"type":"integer"},"text":{"type":"string"},"delta":{"type":"integer"},"key":{"type":"string","enum":["Tab","Shift+Tab","Left","Right","Up","Down","Home","End","Ctrl+A","Backspace","Delete","Enter","Escape"]},"consequential":{"type":"boolean"}},"required":["operation"],"additionalProperties":false})}
+        ToolSpec{name:"desktop_control".into(),description:"Operate ONLY the explicitly granted window. First send exactly {\"operation\":\"observe\"}, with NO other fields, to get fresh pixels and a capture UUID. Before EVERY input copy that UUID; after EVERY input observe again with only operation. Omit unused fields entirely, including null or false defaults. No scripts, clipboard, other-window selection or system shortcuts. Coordinates refer to the resized screenshot; use only client controls. Click/doubleClick/drag/Enter/deletion/Escape always require user review. Set consequential true for any action that may submit data or cause external effects, even typing. Never repeat uncertain input. A dispatch receipt is NOT application success; verify fresh pixels. Budget-limited work must report remaining work.".into(),parameters:json!({"type":"object","properties":{"operation":{"type":"string","enum":["observe","click","doubleClick","type","scroll","key","drag"],"description":"observe takes only this field. For input, include only the fields needed for that operation."},"capture":{"type":"string","description":"Input only: exact UUID from the latest unused observation. Omit for observe."},"x":{"type":"integer"},"y":{"type":"integer"},"endX":{"type":"integer"},"endY":{"type":"integer"},"text":{"type":"string"},"delta":{"type":"integer"},"key":{"type":"string","enum":["Tab","Shift+Tab","Left","Right","Up","Down","Home","End","Ctrl+A","Backspace","Delete","Enter","Escape"]},"consequential":{"type":"boolean","description":"Input only: true if it may submit or cause external effects. Omit for observe."}},"required":["operation"],"additionalProperties":false})}
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         self.grant.check()?;
@@ -523,6 +523,27 @@ mod tests {
                 unchanged: 0,
             }),
         };
+        for arguments in [
+            json!({"operation":"observe","capture":capture.id}),
+            json!({"operation":"observe","consequential":false}),
+            json!({"operation":"observe","text":null}),
+        ] {
+            assert!(control
+                .prepare(&ToolCall {
+                    id: "malformed-observation".into(),
+                    name: "desktop_control".into(),
+                    arguments: arguments.to_string(),
+                })
+                .unwrap_err()
+                .contains("only operation"));
+        }
+        assert!(control
+            .prepare(&ToolCall {
+                id: "observation".into(),
+                name: "desktop_control".into(),
+                arguments: json!({"operation":"observe"}).to_string(),
+            })
+            .is_ok());
         let call = ToolCall {
             id: "input".into(),
             name: "desktop_control".into(),

@@ -131,6 +131,22 @@ not an implemented backend. See the [portal specification](https://flatpak.githu
 
 ## Reproduction
 
+### 2026-10-06 follow-up
+
+The frozen corpus and its 1024-output-token, 30-second request and 90-second task
+allowances were retained. Qwen's native draft failed on extra fields in an
+observation request, with no input or save. After making the exact observe
+arguments explicit in the tool description, a fresh Qwen run instead failed at
+the initial screenshot-reading check, again before input. This clarification is
+not a demonstrated reliability fix. Rust checks preserve rejection of observe
+requests containing a capture, false default or null input field.
+
+A DeepSeek native save run obtained two fresh observations and correctly entered
+the requested text, but paused at the output limit before Save: one reviewed input
+and zero saves. No input was replayed, no criteria were relaxed and no automatic
+model switch or budget increase occurred. General model adherence, coordinate
+grounding and completion remain unqualified.
+
 Build the normal desktop bundle first. Use a fresh absolute directory under the
 repository's ignored `output/` for each command. Test scripts refuse existing
 directories. The local form must be in the foreground before input; the bounded
