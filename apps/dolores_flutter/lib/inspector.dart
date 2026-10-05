@@ -460,7 +460,11 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
     older = chat.messagesOlder;
     newer = chat.messagesNewer;
     chat.addListener(_changed);
-    if (!chat.busy) _load();
+    if (!chat.busy) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _load();
+      });
+    }
   }
 
   void _changed() {
@@ -523,7 +527,7 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
         .toList();
     final enabled = !loading && !chat.busy && !chat.changing;
     return InspectorFrame(
-      title: 'Chat trajectory',
+      title: 'Activity',
       subtitle: 'Saved exchanges and request lifecycle',
       child: Column(
         children: [
@@ -534,12 +538,12 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
                 ButtonSegment(
                   value: 0,
                   icon: Icon(Icons.timeline, size: 16),
-                  label: Text('Trajectory'),
+                  label: Text('Conversation'),
                 ),
                 ButtonSegment(
                   value: 1,
                   icon: Icon(Icons.list_alt, size: 16),
-                  label: Text('Log'),
+                  label: Text('Requests'),
                 ),
               ],
               selected: {tab},

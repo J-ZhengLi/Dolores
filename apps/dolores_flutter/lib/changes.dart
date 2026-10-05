@@ -229,7 +229,7 @@ class _ChangesInspectorState extends State<ChangesInspector> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '${_kind(item)} · ${_status(item['status'])}${item['reverts'] == null ? '' : ' · Revert'} · ${item['bytesBefore']} → ${item['bytesAfter']} bytes\n${DateTime.fromMillisecondsSinceEpoch(item['createdAt'] as int).toLocal()}',
+                            '${_kind(item)} · ${_status(item['status'])}${item['reverts'] == null ? '' : ' · Revert'}',
                           ),
                           onTap: busy ? null : () => _select(item['id'] as int),
                         ),

@@ -81,6 +81,8 @@ void main() {
       ),
     );
     expect(find.text('Inspect the running harness?'), findsOneWidget);
+    await tester.tap(find.text('Operation details'));
+    await tester.pumpAndSettle();
     expect(
       find.textContaining('cannot update Dolores or grant permissions'),
       findsOneWidget,

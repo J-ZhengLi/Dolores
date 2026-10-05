@@ -243,7 +243,7 @@ void main() {
       expect(chat.draft, 'Keep my unsent text');
       expect(chat.scrollOffset, 120);
       expect(chat.messagesNewer, isTrue);
-      await tester.tap(find.text('Log'));
+      await tester.tap(find.text('Requests'));
       await tester.pumpAndSettle();
       expect(
         find.text('No request events in this app session.'),
@@ -364,7 +364,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(home: TrajectoryInspector(chat: chat)),
       );
-      await tester.tap(find.text('Log'));
+      await tester.tap(find.text('Requests'));
       await tester.pump();
       expect(find.text('Request submitted'), findsOneWidget);
       expect(

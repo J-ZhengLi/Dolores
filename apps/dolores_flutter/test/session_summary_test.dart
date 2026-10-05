@@ -102,6 +102,8 @@ Future<void> open(
   );
   await tester.tap(find.text('Open'));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('review-summary')));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -132,7 +134,7 @@ void main() {
         bridge.summary!['text'],
         'Goal: Unicode parser. Next: error tests.',
       );
-      expect(find.textContaining('reviewed 2026-10-03'), findsOneWidget);
+      expect(find.textContaining('Drafted by fixture'), findsOneWidget);
       await tester.tap(find.byKey(const Key('edit-summary')));
       await tester.pumpAndSettle();
       await manual.enter(tester, 'summary-text', 'Corrected task');

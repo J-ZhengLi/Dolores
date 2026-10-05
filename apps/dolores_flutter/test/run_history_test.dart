@@ -59,6 +59,8 @@ void main() {
       expect(find.textContaining('interrupted · fixture'), findsOneWidget);
       await tester.tap(find.textContaining('interrupted · fixture'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('2. restart · interrupted'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('Effect outcome is unknown'), findsOneWidget);
       expect(chat.busy, isTrue);
       expect(tester.takeException(), isNull);

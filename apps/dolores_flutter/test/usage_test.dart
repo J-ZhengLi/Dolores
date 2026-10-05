@@ -204,10 +204,15 @@ void main() {
       expect(bridge.commands, isEmpty);
       await tester.tap(find.byKey(const Key('context-preview')));
       await tester.pumpAndSettle();
+      expect(find.text('Chat details'), findsOneWidget);
+      await tester.tap(find.byTooltip('Usage details'));
+      await tester.pumpAndSettle();
       expect(find.text('Context for your next message'), findsOneWidget);
       expect(find.text('Recent turns included: 40'), findsOneWidget);
-      expect(bridge.commands.single['command'], 'context');
+      expect(bridge.commands.where((c) => c['command'] == 'context').length, 1);
       await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('close-chat-details')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Tokens: 0 in · 12 out'));
       await tester.pumpAndSettle();

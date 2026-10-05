@@ -105,7 +105,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
 
   @override
   Widget build(BuildContext context) => InspectorFrame(
-    title: 'Run history',
+    title: 'Earlier tasks',
     subtitle: 'Local execution evidence · latest 20 runs',
     child: Column(
       children: [
@@ -128,11 +128,19 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     selected: selected == run['id'],
                     title: Text('${run['state']} · ${run['model']}'),
                     subtitle: Text(
-                      '${run['id']}\nOutput allowance: ${run['settings']['maxOutputTokens']} tokens · ${run['sequence']} events${run['effectiveSettings'] is Map ? '\nSource: ${run['effectiveSettings']['requestOrigin']} · interaction: ${run['effectiveSettings']['interactionOrigin']}\nContext: ${run['effectiveSettings']['contextWindowTokens']} tokens · ${run['effectiveSettings']['contextOrigin']}' : ''}',
+                      '${run['settings']['maxOutputTokens']} output tokens · ${run['sequence']} events',
                     ),
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),
                 if (selected != null) const Divider(),
+                if (selected != null)
+                  ExpansionTile(
+                    title: const Text('Run details'),
+                    children: [
+                      for (final run in runs.where((r) => r['id'] == selected))
+                        SelectableText('$run'),
+                    ],
+                  ),
                 if (checkpoint != null) ...[
                   SelectableText(
                     'Goal: ${checkpoint!['goal']}\nProposed plan (unverified): ${checkpoint!['proposedPlan']}\nUncertain effects: ${checkpoint!['uncertainEffects']}\nPause/end: ${checkpoint!['pauseReason']}\n${checkpoint!['note']}',
@@ -167,8 +175,11 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                 for (final event in events)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: SelectableText(
-                      '${event['sequence']}. ${event['kind']} · ${event['state']}\n${event['data']}',
+                    child: ExpansionTile(
+                      title: Text(
+                        '${event['sequence']}. ${event['kind']} · ${event['state']}',
+                      ),
+                      children: [SelectableText('${event['data']}')],
                     ),
                   ),
                 if (pending) const LinearProgressIndicator(),

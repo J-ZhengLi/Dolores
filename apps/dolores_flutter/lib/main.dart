@@ -1,5 +1,6 @@
 import 'access_selector.dart';
 import 'memory.dart';
+import 'chat_details.dart';
 
 import 'dart:async';
 
@@ -14,18 +15,13 @@ import 'message_frame.dart';
 import 'rich_composer.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
-import 'comparison.dart';
 import 'inspector.dart';
-import 'changes.dart';
 import 'tool_activity.dart';
 import 'subagents.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
-import 'session_summary.dart';
 import 'chat_sidebar.dart';
 import 'model_steps.dart';
-import 'capabilities.dart';
-import 'run_history.dart';
 import 'thread_fork.dart';
 import 'attachments.dart';
 
@@ -198,6 +194,32 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> chooseExport() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Export chat'),
+        children: [
+          for (final option in [
+            ('markdown', 'Markdown'),
+            ('json', 'JSON with run details'),
+            ('attachments', 'Attachments'),
+          ])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, option.$1),
+              child: Text(option.$2),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'attachments') {
+      await exportAttachments(context, chat);
+    } else {
+      await exportChat(choice);
+    }
+  }
+
   Widget sidebar(Palette p, {double width = UiTokens.sidebarWidth}) =>
       ChatSidebar(
         width: width,
@@ -360,6 +382,41 @@ class _ChatPageState extends State<ChatPage> {
                     : 'Continue starts another bounded run. New tool calls need fresh approval; incomplete calls have not run.',
                 style: TextStyle(color: p.muted, fontSize: 12),
               ),
+              if (messageId == chat.latestPausedId)
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: chat.busy || chat.changing
+                          ? null
+                          : () => showChatDetails(
+                              context,
+                              chat,
+                              initial: ChatDetail.activity,
+                            ),
+                      child: const Text('View progress'),
+                    ),
+                    if (![
+                      'desktopAccess',
+                      'desktopReview',
+                      'commandReview',
+                      'subagentReview',
+                    ].contains(metadata['paused']['reason']))
+                      TextButton(
+                        onPressed: chat.busy || chat.changing
+                            ? null
+                            : () =>
+                                  metadata['paused']['reason'] == 'outputLimit'
+                                  ? requestSettings()
+                                  : showSettings(
+                                      context,
+                                      chat,
+                                      initial: SettingsCategory.limits,
+                                    ),
+                        child: const Text('Adjust limits'),
+                      ),
+                  ],
+                ),
             ],
             if (metadata?['paused']?['reason'] == 'commandReview')
               ToolRecords(
@@ -801,10 +858,7 @@ class _ChatPageState extends State<ChatPage> {
                     onPressed: chat.busy || chat.changing || chat.loading
                         ? null
                         : () async {
-                            final summary = await chat.previewContext();
-                            if (mounted && summary != null) {
-                              await showContextPreview(context, summary);
-                            }
+                            await showChatDetails(context, chat);
                           },
                   ),
                   const SizedBox(width: 4),
@@ -892,37 +946,27 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   if (chat.session != null && chat.workspaceRoot != null)
                     IconButton(
-                      key: const Key('workspace-instructions'),
-                      tooltip: 'Workspace instructions',
-                      onPressed: chat.busy || chat.loading || chat.changing
-                          ? null
-                          : () => showInstructions(context, chat),
-                      icon: const Icon(Icons.rule_folder_outlined, size: 20),
-                    ),
-                  if (chat.session != null && chat.workspaceRoot != null)
-                    IconButton(
                       key: const Key('workspace-changes'),
-                      tooltip: 'Changes in this working folder',
+                      tooltip: 'Changes',
                       onPressed: chat.busy || chat.loading || chat.changing
                           ? null
-                          : () => showChanges(context, chat),
+                          : () => showChatDetails(
+                              context,
+                              chat,
+                              initial: ChatDetail.changes,
+                            ),
                       icon: const Icon(Icons.difference_outlined, size: 20),
-                    ),
-                  if (chat.session != null)
-                    IconButton(
-                      key: const Key('chat-summary'),
-                      tooltip: 'Session summary',
-                      onPressed: chat.busy || chat.loading || chat.changing
-                          ? null
-                          : () => showSessionSummary(context, chat),
-                      icon: const Icon(Icons.summarize_outlined, size: 20),
                     ),
                   IconButton(
                     key: const Key('chat-trajectory'),
-                    tooltip: 'Chat trajectory and log',
+                    tooltip: 'Activity',
                     onPressed: chat.loading || chat.changing
                         ? null
-                        : () => showTrajectory(context, chat),
+                        : () => showChatDetails(
+                            context,
+                            chat,
+                            initial: ChatDetail.activity,
+                          ),
                     icon: const Icon(Icons.timeline, size: 20),
                   ),
                   if (chat.session != null)
@@ -931,80 +975,30 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'attachments') {
-                          exportAttachments(context, chat);
-                        } else if (value == 'cleanupAttachments') {
-                          chat
-                              .inspectLocalSettings(() async {
-                                final result = await chat.bridge.call({
-                                  'command': 'cleanupAttachments',
-                                }) as Map;
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Removed ${result['removed']} unused snapshots. Referenced attachments are retained.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              })
-                              .catchError((Object failure) {
-                                chat.reportLocalError(
-                                  'Unused attachments could not be cleaned: $failure. Your draft remains.',
-                                );
-                              });
-                        } else if (value == 'fork') {
+                        if (value == 'fork') {
                           showThreadFork(context, chat);
-                        } else if (value == 'capabilities') {
-                          showCapabilities(context, chat);
-                        } else if (value == 'runs') {
-                          showRunHistory(context, chat);
-                        } else if (value == 'comparisons') {
-                          showComparisons(context, chat);
+                        } else if (value == 'export') {
+                          chooseExport();
                         } else {
-                          exportChat(value);
+                          showChatDetails(context, chat);
                         }
                       },
                       icon: const Icon(Icons.more_horiz, size: 20),
                       itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'capabilities',
-                          child: Text('Dolores capabilities'),
-                        ),
-                        PopupMenuItem(
-                          value: 'attachments',
-                          enabled: !chat.busy,
-                          child: const Text('Export attachments'),
-                        ),
-                        PopupMenuItem(
-                          value: 'cleanupAttachments',
-                          enabled: !chat.busy,
-                          child: const Text('Clean unused attachments'),
-                        ),
                         PopupMenuItem(
                           value: 'fork',
                           enabled: !chat.busy,
-                          child: const Text('Fork conversation'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'runs',
-                          child: Text('Run history'),
+                          child: const Text('Branch chat'),
                         ),
                         PopupMenuItem(
+                          value: 'export',
                           enabled: !chat.busy,
-                          value: 'comparisons',
-                          child: Text('Compare instructions'),
+                          child: const Text('Export…'),
                         ),
                         PopupMenuItem(
+                          value: 'details',
                           enabled: !chat.busy,
-                          value: 'markdown',
-                          child: Text('Export Markdown'),
-                        ),
-                        PopupMenuItem(
-                          enabled: !chat.busy,
-                          value: 'json',
-                          child: Text('Export JSON'),
+                          child: const Text('Chat details'),
                         ),
                       ],
                     ),

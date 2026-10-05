@@ -99,7 +99,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.textContaining('Open a project'), findsOneWidget);
+        expect(find.textContaining('Project facts belong'), findsOneWidget);
+        expect(find.text('Start working session'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     },

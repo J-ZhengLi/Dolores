@@ -17,6 +17,9 @@ import 'browser_settings.dart';
 import 'knowledge.dart';
 import 'mods.dart';
 import 'desktop_settings.dart';
+import 'comparison.dart';
+import 'capabilities.dart';
+import 'attachment_storage.dart';
 
 enum SettingsCategory {
   appearance,
@@ -34,6 +37,9 @@ enum SettingsCategory {
   mods,
   permissions,
   limits,
+  comparisons,
+  capabilities,
+  storage,
 }
 
 enum ModelsPage { connection, responses, overrides, defaults }
@@ -88,7 +94,10 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
       SettingsCategory.mods ||
       SettingsCategory.limits ||
       SettingsCategory.skillTesting ||
-      SettingsCategory.skillLearning => SettingsSection.advanced,
+      SettingsCategory.skillLearning ||
+      SettingsCategory.comparisons ||
+      SettingsCategory.capabilities ||
+      SettingsCategory.storage => SettingsSection.advanced,
       _ => SettingsSection.tools,
     };
 
@@ -115,6 +124,24 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsSection.advanced: ('Advanced', Icons.settings_outlined),
   };
   static const destinations = <(String, SettingsCategory, ModelsPage, String)>[
+    (
+      'Compare instructions',
+      SettingsCategory.comparisons,
+      ModelsPage.connection,
+      'evaluation baseline candidate snapshots',
+    ),
+    (
+      'Dolores capabilities',
+      SettingsCategory.capabilities,
+      ModelsPage.connection,
+      'diagnostics harness source registry tools',
+    ),
+    (
+      'Attachment storage',
+      SettingsCategory.storage,
+      ModelsPage.connection,
+      'clean unused snapshots attachments cleanup',
+    ),
     (
       'Response defaults',
       SettingsCategory.models,
@@ -297,6 +324,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.comparisons =>
+      widget.chat.session == null
+          ? unavailable('Start a chat before comparing instruction snapshots.')
+          : ComparisonInspector(chat: widget.chat),
+    SettingsCategory.capabilities => CapabilitiesInspector(chat: widget.chat),
+    SettingsCategory.storage => AttachmentStorage(chat: widget.chat),
     SettingsCategory.mods =>
       widget.chat.busy
           ? unavailable(

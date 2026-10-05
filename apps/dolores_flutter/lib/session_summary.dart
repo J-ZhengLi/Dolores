@@ -7,6 +7,7 @@ import 'bridge.dart';
 import 'chat.dart';
 import 'inspector.dart';
 import 'theme.dart';
+import 'settings_frame.dart';
 
 Future<void> showSessionSummary(BuildContext context, ChatController chat) =>
     chat.inspectLocalSettings(() async {
@@ -37,11 +38,13 @@ class SessionSummaryInspector extends StatefulWidget {
 
 class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
   final text = TextEditingController();
+  final scroll = ScrollController();
   Map<String, dynamic>? review, draft;
   bool busy = false, generating = false, stopping = false;
   bool sources = false, editing = false;
   int? run;
   String? error, notice;
+  String baseline = '';
   Map? get saved => review?['summary'] as Map?;
   List get messages => review?['messages'] as List? ?? [];
   String? get token => (draft?['token'] ?? review?['token']) as String?;
@@ -60,6 +63,7 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
       );
     }
     text.dispose();
+    scroll.dispose();
     super.dispose();
   }
 
@@ -84,6 +88,11 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
       if (mounted) setState(() => error = failure.toString());
     } finally {
       if (mounted) setState(() => busy = false);
+      if (mounted && error != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && scroll.hasClients) scroll.jumpTo(0);
+        });
+      }
     }
   }
 
@@ -94,7 +103,7 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
       review = result.cast<String, dynamic>();
       draft = null;
       editing = false;
-      sources = saved == null;
+      sources = false;
     });
   }
 
@@ -175,11 +184,20 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
       if (!editing) 'token': draft!['token'],
     });
     if (mounted) {
-      setState(
-        () => notice = 'Summary saved for future messages in this chat.',
-      );
+      setState(() {
+        notice = 'Summary saved for future messages in this chat.';
+        editing = false;
+        draft = null;
+        baseline = text.text;
+      });
     }
-    await _load();
+    try {
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = 'Summary saved. Refresh to update the view.');
+      }
+    }
   });
 
   Future<void> _discard() => _act(() async {
@@ -204,10 +222,18 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     final form = draft != null || editing;
+    reportSettingsDraft(
+      context,
+      dirty: () => draft != null || (editing && text.text != baseline),
+      save: () async {
+        await _save();
+        return draft == null && !editing;
+      },
+    );
     return PopScope(
       canPop: !busy,
       child: InspectorFrame(
-        title: 'Session summary',
+        title: 'Summary',
         subtitle: 'Keep this conversation’s progress in context',
         canClose: !busy,
         child: Column(
@@ -215,20 +241,27 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
             if (busy) const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: ListView(
+                controller: scroll,
                 padding: const EdgeInsets.all(20),
                 children: [
                   const Text(
-                    'A saved summary replaces the older turns it covers in future model context. Your full chat stays in history. It is used only in this chat.',
+                    'A summary keeps older progress in this chat’s context.',
                   ),
                   if (review?.containsKey('autoCompact') == true)
                     SwitchListTile(
                       title: const Text('Automatically compact this chat'),
-                      subtitle: const Text('One bounded summary attempt before sending when older turns would be omitted. Uses the selected model; full history stays local. Failures preserve the draft.'),
+                      subtitle: const Text(
+                        'Use your model to summarize older turns when context fills.',
+                      ),
                       value: review!['autoCompact'] == true,
-                      onChanged: busy ? null : (enabled) => _act(() async {
-                        await _call('setAutoCompact', {'enabled': enabled});
-                        await _load();
-                      }),
+                      onChanged: busy
+                          ? null
+                          : (enabled) => _act(() async {
+                              await _call('setAutoCompact', {
+                                'enabled': enabled,
+                              });
+                              await _load();
+                            }),
                     ),
                   if (error != null)
                     Padding(
@@ -262,11 +295,11 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                   ] else ...[
                     if (saved != null) ...[
                       Text(
-                        'Saved summary · ${saved!['provenance']['coveredTurns']} ${saved!['provenance']['coveredTurns'] == 1 ? 'turn' : 'turns'} covered · revision ${saved!['provenance']['revision']}',
+                        'Saved summary · ${saved!['provenance']['coveredTurns']} turns covered',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       Text(
-                        'Drafted by ${saved!['provenance']['model']} · reviewed ${DateTime.fromMillisecondsSinceEpoch(saved!['provenance']['updatedAt'] as int).toLocal()}',
+                        'Drafted by ${saved!['provenance']['model']}',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                       const SizedBox(height: 8),
@@ -276,6 +309,19 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                       ),
                       const SizedBox(height: 16),
                     ],
+                    ExpansionTile(
+                      title: const Text('Summary details'),
+                      children: [
+                        const Text(
+                          'Automatic compaction makes one bounded request. Failures keep your draft; full history stays local. Review turns before sending their contents for a manual summary.',
+                        ),
+                        if (saved != null)
+                          SelectableText(
+                            const JsonEncoder.withIndent('  ')
+                                .convert(saved!['provenance']),
+                          ),
+                      ],
+                    ),
                     if (sources) ...[
                       Text(
                         saved == null
@@ -344,6 +390,22 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                       child: Text(stopping ? 'Stopping…' : 'Stop'),
                     )
                   else if (form) ...[
+                    if (editing)
+                      TextButton(
+                        onPressed: busy
+                            ? null
+                            : () => _act(() async {
+                                final value =
+                                    await _call('reviewSummary') as Map;
+                                if (mounted) {
+                                  setState(
+                                    () =>
+                                        review = value.cast<String, dynamic>(),
+                                  );
+                                }
+                              }),
+                        child: const Text('Refresh revision'),
+                      ),
                     FilledButton(
                       key: const Key('save-summary'),
                       onPressed: busy ? null : _save,
@@ -377,6 +439,7 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                             : () => setState(() {
                                 editing = true;
                                 text.text = saved!['text'] as String;
+                                baseline = text.text;
                                 error = null;
                               }),
                         child: const Text('Edit'),

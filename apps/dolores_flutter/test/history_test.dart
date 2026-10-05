@@ -170,9 +170,13 @@ void main() {
       expect(chat.messages.first['id'], 1);
       await tester.tap(find.byKey(const Key('export-chat')));
       await tester.pumpAndSettle();
-      expect(find.text('Export Markdown'), findsOneWidget);
-      expect(find.text('Export JSON'), findsOneWidget);
-      await tester.tapAt(const Offset(300, 400));
+      expect(find.text('Branch chat'), findsOneWidget);
+      expect(find.text('Chat details'), findsOneWidget);
+      await tester.tap(find.text('Export…'));
+      await tester.pumpAndSettle();
+      expect(find.text('Markdown'), findsOneWidget);
+      expect(find.text('JSON with run details'), findsOneWidget);
+      await tester.tapAt(const Offset(20, 400));
       await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(620, 700);
       await tester.pumpWidget(
@@ -200,9 +204,12 @@ void main() {
           .itemBuilder(tester.element(find.byKey(const Key('export-chat'))))
           .whereType<PopupMenuItem<String>>()
           .toList();
-      expect(entries.singleWhere((item) => item.value == 'runs').enabled, true);
       expect(
-        entries.singleWhere((item) => item.value == 'json').enabled,
+        entries.singleWhere((item) => item.value == 'details').enabled,
+        false,
+      );
+      expect(
+        entries.singleWhere((item) => item.value == 'export').enabled,
         false,
       );
       await tester.pumpWidget(const SizedBox());

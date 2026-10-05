@@ -92,11 +92,26 @@ void main() {
         await tester.pump();
         expect(chat.attachments, isEmpty);
         expect(chat.draft, 'Keep my question');
-        await tester.tap(find.byTooltip('Chat actions'));
+        if (find.text('Settings').evaluate().isEmpty) {
+          await tester.tap(find.byTooltip('Conversations'));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('Settings'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('settings-search')),
+          'Attachment storage',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('setting-result-storage-connection')),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('Clean unused attachments'));
         await tester.pumpAndSettle();
-        expect(chat.error, contains('could not be cleaned'));
+        await tester.tap(find.text('Clean unused'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Cleanup failed'), findsOneWidget);
         expect(chat.draft, 'Keep my question');
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

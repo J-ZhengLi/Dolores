@@ -348,6 +348,9 @@ void main() {
         expect(find.text('C:/Runtime/node.exe'), findsOneWidget);
         expect(find.text('C:/chosen/project'), findsOneWidget);
         expect(find.text('1. "--version"\n2. "a b"\n3. ""'), findsOneWidget);
+        await tester.ensureVisible(find.text('Operation details'));
+        await tester.tap(find.text('Operation details'));
+        await tester.pumpAndSettle();
         expect(find.textContaining('outside this folder'), findsOneWidget);
         expect(
           bridge.commands.where((c) => c['command'] == 'approveTool'),
@@ -539,6 +542,9 @@ void main() {
               isEmpty,
             );
             if (tool == 'search_text') {
+              await tester.ensureVisible(find.text('Operation details'));
+              await tester.tap(find.text('Operation details'));
+              await tester.pumpAndSettle();
               expect(find.text('世界.*'), findsOneWidget);
               expect(
                 find.textContaining('Scan up to 64 text files'),

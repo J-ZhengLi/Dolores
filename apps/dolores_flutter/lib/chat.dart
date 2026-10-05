@@ -58,7 +58,9 @@ class ChatController extends ChangeNotifier {
 
   final ChatBridge bridge;
   ChatController(this.bridge);
+  int settingsRevision = 0;
   void invalidateContext() {
+    settingsRevision++;
     contextSummary = null;
     contextBasis = null;
     _notify();

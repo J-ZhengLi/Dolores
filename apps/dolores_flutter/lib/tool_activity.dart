@@ -284,6 +284,11 @@ class ToolApprovalCard extends StatelessWidget {
                     ),
                   ],
                   if (external) ...[
+                    if (credentialNames.isNotEmpty)
+                      Text(
+                        'Server receives: ${credentialNames.join(', ')}',
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
                     const SizedBox(height: 8),
                     SelectableText(
                       'Server: ${request['mcp']['server']}\nTool: ${request['mcp']['tool']}\nReviewed revision: ${request['mcp']['revision']}',

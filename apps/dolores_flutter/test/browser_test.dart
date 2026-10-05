@@ -55,7 +55,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Browser adapter unavailable'), findsOneWidget);
+        expect(find.text('Needs setup'), findsOneWidget);
+        await tester.tap(find.text('Setup'));
+        await tester.pumpAndSettle();
         expect(find.text('Install the optional adapter.'), findsOneWidget);
         await tester.tap(find.text('Refresh'));
         await tester.pumpAndSettle();

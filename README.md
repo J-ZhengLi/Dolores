@@ -10,7 +10,7 @@ For a Windows portable preview, extract the **entire** ZIP to a folder and open 
 
 The repository includes a [build and packaging guide](CONTRIBUTING.md); it does not yet promise signed installers or an automatic updater.
 
-1. Open **Settings → Models → Connection & models**, enter your provider's OpenAI-compatible API base URL and key, then **Fetch models**. Select the models you want available and save. Manual model IDs are available when listing is unsupported.
+1. Open **Settings → Models**, enter your provider's OpenAI-compatible API base URL and key, then **Fetch models**. Select the models you want available and save. Manual model IDs are available when listing is unsupported.
 2. Choose **Open project…** for an existing folder, or start a **Temporary workspace** and Dolores creates one. Choose **Side chat** for conversation without file tools.
 3. Select a model inside the input box and send a message. Review each proposed tool operation before allowing it. Working chats need a model that supports Chat Completions function calls.
 
@@ -24,11 +24,11 @@ Dolores connects to models you provide; it does not install or start a local mod
 - Delegate scoped file work to up to two subagents, with shared limits and parent verification.
 - Search the web without setup, read public source pages, or configure Brave/SearXNG for search.
 - Use an optional fresh browser for reviewed page interaction and local screenshots; see [browser setup](docs/USER_GUIDE.md#browser-setup).
-- Capture one selected Windows application locally, preview it and explicitly analyze it with a configured image-capable model in **Settings → Computer use**. Desktop input is planned.
+- Share one Windows application from chat for reviewed observation and input. Fresh screenshots and effect checks are required; model reliability remains limited.
 - Browse and export conversations, inspect context and reported token usage, and explicitly continue paused tasks.
 - Inspect preferences and scoped project knowledge, review reusable skills, and compare snapshots on bounded response or disposable tool tests.
 - Opt into narrow experimental project skill learning, inspect its evidence, and restore or quarantine an update.
-- Test experimental recovery mods in **Settings → Harness mods**, draft a bounded repair and restore or quarantine it. Automatic activation starts off; mods cannot change permissions or task limits.
+- Test experimental recovery mods in **Settings → Advanced → Harness extensions**, draft a bounded repair and restore or quarantine it. Automatic activation starts off; mods cannot change permissions or task limits.
 - Record local **Worked / Needs work** feedback against a reply's original evidence.
 - Inspect running capabilities and run evidence, and configure project/chat request and interaction overrides.
 - Choose task permissions, restore saved drafts, fork completed turns and opt into bounded automatic context compaction.

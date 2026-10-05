@@ -14,6 +14,7 @@ class _AccessSelectorState extends State<AccessSelector> {
   String? session;
   String label = 'Access';
   int generation = 0;
+  int revision = -1;
   @override
   void initState() {
     super.initState();
@@ -23,11 +24,15 @@ class _AccessSelectorState extends State<AccessSelector> {
   @override
   void didUpdateWidget(AccessSelector old) {
     super.didUpdateWidget(old);
-    if (session != widget.chat.session) load();
+    if (session != widget.chat.session ||
+        revision != widget.chat.settingsRevision) {
+      load();
+    }
   }
 
   Future<void> load() async {
     final serial = ++generation;
+    revision = widget.chat.settingsRevision;
     session = widget.chat.session;
     if (session == null) {
       if (mounted) setState(() => label = 'Review');
