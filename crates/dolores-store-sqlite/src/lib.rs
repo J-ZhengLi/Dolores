@@ -14,6 +14,7 @@ mod history;
 mod instructions;
 mod mcp;
 mod memory;
+mod model_details;
 mod skills;
 mod summaries;
 mod workspace;
@@ -923,6 +924,21 @@ impl SessionStore for SqliteStore {
         data.map(|data| serde_json::from_str(&data).map_err(storage_error))
             .transpose()
             .map(|contexts| contexts.unwrap_or_default())
+    }
+    fn model_details(
+        &self,
+        preferences: &ConnectionPreferences,
+    ) -> Result<dolores_core::ModelDetails, String> {
+        let c = self.lock()?;
+        model_details::read(&c, preferences)
+    }
+    fn save_model_details(
+        &self,
+        preferences: &ConnectionPreferences,
+        expected: &dolores_core::ModelDetails,
+        details: &dolores_core::ModelDetails,
+    ) -> Result<(), String> {
+        self.write_model_details(preferences, expected, details)
     }
     fn save_connection_model_contexts(
         &self,

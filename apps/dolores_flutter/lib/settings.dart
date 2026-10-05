@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'chat.dart';
 import 'dolores_settings.dart';
 import 'mcp.dart';
-import 'model_settings.dart';
+import 'models.dart';
 import 'request_settings.dart';
 import 'settings_frame.dart';
 import 'tool_trials.dart';
@@ -30,7 +30,7 @@ enum SettingsCategory {
   limits,
 }
 
-enum ModelsPage { connection, responses, overrides }
+enum ModelsPage { connection, responses, overrides, defaults }
 
 Future<void> showSettings(
   BuildContext context,
@@ -74,7 +74,7 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
     switch (category) {
       SettingsCategory.appearance => SettingsSection.general,
       SettingsCategory.models =>
-        page == ModelsPage.overrides
+        page == ModelsPage.overrides || page == ModelsPage.defaults
             ? SettingsSection.advanced
             : SettingsSection.models,
       SettingsCategory.personalization => SettingsSection.personalization,
@@ -107,6 +107,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsSection.advanced: ('Advanced', Icons.settings_outlined),
   };
   static const destinations = <(String, SettingsCategory, ModelsPage, String)>[
+    (
+      'Response defaults',
+      SettingsCategory.models,
+      ModelsPage.defaults,
+      'request default generation output timeout reasoning',
+    ),
     (
       'Theme',
       SettingsCategory.appearance,
@@ -283,8 +289,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
           : SkillSettings(chat: widget.chat),
     SettingsCategory.appearance => AppearanceSettings(chat: widget.chat),
     SettingsCategory.models => switch (modelPage) {
-      ModelsPage.connection => ConnectionDialog(chat: widget.chat),
-      ModelsPage.responses => RequestSettingsDialog(chat: widget.chat),
+      ModelsPage.connection => ModelsSettings(chat: widget.chat),
+      ModelsPage.responses => ModelsSettings(
+        chat: widget.chat,
+        initialDetail: true,
+      ),
+      ModelsPage.defaults => RequestSettingsDialog(chat: widget.chat, appDefaults: true),
       ModelsPage.overrides => DoloresSettingsInspector(
         chat: widget.chat,
         group: SettingsGroup.generation,
@@ -347,7 +357,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
         .where((d) => '${d.$1} ${d.$4}'.toLowerCase().contains(query))
         .toList();
     final pages = destinations
-        .where((d) => sectionFor(d.$2, d.$3) == section)
+        .where(
+          (d) =>
+              sectionFor(d.$2, d.$3) == section && d.$3 != ModelsPage.responses,
+        )
         .toList();
     return PopScope(
       canPop: false,
@@ -443,8 +456,8 @@ class _SettingsWindowState extends State<SettingsWindow> {
                               ),
                             Expanded(
                               key: const ValueKey('cached-settings-editors'),
-                                child: IndexedStack(
-                                  key: editorStackKey,
+                              child: IndexedStack(
+                                key: editorStackKey,
                                 sizing: StackFit.expand,
                                 index: panels.keys.toList().indexOf(panelKey),
                                 children: panels.entries

@@ -106,6 +106,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Model name'), findsNothing);
+      await tester.tap(find.byKey(const Key('manage-model-connection')));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('fetch-models')));
       await tester.tap(find.byKey(const Key('fetch-models')));
       await tester.pumpAndSettle();
@@ -212,6 +214,8 @@ void main() {
         find.byKey(const Key('setting-result-models-connection')),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('manage-model-connection')));
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<TextField>(find.byKey(const Key('api-key')))
@@ -226,6 +230,8 @@ void main() {
       );
       expect(save['apiKey'], isNull);
       expect(save['rememberConnection'], isTrue);
+      await tester.tap(find.byKey(const Key('manage-model-connection')));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('forget-connection')));
       await tester.tap(find.byKey(const Key('forget-connection')));
       await tester.pumpAndSettle();
@@ -287,6 +293,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('setting-result-models-connection')));
+    await tester.pumpAndSettle();
+    if (find
+        .byKey(const Key('manage-model-connection'))
+        .evaluate()
+        .isNotEmpty) {
+      await tester.tap(find.byKey(const Key('manage-model-connection')));
+    }
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('base-url')), findsOneWidget);
     expect(find.byKey(const Key('api-key')), findsOneWidget);

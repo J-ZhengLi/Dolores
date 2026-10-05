@@ -421,6 +421,42 @@ impl ConnectionManager {
         self.provider = provider;
         Ok(())
     }
+    pub fn update_model_details(
+        &mut self,
+        preferences: ConnectionPreferences,
+        expected: dolores_core::ModelDetails,
+        details: dolores_core::ModelDetails,
+    ) -> Result<(), String> {
+        dolores_provider_openai::validate_preferences(&preferences)?;
+        let current = self.store.preferences()?;
+        if preferences.base_url != current.base_url {
+            return Err("The provider changed. Reopen model details; your edits remain.".into());
+        }
+        let provider = if current == preferences {
+            match self.active_key.as_ref() {
+                Some(key) if self.active_base_url.as_deref() == Some(current.base_url.as_str()) => {
+                    Some(Arc::new(
+                        OpenAiProvider::with_settings(
+                            &current,
+                            key.clone(),
+                            details
+                                .request_settings
+                                .unwrap_or(self.store.request_settings()?),
+                        )?
+                        .with_context_window(details.context_window_tokens),
+                    ) as Arc<dyn ModelProvider>)
+                }
+                Some(_) => return Err("Reconnect the provider before saving model details.".into()),
+                None => None,
+            }
+        } else {
+            self.provider.clone()
+        };
+        self.store
+            .save_model_details(&preferences, &expected, &details)?;
+        self.provider = provider;
+        Ok(())
+    }
     pub async fn list_models(
         &self,
         base_url: String,

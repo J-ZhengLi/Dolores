@@ -549,7 +549,7 @@ class _ChatPageState extends State<ChatPage> {
                   key: const Key('image-model-settings'),
                   onPressed: chat.busy || chat.changing || chat.loading
                       ? null
-                      : settings,
+                      : requestSettings,
                   child: const Text('Model settings'),
                 ),
               if (chat.activeRecovery != null) ...[

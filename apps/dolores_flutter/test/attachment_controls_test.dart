@@ -16,6 +16,12 @@ class CapabilityBridge implements ChatBridge {
   Future<dynamic> call(Map<String, dynamic> command) async {
     commands.add(command);
     switch (command['command']) {
+      case 'modelDetails':
+        return {
+          'contextWindowTokens': null,
+          'imageInput': images.contains(command['preferences']['model']),
+          'requestSettings': null,
+        };
       case 'bootstrap':
         return {
           'sessions': <Map<String, dynamic>>[],
@@ -128,25 +134,29 @@ void main() {
         );
         await tester.tap(find.byKey(const Key('image-model-settings')));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.byKey(const Key('model-image-input')));
+        await tester.ensureVisible(
+          find.byKey(const Key('model-detail-images')),
+        );
         await tester.pumpAndSettle();
         expect(
-          find.byKey(const Key('model-image-input')).hitTestable(),
+          find.byKey(const Key('model-detail-images')).hitTestable(),
           findsOneWidget,
         );
         expect(
           tester
-              .widget<CheckboxListTile>(
-                find.byKey(const Key('model-image-input')),
+              .widget<SwitchListTile>(
+                find.byKey(const Key('model-detail-images')),
               )
               .value,
           isFalse,
         );
-        await tester.tap(find.byKey(const Key('model-image-input')));
+        await tester.tap(find.byKey(const Key('model-detail-images')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('close-settings')));
+        await tester.tap(find.byTooltip('Close model details'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Discard'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('close-settings')));
         await tester.pumpAndSettle();
         expect(chat.imageModels, isEmpty);
         expect(chat.attachments.single['name'], 'sample.png');

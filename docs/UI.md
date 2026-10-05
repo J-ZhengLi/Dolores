@@ -390,3 +390,17 @@ Project/chat customization is deliberate. Close and changing a dirty scope ask
 Save / Discard / Keep editing; failed saves retain edits at their destination.
 Theme changes persist before applying. The System preview paints a single
 miniature window in two palettes, sharing one layout and sidebar.
+
+## Model setup (15.4)
+
+Models shows enabled models as rows, with context capacity and image readiness.
+Connect or choose models opens a guided connection form; Connect fetches the list,
+manual entry remains available on failure, and Save returns to the model library.
+Select a row for one model-details dialog: context, image input and expandable
+response tuning. Blank context means 128K. Image flags are configuration, not
+proof inferred from a model name. Window sharing offers the bounded transport
+check. Keep response defaults and scoped overrides under Advanced/search.
+
+Model details save atomically with a comparison against the loaded values.
+Refresh retains edits; a failed save or Close never silently discards them.
+An acknowledged save followed by a failed list refresh still reports Saved.

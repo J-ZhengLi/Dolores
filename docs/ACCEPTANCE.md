@@ -1668,3 +1668,26 @@ The normal release built and launched with a native window. Windows remains lock
 and its screenshot is the lock screen, so light/dark native visual acceptance and
 physical keyboard/assistive technology checks remain pending. No native app input
 was dispatched. Model reliability and the milestone 14.4 gates are unchanged.
+
+## Milestone 15.4 — Model setup (implementation; native review pending)
+
+Ordinary Models presents an enabled-model library, guided Connect/discovery/manual
+fallback and a single details editor for context, image support and expandable
+responses. Explicit image-error recovery opens those details for the current model.
+Advanced/search retains response defaults and scoped generation overrides.
+
+The SQLite transaction compares the loaded model snapshot and atomically writes
+context, image flags and response settings. An injected failure in its final write
+rolled back all three; stale or disabled-model writes were refused. The result
+survived restart and blank/reset context restored inheritance. Selected model and
+other models' settings were preserved. Clippy passed. 23 affected Flutter tests
+and 18 model/settings/response tests passed, including 420×480 light/dark, stale
+save/refresh/Close, and a refresh failure after an acknowledged save.
+
+A native C ABI fixture and a bounded configured-provider Qwen/Qwen3.5-2B live check
+both discovered models, saved details, completed the READY chat (512 output-token
+allowance, 30-second request), and restored the isolated profile. No credentials
+or transcripts were saved as public artifacts; the user's 37-table digest remained
+unchanged. These establish the bounded setup/chat path, not general task reliability.
+The normal desktop release built; native visual/image-readiness qualification
+remains pending while Windows is locked. Milestone 14.4 live failures remain open.

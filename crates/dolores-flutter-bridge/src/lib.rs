@@ -108,6 +108,14 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ModelDetails {
+        preferences: ConnectionPreferences,
+    },
+    SetModelDetails {
+        preferences: ConnectionPreferences,
+        expected: dolores_core::ModelDetails,
+        details: dolores_core::ModelDetails,
+    },
     CheckImageSupport {
         id: u64,
         model: String,
@@ -713,6 +721,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::ModelDetails { preferences } => return Ok(json!(self.store.model_details(&preferences)?)),
             Command::SaveAppearance { theme } => {
                 self.store.save_appearance(theme)?;
                 return Ok(json!(theme));
@@ -824,6 +833,18 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::SetModelDetails {
+                preferences,
+                expected,
+                details,
+            } => {
+                let _runtime = self.runtime.enter();
+                self.connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .update_model_details(preferences, expected, details.clone())?;
+                Ok(json!(details))
+            }
             Command::CheckImageSupport {
                 id,
                 model,
@@ -2431,12 +2452,22 @@ mod tests {
     fn window_sharing_commands_keep_camel_case_handoff_fields() {
         let command: Command = serde_json::from_value(json!({
             "command":"checkImageSupport", "id":1, "model":"fixture", "runId":"parent"
-        })).unwrap();
-        assert!(matches!(command, Command::CheckImageSupport { run_id: Some(id), .. } if id == "parent"));
+        }))
+        .unwrap();
+        assert!(
+            matches!(command, Command::CheckImageSupport { run_id: Some(id), .. } if id == "parent")
+        );
         let command: Command = serde_json::from_value(json!({
             "command":"start", "id":2, "input":"original goal", "desktopHandoff":true
-        })).unwrap();
-        assert!(matches!(command, Command::Start { desktop_handoff: true, .. }));
+        }))
+        .unwrap();
+        assert!(matches!(
+            command,
+            Command::Start {
+                desktop_handoff: true,
+                ..
+            }
+        ));
     }
     use async_trait::async_trait;
     use dolores_core::{Message, PluginDescriptor};

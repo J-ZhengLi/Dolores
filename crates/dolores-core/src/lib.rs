@@ -153,6 +153,14 @@ pub struct ConnectionPreferences {
     pub model: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ModelDetails {
+    pub context_window_tokens: Option<u32>,
+    pub image_input: bool,
+    pub request_settings: Option<RequestSettings>,
+}
+
 /// Nonsecret metadata. The optional ID references a key in a credential plugin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -734,6 +742,30 @@ pub trait SessionStore: Send + Sync {
     }
     fn model_contexts(&self, _: &str) -> Result<ModelContexts, String> {
         Ok(ModelContexts::new())
+    }
+    fn model_details(&self, preferences: &ConnectionPreferences) -> Result<ModelDetails, String> {
+        Ok(ModelDetails {
+            context_window_tokens: self
+                .model_contexts(&preferences.base_url)?
+                .get(&preferences.model)
+                .copied()
+                .flatten(),
+            image_input: self
+                .image_models(&preferences.base_url)?
+                .contains(&preferences.model),
+            request_settings: self
+                .model_request_settings(&preferences.base_url)?
+                .get(&preferences.model)
+                .copied(),
+        })
+    }
+    fn save_model_details(
+        &self,
+        _: &ConnectionPreferences,
+        _: &ModelDetails,
+        _: &ModelDetails,
+    ) -> Result<(), String> {
+        Err("This storage plugin cannot save model details atomically.".into())
     }
     fn save_connection_model_contexts(
         &self,

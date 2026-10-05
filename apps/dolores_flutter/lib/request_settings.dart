@@ -8,7 +8,8 @@ import 'dart:convert';
 
 class RequestSettingsDialog extends StatefulWidget {
   final ChatController chat;
-  const RequestSettingsDialog({super.key, required this.chat});
+  final bool appDefaults;
+  const RequestSettingsDialog({super.key, required this.chat, this.appDefaults = false});
   @override
   State<RequestSettingsDialog> createState() => _RequestSettingsDialogState();
 }
@@ -31,7 +32,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   late String endpoint, model;
   String reasoning = 'providerDefault';
   bool inherited = false;
-  Map<String, dynamic> get selectedSettings => model == widget.chat.model
+  Map<String, dynamic> get selectedSettings => widget.appDefaults ? widget.chat.defaultRequestSettings : model == widget.chat.model
       ? widget.chat.requestSettings
       : (widget.chat.modelRequestSettings[model] as Map?)
                 ?.cast<String, dynamic>() ??
@@ -40,12 +41,12 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   void initState() {
     super.initState();
     endpoint = widget.chat.baseUrl;
-    model = widget.chat.model;
+    model = widget.appDefaults ? '' : widget.chat.model;
     tokens = TextEditingController(
-      text: '${widget.chat.requestSettings['maxOutputTokens']}',
+      text: '${selectedSettings['maxOutputTokens']}',
     );
     timeout = TextEditingController(
-      text: '${widget.chat.requestSettings['timeoutSeconds']}',
+      text: '${selectedSettings['timeoutSeconds']}',
     );
     reasoning = selectedSettings['reasoning'] as String? ?? 'providerDefault';
     savedDraft = draftValue;
@@ -276,7 +277,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                   ? null
                   : () => setState(() {
                       endpoint = widget.chat.baseUrl;
-                      model = widget.chat.model;
+                      model = widget.appDefaults ? '' : widget.chat.model;
                       inherited = false;
                       tokens.text = '${selectedSettings['maxOutputTokens']}';
                       timeout.text = '${selectedSettings['timeoutSeconds']}';

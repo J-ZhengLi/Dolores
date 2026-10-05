@@ -329,7 +329,7 @@ void main() {
         ..enabledModels = ['fixture'];
       await tester.pumpWidget(
         MaterialApp(
-          home: SettingsWindow(chat: chat, modelsPage: ModelsPage.responses),
+          home: SettingsWindow(chat: chat, modelsPage: ModelsPage.defaults),
         ),
       );
       await tester.pumpAndSettle();

@@ -7,7 +7,14 @@ import 'settings_frame.dart';
 
 class ConnectionDialog extends StatefulWidget {
   final ChatController chat;
-  const ConnectionDialog({super.key, required this.chat});
+  final bool setupOnly;
+  final VoidCallback? onSaved;
+  const ConnectionDialog({
+    super.key,
+    required this.chat,
+    this.setupOnly = false,
+    this.onSaved,
+  });
   @override
   State<ConnectionDialog> createState() => _ConnectionDialogState();
 }
@@ -162,9 +169,9 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
         requestKey,
         remember: remember,
         models: selected.toList(),
-        contexts: contexts,
+        contexts: widget.setupOnly ? null : contexts,
       );
-      if (widget.chat.attachmentsAvailable) {
+      if (widget.chat.attachmentsAvailable && !widget.setupOnly) {
         await widget.chat.bridge.call({
           'command': 'setImageModels',
           'models': imageModels.where(selected.contains).toList(),
@@ -182,6 +189,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
             notice = 'Connection saved.';
             savedDraft = draftValue;
           });
+          widget.onSaved?.call();
         }
       }
     } catch (failure) {
@@ -266,7 +274,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                     ),
                   ),
                 ),
-              if (selected.isNotEmpty) ...[
+              if (selected.isNotEmpty && !widget.setupOnly) ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   key: ValueKey(
@@ -388,7 +396,13 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh, size: 16),
-                label: Text(fetching ? 'Fetching models…' : 'Fetch models'),
+                label: Text(
+                  fetching
+                      ? 'Connecting…'
+                      : widget.setupOnly
+                      ? 'Connect'
+                      : 'Fetch models',
+                ),
               ),
               if (available.isNotEmpty) ...[
                 const SizedBox(height: 12),
