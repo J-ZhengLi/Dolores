@@ -43,9 +43,18 @@ adapter also lies outside the strict portable payload. No new distributable arch
 is qualified by this brick.
 
 The normal app was rebuilt and launched (PID 31560). Original preferences/history
-remain unchanged across 37 table digests. Final native visual verification is
-pending: the computer-use tool returned “failed to activate captured window” after
-refresh/retry. Do not treat widget/FFI passes as that native check.
+remain unchanged across 37 table digests. Native visual verification succeeded
+on retry in the running normal app: the dark 1127 × 813 window shows Computer use
+inside unified Settings with readable controls and a reachable fixed footer.
+Refreshing and selecting the disposable application, capturing locally and
+scrolling expose the readable image, snapshot dimensions/DPI and separate model
+and sharing controls. Closing that application and attempting another capture
+shows an actionable error pinned above the scroll area while preserving the
+previous preview. No Analyze action or provider request was made in this visual
+check. The owned fixture and its single local test capture were removed afterward;
+the app stays open and the 37-table preservation check passes. The earlier desktop
+activation failure was a verification-tool limitation, resolved on retry. Native
+light-theme, other-size and input/accessibility qualification remain separate gaps.
 
 Desktop click/type, accessibility observations, other platforms, protected/locked
 desktops, DPI/movement corpus, and representative low-end resource measurements
