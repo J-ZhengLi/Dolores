@@ -1,5 +1,12 @@
 # Flutter/Rust bridge contract
 
+`generateMod {id,session,revision,model?}` reserves a bounded active run. `poll`
+returns done with source/usage/error; malformed/truncated source remains local and
+cannot activate. Model is a configured choice and does not change the selected
+chat model. `setModPolicy {session,revision,automatic}` controls separate ABI 1
+automatic activation, default off. Both refuse active-run conflicts. Draft source
+and notices persist in the project state; restart never replays generation.
+
 `modState {session,category}` inspects project-scoped ABI 1 recovery mods and
 checks the active version; health failure restores/quarantines it. `testMod`
 accepts exact source, manifest and expected revision, then runs host-owned fixed

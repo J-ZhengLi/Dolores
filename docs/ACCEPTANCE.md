@@ -1,5 +1,39 @@
 # Dolores acceptance — 2026-10-05
 
+## Milestone 13.3 — model-authored recovery mods
+
+Settings → Harness mods exposes scoped source/tests, activation, change history,
+bounded model drafting, a themed literal card and deliberate restore/quarantine.
+Automatic ABI 1 activation is a separate switch, off by default. Only mod source,
+not chats, facts, credentials or private roots, goes into the drafting request.
+Six fixed host-owned categories compare baseline/candidate at equal fuel. Source
+and manifest drift invalidates activation. Unsupported hooks/capabilities/UI
+manifests refuse. Paused working tasks execute a pinned source snapshot and retain
+the resulting recovery hint in run events/trajectory; hints never run actions.
+
+Two draft fixtures pass for valid, truncated, malformed, oversized and stopped
+responses. Two widget fixtures pass for stale-test recovery and partial draft
+retention; the seven existing Settings tests pass. Partial generation is persisted
+for reopening and remains editable. No JSON repair/retry loop or raised default
+was added. Broader batch checks: 222 Rust tests across ten suites and 213 Flutter
+tests pass; Clippy passes (final UI analysis recorded at batch exit).
+
+Bounded live probes in disposable data used the configured endpoint and synthetic
+mod source. First Qwen returned non-improvement (232 total tokens); DeepSeek
+returned invalid WAT (1,209 total, 941 reasoning). Both were withheld. A clearer
+source-inspection prompt, unchanged 1,024-token/30-second allowances, was then
+tested explicitly once per model: Qwen again tied (233 total tokens, 1.11 seconds),
+remaining rejected. DeepSeek repaired a synthetic conditional context-category
+fault in 3.23 seconds (237 input / 368 output, 341 reasoning, 605 total). All six
+candidate cases passed against a five-pass baseline; opted-in automatic activation
+occurred, and explicit restore quarantined it and restored the retained source.
+The synthetic baseline was injected for this test, not a real previous learned
+activation. The user's selected model/configuration/history were untouched.
+
+This demonstrates a small executable recovery-hint repair, not general autonomous
+task improvement. Qwen drafting reliability remains unaccepted. Milestone 12's
+broader automatic skill-improvement acceptance remains open independently.
+
 ## Milestone 13.2 — activation and durable recovery
 
 Four focused host/store tests pass: strict improvement, safe-boundary activation,

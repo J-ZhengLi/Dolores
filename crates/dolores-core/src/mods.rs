@@ -67,6 +67,10 @@ pub struct ModState {
     pub pending: Option<String>,
     pub versions: Vec<ModVersion>,
     pub events: Vec<String>,
+    #[serde(default)]
+    pub draft: String,
+    #[serde(default)]
+    pub draft_notice: String,
 }
 impl ModState {
     pub fn active_version(&self) -> Option<&ModVersion> {
@@ -75,7 +79,9 @@ impl ModState {
             .and_then(|id| self.versions.iter().find(|v| &v.identity == id))
     }
     pub fn validate(&self) -> Result<(), String> {
-        if self.versions.len() > 8
+        if self.draft.len() > 8192
+            || self.draft_notice.len() > 1024
+            || self.versions.len() > 8
             || self.events.len() > 32
             || self.events.iter().any(|s| s.len() > 512)
         {

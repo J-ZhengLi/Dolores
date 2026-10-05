@@ -59,6 +59,25 @@ Generated source is untrusted. Fixed evaluator criteria are supplied by the host
 never candidates. Automatic activation is a separate explicit opt-in, default
 off; only a strict all-pass improvement within the same ABI/capability envelope
 qualifies. Kernel changes stay ordinary reviewable source diffs/build/restart.
-Cards planned for 13.3 use existing Flutter surfaces, literal bounded title/body, and only
+Cards use existing Flutter surfaces, literal bounded title/body, and only
 host-resolved review actions. No arbitrary Dart/HTML, URLs or injected handlers.
 This narrow corpus does not establish general automatic self-improvement.
+
+## Drafting and visibility (13.3)
+
+Settings → Harness mods is working-folder scoped. Test source is local; Draft a
+repair explicitly shares only the current mod source with the selected configured
+model. One request uses at most 1024 output tokens / 30 seconds, preserves the
+provider reasoning choice and saves reported usage. Complete valid drafts are
+tested automatically; all-pass strict improvement enters review, or activates
+under the separately opted-in ABI 1 policy. Ties/failures never activate.
+Malformed/truncated drafts retain bounded source and a notice across restart;
+the user can edit/test it explicitly. No silent retry or model switch occurs.
+The generation intent/receipt is retained; restart does not replay drafting.
+
+Runs clone immutable active source before requesting model work. Paused working
+tasks use that snapshot to produce a host-owned recovery hint in durable events
+and trajectory. A hint changes guidance only; Continue, grants and limits retain
+their existing user-controlled flows. Inspector health failures restore and
+quarantine the active source; missing/invalid mod state leaves ordinary chat
+usable. The initial interface supports one recovery hook/card per working folder.

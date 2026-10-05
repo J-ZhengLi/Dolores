@@ -25,6 +25,7 @@ mod knowledge;
 mod mcp;
 mod memory;
 mod memory_suggestions;
+mod mod_generation;
 mod mods;
 mod permissions;
 mod recovery;
@@ -101,6 +102,17 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    GenerateMod {
+        id: u64,
+        session: String,
+        revision: u32,
+        model: Option<String>,
+    },
+    SetModPolicy {
+        session: String,
+        revision: u32,
+        automatic: bool,
+    },
     ModState {
         session: String,
         #[serde(default)]
@@ -755,6 +767,17 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::GenerateMod {
+                id,
+                session,
+                revision,
+                model,
+            } => self.generate_mod(&mut active, id, session, revision, model),
+            Command::SetModPolicy {
+                session,
+                revision,
+                automatic,
+            } => self.mod_policy(&session, revision, automatic),
             Command::ModState { session, category } => self.mod_view(&session, category),
             Command::TestMod {
                 session,
@@ -1631,6 +1654,14 @@ async fn execute(
     output: &mpsc::Sender<Value>,
 ) -> Result<String, String> {
     let started_at = std::time::Instant::now();
+    // Snapshot source bytes before generation. Mod state failures never block chat.
+    let pinned_mod = request
+        .session
+        .as_deref()
+        .and_then(|s| store.workspace(s).ok())
+        .and_then(|w| w.root)
+        .and_then(|root| store.mod_state(&root).ok())
+        .and_then(|s| s.active_version().cloned());
     let TurnRequest {
         delegation,
         log,
@@ -1937,6 +1968,20 @@ async fn execute(
             (!dolores_core::unresolved_commands(&receipts).is_empty())
                 .then_some(dolores_core::PauseReason::CommandReview)
         });
+        if let (Some(version), Some(reason)) = (&pinned_mod, &pause) {
+            let category = match reason {
+                dolores_core::PauseReason::OutputLimit => 1,
+                dolores_core::PauseReason::StepLimit => 3,
+                _ => 0,
+            };
+            let card = mods::hint(Some(version), category, &cancel).unwrap_or_else(
+                |error| json!({"text":error,"identity":version.identity,"action":"inspect"}),
+            );
+            if let Some(log) = &log {
+                let _ = log.record(None, "modHint", card.clone()).await;
+            }
+            let _ = output.try_send(json!({"type":"modHint","id":id,"card":card}));
+        }
         let metadata = TurnMetadata {
             paused: pause.map(|reason| dolores_core::PausedTask {
                 segments: prior

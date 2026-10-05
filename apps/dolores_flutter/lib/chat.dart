@@ -1096,6 +1096,8 @@ class ChatController extends ChangeNotifier {
             _record(
               event['note'] as String? ?? 'Reply saved · checking skill repair',
             );
+          case 'modHint':
+            _record('Recovery guidance · ${event['card']['text']}');
           case 'done':
             for (final child in subagents) {
               if (['queued', 'running'].contains(child['status'])) {

@@ -12,6 +12,7 @@ import 'theme.dart';
 import 'web_settings.dart';
 import 'browser_settings.dart';
 import 'knowledge.dart';
+import 'mods.dart';
 
 enum SettingsCategory {
   appearance,
@@ -22,6 +23,7 @@ enum SettingsCategory {
   browser,
   tools,
   skills,
+  mods,
   permissions,
   limits,
 }
@@ -75,6 +77,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsCategory.browser: ('Browser', Icons.web_outlined),
     SettingsCategory.tools: ('External tools', Icons.extension_outlined),
     SettingsCategory.skills: ('Skills', Icons.auto_stories_outlined),
+    SettingsCategory.mods: ('Harness mods', Icons.widgets_outlined),
     SettingsCategory.permissions: ('Permissions', Icons.shield_outlined),
     SettingsCategory.limits: ('Task limits', Icons.timer_outlined),
   };
@@ -93,6 +96,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.mods =>
+      widget.chat.busy
+          ? unavailable(
+              'Finish or stop the current response before managing mods.',
+            )
+          : ModsInspector(chat: widget.chat),
     SettingsCategory.skills =>
       widget.chat.session == null
           ? unavailable(
