@@ -1,5 +1,26 @@
 # Dolores acceptance — 2026-10-05
 
+## Milestone 13.1 — runtime decision
+
+Selected Wasmi 0.46.0 for the narrow stateless recovery-hint ABI in
+[the runtime contract](design/executable-mods.md). Two runtime tests pass:
+fixed classification plus import/memory/table/output refusal, and runaway/Stop.
+Release comparison: Wasmi compile 980 µs, 1,000 fresh-store calls 1,536 µs;
+Rhai compile 1,321 µs, 1,000 calls 457 µs. These are scalar microbenchmarks,
+not task reliability or representative low-end measurements. Standalone probes
+are 2,536,448 and 2,960,896 bytes respectively. First three sampled working sets
+were Wasmi 15.23/14.98/14.98 MiB and Rhai 15.53/15.20/15.30 MiB. Repeat sampling
+varied during startup (5.92–15.23 and 5.93–15.22 MiB); no idle-memory target is
+claimed from these snapshots. Each owns one process and exits without helpers.
+The worker reads its owned sentinel directly, confirming lack of containment.
+Rhai runaway/file-access probes pass, but it remains development-only.
+
+The normal Windows desktop release was rebuilt and launched with existing
+configuration/history. No live model call is required to select the engine.
+Other OS execution, native interpreter vulnerabilities, general hooks and
+representative device/resource targets remain unqualified. No OS sandbox is
+claimed; generated Wasm has no imports/WASI and no native fallback.
+
 ## Milestone 12 — native visual verification follow-up
 
 Retried on the unlocked Windows desktop with screenshots of the normal release
