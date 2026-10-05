@@ -20,6 +20,8 @@ mod runs;
 pub use runs::*;
 mod registry;
 pub use registry::*;
+mod mods;
+pub use mods::*;
 mod task_budget;
 pub use task_budget::*;
 mod shared_budget;
@@ -266,6 +268,15 @@ pub enum Appearance {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn mod_state(&self, _: &str) -> Result<ModState, String> {
+        Ok(Default::default())
+    }
+    fn save_mod_state(&self, _: &str, _: u32, _: &ModState) -> Result<ModState, String> {
+        Err("Executable mod storage is unavailable.".into())
+    }
+    fn recover_mod_activations(&self) -> Result<(), String> {
+        Ok(())
+    }
     fn interrupt_adaptations(&self) -> Result<(), String> {
         Ok(())
     }

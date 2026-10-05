@@ -25,6 +25,7 @@ mod knowledge;
 mod mcp;
 mod memory;
 mod memory_suggestions;
+mod mods;
 mod permissions;
 mod recovery;
 mod registry;
@@ -100,6 +101,26 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ModState {
+        session: String,
+        #[serde(default)]
+        category: i32,
+    },
+    TestMod {
+        session: String,
+        revision: u32,
+        manifest: dolores_core::ModManifest,
+        source: String,
+    },
+    ActivateMod {
+        session: String,
+        revision: u32,
+        identity: String,
+    },
+    RestoreMod {
+        session: String,
+        revision: u32,
+    },
     LearningState {
         session: String,
     },
@@ -599,6 +620,7 @@ impl Engine {
         let mut connection = ConnectionManager::new(store.clone(), credentials.clone());
         // Learning recovery never makes ordinary history/chat unavailable.
         let _ = store.interrupt_adaptations();
+        let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
             let _ = connection.recover(); // Recovery warnings keep history available.
@@ -733,6 +755,19 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ModState { session, category } => self.mod_view(&session, category),
+            Command::TestMod {
+                session,
+                revision,
+                manifest,
+                source,
+            } => self.test_mod(&session, revision, manifest, source),
+            Command::ActivateMod {
+                session,
+                revision,
+                identity,
+            } => self.activate_mod(&session, revision, &identity),
+            Command::RestoreMod { session, revision } => self.restore_mod(&session, revision),
             Command::SaveScopedSettings {
                 session,
                 scope,

@@ -46,7 +46,7 @@ compilation. Source/byte limits bound parsing; separately measure pathological
 cases. Nothing stays resident between inspector/run invocations. Identity is a
 SHA-256 digest of exact source plus the validated manifest's immutable fields.
 
-## Lifecycle planned for 13.2–13.3
+## Implemented lifecycle (13.2)
 
 Project-scoped immutable versions, host-owned fixed cases, baseline comparison,
 revision checks, safe-boundary activation, append-only receipts and quarantine.
@@ -59,6 +59,6 @@ Generated source is untrusted. Fixed evaluator criteria are supplied by the host
 never candidates. Automatic activation is a separate explicit opt-in, default
 off; only a strict all-pass improvement within the same ABI/capability envelope
 qualifies. Kernel changes stay ordinary reviewable source diffs/build/restart.
-Cards use existing Flutter surfaces, literal bounded title/body, and only
+Cards planned for 13.3 use existing Flutter surfaces, literal bounded title/body, and only
 host-resolved review actions. No arbitrary Dart/HTML, URLs or injected handlers.
 This narrow corpus does not establish general automatic self-improvement.

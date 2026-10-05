@@ -1,5 +1,14 @@
 # Flutter/Rust bridge contract
 
+`modState {session,category}` inspects project-scoped ABI 1 recovery mods and
+checks the active version; health failure restores/quarantines it. `testMod`
+accepts exact source, manifest and expected revision, then runs host-owned fixed
+criteria. `activateMod {session,revision,identity}` refuses drift, non-improvement,
+quarantine and active runs. `restoreMod {session,revision}` restores the retained
+baseline and quarantines the replaced version. All four are excluded while a run
+is active; these are local operations without model requests. See
+[executable mods](../design/executable-mods.md).
+
 `draftAttachments`, `attachmentPreview`, `attachFile`, `removeAttachment`, `exportAttachments`, `cleanupAttachments` and `setImageModels` implement [attachment snapshots](../design/attachments.md). Bootstrap advertises `attachments` and configured `imageModels`; old hosts can omit them. Stored message pages/exports add optional `parts` with digest/name/MIME/bytes. Native previews alone may return bounded local `imageBase64`; raw images are not included in context reports or ordinary exports. Image sending uses an explicitly enabled provider adapter and refuses unsupported input without consuming the draft. Mutations are excluded during active execution.
 
 `taskPermissions` reads a saved chat's exact local policy/revision and reviewed MCP choices. `setTaskPermissions` saves an explicit policy with an expected revision. During an active run only review/revocation is allowed; matching primary work is cancelled. The scoped patch/effective run snapshot has a backward-readable `permissions` group. See [task access](../design/task-permissions.md).

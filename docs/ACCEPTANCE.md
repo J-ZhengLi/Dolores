@@ -1,5 +1,22 @@
 # Dolores acceptance — 2026-10-05
 
+## Milestone 13.2 — activation and durable recovery
+
+Four focused host/store tests pass: strict improvement, safe-boundary activation,
+exact source/manifest identity checks, stale revision refusal, retained snapshot
+pinning, restore/quarantine, rejected non-improvement, interrupted intent
+reconciliation, and failed receipt persistence. A SQLite trigger permits the
+intent but refuses the pointer/receipt update; the old pointer remains and
+restart recovery clears the pending intent before an explicit successful retry.
+Migration 31 adds only project_mods; old history/settings remain readable.
+Registry descriptors identify restricted Wasm separately from compiled/MCP code.
+Mod state errors stay local and do not prevent registry/chat preparation.
+
+ABI 1 has no persistent mod state or dependencies: schema/capability expansion
+refuses; there is no migration path to execute. No credential or private task
+text is passed to bytecode. An active run blocks activation through the existing
+host coordinator. Wider stateful migration/OS qualification remains excluded.
+
 ## Milestone 13.1 — runtime decision
 
 Selected Wasmi 0.46.0 for the narrow stateless recovery-hint ABI in

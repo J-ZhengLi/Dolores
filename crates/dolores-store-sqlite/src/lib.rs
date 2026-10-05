@@ -23,7 +23,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 30;
+pub const SCHEMA_VERSION: i64 = 31;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -34,6 +34,7 @@ mod experience;
 mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;
+mod mods;
 mod runs;
 mod settings;
 mod threads;
@@ -187,6 +188,9 @@ impl SqliteStore {
         if version < 30 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS project_adaptation(root TEXT PRIMARY KEY,data TEXT NOT NULL); PRAGMA user_version=30; COMMIT;").map_err(storage_error)?;
         }
+        if version < 31 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS project_mods(root TEXT PRIMARY KEY,data TEXT NOT NULL); PRAGMA user_version=31; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -197,6 +201,20 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn mod_state(&self, root: &str) -> Result<dolores_core::ModState, String> {
+        self.read_mods(root)
+    }
+    fn save_mod_state(
+        &self,
+        root: &str,
+        revision: u32,
+        s: &dolores_core::ModState,
+    ) -> Result<dolores_core::ModState, String> {
+        self.write_mods(root, revision, s)
+    }
+    fn recover_mod_activations(&self) -> Result<(), String> {
+        self.recover_mods()
+    }
     fn interrupt_adaptations(&self) -> Result<(), String> {
         self.interrupt_learning()
     }

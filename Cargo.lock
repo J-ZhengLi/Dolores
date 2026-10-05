@@ -1313,6 +1313,7 @@ dependencies = [
  "directories",
  "dolores-core",
  "dolores-credentials",
+ "dolores-mod-runtime",
  "dolores-provider-openai",
  "dolores-store-sqlite",
  "dolores-tools-browser",

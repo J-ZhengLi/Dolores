@@ -14,6 +14,7 @@ pub const HOST_EXTENSION_API: u32 = 1;
 pub enum ExtensionKind {
     Compiled,
     ExternalMcp,
+    RestrictedWasm,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

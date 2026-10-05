@@ -195,6 +195,29 @@ impl Engine {
             })?;
         }
         if let Some(root) = root {
+            if let Ok(state) = self.store.mod_state(&root) {
+                for version in &state.versions {
+                    registry.register(ExtensionRegistration {
+                        descriptor: ExtensionDescriptor {
+                            id: format!("mods/{}", &version.identity[..12]),
+                            version: version.identity.clone(),
+                            api_min: 1,
+                            api_max: 1,
+                            kind: ExtensionKind::RestrictedWasm,
+                            config_revision: state.revision.max(1),
+                            entry_identity: version.identity.clone(),
+                            dependencies: vec![],
+                            capabilities: vec!["stateless-recovery-hint".into()],
+                            tools: vec![],
+                            enabled: state.active.as_ref() == Some(&version.identity),
+                            available: true,
+                            unavailable_reason: String::new(),
+                            health: version.status.clone(),
+                        },
+                        hooks: vec![],
+                    })?;
+                }
+            }
             for c in self.store.mcp_connections(&root)? {
                 let mut advertised = c.clone();
                 advertised.enabled = true;
