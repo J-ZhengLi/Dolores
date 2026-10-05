@@ -8,6 +8,8 @@ pub use attachments::*;
 mod comparison;
 mod experience;
 pub use experience::*;
+mod adaptation;
+pub use adaptation::*;
 mod feedback;
 pub use comparison::*;
 pub use feedback::*;
@@ -264,6 +266,20 @@ pub enum Appearance {
 }
 
 pub trait SessionStore: Send + Sync {
+    fn adaptation(&self, _: &str) -> Result<AdaptationState, String> {
+        Ok(Default::default())
+    }
+    fn save_adaptation(
+        &self,
+        _: &str,
+        _: u32,
+        _: &AdaptationState,
+    ) -> Result<AdaptationState, String> {
+        Err("Skill learning unavailable.".into())
+    }
+    fn activate_adaptation(&self, _: &str, _: u32, _: &str) -> Result<AdaptationState, String> {
+        Err("Skill learning activation unavailable.".into())
+    }
     fn experience_trials(&self, _: &str) -> Result<Vec<ExperienceTrial>, String> {
         Ok(vec![])
     }

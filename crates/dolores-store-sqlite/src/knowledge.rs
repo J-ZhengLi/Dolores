@@ -1,7 +1,7 @@
 use super::*;
 use dolores_core::KnowledgeState;
 use rusqlite::OptionalExtension;
-fn read(conn: &Connection, root: &str) -> Result<KnowledgeState, String> {
+pub(super) fn read(conn: &Connection, root: &str) -> Result<KnowledgeState, String> {
     let value: Option<String> = conn
         .query_row(
             "SELECT data FROM project_knowledge WHERE root=?1",

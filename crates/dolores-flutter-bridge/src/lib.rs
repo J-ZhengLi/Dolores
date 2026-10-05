@@ -1,4 +1,7 @@
 //! C ABI for the selected Flutter shell. External processes require explicit review.
+mod adaptation;
+#[cfg(test)]
+mod adaptation_tests;
 mod approval;
 mod attachments;
 mod automatic_memory;
@@ -97,6 +100,29 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    LearningState {
+        session: String,
+    },
+    SetLearningPolicy {
+        session: String,
+        revision: u32,
+        enabled: bool,
+        automatic: bool,
+        paused: bool,
+    },
+    CreateCheckWorkflow {
+        session: String,
+        command_text: String,
+    },
+    ReflectLatest {
+        id: u64,
+        session: String,
+    },
+    ApproveLearning {
+        session: String,
+        revision: u32,
+        event: String,
+    },
     TrialSources {
         session: String,
     },
@@ -614,6 +640,7 @@ impl Engine {
             Command::WebSettings => return self.web_settings(),
             Command::ProjectKnowledge {session} => return self.project_knowledge(&session),
             Command::TrialSources {session} => return self.trial_sources(&session),
+            Command::LearningState {session} => return self.learning_view(&session),
             Command::BrowserSettings => return self.browser_settings(),
             Command::BrowserCapture { capture } => return self.browser_capture(&capture),
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
@@ -732,6 +759,26 @@ impl Engine {
                 settings,
             } => self.start_comparison(&mut active, id, session, draft, settings),
             Command::WebSettings => self.web_settings(),
+            Command::LearningState { session } => self.learning_view(&session),
+            Command::SetLearningPolicy {
+                session,
+                revision,
+                enabled,
+                automatic,
+                paused,
+            } => self.learning_policy(&session, revision, enabled, automatic, paused),
+            Command::CreateCheckWorkflow {
+                session,
+                command_text,
+            } => self.create_check_workflow(&session, &command_text),
+            Command::ReflectLatest { id, session } => {
+                self.start_reflection(&mut active, id, session)
+            }
+            Command::ApproveLearning {
+                session,
+                revision,
+                event,
+            } => self.approve_learning(&session, revision, &event),
             Command::TrialSources { session } => self.trial_sources(&session),
             Command::StartToolTrial {
                 id,
@@ -1337,6 +1384,25 @@ impl Engine {
                 };
                 let model = self.store.preferences()?.model;
                 let settings = provider.request_settings();
+                let reflection_provider = if session
+                    .as_deref()
+                    .and_then(|s| self.store.workspace(s).ok())
+                    .and_then(|w| w.root)
+                    .and_then(|r| self.store.adaptation(&r).ok())
+                    .is_some_and(|s| s.enabled && !s.paused)
+                {
+                    self.connection
+                        .lock()
+                        .map_err(|_| "Connection unavailable.")?
+                        .comparison_provider(RequestSettings {
+                            max_output_tokens: 1024,
+                            timeout_seconds: 30,
+                            ..effective.request
+                        })
+                        .ok()
+                } else {
+                    None
+                };
                 let learner = if self.store.automatic_memory_policy()?.enabled {
                     self.connection
                         .lock()
@@ -1480,6 +1546,7 @@ impl Engine {
                     let paused = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).is_some();
                     if result.is_ok() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
                     let knowledge_update = if result.is_ok() && !paused { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
+                    let learning_update = if result.is_ok(){if let Some(s)=learning_session.as_deref(){adaptation::reflect(store.clone(),reflection_provider,s,&learning_model,cancel.clone(),&output,id).await.unwrap_or_else(|e|Some(format!("{e} Saved reply and prior evidence remain; inspect Skills → Learning. No retry.")))}else{None}}else{None};
                     let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
                             automatic_memory::learn(store.clone(), learner, &session, &learning_model, cancel.clone(), &output, id).await
@@ -1488,7 +1555,7 @@ impl Engine {
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
                     let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error})).await.err();
                     let mut event = match result {
-                        Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update}),
+                        Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update,"learningUpdate":learning_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
                     };
                     event["runId"]=json!(log.id);

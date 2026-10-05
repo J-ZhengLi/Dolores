@@ -7,6 +7,7 @@ import 'chat.dart';
 import 'inspector.dart';
 import 'settings_frame.dart';
 import 'skills.dart';
+import 'learning.dart';
 
 class SkillSettings extends StatefulWidget {
   final ChatController chat;
@@ -18,7 +19,11 @@ class SkillSettings extends StatefulWidget {
 class _SkillSettingsState extends State<SkillSettings> {
   int index = 0;
   final panels = <int, Widget>{};
-  final locks = [ValueNotifier(false), ValueNotifier(false)];
+  final locks = [
+    ValueNotifier(false),
+    ValueNotifier(false),
+    ValueNotifier(false),
+  ];
   ValueNotifier<bool>? outer;
   bool get pending => locks.any((l) => l.value);
   void changed() {
@@ -56,9 +61,9 @@ class _SkillSettingsState extends State<SkillSettings> {
         child: Wrap(
           spacing: 8,
           children: [
-            for (var i = 0; i < 2; i++)
+            for (var i = 0; i < 3; i++)
               ChoiceChip(
-                label: Text(['Library', 'Tool trials'][i]),
+                label: Text(['Library', 'Tool trials', 'Learning'][i]),
                 selected: index == i,
                 onSelected: pending ? null : (_) => setState(() => index = i),
               ),
@@ -79,13 +84,15 @@ class _SkillSettingsState extends State<SkillSettings> {
                         session: widget.chat.session!,
                         hasProject: widget.chat.workspaceRoot != null,
                       )
-                    : ToolTrialsInspector(chat: widget.chat),
+                    : index == 1
+                    ? ToolTrialsInspector(chat: widget.chat)
+                    : LearningInspector(chat: widget.chat),
               ),
             );
             return IndexedStack(
               index: index,
               children: [
-                for (var i = 0; i < 2; i++)
+                for (var i = 0; i < 3; i++)
                   panels[i] ?? const SizedBox.shrink(),
               ],
             );

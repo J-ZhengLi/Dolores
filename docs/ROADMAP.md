@@ -19,7 +19,7 @@ Playwright runtime, reviewed input and bounded local evidence. Synthetic host
 flows and cleanup pass; general website/model reliability and other-platform
 execution remain open. See [web contract](design/web-search.md),
 [browser contract](design/browser-use.md) and acceptance. **12.1 scoped knowledge
-and 12.2 independent tool trials are implemented**; the authorized milestone 12 batch continues with
+12.2 independent tool trials and 12.3 targeted skill adaptation are implemented**; the authorized milestone 12 batch continues with
 adaptation below.
 
 Dolores should complete useful project work, discuss reasoning, challenge consequential false premises, remember scoped answers and improve skills/approved extensions from evidence. Keep Flutter/system theme and Rust/provider-independent ports. Support threads/compaction, explicit approval/full-access choices, attachments, settings, subagents, search and browser use. Automatic tested activation with rollback is limited by host-owned authority and actual containment, not an agent's self-assessment.

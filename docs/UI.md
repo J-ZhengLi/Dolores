@@ -51,7 +51,11 @@ tool evidence, usage and recovery controls stay available in their existing form
 
 ## Browser use
 
-Settings → Skills retains Library and Tool trials as cached embedded editors.
+Settings → Skills retains Library, Tool trials and Learning as cached embedded editors.
+Learning exposes off-by-default reflection/automatic activation, project pause,
+the optional host check workflow, local causes and independent receipts. Failed
+saves retain drafts; explicit Refresh never replays a claimed event. No new
+composer/header controls are added. Automatic activation is labeled experimental.
 Pending trials block switching/closing and expose Stop; saved receipts, errors
 and candidate drafts remain inspectable. Trial settings are frozen separately
 from chat settings. Do not describe simulated checks as executed OS commands.

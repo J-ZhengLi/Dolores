@@ -8,7 +8,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 // Disjoint from all absolute project roots. Global activation is local to this app's data directory.
 pub(super) const GLOBAL_ROOT: &str = "@global-skills";
 
-fn read(connection: &Connection, root: &str) -> Result<Vec<ProjectSkill>, String> {
+pub(super) fn read(connection: &Connection, root: &str) -> Result<Vec<ProjectSkill>, String> {
     let mut query = connection
         .prepare("SELECT name,data FROM project_skills WHERE root=?1 ORDER BY name LIMIT 13")
         .map_err(storage_error)?;

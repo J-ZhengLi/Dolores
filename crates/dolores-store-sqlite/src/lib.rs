@@ -23,10 +23,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 29;
+pub const SCHEMA_VERSION: i64 = 30;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
+mod adaptation;
 mod attachments;
 mod drafts;
 mod experience;
@@ -183,6 +184,9 @@ impl SqliteStore {
         if version < 29 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS experience_trials(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,created_at INTEGER NOT NULL,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS experience_session ON experience_trials(session,created_at); PRAGMA user_version=29; COMMIT;").map_err(storage_error)?;
         }
+        if version < 30 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS project_adaptation(root TEXT PRIMARY KEY,data TEXT NOT NULL); PRAGMA user_version=30; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -193,6 +197,25 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn adaptation(&self, root: &str) -> Result<dolores_core::AdaptationState, String> {
+        self.read_adaptation(root)
+    }
+    fn save_adaptation(
+        &self,
+        root: &str,
+        revision: u32,
+        s: &dolores_core::AdaptationState,
+    ) -> Result<dolores_core::AdaptationState, String> {
+        self.write_adaptation(root, revision, s)
+    }
+    fn activate_adaptation(
+        &self,
+        root: &str,
+        revision: u32,
+        id: &str,
+    ) -> Result<dolores_core::AdaptationState, String> {
+        self.activate_learning(root, revision, id)
+    }
     fn experience_trials(
         &self,
         session: &str,

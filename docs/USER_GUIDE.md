@@ -244,3 +244,12 @@ Nothing activates from this page. Stop retains completed cases; a tie, partial
 response, unfinished run or failed evidence save cannot qualify. The narrow
 fixture suite does not establish general coding ability. Global skills and real
 process/network trials are excluded.
+
+Settings → Skills → Learning offers optional project reflection, automatic
+activation and pause controls. These start off. The experimental automatic path
+supports only the optional host-created project-check workflow: repairing one
+stale check command from current package evidence after independent trials.
+Other imported/global skills retain reviewed Library updates. Inspect reasons
+and receipts here; partial, tied or failed trials keep the original skill.
+Trials send skill snapshots and disposable fixtures, not your private feedback
+notes. This is a narrow workflow feature, not general autonomous self-rewriting.

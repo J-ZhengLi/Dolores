@@ -50,6 +50,20 @@ filesystem or process is available. A tie is not improvement. Twenty receipts
 per chat are retained; failed saves/Stop/unfinished runs cannot qualify. Full
 documents, files, tool receipts and reported usage are local evidence.
 
-The activation whitelist is frozen before 12.3. Acceptance records real-model
+The 12.3 activation whitelist is `config-check-v1`: an exact host-created
+`project-check` document with a single `node <basename>.cjs` command slot. Only
+replacement by `node verify.cjs` qualifies. Approved package.json evidence must
+declare that exact check, remain fresh and observed, and the saved failed task
+must have used the exact skill version while enabling config.json. Changed
+instructions, flags, paths, global skills and generic imported skills cannot
+enter this automatic path. Create the optional workflow in Settings → Skills →
+Learning; other skills retain Library review. Reflection is deterministic;
+the provider runs fixed tool trials, not an open-ended JSON rewrite. Defaults
+are off. Private feedback notes are not sent; separate eligibility can trigger
+inspection of a locally saved outcome. A claimed event is never replayed;
+unfinished evidence cannot activate. Automatic activation remains experimental
+until live improvement and regression acceptance succeed.
+
+Acceptance records real-model
 results and unsupported paths separately. No general daily-improvement claim is
 made from this small corpus.

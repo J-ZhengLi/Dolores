@@ -110,3 +110,15 @@ and error. Cancel uses the ordinary run owner. No skill is activated; incomplete
 or unsaved evidence cannot qualify. Baseline/candidate share frozen budgets and
 the same provider/settings; exact requests and append-only receipts survive
 restart. Existing tool-free comparisons remain separate.
+
+### Project skill learning (12.3)
+
+`learningState {session}` returns policy, causes, exact snapshots and trial
+receipts for this folder. `setLearningPolicy {session,revision,enabled,automatic,
+paused}` uses explicit revision checks. `createCheckWorkflow {session,
+command_text}` creates the optional exact host project-check workflow;
+`reflectLatest {id,session}` claims one saved event and exposes learningProgress
+and done events through normal polling/cancellation. `approveLearning {session,
+revision,event}` requires a completed qualifying review, unchanged skill,
+knowledge and policy. Foreground done may carry learningUpdate; reflection
+failure preserves its saved reply. Schema 30 adds project_adaptation locally.

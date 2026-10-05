@@ -1,5 +1,29 @@
 # Dolores acceptance — 2026-10-05
 
+## Brick 12.3 — targeted project skill adaptation
+
+Implemented opt-in, deduplicated local attribution and the exact host
+config-check-v1 command repair. Independent complete stored trials, current
+knowledge, policy and unchanged project snapshot gate activation. Global and
+unknown instruction changes remain reviewed; no permission or budget expansion.
+Baseline snapshots and reasons remain local. Interrupted evidence is ineligible.
+
+Rust core/store/bridge: 173 tests passed; Clippy with warnings denied passed.
+Fixtures demonstrate one repair/activation and deduplication, harmful attempts,
+false claims/output limits and stale knowledge/manual edits/paused policies.
+Flutter: 11 focused learning/trial/settings tests and analysis passed. Failed
+saves retain the workflow draft; Refresh does not replay it; compact themes and
+Side chat prerequisites pass.
+
+Qwen3.5-2B reflection probe used a synthetic approved-source incident in a
+disposable database and real provider trials: 21.47 seconds, three retained
+phases, incomplete regression and no activation. It does not demonstrate a real
+workflow improvement. Automatic activation acceptance remains **unaccepted**;
+the narrow experimental opt-in and broader reviewed updates remain available.
+Normal release built and launched; 34 original user-data tables unchanged,
+schema 30/37 tables. Visual desktop verification remains pending while the
+Windows session is locked/unavailable.
+
 ## Brick 12.2 — independent tool trials
 
 Implemented the fixed config-command-v1 suite with in-memory file tools and

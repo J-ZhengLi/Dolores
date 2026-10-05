@@ -1092,6 +1092,10 @@ class ChatController extends ChangeNotifier {
             _record('Tool result');
           case 'memoryUpdating':
             _record('Reply saved · learning preferences');
+          case 'learningProgress':
+            _record(
+              event['note'] as String? ?? 'Reply saved · checking skill repair',
+            );
           case 'done':
             for (final child in subagents) {
               if (['queued', 'running'].contains(child['status'])) {
@@ -1111,6 +1115,9 @@ class ChatController extends ChangeNotifier {
               attachments = [];
               if (event['knowledgeUpdate'] is String) {
                 _record('Project knowledge: ${event['knowledgeUpdate']}');
+              }
+              if (event['learningUpdate'] is String) {
+                _record('Skill learning: ${event['learningUpdate']}');
               }
               if (event['memoryUpdate'] is Map) {
                 final update = event['memoryUpdate'] as Map;
