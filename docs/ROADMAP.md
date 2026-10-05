@@ -1,5 +1,16 @@
 # Dolores roadmap
 
+**Developer workspace planning addition — 2026-10-06.** The next direction is
+integrated code editing, Git, terminal/LSP and flexible multi-project views.
+Milestones **16–19 are proposed, not implemented**; first language support is
+TypeScript/JavaScript and Rust, confirmed by the user. The
+[workspace specification](design/developer-workspace.md) defines UX, ownership,
+component gates and resource targets. A [fresh-chat handoff](design/developer-workspace-handoff.md)
+preserves the earlier vision and work rules. Start with a reviewed prototype and
+editor feasibility evidence before runtime UI changes. Existing reliability
+[gaps](qualification/remaining-work.md) stay open; this is a new planned track,
+not a reclassification of failed learning/computer-use gates.
+
 **Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, is deferred until the user explicitly requests it**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
 
 Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.4 are implemented**, with separate commits and bounded evidence in acceptance. The mechanical contracts are verified; consistent real-model task behavior, native input/platform and representative resource acceptance remain open. Later milestones retain their planned scope and are not implicitly complete.
@@ -71,8 +82,12 @@ This table records the planning baseline, not current missing features. See the 
 | **13 — Adapt the executable harness** | Chosen runtime, transactional lifecycle, agent-authored mods and integrated qualification | 13.1–13.4 | Requires 9's contracts and 12's trials. Verified containment gates automatic executable activation. |
 | **14 — Computer use and visual verification** | Model-visible screenshots, scoped Windows interaction, recovery and measured real-workflow results | 14.1–14.4 | Requires 9–11's ownership, grants, provider/image and browser contracts. Independently qualify desktop control; executable self-adaptation does not grant desktop authority. |
 | **15 — Everyday UX** | Conversation-first tools, useful defaults and settings for general users | 15.1–15.8 | Uses delivered state/permission/tool contracts. Model reliability remains separately measured; simplification preserves configuration, evidence and authority. |
+| **16 — Workspace and editor** | Project-bound views, safe file editing, feature rail and four-pane layout | 16.0–16.5 | Prototype/editor gate first; replace single-active-run assumptions before concurrent chats. |
+| **17 — Git workflow** | Real diffs/history, staging, commit, stash/revert and remote actions | 17.1–17.5 | Requires 16's project/document revisions; serialize repository mutations and preserve conflicted work. |
+| **18 — Terminal and language support** | Interactive project terminals and TypeScript/JavaScript/Rust language services | 18.1–18.5 | Requires 16's ownership; lazy supervised processes, useful missing-tool setup and bounded cleanup. |
+| **19 — Detached windows** | Move live views between windows/monitors without duplicating resources | 19.1–19.4 | Requires shared owners from 16–18; qualify pinned-SDK backend and per-window overhead before adoption. |
 
-Default order is sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
+Default order is sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Milestones 16–19 form the newly requested developer-workspace track using delivered contracts; their manual editor/Git work does not require falsely closing prior model-reliability gates. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
 
 ## Milestone 9 — Know itself and own its runs
 
@@ -670,6 +685,377 @@ hosts, new palettes and quiet changes to privacy/authority or acceptance criteri
 directly and recover without reading developer documentation. Advanced users retain
 exact configuration/evidence access. Remaining model/platform gaps stay visible.
 
+## Milestone 16 — Workspace and editor
+
+Deliver the first useful integrated workspace on the maintained Flutter/Rust
+stack. Follow the [workspace specification](design/developer-workspace.md),
+retaining theme/brand/short controls. A view is always bound to its project/resource;
+switching focus changes navigation context, never a live task's authority.
+
+### 16.0 Workspace prototype and editor feasibility
+
+**Scope:** prototype Chats/Files/Git rail, project panel, chat/file tabs and the
+requested A/B four-pane layout. Exercise tab move/split, compact focus and dirty
+file/conflict flows with synthetic data. Compare a Flutter-native editor candidate
+against actual input requirements; identify the detached-window backend seam
+without adopting experimental windowing. Freeze document/buffer ownership,
+message bounds, corpus and a numeric incremental memory budget from matched
+baseline/editor measurements before selecting/pinning dependencies.
+
+**Basic acceptance:** user reviews the workspace interaction; a native editor spike
+demonstrates typing, selection, undo, syntax/find, CRLF/BOM, Unicode and proposed
+large-file behavior. Record measured cost and the dependency decision, not just
+a package README's performance claim.
+
+**Failure/recovery:** a 100 KiB single line and unsupported encoding stay usable
+without lossy saves; prototype cancellation/invalid drop retains tabs and drafts.
+Real IME/accessibility claims need actual checks; missing checks remain gates.
+
+**Excluded:** production UI rollout, an SDK channel switch, complete IDE parity
+or promising a cheap second native window without measurements.
+
+### 16.1 App, project and concurrent-run ownership
+
+**Scope:** separate shared application services from conversation controllers;
+replace the Rust single-active-run state with a bounded run registry and per-run
+approval/cancellation routing. Project/document IDs and revisions become explicit
+in the view contract. Proposed starting scheduler: two global active project runs,
+one mutating agent run per project, visible queue/cancel. Freeze new scheduler
+limits after measurement; retain all existing per-run/model/continuation budgets.
+View closing must not shut down the app bridge or duplicate profile recovery.
+
+**Basic acceptance:** A and B run independently while either is viewed; Stop A
+does not stop B and approvals/model snapshots stay with their original run.
+Closing/reopening a chat tab preserves drafts, progress and history. Migrate the
+existing single-chat flow without changing provider/configuration/history.
+
+**Failure/recovery:** stale run/approval IDs cannot act on another project; a
+queued third run can be cancelled without resetting limits or silently starting.
+Same-project competing writers remain queued with an understandable explanation.
+
+**Excluded:** unattended swarms, automatic worktrees, new access grants and
+parallel writes in the same working root.
+
+### 16.2 Feature rail, files and workspace tabs
+
+**Scope:** add Chats / Files / Git rail plus the single bottom Settings entry;
+retain project/session icons and hints. Files uses lazy scoped traversal and quick
+open. Introduce typed chat/file/diff/history/terminal ViewRefs and per-pane tab
+strips; Git/terminal surfaces show availability until their later bricks exist.
+Implement preview/pin/close/reorder and project selection with explicit identities.
+
+**Basic acceptance:** switch feature panels, open an A file and B chat as tabs,
+disambiguate equal names and return with view state intact. Side chats offer
+Choose project; temporary chats use their existing folder. Settings remains easy
+to reach in wide/compact layouts.
+
+**Failure/recovery:** inaccessible folder/symlink escape provides a scoped recovery
+without scanning outside the root; missing project/file does not destroy tabs.
+Large/generated trees load incrementally without flooding the UI.
+
+**Excluded:** recursive eager indexing, automatic Git initialization, enabling
+tools for a side chat and a populated Git feature before 17.
+
+### 16.3 Safe code editing and disk reconciliation
+
+**Scope:** selected editor adapter with line numbers/highlighting, find/replace,
+go to line, indentation, clipboard, undo/redo and explicit Save. One document owner
+per canonical project/path, revisioned writes, existing encoding/line endings and
+private dirty-buffer recovery. Reconcile outside/agent changes; link selection/file
+attachment to an explicitly chosen chat without automatic prompt sharing.
+Add deliberate create/rename/delete with buffer-preservation checks.
+
+**Basic acceptance:** edit/save/reopen ordinary source, preserve bytes/line endings,
+undo across view changes, and restore a dirty draft after an interrupted app.
+Agent saved-file changes refresh a clean view; unsaved data remains distinct.
+
+**Failure/recovery:** agent/external disk update while dirty retains both versions
+and opens comparison; write failure or deletion retains the buffer and useful
+Save as/Retry recovery. A stale revision cannot silently overwrite newer content.
+
+**Excluded:** autosave by default, lossy binary/encoding edits, hidden whole-file
+uploads and accepting the editor package's text widget as sufficient persistence.
+
+### 16.4 Split panes and persistent layouts
+
+**Scope:** binary split-tree layout, edge drop/move/reorder, resize/reset and
+keyboard/menu equivalents. Persist tab references and layout separately from
+documents/runs. Duplicate file views share one buffer/undo; duplicate chat views
+share one draft/run. Narrow mode selects one pane without deleting the wide layout.
+
+**Basic acceptance:** A chat top left/A file top right/B chat bottom left/B file
+bottom right; edit and monitor both projects, move tabs and restart with layout
+and drafts intact. Focus-specific shortcuts act only on the intended view.
+
+**Failure/recovery:** cancelled drag or closing the last split retains live work;
+malformed/stale layout restores a usable default while recovering dirty documents.
+Shrinking below pane minimums cannot hide Close/Stop/Settings or lose content.
+
+**Excluded:** detached native windows (19), copying live owners into layout JSON
+and tab-close as an implicit task Stop or conversation deletion.
+
+### 16.5 Workspace/editor qualification
+
+**Scope:** frozen two-project corpus, one/two/four panes, editor latency/resources,
+normal native light/dark/wide/compact and keyboard checks. Regress original chat,
+attachments, settings, approvals, continuation and history. One bounded Qwen
+two-project saved-file case verifies model integration; fixtures test concurrency
+and failures deterministically.
+
+**Basic acceptance:** user can monitor A/B and edit code without another editor,
+with original profile/settings preserved, resource targets measured and explicit
+unsupported-file/platform boundaries. Review the normal desktop visually.
+
+**Failure/recovery:** stale/failed save and queued/interrupted run retain work and
+correct project ownership. Report physical IME/low-end/other-platform gaps honestly.
+
+**Exit/excluded:** single-window workspace is usable; Git, terminal/LSP and detached
+windows are still scheduled work, not advertised as already available.
+
+## Milestone 17 — Git workflow
+
+Use real Git working-tree/index/history state through a typed project service.
+Keep run change receipts reachable as separate evidence; do not confuse them with
+the current repository diff. Direct user operations do not alter model authority.
+
+### 17.1 Repository status, diffs and history
+
+**Scope:** installed Git discovery, nested repository identity, Changes/Staged/
+History panel, paged commit/file history, working/index/HEAD/commit comparisons,
+inline and side-by-side diff tabs. Parse machine-readable NUL-delimited paths;
+refresh from coalesced events and explicit Refresh.
+
+**Basic acceptance:** tracked/untracked/renamed/deleted/binary files appear correctly;
+open the appropriate diff/history and link from a chat's Changes action.
+
+**Failure/recovery:** absent Git/non-repository folder has a short actual setup
+action; unusual/Unicode paths or a refresh during external writes cannot show
+another repository's result. Failed reads retain a labeled stale view and Retry.
+
+**Excluded:** mutations, a full graphical history explorer and parsing localized
+human-readable Git output.
+
+### 17.2 Stage, unstage and commit
+
+**Scope:** whole-file then selected-hunk stage/unstage, commit message and staged
+preview. Serialize app-owned repository mutations and bind commands to displayed
+HEAD/index/file basis. Preserve Git hooks and configured author identity.
+
+**Basic acceptance:** stage selected changes, inspect staged diff, commit only
+those changes and see the resulting commit; unstaged/dirty editor work is retained.
+
+**Failure/recovery:** changed index/patch basis requires refresh, not blind apply;
+hook failure retains message/index and gives bounded output with Retry. Another
+project's commit cannot be targeted by focus switching during the operation.
+
+**Excluded:** automatic commits, bypassing hooks, changing Git identity and staging
+unsaved editor buffers without explicitly saving them first.
+
+### 17.3 Stash, branches and reversing changes
+
+**Scope:** stash preview/create/apply/pop, branch list/create/switch, selected file
+discard and non-merge commit revert. Preview exact effect and check dirty buffers/
+repository revisions. Conflict view offers per-file inspection and ordinary editor
+resolution; preserve underlying Git state and next actions.
+
+**Basic acceptance:** stash and restore selected work, switch clean branches and
+create a reverting commit; distinguish Discard file changes from Revert commit.
+
+**Failure/recovery:** conflicted stash pop preserves the stash; branch/revert conflict
+or dirty buffers retains edits and offers Resolve/Abort without destructive cleanup.
+
+**Excluded:** hard reset, merge-commit revert automation, automatic conflict choices
+and blanket stashes of unrelated/ignored work.
+
+### 17.4 Fetch, pull and push
+
+**Scope:** configured remotes/tracking, ahead/behind, deliberate Fetch/Pull/Push and
+credential-helper integration. Show branch/remote/outgoing effect; first Pull is
+fast-forward-only. Model push authority remains unchanged.
+
+**Basic acceptance:** disposable local bare-remote fixture receives one intended
+commit and fetch/pull updates only the intended repository. No production remote
+push or credential change is required for qualification.
+
+**Failure/recovery:** rejected authentication/non-fast-forward offers a concrete
+next step; interrupted push is marked uncertain and reconciles remote refs before
+retry. Never force/reset/rebase as a hidden recovery.
+
+**Excluded:** force push, stored credential copies, automatic publication and
+silently resolving divergence.
+
+### 17.5 Git workflow qualification
+
+**Scope:** frozen two-repository edit/diff/stage/commit/stash/revert/remote corpus,
+native readability and operation recovery, with direct UI and agent/editor outside
+changes. Measure large-history paging and owned Git/hook cleanup.
+
+**Basic acceptance:** complete ordinary local Git work in Dolores with correct
+repository effects and original project history preserved. Record exact fixture
+coverage, hook/credential limits and normal native verification.
+
+**Failure/recovery:** stale hunk/index and conflicted stash preserve usable work;
+remote rejection/uncertainty never causes destructive retries.
+
+**Exit/excluded:** everyday Git is useful; hosted review integrations, full graph
+exploration and advanced history rewriting remain outside the series.
+
+## Milestone 18 — Terminal and language support
+
+Provide the remaining everyday editor workflows without making shells/language
+servers always-on. First LSP families are TypeScript/JavaScript and Rust.
+
+### 18.1 Interactive project terminals
+
+**Scope:** qualify terminal emulator/Rust PTY adapter, use Windows ConPTY and portable
+backend seams, shell discovery, explicit project/cwd, ANSI, resize, scrollback,
+selection/copy/paste and interrupt. Terminal is a movable workspace view.
+
+**Basic acceptance:** run an interactive synthetic project command, resize during
+output, copy text and interrupt correctly; A/B terminals stay in their own cwd.
+
+**Failure/recovery:** missing shell/failed spawn gives Retry/Choose shell; rapid
+output and split UTF-8/escape sequences are bounded without blocking Stop or UI.
+
+**Excluded:** plain captured stdout presented as a terminal, automatic model control
+of the user's shell, SSH/container development and always-running terminals.
+
+### 18.2 Terminal lifecycle and local context sharing
+
+**Scope:** supervisor/backpressure, owned process-tree cleanup, busy-close/final-quit
+UX, tab move/restore and explicit selected-output attachment to a chosen chat.
+Terminal restart state describes terminated processes accurately.
+
+**Basic acceptance:** moving/hiding a terminal preserves its process; explicit
+Stop/close reaps descendants; user-selected output can be attached with provenance.
+
+**Failure/recovery:** output flood/child exit keeps the editor responsive; interrupted
+shutdown or resistant child yields truthful status and retained bounded output.
+
+**Excluded:** implicit scrollback uploads, shared model/human shell sessions and
+claiming cold restart preserves a process that actually stopped.
+
+### 18.3 Read-side LSP for the first languages
+
+**Scope:** standard protocol client and lazy supervised servers for TypeScript/
+JavaScript and Rust. Discover installed toolchains; diagnostics, completion, hover,
+definition/references use buffer versions and negotiated position encoding. Servers
+are project-scoped, requests cancellable and events bounded.
+
+**Basic acceptance:** meaningful diagnostics/completion/navigation work on small
+real A/B projects, including unsaved text. Ordinary chat starts no language server.
+
+**Failure/recovery:** crashed/missing server retains editing with Restart/Install;
+stale/out-of-order replies and Unicode positions cannot apply to the wrong buffer.
+
+**Excluded:** syntax highlighting marketed as LSP, arbitrary-language support and
+model credentials passed into server environments.
+
+### 18.4 Managed language setup and reviewed language edits
+
+**Scope:** concise first-language readiness/install flow, pinned verified artifacts
+and toolchain prerequisites with explicit user download action. Add formatting and
+rename previews; workspace edits use document/repository revisions and scoped paths.
+Keep installation details expandable and basic offline editing functional.
+
+**Basic acceptance:** a missing first-language server can be installed through a
+guided UI without hand-written command/JSON; preview/apply a format or multi-file
+rename and undo/recover appropriately. Existing installations are reused.
+
+**Failure/recovery:** offline/cancelled installation retains the prior usable setup;
+out-of-root or stale multi-file edits are rejected before partial data loss.
+
+**Excluded:** downloads merely from opening a file, unverified latest artifacts,
+arbitrary server-driven command execution and unsafe auto-applied refactors.
+
+### 18.5 Terminal/LSP qualification
+
+**Scope:** interactive process corpus, two projects/two first language families,
+typing/diagnostic latency, idle memory/process counts, cleanup and native shortcut/
+focus behavior. Validate both ready and missing/offline tool paths.
+
+**Basic acceptance:** routine edit/complete/navigate/run/check workflow fits in
+Dolores with lazy startup and measured overhead. A bounded harder DeepSeek repair
+case uses saved files and approved command tools; direct PTY success is separately
+verified and does not establish model reliability.
+
+**Failure/recovery:** LSP crash/stale reply and PTY flood/interrupt preserve editor
+work and an actionable recovery. Missing other-OS/hardware checks remain open.
+
+**Exit/excluded:** local terminal and first-language productivity are useful;
+debugger, full VS Code extension support and remote development are not claimed.
+
+## Milestone 19 — Detached windows
+
+Complete the user's drag-out/multiple-monitor request without copying the host,
+database, credentials or live resources into independently initialized apps.
+
+### 19.1 Window backend and resource gate
+
+**Scope:** verify maintained SDK support; measure an isolated two-window candidate
+with native focus/input/close/theme behavior. Compare official experimental API
+availability against a pinned compatible community/native backend. Record engines,
+processes, incremental memory/CPU and a numeric resource ceiling before adoption.
+
+**Basic acceptance:** usable normal-build-compatible backend and single-host
+communication plan are evidenced on Windows without silently changing SDK channel.
+
+**Failure/recovery:** unavailable backend/second-window creation returns to the
+existing workspace; engine/plugin initialization failure cannot corrupt the profile.
+
+**Excluded:** assuming another window is free, one full Rust/storage host per view,
+experimental channel migration without discussion and other-OS claims from Windows.
+
+### 19.2 Move views across native windows
+
+**Scope:** drag out/Move to new window, drag/menu move back, window tabs and focus.
+Transfer protocol acknowledges the receiving view before disposing its source;
+document/run/terminal owners and IDs remain in the host. Keep themed chrome/one
+brand and Settings available; sibling windows observe saved appearance changes.
+
+**Basic acceptance:** move a dirty file, active A chat and terminal onto a second
+monitor, then back, without duplicate buffers, approvals, sends or processes.
+
+**Failure/recovery:** cancelled drop/destination-close/failed acknowledgement keeps
+the source view and usable work; closing one window cannot shut down another's run.
+
+**Excluded:** independent profile opens/recovery, credential copies and moving a
+view by serializing/replaying its entire task.
+
+### 19.3 Window/layout restart and monitor recovery
+
+**Scope:** persist versioned window/pane/tab state and safe bounds; resolve host
+resources after restart, restore private dirty documents, clamp missing-monitor
+windows onscreen and handle final-window close with pending work.
+
+**Basic acceptance:** relaunch restores the two-project workspace and recoverable
+drafts, with task/terminal interruption states truthful. Monitor removal leaves
+all windows/actions accessible.
+
+**Failure/recovery:** corrupt layout or unavailable project restores a usable shell
+and recoverable documents; a lost window/client invalidates stale subscriptions
+without replaying work or starting duplicate recovery.
+
+**Excluded:** resurrecting stopped processes, offscreen-only recovery and keeping
+a hidden permanent service alive after the user explicitly quits.
+
+### 19.4 Integrated developer-workspace qualification
+
+**Scope:** fixed A/B chat/edit/diff/commit/check corpus in four panes and two native
+windows; light/dark, focus/keyboard, detach/rejoin, monitor loss and bounded resource
+measurement. Inspect the normal desktop visually and preserve the original profile.
+
+**Basic acceptance:** view/edit source, perform ordinary Git work and monitor two
+projects across panes/windows without a separate editor for this qualified corpus.
+Measure added cost, cleanup and actual model outcomes independently.
+
+**Failure/recovery:** stale disk save plus interrupted window transfer retains all
+work; LSP/terminal/helper failure stays within its service and preserves chat/editor.
+
+**Exit/excluded:** requested developer workspace works within the demonstrated
+platform/language/resource envelope. Prior model reliability and broad platform/
+accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
+
 ## Validation and change control
 
 - Freeze behavior, numerical defaults, criteria and exclusions before each brick; discuss material technical choices. Evidence may correct an assumption, but added scope requires a named spec/roadmap revision before implementation.
@@ -689,9 +1075,17 @@ exact configuration/evidence access. Remaining model/platform gaps stay visible.
 | File/image attachments | 10.6 |
 | Settings/effective limits | 9.4, 10.1, 10.2 |
 | Conversation-first tools and settings simplification | 15.1–15.8 |
+| Source viewing/editing and file navigation | 16.0, 16.2, 16.3, 16.5 |
+| Multiple project chats and flexible pane/tab layout | 16.1, 16.4; detached views 19.1–19.4 |
+| Repository diff/history and everyday Git operations | 17.1–17.5 |
+| Interactive terminal and TypeScript/JavaScript/Rust LSP | 18.1–18.5 |
 | Self-inspection/editable versus protected modules | 9.1, 9.3, 13.1–13.3 |
 | Experience-driven skills | 12.1–12.4 |
 | Questions/scoped answers/humane character | 9.4 and every milestone; continuity 12.1 |
 | Lean cross-platform design | Per-brick measurements, portability 13.1, manual qualification 13.4; desktop backend qualification 14.4 |
 
 Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync, remote/persistent MCP, vector memory, bundled model hosting, automatic worktree isolation, plugin marketplace, general native self-replacement and unattended swarms. These are not silently included elsewhere. Physical IME/screen-reader, low-end and other-OS gaps remain visible alongside scheduled work.
+
+Developer-workspace exclusions: full VS Code extension compatibility, debugger,
+remote SSH/containers development, notebook editor and advanced destructive Git
+history rewriting. They are not required to deliver milestones 16–19.
