@@ -328,3 +328,12 @@ text draft as the inspection question without replacing unrelated draft edits or
 attachments. Tool cards use the existing literal evidence style and optional
 View local screenshot. No automatic image loading/sharing, recording toggle,
 desktop input or new palette is introduced.
+
+For scoped input, Computer use adds explicit captured-window consent, an ordinary
+typing/navigation switch, Enable selected-window access and Revoke desktop access.
+Show the granted title and 15-minute/restart boundary. Keep Analyze separate from
+Start computer-use task, preserve selected evidence/goal on failed grants, and pin
+errors above the scrolling form. During a run show the active title and Revoke
+above the existing composer, with the normal Stop control. Input approvals display
+literal JSON in existing cards and disclose possible external effects and the
+need for fresh post-input observation. No permanent idle composer toggle is added.

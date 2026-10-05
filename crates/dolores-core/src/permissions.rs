@@ -92,6 +92,10 @@ impl PermissionPolicy {
         if self.expired(now) || self.validate().is_err() {
             return false;
         }
+        // Desktop authority is always separate, including in Full access.
+        if request.name == "desktop_control" {
+            return false;
+        }
         // A website's external effects cannot be inferred from page labels or
         // covered by blanket full access. Require review for every input/click.
         if request.name == "browser" {

@@ -427,6 +427,32 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ),
+      if (chat.busy && chat.activeDesktopTarget != null)
+        Container(
+          key: const Key('desktop-active-target'),
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: p.soft,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Computer use · ${chat.activeDesktopTarget!['title']}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              TextButton(
+                onPressed: chat.stopping ? null : chat.revokeDesktop,
+                child: const Text('Revoke desktop access'),
+              ),
+            ],
+          ),
+        ),
       if (chat.toolApproval != null) ToolApprovalCard(chat: chat),
       if (chat.connectionWarning != null)
         Container(

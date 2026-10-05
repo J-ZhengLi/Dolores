@@ -1446,3 +1446,42 @@ Verified 50 core, 55 bridge, 39 storage, 34 filesystem and 165 Flutter tests; cl
 A bounded live Qwen3.5-2B probe with synthetic saved history and a 4096-token configured window completed in 8.51 seconds and preserved the literal goal. Summary usage: 2403 input / 266 output / 2669 total tokens, separately reported from foreground usage. This establishes this compaction probe, not general coding competence or semantic completeness of every summary.
 
 Normal release build launched visibly (PID 30968). Original 22 user-data digests remained unchanged; schema 23 contains 27 tables. Guidance discovery has explicit depth/directory/file/byte coverage; it does not read parent folders outside the selected root. Forks share files rather than isolating them. Physical keyboard/IME, other platforms and low-end qualification remain open.
+
+## Brick 14.2 — scoped Windows desktop input
+
+Delivered a separate, explicit 15-minute chat/window grant and a closed input
+broker (click, double-click, type, scroll, key, drag). Observation remains separate.
+Covered ordinary input is optional; every click/drag/submission/deletion needs
+review even under Full access. Fresh capture UUIDs, identity/geometry/DPI/focus,
+client-area/occlusion checks and a readiness/commit handshake guard dispatch.
+Input consumes its observation. Revocation cancels the run; restart needs consent
+again. Screen sharing uses the independently selected image-capable model.
+
+`scripts/test-desktop-input.py basic` passed on the normal release bundle: the
+actual native broker typed and performed a reviewed client-coordinate Save click, fresh images reached the local
+provider, Full access did not bypass click review, a move during approval refused
+dispatch, and revocation while queued left the Save count unchanged. `reopen` passed:
+local evidence survived, access did not. Pure checks refuse stale/consumed/wrong
+capture IDs, unsupported keys, oversized text and out-of-image coordinates.
+Compact light/dark widget checks verified explicit consent, failed grants retaining
+the goal/preview, unsupported vision and closed-target recovery. Existing 216
+Flutter tests passed before the new third desktop test; focused desktop tests
+subsequently passed. Final Rust core/provider/bridge libraries passed 178 tests; focused desktop checks passed. Clippy was clean.
+
+A bounded configured DeepSeek V4.1 Flash run entered `Verified local note`, saved
+it exactly once, and observed the saved screen: 14.59 seconds, six model calls,
+five tool calls, three fresh observations, two explicitly reviewed inputs, about
+203 KiB retained image evidence. Its task profile was explicitly 12 calls/12 tools
+and 90 seconds, output 1024 tokens; ordinary defaults and selected model stayed
+unchanged. Reported token usage was unavailable, not zero. Routine Qwen3.5-2B
+did not reliably invoke the required observation and was rejected; this remains
+a model reliability gap. The live probe also exposed identical-byte/different-ID
+image lookup failure, now fixed by retaining distinct capture references.
+
+The normal desktop was visibly relaunched and Computer use inspected using the
+computer-use plugin. A stale verification-helper binding initially failed; a
+kernel reset selected the current HWND and screenshots worked. Existing 37-table
+provider/history digests remained unchanged. No private captures/transcripts or
+credentials are committed. Uncertain-effect reconciliation belongs to 14.3;
+low-end, multi-monitor/DPI transitions, arbitrary applications and macOS/Linux
+qualification remain open. Input insertion is not task success or an OS sandbox.

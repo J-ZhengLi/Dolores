@@ -33,7 +33,7 @@ pub struct Target {
     pub title: String,
 }
 
-fn identity(handle: u64) -> Result<Target, String> {
+pub(crate) fn identity(handle: u64) -> Result<Target, String> {
     let hwnd = handle as usize as *mut std::ffi::c_void;
     unsafe {
         if IsWindow(hwnd) == 0 || IsWindowVisible(hwnd) == 0 || IsIconic(hwnd) != 0 {
@@ -77,11 +77,41 @@ fn identity(handle: u64) -> Result<Target, String> {
         })
     }
 }
-fn recheck(target: &Target) -> Result<(), String> {
+pub(crate) fn recheck(target: &Target) -> Result<(), String> {
     if identity(target.handle)? != *target {
         return Err("Selected window changed. Refresh and capture it again.".into());
     }
     Ok(())
+}
+
+pub(crate) fn geometry(target: &Target) -> Result<Value, String> {
+    use windows_sys::Win32::{
+        Foundation::RECT,
+        Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS},
+        UI::WindowsAndMessaging::{GetGUIThreadInfo, GUITHREADINFO},
+    };
+    let hwnd = target.handle as usize as *mut _;
+    let mut rect: RECT = unsafe { std::mem::zeroed() };
+    let mut info: GUITHREADINFO = unsafe { std::mem::zeroed() };
+    info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+    unsafe {
+        if DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS as u32,
+            &mut rect as *mut _ as *mut _,
+            std::mem::size_of::<RECT>() as u32,
+        ) != 0
+        {
+            return Err("Window geometry unavailable. Restore it and capture again.".into());
+        }
+        let thread = GetWindowThreadProcessId(hwnd, std::ptr::null_mut());
+        if GetGUIThreadInfo(thread, &mut info) == 0 {
+            return Err("Window focus unavailable. Focus its input and capture again.".into());
+        }
+        Ok(
+            json!({"left":rect.left,"top":rect.top,"right":rect.right,"bottom":rect.bottom,"dpi":GetDpiForWindow(hwnd),"focus":info.hwndFocus as usize as u64}),
+        )
+    }
 }
 
 type Shared = Arc<Mutex<Option<Result<Value, String>>>>;
@@ -105,6 +135,7 @@ impl GraphicsCaptureApiHandler for Capture {
     ) -> Result<(), Self::Error> {
         let result = (|| -> Result<Value, String> {
             recheck(&self.target)?;
+            let geometry_before = geometry(&self.target)?;
             let (width, height) = (frame.width(), frame.height());
             if width == 0
                 || height == 0
@@ -140,10 +171,21 @@ impl GraphicsCaptureApiHandler for Capture {
                 );
             }
             recheck(&self.target)?;
+            let geometry_after = geometry(&self.target)?;
+            if geometry_before != geometry_after {
+                return Err("Window moved or focus changed during capture. Capture again.".into());
+            }
             let dpi = unsafe { GetDpiForWindow(self.target.handle as usize as *mut _) };
+            let mut last_input: windows_sys::Win32::UI::Input::KeyboardAndMouse::LASTINPUTINFO =
+                unsafe { std::mem::zeroed() };
+            last_input.cbSize = std::mem::size_of_val(&last_input) as u32;
+            unsafe {
+                windows_sys::Win32::UI::Input::KeyboardAndMouse::GetLastInputInfo(&mut last_input);
+            }
             Ok(
                 json!({"target":self.target,"originalWidth":width,"originalHeight":height,
                 "width":resized.width(),"height":resized.height(),"dpi":dpi,"mime":"image/jpeg",
+                "geometry":geometry_after,"lastInput":last_input.dwTime,
                 "imageBase64":STANDARD.encode(jpeg),"coordinateSpace":"image pixels; not desktop coordinates",
                 "accessibility":"Unavailable in this adapter; screenshot evidence only."}),
             )

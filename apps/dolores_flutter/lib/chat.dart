@@ -44,6 +44,18 @@ class ChatController extends ChangeNotifier {
     _notify();
   }
 
+  Map? activeDesktopTarget;
+  Future<void> revokeDesktop() async {
+    if (session == null) return;
+    try {
+      await bridge.call({'command': 'desktopRevoke', 'session': session});
+      await stop();
+    } catch (e) {
+      error = '$e';
+      _notify();
+    }
+  }
+
   final ChatBridge bridge;
   ChatController(this.bridge);
   void invalidateContext() {
@@ -922,6 +934,8 @@ class ChatController extends ChangeNotifier {
   Future<void> send({
     int? continuation,
     String? desktopCapture,
+    String? desktopGrant,
+    Map? desktopTarget,
     String? observationModel,
   }) async {
     if (busy ||
@@ -954,6 +968,7 @@ class ChatController extends ChangeNotifier {
       if (messagesNewer || error != null) return;
     }
     busy = true;
+    activeDesktopTarget = desktopGrant == null ? null : desktopTarget;
     _continuing = continuation != null;
     stopping = false;
     pendingInput = draft.trim().isEmpty
@@ -987,6 +1002,7 @@ class ChatController extends ChangeNotifier {
         'continuation': ?continuation,
         'resumeRun': ?resumeRun,
         'desktopCapture': ?desktopCapture,
+        'desktopGrant': ?desktopGrant,
         'observationModel': ?observationModel,
       });
       // Remember a Stop pressed before the native reservation was acknowledged.

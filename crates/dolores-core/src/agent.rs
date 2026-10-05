@@ -570,6 +570,7 @@ pub async fn run_agent_with_shared_budget(
                         "Invalid subagent plan".into()
                     } else if call.name == "inspect_harness" {
                         "Invalid harness inspection".into()
+                    } else if call.name == "desktop_control" { "Invalid desktop operation".into()
                     } else if call.name == "browser" {
                         "Invalid browser operation".into()
                     } else {
@@ -584,6 +585,7 @@ pub async fn run_agent_with_shared_budget(
                         "delegate_tasks requires 1–2 tasks with goal (1–512 bytes), scope (direct relative file/folder or '.'), and readOnly (boolean). Writable scopes must not overlap any other child scope. One batch per run; commands, MCP and recursive delegation are unavailable. No child started.".into()
                     } else if call.name == "inspect_harness" {
                         "Use inspect_harness with {} for inventory, or source set to core, agent, host, files, provider or subagents. Optional startLine must be positive and lineCount must be 1–120. No project path is accepted. No inspection ran.".into()
+                    } else if call.name == "desktop_control" { error
                     } else if call.name == "browser" {
                         "Invalid browser arguments; no operation ran. Use only fields needed by the operation: open requires url; state/close require only operation. fill requires ref, state and text; click requires ref and state; press also requires key; scroll requires state and direction; screenshot requires state. Copy the full state token and eN ref from the latest receipt. Omit irrelevant fields instead of empty strings. Use HTTPS or literal loopback HTTP; text is at most 512 UTF-8 bytes. This is an argument error, not an access denial; do not bypass it with another tool.".into()
                     } else if call.name.starts_with("mcp_tool_") {
@@ -625,7 +627,7 @@ pub async fn run_agent_with_shared_budget(
                         || request.name != call.name
                         || request.target.len() > 1024
                         || request.query.as_ref().is_some_and(|query| {
-                            query.len() > if matches!(request.name.as_str(), "delegate_tasks" | "browser") { 4096 } else { 256 }
+                            query.len() > if matches!(request.name.as_str(), "delegate_tasks" | "browser" | "desktop_control") { 4096 } else { 256 }
                                 || query.chars().any(char::is_control)
                         })
                         || request.diff.as_ref().is_some_and(|diff| {
@@ -719,6 +721,7 @@ pub async fn run_agent_with_shared_budget(
                                     }
                                 } else if request.name == "delegate_tasks" {
                                     "Subagent batch could not complete. Inspect Run history and Changes before continuing; completed file changes remain. Only one batch is allowed per run.".into()
+                                } else if request.name == "desktop_control" { error
                                 } else if request.name == "inspect_desktop_capture" {
                                     "Selected screenshot is missing or changed. Open Settings → Computer use, capture again and explicitly share it. Nothing was retried.".into()
                                 } else if request.name == "browser" {

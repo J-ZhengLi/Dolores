@@ -24,7 +24,7 @@ are implemented**. Automatic activation's real-workflow acceptance gate remains
 unaccepted; reviewed skill updates remain available.
 
 **Planning addition — 2026-10-05:** the user approved a dedicated computer-use
-milestone. **14.1 is implemented; 14.2–14.4 remain planned.** Existing milestone numbers
+milestone. **14.1–14.2 are implemented; 14.3–14.4 remain planned.** Existing milestone numbers
 and order are preserved. Windows selected-application interaction and visual
 verification are the first target; arbitrary-app reliability and other platforms
 need separate evidence. The subsequent “next” authorized the first observation brick.
@@ -333,7 +333,7 @@ Codex runtime or general native self-replacement is part of this implementation.
 
 ## Milestone 14 — Computer use and visual verification
 
-**Status:** 14.1 selected-window observation is delivered; 14.2–14.4 are planned.
+**Status:** 14.1 observation and 14.2 scoped input are delivered; 14.3–14.4 are planned.
 Deliver a useful Windows selected-application workflow first,
 with a provider-independent observation/action contract and on-demand native
 helper. Preserve the existing browser adapter and Flutter UI. Choose the native

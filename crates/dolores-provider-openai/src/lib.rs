@@ -173,6 +173,7 @@ async fn usage_option_rejected(
 pub struct OpenAiProvider {
     assets: std::sync::Arc<std::collections::BTreeMap<String, dolores_core::AttachmentData>>,
     images: bool,
+    resolver: Option<std::sync::Arc<dyn dolores_core::AttachmentResolver>>,
     client: reqwest::Client,
     endpoint: Url,
     model: String,
@@ -236,10 +237,23 @@ impl OpenAiProvider {
         use base64::Engine;
         for part in parts.iter().filter(|p| p.is_image()) {
             part.validate()?;
-            let asset = self
-                .assets
-                .get(&part.digest)
-                .ok_or("Image snapshot is missing. Reattach it or remove it before sending.")?;
+            let resolved;
+            let asset = if let Some(asset) = self.assets.get(&part.digest) {
+                asset
+            } else {
+                resolved = self
+                    .resolver
+                    .as_ref()
+                    .ok_or("Image snapshot is missing. Reattach it or remove it before sending.")?
+                    .resolve(part)?;
+                if resolved.reference != *part
+                    || resolved.data.len() != part.bytes
+                    || resolved.data.len() > 512 * 1024
+                {
+                    return Err("Fresh desktop evidence changed or exceeded its bound. Inspect before continuing.".into());
+                }
+                &resolved
+            };
             content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{}",part.mime,base64::engine::general_purpose::STANDARD.encode(&asset.data)),"detail":"low"}}));
         }
         Ok(json!(content))
@@ -284,6 +298,7 @@ impl OpenAiProvider {
         Ok(Self {
             assets: Default::default(),
             images: false,
+            resolver: None,
             client,
             endpoint,
             model: preferences.model.trim().into(),
@@ -350,6 +365,14 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    fn with_attachment_resolver(
+        &self,
+        resolver: std::sync::Arc<dyn dolores_core::AttachmentResolver>,
+    ) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
+        let mut next = self.clone();
+        next.resolver = Some(resolver);
+        Ok(std::sync::Arc::new(next))
+    }
     fn with_attachment_assets(
         &self,
         assets: Vec<dolores_core::AttachmentData>,
@@ -402,6 +425,7 @@ impl ModelProvider for OpenAiProvider {
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;
         Ok(std::sync::Arc::new(Self {
+            resolver: self.resolver.clone(),
             assets: self.assets.clone(),
             images: self.images,
             client: self.client.clone(),

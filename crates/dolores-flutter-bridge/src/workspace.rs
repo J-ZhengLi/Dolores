@@ -161,6 +161,7 @@ mod tests {
         assert!(engine
             .call(Command::Start {
                 desktop_capture: None,
+                desktop_grant: None,
                 observation_model: None,
                 resume_run: None,
                 continuation: None,

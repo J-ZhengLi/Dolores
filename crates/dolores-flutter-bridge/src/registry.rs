@@ -12,7 +12,10 @@ impl ToolProposalHook for ValidateProposal {
             || request.target.len() > 1024
             || request.query.as_ref().is_some_and(|q| {
                 q.len()
-                    > if matches!(request.name.as_str(), "delegate_tasks" | "browser") {
+                    > if matches!(
+                        request.name.as_str(),
+                        "delegate_tasks" | "browser" | "desktop_control"
+                    ) {
                         4096
                     } else {
                         256
@@ -156,7 +159,7 @@ impl Engine {
             true,
             working,
             vec!["selected-screenshot-sharing".into()],
-            vec!["inspect_desktop_capture".into()],
+            vec!["inspect_desktop_capture".into(), "desktop_control".into()],
         )?;
         add(
             "subagents",

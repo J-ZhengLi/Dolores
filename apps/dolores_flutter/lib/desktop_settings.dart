@@ -18,7 +18,8 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
   List<Map> windows = [];
   Uint8List? image;
   String? error, model;
-  bool pending = false;
+  bool pending = false, consent = false, automatic = false;
+  Map? get access => report?['access'] as Map?;
   int? operation;
   final question = TextEditingController(
     text: 'Identify the visible controls in this screenshot.',
@@ -161,7 +162,37 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
     }
   }
 
-  Future<void> share() async {
+  Future<void> setAccess({bool revoke = false}) async {
+    if (pending || !working || (!revoke && (capture == null || !consent))) {
+      return;
+    }
+    setState(() {
+      pending = true;
+      error = null;
+    });
+    try {
+      await widget.chat.bridge.call(
+        revoke
+            ? {'command': 'desktopRevoke', 'session': widget.chat.session}
+            : {
+                'command': 'desktopGrant',
+                'session': widget.chat.session,
+                'capture': capture!['id'],
+                'automatic': automatic,
+                'consent': consent,
+              },
+      );
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) {
+        setState(() => pending = false);
+        await load(preserveError: true);
+      }
+    }
+  }
+
+  Future<void> share({bool control = false}) async {
     final text = question.text.trim();
     if (widget.chat.busy ||
         widget.chat.changing ||
@@ -178,13 +209,20 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
         selected = capture!['id'] as String,
         selectedModel = model!;
     Navigator.pop(context);
-    await chat.send(desktopCapture: selected, observationModel: selectedModel);
+    await chat.send(
+      desktopCapture: selected,
+      observationModel: selectedModel,
+      desktopGrant: control ? (access?['token'] as String?) : null,
+      desktopTarget: control
+          ? (capture?['observation']['target'] as Map?)
+          : null,
+    );
   }
 
   @override
   Widget build(BuildContext context) => InspectorFrame(
     title: 'Computer use',
-    subtitle: 'Selected-window observation · Windows',
+    subtitle: 'Selected-window observation and scoped input · Windows',
     canClose: !pending,
     child: Column(
       children: [
@@ -320,6 +358,57 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 ),
               ],
               const SizedBox(height: 20),
+              Text(
+                'Desktop access',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Off by default. Access applies only to this chat and the captured window for 15 minutes; it ends on app restart. File permissions and Full access do not enable it. Input can affect files or services through that application; this is not an OS sandbox.',
+              ),
+              if (access?['enabled'] == true) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Enabled · ${access!['target']['title']} · ${access!['automatic'] == true ? 'Ordinary input covered' : 'Review every input'}',
+                ),
+                TextButton(
+                  onPressed: pending ? null : () => setAccess(revoke: true),
+                  child: const Text('Revoke desktop access'),
+                ),
+              ],
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Allow input to this captured window'),
+                subtitle: const Text(
+                  'Capture again if the window moved, resized, or changed focus. After input, Dolores must observe before acting again.',
+                ),
+                value: consent,
+                onChanged: pending || widget.chat.busy || capture == null
+                    ? null
+                    : (value) => setState(() => consent = value ?? false),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Cover ordinary typing and navigation'),
+                subtitle: const Text(
+                  'Clicks, drags, submission and deletion keys still need review. Even typing can trigger application effects; use only trusted local forms.',
+                ),
+                value: automatic,
+                onChanged: pending || widget.chat.busy
+                    ? null
+                    : (value) => setState(() => automatic = value),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed:
+                      pending || widget.chat.busy || !consent || capture == null
+                      ? null
+                      : () => setAccess(),
+                  child: const Text('Enable selected-window access'),
+                ),
+              ),
+              const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 key: ValueKey(model),
                 initialValue: model,
@@ -348,7 +437,7 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 enabled: !pending,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'What should Dolores inspect?',
+                  labelText: 'What should Dolores inspect or do?',
                 ),
               ),
               const SizedBox(height: 12),
@@ -376,6 +465,20 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 onPressed: pending ? null : load,
                 child: const Text('Refresh'),
               ),
+              if (access?['enabled'] == true)
+                FilledButton.tonal(
+                  onPressed:
+                      pending ||
+                          widget.chat.busy ||
+                          !working ||
+                          capture == null ||
+                          model == null ||
+                          capture?['observation']['target'].toString() !=
+                              access?['target'].toString()
+                      ? null
+                      : () => share(control: true),
+                  child: const Text('Start computer-use task'),
+                ),
               FilledButton(
                 onPressed:
                     pending ||
@@ -384,7 +487,7 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                         capture == null ||
                         model == null
                     ? null
-                    : share,
+                    : () => share(),
                 child: const Text('Analyze this screenshot'),
               ),
             ],

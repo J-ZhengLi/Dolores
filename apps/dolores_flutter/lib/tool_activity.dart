@@ -23,6 +23,7 @@ String toolLabel(dynamic name) => switch (name) {
   'read_web_page' => 'Web page',
   'browser' => 'Browser',
   'inspect_desktop_capture' => 'Desktop screenshot',
+  'desktop_control' => 'Computer use',
   _ => 'File read',
 };
 
@@ -203,9 +204,11 @@ class ToolApprovalCard extends StatelessWidget {
       'web_search' => 'Share this web search query?',
       'read_web_page' => 'Read this public web page?',
       'browser' => 'Allow this browser operation?',
+      'desktop_control' => 'Allow this desktop input?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      'desktop_control' => 'Review the exact action and selected window below. Coordinates use the latest screenshot. This may submit data or change files through that application. Input receipts prove dispatch only; Dolores must observe again. Stop or failure can leave effects; inspect before repeating. Desktop access is separate from folder access.',
       'browser' =>
         'Uses one fresh visible browser for this run. Review the literal operation below. Click/input can submit data or cause external effects and always need fresh approval. Only this origin loads; no saved profile, passwords, uploads/downloads or popups. Page text/state goes to ${chat.model} and local evidence. Screenshots stay local. Stop closes owned resources; submitted effects may remain.',
       'web_search' =>

@@ -177,8 +177,19 @@ impl Default for ConnectionPreferences {
     }
 }
 
+pub mod desktop_input;
+/// Host-owned evidence lookup. Never accepts a model path or raw image bytes.
+pub trait AttachmentResolver: Send + Sync {
+    fn resolve(&self, reference: &AttachmentRef) -> Result<AttachmentData, String>;
+}
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    fn with_attachment_resolver(
+        &self,
+        _: std::sync::Arc<dyn AttachmentResolver>,
+    ) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
+        Err("This provider cannot resolve fresh desktop evidence.".into())
+    }
     fn with_attachment_assets(
         &self,
         _: Vec<AttachmentData>,

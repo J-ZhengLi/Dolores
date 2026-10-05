@@ -1,4 +1,4 @@
-# Computer use — selected-window observation (14.1)
+# Computer use — selected-window observation and input (14.1–14.2)
 
 ## Decision before implementation
 
@@ -64,10 +64,56 @@ Reported usage and actual model/profile stay attributed to the primary run.
 
 ## Next boundaries and qualification
 
-14.2 adds target-scoped input grants and dispatch checks; 14.3 adds uncertain
-action recovery. 14.1 grants no desktop input authority. No filesystem grant or
+14.2 adds the separate input boundary below; 14.3 adds uncertain
+action recovery. Observation alone grants no desktop input authority. No filesystem grant or
 Full access mode implies permission to capture arbitrary windows. Model ability,
 provider projection, target availability and native capture success are separate
 facts. Test unsupported vision, missing/oversized captures, stale target identity,
 Stop/deadline, backward-readable receipts and restart, plus one live synthetic
 window observation. Record hardware/model/platform gaps honestly in acceptance.
+
+## Scoped desktop input (14.2)
+
+Explicit consent in Computer use creates a chat/window-bound 15-minute grant.
+It is held in memory, never inherited from file permissions or Full access, and
+must be enabled again after restart. Replacing or revoking a grant invalidates
+pending dispatch; revocation also cancels that chat's active run. The host refuses
+input to its own process, preventing UI-based self-granting. The active target
+and Revoke desktop access stay visible above the composer; Stop remains available.
+
+One narrow run advertises `desktop_control` instead of folder/browser/MCP tools.
+Its closed vocabulary is observe, click, doubleClick, type, scroll, key and drag.
+Text is plain, at most 512 UTF-8 bytes; scroll is at most ±1200; keys come from a
+fixed navigation/editing list with no OS/task-switching shortcuts. No script,
+clipboard or model-selected process/window API is accepted. Every pointer action,
+submission/deletion key and explicitly consequential action needs fresh review.
+An independent opt-in covers ordinary typing, scroll and navigation only.
+Typing itself can trigger application/network effects; use trusted local forms.
+
+First observe; copy the latest capture UUID for each input; observe after every
+input. A capture is single-use for input and expires after 60 seconds. The broker
+rechecks HWND/PID/process start, title, physical DWM bounds, DPI and focused child
+before readiness and dispatch. Only client-area points visibly belonging to the
+selected window are accepted; checked drag paths cannot cross another window.
+Virtual-desktop coordinates include negative origins. Capture/frame geometry must
+match; uncertain mapping refuses rather than guessing. Ordinary covered input
+also rejects user input since capture. Manual review may foreground the selected
+window from Dolores; an unrelated foreground application causes refusal.
+
+The short-lived helper first reports readiness, then waits for a host commit.
+The host rechecks cancellation, revocation and expiry before acknowledgement.
+Native checks repeat before [SendInput](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput).
+Locked/secure desktops and held keys/buttons refuse. Failure after acknowledgement
+is conservatively uncertain; it never triggers automatic replay. Input insertion
+does not establish application success; completion requires a subsequent image
+receipt. This is best-effort window scoping with foreground/race checks, **not an
+OS sandbox** or exactly-once guarantee; Windows input is a global queue and UIPI
+can prevent delivery. Elevated/system applications remain unqualified.
+
+Fresh images use a run-owned evidence resolver, capped at 16 receipts / 8 MiB,
+sharing the existing task/model/context/elapsed limits. Identical pixel bytes may
+have different capture identities; each reference remains resolvable separately.
+Literal input intentions and returned receipts remain in durable run evidence.
+Generic Continue/checkpoint recovery cannot silently re-enable desktop access.
+No common task defaults are raised; a longer workflow needs an explicit scoped
+task budget. Platform/DPI and semantic model reliability gaps belong in acceptance.

@@ -112,7 +112,7 @@ impl ToolPlugin for LoggedTool {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        self.log.record(None,"toolIntent",json!({"callId":request.call_id,"name":request.name,"target":request.target,"certainty":"Effect outcome is unknown until a result is recorded."})).await?;
+        self.log.record(None,"toolIntent",json!({"callId":request.call_id,"name":request.name,"target":request.target,"arguments":if request.name=="desktop_control" {request.query.clone()}else{None},"certainty":"Effect outcome is unknown until a result is recorded."})).await?;
         if cancel.is_cancelled() {
             return Err(crate::stopped());
         }

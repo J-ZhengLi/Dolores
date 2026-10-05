@@ -16,6 +16,7 @@ mod comparison;
 mod connection;
 mod continuation;
 mod desktop;
+mod desktop_control;
 mod experience;
 #[cfg(test)]
 mod experience_tests;
@@ -97,12 +98,22 @@ struct Engine {
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
     mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
     mcp_credentials: Arc<dyn CredentialStore>,
+    desktop_access: desktop_control::Grants,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    DesktopGrant {
+        session: String,
+        capture: String,
+        automatic: bool,
+        consent: bool,
+    },
+    DesktopRevoke {
+        session: String,
+    },
     DesktopState {
         session: Option<String>,
     },
@@ -601,6 +612,8 @@ enum Command {
     Start {
         #[serde(rename = "desktopCapture")]
         desktop_capture: Option<String>,
+        #[serde(default, rename = "desktopGrant")]
+        desktop_grant: Option<String>,
         #[serde(rename = "observationModel")]
         observation_model: Option<String>,
         #[serde(rename = "resumeRun")]
@@ -674,6 +687,7 @@ impl Engine {
             summary_review: Arc::new(Mutex::new(None)),
             mcp_review: Arc::new(Mutex::new(None)),
             mcp_credentials: credentials,
+            desktop_access: Mutex::new(Default::default()),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
@@ -704,6 +718,11 @@ impl Engine {
             Command::TrialSources {session} => return self.trial_sources(&session),
             Command::LearningState {session} => return self.learning_view(&session),
             Command::BrowserSettings => return self.browser_settings(),
+            Command::DesktopRevoke { session } => {
+                let result=self.desktop_revoke(&session)?;
+                if let Some(run)=active.as_ref().filter(|r|r.thread.as_deref()==Some(&session)) {run.cancel.cancel();}
+                return Ok(result);
+            },
             Command::DesktopState { session } => return self.desktop_state(session.as_deref()),
             Command::DesktopPreview { session, capture } => return self.desktop_preview(&session,&capture),
             Command::BrowserCapture { capture } => return self.browser_capture(&capture),
@@ -790,6 +809,12 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::DesktopGrant {
+                session,
+                capture,
+                automatic,
+                consent,
+            } => self.desktop_grant(&session, &capture, automatic, consent),
             Command::GenerateMod {
                 id,
                 session,
@@ -1350,6 +1375,7 @@ impl Engine {
             }
             Command::Start {
                 desktop_capture,
+                desktop_grant,
                 observation_model,
                 resume_run,
                 continuation,
@@ -1400,6 +1426,21 @@ impl Engine {
                         "Choose one capture and observation model for a fresh analysis run.".into(),
                     );
                 }
+                if desktop_grant.is_some() && desktop_capture.is_none() {
+                    return Err(
+                        "Desktop input needs an explicitly selected screenshot and model.".into(),
+                    );
+                }
+                let control = desktop_grant
+                    .as_deref()
+                    .map(|token| {
+                        self.desktop_control_tool(
+                            session.as_deref().unwrap(),
+                            desktop_capture.as_deref().unwrap(),
+                            token,
+                        )
+                    })
+                    .transpose()?;
                 let observation = desktop_capture.as_ref().map(|capture| {
                     let session=session.as_deref().unwrap();
                     if self.store.workspace(session)?.root.is_none() {return Err("Choose a working chat for computer use.".into());}
@@ -1440,7 +1481,12 @@ impl Engine {
                         .iter()
                         .any(|run| {
                             run.input == source.task
-                                && run.tools.iter().any(|t| t == "inspect_desktop_capture")
+                                && run.tools.iter().any(|t| {
+                                    matches!(
+                                        t.as_str(),
+                                        "inspect_desktop_capture" | "desktop_control"
+                                    )
+                                })
                         })
                     {
                         return Err("Screenshot analysis needs explicit sharing again. Open Settings → Computer use and Analyze the retained or a fresh capture with your chosen model. Progress remains; nothing was replayed.".into());
@@ -1455,6 +1501,9 @@ impl Engine {
                     .pipe_provider(observation_model.as_deref(), effective.request)?;
                 if let Some((_, asset)) = &observation {
                     provider = provider.with_attachment_assets(vec![asset.clone()], true)?;
+                    if let Some(control) = &control {
+                        provider = provider.with_attachment_resolver(control.clone())?;
+                    }
                 }
                 // Legacy callers can choose a folder when starting a new chat.
                 // A saved workspace is authoritative and cannot be redirected per request.
@@ -1507,7 +1556,11 @@ impl Engine {
                     .transpose()?
                     .unwrap_or_default();
                 if let Some((tool, _)) = observation {
-                    tools = vec![tool];
+                    tools = if let Some(control) = &control {
+                        vec![control.clone() as Arc<dyn dolores_core::ToolPlugin>]
+                    } else {
+                        vec![tool]
+                    };
                 }
                 let delegation = (!tools.is_empty() && desktop_capture.is_none())
                     .then(|| Arc::new(subagents::DelegateTasks::default()));
@@ -1651,15 +1704,21 @@ impl Engine {
                     output: output.clone(),
                     log: Some(log.clone()),
                 });
-                let approval: Arc<dyn dolores_core::ToolApproval> =
-                    if let Some(capture) = &desktop_capture {
-                        Arc::new(desktop::SnapshotApproval {
-                            inner: approval,
-                            capture: capture.clone(),
-                        })
-                    } else {
-                        approval
-                    };
+                let approval: Arc<dyn dolores_core::ToolApproval> = if let Some(control) = &control
+                {
+                    Arc::new(desktop_control::Approval {
+                        inner: approval,
+                        control: control.clone(),
+                        log: log.clone(),
+                    })
+                } else if let Some(capture) = &desktop_capture {
+                    Arc::new(desktop::SnapshotApproval {
+                        inner: approval,
+                        capture: capture.clone(),
+                    })
+                } else {
+                    approval
+                };
                 active.reserve(Run {
                     thread: session.clone(),
                     id,
@@ -1669,6 +1728,7 @@ impl Engine {
                 })?;
                 let store = self.store.clone();
                 self.runtime.spawn(async move {
+                    let _desktop_lifetime=control;
                     let learning_session = session.clone();
                     let learning_model = model.clone();
                     let result = match log.record(Some(dolores_core::RunState::Running),"started",json!({"clientId":id})).await {
@@ -1970,9 +2030,12 @@ async fn execute(
     )
     .await?;
     if !tools.is_empty() {
-        let observation_run = tools
-            .iter()
-            .any(|t| t.spec().name == "inspect_desktop_capture");
+        let observation_run = tools.iter().any(|t| {
+            matches!(
+                t.spec().name.as_str(),
+                "inspect_desktop_capture" | "desktop_control"
+            )
+        });
         let approval = approval.ok_or("Tool approval is unavailable.")?;
         let shared = Arc::new(dolores_core::SharedTaskBudget::new(task));
         if let (Some(delegation), Some(log)) = (&delegation, &log) {
@@ -2701,6 +2764,7 @@ mod tests {
             engine
                 .call(Command::Start {
                     desktop_capture: None,
+                    desktop_grant: None,
                     observation_model: None,
                     resume_run: None,
                     continuation: None,

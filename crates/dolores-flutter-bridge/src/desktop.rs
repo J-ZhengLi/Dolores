@@ -20,7 +20,7 @@ pub(super) struct Capture {
     pub observation: Value,
     pub created_at: u64,
 }
-fn helper() -> Result<PathBuf, String> {
+pub(super) fn helper() -> Result<PathBuf, String> {
     if !cfg!(windows) {
         return Err("Desktop observation is only available on Windows.".into());
     }
@@ -59,7 +59,11 @@ fn helper() -> Result<PathBuf, String> {
     }
     Ok(path)
 }
-async fn observe(path: &Path, request: Value, cancel: CancellationToken) -> Result<Value, String> {
+pub(super) async fn observe(
+    path: &Path,
+    request: Value,
+    cancel: CancellationToken,
+) -> Result<Value, String> {
     use std::process::Stdio;
     let mut command = tokio::process::Command::new(path);
     command
@@ -156,7 +160,7 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
     }
     Ok(bytes)
 }
-fn save(root: &Path, session: &str, mut observation: Value) -> Result<Capture, String> {
+pub(super) fn save(root: &Path, session: &str, mut observation: Value) -> Result<Capture, String> {
     let bytes = STANDARD
         .decode(
             observation["imageBase64"]
@@ -237,7 +241,11 @@ fn save(root: &Path, session: &str, mut observation: Value) -> Result<Capture, S
     }
     Ok(capture)
 }
-fn load(root: &Path, session: &str, id: &str) -> Result<(Capture, AttachmentData), String> {
+pub(super) fn load(
+    root: &Path,
+    session: &str,
+    id: &str,
+) -> Result<(Capture, AttachmentData), String> {
     valid_id(id)?;
     let capture: Capture =
         serde_json::from_slice(&read_bounded(&root.join(format!("{id}.json")), 16384)?)
@@ -270,6 +278,18 @@ pub(super) struct SnapshotApproval {
     pub capture: String,
 }
 pub(super) fn require_evidence(summary: &dolores_core::AgentSummary) -> Result<(), String> {
+    if summary.tools.iter().any(|r| r.name == "desktop_control") {
+        let latest = summary
+            .tools
+            .iter()
+            .rev()
+            .find(|r| r.name == "desktop_control")
+            .unwrap();
+        if latest.status != "completed" || !latest.parts.iter().any(AttachmentRef::is_image) {
+            return Err("Desktop task ended without a fresh screenshot after input. Inspect the window in Settings → Computer use before continuing; input receipts do not establish application success.".into());
+        }
+        return Ok(());
+    }
     if !summary.tools.iter().any(|r| {
         r.name == "inspect_desktop_capture"
             && r.status == "completed"
@@ -340,7 +360,7 @@ impl ToolPlugin for SnapshotTool {
     }
 }
 impl Engine {
-    fn desktop_root(&self) -> Result<PathBuf, String> {
+    pub(super) fn desktop_root(&self) -> Result<PathBuf, String> {
         Ok(self
             .workspace_directory
             .as_ref()
@@ -369,8 +389,8 @@ impl Engine {
         }
         captures.sort_by_key(|c| std::cmp::Reverse(c.created_at));
         Ok(
-            json!({"available":helper().is_ok(),"reason":helper().err(),"captures":captures,"models":models,
-            "adapter":"Windows Graphics Capture · selected window · screenshot only","bounds":"5 seconds · 1024 px · 512 KiB · 64 saved captures","sharing":"Window list and capture stay local. Analyze shares one chosen screenshot and this chat's prepared context with your selected model. No click or typing authority."}),
+            json!({"available":helper().is_ok(),"reason":helper().err(),"captures":captures,"models":models,"access":self.desktop_access_view(session),
+            "adapter":"Windows Graphics Capture · selected window · optional scoped input","bounds":"5 seconds · 1024 px · 512 KiB · 64 saved captures","sharing":"Window list and capture stay local. Analyze shares one chosen screenshot and this chat's prepared context with your selected model. Input requires separate selected-window consent; ordinary file permissions never grant desktop access."}),
         )
     }
     pub(super) fn desktop_preview(&self, session: &str, id: &str) -> Result<Value, String> {
