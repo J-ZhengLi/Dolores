@@ -235,6 +235,7 @@ class _LearningState extends State<LearningInspector> {
                     const Text(
                       'Optional supported workflow: enable the top-level config.json flag and run one project check. Review its command before creating the saved project skill. This does not grant command permission.',
                     ),
+                    const SizedBox(height: 16),
                     TextField(
                       key: const Key('learning-command'),
                       controller: command,

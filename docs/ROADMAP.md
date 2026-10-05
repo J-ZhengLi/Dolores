@@ -220,7 +220,7 @@ Implementation batch delivered. Deterministic improvement/rejection/rollback
 fixtures pass, but configured-model trials were incomplete or non-improving.
 Automatic qualification is experimental and off by default; useful real-model
 improvement and restoration remain an open exit gate. See acceptance for actual
-costs, preserved outcomes and pending native visual checks. Do not infer broad
+costs, preserved outcomes and the native visual follow-up. Do not infer broad
 self-evolution from the host check workflow.
 
 ### 12.1 Scoped knowledge and evidence use

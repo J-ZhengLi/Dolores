@@ -1,5 +1,30 @@
 # Dolores acceptance — 2026-10-05
 
+## Milestone 12 — native visual verification follow-up
+
+Retried on the unlocked Windows desktop with screenshots of the normal release
+at 1127 × 813 in dark theme. Project knowledge, the Skills library, Tool trials
+and Learning panels fit within the unified Settings dialog. The disabled trial
+comparison and learning inspection actions correctly show their prerequisites.
+Scrolling exposed a crowded floating command label; added 16 pixels of spacing,
+rebuilt and visually confirmed the separation in the user's normal workspace.
+The three focused Learning tests and Flutter analysis passed.
+
+A disposable database in the same normal release supplied a synthetic active
+learning event and retained independent provider trial receipts. Visually checked
+the expanded event, wrapped receipt text, restore command preview, Cancel,
+confirmed restore/quarantine and the persistent footer recovery notice. Cancel
+kept the active event; restore changed it to quarantined and removed its restore
+action. This verifies the native manual recovery UI, not automatic activation or
+real-workflow improvement. No model request was made during this follow-up.
+
+Stopped only the owned fixture process and visibly relaunched the user's normal
+desktop app. All 36 noninternal user-data tables match the fresh before-check
+baseline, including provider choices, history and the user's current policies.
+Native dark-theme settings/manual recovery inspection is now complete. Native
+light/compact layouts, automatic live improvement/restoration, low-end and other
+platform qualification remain open; existing fixture checks do not close them.
+
 ## Brick 12.4 — learning history and regression recovery
 
 Implemented durable reasons/snapshots across originating project chats,
@@ -28,8 +53,9 @@ automatic regression restoration. Qwen's incomplete 12.3 probe is retained above
 
 Normal final release built and launched with a Dolores window handle. Original
 34 user-data tables remain unchanged; schema 30/37 tables and new learning
-tables empty in the user's DB. Windows remains locked, so **native visual
-verification is pending**; launch/window presence is not screenshot acceptance.
+tables empty in the user's DB. Windows was locked at that checkpoint, leaving
+native visual verification pending; the follow-up above records the retry.
+Launch/window presence alone is not screenshot acceptance.
 A post-launch snapshot measured 246.6 MiB working set and 286.3 MiB private
 memory; no low-end/idle performance claim follows from it. Learning adds no
 resident worker, new child process or idle model requests.
@@ -37,8 +63,9 @@ resident worker, new child process or idle model requests.
 Milestone 12 implementation batch is delivered. The required real-workflow
 improvement/automatic restoration gate remains **unaccepted**; keep reviewed
 updates as the dependable path and experimental automatic policy off by default.
-Executable containment, broad skill competence, native visual/manual behavior
-review, low-end and other-platform qualification remain open.
+Executable containment, broad skill competence, automatic live behavior,
+low-end and other-platform qualification remain open. The follow-up above
+records the native settings/manual recovery review.
 
 ## Brick 12.3 — targeted project skill adaptation
 
