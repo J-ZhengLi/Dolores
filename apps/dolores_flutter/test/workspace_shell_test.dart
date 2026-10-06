@@ -54,7 +54,7 @@ void main() {
       expect(find.byKey(const Key('rail-settings')), findsOneWidget);
       await t.tap(find.byKey(const Key('page-folders')));
       await t.pumpAndSettle();
-      expect(find.text('C:/A'), findsOneWidget);
+    expect(host.projectRoot, 'C:/A');
       expect(find.byType(DropdownButton<String>), findsNothing);
       await t.tap(find.byKey(const Key('title-panel-toggle')));
       await t.pumpAndSettle();

@@ -1,5 +1,42 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.3 — scoped tree and document persistence
+
+Folders now binds lazily to the Home conversation's root and retains open document
+owners through A/B navigation. Directory pages return at most 200 entries, expand
+only on demand and bound excluded-entry work to 1,000 entries per request. The
+20,000-entry fixture exercises the first two pages plus independent child expansion;
+it does not claim a complete recursive scan. Secret/VCS paths and aliases use the
+existing directory capability checks. New file, rename and explicit Delete refuse
+dirty documents and existing replacement targets. Human file operations do not grant
+model access or expose unsaved text to model tools.
+
+Native document IDs and UTF-16 versioned deltas share one host shadow per file, reject
+surrogate splits/overlap/stale versions and acknowledge without whole-file JSON.
+The C ABI admits bounded editor payloads while retaining the earlier 128 KiB limit
+for other commands. Files preserve strict UTF-8/BOM/uniform LF or CRLF; larger,
+binary, invalid-UTF-8, mixed-ending and long-line files are read-only previews.
+Explicit Save stages and flushes a replacement, rechecks the disk digest and
+permissions immediately before publication, and retains the document on failure.
+An unrelated OS writer can still race the final check/publication interval; this
+is not a filesystem compare-and-swap guarantee.
+
+Private checkpoints use an additive profile-local SQLite table. Restart recovery
+retains dirty snapshots without changing source files or dropping other unopened
+recovery records. Recovery checkpoint failure keeps edits open. The next editor brick
+adds idle checkpoint scheduling and comparison-backed reconciliation controls.
+Six focused Rust checks pass for byte round trips, stale/deleted files, Unicode
+transactions, scope isolation, no-replacement file actions, tree paging and restart
+recovery; seven focused Flutter checks pass for lazy expansion, coalesced binding,
+retained document identity and missing-root recovery. Physical native input and
+normal-app performance remain batch qualification work.
+
+The bridge-only suite passes all 119 checks. One concurrent run with filesystem
+fixtures returned the request-timeout cause in a one-second stalled-delivery test
+where the fixture expected delivery-timeout wording; its isolated rerun and the
+bridge-only suite pass unchanged. This timing sensitivity remains recorded;
+no production deadline or recovery default was relaxed.
+
 ## Workspace 16.2 — compact navigation and Experimental preferences
 
 The normal entry point now uses the shared host, a 64-pixel icon rail and bottom

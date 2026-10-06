@@ -9,6 +9,7 @@ import 'chat_sidebar.dart';
 import 'main.dart' show ChatPage;
 import 'settings.dart';
 import 'theme.dart';
+import 'folders.dart';
 
 enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 
@@ -49,6 +50,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   void changed() {
+    if (page == WorkspacePage.folders &&
+        (host.files.selected?.root != host.projectRoot ||
+            host.files.selected?.session != host.visible.session)) {
+      unawaited(host.files.bind(host.visible.session, host.projectRoot));
+    }
     if (mounted) setState(() {});
   }
 
@@ -90,7 +96,17 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                           minimumSize: const Size(48, 48),
                           foregroundColor: p.text,
                         ),
-                        onPressed: () => setState(() => page = value),
+                        onPressed: () {
+                          setState(() => page = value);
+                          if (value == WorkspacePage.folders) {
+                            unawaited(
+                              host.files.bind(
+                                host.visible.session,
+                                host.projectRoot,
+                              ),
+                            );
+                          }
+                        },
                         icon: Icon(icons[value.index], size: 21),
                       ),
                     ),
@@ -110,6 +126,12 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     ),
   );
   Widget panel(Palette p) {
+    if (page == WorkspacePage.folders) {
+      return FolderTree(
+        files: host.files,
+        openFolder: () => unawaited(openProject()),
+      );
+    }
     if (page == WorkspacePage.home) {
       return ChatSidebar(
         width: host.panelWidth,
@@ -158,6 +180,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Widget content() {
+    if (page == WorkspacePage.folders) return FolderPreview(files: host.files);
     if (page == WorkspacePage.home) {
       return ChatPage(
         key: ObjectKey(host.visible),

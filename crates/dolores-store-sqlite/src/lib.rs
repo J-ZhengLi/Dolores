@@ -84,6 +84,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS file_changes (id INTEGER PRIMARY KEY, root TEXT NOT NULL, session_id TEXT NOT NULL, target TEXT NOT NULL, created_at INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','applied','notApplied','reverted')), reverts INTEGER REFERENCES file_changes(id), before_text TEXT NOT NULL, after_text TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS file_changes_folder ON file_changes(root, id DESC);
             CREATE TABLE IF NOT EXISTS experimental_preferences (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS workspace_editor_state (root TEXT PRIMARY KEY, data TEXT NOT NULL);
             PRAGMA synchronous = FULL;").map_err(storage_error)?;
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
@@ -294,6 +295,17 @@ impl SessionStore for SqliteStore {
     }
     fn experimental_preferences(&self) -> Result<dolores_core::ExperimentalPreferences, String> {
         experimental::read(&*self.lock()?)
+    }
+    fn editor_state(&self, root: &str) -> Result<serde_json::Value, String> {
+        let c=self.lock()?;
+        let raw: Option<String>=c.query_row("SELECT data FROM workspace_editor_state WHERE root=?1",[root],|r|r.get(0)).optional().map_err(storage_error)?;
+        match raw {None=>Ok(serde_json::Value::Null),Some(raw) if raw.len()<=8*1024*1024=>serde_json::from_str(&raw).map_err(storage_error),_=>Err("Editor recovery exceeds its size limit.".into())}
+    }
+    fn save_editor_state(&self, root:&str, value:&serde_json::Value)->Result<(),String> {
+        let raw=serde_json::to_string(value).map_err(storage_error)?;
+        if root.len()>4096||raw.len()>8*1024*1024 {return Err("Editor recovery exceeds its size limit.".into());}
+        self.lock()?.execute("INSERT INTO workspace_editor_state(root,data) VALUES(?1,?2) ON CONFLICT(root) DO UPDATE SET data=excluded.data",params![root,raw]).map_err(storage_error)?;
+        Ok(())
     }
     fn save_experimental_preferences(&self, value: &dolores_core::ExperimentalPreferences) -> Result<dolores_core::ExperimentalPreferences, String> {
         experimental::save(&mut *self.lock()?, value)

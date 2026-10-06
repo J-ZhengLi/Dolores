@@ -21,6 +21,7 @@ mod desktop_control;
 mod desktop_recovery;
 mod experience;
 mod experimental;
+mod editor;
 #[cfg(test)]
 mod experience_tests;
 mod export;
@@ -94,6 +95,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    editor: Mutex<editor::Registry>,
     keep_awake: Mutex<Option<experimental::PowerRequest>>,
     runtime: Runtime,
     store: Arc<dyn SessionStore>,
@@ -121,6 +123,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Editor { session:String, request:editor::Request },
     ExperimentalPreferences,
     SaveExperimentalPreferences { preferences: dolores_core::ExperimentalPreferences },
     NativeRepairs {
@@ -743,6 +746,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            editor: Mutex::new(Default::default()),
             keep_awake: Mutex::new(None),
             runtime,
             store,
@@ -801,6 +805,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::Editor {session,request} => return self.editor_call(&session,request),
             Command::ExperimentalPreferences => return self.experimental_view(),
             Command::SaveExperimentalPreferences { preferences } => return self.save_experimental(preferences),
             Command::NativeRepairs { session } => return self.native_repairs(session.as_deref()),
@@ -2590,10 +2595,14 @@ fn initialize() -> Result<Engine, String> {
 fn reply(input: &[u8]) -> Value {
     let result = serde_json::from_slice::<Command>(input)
         .map_err(|_| "Invalid bridge request.".to_string())
-        .and_then(|command| match ENGINE.get_or_init(initialize) {
+        .and_then(|command| {
+            if input.len()>128*1024 && !matches!(&command, Command::Editor { .. }) {
+                return Err("Invalid bridge request size.".into());
+            }
+            match ENGINE.get_or_init(initialize) {
             Ok(engine) => engine.call(command),
             Err(error) => Err(error.clone()),
-        });
+        }});
     match result {
         Ok(result) => json!({"ok":true,"result":result}),
         Err(error) => json!({"ok":false,"error":error}),
@@ -2606,7 +2615,7 @@ fn reply(input: &[u8]) -> Value {
 #[no_mangle]
 pub unsafe extern "C" fn dolores_call(input: *const u8, length: usize) -> *mut c_char {
     let value = std::panic::catch_unwind(|| {
-        if input.is_null() || length > 128 * 1024 {
+        if input.is_null() || length > 8 * 1024 * 1024 {
             return json!({"ok":false,"error":"Invalid bridge request size."});
         }
         // SAFETY: caller provides a live input allocation, validated size above.

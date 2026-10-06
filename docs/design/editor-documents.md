@@ -25,6 +25,12 @@ controller twice. Navigation, hiding a panel and disposing a view do not discard
 | Pending document mutations | One acknowledged transaction per document | Coalesce subsequent edits within bounds; no silent replay after stale revision |
 | Tree page | 200 entries | Explicit Load more; lazy expansion, no recursive startup scan |
 
+The 16.3 implementation bounds raw directory work to 1,000 entries per page and
+offsets to 100,000; narrower folders remain available. Versioned layout metadata
+is at most 8 KiB. Private recovery retains at most four dirty documents and 4 MiB
+of combined saved/edited text per project, with at most 8 MiB serialized state.
+The native bridge keeps its earlier 128 KiB limit for non-editor commands.
+
 The earlier proposed 5 MiB editable default is not adopted. The 1 MiB four-view
 native trial passes 40 replacements at 19.558 ms typing frame p95 and shared
 undo/redo. Short-phase incremental peaks are 63.957 MiB working and 59.996 MiB

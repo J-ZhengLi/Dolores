@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 import 'chat.dart';
+import 'file_host.dart';
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
+  late final FileHost files = FileHost(initial.bridge);
   final ChatController initial;
   final owners = <ChatController>[];
   late ChatController visible;
@@ -141,6 +143,7 @@ class AppHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    files.dispose();
     for (final owner in owners) {
       owner.removeListener(_changed);
     }

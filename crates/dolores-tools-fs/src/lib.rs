@@ -61,6 +61,8 @@ fn registered_tools(
 pub struct ReadTextFile {
     directory: Arc<Dir>,
 }
+mod editor;
+pub use editor::{EditorFolder, EditorSnapshot};
 fn valid_path(path: &str) -> bool {
     !path.is_empty()
         && path.len() <= 1024

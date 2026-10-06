@@ -412,6 +412,12 @@ pub trait SessionStore: Send + Sync {
     fn experimental_preferences(&self) -> Result<ExperimentalPreferences, String> {
         Ok(Default::default())
     }
+    fn editor_state(&self, _: &str) -> Result<serde_json::Value, String> {
+        Ok(serde_json::Value::Null)
+    }
+    fn save_editor_state(&self, _: &str, _: &serde_json::Value) -> Result<(), String> {
+        Err("Editor recovery is unavailable in this store.".into())
+    }
     fn save_experimental_preferences(&self, _: &ExperimentalPreferences) -> Result<ExperimentalPreferences, String> {
         Err("Experimental preferences are unavailable in this store.".into())
     }
