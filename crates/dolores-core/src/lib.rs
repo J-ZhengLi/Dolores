@@ -33,7 +33,7 @@ mod permissions;
 pub use permissions::*;
 mod command_outcome;
 mod continuation;
-pub use command_outcome::{CommandOutcome, unresolved_commands};
+pub use command_outcome::{unresolved_commands, CommandOutcome};
 pub use continuation::PausedTask;
 mod mcp;
 pub use mcp::*;
@@ -50,9 +50,9 @@ mod skills;
 pub use relevant_skills::prepare_relevant_skill_context;
 pub use skill_drafts::*;
 pub use skills::{
-    MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS, ProjectSkill,
-    SkillDocument, SkillScope, SkillSource, SkillVersion, effective_skills, prepare_skill_context,
-    valid_skill_name,
+    effective_skills, prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument,
+    SkillScope, SkillSource, SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES,
+    MAX_SKILL_VERSIONS,
 };
 mod knowledge;
 mod memory;
@@ -63,7 +63,7 @@ pub use agent::*;
 pub use automatic_memory::*;
 pub use change::*;
 pub use instructions::{
-    InstructionSource, MAX_INSTRUCTION_BYTES, WorkspaceInstructions, prepare_instruction_context,
+    prepare_instruction_context, InstructionSource, WorkspaceInstructions, MAX_INSTRUCTION_BYTES,
 };
 pub use memory::*;
 pub use memory_suggestions::*;
@@ -193,6 +193,11 @@ pub trait AttachmentResolver: Send + Sync {
 }
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Providers returning true enforce decoded-progress inactivity during chat streams.
+    /// Legacy adapters retain the host's fallback bound until they implement this contract.
+    fn manages_stream_inactivity(&self) -> bool {
+        false
+    }
     fn with_attachment_resolver(
         &self,
         _: std::sync::Arc<dyn AttachmentResolver>,
@@ -220,6 +225,18 @@ pub trait ModelProvider: Send + Sync {
         })
     }
     /// Optional activity reporting; existing provider plugins keep their text contract.
+    async fn stream_tool_turn_with_thinking(
+        &self,
+        messages: &[AgentMessage],
+        tools: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        activity: mpsc::Sender<agent::ModelActivity>,
+        _thinking: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        self.stream_tool_turn_with_activity(messages, tools, output, activity, cancel)
+            .await
+    }
     async fn stream_tool_turn_with_activity(
         &self,
         messages: &[AgentMessage],

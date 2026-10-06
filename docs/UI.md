@@ -136,15 +136,25 @@ Working saved chats offer Permissions in Settings, including during execution. R
 
 ## Task limits
 
-Settings → Task limits includes scoped overrides in its scrollable editor: model calls, tool operations, total task segments and optional task deadline. Blank deadline inherits existing behavior. Fixed Save/Refresh/Use inherited controls retain drafts after invalid/stale saves. Describe that Continue consumes a segment, preserves work and grants no access. Keep the composer, system palette and native typography unchanged. Segment refusal keeps the saved paused card and points to Task limits; do not silently restart a task.
+Settings → Task limits includes scoped overrides in its scrollable editor: model calls, tool operations, total task segments and an optional active-work time limit. Blank time limit means no whole-task clock. Human review is excluded even from an explicit time limit. A reached task limit saves a paused turn with public progress and completed receipts; Continue starts fresh requests and never replays pending approvals. Fixed Save/Refresh/Use inherited controls retain drafts after invalid/stale saves. Continue consumes a segment and grants no access. Keep the composer, system palette and native typography unchanged. Segment refusal keeps the saved paused card and points to Task limits.
 
 ## Run evidence
 
 Active model calls show a quiet activity label with elapsed seconds: Waiting for
 model, Thinking, Preparing tool call or Responding. Labels reflect transport
-activity, not invented progress percentages or reasoning text. A hover hint gives
-the response deadline; Stop stays available. Updates stop when the run ends and
-stale step events cannot change the current reply. No idle timer is added.
+activity, not invented progress percentages. The label stays visible after public
+text appears and changes to Waiting for your review at an approval. A hover hint
+gives the model stall allowance, measured without new decoded data; an active
+response can take longer. Review has no timeout. Stop stays available. Updates stop
+when the run ends and stale step events cannot change the current reply.
+
+Provider-supplied thinking appears in a collapsed Thinking panel, with a bounded
+scrollable preview and a shortening label when needed. Keep it separate from the
+answer, executable arguments and diagnostic journals; do not invent a reasoning
+summary for models that supply none. Saved local reply metadata retains the preview.
+Use existing palette and typography, without a colored side border. Model stalls
+save a paused turn and expose explicit Continue and response settings; no automatic
+retry or settings increase is performed.
 
 Activity keeps Earlier tasks available during execution; capabilities live under Advanced. Other actions that prepare or mutate state remain disabled. Run history uses InspectorFrame, a scrollable latest-20 list, selectable ordered evidence and a fixed Refresh footer. Show interruption and uncertain effects literally with inspection guidance, never an automatic Replay action. Changing the foreground chat still waits for Stop/completion; read-only backend inspection of another chat is allowed. No idle polling, new palette or composer change is added.
 

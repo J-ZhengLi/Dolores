@@ -131,7 +131,7 @@ impl Engine {
     ) -> Result<Value, String> {
         let _entered = self.runtime.enter();
         let settings = RequestSettings {
-            max_output_tokens: 1024,
+            max_output_tokens: Some(1024),
             timeout_seconds: 30,
             ..self
                 .store
@@ -318,7 +318,7 @@ pub(super) async fn reflect(
             .as_ref()
             .and_then(|p| p.request_settings())
             .unwrap_or(RequestSettings {
-                max_output_tokens: 1024,
+                max_output_tokens: Some(1024),
                 timeout_seconds: 30,
                 ..Default::default()
             }),
@@ -481,7 +481,7 @@ async fn monitor(
             .as_ref()
             .and_then(|p| p.request_settings())
             .unwrap_or(RequestSettings {
-                max_output_tokens: 1024,
+                max_output_tokens: Some(1024),
                 timeout_seconds: 30,
                 ..Default::default()
             }),

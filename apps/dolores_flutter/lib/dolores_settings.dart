@@ -115,7 +115,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
       if (item['scope'] == scope) break;
     }
     final g = (patch['generation'] ?? effective['request']) as Map, i = style;
-    output.text = g['maxOutputTokens'].toString();
+    output.text = g['maxOutputTokens']?.toString() ?? '';
     timeout.text = g['timeoutSeconds'].toString();
     discussion = i['discussion'] as String;
     question = i['questionAssumptions'] as bool;
@@ -173,7 +173,8 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
     if (!reset &&
         shows(SettingsGroup.generation) &&
         generation &&
-        (maxTokens == null || seconds == null)) {
+        ((output.text.trim().isNotEmpty && maxTokens == null) ||
+            seconds == null)) {
       setState(() {
         error = 'Use whole numbers for output tokens and timeout.';
       });
@@ -334,7 +335,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                             title: 'Effective settings',
                             children: [
                               SelectableText(
-                                'Effective output: ${effective!['request']['maxOutputTokens']} tokens · ${effective['requestOrigin']}\nTimeout: ${effective['request']['timeoutSeconds']} seconds\nContext: ${effective['contextWindowTokens']} tokens · ${effective['contextOrigin']}\nInteraction: ${effective['interactionOrigin']}',
+                                'Effective output: ${effective!['request']['maxOutputTokens'] ?? 'Provider default'} · ${effective['requestOrigin']}\nTimeout: ${effective['request']['timeoutSeconds']} seconds\nContext: ${effective['contextWindowTokens']} tokens · ${effective['contextOrigin']}\nInteraction: ${effective['interactionOrigin']}',
                               ),
                             ],
                           ),
@@ -356,7 +357,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                             (segments, 'Total task segments (1–8)'),
                             (
                               elapsed,
-                              'Task deadline seconds (blank inherits request timeout)',
+                              'Task time limit seconds (blank = no limit)',
                             ),
                           ])
                             TextField(
@@ -396,7 +397,8 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                               enabled: !locked,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
-                                labelText: 'Maximum output tokens',
+                                labelText: 'Output tokens (optional)',
+                                hintText: 'Provider default',
                               ),
                             ),
                             TextField(
@@ -405,7 +407,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                               enabled: !locked,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
-                                labelText: 'Request timeout (seconds)',
+                                labelText: 'Stall timeout (seconds)',
                               ),
                             ),
                           ],

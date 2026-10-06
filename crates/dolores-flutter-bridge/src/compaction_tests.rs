@@ -15,7 +15,7 @@ impl ModelProvider for Summarizer {
     }
     fn request_settings(&self) -> Option<RequestSettings> {
         Some(RequestSettings {
-            max_output_tokens: 128,
+            max_output_tokens: Some(128),
             timeout_seconds: 30,
             ..Default::default()
         })

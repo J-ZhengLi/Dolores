@@ -349,6 +349,34 @@ void main() {
       expect(find.text('Thinking · 7s'), findsOneWidget);
       expect(chat.partial, isEmpty);
       expect(chat.toolApproval, isNull);
+      bridge.queue.addAll([
+        {
+          'type': 'modelThinking',
+          'id': id,
+          'number': 1,
+          'text': 'Check collision and keyboard input.',
+        },
+        {
+          'type': 'modelText',
+          'id': id,
+          'number': 1,
+          'text': 'Preparing an HTML file.',
+        },
+        {
+          'type': 'modelActivity',
+          'id': id,
+          'number': 1,
+          'phase': 'toolArguments',
+          'elapsedSeconds': 181,
+          'timeoutSeconds': 180,
+        },
+      ]);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Preparing tool call · 181s'), findsOneWidget);
+      expect(find.text('Preparing an HTML file.'), findsOneWidget);
+      await tester.tap(find.text('Thinking'));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('Check collision and keyboard input.'), findsOneWidget);
       bridge.queue.add({
         'type': 'modelActivity',
         'id': id,
@@ -358,7 +386,7 @@ void main() {
         'timeoutSeconds': 180,
       });
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Thinking · 7s'), findsOneWidget);
+      expect(find.text('Preparing tool call · 181s'), findsOneWidget);
       await chat.stop();
       await tester.pump(const Duration(milliseconds: 250));
       expect(chat.busy, isFalse);

@@ -241,7 +241,7 @@ impl SkillEvaluation {
                 .collect::<Vec<_>>(),
         )?;
         if self.session.is_empty()
-            || self.settings.max_output_tokens > 512
+            || self.settings.max_output_tokens.is_none_or(|n| n > 512)
             || self.settings.timeout_seconds > 10
             || self
                 .context_window_tokens
@@ -413,7 +413,7 @@ mod tests {
             generated_model: "fixture".into(),
             reviewed_at: 1,
             settings: crate::RequestSettings {
-                max_output_tokens: 512,
+                max_output_tokens: Some(512),
                 timeout_seconds: 10,
                 reasoning: Default::default(),
             },

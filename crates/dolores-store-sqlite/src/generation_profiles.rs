@@ -92,7 +92,7 @@ mod tests {
             .save_connection_models(&preferences, None, &models)
             .unwrap();
         let settings = RequestSettings {
-            max_output_tokens: 8192,
+            max_output_tokens: Some(8192),
             timeout_seconds: 300,
             reasoning: dolores_core::ReasoningControl::DeepseekThinkingOff,
         };
@@ -171,7 +171,7 @@ mod tests {
             .unwrap();
         store
             .save_request_settings(&RequestSettings {
-                max_output_tokens: 4096,
+                max_output_tokens: Some(4096),
                 ..Default::default()
             })
             .unwrap();

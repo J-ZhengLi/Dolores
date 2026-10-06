@@ -1222,14 +1222,14 @@ mod tests {
             .commit_turn("preserved", "question", "answer")
             .unwrap();
         let settings = RequestSettings {
-            max_output_tokens: 4096,
+            max_output_tokens: Some(4096),
             timeout_seconds: 300,
             reasoning: Default::default(),
         };
         store.save_request_settings(&settings).unwrap();
         assert!(store
             .save_request_settings(&RequestSettings {
-                max_output_tokens: 0,
+                max_output_tokens: Some(0),
                 timeout_seconds: 300,
                 reasoning: Default::default()
             })

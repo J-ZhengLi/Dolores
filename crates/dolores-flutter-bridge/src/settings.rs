@@ -180,7 +180,7 @@ mod tests {
             permissions: None,
             task: None,
             generation: Some(GenerationOverride {
-                max_output_tokens: 16384,
+                max_output_tokens: Some(16384),
                 timeout_seconds: 60,
             }),
             interaction: None,
@@ -197,7 +197,7 @@ mod tests {
                     permissions: None,
                     task: None,
                     generation: Some(GenerationOverride {
-                        max_output_tokens: 512,
+                        max_output_tokens: Some(512),
                         timeout_seconds: 60,
                     }),
                     interaction: None,
@@ -237,7 +237,7 @@ mod tests {
                 .unwrap()
                 .request
                 .max_output_tokens,
-            2048
+            None
         );
         assert_eq!(
             engine
@@ -245,7 +245,7 @@ mod tests {
                 .unwrap()
                 .request
                 .max_output_tokens,
-            512
+            Some(512)
         );
     }
     #[test]
@@ -275,7 +275,7 @@ mod tests {
             permissions: None,
             task: None,
             generation: Some(GenerationOverride {
-                max_output_tokens: 512,
+                max_output_tokens: Some(512),
                 timeout_seconds: 60,
             }),
             interaction: None,
@@ -289,7 +289,7 @@ mod tests {
                 .unwrap()
                 .request
                 .max_output_tokens,
-            512
+            Some(512)
         );
         assert_ne!(
             engine.effective_settings(Some("b")).unwrap().request_origin,
@@ -311,7 +311,7 @@ mod tests {
         engine
             .save_settings(Some("a"), SettingsScope::Project, 1, Default::default())
             .unwrap();
-        assert_eq!(frozen.request.max_output_tokens, 512);
+        assert_eq!(frozen.request.max_output_tokens, Some(512));
         assert_ne!(
             engine.effective_settings(Some("a")).unwrap().request_origin,
             "project"

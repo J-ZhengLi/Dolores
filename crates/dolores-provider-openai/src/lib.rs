@@ -3,7 +3,7 @@ use dolores_core::{
     ConnectionPreferences, Message, ModelProvider, PluginDescriptor, RequestSettings, TokenUsage,
 };
 use futures_util::StreamExt;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -261,6 +261,9 @@ impl OpenAiProvider {
         Ok(json!(content))
     }
     fn apply_generation_settings(&self, body: &mut Value) {
+        if self.settings.max_output_tokens.is_none() {
+            body.as_object_mut().unwrap().remove("max_tokens");
+        }
         use dolores_core::ReasoningControl::*;
         match self.settings.reasoning {
             ProviderDefault => {}
@@ -278,7 +281,9 @@ impl OpenAiProvider {
                     _ => "high",
                 };
                 body.as_object_mut().unwrap().remove("max_tokens");
-                body["max_completion_tokens"] = json!(self.settings.max_output_tokens);
+                if let Some(limit) = self.settings.max_output_tokens {
+                    body["max_completion_tokens"] = json!(limit);
+                }
                 body["reasoning_effort"] = json!(effort);
             }
         }
@@ -373,6 +378,9 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    fn manages_stream_inactivity(&self) -> bool {
+        true
+    }
     fn with_attachment_resolver(
         &self,
         resolver: std::sync::Arc<dyn dolores_core::AttachmentResolver>,
@@ -424,8 +432,34 @@ impl ModelProvider for OpenAiProvider {
         activity: mpsc::Sender<dolores_core::ModelActivity>,
         cancel: CancellationToken,
     ) -> Result<dolores_core::AgentTurn, String> {
-        self.request_stream_tool_turn_with_activity(messages, tools, output, Some(activity), cancel)
-            .await
+        self.request_stream_tool_turn_with_activity(
+            messages,
+            tools,
+            output,
+            Some(activity),
+            None,
+            cancel,
+        )
+        .await
+    }
+    async fn stream_tool_turn_with_thinking(
+        &self,
+        messages: &[dolores_core::AgentMessage],
+        tools: &[dolores_core::ToolSpec],
+        output: mpsc::Sender<String>,
+        activity: mpsc::Sender<dolores_core::ModelActivity>,
+        thinking: mpsc::Sender<String>,
+        cancel: CancellationToken,
+    ) -> Result<dolores_core::AgentTurn, String> {
+        self.request_stream_tool_turn_with_activity(
+            messages,
+            tools,
+            output,
+            Some(activity),
+            Some(thinking),
+            cancel,
+        )
+        .await
     }
     async fn tool_turn(
         &self,
@@ -557,7 +591,7 @@ impl ModelProvider for OpenAiProvider {
     ) -> Result<dolores_core::StreamOutcome, String> {
         tokio::select! { biased;
             _ = cancel.cancelled() => Err("Response stopped.".into()),
-            result = tokio::time::timeout(Duration::from_secs(self.settings.timeout_seconds.into()), self.stream_request(messages, output, cancel.clone())) => result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.".to_string())?,
+            result = self.stream_request(messages, output, cancel.clone()) => result,
         }
     }
 }
@@ -574,6 +608,8 @@ impl OpenAiProvider {
             .map(|m| Ok(json!({"role":m.role,"content":self.wire_content(&m.content,&m.parts)?})))
             .collect::<Result<_, String>>()?;
         let mut include_usage = true;
+        let connection_deadline =
+            tokio::time::Instant::now() + Duration::from_secs(self.settings.timeout_seconds.into());
         let mut response = loop {
             let mut body = json!({ "model": self.model, "messages": messages, "stream": true, "max_tokens": self.settings.max_output_tokens });
             self.apply_generation_settings(&mut body);
@@ -586,16 +622,30 @@ impl OpenAiProvider {
             }
             let mut response = tokio::select! {
                 _ = cancel.cancelled() => return Err("Response stopped.".into()),
-                result = request.send() => result.map_err(|failure| if failure.is_timeout() { "Model request timed out. Adjust the request timeout or try again.".to_string() } else { "Could not reach the model. Check the endpoint and whether the server is running.".to_string() })?,
+                result = tokio::time::timeout_at(connection_deadline, request.send()) => result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.".to_string())?.map_err(|failure| if failure.is_timeout() { "Model request timed out. Adjust the request timeout or try again.".to_string() } else { "Could not reach the model. Check the endpoint and whether the server is running.".to_string() })?,
             };
-            if include_usage && usage_option_rejected(&mut response, &cancel).await? {
+            if include_usage
+                && tokio::time::timeout_at(
+                    connection_deadline,
+                    usage_option_rejected(&mut response, &cancel),
+                )
+                .await
+                .map_err(|_| {
+                    "Model request timed out. Adjust the request timeout or try again."
+                })??
+            {
                 include_usage = false;
                 continue;
             }
             break response;
         };
         if !response.status().is_success() {
-            check_context_limit(&mut response, &cancel).await?;
+            tokio::time::timeout_at(
+                connection_deadline,
+                check_context_limit(&mut response, &cancel),
+            )
+            .await
+            .map_err(|_| "Model request timed out. Adjust the request timeout or try again.")??;
             return Err(match response.status().as_u16() {
                 401 | 403 => "Model access denied. Check your API key and permissions.".into(),
                 404 => "Model endpoint not found. Check the base URL and model ID.".into(),
@@ -618,10 +668,17 @@ impl OpenAiProvider {
         let mut finished = false;
         let mut output_limit = false;
         let mut usage = None;
+        let allowance = Duration::from_secs(self.settings.timeout_seconds.into());
+        let mut deadline = tokio::time::Instant::now() + allowance;
         loop {
+            if tokio::time::Instant::now() >= deadline {
+                return Err(
+                    "Model request timed out. Adjust the request timeout or try again.".into(),
+                );
+            }
             let chunk = tokio::select! {
                 _ = cancel.cancelled() => return Err("Response stopped.".into()),
-                next = stream.next() => next,
+                next = tokio::time::timeout_at(deadline, stream.next()) => next.map_err(|_| "Model request timed out. Adjust the request timeout or try again.".to_string())?,
             };
             let Some(chunk) = chunk else { break };
             for data in decoder.push(&chunk.map_err(|_| {
@@ -651,6 +708,21 @@ impl OpenAiProvider {
                 else {
                     continue;
                 };
+                if [
+                    "/delta/content",
+                    "/delta/reasoning_content",
+                    "/delta/reasoning",
+                ]
+                .iter()
+                .any(|path| {
+                    choice
+                        .pointer(path)
+                        .and_then(Value::as_str)
+                        .is_some_and(|s| !s.is_empty())
+                }) || !choice["finish_reason"].is_null()
+                {
+                    deadline = tokio::time::Instant::now() + allowance;
+                }
                 if finished
                     && (choice
                         .pointer("/delta/content")
@@ -671,7 +743,7 @@ impl OpenAiProvider {
                     if !content.is_empty() {
                         tokio::select! {
                             _ = cancel.cancelled() => return Err("Response stopped.".into()),
-                            result = output.send(content.into()) => result.map_err(|_| "Conversation window closed.".to_string())?,
+                            result = tokio::time::timeout(allowance, output.send(content.into())) => result.map_err(|_| "Conversation delivery stalled. Reopen the chat before continuing.".to_string())?.map_err(|_| "Conversation window closed.".to_string())?,
                         }
                     }
                 }
@@ -716,21 +788,17 @@ mod tests {
             "https://example.com/v1?key=secret",
             "file:///v1",
         ] {
-            assert!(
-                validate_preferences(&ConnectionPreferences {
-                    base_url: base_url.into(),
-                    model: "test".into()
-                })
-                .is_err()
-            );
-        }
-        assert!(
-            validate_preferences(&ConnectionPreferences {
-                base_url: "http://[::1]:8080/v1/".into(),
+            assert!(validate_preferences(&ConnectionPreferences {
+                base_url: base_url.into(),
                 model: "test".into()
             })
-            .is_ok()
-        );
+            .is_err());
+        }
+        assert!(validate_preferences(&ConnectionPreferences {
+            base_url: "http://[::1]:8080/v1/".into(),
+            model: "test".into()
+        })
+        .is_ok());
     }
     #[test]
     fn rejects_oversized_stream_frames() {
@@ -798,7 +866,7 @@ mod tests {
         let response = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"choices\":[{\"delta\":{\"content\":\"reply\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
         let (base_url, server) = server(response).await;
         let settings = RequestSettings {
-            max_output_tokens: 4096,
+            max_output_tokens: Some(4096),
             timeout_seconds: 8,
             reasoning: Default::default(),
         };
@@ -889,7 +957,7 @@ mod tests {
                 },
                 String::new(),
                 RequestSettings {
-                    max_output_tokens: 2048,
+                    max_output_tokens: Some(2048),
                     timeout_seconds: 1,
                     reasoning: Default::default(),
                 },
@@ -914,7 +982,7 @@ mod tests {
         }
     }
     #[tokio::test]
-    async fn whole_stream_deadline_expires_even_when_chunks_keep_arriving_and_stop_stays_prompt() {
+    async fn stalled_consumer_expires_after_delivery_stops_and_stop_stays_prompt() {
         for stop in [false, true] {
             let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
             let address = listener.local_addr().unwrap();
@@ -943,7 +1011,7 @@ mod tests {
                 },
                 String::new(),
                 RequestSettings {
-                    max_output_tokens: 2048,
+                    max_output_tokens: Some(2048),
                     timeout_seconds: 1,
                     reasoning: Default::default(),
                 },
@@ -963,7 +1031,7 @@ mod tests {
                 if stop {
                     "Response stopped."
                 } else {
-                    "Model request timed out. Adjust the request timeout or try again."
+                    "Conversation delivery stalled. Reopen the chat before continuing."
                 }
             );
             assert_eq!(rx.recv().await.as_deref(), Some("partial"));

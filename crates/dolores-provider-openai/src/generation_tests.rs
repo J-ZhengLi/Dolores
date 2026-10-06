@@ -1,6 +1,58 @@
 use super::*;
 use dolores_core::{AgentMessage, ReasoningControl};
 
+#[tokio::test]
+async fn provider_default_output_omits_allowance_for_chat_and_both_tool_paths() {
+    let stream = "data: {\"choices\":[{\"delta\":{\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+    let strict = r#"{"choices":[{"message":{"content":"done"},"finish_reason":"stop"}]}"#;
+    for reasoning in [
+        ReasoningControl::ProviderDefault,
+        ReasoningControl::OpenaiHigh,
+    ] {
+        let (base_url, server) = tests::sequence_server(vec![
+            response(stream, true),
+            response(stream, true),
+            response(strict, false),
+        ])
+        .await;
+        let provider = OpenAiProvider::with_settings(
+            &ConnectionPreferences {
+                base_url,
+                model: "fixture".into(),
+            },
+            String::new(),
+            RequestSettings {
+                reasoning,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let (tx, _rx) = mpsc::channel(32);
+        provider
+            .stream(vec![], tx, CancellationToken::new())
+            .await
+            .unwrap();
+        let (tx, _rx) = mpsc::channel(32);
+        provider
+            .stream_tool_turn(&[], &[], tx, CancellationToken::new())
+            .await
+            .unwrap();
+        provider
+            .tool_turn(&[], &[], CancellationToken::new())
+            .await
+            .unwrap();
+        let requests = server.await.unwrap();
+        for body in requests.lines().filter(|line| line.starts_with('{')) {
+            let value: Value = serde_json::from_str(body).unwrap();
+            assert!(
+                value.get("max_tokens").is_none(),
+                "Dolores must not impose an output allowance by default"
+            );
+            assert!(value.get("max_completion_tokens").is_none());
+        }
+    }
+}
+
 fn response(body: &str, stream: bool) -> String {
     format!(
         "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nConnection: close\r\n\r\n{body}",
@@ -37,7 +89,7 @@ async fn explicit_controls_reach_chat_streamed_and_strict_tool_requests() {
             },
             String::new(),
             RequestSettings {
-                max_output_tokens: 4096,
+                max_output_tokens: Some(4096),
                 timeout_seconds: 8,
                 reasoning,
             },

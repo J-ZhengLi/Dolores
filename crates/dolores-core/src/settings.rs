@@ -40,7 +40,7 @@ impl Default for InteractionPolicy {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GenerationOverride {
-    pub max_output_tokens: u32,
+    pub max_output_tokens: Option<u32>,
     pub timeout_seconds: u32,
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -223,7 +223,7 @@ mod tests {
                 permissions: None,
                 task: None,
                 generation: Some(GenerationOverride {
-                    max_output_tokens: 512,
+                    max_output_tokens: Some(512),
                     timeout_seconds: 60,
                 }),
                 interaction: None,
@@ -235,7 +235,7 @@ mod tests {
                 permissions: None,
                 task: None,
                 generation: Some(GenerationOverride {
-                    max_output_tokens: 256,
+                    max_output_tokens: Some(256),
                     timeout_seconds: 30,
                 }),
                 interaction: Some(InteractionPolicy::default()),
@@ -252,7 +252,7 @@ mod tests {
             ],
         )
         .unwrap();
-        assert_eq!(before.request.max_output_tokens, 256);
+        assert_eq!(before.request.max_output_tokens, Some(256));
         assert_eq!(before.interaction_origin, "thread");
         assert_eq!(before.context_window_tokens, 131072);
         let after = resolve_settings(
@@ -262,8 +262,8 @@ mod tests {
             &[(SettingsScope::Project, project)],
         )
         .unwrap();
-        assert_eq!(after.request.max_output_tokens, 512);
-        assert_eq!(before.request.max_output_tokens, 256);
+        assert_eq!(after.request.max_output_tokens, Some(512));
+        assert_eq!(before.request.max_output_tokens, Some(256));
         assert_eq!(after.reasoning_origin, "model profile");
         let context = prepare_behavior_context(
             crate::prepare_context(vec![], "small edit").unwrap(),

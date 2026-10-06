@@ -189,6 +189,51 @@ fn path_resolution_refuses_project_shadow_and_relative_entries() {
 }
 
 #[tokio::test]
+async fn reviewed_validation_script_over_one_kib_runs_without_quote_rewriting() {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let script = format!(
+        "/*{}*/console.log(\"validation passed 世界\")",
+        "padding ".repeat(250)
+    );
+    assert!(script.len() > 1024);
+    let request = tool.prepare(&call(&script)).unwrap();
+    assert_eq!(request.command.as_ref().unwrap().invocation.args[1], script);
+    let output: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(output["exitCode"], 0);
+    assert_eq!(
+        output["stdout"].as_str().unwrap().trim(),
+        "validation passed 世界"
+    );
+}
+
+#[test]
+fn oversized_single_and_aggregate_arguments_offer_script_file_recovery() {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    for args in [
+        vec!["a".repeat(MAX_ARGUMENT_BYTES + 1)],
+        vec!["a".repeat(6000); 3],
+    ] {
+        let error = tool
+            .prepare(&ToolCall {
+                arguments: json!({"program":"node","args":args}).to_string(),
+                ..call("")
+            })
+            .unwrap_err();
+        assert!(error.contains("8 KiB per argument and 16 KiB total"));
+        assert!(error.contains("create a script file"));
+    }
+    assert!(dir.path().read_dir().unwrap().next().is_none());
+}
+
+#[tokio::test]
 async fn parent_completion_closes_descendants_and_does_not_hang_on_inherited_pipes() {
     let dir = tempfile::tempdir().unwrap();
     let tool = RunCommand::new(dir.path()).unwrap();

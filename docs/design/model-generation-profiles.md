@@ -2,7 +2,7 @@
 
 Request settings now edits one enabled model at the configured endpoint. Its dropdown starts with the active chat model; selecting another model in the dialog does not change the chat. Save persists output allowance, request timeout and an explicit reasoning adapter. Switching the composer model loads that model's profile. Restore defaults is local until Save and removes only that model's override. Cancel and failed Save retain the draft and previous saved profile.
 
-Profiles use the exact endpoint/model pair. Unconfigured models inherit the existing application settings (2048 output tokens, 180 seconds unless previously edited). Context-window configuration remains separate, with a blank field using 128K. Increasing output reserves more context for the response and can leave too little input room; existing preflight refusal remains. Tool/model step counts and all file/output/transport limits are unchanged. Timeouts include waiting for tool approval.
+Profiles use the exact endpoint/model pair. Unconfigured models inherit application settings (provider-default output and 180-second inactivity unless previously edited). Existing numeric allowances stay unchanged. Blank output omits the generation maximum; optional explicit values support 1–16777216 tokens, subject to provider support. Context remains separate, with blank using 128K. Automatic output reserves one quarter of the context window, capped at 32768, for local input planning only. Explicit output reserves the configured value. Inactivity excludes active decoded generation and approval review; an optional task clock counts active work separately. Tool/model step counts and file/transport bounds remain.
 
 ## Explicit reasoning adapters
 

@@ -98,7 +98,7 @@ mod tests {
             permissions: None,
             task: None,
             generation: Some(GenerationOverride {
-                max_output_tokens: 512,
+                max_output_tokens: Some(512),
                 timeout_seconds: 60,
             }),
             interaction: None,
@@ -119,7 +119,7 @@ mod tests {
             permissions: None,
             task: None,
             generation: Some(GenerationOverride {
-                max_output_tokens: 0,
+                max_output_tokens: Some(0),
                 timeout_seconds: 0,
             }),
             interaction: None,

@@ -307,7 +307,10 @@ mod tests {
             prepared,
             &[],
             Some(1024),
-            crate::RequestSettings::default()
+            crate::RequestSettings {
+                max_output_tokens: Some(2048),
+                ..Default::default()
+            }
         )
         .is_err());
         let mut disabled = skill.clone();

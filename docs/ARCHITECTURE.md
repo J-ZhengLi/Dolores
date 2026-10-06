@@ -157,7 +157,7 @@ The OS vault and SQLite are separate stores; native-vault cleanup is best effort
 | Area | Bound / policy |
 | --- | --- |
 | Provider streaming | 32-item text queue, 1-MiB SSE frame, 128-KiB answer capture, 10-second connect timeout. |
-| Generation | Default 2048 output tokens / 180 seconds; profiles allow 1–32768 tokens and 1–900 seconds. |
+| Generation | Blank output delegates to the provider; explicit profiles allow 1–16777216 tokens, subject to provider support. Default 180-second inactivity timeout; active generation and approval review can take longer. |
 | Agent loop | Default four model calls / four tool operations shared by parent/children; explicit settings permit 2–16 calls / 1–32 operations. No automatic reset. |
 | Subagents | One batch / up to two children / depth one; each at most four calls / four file operations, within the shared total and parent deadline. |
 | Context | 16-KiB user message, latest 40 complete turns, 128-KiB text guard plus estimated model-window allowance. Blank configured capacity is 128K tokens. |

@@ -90,7 +90,7 @@ impl ExperienceTrial {
             || self.model.len() > 200
             || self.baseline.name != self.candidate.name
             || self.source_revision == 0
-            || self.settings.max_output_tokens != 1024
+            || self.settings.max_output_tokens != Some(1024)
             || self.settings.timeout_seconds != 30
             || !["running", "completed", "failed", "stopped", "interrupted"]
                 .contains(&self.status.as_str())

@@ -51,6 +51,11 @@ void main() {
                   'maxOutputTokens': 64,
                   'timeoutSeconds': 180,
                 },
+                'agent': {
+                  'usageByCall': [
+                    {'reasoningTokens': 64, 'outputTokens': 64},
+                  ],
+                },
               },
             },
           ];
@@ -65,6 +70,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.textContaining('Paused at the output limit (64 tokens)'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Reasoning used 64 tokens.'),
           findsOneWidget,
         );
         await tester.enterText(

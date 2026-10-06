@@ -49,9 +49,9 @@ Grants apply to this chat. They do not enable new plugins or self-updates. File 
 
 ## Task limits and continuing work
 
-Open **Settings → Advanced → Task limits** to set task limits for this chat, its project or your user defaults. Model calls, tool operations and the task deadline are separate from output tokens and the model context window. Leaving the task deadline blank retains the existing request-derived deadline.
+Open **Settings → Advanced → Task limits** to set task limits for this chat, its project or your user defaults. Model calls, tool operations and task time are separate from output tokens and the model context window. Blank task time adds no overall time limit. An explicit task clock counts active work, excluding time waiting for your review. A reached limit saves progress for Continue.
 
-Dolores preserves saved progress at output/step limits. **Continue** uses a fresh bounded segment and fresh tool decisions. A task allows four segments by default; after that, review its progress and explicitly adjust Task limits before continuing. Applied files remain after a later failure. A saved reply or successful command alone does not establish that the whole task is finished.
+When provider-default output ends after useful public progress, Dolores continues once within the current task allowance. Incomplete tool calls are discarded and any new operation receives fresh review. Explicit output caps, reasoning-only exhaustion and repeated truncation pause instead of looping. Dolores preserves saved progress at output/step limits. **Continue** uses a fresh bounded segment and fresh tool decisions. A task allows four segments by default; after that, review its progress and explicitly adjust Task limits before continuing. Applied files remain after a later failure. A saved reply or successful command alone does not establish that the whole task is finished.
 
 ## Delegate scoped work
 
@@ -153,7 +153,9 @@ Open **Settings → Models** and enter the OpenAI-compatible API base URL. A loc
 
 Pick the active model at the bottom right of the input card. Changes preserve the conversation and draft. **Remember connection** stores the key in your OS vault and restores the connection after restart. A blank key field reuses a current/saved key for the same endpoint; **Use without a key** clears it on save. **Forget saved connection** removes the remembered connection/key while keeping history. If recovery fails, unlock the vault or reconnect; conversations remain available.
 
-Set each model's context window in **Settings → Models**; blank uses **128K (131072 tokens)**. The context ring shows an estimate and included context, with reported usage shown separately when available. **Settings → Models → selected model → Responses** controls that model's output allowance, deadline and supported reasoning options. Defaults are **2048 output tokens / 180 seconds**. Use provider-specific reasoning options only when your endpoint supports them.
+Set each model's context window in **Settings → Models**; blank uses **128K (131072 tokens)**. The context ring shows an estimate and included context, with reported usage shown separately when available. **Settings → Models → selected model → Responses** controls that model's output allowance, stall timeout and supported reasoning options. Blank output uses the **provider default**, with **180 seconds without new model data** for stalled responses. An explicit output allowance remains available; existing saved values are preserved. Active streaming and approval review can take longer. Use provider-specific reasoning options only when your endpoint supports them.
+
+During a working chat, **Thinking** opens a preview when the provider supplies reasoning text. Long previews keep the latest portion; the final answer remains separate. Providers that do not supply reasoning still show the current phase and elapsed time. Stop stays available. A stalled model saves a paused task; Continue makes another explicit request and never runs an incomplete tool call.
 
 ## Attach files and images
 

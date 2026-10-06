@@ -200,7 +200,7 @@ impl Engine {
                     provider, prompt, cancel.clone(), "Skill draft",
                 ).await.map_err(|error| {
                     if error == dolores_provider_openai::OUTPUT_LIMIT_ERROR {
-                        format!("Skill draft reached its {}-token output limit. Increase Draft output tokens and generate again, or select less source text. Nothing was saved.", settings.max_output_tokens)
+                        format!("Skill draft reached its {}-token output limit. Increase Draft output tokens and generate again, or select less source text. Nothing was saved.", settings.max_output_tokens.unwrap_or(32768))
                     } else { error }
                 })?;
                 let draft = dolores_core::parse_skill_draft(&text, &review.examples)?;
@@ -454,7 +454,7 @@ mod tests {
                 .commit_turn("side", "Review", "Use focused tests.")
                 .unwrap();
             let saved_settings = dolores_core::RequestSettings {
-                max_output_tokens: configured,
+                max_output_tokens: Some(configured),
                 timeout_seconds: 90,
                 reasoning: Default::default(),
             };
@@ -494,16 +494,16 @@ mod tests {
                     token.clone(),
                     vec![2],
                     Some(dolores_core::RequestSettings {
-                        max_output_tokens: 0,
+                        max_output_tokens: Some(0),
                         timeout_seconds: 90,
                         reasoning: Default::default(),
                     }),
                 )
                 .unwrap_err();
-            assert!(invalid.contains("Output token limit"));
+            assert!(invalid.contains("Output tokens"));
             assert!(!active.is_some());
             let override_settings = requested.map(|n| dolores_core::RequestSettings {
-                max_output_tokens: n,
+                max_output_tokens: Some(n),
                 timeout_seconds: 120,
                 reasoning: Default::default(),
             });

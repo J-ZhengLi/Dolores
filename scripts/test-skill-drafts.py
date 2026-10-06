@@ -85,6 +85,8 @@ if args.stage == 'save':
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         call('bootstrap')
+        with sqlite3.connect(fixture / 'data/dolores.db') as db:
+            baseline_schema = db.execute('PRAGMA user_version').fetchone()[0]
         policy = call('memories')['automaticPolicy']
         call('setAutomaticMemory', enabled=False, revision=policy['revision'])
         call('configure', preferences={'baseUrl': f'http://127.0.0.1:{server.server_port}/v1', 'model': 'fixture'}, apiKey='', rememberConnection=True)
@@ -96,9 +98,9 @@ if args.stage == 'save':
         assert not envelope('reviewSkillExamples', session=session, scope='project')['ok']
         assert not envelope('promoteSkillDraft', session=session, token=sources['token'])['ok']
         assert not envelope('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[999])['ok']
-        assert sources['settings'] == {'maxOutputTokens': 2048, 'timeoutSeconds': 180}
+        assert sources['settings'] == {'maxOutputTokens': None, 'timeoutSeconds': 180}
         mode = 'length'
-        call('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']])
+        call('generateSkillDraft', id=2, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']], settings={'maxOutputTokens': 2048, 'timeoutSeconds': 180})
         exhausted = finish(2, error=True)
         assert '2048-token output limit' in exhausted['error'] and 'Increase Draft output tokens' in exhausted['error']
         assert len(requests) == 2 and not call('projectSkills', session=session, scope='global')['items']
@@ -110,7 +112,7 @@ if args.stage == 'save':
         draft = finish(2, timeout=45)['skillDraft']
         assert requests[-1]['max_tokens'] == 4096 and draft['settings'] == {'maxOutputTokens': 4096, 'timeoutSeconds': 90}
         mode = 'normal'
-        assert call('bootstrap')['requestSettings'] == {'maxOutputTokens': 2048, 'timeoutSeconds': 180}
+        assert call('bootstrap')['requestSettings'] == {'maxOutputTokens': None, 'timeoutSeconds': 180}
         assert not call('projectSkills', session=session, scope='global')['items']
         trials = [{'prompt': 'skill-test-one', 'required': ['SKILL_PASS'], 'forbidden': ['FAIL']}, {'prompt': 'skill-test-two', 'required': ['SKILL_PASS'], 'forbidden': []}]
         bad = {**draft['draft'], 'evidence': [{'messageId': 999, 'quote': 'Invented'}]}
@@ -139,13 +141,13 @@ if args.stage == 'save':
         saved = call('reviewSkill', session=session, scope='global', name='review', version=1)
         assert saved['generated'] and saved['problem'] is None and saved['evaluation'] == evaluation
         call('cancelSkillReview', token=saved['token'])
-        preview = call('context', session=session, input='next')
+        preview = call('context', session=session, input='Use review')
         assert 'Include SKILL_PASS' in preview['messages'][0]['content']
         assert 'Ordinary response' not in preview['messages'][0]['content']
         assert call('messagesPage', session=session) == original
         call('disableSkill', session=session, scope='global', name='review', revision=1)
         sources = call('reviewSkillExamples', session=session, scope='global')
-        call('generateSkillDraft', id=6, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']])
+        call('generateSkillDraft', id=6, session=session, token=sources['token'], messageIds=[sources['examples'][0]['messageId']], settings={'maxOutputTokens': 2048, 'timeoutSeconds': 180})
         draft = finish(6)['skillDraft']
         mode = 'slow'; count = len(requests)
         call('evaluateSkillDraft', id=7, session=session, token=draft['token'], draft=draft['draft'], trials=trials)
@@ -166,7 +168,7 @@ if args.stage == 'save':
         call('forgetSkill', session=session, scope='global', name='other', revision=1)
         call('discardSkillDraft', token=tested['token'])
         state_file.write_text(json.dumps({'session': session, 'evaluation': evaluation}), encoding='utf-8')
-        with sqlite3.connect(fixture / 'data/dolores.db') as db: assert db.execute('PRAGMA user_version').fetchone()[0] == 19
+        with sqlite3.connect(fixture / 'data/dolores.db') as db: assert db.execute('PRAGMA user_version').fetchone()[0] == baseline_schema
         print(json.dumps({'ok': True, 'stage': 'save', 'fixtureRequests': len(requests), 'liveRequests': 0, 'checks': 'output-limit refusal, explicit larger retry, 31-second draft, unchanged settings, tool-free wire, frozen tests, tie/regression gate, one-use promotion, edits, Stop, unchanged transcript/schema'}))
     finally:
         call('shutdown'); server.shutdown(); server.server_close()

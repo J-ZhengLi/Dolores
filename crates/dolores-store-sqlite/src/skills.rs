@@ -308,7 +308,7 @@ mod tests {
                 generated_model: "fixture".into(),
                 reviewed_at: 1,
                 settings: dolores_core::RequestSettings {
-                    max_output_tokens: 512,
+                    max_output_tokens: Some(512),
                     timeout_seconds: 10,
                     reasoning: Default::default(),
                 },

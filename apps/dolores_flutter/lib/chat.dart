@@ -163,18 +163,23 @@ class ChatController extends ChangeNotifier {
   final toolRecords = <Map<String, dynamic>>[];
   final subagents = <Map<String, dynamic>>[];
   final modelTexts = <Map<String, dynamic>>[];
+  final modelThinking = <Map<String, dynamic>>[];
+  bool modelActive = false;
   bool decidingTool = false;
   int modelStep = 0;
   String modelPhase = 'waiting';
   int modelElapsedSeconds = 0;
   int modelTimeoutSeconds = 0;
-  String get modelActivityLabel =>
-      '${switch (modelPhase) {
-        'reasoning' => 'Thinking',
-        'toolArguments' => 'Preparing tool call',
-        'responding' => 'Responding',
-        _ => 'Waiting for model',
-      }} · ${modelElapsedSeconds}s';
+  String get modelActivityLabel => toolApproval != null
+      ? 'Waiting for your review'
+      : !modelActive && workspaceRoot != null
+      ? 'Working…'
+      : '${switch (modelPhase) {
+          'reasoning' => 'Thinking',
+          'toolArguments' => 'Preparing tool call',
+          'responding' => 'Responding',
+          _ => 'Waiting for model',
+        }} · ${modelElapsedSeconds}s';
   Future<void> chooseToolFolder(Future<String?> Function() choose) async {
     if (busy || changing || loading) return;
     changing = true;
@@ -387,11 +392,11 @@ class ChatController extends ChangeNotifier {
   Map<String, dynamic>? get activeRecovery =>
       error == _recoveryError ? recovery : null;
   Map<String, dynamic> requestSettings = {
-    'maxOutputTokens': 2048,
+    'maxOutputTokens': null,
     'timeoutSeconds': 180,
   };
   Map<String, dynamic> defaultRequestSettings = {
-    'maxOutputTokens': 2048,
+    'maxOutputTokens': null,
     'timeoutSeconds': 180,
   };
   Map<String, dynamic> modelRequestSettings = {};
@@ -594,7 +599,7 @@ class ChatController extends ChangeNotifier {
     connectionWarning = state['connectionWarning'] as String?;
     requestSettings =
         (state['requestSettings'] as Map?)?.cast<String, dynamic>() ??
-        {'maxOutputTokens': 2048, 'timeoutSeconds': 180};
+        {'maxOutputTokens': null, 'timeoutSeconds': 180};
     defaultRequestSettings =
         (state['defaultRequestSettings'] as Map?)?.cast<String, dynamic>() ??
         Map.of(requestSettings);
@@ -1075,6 +1080,8 @@ class ChatController extends ChangeNotifier {
     modelTexts.clear();
     toolApproval = null;
     modelStep = 0;
+    modelThinking.clear();
+    modelActive = false;
     modelPhase = 'waiting';
     modelElapsedSeconds = 0;
     modelTimeoutSeconds = 0;
@@ -1189,6 +1196,7 @@ class ChatController extends ChangeNotifier {
             }
             partial = '';
             modelStep = event['number'] as int;
+            modelActive = true;
             modelPhase = 'waiting';
             modelElapsedSeconds = 0;
             modelTimeoutSeconds = 0;
@@ -1207,6 +1215,23 @@ class ChatController extends ChangeNotifier {
               }
               partial += event['text'] as String;
             }
+          case 'modelThinking':
+            if (event['number'] == modelStep && !stopping) {
+              final index = modelThinking.indexWhere(
+                (s) => s['number'] == modelStep,
+              );
+              final step = {
+                'number': modelStep,
+                'text': event['text'] as String,
+              };
+              if (index < 0) {
+                modelThinking.add(step);
+              } else {
+                modelThinking[index] = step;
+              }
+            }
+          case 'modelFinished':
+            if (event['number'] == modelStep) modelActive = false;
           case 'toolApproval':
             if (!stopping) {
               toolApproval = (event['request'] as Map).cast<String, dynamic>();

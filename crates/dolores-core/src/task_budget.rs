@@ -28,11 +28,13 @@ impl TaskBudget {
                 .elapsed_seconds
                 .is_some_and(|s| !(30..=3600).contains(&s))
         {
-            return Err("Task limits require 2–16 model calls, 1–32 tool operations, 1–8 segments and 30–3600 seconds (or an inherited deadline). Previous settings remain unchanged.".into());
+            return Err("Task limits require 2–16 model calls, 1–32 tool operations, 1–8 segments and 30–3600 seconds (or no task time limit). Previous settings remain unchanged.".into());
         }
         Ok(())
     }
-    pub fn deadline(self, request_seconds: u32) -> u32 {
+    /// Only an unattended desktop-sharing handoff needs a sealed finite remainder.
+    /// Normal execution uses elapsed_seconds directly; None has no whole-task clock.
+    pub fn handoff_deadline(self, request_seconds: u32) -> u32 {
         self.elapsed_seconds.unwrap_or(request_seconds.min(300))
     }
     pub fn check_segment(self, used: u32) -> Result<(), String> {
@@ -49,7 +51,10 @@ mod tests {
     #[test]
     fn defaults_preserve_old_limits_and_segments_never_reset() {
         let b = TaskBudget::default();
-        assert_eq!((b.model_calls, b.tool_calls, b.deadline(60)), (4, 4, 60));
+        assert_eq!(
+            (b.model_calls, b.tool_calls, b.elapsed_seconds),
+            (4, 4, None)
+        );
         assert!(b.check_segment(3).is_ok());
         assert!(b
             .check_segment(4)
@@ -66,7 +71,7 @@ mod tests {
                 elapsed_seconds: Some(600),
                 ..b
             }
-            .deadline(60),
+            .handoff_deadline(60),
             600
         );
     }

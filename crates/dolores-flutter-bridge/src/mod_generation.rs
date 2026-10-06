@@ -145,7 +145,7 @@ impl Engine {
             .lock()
             .map_err(|_| "Model unavailable.")?
             .comparison_provider(RequestSettings {
-                max_output_tokens: 1024,
+                max_output_tokens: Some(1024),
                 timeout_seconds: 30,
                 ..self
                     .store
@@ -227,7 +227,7 @@ mod tests {
         }
         fn request_settings(&self) -> Option<RequestSettings> {
             Some(RequestSettings {
-                max_output_tokens: 128,
+                max_output_tokens: Some(128),
                 timeout_seconds: 1,
                 ..Default::default()
             })

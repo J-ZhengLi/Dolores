@@ -1,5 +1,28 @@
 # Dolores acceptance — 2026-10-05
 
+## AI follow-up — response recovery and approval waits
+
+2026-10-06: The inherited whole-task timeout was reproduced in the normal app.
+Model inactivity and optional active-task time are now separate; human review
+has no model timeout. Blank output delegates to the provider, existing numeric
+settings remain, and one useful truncated response can continue within the
+current task budget without executing partial calls. Repeated/empty reasoning-only
+truncation pauses with saved progress. Thinking previews retain the latest
+provider text and elapsed activity remains visible through public output.
+
+254 core/provider/bridge/store tests and 247 Flutter tests PASS; Clippy and
+analysis PASS. The command suite has 12 passing tests, including long quoted
+validation scripts and single/aggregate overflow recovery. Scoped-settings integration PASS. Native exact-prompt DeepSeek
+runs in the old chat still exhausted their explicit output setting; the fresh
+provider-default follow-up created a 14,604-byte standalone HTML game and kept
+approval usable for a measured 190-second wait. Syntax, headed browser rendering,
+movement, jump and restart PASS. The run paused at its four-call budget after
+two validation commands were rejected by the old 1-KiB argument bound. That bound
+and misleading error are fixed, but native command-validation completion remains
+unqualified. See [qualification](qualification/response-recovery.md).
+Do not infer task completion from a fixture pass or approval card. Milestone 20
+self-repair and platform CI 8.4 remain undelivered/deferred respectively.
+
 ## AI follow-up — fragmented reasoning and visible activity
 
 2026-10-06: The earlier event-count fix retained a cumulative 2 MiB wire guard.

@@ -137,7 +137,12 @@ impl ConnectionManager {
                     .clone()
                     .ok_or("Reconnect your model first.")?,
                 RequestSettings {
-                    max_output_tokens: settings.max_output_tokens.min(max_output),
+                    max_output_tokens: Some(
+                        settings
+                            .max_output_tokens
+                            .unwrap_or(max_output)
+                            .min(max_output),
+                    ),
                     timeout_seconds: settings.timeout_seconds.min(timeout),
                     ..settings
                 },
@@ -653,7 +658,7 @@ mod tests {
             .unwrap();
         let remembered = store.remembered_connection().unwrap();
         let profile = RequestSettings {
-            max_output_tokens: 8192,
+            max_output_tokens: Some(8192),
             timeout_seconds: 300,
             reasoning: dolores_core::ReasoningControl::DeepseekThinkingOff,
         };
@@ -675,7 +680,7 @@ mod tests {
                 review.timeout_seconds,
                 review.reasoning
             ),
-            (1024, 30, profile.reasoning)
+            (Some(1024), 30, profile.reasoning)
         );
         assert_eq!(
             manager
@@ -714,7 +719,7 @@ mod tests {
         );
         restarted
             .update_request_settings(RequestSettings {
-                max_output_tokens: 4096,
+                max_output_tokens: Some(4096),
                 ..Default::default()
             })
             .unwrap();
@@ -733,7 +738,7 @@ mod tests {
                 .request_settings()
                 .unwrap()
                 .max_output_tokens,
-            4096
+            Some(4096)
         );
     }
     #[tokio::test]
@@ -743,7 +748,7 @@ mod tests {
         let vault = Arc::new(MemoryCredentials::default());
         let mut manager = ConnectionManager::new(store.clone(), vault.clone());
         let settings = RequestSettings {
-            max_output_tokens: 8192,
+            max_output_tokens: Some(8192),
             timeout_seconds: 300,
             reasoning: Default::default(),
         };
@@ -763,7 +768,7 @@ mod tests {
             Some(settings)
         );
         let updated = RequestSettings {
-            max_output_tokens: 4096,
+            max_output_tokens: Some(4096),
             timeout_seconds: 120,
             reasoning: Default::default(),
         };
@@ -1060,7 +1065,7 @@ mod tests {
         );
         manager
             .update_request_settings(RequestSettings {
-                max_output_tokens: 128,
+                max_output_tokens: Some(128),
                 ..RequestSettings::default()
             })
             .unwrap();

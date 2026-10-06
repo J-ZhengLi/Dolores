@@ -40,6 +40,9 @@ mod skill_drafts;
 mod skills;
 mod subagents;
 mod summaries;
+mod task_execution;
+#[cfg(test)]
+mod timeout_tests;
 mod web;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
@@ -1686,7 +1689,7 @@ impl Engine {
                         .lock()
                         .map_err(|_| "Connection unavailable.")?
                         .comparison_provider(RequestSettings {
-                            max_output_tokens: 1024,
+                            max_output_tokens: Some(1024),
                             timeout_seconds: 30,
                             ..effective.request
                         })
@@ -2094,12 +2097,13 @@ async fn execute(
         }
         task.model_calls -= 1;
         let spent = started_at.elapsed().as_secs();
-        let remaining = u64::from(task.deadline(settings.unwrap_or_default().timeout_seconds))
-            .saturating_sub(spent);
-        if remaining < 30 {
-            return Err("Compaction saved valid progress but fewer than 30 seconds remain in the task elapsed allowance. Increase Task limits or send again explicitly.".into());
+        if let Some(seconds) = task.elapsed_seconds {
+            let remaining = u64::from(seconds).saturating_sub(spent);
+            if remaining < 30 {
+                return Err("Compaction saved valid progress but fewer than 30 seconds remain in the task elapsed allowance. Increase Task limits or send again explicitly.".into());
+            }
+            task.elapsed_seconds = Some(remaining.min(3600) as u32);
         }
-        task.elapsed_seconds = Some(remaining.min(3600) as u32);
         return Box::pin(execute(
             store,
             provider,
@@ -2184,6 +2188,10 @@ async fn execute(
                 client_id: id,
             })?;
         }
+        let progress = Arc::new(Mutex::new(task_execution::Progress::default()));
+        let work_cancel = cancel.child_token();
+        let _cleanup = task_execution::CancelOnDrop(work_cancel.clone());
+        let delivery_seconds = settings.unwrap_or_default().timeout_seconds;
         let running = async {
             let (events, mut receiver) = mpsc::channel(32);
             let plugins = tools;
@@ -2193,7 +2201,7 @@ async fn execute(
                 &plugins,
                 approval.as_ref(),
                 events,
-                cancel.clone(),
+                work_cancel.clone(),
                 task,
                 shared.clone(),
                 false,
@@ -2204,29 +2212,31 @@ async fn execute(
                     _ = cancel.cancelled() => return Err(stopped()),
                     result = &mut request => break result?,
                     Some(event) = receiver.recv() => {
+                        progress.lock().map_err(|_| "Task progress is unavailable.")?.record(&event);
                         let mut event = serde_json::to_value(event).map_err(|_| "Tool event is unavailable.")?;
                         event["id"] = json!(id);
-                        forward(output, event, &cancel).await?;
+                        task_execution::deliver(output, event, &cancel, delivery_seconds).await?;
                     }
                 }
             };
             while let Some(event) = receiver.recv().await {
+                progress
+                    .lock()
+                    .map_err(|_| "Task progress is unavailable.")?
+                    .record(&event);
                 let mut event =
                     serde_json::to_value(event).map_err(|_| "Tool event is unavailable.")?;
                 event["id"] = json!(id);
-                forward(output, event, &cancel).await?;
+                task_execution::deliver(output, event, &cancel, delivery_seconds).await?;
             }
             Ok::<_, String>(reply)
         };
-        let seconds = task.deadline(settings.unwrap_or_default().timeout_seconds);
         let reply = tokio::select! { biased;
             _ = cancel.cancelled() => return Err(stopped()),
-            result = tokio::time::timeout(std::time::Duration::from_secs(seconds.into()), running) => match result {
-                Ok(reply) => reply?,
-                Err(_) => {
-                    cancel.cancel();
-                    return Err("Agent run timed out while working or waiting for approval. Your message was not saved.".into());
-                }
+            result = running => result?,
+            _ = task_execution::active_deadline(task.elapsed_seconds, approval.as_ref()) => {
+                work_cancel.cancel();
+                progress.lock().map_err(|_| "Task progress is unavailable.")?.paused()
             },
         };
         if cancel.is_cancelled() {
@@ -2238,7 +2248,9 @@ async fn execute(
                 .ok_or("Window sharing needs a durable task journal.")?;
             let usage = shared.usage();
             let saved_budget = dolores_core::TaskBudget {
-                elapsed_seconds: Some(task.deadline(settings.unwrap_or_default().timeout_seconds)),
+                elapsed_seconds: Some(
+                    task.handoff_deadline(settings.unwrap_or_default().timeout_seconds),
+                ),
                 ..task
             };
             log.record(None, "desktopHandoff", json!({"modelCalls":usage.model_calls,"toolCalls":usage.tool_calls,"elapsedSeconds":started_at.elapsed().as_secs(),"budget":saved_budget})).await?;
@@ -2311,24 +2323,29 @@ async fn execute(
                 biased;
                 _ = cancel.cancelled() => return Err(stopped()),
                 result = &mut request => break result?,
-                Some(text) = receiver.recv() => forward(output, json!({"type":"delta", "id":id, "text":text}), &cancel).await?,
+                Some(text) = receiver.recv() => task_execution::deliver(output, json!({"type":"delta", "id":id, "text":text}), &cancel, settings.unwrap_or_default().timeout_seconds).await?,
             }
         };
         while let Some(text) = receiver.recv().await {
-            forward(
+            task_execution::deliver(
                 output,
                 json!({"type":"delta", "id":id, "text":text}),
                 &cancel,
+                settings.unwrap_or_default().timeout_seconds,
             )
             .await?;
         }
         Ok::<_, String>(answer)
     };
-    let answer = match settings {
-        Some(settings) => tokio::select! {
+    let deadline = task.elapsed_seconds.or_else(|| {
+        (!provider.manages_stream_inactivity())
+            .then_some(settings.unwrap_or_default().timeout_seconds)
+    });
+    let answer = match deadline {
+        Some(seconds) => tokio::select! {
             biased;
             _ = cancel.cancelled() => return Err(stopped()),
-            result = tokio::time::timeout(std::time::Duration::from_secs(task.elapsed_seconds.unwrap_or(settings.timeout_seconds).into()), streaming) =>
+            result = tokio::time::timeout(std::time::Duration::from_secs(seconds.into()), streaming) =>
                 result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.")??,
         },
         None => streaming.await?,
@@ -2507,7 +2524,7 @@ mod tests {
         }
         fn request_settings(&self) -> Option<RequestSettings> {
             Some(RequestSettings {
-                max_output_tokens: 128,
+                max_output_tokens: Some(128),
                 ..Default::default()
             })
         }
@@ -2546,7 +2563,7 @@ mod tests {
             .unwrap();
         store
             .save_request_settings(&RequestSettings {
-                max_output_tokens: 128,
+                max_output_tokens: Some(128),
                 ..Default::default()
             })
             .unwrap();
@@ -2722,10 +2739,10 @@ mod tests {
         .unwrap();
         assert_eq!(
             engine.call(Command::Bootstrap).unwrap()["requestSettings"]["maxOutputTokens"],
-            2048
+            Value::Null
         );
         let settings = RequestSettings {
-            max_output_tokens: 4096,
+            max_output_tokens: Some(4096),
             timeout_seconds: 300,
             reasoning: Default::default(),
         };
@@ -2738,7 +2755,7 @@ mod tests {
         assert!(engine
             .call(Command::SetRequestSettings {
                 settings: RequestSettings {
-                    max_output_tokens: 0,
+                    max_output_tokens: Some(0),
                     ..settings
                 }
             })
@@ -2867,7 +2884,7 @@ mod tests {
                     input: "unsent".into(),
                     model: "fixture".into(),
                     settings: Some(RequestSettings {
-                        max_output_tokens: 2048,
+                        max_output_tokens: Some(2048),
                         timeout_seconds: 1,
                         reasoning: Default::default(),
                     }),
@@ -2891,7 +2908,7 @@ mod tests {
         );
         assert_eq!(
             task.await.unwrap().unwrap_err(),
-            "Model request timed out. Adjust the request timeout or try again."
+            "Conversation delivery stalled. Reopen the chat; completed changes remain. Nothing was retried."
         );
         assert!(saved.messages("paused-window").unwrap().is_empty());
     }

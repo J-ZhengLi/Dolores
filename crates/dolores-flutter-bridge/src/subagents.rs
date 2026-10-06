@@ -293,6 +293,8 @@ impl ChildText {
         event: AgentEvent,
     ) -> Result<(), String> {
         match event {
+            // Thinking previews belong to the child's UI, never diagnostic journals.
+            AgentEvent::ModelThinking { .. } | AgentEvent::ModelFinished { .. } => Ok(()),
             AgentEvent::ModelText { number, text } => {
                 if self.number != Some(number) {
                     self.flush(rt, id).await?;

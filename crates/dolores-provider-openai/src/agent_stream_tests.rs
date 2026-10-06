@@ -1,6 +1,74 @@
 use super::*;
 use dolores_core::{ConnectionPreferences, ModelProvider, RequestSettings};
 
+#[tokio::test]
+async fn long_reasoning_is_preserved_for_followup_without_entering_public_text() {
+    let reasoning = "thinking ".repeat(22000);
+    let frames: Vec<_> = reasoning
+        .as_bytes()
+        .chunks(4096)
+        .map(|part| {
+            delta(
+                json!({"reasoning_content":std::str::from_utf8(part).unwrap()}),
+                Value::Null,
+            )
+        })
+        .chain([delta(
+            json!({"tool_calls":[call(0,"one","read_text_file","{\"path\":\"a.txt\"}")]}),
+            json!("tool_calls"),
+        )])
+        .collect();
+    let (base_url, server) = crate::tests::sequence_server(vec![
+        wire(&frames, true),
+        wire(&[delta(json!({"content":"done"}), json!("stop"))], true),
+    ])
+    .await;
+    let provider = provider(base_url);
+    let initial = [AgentMessage {
+        role: "user".into(),
+        content: "Read".into(),
+        parts: vec![],
+        calls: vec![],
+        call_id: None,
+    }];
+    let (tx, mut rx) = mpsc::channel(8);
+    let turn = provider
+        .stream_tool_turn(&initial, &[], tx, CancellationToken::new())
+        .await
+        .unwrap();
+    assert!(rx.recv().await.is_none());
+    let followup = [
+        initial[0].clone(),
+        AgentMessage {
+            role: "assistant".into(),
+            content: turn.content,
+            parts: vec![],
+            calls: turn.calls,
+            call_id: None,
+        },
+        AgentMessage {
+            role: "tool".into(),
+            content: "text".into(),
+            parts: vec![],
+            calls: vec![],
+            call_id: Some("one".into()),
+        },
+    ];
+    let (tx, _rx) = mpsc::channel(8);
+    provider
+        .stream_tool_turn(&followup, &[], tx, CancellationToken::new())
+        .await
+        .unwrap();
+    let requests = server.await.unwrap();
+    let bodies: Vec<Value> = requests
+        .lines()
+        .filter(|l| l.starts_with('{'))
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(bodies[1]["messages"][1]["reasoning_content"], reasoning);
+    assert!(bodies[1].get("max_tokens").is_none());
+}
+
 fn delta(value: Value, finish: Value) -> Value {
     json!({"choices":[{"index":0,"delta":value,"finish_reason":finish}]})
 }
@@ -26,6 +94,96 @@ fn provider(base_url: String) -> OpenAiProvider {
         String::new(),
     )
     .unwrap()
+}
+
+#[tokio::test]
+async fn active_reasoning_stream_outlives_the_inactivity_allowance() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}/v1", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = Vec::new();
+        loop {
+            let mut buf = [0; 4096];
+            let n = socket.read(&mut buf).await.unwrap();
+            request.extend_from_slice(&buf[..n]);
+            if let Some(i) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                let length = String::from_utf8_lossy(&request[..i])
+                    .lines()
+                    .find_map(|l| {
+                        l.to_lowercase()
+                            .strip_prefix("content-length: ")
+                            .map(|v| v.parse::<usize>().unwrap())
+                    })
+                    .unwrap_or(0);
+                if request.len() >= i + 4 + length {
+                    break;
+                }
+            }
+        }
+        socket
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            )
+            .await
+            .unwrap();
+        for frame in [
+            delta(json!({"reasoning_content":"Plan the scene."}), Value::Null),
+            delta(
+                json!({"reasoning_content":" Check keyboard input."}),
+                Value::Null,
+            ),
+            delta(json!({"content":"Done"}), json!("stop")),
+        ] {
+            if socket
+                .write_all(format!("data: {frame}\n\n").as_bytes())
+                .await
+                .is_err()
+            {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(600)).await;
+        }
+        let _ = socket.write_all(b"data: [DONE]\n\n").await;
+    });
+    let model = OpenAiProvider::with_settings(
+        &ConnectionPreferences {
+            base_url: endpoint,
+            model: "fixture".into(),
+        },
+        String::new(),
+        RequestSettings {
+            timeout_seconds: 1,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let (text, mut texts) = mpsc::channel(8);
+    let (activity, _activities) = mpsc::channel(8);
+    let (thinking, mut thoughts) = mpsc::channel(8);
+    let result = model
+        .stream_tool_turn_with_thinking(
+            &[],
+            &[],
+            text,
+            activity,
+            thinking,
+            CancellationToken::new(),
+        )
+        .await;
+    server.await.unwrap();
+    assert_eq!(
+        result.unwrap().content,
+        "Done",
+        "Progress must reset inactivity, rather than spend an absolute response deadline"
+    );
+    assert_eq!(texts.recv().await.as_deref(), Some("Done"));
+    let mut preview = String::new();
+    while let Some(text) = thoughts.recv().await {
+        preview = text;
+    }
+    assert_eq!(preview, "Plan the scene. Check keyboard input.");
 }
 
 #[tokio::test]
@@ -64,7 +222,9 @@ async fn tool_reasoning_is_returned_exactly_but_never_emitted_and_new_runs_clear
         calls: turn.calls.clone(),
         call_id: None,
     };
-    let wire = provider.wire_agent_messages(&[message.clone()]).unwrap();
+    let wire = provider
+        .wire_agent_messages(std::slice::from_ref(&message))
+        .unwrap();
     assert_eq!(wire[0]["reasoning_content"], secret);
     assert!(!json!({"content":turn.content,"calls":turn.calls})
         .to_string()
@@ -75,11 +235,9 @@ async fn tool_reasoning_is_returned_exactly_but_never_emitted_and_new_runs_clear
         .get("reasoning_content")
         .is_none());
     provider.wire_agent_messages(&input).unwrap();
-    assert!(
-        provider.wire_agent_messages(&[message]).unwrap()[0]
-            .get("reasoning_content")
-            .is_none()
-    );
+    assert!(provider.wire_agent_messages(&[message]).unwrap()[0]
+        .get("reasoning_content")
+        .is_none());
 }
 
 #[tokio::test]
@@ -150,15 +308,13 @@ async fn reasoning_activity_arrives_before_completion_without_private_text_and_s
     assert!(texts.try_recv().is_err());
     assert!(!task.is_finished());
     cancel.cancel();
-    assert!(
-        tokio::time::timeout(Duration::from_secs(1), task)
-            .await
-            .unwrap()
-            .unwrap()
-            .err()
-            .unwrap()
-            .contains("stopped")
-    );
+    assert!(tokio::time::timeout(Duration::from_secs(1), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .err()
+        .unwrap()
+        .contains("stopped"));
     let _ = release.send(());
     server.await.unwrap();
 }
@@ -270,7 +426,7 @@ fn large_fragmented_file_json_survives_but_other_tools_and_overflow_remain_bound
             ))
             .unwrap();
         let result = assembly.complete();
-        if matches!(name, "create_text_file" | "edit_text_file") {
+        if matches!(name, "create_text_file" | "edit_text_file" | "run_command") {
             assert_eq!(result.unwrap().calls[0].arguments, arguments);
         } else {
             assert!(result.is_err());
@@ -278,6 +434,14 @@ fn large_fragmented_file_json_survives_but_other_tools_and_overflow_remain_bound
     }
     let mut assembly = Assembly::default();
     assert!(assembly.push(delta(json!({"tool_calls":[call(0,"one","create_text_file",&"x".repeat(MAX_FILE_ARGUMENT_BYTES+1))]}),Value::Null)).is_err());
+    let mut assembly = Assembly::default();
+    assembly
+        .push(delta(
+            json!({"tool_calls":[call(0,"one","run_command",&"x".repeat(32*1024+1))]}),
+            json!("tool_calls"),
+        ))
+        .unwrap();
+    assert!(assembly.complete().is_err());
 }
 
 #[tokio::test]
@@ -553,7 +717,7 @@ async fn stream_delivery_is_cancelable_and_under_the_configured_deadline() {
             },
             String::new(),
             RequestSettings {
-                max_output_tokens: 2048,
+                max_output_tokens: Some(2048),
                 timeout_seconds: 1,
                 reasoning: Default::default(),
             },
@@ -573,7 +737,7 @@ async fn stream_delivery_is_cancelable_and_under_the_configured_deadline() {
             .await
             .err()
             .unwrap();
-        assert!(error.contains(if stop { "stopped" } else { "timed out" }));
+        assert!(error.contains(if stop { "stopped" } else { "delivery stalled" }));
         timer.await.unwrap();
         server.await.unwrap();
     }
@@ -619,4 +783,18 @@ async fn idle_stream_and_individual_frame_budgets_are_enforced() {
         assert!(error.contains(expected), "{error}");
         server.await.unwrap();
     }
+}
+#[test]
+fn long_thinking_preview_keeps_current_progress_and_unicode_within_its_bound() {
+    let start = "opening thought";
+    assert_eq!(thinking_preview(start), start);
+    let reasoning = format!("{start}{}latest plan", "思考".repeat(5000));
+    let preview = thinking_preview(&reasoning);
+    assert!(preview.len() <= 16 * 1024);
+    assert!(preview.starts_with("[Earlier thinking omitted]"));
+    assert!(!preview.contains(start));
+    assert!(preview.ends_with("latest plan"));
+    let next = thinking_preview(&format!("{reasoning} now implementing"));
+    assert!(next.ends_with("now implementing"));
+    assert_ne!(preview, next);
 }

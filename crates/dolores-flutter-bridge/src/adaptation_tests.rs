@@ -77,6 +77,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, Arc<SqliteStore>, String) {
                 ),
             ],
             steps: vec![],
+            thinking: vec![],
         }),
     };
     store

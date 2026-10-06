@@ -4,6 +4,19 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
+// Reasoning belongs to the provider protocol, not the 128-KiB public context.
+// Account it separately so provider-default generation can finish longer thoughts.
+pub(crate) const MAX_REASONING_BYTES: usize = 1024 * 1024;
+pub(crate) const MAX_REASONING_CACHE_BYTES: usize = 2 * 1024 * 1024;
+
+pub(crate) fn reasoning_wire_bytes(messages: &[Value]) -> usize {
+    messages
+        .iter()
+        .filter_map(|m| m.get("reasoning_content"))
+        .map(|v| v.to_string().len() + 24)
+        .sum()
+}
+
 impl OpenAiProvider {
     fn reasoning_key(content: &str, calls: &[ToolCall]) -> Result<String, String> {
         serde_json::to_string(&(content, calls))
@@ -28,9 +41,9 @@ impl OpenAiProvider {
                 || cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
                     + key.len()
                     + reasoning.len()
-                    > MAX_CONTEXT_BYTES
+                    > MAX_REASONING_CACHE_BYTES
             {
-                return Err("Reasoning continuation exceeds its 128 KiB allowance. Completed work remains; start a smaller task or reduce model reasoning.".into());
+                return Err("Reasoning continuation exceeds its 2 MiB protocol allowance. Completed work remains; start a smaller task or reduce model reasoning.".into());
             }
             cache.insert(key, reasoning);
         }
@@ -91,7 +104,7 @@ impl OpenAiProvider {
         cancel: CancellationToken,
     ) -> Result<AgentTurn, String> {
         let request = async {
-            let wire_limit = MAX_CONTEXT_BYTES
+            let mut wire_limit = MAX_CONTEXT_BYTES
                 + if messages
                     .iter()
                     .any(|m| m.parts.iter().any(|p| p.is_image()))
@@ -101,6 +114,7 @@ impl OpenAiProvider {
                     0
                 };
             let messages = self.wire_agent_messages(messages)?;
+            wire_limit += reasoning_wire_bytes(&messages);
             if serde_json::to_vec(&messages)
                 .map_err(|_| "Could not prepare tool request.")?
                 .len()

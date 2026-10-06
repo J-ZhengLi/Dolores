@@ -369,7 +369,7 @@ void main() {
             .widget<TextFormField>(find.byKey(const Key('output-token-limit')))
             .controller!
             .text,
-        '2048',
+        '',
       );
       await tester.pumpWidget(const SizedBox());
       chat.dispose();

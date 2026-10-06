@@ -95,7 +95,7 @@ mod tests {
             suite: EXPERIENCE_SUITE.into(),
             model: "fixture".into(),
             settings: RequestSettings {
-                max_output_tokens: 1024,
+                max_output_tokens: Some(1024),
                 timeout_seconds: 30,
                 ..Default::default()
             },

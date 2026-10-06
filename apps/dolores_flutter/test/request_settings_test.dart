@@ -232,7 +232,7 @@ void main() {
         await tester.tap(find.byKey(const Key('save-request-settings')));
         await tester.pumpAndSettle();
         expect(
-          find.text('Enter a whole number from 1 to 32768.'),
+          find.text('Enter a whole number from 1 to 16777216.'),
           findsOneWidget,
         );
         expect(
@@ -252,7 +252,7 @@ void main() {
               )
               .controller!
               .text,
-          '2048',
+          '',
         );
         expect(bridge.commands, isEmpty);
         expect(chat.draft, 'Keep this draft');
@@ -301,6 +301,41 @@ void main() {
         }),
         throwsStateError,
       );
+    },
+  );
+  testWidgets(
+    'Blank output delegates to the provider and larger explicit limits persist',
+    (tester) async {
+      compact(tester);
+      for (final value in ['', '65536']) {
+        final bridge = SettingsBridge();
+        final chat = ChatController(bridge)
+          ..loading = false
+          ..draft = 'Keep my draft';
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: RequestSettingsDialog(chat: chat)),
+          ),
+        );
+        await tester.enterText(
+          find.byKey(const Key('output-token-limit')),
+          value,
+        );
+        await tester.tap(find.byKey(const Key('save-request-settings')));
+        await tester.pumpAndSettle();
+        expect(
+          bridge.commands.last['settings']['maxOutputTokens'],
+          value.isEmpty ? null : 65536,
+        );
+        expect(
+          chat.requestSettings['maxOutputTokens'],
+          value.isEmpty ? null : 65536,
+        );
+        expect(chat.draft, 'Keep my draft');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      }
     },
   );
   testWidgets(

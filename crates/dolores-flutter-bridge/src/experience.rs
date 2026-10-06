@@ -206,7 +206,7 @@ impl Engine {
         let candidate = dolores_tools_fs::parse_skill_document(&name, text)?;
         let _entered = self.runtime.enter();
         let settings = RequestSettings {
-            max_output_tokens: 1024,
+            max_output_tokens: Some(1024),
             timeout_seconds: 30,
             ..self
                 .store
@@ -281,8 +281,8 @@ pub(super) async fn one(
     let _ = drain.await;
     let w = world.lock().unwrap();
     let (complete,answer,evidence,detail)=match result{Ok(r)=>{
-        let allowance=provider.request_settings().unwrap_or(RequestSettings{max_output_tokens:1024,timeout_seconds:30,..Default::default()});
-        let excess=r.summary.usage_by_call.iter().flatten().any(|u|u.output_tokens.is_some_and(|n|n>allowance.max_output_tokens as u64)||u.reasoning_tokens.is_some_and(|n|n>allowance.max_output_tokens as u64));
+        let allowance=provider.request_settings().unwrap_or(RequestSettings{max_output_tokens:Some(1024),timeout_seconds:30,..Default::default()});
+        let excess=r.summary.usage_by_call.iter().flatten().any(|u|u.output_tokens.is_some_and(|n|n>allowance.max_output_tokens.unwrap_or(1024) as u64)||u.reasoning_tokens.is_some_and(|n|n>allowance.max_output_tokens.unwrap_or(1024) as u64));
         (r.pause.is_none()&&!excess&&r.answer.len()<=2048,r.answer.chars().take(512).collect(),Some(r.summary),if r.pause.is_some()||excess{"Task/output limit; partial work cannot pass.".into()}else{"Fixed file and simulated-check criteria inspected.".into()})
     },Err(_)=>(false,String::new(),None,"Stopped, unavailable response or deadline. No retry or activation; inspect earlier receipts and start a new trial.".into())};
     let passed = complete

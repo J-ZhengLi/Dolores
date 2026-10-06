@@ -49,7 +49,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
     endpoint = widget.chat.baseUrl;
     model = widget.appDefaults ? '' : widget.chat.model;
     tokens = TextEditingController(
-      text: '${selectedSettings['maxOutputTokens']}',
+      text: selectedSettings['maxOutputTokens']?.toString() ?? '',
     );
     timeout = TextEditingController(
       text: '${selectedSettings['timeoutSeconds']}',
@@ -90,7 +90,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
     });
     try {
       final settings = {
-        'maxOutputTokens': int.parse(tokens.text.trim()),
+        'maxOutputTokens': int.tryParse(tokens.text.trim()),
         'timeoutSeconds': int.parse(timeout.text.trim()),
         if (reasoning != 'providerDefault') 'reasoning': reasoning,
       };
@@ -170,7 +170,9 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                               model = value!;
                               inherited = false;
                               tokens.text =
-                                  '${selectedSettings['maxOutputTokens']}';
+                                  selectedSettings['maxOutputTokens']
+                                      ?.toString() ??
+                                  '';
                               timeout.text =
                                   '${selectedSettings['timeoutSeconds']}';
                               reasoning =
@@ -189,11 +191,14 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                   keyboardType: TextInputType.number,
                   maxLength: 9,
                   decoration: const InputDecoration(
-                    labelText: 'Output token limit',
-                    helperText: '1–32,768 tokens · default 2,048',
+                    labelText: 'Output tokens (optional)',
+                    hintText: 'Provider default',
+                    helperText: 'Blank lets the provider choose',
                     counterText: '',
                   ),
-                  validator: (v) => inherited ? null : _validate(v, 32768),
+                  validator: (v) => inherited || (v?.trim().isEmpty ?? true)
+                      ? null
+                      : _validate(v, 16777216),
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -203,7 +208,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                   keyboardType: TextInputType.number,
                   maxLength: 9,
                   decoration: const InputDecoration(
-                    labelText: 'Request timeout (seconds)',
+                    labelText: 'Stall timeout (seconds)',
                     helperText: '1–900 seconds · default 180',
                     counterText: '',
                   ),
@@ -252,7 +257,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                   title: 'How response limits apply',
                   children: [
                     Text(
-                      'Project/chat output and timeout overrides in Advanced → Scope overrides take precedence. Check them when adjusting a failed run’s limit. Output includes reasoning tokens when reported. The timeout includes the full request and tool review. Choose a reasoning control only if your provider supports it; Provider default sends no override.',
+                      'Stall timeout waits for new model data; active responses and review can take longer. Scope overrides take precedence. Output may include thinking tokens. Reasoning controls depend on provider support.',
                       style: TextStyle(color: p.muted, fontSize: 12),
                     ),
                   ],
@@ -266,7 +271,8 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                           setState(() {
                             inherited = model.isNotEmpty;
                             final defaults = widget.chat.defaultRequestSettings;
-                            tokens.text = '${defaults['maxOutputTokens']}';
+                            tokens.text =
+                                defaults['maxOutputTokens']?.toString() ?? '';
                             timeout.text = '${defaults['timeoutSeconds']}';
                             reasoning =
                                 defaults['reasoning'] as String? ??
@@ -294,7 +300,8 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                       endpoint = widget.chat.baseUrl;
                       model = widget.appDefaults ? '' : widget.chat.model;
                       inherited = false;
-                      tokens.text = '${selectedSettings['maxOutputTokens']}';
+                      tokens.text =
+                          selectedSettings['maxOutputTokens']?.toString() ?? '';
                       timeout.text = '${selectedSettings['timeoutSeconds']}';
                       reasoning =
                           selectedSettings['reasoning'] as String? ??

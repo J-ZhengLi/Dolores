@@ -110,10 +110,10 @@ class UsageDetails extends StatelessWidget {
                     Text('Model: ${metadata?['model'] ?? 'Unavailable'}'),
                     if (metadata?['requestSettings'] is Map) ...[
                       Text(
-                        'Output token limit: ${metadata!['requestSettings']['maxOutputTokens']}',
+                        'Output token limit: ${metadata!['requestSettings']['maxOutputTokens'] ?? 'Provider default'}',
                       ),
                       Text(
-                        'Request timeout: ${metadata!['requestSettings']['timeoutSeconds']} seconds',
+                        'Model stall timeout: ${metadata!['requestSettings']['timeoutSeconds']} seconds',
                       ),
                     ],
                     const SizedBox(height: 12),

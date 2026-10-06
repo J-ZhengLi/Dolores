@@ -432,6 +432,7 @@ mod tests {
                     },
                 ],
                 steps: vec![],
+                thinking: vec![],
             }),
         };
         store

@@ -126,7 +126,7 @@ void main() {
       await show(tester, chat);
       await tester.tap(find.text('Effective settings'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('256 tokens · Thread'), findsOneWidget);
+      expect(find.textContaining('256 · Thread'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const Key('scoped-output')));
       await tester.enterText(find.byKey(const Key('scoped-output')), '512');
       await tester.tap(find.text('Save'));
@@ -145,10 +145,7 @@ void main() {
         'generation': null,
         'interaction': null,
       });
-      expect(
-        find.textContaining('1024 tokens · Model profile'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('1024 · Model profile'), findsOneWidget);
       expect(chat.draft, 'Keep my work');
       await tester.pumpWidget(const SizedBox());
       chat.dispose();

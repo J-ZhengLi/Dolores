@@ -157,7 +157,7 @@ impl ContextComparison {
         self.draft.validate()?;
         self.settings.validate()?;
         let prompts = self.draft.prompts()?;
-        if self.settings.max_output_tokens > 2048
+        if self.settings.max_output_tokens.is_none_or(|n| n > 2048)
             || self.settings.timeout_seconds > 60
             || self.model.is_empty()
             || self.model.len() > 200
@@ -238,7 +238,7 @@ mod tests {
             created_at: 42,
             model: "fixture".into(),
             settings: RequestSettings {
-                max_output_tokens: 512,
+                max_output_tokens: Some(512),
                 timeout_seconds: 10,
                 reasoning: Default::default(),
             },
@@ -286,7 +286,7 @@ mod tests {
         run.candidate_messages[0][0].content.push_str("tampered");
         assert!(run.validate().is_err());
         run = sample();
-        run.settings.max_output_tokens = 2049;
+        run.settings.max_output_tokens = Some(2049);
         assert!(run.validate().is_err());
         run = sample();
         run.draft.candidate.text = "sk-12345678901234567890".into();

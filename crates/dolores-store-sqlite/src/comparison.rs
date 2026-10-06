@@ -172,7 +172,7 @@ mod tests {
             created_at: 42,
             model: "fixture".into(),
             settings: RequestSettings {
-                max_output_tokens: 512,
+                max_output_tokens: Some(512),
                 timeout_seconds: 10,
                 ..Default::default()
             },

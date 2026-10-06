@@ -60,7 +60,7 @@ impl Engine {
             .effective_request_settings(&self.store.preferences()?)?;
         Ok(
             json!({"items":catalog(self.store.as_ref(),session)?, "model":self.store.preferences()?.model,
-            "settings":RequestSettings{max_output_tokens: settings.max_output_tokens.min(2048), timeout_seconds:settings.timeout_seconds.min(60), ..settings}}),
+            "settings":RequestSettings{max_output_tokens: Some(settings.max_output_tokens.unwrap_or(2048).min(2048)), timeout_seconds:settings.timeout_seconds.min(60), ..settings}}),
         )
     }
     pub(super) fn comparison_report(
@@ -80,7 +80,7 @@ impl Engine {
     ) -> Result<Value, String> {
         draft.validate()?;
         settings.validate()?;
-        if settings.max_output_tokens > 2048 || settings.timeout_seconds > 60 {
+        if settings.max_output_tokens.is_none_or(|n| n > 2048) || settings.timeout_seconds > 60 {
             return Err("Comparisons allow up to 2048 output tokens and 60 seconds per response. Change the comparison fields; chat settings remain unchanged.".into());
         }
         self.store.messages_page(&session, None, false, 1)?;
@@ -173,7 +173,7 @@ async fn response(
             value = &mut request, if !finished => {
                 finished=true;
                 match value {
-                    Ok(value) => { result.usage=value.usage; if value.output_limit { result.outcome=ComparisonOutcome::OutputLimit; result.detail=Some(format!("Output limit: {} tokens. Partial response is not a passing test. Adjust comparison output tokens and start a new run.",settings.max_output_tokens)); } }
+                    Ok(value) => { result.usage=value.usage; if value.output_limit { result.outcome=ComparisonOutcome::OutputLimit; result.detail=Some(format!("Output limit: {} tokens. Partial response is not a passing test. Adjust comparison output tokens and start a new run.",settings.max_output_tokens.unwrap_or(2048))); } }
                     Err(_) => { result.outcome=ComparisonOutcome::Failed; result.detail=Some("Model response failed. Check Model connection / Request settings and start a new comparison. Earlier completed evidence remains.".into()); }
                 }
             }
@@ -194,9 +194,9 @@ async fn response(
     if result.outcome == ComparisonOutcome::Completed
         && result.usage.as_ref().is_some_and(|u| {
             u.output_tokens
-                .is_some_and(|n| n > settings.max_output_tokens as u64)
+                .is_some_and(|n| n > settings.max_output_tokens.unwrap_or(2048) as u64)
                 || u.reasoning_tokens
-                    .is_some_and(|n| n > settings.max_output_tokens as u64)
+                    .is_some_and(|n| n > settings.max_output_tokens.unwrap_or(2048) as u64)
         })
     {
         result.outcome = ComparisonOutcome::Failed;
@@ -346,7 +346,7 @@ mod tests {
                 created_at: 0,
                 model: "fixture".into(),
                 settings: RequestSettings {
-                    max_output_tokens: 128,
+                    max_output_tokens: Some(128),
                     timeout_seconds: 1,
                     ..Default::default()
                 },
@@ -390,7 +390,7 @@ mod tests {
     #[tokio::test]
     async fn deadline_cancellation_closed_stream_and_provider_budget_mismatch_are_bounded() {
         let settings = RequestSettings {
-            max_output_tokens: 128,
+            max_output_tokens: Some(128),
             timeout_seconds: 1,
             ..Default::default()
         };

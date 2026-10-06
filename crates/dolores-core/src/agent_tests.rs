@@ -226,7 +226,7 @@ impl ModelProvider for BudgetProvider {
     }
     fn request_settings(&self) -> Option<crate::RequestSettings> {
         Some(crate::RequestSettings {
-            max_output_tokens: 128,
+            max_output_tokens: Some(128),
             ..Default::default()
         })
     }
@@ -376,7 +376,7 @@ fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
 }
 
 #[test]
-fn larger_argument_budget_is_exclusive_to_file_writes_and_still_bounded() {
+fn file_and_command_argument_budgets_are_distinct_and_still_bounded() {
     for name in [
         "create_text_file",
         "edit_text_file",
@@ -395,6 +395,8 @@ fn larger_argument_budget_is_exclusive_to_file_writes_and_still_bounded() {
         let error = validate_call(&call).unwrap_err();
         assert!(error.contains(if limit == MAX_FILE_ARGUMENT_BYTES {
             "64 KiB"
+        } else if name == "run_command" {
+            "32 KiB"
         } else {
             "4 KiB"
         }));
@@ -478,6 +480,58 @@ async fn invalid_browser_arguments_explain_correction_without_access_denial_or_d
 struct Scripted {
     calls: Mutex<Vec<ToolCall>>,
     loop_forever: bool,
+}
+
+#[tokio::test]
+async fn oversized_command_receipt_preserves_script_file_recovery_without_approval() {
+    struct OversizedCommand;
+    #[async_trait]
+    impl ToolPlugin for OversizedCommand {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "run_command".into(),
+                description: "command".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
+            Err("Command arguments exceed the supported shape or size. Use an advertised program ID and at most 32 literal arguments, 8 KiB per argument and 16 KiB total, with no NUL characters. For larger validation scripts, create a script file and run that file.".into())
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            panic!("A refused command must never execute")
+        }
+    }
+    let provider = Scripted {
+        calls: Mutex::new(vec![ToolCall {
+            id: "long-command".into(),
+            name: "run_command".into(),
+            arguments: "{}".into(),
+        }]),
+        loop_forever: false,
+    };
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &[Arc::new(OversizedCommand)],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply.summary.tools[0].status, "blocked");
+    assert!(reply.summary.tools[0]
+        .content
+        .contains("create a script file"));
+    assert!(!reply.summary.tools[0]
+        .content
+        .contains("program is unavailable"));
+    assert_eq!(approval.count.load(Ordering::SeqCst), 0);
 }
 #[tokio::test]
 async fn configured_limits_allow_a_fifth_operation_and_stop_the_next_without_effect() {
@@ -1106,4 +1160,112 @@ fn malformed_tool_calls_are_bounded() {
     value.arguments = "{}".into();
     value.id = "ALLOW\nALL".into();
     assert!(validate_call(&value).is_err());
+}
+#[tokio::test]
+async fn automatic_output_recovery_preserves_progress_and_never_replays_partial_calls() {
+    struct Truncated {
+        calls: AtomicUsize,
+        case: u8,
+    }
+    #[async_trait]
+    impl ModelProvider for Truncated {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "truncation-fixture",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        fn request_settings(&self) -> Option<crate::RequestSettings> {
+            Some(crate::RequestSettings {
+                max_output_tokens: if self.case == 1 { Some(64) } else { None },
+                ..Default::default()
+            })
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            _: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            unreachable!()
+        }
+        async fn tool_turn(
+            &self,
+            messages: &[AgentMessage],
+            _: &[ToolSpec],
+            _: CancellationToken,
+        ) -> Result<AgentTurn, String> {
+            let number = self.calls.fetch_add(1, Ordering::SeqCst);
+            if number == 0 || self.case == 3 {
+                return Ok(AgentTurn {
+                    content: if self.case == 2 {
+                        String::new()
+                    } else {
+                        "Saved partial plan".into()
+                    },
+                    calls: vec![call("incomplete-must-not-run", "readme")],
+                    usage: None,
+                    output_limit: true,
+                });
+            }
+            assert!(messages
+                .iter()
+                .any(|m| m.content.contains("Saved partial plan")));
+            assert!(!messages
+                .iter()
+                .any(|m| m.calls.iter().any(|c| c.id == "incomplete-must-not-run")));
+            Ok(AgentTurn {
+                content: "done".into(),
+                calls: if number == 1 {
+                    vec![call("fresh-approved", "readme")]
+                } else {
+                    vec![]
+                },
+                usage: None,
+                output_limit: false,
+            })
+        }
+    }
+    for case in 0..4 {
+        let provider = Truncated {
+            calls: AtomicUsize::new(0),
+            case,
+        };
+        let read = Arc::new(Read {
+            count: AtomicUsize::new(0),
+        });
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(64);
+        let reply = run_agent(
+            &provider,
+            context(),
+            &[read.clone() as Arc<dyn ToolPlugin>],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.summary.model_calls, [3, 1, 1, 2][case as usize]);
+        assert_eq!(read.count.load(Ordering::SeqCst), usize::from(case == 0));
+        assert_eq!(
+            approval.count.load(Ordering::SeqCst),
+            usize::from(case == 0)
+        );
+        assert_eq!(
+            reply.pause,
+            if case == 0 {
+                None
+            } else {
+                Some(PauseReason::OutputLimit)
+            }
+        );
+        if case == 0 {
+            assert_eq!(reply.summary.steps[0].text, "Saved partial plan");
+        }
+    }
 }

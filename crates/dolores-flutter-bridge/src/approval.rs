@@ -28,6 +28,9 @@ impl Drop for ClearPending {
 }
 #[async_trait]
 impl ToolApproval for RunApproval {
+    fn is_waiting(&self) -> bool {
+        self.pending.lock().map(|p| p.is_some()).unwrap_or(false)
+    }
     async fn recheck(&self, _: &ToolRequest, cancel: CancellationToken) -> Result<(), String> {
         if cancel.is_cancelled() {
             return Err(stopped());

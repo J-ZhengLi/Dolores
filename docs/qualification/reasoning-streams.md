@@ -4,6 +4,10 @@
 Developer-workspace milestones remain paused. These results supersede the earlier
 cumulative wire limit; they do not erase the earlier failures.
 
+Later timeout/output and native long-chat failures, current recovery changes and
+remaining task-completion gaps are recorded in [response recovery](response-recovery.md).
+The historical passing run below is not a general reliability claim.
+
 ## Reproduction and change
 
 The earlier fix removed an event-count guard but retained a cumulative 2 MiB HTTP

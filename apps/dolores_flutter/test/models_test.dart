@@ -39,6 +39,60 @@ class DetailsBridge extends ConnectionBridge {
 }
 
 void main() {
+  testWidgets(
+    'Model output supports provider default, rejects invalid input and keeps larger saved limits',
+    (tester) async {
+      final bridge = DetailsBridge();
+      final chat = ChatController(bridge)
+        ..loading = false
+        ..draft = 'Keep my draft';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ModelDetailsEditor(chat: chat, model: 'fixture'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('model-detail-advanced')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Customize responses'));
+      await tester.pumpAndSettle();
+      for (final value in ['0', 'invalid', '', '65536']) {
+        await tester.ensureVisible(
+          find.byKey(const Key('model-detail-output')),
+        );
+        await tester.enterText(
+          find.byKey(const Key('model-detail-output')),
+          value,
+        );
+        await tester.tap(find.byKey(const Key('save-model-details')));
+        await tester.pumpAndSettle();
+        if (value == '0' || value == 'invalid') {
+          await tester.drag(find.byType(ListView), const Offset(0, 800));
+          await tester.pumpAndSettle();
+          expect(bridge.details['requestSettings'], isNull);
+          expect(find.textContaining('Use whole numbers'), findsOneWidget);
+        } else {
+          expect(
+            bridge.details['requestSettings']['maxOutputTokens'],
+            value.isEmpty ? null : 65536,
+          );
+          await tester.tap(find.text('Refresh · keep edits'));
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<TextField>(find.byKey(const Key('model-detail-output')))
+                .controller!
+                .text,
+            value,
+          );
+        }
+        expect(chat.draft, 'Keep my draft');
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'Model details fit 420x480, default to 128K and acknowledge the saved values ($dark)',

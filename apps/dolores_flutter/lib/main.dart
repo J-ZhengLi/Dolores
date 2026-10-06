@@ -254,6 +254,46 @@ class _ChatPageState extends State<ChatPage> {
         },
       );
 
+  Widget _thinking(List steps) {
+    if (steps.isEmpty) return const SizedBox.shrink();
+    final p = Palette(Theme.of(context).brightness == Brightness.dark);
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: ValueKey('thinking-${steps.first['number']}'),
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 12),
+        title: Text('Thinking', style: TextStyle(color: p.muted, fontSize: 12)),
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final step in steps)
+                    SelectableText(
+                      step['text'] as String,
+                      style: TextStyle(
+                        color: p.muted,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  if (steps.any((s) => (s['text'] as String).length >= 16000))
+                    Text(
+                      'Thinking preview shortened.',
+                      style: TextStyle(color: p.muted, fontSize: 11),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget message(
     Palette p,
     String role,
@@ -267,6 +307,10 @@ class _ChatPageState extends State<ChatPage> {
     List<Map<String, dynamic>> parts = const [],
   }) {
     final user = role == 'user';
+    final callUsage = metadata?['agent']?['usageByCall'] as List?;
+    final reasoningTokens =
+        metadata?['usage']?['reasoningTokens'] ??
+        callUsage?.lastOrNull?['reasoningTokens'];
     return MessageFrame(
       key: key,
       user: user,
@@ -292,26 +336,32 @@ class _ChatPageState extends State<ChatPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (streaming)
-            Text(
-              chat.workspaceRoot == null ? 'Writing…' : 'Working…',
-              style: TextStyle(fontSize: 11, color: p.muted),
+            Tooltip(
+              message: chat.modelTimeoutSeconds > 0
+                  ? 'Stall timeout: ${chat.modelTimeoutSeconds}s without new model data. Review has no timeout. Stop remains available.'
+                  : '',
+              child: Text(
+                chat.workspaceRoot == null
+                    ? 'Writing…'
+                    : chat.modelActivityLabel,
+                style: TextStyle(fontSize: 12, color: p.muted),
+              ),
             ),
+          if (!user && streaming && chat.modelThinking.isNotEmpty)
+            _thinking(chat.modelThinking),
+          if (!user && !streaming && metadata?['agent']?['thinking'] is List)
+            _thinking(metadata!['agent']['thinking'] as List),
           if (!user && streaming && chat.modelTexts.isNotEmpty)
             ModelSteps(steps: chat.modelTexts, saved: false),
           if (!user && !streaming && metadata?['agent']?['steps'] is List)
             ModelSteps(steps: metadata!['agent']['steps'] as List),
           if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
-          if (user || text.isEmpty)
-            Tooltip(
-              message: streaming && chat.modelTimeoutSeconds > 0
-                  ? 'Response deadline: ${chat.modelTimeoutSeconds}s. Stop remains available.'
-                  : '',
-              child: SelectableText(
-                text.isEmpty && streaming ? chat.modelActivityLabel : text,
-                style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
-              ),
+          if (user || text.isEmpty && !streaming)
+            SelectableText(
+              text,
+              style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
             )
-          else
+          else if (text.isNotEmpty)
             ReplyContent(
               text: text,
               streaming: streaming,
@@ -322,7 +372,7 @@ class _ChatPageState extends State<ChatPage> {
               const SizedBox(height: 12),
               Text(
                 metadata!['paused']['reason'] == 'outputLimit'
-                    ? 'Paused at the output limit (${metadata['requestSettings']?['maxOutputTokens'] ?? 'configured'} tokens). Progress saved.${metadata['usage']?['reasoningTokens'] != null ? ' Reasoning used ${metadata['usage']['reasoningTokens']} tokens.' : ''}'
+                    ? 'Paused at ${metadata['requestSettings']?['maxOutputTokens'] == null ? 'the provider’s response limit' : 'the output limit (${metadata['requestSettings']['maxOutputTokens']} tokens)'}. Progress saved.${reasoningTokens != null ? ' Reasoning used $reasoningTokens tokens.' : ''}'
                     : metadata['paused']['reason'] == 'commandReview'
                     ? 'A command failed or verification was incomplete. Review its output before repair.'
                     : metadata['paused']['reason'] == 'desktopAccess'
@@ -331,6 +381,10 @@ class _ChatPageState extends State<ChatPage> {
                     ? 'Computer use paused. Inspect the window and fresh screenshot before reconciling saved progress.'
                     : metadata['paused']['reason'] == 'subagentReview'
                     ? 'A subagent needs review. Inspect its report, Run history and Changes before continuing.'
+                    : metadata['paused']['reason'] == 'responseTimeout'
+                    ? 'Model connection stalled. Progress saved. Continue when ready.'
+                    : metadata['paused']['reason'] == 'taskTimeout'
+                    ? 'Paused at your task time limit. Progress saved. Inspect Changes before continuing.'
                     : 'Paused at this run’s step limit. Progress and tool results saved.',
                 style: TextStyle(color: p.muted, fontSize: 12),
               ),
@@ -411,7 +465,10 @@ class _ChatPageState extends State<ChatPage> {
                         onPressed: chat.busy || chat.changing
                             ? null
                             : () =>
-                                  metadata['paused']['reason'] == 'outputLimit'
+                                  [
+                                    'outputLimit',
+                                    'responseTimeout',
+                                  ].contains(metadata['paused']['reason'])
                                   ? requestSettings()
                                   : showSettings(
                                       context,

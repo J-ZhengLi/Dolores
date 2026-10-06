@@ -45,7 +45,7 @@ impl crate::Engine {
             .image_provider(
                 &model,
                 dolores_core::RequestSettings {
-                    max_output_tokens: 64,
+                    max_output_tokens: Some(64),
                     timeout_seconds: 15,
                     ..Default::default()
                 },
@@ -75,7 +75,7 @@ impl crate::Engine {
                 model: model.clone(),
                 input: run.input.clone(),
                 settings: dolores_core::RequestSettings {
-                    max_output_tokens: 64,
+                    max_output_tokens: Some(64),
                     timeout_seconds: 15,
                     ..Default::default()
                 },
@@ -198,7 +198,7 @@ pub fn remainder(
         model_calls: budget.model_calls.saturating_sub(models),
         tool_calls: budget.tool_calls.saturating_sub(tools),
         elapsed_seconds: Some(
-            u64::from(budget.deadline(timeout))
+            u64::from(budget.handoff_deadline(timeout))
                 .saturating_sub(elapsed)
                 .min(3600) as u32,
         ),
@@ -242,7 +242,11 @@ pub fn source(
         model_calls: budget.model_calls.min(original.model_calls),
         tool_calls: budget.tool_calls.min(original.tool_calls),
         segments: budget.segments.min(original.segments),
-        elapsed_seconds: Some(budget.deadline(timeout).min(original.deadline(timeout))),
+        elapsed_seconds: Some(
+            budget
+                .handoff_deadline(timeout)
+                .min(original.handoff_deadline(timeout)),
+        ),
     };
     bounded.check_segment(run.segments)?;
     Ok((run, remainder(bounded, models, tools, elapsed, timeout)?))

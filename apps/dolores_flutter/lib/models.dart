@@ -172,7 +172,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
           final request =
               (value['requestSettings'] as Map?) ??
               widget.chat.defaultRequestSettings;
-          output.text = '${request['maxOutputTokens']}';
+          output.text = request['maxOutputTokens']?.toString() ?? '';
           timeout.text = '${request['timeoutSeconds']}';
           reasoning = request['reasoning'] as String? ?? 'providerDefault';
           savedDraft = draft;
@@ -188,19 +188,18 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
   Future<bool> save() async {
     if (pending || expected == null || widget.chat.busy) return false;
     final capacity = int.tryParse(contextTokens.text.trim()),
-        tokens = int.tryParse(output.text),
+        tokens = int.tryParse(output.text.trim()),
         seconds = int.tryParse(timeout.text);
     if ((contextTokens.text.trim().isNotEmpty &&
             (capacity == null || capacity < 1024 || capacity > 16777216)) ||
         (custom &&
-            (tokens == null ||
-                tokens < 1 ||
-                tokens > 32768 ||
+            ((output.text.trim().isNotEmpty &&
+                    (tokens == null || tokens < 1 || tokens > 16777216)) ||
                 seconds == null ||
                 seconds < 1 ||
                 seconds > 900))) {
       setState(
-        () => error = 'Use whole numbers: context 1024–16777216 (or blank), output 1–32768, timeout 1–900.',
+        () => error = 'Use whole numbers: context 1024–16777216 (or blank), output 1–16777216 (or blank), timeout 1–900.',
       );
       return false;
     }
@@ -351,18 +350,23 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                             enabled: !pending,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Maximum output tokens',
+                              labelText: 'Output tokens (optional)',
+                              hintText: 'Provider default',
+                              helperText: 'Blank lets the provider choose',
                             ),
                           ),
+                          const SizedBox(height: 12),
                           TextField(
                             key: const Key('model-detail-timeout'),
                             controller: timeout,
                             enabled: !pending,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Timeout (seconds)',
+                              labelText: 'Stall timeout (seconds)',
+                              helperText: 'Time without new model data; review has no timeout',
                             ),
                           ),
+                          const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
                             initialValue: reasoning,
                             isExpanded: true,

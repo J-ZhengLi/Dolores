@@ -52,9 +52,17 @@ pub fn input_token_allowance(
     settings.validate()?;
     window.map(|window| {
         let usable = u64::from(window) * 95 / 100;
-        usable.checked_sub(u64::from(settings.max_output_tokens)).filter(|n| *n > 0)
+        usable.checked_sub(u64::from(output_reserve(window, settings))).filter(|n| *n > 0)
             .ok_or_else(|| "Context window leaves no input room. Increase the model context window or reduce the output token limit.".into())
     }).transpose()
+}
+
+/// Planning headroom only, never a provider generation limit. With an unknown
+/// provider allowance keep a quarter of the window, up to 32K, for output.
+fn output_reserve(window: u32, settings: RequestSettings) -> u32 {
+    settings
+        .max_output_tokens
+        .unwrap_or((window / 4).min(32768))
 }
 
 fn image_allowance(parts: &[crate::AttachmentRef]) -> u64 {
@@ -131,7 +139,7 @@ pub fn prepare_token_context(
                     framing_tokens,
                     context_window_tokens: window,
                     max_input_tokens: max_input,
-                    reserved_output_tokens: settings.max_output_tokens,
+                    reserved_output_tokens: window.map_or(0, |w| output_reserve(w, settings)),
                     headroom_tokens: window.map_or(0, |w| u64::from(w) - u64::from(w) * 95 / 100),
                 },
             ));
@@ -211,7 +219,7 @@ mod tests {
             })
             .collect();
         let settings = RequestSettings {
-            max_output_tokens: 128,
+            max_output_tokens: Some(128),
             ..RequestSettings::default()
         };
         let messages = crate::preview_context(history, "draft").unwrap();
@@ -229,7 +237,20 @@ mod tests {
             settings
         )
         .is_err());
-        assert!(input_token_allowance(Some(1024), RequestSettings::default()).is_err());
+        assert!(input_token_allowance(
+            Some(1024),
+            RequestSettings {
+                max_output_tokens: Some(2048),
+                ..Default::default()
+            }
+        )
+        .is_err());
+        assert!(
+            input_token_allowance(Some(1024), RequestSettings::default())
+                .unwrap()
+                .unwrap()
+                > 0
+        );
         assert!(
             validate_model_contexts(&BTreeMap::from([("a".into(), Some(0))]), &["a".into()])
                 .is_err()
