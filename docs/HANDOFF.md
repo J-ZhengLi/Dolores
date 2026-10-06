@@ -1,45 +1,52 @@
-# Fresh-session handoff — 2026-10-06
+# Fresh-session handoff — 2026-10-07
 
 ## Start here
 
-**Latest user steering:** preserve the current agent view; split tabs apply only
-to files. The new prototype compares A (files beside), B (files below) and C
-(file focus with agent on the right) at
-`http://127.0.0.1:8766/agent-files-prototype.html?variant=B`. No choice is made;
-the earlier mixed chat/file four-pane prototype is not approved. The public source
-is captured on `codex/prototype-agent-files` at
-`04de922e31878eb1c86801fa84ffcbdfd3ef91bb`. Production UI is unchanged; review and
-the editor's existing feasibility gates remain open.
+**Current user steering:** plan a developer workspace and extend the roadmap;
+implement later **one brick at a time**, replacing the earlier milestone batches.
+The current revision changes documents only. No memory, schedule, companion or
+new production workspace feature is activated by this plan.
 
-The user resumed **milestones 16–19**, one milestone batch at a time, starting
-with **16 — Workspace and editor**. 16.0's revised prototype/editor trial is in
-progress; production workspace rollout has not started. The user rejected the
-first pane action bars and supplied a VS Code screenshot: use draggable tab strips,
-close/overflow controls and breadcrumbs. The revised prototype's review remains
-pending. Settings belongs at the bottom of the feature rail. Experimental Settings
-will include default-on Multiple Window and a default-off Windows keep-awake
-control, with screen-saver/policy limits disclosed. Milestones 17–19 follow 16's
-batch exit. Platform CI 8.4 remains deferred until explicitly requested.
+Preserve the current agent view on **Home**. The labeled primary sidebar is Home,
+Scheduled, Folders, Source Control, Terminal, then Settings anchored at the bottom.
+Folders has a selected-project file tree and VS Code-style draggable file tabs
+and splits; chats remain in Home. Source Control is project-bound and includes
+Git diffs. Terminal has its own tabs/splits; plus uses the selected project root,
+or OS user home without a selected project. Existing terminals retain their CWD.
+Experimental Settings includes default-on Multiple Window with a bounded backend
+trial and default-off Windows keep-awake with truthful power/security limits.
 
-Earlier self-repair and exact long-task evidence below remains valid historical
-context. The unresolved Mario qualification is not resumed by this workspace batch.
+Milestones 16–19 are reshaped around those pages. New 21–24 cover automatic useful
+memory, chat-created scheduled tasks, opt-in companionship and optional scheduled
+execution while the UI is closed. Memory is one switch with an inspect/forget
+view; no manual population/setup is required. Scheduled manages chat-created
+tasks, with manual creation UI deferred indefinitely. Companionship is opt-in,
+occasional and in-app, during chosen hours with a daily cap and configured weaker
+model. Proposed numerical defaults must be frozen before their runtime bricks.
 
-1. Read the repository's `AGENTS.md`, this guide, the newest sections of
-   [acceptance](ACCEPTANCE.md), [workspace/editor qualification](qualification/workspace-editor.md)
-   and the [workspace specification](design/developer-workspace.md).
-2. Check current Git status/build/process ownership. This guide records a
-   snapshot; commit IDs and local process state must be verified afresh.
-3. Finish 16.0's revised prototype review and editor qualification. Public trial
-   sources are captured on `codex/prototype-workspace-16` at
-   `7798985d871bbf35c3f8b18576d2a8e67ffd1027`. Large-file-sequence typing still
-   fails the unchanged performance target; shortcut/multi-view/resource gates
-   remain open. Do not promote the trial dependency or claim 16.0 complete.
-4. Continue 16.1–16.5 in dependency order after their prerequisites pass. Commit
-   each completed brick, record actual basic/failure recovery and visibly launch
-   the normal desktop app. Preserve the original profile and unrelated paused work.
-5. Report milestone 16's batch exit before starting 17. Keep earlier repair,
-   model reliability and computer-use evidence/gaps separate. The user selected
-   native-first repair previously; 20.3's proposed broader Wasm hook is not adopted.
+The previous mixed-pane and A/B/C prototypes are historical explorations, not the
+current page contract. Production workspace rollout has not started. **Next brick:
+16.0**, review the revised page prototype and resolve existing editor feasibility
+gates. Large-file-sequence typing still fails the unchanged performance target;
+shortcut/multi-view/resource gates remain open. Do not adopt the trial dependency
+or claim 16.0 complete. Public trial evidence is in the qualification report.
+
+1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
+   [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)
+   and [editor qualification](qualification/workspace-editor.md).
+2. Load the [memory/scheduling contract](design/memory-scheduling-companionship.md)
+   and [memory research](research/memory-foundations.md) for work in 21–24.
+3. Check Git status and ownership when relevant; process/build snapshots are
+   historical. Preserve original configuration/history and unrelated paused work.
+4. Implement only the authorized next brick after its prerequisites pass. Commit
+   completed bricks in English and record basic/failure/recovery evidence. Match
+   verification to the change; no desktop launch or visual check after every task.
+   Prefer `view_image` on saved UI renders; computer-use only when interaction or
+   native behavior needs it. Launch for relevant integration checks or on request.
+5. Keep earlier self-repair, model reliability and computer-use gaps separate.
+   Milestone 20 numbering/evidence remains; native-first repair was selected,
+   and the broader 20.3 Wasm hook is not adopted. The unresolved Mario case below
+   is not resumed by this planning revision. Platform CI 8.4 remains deferred.
 
 ## Latest delivered work and unresolved task
 
@@ -148,7 +155,8 @@ rollback. Compilation or inspection alone is not repair acceptance.
 | Image/paste fixes | [Stream and image evidence](qualification/stream-and-image-recovery.md); [attachments](design/attachments.md) |
 | Original evolving-harness intent | [Vision discussion](design/dolores-vision-discussion.md); [target architecture](design/evolving-harness-architecture.md); [behavior](design/dolores-behavior.md); [DSH/Claude research](research/evolving-harnesses.md) |
 | Prior maintenance gates | [Remaining work](qualification/remaining-work.md); [learning](qualification/learning-followup.md); [computer use](qualification/computer-use.md); [idle resources](qualification/idle-resources.md); [everyday UX](qualification/everyday-ux.md) |
-| Paused developer workspace and prior handoff | [Workspace specification](design/developer-workspace.md); [earlier handoff](design/developer-workspace-handoff.md) |
+| Developer workspace page contract and next-brick handoff | [Workspace specification](design/developer-workspace.md); [earlier handoff](design/developer-workspace-handoff.md) |
+| Useful memory, scheduled work and companionship | [Target contract](design/memory-scheduling-companionship.md); [memory foundations](research/memory-foundations.md) |
 | UI changes | [UI contract](UI.md); [UX simplification](design/ux-simplification.md); [control map](design/ux-control-map.md) |
 | Historical completed bricks | [Implementation history](IMPLEMENTATION_HISTORY.md); dated sections of [acceptance](ACCEPTANCE.md) |
 
@@ -167,9 +175,12 @@ before substantial implementation; use evidence rather than repeated apologies.
 
 Follow `AGENTS.md`: CodeGraph first for indexed code; RTK for agent shell commands;
 English commits per brick; basic plus one or two realistic edge/recovery cases;
-record acceptance gaps. Runtime changes require the normal Python build/visible
-launch, preserving configuration/history. Documentation-only changes use document
-checks and a commit, without relaunch. Keep services lazy and measure new overhead.
+record acceptance gaps. Documentation uses document/link checks. Runtime changes
+need focused tests and a normal build when compilation/packaging is affected;
+there is no required build, launch or visual check after every task. Prefer saved
+UI renders inspected with `view_image`; computer-use is for interactions/native
+behavior that need it. Launch for relevant integration checks or on request,
+preserving configuration/history. Keep services lazy and measure new overhead.
 
 The maintained commands are `python scripts/desktop.py build` and
 `python scripts/desktop.py launch`. The original local preview profile is

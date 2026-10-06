@@ -1,5 +1,10 @@
 # Automatic preferences — brick 4.4
 
+This is the implemented narrow preference-learning contract. Broader automatic
+facts, decisions and source-backed recall are planned in milestone 21 under the
+[memory/scheduling specification](memory-scheduling-companionship.md); the planning
+revision does not change the existing defaults or capture behavior described here.
+
 The selected Flutter host learns durable work and response preferences after a complete reply is saved. Learning is enabled by default; a global revisioned switch in Memory returns to manual review. Summaries still require Generate and Save. No idle worker, startup replay, indexing or backlog extraction is added.
 
 One completed user message is eligible per reply, at most 8 KiB. Conservative English/Chinese first-person/future markers recognize explicit preferences. Ordinary tasks, temporary qualifiers, fenced/blockquote text, common credential/path/email and permission patterns skip the extra request. Other phrasings/languages may be missed. These are limited filters, not universal intent/privacy classifiers. Learning shares eligible source again with applicable existing preference title/text/enabled fields, using the same provider/model. Replies, tools, AGENTS.md, summaries, drafts, roots and origin quotes are excluded. Manually entered preference text is also local plaintext shared with the provider.

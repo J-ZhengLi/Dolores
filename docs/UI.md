@@ -1,10 +1,11 @@
 # Universal UI style
 
-**Current workspace exploration:** retain the existing agent/sidebar/message/
-composer design and compare file-only split workspaces beside, below or alongside
-a right-hand agent view. The user has not selected a layout. The earlier mixed
-chat/file pane proposal is not approved for rollout; see the latest
-[prototype evidence](qualification/workspace-editor.md). Keep Settings at the bottom.
+**Target page contract — 2026-10-07:** retain the existing agent/session/message/
+composer design on Home. The primary sidebar contains Home, Scheduled, Folders,
+Source Control and Terminal, with Settings anchored at the bottom. The previous
+mixed-pane and A/B/C prototypes are historical explorations. Review the revised
+page prototype before runtime rollout; existing [editor qualification](qualification/workspace-editor.md)
+gates remain open.
 
 Native repairs uses the existing Advanced → Diagnostics & storage entry and
 embedded inspector. Show retained build/handoff status and recovery reasons before
@@ -19,16 +20,28 @@ blocks Close/navigation; failed or stale review preserves drafts, brings the err
 into view and requires fresh review. Unsaved edits in other Settings pages prevent
 restart. No composer/header button or idle updater is added.
 
-The proposed [developer workspace](design/developer-workspace.md) defines a
-Chats/Files/Git feature rail, project panel and movable split tabs for milestones
-16–19. Prototype review precedes implementation. Its target layouts retain this
-document's palette, icons, single Settings entry, focus and compact behavior;
-the current application does not yet expose the new rail/editor. The user resumed
-milestone 16 and revised the prototype toward VS Code-style draggable tabs:
-compact tab close/overflow controls and breadcrumbs, with no permanent pane
-action bar. Settings stays at the rail's bottom. The planned Experimental page
-contains Multiple Window (default On, backend availability explicit) and the
-Windows keep-awake control (default Off, actual power/security limits disclosed).
+The proposed [developer workspace](design/developer-workspace.md) gives each page
+its own side panel and main content. Folders has a selected-project file tree and
+VS Code-style draggable file tabs/splits, compact close/overflow controls and
+breadcrumbs, without a permanent pane action bar. Source Control has project-bound
+changes and Git diffs. Terminal has separate tabs/splits; plus starts at the
+selected project root, or OS user home if no project is selected. Home chats stay
+in their current UI. Keep this document's palette, icons, focus and compact rules.
+The planned Experimental page contains Multiple Window (default On, backend
+availability explicit) and Windows keep-awake (default Off, actual power/security
+limits disclosed). These targets are not yet the running rail/editor.
+
+The [memory/scheduling contract](design/memory-scheduling-companionship.md) plans
+one-switch useful automatic memory with inspect/forget, natural-language task
+creation and a management-only Scheduled page. No manual Create task form is
+planned. Companionship is a separate opt-in feature: occasional in-app messages
+during chosen hours, with a daily cap and a configured weaker model. Keep settings
+simple; details expose evidence and limits when they help a decision.
+
+Match verification to the change. Prefer saved renders inspected with `view_image`
+for appearance; use computer-use when interaction/native behavior needs it.
+Routine tasks do not require a desktop launch or visual check. Relevant integration
+checks and user-requested previews retain configuration/history.
 
 Milestone 15's [UX audit and target contract](design/ux-simplification.md) defines
 conversation-first computer use, simpler settings navigation and progressive

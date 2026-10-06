@@ -1,20 +1,24 @@
 # Dolores roadmap
 
-**Latest 16.0 exploration:** the user prefers the current agent UI and requested
-file-only split tabs. A new beside/below/file-focus comparison is ready; no layout
-has been selected. The earlier mixed chat/file pane plan is not approved for
-implementation. Update that UI contract after review; existing editor feasibility
-gates remain open. See [qualification](qualification/workspace-editor.md).
+**Current planning revision — 2026-10-07.** Preserve the current agent UI on Home.
+Use separate Home, Scheduled, Folders, Source Control and Terminal pages, with
+Settings anchored at the bottom. Files have VS Code-style draggable split tabs;
+chats remain in Home. Terminal has its own tabs/splits. The selected project
+binds Folders, Source Control and new terminals; without a project, new terminals
+start at the OS user home. The earlier mixed chat/file and A/B/C prototypes are
+historical explorations, not the new page contract. Editor feasibility remains
+open; see [qualification](qualification/workspace-editor.md).
 
-**Current order — 2026-10-06.** The user resumed milestones **16–19**, one
-milestone batch at a time, starting with **16 — Workspace and editor**.
-16.0's revised prototype/editor feasibility gate is in progress; 16.1–16.5 have
-not started. The user requested VS Code-style draggable tab strips without pane
-action bars and Settings at the bottom of the feature rail. Later Experimental
-Settings will contain default-on Multiple Window and a default-off Windows
-keep-awake option with truthful platform limits. See the
-[workspace specification](design/developer-workspace.md) and [current handoff](HANDOFF.md).
-Milestones 17–19 follow separate batch exits; platform CI 8.4 remains deferred.
+**Implementation order:** reshape **16–19**, then add **21 — Automatic useful
+memory**, **22 — Chat-created scheduled tasks**, **23 — Opt-in companionship**
+and **24 — Optional closed-UI scheduling**. Keep milestone 20's existing numbering
+and evidence. Work proceeds **one brick at a time**, replacing the earlier batch
+instruction; this revision is planning only. Start with 16.0's revised page
+prototype and unchanged editor gates. Experimental Settings will contain
+default-on Multiple Window and a default-off Windows keep-awake option with
+truthful platform limits. Follow the [workspace specification](design/developer-workspace.md),
+[memory/scheduling contract](design/memory-scheduling-companionship.md) and
+[current handoff](HANDOFF.md). Platform CI 8.4 remains deferred.
 
 **Earlier priority change — 2026-10-06.** Milestones 16–19 were paused at the user's
 request. Fix fragmented reasoning-stream failures and silent progress first.
@@ -105,13 +109,24 @@ This table records the planning baseline, not current missing features. See the 
 | **13 — Adapt the executable harness** | Chosen runtime, transactional lifecycle, agent-authored mods and integrated qualification | 13.1–13.4 | Requires 9's contracts and 12's trials. Verified containment gates automatic executable activation. |
 | **14 — Computer use and visual verification** | Model-visible screenshots, scoped Windows interaction, recovery and measured real-workflow results | 14.1–14.4 | Requires 9–11's ownership, grants, provider/image and browser contracts. Independently qualify desktop control; executable self-adaptation does not grant desktop authority. |
 | **15 — Everyday UX** | Conversation-first tools, useful defaults and settings for general users | 15.1–15.8 | Uses delivered state/permission/tool contracts. Model reliability remains separately measured; simplification preserves configuration, evidence and authority. |
-| **16 — Workspace and editor** | Project-bound views, safe file editing, feature rail and four-pane layout | 16.0–16.5 | Prototype/editor gate first; replace single-active-run assumptions before concurrent chats. |
-| **17 — Git workflow** | Real diffs/history, staging, commit, stash/revert and remote actions | 17.1–17.5 | Requires 16's project/document revisions; serialize repository mutations and preserve conflicted work. |
-| **18 — Terminal and language support** | Interactive project terminals and TypeScript/JavaScript/Rust language services | 18.1–18.5 | Requires 16's ownership; lazy supervised processes, useful missing-tool setup and bounded cleanup. |
-| **19 — Detached windows** | Move live views between windows/monitors without duplicating resources | 19.1–19.4 | Requires shared owners from 16–18; qualify pinned-SDK backend and per-window overhead before adoption. |
+| **16 — Home, navigation and Folders editor** | Preserve agent Home; add project-bound files, safe editing and file-only split tabs | 16.0–16.6 | Revised page prototype/editor gate first; shared host ownership precedes independent work. |
+| **17 — Source Control and Git diff** | Project-bound changes/history, real diffs, staging, commit and reviewed Git actions | 17.1–17.6 | Requires 16's project/document revisions; serialize repository mutations and preserve conflicted work. |
+| **18 — Terminal tabs/splits and language support** | Project-root or home terminals and TypeScript/JavaScript/Rust language services | 18.1–18.6 | Requires 16's ownership; lazy supervised processes, useful missing-tool setup and bounded cleanup. |
+| **19 — Bounded experimental detached developer views** | Default-on opt-out window experiment for files, diffs and terminals | 19.1–19.4 | Requires shared owners from 16–18; bounded backend trial and usable single-window fallback. |
 | **20 — Harness self-repair** | Diagnose/reproduce a real fault, test a matching patch and activate or build/restart with restore | 20.1–20.6 | Earlier repair priority is retained as history; broaden 13's narrow ABI only after containment and independent-test gates. |
+| **21 — Automatic useful memory** | One switch, source-backed facts/decisions, recall, inspect and forget | 21.0–21.6 | Audit today's narrow capture first; freeze accuracy, scope, resource and deletion gates. |
+| **22 — Chat-created scheduled tasks** | Natural-language creation and management-only Scheduled page | 22.0–22.6 | Requires shared run ownership; explicit intent, durable clock/claims and existing tool approvals. |
+| **23 — Opt-in companionship** | Occasional grounded in-app messages using a configured weaker model | 23.0–23.4 | Requires memory and scheduler contracts; chosen hours, persisted daily cap and quiet failure. |
+| **24 — Optional closed-UI scheduling** | Opt-in local worker while the UI is closed | 24.1–24.3 | Requires 22; qualify one host owner, availability limits and worker cleanup separately. |
 
-The current user-requested batch starts at milestone 16; the earlier milestone 20 priority is historical. Other dependencies remain sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Milestones 16–19 form the developer-workspace track using delivered contracts; their manual editor/Git work does not require falsely closing prior model-reliability gates. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
+The next implementation brick is 16.0; the earlier milestone 20 priority is
+historical. Proceed one brick at a time, in dependency order. Milestones 16–19
+form the developer-workspace track; their manual editor/Git work does not close
+prior model-reliability gates. Then follow 21–24; 24 may follow 22 directly if
+closed-UI execution is prioritized. Questioning/personality starts in 9.4 and is
+exercised throughout. Measure resource costs throughout. Dates are not promised
+before baselines establish work size. Each brick has scope, basic acceptance,
+realistic failures and exclusions below. A plan does not activate these features.
 
 ## Milestone 9 — Know itself and own its runs
 
@@ -709,389 +724,242 @@ hosts, new palettes and quiet changes to privacy/authority or acceptance criteri
 directly and recover without reading developer documentation. Advanced users retain
 exact configuration/evidence access. Remaining model/platform gaps stay visible.
 
-## Milestone 16 — Workspace and editor
-
-Deliver the first useful integrated workspace on the maintained Flutter/Rust
-stack. Follow the [workspace specification](design/developer-workspace.md),
-retaining theme/brand/short controls. A view is always bound to its project/resource;
-switching focus changes navigation context, never a live task's authority.
-
-### 16.0 Workspace prototype and editor feasibility
-
-**Current evidence:** revised user review is pending; post-large-file typing fails
-the unchanged 32 ms frame target in the isolated native trial. The dependency is
-not adopted. See [qualification](qualification/workspace-editor.md) for captured
-public sources, actual measurements and remaining gates. 16.0 is not complete.
-
-**Scope:** prototype Chats/Files/Git rail, project panel, chat/file tabs and the
-requested A/B four-pane layout. Exercise tab move/split, compact focus and dirty
-file/conflict flows with synthetic data. Compare a Flutter-native editor candidate
-against actual input requirements; identify the detached-window backend seam
-without adopting experimental windowing. Freeze document/buffer ownership,
-message bounds, corpus and a numeric incremental memory budget from matched
-baseline/editor measurements before selecting/pinning dependencies.
-
-**Basic acceptance:** user reviews the workspace interaction; a native editor spike
-demonstrates typing, selection, undo, syntax/find, CRLF/BOM, Unicode and proposed
-large-file behavior. Record measured cost and the dependency decision, not just
-a package README's performance claim.
-
-**Failure/recovery:** a 100 KiB single line and unsupported encoding stay usable
-without lossy saves; prototype cancellation/invalid drop retains tabs and drafts.
-Real IME/accessibility claims need actual checks; missing checks remain gates.
-
-**Excluded:** production UI rollout, an SDK channel switch, complete IDE parity
-or promising a cheap second native window without measurements.
-
-### 16.1 App, project and concurrent-run ownership
-
-**Scope:** separate shared application services from conversation controllers;
-replace the Rust single-active-run state with a bounded run registry and per-run
-approval/cancellation routing. Project/document IDs and revisions become explicit
-in the view contract. Proposed starting scheduler: two global active project runs,
-one mutating agent run per project, visible queue/cancel. Freeze new scheduler
-limits after measurement; retain all existing per-run/model/continuation budgets.
-View closing must not shut down the app bridge or duplicate profile recovery.
-
-**Basic acceptance:** A and B run independently while either is viewed; Stop A
-does not stop B and approvals/model snapshots stay with their original run.
-Closing/reopening a chat tab preserves drafts, progress and history. Migrate the
-existing single-chat flow without changing provider/configuration/history.
-
-**Failure/recovery:** stale run/approval IDs cannot act on another project; a
-queued third run can be cancelled without resetting limits or silently starting.
-Same-project competing writers remain queued with an understandable explanation.
+## Milestone 16 — Home, navigation and Folders editor
+
+**Revised 2026-10-07; planning/incomplete.** Preserve the current agent UI on Home.
+Primary sidebar: Home / Scheduled / Folders / Source Control / Terminal; Settings
+at bottom. Folders has the selected project's tree and file-only split tabs. No
+mixed chat/file four-pane acceptance or chat editor tabs. The former 16.0–16.5
+unimplemented plan is reshaped into 16.0–16.6; no delivered brick is renumbered.
+See [workspace contract](design/developer-workspace.md). Implement one brick at a
+time, each with a focused check and separate English commit.
+
+### 16.0 Revised page prototype and editor feasibility
+
+**Scope:** prototype primary/page sidebars, familiar Home, Folders tree/empty state,
+file splits and project selection. Resolve native editor performance/shortcuts and
+duplicate-view adapter; freeze corpus, byte/delta bounds, file and memory budgets.
+**Basic:** review the revised page direction; native typing/selection/undo/find,
+Unicode/CRLF/BOM and long-line behavior meet recorded targets. **Recovery:** invalid
+drop retains buffers; large/unsupported files remain safely previewable. Earlier
+94 ms post-large-file typing failure stays open against the unchanged 32 ms target.
+**Excluded:** production rollout, selected package without evidence, SDK migration.
+
+### 16.1 Shared host, selected project and run ownership
+
+**Scope:** one app/profile owner, explicit project/document/run IDs, immutable
+run context and per-run Stop/approval routing. Separate visible page from selected
+chat; proposed two active primary runs/one mutating run per project with queue,
+frozen after measurement. **Basic:** navigate while A runs; view B without changing
+A's model/grants; Stop A leaves B intact. **Recovery:** stale approval refuses the
+wrong run; cancel a queued third run without budget reset. **Excluded:** parallel
+same-root agent writes, automatic worktrees and new grants.
+
+### 16.2 Primary navigation and project-bound page shells
+
+**Scope:** labeled sidebar, bottom Settings, page side panels, Home unchanged,
+selected-project picker and truthful unavailable Scheduled/Source Control/Terminal.
+No project on Folders offers Open folder to select/create a canonical project.
+Include Experimental preferences (Multiple Window default On, unavailable until
+19; Windows keep-awake default Off). **Basic:** Home/Folders switching retains
+draft/scroll, active root is visible, side chat clears project and Settings works
+in compact navigation. **Recovery:** picker cancellation retains state; missing
+root offers recovery without rebinding work. **Excluded:** manual schedule creation,
+fake Git/task results, launching shells or granting agent access on navigation.
+
+### 16.3 Scoped file tree and document persistence
+
+**Scope:** lazy tree/quick open, canonical path/link scope, document IDs, bounded
+reads, encoding metadata, explicit revisioned Save and private recovery. Deliberate
+create/rename/delete checks dirty views. **Basic:** open/edit/save/reopen retains
+UTF-8/BOM/line endings; 20,000-entry tree expands incrementally. **Recovery:** failed
+write/deletion keeps buffer with Retry/Save as; link escape/inaccessible file stays
+inside selected scope. **Excluded:** eager whole-root scans and lossy binary saves.
+
+### 16.4 Editor interactions and disk reconciliation
+
+**Scope:** qualified adapter, highlighting/line numbers/indentation, clipboard,
+selection/undo/redo, find/replace/go-to-line, explicit source attachment and clean/
+dirty external changes. **Basic:** ordinary editing and agent saved-file refresh
+work; attaching a selection chooses chat/source revision. **Recovery:** dirty disk
+change retains both versions and requires comparison-backed Save; malformed/stale
+edits cannot overwrite new content. **Excluded:** autosave On by default or implicit
+upload of unsaved buffers. Native input gates require actual relevant checks.
+
+### 16.5 File-only splits and per-project layout recovery
+
+**Scope:** drag reorder/move/edge split, resize and keyboard/menu alternatives;
+shared buffer/undo with per-view selection; per-project versioned layouts. **Basic:**
+two/four file groups work, A→B→A retains each workspace and Home draft, restart
+restores recoverable documents. **Recovery:** cancelled drag/last split close
+retains edits; corrupt layout/shrink offers reachable groups and safe default.
+**Excluded:** chat tab groups, cross-project file groups and native detach.
+
+### 16.6 Home/Folders integration qualification
+
+**Scope:** fixed A/B corpus, latency/memory/idle cost, original history/settings/
+approvals/continuation regression, bounded Qwen saved-file integration. Use saved
+UI renders for light/dark/wide/compact; native interaction only where needed.
+**Basic:** Home feels familiar and Folders is a useful safe editor; resource limits
+are measured, not silently relaxed. **Recovery:** stale save and queued/cancelled
+run preserve the right project/draft. **Exit:** single-window Home/Folders useful;
+later pages remain unavailable honestly. IME/low-end/other-OS gaps remain labeled.
+
+## Milestone 17 — Source Control and Git diff
+
+Requires 16's project/document identities. Source Control binds to selected project;
+Home Changes receipts link to real repository views without becoming Git truth.
+Expanded 17.1–17.6 separates whole-file commits from selected-hunk mutation.
+
+### 17.1 Repository service and status panel
+
+**Scope:** installed Git discovery, canonical/nested repo identity, machine-readable
+NUL paths, Changes/Staged and coalesced Refresh. **Basic:** tracked/untracked/renamed/
+deleted/binary/conflict statuses belong to selected repo. **Recovery:** no Git/repo
+offers actual setup; late A response after selecting B never replaces B. **Excluded:**
+automatic initialization and parsing localized human status text.
+
+### 17.2 Diff tabs and paged history
+
+**Scope:** working/index, index/HEAD and commit/file comparisons; inline/side-by-side
+diff, history paging and receipt links. **Basic:** inspect exact current/staged/
+historical changes with clear bases. **Recovery:** binary/huge diff gets truthful
+bounded view; changed basis is stale with Refresh. **Excluded:** Git mutations or
+full graphical history explorer.
 
-**Excluded:** unattended swarms, automatic worktrees, new access grants and
-parallel writes in the same working root.
-
-### 16.2 Feature rail, files and workspace tabs
-
-**Scope:** add Chats / Files / Git rail plus the single bottom Settings entry;
-retain project/session icons and hints. Files uses lazy scoped traversal and quick
-open. Introduce typed chat/file/diff/history/terminal ViewRefs and per-pane tab
-strips; Git/terminal surfaces show availability until their later bricks exist.
-Implement preview/pin/close/reorder and project selection with explicit identities.
-Use draggable tab strips, breadcrumbs and compact close/overflow controls without
-the prototype's earlier pane action bars. Add the requested Experimental Settings
-page: Multiple Window defaults On but remains unavailable until 19; Windows
-keep-awake defaults Off and discloses screen-saver/policy limits.
+### 17.3 Whole-file stage, unstage and commit
 
-**Basic acceptance:** switch feature panels, open an A file and B chat as tabs,
-disambiguate equal names and return with view state intact. Side chats offer
-Choose project; temporary chats use their existing folder. Settings remains easy
-to reach in wide/compact layouts.
+**Scope:** per-repo mutation queue, displayed revision recheck, staged preview,
+commit draft/author and hooks. **Basic:** commit selected saved files only, leaving
+unstaged/unsaved work intact. **Recovery:** stale index requires refresh; hook
+failure retains message/index with bounded output. **Excluded:** bypassing hooks,
+automatic commits, changing identity or staging unsaved buffers implicitly.
+
+### 17.4 Selected hunks and local recovery operations
+
+**Scope:** stage/unstage displayed hunks, stash preview/create/apply/pop, branch
+create/switch, file discard and non-merge commit revert with dirty-buffer checks.
+**Basic:** selected hunk applies only against its basis; stash/restore and a reversing
+commit have exact effects. **Recovery:** stale patch refuses; conflicted pop preserves
+stash; branch/revert conflict offers Resolve/Abort. **Excluded:** hard reset,
+automatic conflict choices, merge-commit automation or blanket unrelated stashes.
+
+### 17.5 Deliberate Fetch, Pull and Push
+
+**Scope:** remotes/tracking/ahead/behind, configured credential helpers, explicit
+effects; initial Pull fast-forward-only. **Basic:** disposable local bare remote
+receives one intended commit/fetch/pull. **Recovery:** auth/divergence gives a next
+step; uncertain push reconciles refs before retry. **Excluded:** force push, secret
+copies, hidden reset/rebase and production publication for qualification.
+
+### 17.6 Source Control qualification
+
+**Scope:** two-repo status/diff/stage/hook/stash/revert/remote corpus, paging cost,
+editor/external writer reconciliation and owned process cleanup. **Basic:** ordinary
+local Git work completes in the correct repo; UI renders make bases readable.
+**Recovery:** stale hunk/conflicted stash/remote rejection preserve work. **Exit:**
+useful Git UI with exact fixture/live limits; no hosted review/full graph claims.
+
+## Milestone 18 — Terminal tabs/splits and language support
+
+Terminal is its own page. New terminal plus uses the selected project root, or OS
+user home without a project; existing shells never retarget. Language services
+remain a distinct first-language enhancement. Expanded 18.1–18.6 isolates UI/lifecycle.
+
+### 18.1 PTY backend and default cwd
+
+**Scope:** bounded emulator/ConPTY/Rust PTY trial, shell discovery, explicit cwd,
+ANSI/Unicode input/output/resize/copy/interrupt. **Basic:** interactive command works
+in selected A root; no-project shell starts at home. **Recovery:** missing root/shell
+offers Choose/Retry; failed spawn leaves Home/editing useful. **Excluded:** captured
+stdout called a terminal, implicit model control and shell startup on page visit.
+
+### 18.2 Terminal tabs, plus and splits
+
+**Scope:** page tab groups, plus snapshots selected cwd, drag/reorder/edge split,
+keyboard/menu alternatives and visible shell identity. **Basic:** plus opens another
+shell in the same current default; switch project without changing an existing
+shell; split panes stay independent from files/Home. **Recovery:** invalid move
+retains process/output; failed new tab keeps existing terminal. **Excluded:**
+cloning/replaying a shell to move its view.
+
+### 18.3 Terminal supervision and recovery
+
+**Scope:** bounded scrollback/backpressure, busy close/final quit, descendant cleanup,
+truthful restart states and selected-output chat attachment. **Basic:** hide/move
+keeps process; Stop/close reaps owned descendants. **Recovery:** output flood/child
+exit/resistant child preserves responsive UI and labeled retained output. **Excluded:**
+implicit scrollback uploads, shared model/human shell and fake live cold restart.
+
+### 18.4 Read-side LSP for TypeScript/JavaScript and Rust
+
+**Scope:** discover existing servers, lazy per-project supervision, diagnostics/
+completion/hover/definition/references, buffer versions and Unicode positions.
+**Basic:** real small projects support unsaved text; Home launches no LSP. **Recovery:**
+crash/missing server offers Restart/Install; stale/out-of-order reply cannot target
+the wrong buffer. **Excluded:** arbitrary language support or passing model keys.
+
+### 18.5 Managed setup and reviewed language edits
+
+**Scope:** deliberate pinned verified install, offline readiness, formatting/rename
+preview and revision-safe scoped multi-file apply. **Basic:** missing first-language
+support can be installed without command/JSON setup; preview/apply/undo a rename.
+**Recovery:** cancelled/offline install retains existing setup; stale/out-of-root
+workspace edits refuse before partial loss. **Excluded:** downloads on file open,
+unverified latest artifacts or arbitrary server-command execution.
+
+### 18.6 Terminal/LSP qualification
+
+**Scope:** interactive two-project corpus, root/home plus behavior, split/focus,
+flood/interrupt/cleanup, server readiness/offline and measured lazy overhead. One
+bounded harder DeepSeek saved-file/approved-command case measures model integration
+separately from human PTY success. **Basic:** edit/navigate/run/check works with
+correct ownership. **Recovery:** PTY/LSP failures retain editor work and next actions.
+**Exit:** local terminal/first-language support; debugger/remote IDE parity excluded.
+
+## Milestone 19 — Bounded experimental detached developer views
+
+Multiple Window defaults On as requested; single-window work stays useful on
+unsupported backends. One bounded Windows backend investigation, not an extended
+Flutter multi-window project. Detach file/diff/terminal groups; keep Home's current
+agent-view identity. See workspace contract for the application-scoped keep-awake option.
+
+### 19.1 Backend feasibility and resource gate
+
+**Scope:** compatible pinned-SDK trial, two windows, single host/communication and
+numeric overhead ceiling. Freeze an investigation ceiling before starting: one
+backend and at most two repair iterations, then record fallback if still blocked.
+**Basic:** native focus/input/close/theme works on recorded
+Windows host. **Recovery:** unavailable backend/failed initialization leaves one
+usable window/profile. **Excluded:** channel migration, independent storage hosts,
+unbounded backend comparison or other-OS claims. Failed gate leaves detach disabled
+with a recorded supported fallback; no false completion of move acceptance.
+
+### 19.2 Acknowledged file/diff/terminal transfer
+
+**Scope:** drag-out/menu detach, move back, shared owner/subscriptions and theme;
+receive acknowledgement before source disposal. **Basic:** dirty document/diff/live
+terminal moves and returns without duplicate buffers/PTY owners. **Recovery:**
+cancelled drop/destination close/failed acknowledgement retains source; sibling
+close cannot stop another window's work. **Excluded:** draggable Home chat tabs,
+extra independently initialized profiles or replayed tasks.
+
+### 19.3 Layout, monitor and toggle recovery
+
+**Scope:** versioned window bounds/layout references, dirty recovery, missing-monitor
+clamp, Off prevents new detach and acknowledged rejoin of existing windows; final
+close checks live work. **Basic:** restore accessible views/drafts with honest run/
+shell states. **Recovery:** corrupt layout/missing project leaves a usable shell;
+failed rejoin keeps source. **Excluded:** pretending interrupted processes resumed.
+
+### 19.4 Window qualification and supported fallback
+
+**Scope:** bounded transfer/restart/monitor/toggle failure corpus, measured ownership/
+cleanup and only relevant native interaction. **Basic:** supported Windows detach
+meets frozen cost and work-preservation gates. **Recovery:** failure keeps single-window
+pages and truthful Experimental availability. **Exit:** report supported capability
+or held backend explicitly; accessibility/other-host results remain separate.
 
-**Failure/recovery:** inaccessible folder/symlink escape provides a scoped recovery
-without scanning outside the root; missing project/file does not destroy tabs.
-Large/generated trees load incrementally without flooding the UI.
-
-**Excluded:** recursive eager indexing, automatic Git initialization, enabling
-tools for a side chat and a populated Git feature before 17.
-
-### 16.3 Safe code editing and disk reconciliation
-
-**Scope:** selected editor adapter with line numbers/highlighting, find/replace,
-go to line, indentation, clipboard, undo/redo and explicit Save. One document owner
-per canonical project/path, revisioned writes, existing encoding/line endings and
-private dirty-buffer recovery. Reconcile outside/agent changes; link selection/file
-attachment to an explicitly chosen chat without automatic prompt sharing.
-Add deliberate create/rename/delete with buffer-preservation checks.
-
-**Basic acceptance:** edit/save/reopen ordinary source, preserve bytes/line endings,
-undo across view changes, and restore a dirty draft after an interrupted app.
-Agent saved-file changes refresh a clean view; unsaved data remains distinct.
-
-**Failure/recovery:** agent/external disk update while dirty retains both versions
-and opens comparison; write failure or deletion retains the buffer and useful
-Save as/Retry recovery. A stale revision cannot silently overwrite newer content.
-
-**Excluded:** autosave by default, lossy binary/encoding edits, hidden whole-file
-uploads and accepting the editor package's text widget as sufficient persistence.
-
-### 16.4 Split panes and persistent layouts
-
-**Scope:** binary split-tree layout, edge drop/move/reorder, resize/reset and
-keyboard/menu equivalents. Persist tab references and layout separately from
-documents/runs. Duplicate file views share one buffer/undo; duplicate chat views
-share one draft/run. Narrow mode selects one pane without deleting the wide layout.
-
-**Basic acceptance:** A chat top left/A file top right/B chat bottom left/B file
-bottom right; edit and monitor both projects, move tabs and restart with layout
-and drafts intact. Focus-specific shortcuts act only on the intended view.
-
-**Failure/recovery:** cancelled drag or closing the last split retains live work;
-malformed/stale layout restores a usable default while recovering dirty documents.
-Shrinking below pane minimums cannot hide Close/Stop/Settings or lose content.
-
-**Excluded:** detached native windows (19), copying live owners into layout JSON
-and tab-close as an implicit task Stop or conversation deletion.
-
-### 16.5 Workspace/editor qualification
-
-**Scope:** frozen two-project corpus, one/two/four panes, editor latency/resources,
-normal native light/dark/wide/compact and keyboard checks. Regress original chat,
-attachments, settings, approvals, continuation and history. One bounded Qwen
-two-project saved-file case verifies model integration; fixtures test concurrency
-and failures deterministically.
-
-**Basic acceptance:** user can monitor A/B and edit code without another editor,
-with original profile/settings preserved, resource targets measured and explicit
-unsupported-file/platform boundaries. Review the normal desktop visually.
-
-**Failure/recovery:** stale/failed save and queued/interrupted run retain work and
-correct project ownership. Report physical IME/low-end/other-platform gaps honestly.
-
-**Exit/excluded:** single-window workspace is usable; Git, terminal/LSP and detached
-windows are still scheduled work, not advertised as already available.
-
-## Milestone 17 — Git workflow
-
-Use real Git working-tree/index/history state through a typed project service.
-Keep run change receipts reachable as separate evidence; do not confuse them with
-the current repository diff. Direct user operations do not alter model authority.
-
-### 17.1 Repository status, diffs and history
-
-**Scope:** installed Git discovery, nested repository identity, Changes/Staged/
-History panel, paged commit/file history, working/index/HEAD/commit comparisons,
-inline and side-by-side diff tabs. Parse machine-readable NUL-delimited paths;
-refresh from coalesced events and explicit Refresh.
-
-**Basic acceptance:** tracked/untracked/renamed/deleted/binary files appear correctly;
-open the appropriate diff/history and link from a chat's Changes action.
-
-**Failure/recovery:** absent Git/non-repository folder has a short actual setup
-action; unusual/Unicode paths or a refresh during external writes cannot show
-another repository's result. Failed reads retain a labeled stale view and Retry.
-
-**Excluded:** mutations, a full graphical history explorer and parsing localized
-human-readable Git output.
-
-### 17.2 Stage, unstage and commit
-
-**Scope:** whole-file then selected-hunk stage/unstage, commit message and staged
-preview. Serialize app-owned repository mutations and bind commands to displayed
-HEAD/index/file basis. Preserve Git hooks and configured author identity.
-
-**Basic acceptance:** stage selected changes, inspect staged diff, commit only
-those changes and see the resulting commit; unstaged/dirty editor work is retained.
-
-**Failure/recovery:** changed index/patch basis requires refresh, not blind apply;
-hook failure retains message/index and gives bounded output with Retry. Another
-project's commit cannot be targeted by focus switching during the operation.
-
-**Excluded:** automatic commits, bypassing hooks, changing Git identity and staging
-unsaved editor buffers without explicitly saving them first.
-
-### 17.3 Stash, branches and reversing changes
-
-**Scope:** stash preview/create/apply/pop, branch list/create/switch, selected file
-discard and non-merge commit revert. Preview exact effect and check dirty buffers/
-repository revisions. Conflict view offers per-file inspection and ordinary editor
-resolution; preserve underlying Git state and next actions.
-
-**Basic acceptance:** stash and restore selected work, switch clean branches and
-create a reverting commit; distinguish Discard file changes from Revert commit.
-
-**Failure/recovery:** conflicted stash pop preserves the stash; branch/revert conflict
-or dirty buffers retains edits and offers Resolve/Abort without destructive cleanup.
-
-**Excluded:** hard reset, merge-commit revert automation, automatic conflict choices
-and blanket stashes of unrelated/ignored work.
-
-### 17.4 Fetch, pull and push
-
-**Scope:** configured remotes/tracking, ahead/behind, deliberate Fetch/Pull/Push and
-credential-helper integration. Show branch/remote/outgoing effect; first Pull is
-fast-forward-only. Model push authority remains unchanged.
-
-**Basic acceptance:** disposable local bare-remote fixture receives one intended
-commit and fetch/pull updates only the intended repository. No production remote
-push or credential change is required for qualification.
-
-**Failure/recovery:** rejected authentication/non-fast-forward offers a concrete
-next step; interrupted push is marked uncertain and reconciles remote refs before
-retry. Never force/reset/rebase as a hidden recovery.
-
-**Excluded:** force push, stored credential copies, automatic publication and
-silently resolving divergence.
-
-### 17.5 Git workflow qualification
-
-**Scope:** frozen two-repository edit/diff/stage/commit/stash/revert/remote corpus,
-native readability and operation recovery, with direct UI and agent/editor outside
-changes. Measure large-history paging and owned Git/hook cleanup.
-
-**Basic acceptance:** complete ordinary local Git work in Dolores with correct
-repository effects and original project history preserved. Record exact fixture
-coverage, hook/credential limits and normal native verification.
-
-**Failure/recovery:** stale hunk/index and conflicted stash preserve usable work;
-remote rejection/uncertainty never causes destructive retries.
-
-**Exit/excluded:** everyday Git is useful; hosted review integrations, full graph
-exploration and advanced history rewriting remain outside the series.
-
-## Milestone 18 — Terminal and language support
-
-Provide the remaining everyday editor workflows without making shells/language
-servers always-on. First LSP families are TypeScript/JavaScript and Rust.
-
-### 18.1 Interactive project terminals
-
-**Scope:** qualify terminal emulator/Rust PTY adapter, use Windows ConPTY and portable
-backend seams, shell discovery, explicit project/cwd, ANSI, resize, scrollback,
-selection/copy/paste and interrupt. Terminal is a movable workspace view.
-
-**Basic acceptance:** run an interactive synthetic project command, resize during
-output, copy text and interrupt correctly; A/B terminals stay in their own cwd.
-
-**Failure/recovery:** missing shell/failed spawn gives Retry/Choose shell; rapid
-output and split UTF-8/escape sequences are bounded without blocking Stop or UI.
-
-**Excluded:** plain captured stdout presented as a terminal, automatic model control
-of the user's shell, SSH/container development and always-running terminals.
-
-### 18.2 Terminal lifecycle and local context sharing
-
-**Scope:** supervisor/backpressure, owned process-tree cleanup, busy-close/final-quit
-UX, tab move/restore and explicit selected-output attachment to a chosen chat.
-Terminal restart state describes terminated processes accurately.
-
-**Basic acceptance:** moving/hiding a terminal preserves its process; explicit
-Stop/close reaps descendants; user-selected output can be attached with provenance.
-
-**Failure/recovery:** output flood/child exit keeps the editor responsive; interrupted
-shutdown or resistant child yields truthful status and retained bounded output.
-
-**Excluded:** implicit scrollback uploads, shared model/human shell sessions and
-claiming cold restart preserves a process that actually stopped.
-
-### 18.3 Read-side LSP for the first languages
-
-**Scope:** standard protocol client and lazy supervised servers for TypeScript/
-JavaScript and Rust. Discover installed toolchains; diagnostics, completion, hover,
-definition/references use buffer versions and negotiated position encoding. Servers
-are project-scoped, requests cancellable and events bounded.
-
-**Basic acceptance:** meaningful diagnostics/completion/navigation work on small
-real A/B projects, including unsaved text. Ordinary chat starts no language server.
-
-**Failure/recovery:** crashed/missing server retains editing with Restart/Install;
-stale/out-of-order replies and Unicode positions cannot apply to the wrong buffer.
-
-**Excluded:** syntax highlighting marketed as LSP, arbitrary-language support and
-model credentials passed into server environments.
-
-### 18.4 Managed language setup and reviewed language edits
-
-**Scope:** concise first-language readiness/install flow, pinned verified artifacts
-and toolchain prerequisites with explicit user download action. Add formatting and
-rename previews; workspace edits use document/repository revisions and scoped paths.
-Keep installation details expandable and basic offline editing functional.
-
-**Basic acceptance:** a missing first-language server can be installed through a
-guided UI without hand-written command/JSON; preview/apply a format or multi-file
-rename and undo/recover appropriately. Existing installations are reused.
-
-**Failure/recovery:** offline/cancelled installation retains the prior usable setup;
-out-of-root or stale multi-file edits are rejected before partial data loss.
-
-**Excluded:** downloads merely from opening a file, unverified latest artifacts,
-arbitrary server-driven command execution and unsafe auto-applied refactors.
-
-### 18.5 Terminal/LSP qualification
-
-**Scope:** interactive process corpus, two projects/two first language families,
-typing/diagnostic latency, idle memory/process counts, cleanup and native shortcut/
-focus behavior. Validate both ready and missing/offline tool paths.
-
-**Basic acceptance:** routine edit/complete/navigate/run/check workflow fits in
-Dolores with lazy startup and measured overhead. A bounded harder DeepSeek repair
-case uses saved files and approved command tools; direct PTY success is separately
-verified and does not establish model reliability.
-
-**Failure/recovery:** LSP crash/stale reply and PTY flood/interrupt preserve editor
-work and an actionable recovery. Missing other-OS/hardware checks remain open.
-
-**Exit/excluded:** local terminal and first-language productivity are useful;
-debugger, full VS Code extension support and remote development are not claimed.
-
-## Milestone 19 — Detached windows
-
-Complete the user's drag-out/multiple-monitor request without copying the host,
-database, credentials or live resources into independently initialized apps.
-Expose this as Experimental **Multiple Window**, default On, per the user's
-revised scope. Limit backend investigation to one bounded Windows trial. Unsupported
-platforms keep a usable single window; state/transfer/cleanup checks remain required.
-
-### 19.1 Window backend and resource gate
-
-**Scope:** verify maintained SDK support; measure an isolated two-window candidate
-with native focus/input/close/theme behavior. Use a compatible bounded backend
-trial on the maintained SDK; do not migrate channels to obtain the experimental
-official API or undertake an extended comparison. Record engines,
-processes, incremental memory/CPU and a numeric resource ceiling before adoption.
-
-**Basic acceptance:** usable normal-build-compatible backend and single-host
-communication plan are evidenced on Windows without silently changing SDK channel.
-
-**Failure/recovery:** unavailable backend/second-window creation returns to the
-existing workspace; engine/plugin initialization failure cannot corrupt the profile.
-
-**Excluded:** assuming another window is free, one full Rust/storage host per view,
-experimental channel migration without discussion and other-OS claims from Windows.
-
-### 19.2 Move views across native windows
-
-**Scope:** drag out/Move to new window, drag/menu move back, window tabs and focus.
-Transfer protocol acknowledges the receiving view before disposing its source;
-document/run/terminal owners and IDs remain in the host. Keep themed chrome/one
-brand and Settings available; sibling windows observe saved appearance changes.
-
-**Basic acceptance:** move a dirty file, active A chat and terminal onto a second
-monitor, then back, without duplicate buffers, approvals, sends or processes.
-
-**Failure/recovery:** cancelled drop/destination-close/failed acknowledgement keeps
-the source view and usable work; closing one window cannot shut down another's run.
-
-**Excluded:** independent profile opens/recovery, credential copies and moving a
-view by serializing/replaying its entire task.
-
-### 19.3 Window/layout restart and monitor recovery
-
-**Scope:** persist versioned window/pane/tab state and safe bounds; resolve host
-resources after restart, restore private dirty documents, clamp missing-monitor
-windows onscreen and handle final-window close with pending work.
-
-**Basic acceptance:** relaunch restores the two-project workspace and recoverable
-drafts, with task/terminal interruption states truthful. Monitor removal leaves
-all windows/actions accessible.
-
-**Failure/recovery:** corrupt layout or unavailable project restores a usable shell
-and recoverable documents; a lost window/client invalidates stale subscriptions
-without replaying work or starting duplicate recovery.
-
-**Excluded:** resurrecting stopped processes, offscreen-only recovery and keeping
-a hidden permanent service alive after the user explicitly quits.
-
-### 19.4 Integrated developer-workspace qualification
-
-**Scope:** fixed A/B chat/edit/diff/commit/check corpus in four panes and two native
-windows; light/dark, focus/keyboard, detach/rejoin, monitor loss and bounded resource
-measurement. Inspect the normal desktop visually and preserve the original profile.
-
-**Basic acceptance:** view/edit source, perform ordinary Git work and monitor two
-projects across panes/windows without a separate editor for this qualified corpus.
-Measure added cost, cleanup and actual model outcomes independently.
-
-**Failure/recovery:** stale disk save plus interrupted window transfer retains all
-work; LSP/terminal/helper failure stays within its service and preserves chat/editor.
-
-**Exit/excluded:** requested developer workspace works within the demonstrated
-platform/language/resource envelope. Prior model reliability and broad platform/
-accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
@@ -1129,11 +997,231 @@ successful compilation or altered recovery wording alone does not satisfy exit.
 Automatic native/core replacement and publication remain excluded. Execution
 begins only when the user requests it.
 
+## Milestone 21 — Automatic evidence-backed memory
+
+One Memory switch enables automatic useful facts/decisions with inspect/forget;
+no manual setup or entry is required. Text first, supplied images later. See
+[memory contract](design/memory-scheduling-companionship.md) and
+[primary research](research/memory-foundations.md). This extends existing narrow
+explicit-preference capture; it is not a biological replica or a new blanket archive.
+
+### 21.0 Current-memory audit and frozen evaluation
+
+**Scope:** trace real trigger/policy/source/scope/attempt reporting; reproduce missed
+useful task learning in an isolated profile; freeze fixed factual/episodic/negative
+corpus, recall criteria, costs and retention policy. **Basic:** explain why a sample
+was saved/skipped/failed from evidence. **Recovery:** disabled policy/no eligible
+source is distinct from transport/store failure. **Excluded:** claiming the user's
+live profile bug diagnosed without inspection or increasing defaults first.
+
+### 21.1 Memory records, source index and one-switch migration
+
+**Scope:** scoped source-linked episodes/facts/preferences, provenance/confidence/
+supersession, schema migration, capture watermarks and Memory master switch.
+Freeze storage/queue/index caps before adopting a retrieval dependency. **Basic:**
+existing entries/Off choice survive restart; Memory shows sources/status and needs
+no input form. **Recovery:** atomic migration/write failure retains history; Off
+blocks queued publication/retrieval. **Excluded:** ambient recording/vector setup.
+
+### 21.2 Incremental automatic capture and consolidation
+
+**Scope:** bounded post-turn/task extraction, validated exact sources, deduplication,
+facts/decisions/outcomes/open-work, background usage and status. **Basic:** ordinary
+eligible task exchanges update memory without “remember this”; completed reply
+stays usable. **Recovery:** malformed/hallucinated candidates refuse atomically;
+restart/policy change cannot duplicate or publish stale work. **Excluded:** tool
+permission from memories, credential capture or unbounded retry/reflection.
+
+### 21.3 Cue-led recall and bounded source expansion
+
+**Scope:** scoped lexical/metadata ranking baseline, compact index then source
+excerpts, context token allowance and inspectable attribution. **Basic:** later chat
+recalls the correct fact/decision and can open its source without loading all
+history. **Recovery:** equal entities across projects do not leak/mix; missing or
+budget-truncated evidence says unavailable with a next action. **Excluded:**
+unsupported certainty or embeddings as mandatory user setup.
+
+### 21.4 Corrections, Forget and retention
+
+**Scope:** explicit correction priority, conflict/supersession, deletion of derived
+indexes/caches and pending jobs, tombstones/watermarks and optional deliberate
+bounded older-history catch-up. **Basic:** corrected fact replaces current recall;
+Forget does not resurrect from the same source; Off stays effective. **Recovery:**
+concurrent delete/extract is atomic; deleted source becomes unavailable honestly.
+**Excluded:** silent history erasure or rediscovery of intentionally forgotten data.
+
+### 21.5 Explicitly supplied image memory
+
+**Scope:** image-capable model caption/index with asset/source IDs and uncertainty;
+retrieve bounded retained allowed images only when needed. **Basic:** later query
+finds one shared image and grounded description. **Recovery:** missing asset/model
+or ambiguous caption keeps text recall useful and avoids invented visual detail.
+**Excluded:** ambient screen/audio collection or claims of complete sensory memory.
+
+### 21.6 Memory reliability qualification
+
+**Scope:** fixed multi-session/project recall/correction/negative/Forget/Off corpus,
+no-memory baseline, precision/unsupported-claim/scope metrics and token/storage
+cost; bounded Qwen routine and DeepSeek harder recall. Freeze thresholds at 21.0,
+report misses separately. **Basic:** useful automatic task remembering works end to
+end with sources. **Recovery:** interruption/provider failure preserves conversation
+and memory. **Exit:** measured corpus competence, not universal/human memory claims.
+
+## Milestone 22 — Conversation-created scheduled tasks
+
+“At 9 pm every weekday, write my daily report using skill X” creates one durable
+task from clear human intent. Receipt shows schedule/timezone/skill/project/result
+destination/next run. Scheduled manages tasks; manual creation UI is deferred
+indefinitely. Initial execution needs the host open; closed-UI support is 24.
+
+### 22.0 Schedule intent, authority and clock contract
+
+**Scope:** source intent vs quotation, supported one-time/daily/weekday rules,
+timezone/DST/missed-run decisions, skill/model/budget and result destination.
+Freeze corpus/limits before implementation. **Basic:** an unambiguous example maps
+to exact weekdays at 21:00 in the user's zone. **Recovery:** missing skill/ambiguous
+time asks only the missing detail; quoted plans never create jobs. **Excluded:**
+manual wizard, holiday calendars by inference or external delivery by default.
+
+### 22.1 Chat creation tool and durable task receipt
+
+**Scope:** typed host creation, explicit task IDs/revisions, skill/project/model
+resolution, duplicate creation guard and plain-language receipt. **Basic:** a chat
+request automatically creates one inspectable task; no redundant confirmation for
+fully specified benign in-app work. **Recovery:** malformed model fields refuse;
+repeated creation exchange/transport ambiguity reconciles before retry. **Excluded:**
+guessing absent skills or granting arbitrary background tool access.
+
+### 22.2 Durable recurrence and occurrence claims
+
+**Scope:** named-zone wall-clock recurrence, next-run computation, atomic occurrence
+claim/lease, suspend/clock-change/restart reconciliation and recorded missed skips.
+**Basic:** one occurrence per due rule, no overlapping task run. **Recovery:** duplicate
+tick/DST overlap cannot duplicate dispatch; overdue jobs do not burst catch up.
+**Excluded:** exactly-once external effects and promises while app/host is closed.
+
+### 22.3 Skill-backed scheduled execution and results
+
+**Scope:** host queue, immutable skill/project/model/grants snapshot, bounded runs,
+progress/approval/Stop, partial results/artifacts and separate usage. **Basic:** one
+report uses the specified skill and appears in its task result thread. **Recovery:**
+missing/revised skill, revoked grant, offline model or budget stop preserves work
+and shows a recovery; uncertain effects never blindly replay. **Excluded:** changing
+Home's model, silent fallback or auto-email/publication without authorization.
+
+### 22.4 Scheduled management page
+
+**Scope:** list/filter, next run, actual state/progress/error/history and Pause/Resume/
+Skip next/Run now/Stop/Delete/inspect; management of existing details only. **Basic:**
+user sees a chat-created task and result, pauses recurrence without losing history.
+**Recovery:** stale revision/failed management keeps edits and Refresh/Retry; delete
+while running explains recurrence cancellation versus stopping current work.
+**Excluded:** New task/Create form or fabricated progress percentages.
+
+### 22.5 Conversational edits and cancellation
+
+**Scope:** “change to 8 pm”, pause, skip, cancel and task resolution with revision
+checks; manage scope/model/skill deliberately. **Basic:** update an existing report
+and receipt, without creating a second one. **Recovery:** ambiguous “that task” asks
+which; in-flight occurrence retains its snapshot while later ones use the update.
+**Excluded:** treating casual discussion or assistant output as change authority.
+
+### 22.6 Scheduler qualification
+
+**Scope:** fake time/zone/DST/restart/lease/overlap fixtures, page state, bounded real
+Qwen report and harder ambiguous-intent probe; separate model parsing from actual
+clock dispatch. **Basic:** creation→due→run→result→pause works without setup form.
+**Recovery:** provider/tool failure and missed due time keep history/actionable
+status. **Exit:** reliable measured app-open scheduling; closed UI/sleep/offline
+limits are visible until 24, not hidden by the successful example.
+
+## Milestone 23 — Opt-in in-app companionship
+
+The user chose occasional in-app messages during chosen hours with a daily cap.
+Use a separately configured enabled weaker model; keep Home's selected model.
+Candidate messages: chat, grounded fun fact, real recalled moment or unresolved
+work. Goal is welcome company, not engagement pressure or simulated consciousness.
+
+### 23.0 Companion policy and message experience
+
+**Scope:** Off by default, opt-in hours/timezone/cap/model, quiet/busy behavior and
+labeled initiated Home conversations. Proposed 2/day, 3-hour gap, 09:00–21:00 after
+opt-in; freeze before implementation. **Basic:** one switch plus optional adjustments
+establishes understandable behavior. **Recovery:** no configured model or zero cap
+stays quiet with a reason. **Excluded:** desktop notifications/forced focus by default.
+
+### 23.1 Bounded eligibility and timing
+
+**Scope:** event-driven candidates, persisted cooldown/cap, randomized allowed-time
+selection with deterministic test clocks, one expiring candidate. **Basic:** eligible
+opportunities vary naturally within hours. **Recovery:** restart cannot reset cap;
+quiet/busy/absent periods do not accumulate a message flood. **Excluded:** continuous
+model polling to decide whether to speak or background task execution from a nudge.
+
+### 23.2 Grounded weaker-model messages
+
+**Scope:** bounded request, source-backed recollection/open-work checks, verified
+fun facts, labels and separate usage. **Basic:** a brief welcome message is delivered
+in-app without changing draft/model; recall is traceable. **Recovery:** completed
+work/forgotten memory/stale candidate cancels before delivery; provider failure is
+quiet and bounded. **Excluded:** fabricated memories, automatic tools, guilt or
+exclusivity, and claims of human feelings/consciousness.
+
+### 23.3 Dismissal, preferences and calm delivery
+
+**Scope:** Not now, dismiss, mute/fewer prompts and scoped feedback; Memory Off
+prevents memory-based messages, Forget removes candidate sources. **Basic:** user
+preferences affect later messages without manual memory setup; no interruption of
+ongoing chat. **Recovery:** disable/delete during generation blocks publication;
+unread greeting stays bounded instead of nagging. **Excluded:** covert profiling,
+pressure to engage and re-enabling a muted feature automatically.
+
+### 23.4 Companionship qualification
+
+**Scope:** fake clocks/cap/quiet/mute/source fixtures plus bounded weaker-model
+generation and user-rated usefulness/accuracy/annoyance; measure idle/process/token
+cost. **Basic:** warm occasional messages respect policy and evidence. **Recovery:**
+irrelevant reminder feedback reduces future eligibility; model failure stays quiet.
+**Exit:** technical correctness and subjective welcome are reported separately;
+no verified Meta Muse parity is claimed.
+
+## Milestone 24 — Opt-in scheduled work while the UI is closed
+
+This is a named availability extension, not silently bundled with the initial
+scheduler. Requires 22 and host ownership from 16; it can be prioritized directly
+after 22 if closed-UI execution is needed before companionship. No cloud dependency.
+
+### 24.1 Worker/launcher ownership and startup policy
+
+**Scope:** one opt-in supervised local scheduler host, single profile/vault owner,
+UI attachment and explicit tray/quit/startup behavior; freeze resource ceiling.
+**Basic:** closing UI leaves only the chosen worker, reopening attaches to it.
+**Recovery:** stale owner/worker crash recovers claims without competing stores.
+**Excluded:** hidden startup install, duplicate native hosts or security-policy changes.
+
+### 24.2 Closed-UI execution and missed-run recovery
+
+**Scope:** reuse occurrence/skill/grant contracts, show result on reopen and state
+after sleep/offline/worker exit. **Basic:** awake connected host runs one report
+with UI closed and retains its result. **Recovery:** powered-off/asleep/offline
+host records missed/failed work; approvals wait visibly on reopen, uncertain tool
+effects never replay. **Excluded:** guaranteeing execution on an unavailable machine
+or automatic OS wake/lock bypass.
+
+### 24.3 Availability/resource qualification
+
+**Scope:** UI-close/reopen/suspend/crash/ownership tests, idle cost and shutdown/
+uninstall/disable cleanup. **Basic:** availability label matches observed host state;
+disable stops worker/new work and preserves results. **Recovery:** orphan/blocked
+shutdown reports honestly without data loss. **Exit:** measured opt-in closed-UI
+service; no desktop companion notifications unless later separately requested.
+
+
 ## Validation and change control
 
 - Freeze behavior, numerical defaults, criteria and exclusions before each brick; discuss material technical choices. Evidence may correct an assumption, but added scope requires a named spec/roadmap revision before implementation.
 - Basic flow plus one or two realistic failure/recovery cases per brick. Record actual fixtures, bounded live results and gaps separately in ACCEPTANCE. Qwen3.5-2B is routine; DeepSeek V4.1 Flash is for harder cases. Preserve selected settings and private data.
-- Commit each completed brick in English. App/runtime changes require a normal build and visible launch with config/history preserved. Documentation-only tasks use document/link checks and a commit, without rebuilding/relaunching.
+- Commit each completed brick in English. Choose verification for the change: document/link checks for documentation; focused tests for runtime changes and a normal build when compilation or packaging is affected. No mandatory desktop launch or visual check after every task. Prefer saved renders inspected with `view_image` for UI changes; use computer-use for interactions/native behavior that need it. Launch for relevant integration checks or a user-requested preview, preserving config/history.
 - Measure added state/process/context/catalog/UI costs; keep services lazy and reflection separately bounded. Do not silently relax performance targets.
 - User docs change only when behavior exists. Design targets stay distinct from current architecture/acceptance. Review milestone results before starting the next.
 
@@ -1148,16 +1236,26 @@ begins only when the user requests it.
 | File/image attachments | 10.6 |
 | Settings/effective limits | 9.4, 10.1, 10.2 |
 | Conversation-first tools and settings simplification | 15.1–15.8 |
-| Source viewing/editing and file navigation | 16.0, 16.2, 16.3, 16.5 |
-| Multiple project chats and flexible pane/tab layout | 16.1, 16.4; detached views 19.1–19.4 |
-| Repository diff/history and everyday Git operations | 17.1–17.5 |
-| Interactive terminal and TypeScript/JavaScript/Rust LSP | 18.1–18.5 |
+| Home retained; six navigation entries; Settings at bottom | 16.0, 16.2; Scheduled content 22.4 |
+| Source viewing/editing, file navigation and file-only split tabs | 16.0, 16.3–16.6 |
+| Shared project/run ownership; bounded experimental windows/keep-awake | 16.1, 16.2; detached developer views 19.1–19.4 |
+| Repository diff/history and everyday Git operations | 17.1–17.6 |
+| Interactive terminal tabs/splits, project/home CWD and TypeScript/JavaScript/Rust LSP | 18.1–18.6 |
+| Automatic useful memory, evidence-based recall, inspect and forget | 21.0–21.6 |
+| Chat-created scheduled tasks and management-only Scheduled page | 22.0–22.6; optional closed-UI worker 24.1–24.3 |
+| Opt-in weaker-model companionship, chosen hours and daily cap | 23.0–23.4 |
 | Self-inspection/editable versus protected modules | 9.1, 9.3, 13.1–13.3; practical repair 20.1–20.6 |
 | Experience-driven skills | 12.1–12.4 |
 | Questions/scoped answers/humane character | 9.4 and every milestone; continuity 12.1 |
 | Lean cross-platform design | Per-brick measurements, portability 13.1, manual qualification 13.4; desktop backend qualification 14.4 |
 
-Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync, remote/persistent MCP, vector memory, bundled model hosting, automatic worktree isolation, plugin marketplace, unattended native core replacement and unattended swarms. These are not silently included elsewhere. Physical IME/screen-reader, low-end and other-OS gaps remain visible alongside scheduled work.
+Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync,
+remote/persistent MCP, a mandatory vector-memory service, bundled model hosting,
+automatic worktree isolation, plugin marketplace, unattended native core
+replacement and unattended swarms. Manual scheduled-task creation UI is deferred
+indefinitely by the user; chat remains the creation surface. These are not silently
+included elsewhere. Physical IME/screen-reader, low-end and other-OS gaps remain
+visible alongside scheduled work.
 
 Developer-workspace exclusions: full VS Code extension compatibility, debugger,
 remote SSH/containers development, notebook editor and advanced destructive Git

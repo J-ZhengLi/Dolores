@@ -1,95 +1,84 @@
-# Next roadmap handoff — developer workspace
+# Next-brick handoff — developer workspace and useful continuity
 
-**Resumed starting order — 2026-10-06.** Use the
-[current session handoff](../HANDOFF.md) for current evidence. The user resumed
-milestones 16–19, one milestone batch at a time. Start at 16.0: the first prototype
-was reviewed and revised to remove pane action bars in favor of VS Code-style
-draggable tabs, close/overflow controls and breadcrumbs. Revised review and editor
-qualification remain gates before rollout. Settings stays at the rail's bottom;
-the specification records the newly requested Experimental toggles. This guide's
-older baseline/process details are historical snapshots.
-
-**Earlier planning baseline — 2026-10-06.** Runtime implementation had not started. Use this
-document when opening a fresh Dolores development chat. The new direction is
-milestones 16–19 in [ROADMAP](../ROADMAP.md), specified in
-[developer workspace](developer-workspace.md). Read those before proposing code.
+**Current revision — 2026-10-07. Planning only.** Read the [current handoff](../HANDOFF.md)
+for delivered work and the [roadmap](../ROADMAP.md) for order. The user reshaped
+16–19 and added 21–24. Implement one brick at a time; the earlier milestone-batch
+instruction and mixed chat/file four-pane arrangement are superseded.
 
 ## Product intent
 
-Dolores combines an agent harness with a useful developer workspace, so the user
-can monitor project A/B, inspect/edit files, review Git and use terminals without
-opening a separate VS Code window for every project. Required arrangement: A chat
-top left / A file top right / B chat bottom left / B file bottom right. Reorder and
-split tabs first; dragging tabs to a detached native window remains a named
-milestone, not an omitted feature. First LSP families are **TypeScript/JavaScript
-and Rust**, confirmed by the user.
+Keep Dolores's current agent UI on Home, including the session/project side panel
+and main chat. The primary sidebar contains Home, Scheduled, Folders, Source
+Control and Terminal; Settings remains at the bottom. Each page has suitable
+secondary content. Folders has a project file tree and VS Code-style draggable
+file tabs/splits; chats never become editor tabs. Source Control shows selected
+project changes/history/diffs. Terminal has separate tabs/splits: plus starts at
+the current project root or OS user home if none is selected, without retargeting
+existing processes. Keep familiar icons, the infinity brand, palette and compact
+behavior. Follow the [workspace contract](developer-workspace.md).
 
-The left feature rail selects Chats / Files / Git, changing the adjacent resizable
-panel. Keep Settings at the bottom left, familiar icons/hints, the original infinity
-brand and the existing system/light/dark palette. Short contextual controls and
-progressive disclosure remain important; avoid wordy routine pages or decorative
-colored left edges. Discuss material assumptions before most implementation work
-and show the workspace prototype before runtime UI changes.
+Experimental Multiple Window is default On when supported, with a bounded backend
+trial and usable single-window fallback. Detached developer views first; do not
+spend an indefinite milestone on experimental Flutter windowing. Windows keep-awake
+is separately default Off, with actual screen-saver/security-policy limits shown.
+First language families remain TypeScript/JavaScript and Rust.
 
-Dolores's broader character is calm, kind, candid and questioning. Its self-evolving
-vision remains: inspect capabilities/source, propose fixes to faulty skills or
-extensions, test low-risk changes and activate with rollback. The protected host's
-permissions, activation/evaluation boundary and write validation stay protected.
-Do not treat an editor as a model permission expansion or claim consciousness.
+The [memory/scheduling contract](memory-scheduling-companionship.md) plans:
 
-## Current technical starting point
+- **21:** one-switch automatic useful facts/decisions and source-backed episode
+  recall, with inspect/forget. No manual population/setup. Audit existing narrow
+  explicit-preference capture before attributing the user's observed lack of updates.
+- **22:** explicit natural-language task creation with a receipt and management-only
+  Scheduled page. No manual Create task form; deferred indefinitely. Existing tool
+  grants still apply. Initial availability requires the scheduler host to be alive.
+- **23:** opt-in occasional in-app companionship during chosen hours, with a daily
+  cap and separately configured weaker model. No focus stealing, fabricated memories
+  or automated tool execution from a greeting.
+- **24:** optional local scheduling worker while the UI is closed. Qualify ownership,
+  power/network availability and cleanup separately; no promise to run while asleep.
 
-Flutter desktop plus bundled Rust host/typed plugins, SQLite and native credentials.
-Early Iced/Tauri/Svelte experiments have been removed. The maintained local SDK is
-Flutter 3.47.5 stable. UI is currently one ChatController selected session and one
-Rust Engine active run. Multi-project concurrent views therefore require real host
-ownership work, not just tab widgets. The proposed host owns runs/documents/Git/
-PTY/LSP; windows own views and subscriptions. Detached windows cannot separately
-recover/open the profile or shut down shared services.
+Human-memory findings support selective, reconstructive, cue-driven recall rather
+than recording every sensation. See [research](../research/memory-foundations.md).
+Proposed numerical defaults require pre-implementation freezing and measurement.
+
+## Technical starting point and open gates
+
+The implemented stack is Flutter plus bundled Rust/typed plugins, SQLite and native
+credentials. Current UI selects one ChatController session and the Rust Engine has
+single-active-run assumptions. Shared run/document/Git/PTY/LSP ownership is a real
+16.1 prerequisite; windows own views/subscriptions, never independent profile owners.
+Navigation must not retarget a run, discard a dirty buffer or kill an existing PTY.
 
 Candidate editor/terminal/window libraries are researched options, not installed
-dependencies or proven performance. Editor and numeric resource gates precede
-selection; official Flutter windowing is experimental in the checked documentation.
-Prefer native Flutter editing first, qualify detached-window overhead separately.
+production dependencies. The 16.0 release editor trial still fails the unchanged
+large-file-sequence typing target; native shortcut, multi-view and resource gates
+remain open. See [qualification](../qualification/workspace-editor.md). Older
+prototypes are evidence, not approval of the revised separate-page UI.
 
-## Standing work rules
+[Remaining work](../qualification/remaining-work.md) retains broad model, learning,
+computer-use, idle-resource, platform/accessibility gates. Milestone 20's reviewed
+Windows repair cycle is bounded evidence, not broad autonomous competence. Do not
+replay unrelated paused work or silently raise limits to disguise failures.
 
-- Read applicable AGENTS.md and RTK guidance; use rtk for commands and CodeGraph
-  before locating/understanding indexed source. Follow [UI](../UI.md).
-- Use Python build/launch helpers; no PowerShell helper scripts. **8.4 platform CI
-  is deferred until explicit user instruction.** Do not add it under another name.
-- Batch authorized milestones, commit each completed brick in English, with hooks
-  enabled. Do not push without an explicit request.
-- Runtime tasks require the updated normal app built and visibly launched with
-  original configuration/history preserved. Diagnostic builds do not satisfy it.
-  Documentation-only tasks do not require relaunch.
-- Verify the basic flow plus one or two realistic edge failures and recovery per
-  brick. Record actual results/open gaps in [ACCEPTANCE](../ACCEPTANCE.md).
-- Use configured Qwen3.5-2B for routine live tests; DeepSeek V4.1 Flash for harder
-  ones. Keep usage bounded, selected provider/model unchanged and private data ignored.
-- Never raise budgets silently to disguise model failures, replay uncertain effects
-  blindly, lose dirty buffers, or count fixtures as real-model qualification.
+## Work and verification rules
 
-## Open gates carried forward
+- Read applicable AGENTS.md/RTK guidance; use RTK commands and CodeGraph first for
+  indexed source. Follow [UI](../UI.md).
+- Start with **16.0: revised page prototype and editor feasibility**. Review this
+  concrete UI direction before production changes; do not promote a failing trial.
+- Keep work to the authorized brick; commit completed bricks in English with hooks.
+  Do not push without explicit instruction. Platform CI 8.4 stays deferred.
+- Verify basic flow and one or two realistic failures/recovery when applicable;
+  record actual results/gaps in [acceptance](../ACCEPTANCE.md).
+- No build/launch/visual check after every task. Documents need link/document checks;
+  runtime work needs focused tests and a normal build when compilation/packaging is
+  affected. Prefer saved UI renders with `view_image`; use computer-use only for
+  interactions/native behavior that need it. Launch for relevant integration checks
+  or on request, through Python desktop helpers, preserving configuration/history.
+- Routine model probes use configured Qwen3.5-2B; harder cases use DeepSeek V4.1 Flash.
+  Bound usage, preserve selected settings and keep private data in ignored output.
 
-[Remaining work](../qualification/remaining-work.md) is the current ledger:
-sustained idle CPU, general computer-use reliability, broad model-based memory
-extraction, useful automatic skill improvement/live regression restoration,
-in-app browser installation and broader platform/accessibility qualification remain
-open. Exact simple response preferences/corrections were locally fixed and live
-checked; approved evidence survives command-review pauses. DeepSeek skill trials
-tied and correctly did not activate. Do not report these as broad learning success.
-
-The maintenance batch ended at commit
-`bdfca2866f235b26a82525358d756e7940a153a9`. Later planning commits must be discovered
-from Git; process IDs, build identity and dirty state are ephemeral and must be
-checked afresh. The original preview data directory was
-`output/model-picker/preview/data`; confirm ownership before replacing a preview.
-
-## First action in the next chat
-
-Discuss/review the 16.0 prototype and component feasibility scope. Preserve the
-requested four-pane layout and the explicit project binding. Do not begin the
-remaining runtime milestones merely because their plan exists. All milestones
-have failure/recovery and resource gates; no timeline or full VS Code parity has
-been promised.
+The original preview profile is `output/model-picker/preview/data`, with ownership
+record `output/maintained-preview.json`; verify current process identity before
+replacing anything. Do not change this profile for planning. No fixed dates or
+full VS Code/Meta Muse parity have been promised.

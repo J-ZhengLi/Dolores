@@ -1,10 +1,13 @@
 # Dolores architecture
 
-The proposed [developer workspace](design/developer-workspace.md) adds project-bound
-editor/Git/terminal/LSP services, concurrent chats and movable views in milestones
-16–19. It requires refactoring today's single-active-run ownership; those features
-are not implemented by this planning addition. This document continues to describe
-the current runtime.
+The proposed [developer workspace](design/developer-workspace.md) preserves Home's
+agent UI and adds separate project-bound Folders, Source Control and Terminal pages
+in milestones 16–19. Shared run/document/Git/PTY ownership precedes file-only split
+tabs and bounded experimental detached developer views. The proposed
+[memory/scheduling contract](design/memory-scheduling-companionship.md) adds useful
+automatic memory, chat-created tasks, opt-in companionship and an optional closed-UI
+worker in 21–24. These features are not implemented by this planning addition.
+This document continues to describe the current runtime.
 
 Dolores is a local desktop harness. Flutter is the selected UI; a bundled Rust host assembles the core and provider/storage/credential/tool plugins. Memories and reviewed skills change request context, not model weights. Outcome evidence helps judge selected changes without claiming consciousness or general autonomous competence.
 

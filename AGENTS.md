@@ -6,9 +6,9 @@ When a limit causes real tasks to fail, trace its effect before changing default
 
 Write commit subjects and bodies in English.
 
-Build and launch through `python scripts/desktop.py build` and `python scripts/desktop.py launch`; do not use PowerShell helpers. Keep platform CI (8.4) deferred until the user explicitly requests it.
+When a build or launch is needed, use `python scripts/desktop.py build` and `python scripts/desktop.py launch`; do not use PowerShell helpers. Keep platform CI (8.4) deferred until the user explicitly requests it.
 
-After each completed brick or task, build and launch the updated normal desktop app visibly for user verification. Preserve the existing provider configuration and history, replace only an owned preview process when needed, and confirm the app window is visible before reporting completion. Diagnostic builds do not satisfy this launch requirement.
+Choose verification that matches the change. Do not build, launch or visually inspect the desktop after every task. Documentation-only work needs document/link checks; runtime changes need focused tests and a normal build when compilation or packaging is affected. For UX changes, prefer saved renders/screenshots inspected with `view_image`; use the computer-use skill only when an interaction or native behavior needs it. Launch for a relevant integration check or when the user asks to see the app. Preserve provider configuration/history and replace only an owned preview process. Diagnostic evidence must be labeled; it does not establish normal-app behavior.
 
 Use the configured provider's Qwen3.5-2B model for routine live tests and DeepSeek V4.1 Flash for harder live cases. Keep prompts and token usage bounded, preserve the user's selected model/settings, and keep credentials and private transcripts out of test artifacts. Use deterministic fixtures for failure injection; a fixture pass alone does not establish real-model reliability.
 

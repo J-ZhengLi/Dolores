@@ -1,4 +1,37 @@
-# Dolores acceptance — 2026-10-06
+# Dolores acceptance — 2026-10-07
+
+## Roadmap revision — separate developer pages and useful continuity (planning only)
+
+The user reshaped milestones 16–19 and requested future memory, scheduling and
+companionship work, implemented one brick at a time. The revised
+[roadmap](ROADMAP.md) and [workspace contract](design/developer-workspace.md)
+preserve Home's agent UI, define the six sidebar entries with Settings at the
+bottom, and keep file and terminal splits separate. Source Control includes real
+Git diffs; selected-project/root and no-project/home behavior are explicit.
+Experimental multi-window has a bounded investigation and single-window fallback;
+Windows keep-awake describes its actual platform limits.
+
+The [new contract](design/memory-scheduling-companionship.md) assigns 21–24 to
+automatic source-backed useful memory, chat-created schedules, opt-in in-app
+companionship and optional closed-UI execution. The user's answers select one
+Memory switch with inspect/forget, and companion hours plus a daily cap. Manual
+schedule creation UI is deferred indefinitely. [Primary memory research](research/memory-foundations.md)
+distinguishes scientific findings from proposed engineering behavior; selective
+cue-led recall does not imply a complete human recording of sensations.
+
+Repository guidance and handoffs now match the user's verification preference:
+no desktop build/launch/visual check after every task; focused checks appropriate
+to the change, saved renders with `view_image` for appearance, computer-use only
+when interaction/native behavior needs it. Document/link checks and whitespace
+checks pass for this revision. No runtime code, dependency, schema, real profile
+or selected model changed, and no model request or desktop relaunch was made.
+
+**Open gates:** the revised 16.0 page prototype still needs review; existing editor
+typing/shortcut/resource failures remain open. Numerical defaults for new memory,
+schedule and companion behavior are proposals to freeze before implementation.
+The user's observed lack of memory updates is not diagnosed against their live
+profile. Milestones 16–19 and 21–24 are not delivered by this documentation work.
+Earlier acceptance entries below are historical evidence and retain their limits.
 
 ## Workspace/editor 16.0 — agent UI retained in a file-only split comparison
 
