@@ -1,5 +1,11 @@
 # Next roadmap handoff — developer workspace
 
+**Superseded starting order — 2026-10-06.** Use the
+[current session handoff](../HANDOFF.md) for immediate implementation. AI reliability
+and milestone 20 self-repair take priority; milestones 16–19 remain paused. This
+earlier handoff preserves the workspace requirements and prototype gate for when
+that track resumes. Its baseline/process details are historical snapshots.
+
 **2026-10-06. Planning only; runtime implementation has not started.** Use this
 document when opening a fresh Dolores development chat. The new direction is
 milestones 16–19 in [ROADMAP](../ROADMAP.md), specified in

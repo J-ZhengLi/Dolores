@@ -1,5 +1,12 @@
 # Dolores roadmap
 
+**Fresh-session continuation — 2026-10-06.** The
+[current handoff](HANDOFF.md) gathers earlier handoffs, design references and the
+latest acceptance evidence. Response/approval recovery and Automatic task loops
+are implemented; exact DeepSeek task-validation qualification remains open. Start
+there, then implement milestone 20. The user requested continuation in a fresh
+chat; 16–19 retain their paused status and 8.4 remains deferred.
+
 **Priority change — 2026-10-06.** Milestones 16–19 are paused at the user's
 request. Fix fragmented reasoning-stream failures and silent progress first.
 Then **20 — Harness self-repair** is proposed in [its specification](design/harness-self-repair.md):
