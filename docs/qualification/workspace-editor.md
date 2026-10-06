@@ -72,8 +72,25 @@ corrected rather than counted as a provider or recovery pass.
 Remaining gates: physical keyboard/IME/clipboard/native accessibility, long-running
 resource behavior, low-end/other OS, duration-based keep-awake and general model
 reliability. Save as deliberately refuses existing targets; replacement review
-is not implemented. The normal release launch/profile check follows below when
-completed. Source Control, Terminal and detach remain later milestone work.
+is not implemented. Source Control, Terminal and detach remain later milestone work.
+
+### Normal release handoff
+
+The maintained `python scripts/desktop.py build` of runtime source commit
+`8d7dfa2` succeeds. Maintained `launch` opens the normal `main` entry against the
+existing profile, with Windows window presence confirmed twice (PID 15748).
+Foreground and physical interaction were not inspected. Before/after read-only
+table hashes match for all 40 original tables; the new experimental preferences
+and workspace editor state tables are additive. Provider settings, selected model
+and history remain unchanged. No private transcript or credential is exported.
+
+The public C ABI editor/recovery fixtures also pass against the normal bundle,
+without repeating a live model request. Evidence remains under ignored
+`output/workspace-editor-qualification/c045597b-367d-48ae-8a53-6ab51ac9b02f/report.json`.
+The launch receipt is `output/workspace-16-normal-handoff.json`; profile hashes
+are retained locally in `output/workspace-16-normal-profile.json`. Final Flutter
+checks pass 278 tests with clean analysis; Rust bridge passes 121 and filesystem/
+store pass 93, with strict Clippy clean. Milestone 16 stops here before 17.
 
 ## Proceed decision and initial envelope — 2026-10-07
 

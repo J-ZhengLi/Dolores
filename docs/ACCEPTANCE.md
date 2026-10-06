@@ -44,6 +44,13 @@ Save as replacement of an existing file, physical input, low-end/other-OS checks
 long-duration keep-awake and earlier idle-CPU/model gaps remain open. Later pages
 stay unavailable honestly; this batch does not implement milestone 17.
 
+Normal release handoff: the maintained build of source commit `8d7dfa2` succeeded
+and the maintained launch opened the `main` entry with a Windows-visible window
+(PID 15748). All 40 original profile tables retain identical contents; only
+`experimental_preferences` and `workspace_editor_state` were added. The normal
+bundle also passes the public editor/recovery fixture, including fresh-process
+dirty recovery. Window presence does not qualify foreground or physical input.
+
 ## Workspace 16.5 — file splits and project layout recovery
 
 File tabs drag to reorder, move between groups and split on editor edges; menus
