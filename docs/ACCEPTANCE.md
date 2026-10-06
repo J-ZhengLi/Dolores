@@ -1,5 +1,35 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace/editor 16.0 — compact rail prototype and shared-view trial
+
+The new page study preserves agent Home and file-only Folders splits. Following
+the user's ChatGPT desktop screenshot, its primary navigation is a compact icon
+rail with hover/focus names, the wider page panel beside it, and Settings fixed at
+the bottom. Browser checks pass draft retention, project-separated buffers, actual
+drag/edge split, invalid-drop recovery, duplicate buffers, large/binary previews,
+folder cancel and compact/minimum-height access. Terminal, Scheduled and
+Experimental controls are explicitly synthetic; no real backend effects occur.
+Light/dark/wide/compact saved renders were inspected with `view_image`.
+
+Six isolated editor controller/widget checks pass, including focused Ctrl+Z/Ctrl+F,
+independent views and one bounded shared undo owner. Two native original-controller
+reruns pass typing at 7.210/6.749 ms without a performance fix; the earlier 94 ms
+failure's cause is still unknown. Shared-adapter one/two/four-view typing passes
+both native runs. On the repeat, **four-view ordinary reopening after large files
+takes 389.306 ms**, failing the unchanged 250 ms target. Provisional memory ceilings
+set before that repeat pass; they qualify only the scratch sizing cases, not idle
+or normal-app costs. See [exact evidence and remaining gates](qualification/workspace-editor.md).
+
+**Status:** prototype and partial feasibility evidence, not completed 16.0 or a
+selected production dependency. Revised layout review, inconsistent native opening,
+physical input/IME, encoding-safe Save and production protocol/resource bounds
+remain open. No production app source/dependency/profile/model setting changed;
+no real model call or normal desktop relaunch occurred. The isolated frontend was
+built/launched through the maintained Python machinery and exits after its probes.
+Documentation validation passes for 86 documents and 353 local links; whitespace
+checks pass. Public prototype source and native reports are retained on the
+separate branch named in the qualification report.
+
 ## Roadmap revision — separate developer pages and useful continuity (planning only)
 
 The user reshaped milestones 16–19 and requested future memory, scheduling and

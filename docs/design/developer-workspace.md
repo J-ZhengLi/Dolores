@@ -9,8 +9,13 @@ page prototype at 16.0 before UI rollout. Existing editor feasibility failures i
 
 ## Navigation and page layout
 
-Use a ChatGPT-inspired primary sidebar in this order: **Home, Scheduled, Folders,
-Source Control, Terminal**; **Settings** anchors at the bottom. Preserve Dolores's
+Use a compact ChatGPT-inspired **icon rail** in this order: **Home, Scheduled,
+Folders, Source Control, Terminal**; **Settings** anchors at the bottom. The user
+supplied the ChatGPT desktop screenshot on 2026-10-07, replacing the full-width
+labeled navigation study. Start at 64 logical pixels with 48-pixel targets;
+page names appear on hover/focus and remain semantic labels. Keep the wider page
+panel beside the rail for sessions/files; brand appears once in that panel.
+Preserve Dolores's
 infinity brand, palette, system appearance, message/composer and conversation
 controls. Inspiration does not mean copying assets or exact dimensions. Primary
 navigation is separate from each page's side panel. Keep familiar icons/hints,
@@ -50,7 +55,9 @@ terminals retain their original project/cwd, including a user-changed shell cwd.
 Headers identify this basis. Missing roots offer Choose folder/Open at home rather
 than silent fallback. Selecting B cannot retarget A's running shell.
 
-Compact navigation/page panels use accessible drawers; one file/terminal group
+At compact sizes the icon rail stays reachable and the page panel uses an
+accessible drawer; at minimum height navigation may scroll while bottom Settings
+remains fixed. One file/terminal group
 can take focus while all groups stay reachable. Restore the wide layout on expansion.
 Settings, Stop and native Close remain accessible. Native interaction checks are
 separate from screenshot inspection.

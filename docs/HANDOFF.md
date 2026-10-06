@@ -7,8 +7,11 @@ implement later **one brick at a time**, replacing the earlier milestone batches
 The current revision changes documents only. No memory, schedule, companion or
 new production workspace feature is activated by this plan.
 
-Preserve the current agent view on **Home**. The labeled primary sidebar is Home,
-Scheduled, Folders, Source Control, Terminal, then Settings anchored at the bottom.
+Preserve the current agent view on **Home**. The primary navigation is a compact
+64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,
+Folders, Source Control, Terminal, then Settings anchored at the bottom. Page names
+appear on hover/focus and remain semantic labels; the wider page panel stays beside
+the rail. This supersedes the initial full-width labeled navigation study.
 Folders has a selected-project file tree and VS Code-style draggable file tabs
 and splits; chats remain in Home. Source Control is project-bound and includes
 Git diffs. Terminal has its own tabs/splits; plus uses the selected project root,
@@ -26,9 +29,11 @@ model. Proposed numerical defaults must be frozen before their runtime bricks.
 
 The previous mixed-pane and A/B/C prototypes are historical explorations, not the
 current page contract. Production workspace rollout has not started. **Next brick:
-16.0**, review the revised page prototype and resolve existing editor feasibility
-gates. Large-file-sequence typing still fails the unchanged performance target;
-shortcut/multi-view/resource gates remain open. Do not adopt the trial dependency
+16.0**, review the compact-rail page prototype and resolve editor feasibility gates.
+Fresh isolated typing passes without explaining the historical 94 ms failure;
+the new four-view ordinary reopening fails at 389.306 ms versus 250 ms. Six
+controller/widget checks now cover shortcuts and shared-view undo. Physical input,
+byte-safe Save and production protocol/resource gates remain open. Do not adopt the trial dependency
 or claim 16.0 complete. Public trial evidence is in the qualification report.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,

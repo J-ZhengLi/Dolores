@@ -1,6 +1,91 @@
 # Workspace/editor 16.0 — partial feasibility evidence
 
-## Latest prototype — preserve agent UI, split files only
+## Current page prototype — compact icon rail, 2026-10-07
+
+The user requested separate Home/Scheduled/Folders/Source Control/Terminal pages,
+then supplied the ChatGPT desktop screenshot to select a compact icon rail rather
+than the initial full-width navigation. The revised synthetic study uses a
+64-pixel rail, 48-pixel icon targets, hover/focus names and semantic labels. Settings
+stays at the bottom even at 420×480. The wider adjacent panel shows Home sessions
+or the selected project's tree; brand appears once there. Home keeps the familiar
+conversation/composer; only Folders has file editor tabs/splits.
+
+Current review URL:
+`http://127.0.0.1:8767/developer-pages-prototype.html?variant=A`.
+A keeps the page panel visible, B folds it inline, C uses a drawer; all now use the
+compact rail. This replaces the earlier full-width A/B/C navigation choices, and
+the older mixed-pane and agent/file arrangements remain historical evidence.
+Local primary source: `output/workspace-16-prototype/developer-pages-prototype.html`.
+Primary source and public native trial reports are captured separately on
+`codex/prototype-developer-pages-16` at commit
+`adecd123ea708090de8e5533fcab3f7882291ed3`, under
+`apps/dolores_flutter/prototypes/developer-pages-16/`. The normal branch contains
+only contracts/evidence; the throwaway editor adapter is not promoted into runtime.
+Screenshots: `compact-rail-home.png`, `compact-rail-files.png`, and the revised
+`pages-*-home/files.png` in the same directory. The server is loopback-only.
+
+Playwright browser walkthroughs pass navigation/draft retention, A/B buffer
+separation, invalid-drop preservation, actual cross-group drag and edge split,
+shared duplicate buffers, large/binary read-only previews, folder-picker cancel,
+simulated terminal root/home defaults with existing CWD retained, no manual
+schedule creation, Experimental defaults, light/dark, compact group access and
+minimum-height Settings. Keyboard focus exposes a readable page name. Saved
+renders were inspected using `view_image`; no native computer-use automation ran.
+All content is synthetic/in-memory; no real filesystem, Git, PTY, scheduler, OS
+keep-awake, model or profile action occurs. Reload resets the study.
+
+### Additional isolated editor evidence
+
+Six controller/widget checks pass on the unchanged pinned candidate: Unicode
+insert/undo/redo, CRLF/BOM representation, 100 KiB-line undo, focused Ctrl+Z/Ctrl+F,
+independent mounted views with shared shortcut undo, and bounded document history
+after sibling closure. The throwaway adapter owns one document/history and one
+controller per view, clearing widget histories; the same controller is not mounted
+twice. It retains at most 64 history records and 4 Mi UTF-16 units. This proves
+that seam for the tested cases, not production encoding/save/composition safety.
+
+The unattended native release loop repeats the prior corpus without manual input.
+Two fresh original-controller runs give typing frame p95 **7.210/6.749 ms**, passing
+the unchanged 32 ms target without a performance fix. This does not explain the
+historical 94 ms failure; its source and timing reports below are retained.
+
+| Shared-document adapter | First typing frame p95 | Repeat typing frame p95 | Repeat ordinary reopen after large files |
+| --- | ---: | ---: | ---: |
+| One view | 3.515 ms | 4.783 ms | 77.651 ms |
+| Two views | 4.432 ms | 4.820 ms | 141.305 ms |
+| Four views | 4.344 ms | 6.267 ms | **389.306 ms — fails 250 ms target** |
+
+All cases use one document, 40 programmatic edits, timestamp-filtered engine frames
+and the same 1 MiB/100 KiB-line corpus. These are not physical typing/IME latency
+or disk I/O. Four distinct documents, highlighting/Find under load and normal-app
+bridge work are not measured. The first four-view reopen was 208.019 ms; the repeat
+fails. Do not label this consistent opening performance or silently raise 250 ms.
+
+The same repeat process has a shell baseline median 201.746 MiB working / 214.199
+MiB private. Five-second ordinary phases are separate from subsequent corpus phases:
+
+| Views of one document | Ordinary median working / private | Peak incremental working / private during corpus | Next-trial ceiling, each memory metric |
+| --- | --- | --- | --- |
+| One | 249.492 / 265.094 MiB | +86.875 / +92.855 MiB | +128 MiB |
+| Two | 262.332 / 278.766 MiB | +119.871 / +133.793 MiB | +192 MiB |
+| Four | 289.664 / 309.250 MiB | +188.992 / +209.426 MiB | +224 MiB |
+
+Those provisional ceilings were set after the first sizing run and before the
+repeat; all memory checks pass on the repeat. They apply to one shared document
+on this scratch host, not a normal-app heap guarantee, sustained idle CPU check or
+acceptance for multiple distinct documents. The full follow-up loop returns failure
+because ordinary reopening exceeds its unchanged target.
+
+**Held gates:** revised prototype review after the rail adjustment, the historical
+typing discrepancy and new four-view opening failure, native keyboard/selection/
+clipboard/IME/accessibility, real byte-safe Save and production protocol/resource
+bounds. The 5 MiB editable proposal remains unqualified; it was not silently adopted.
+Freeze production snapshot/delta/file/resident budgets before adopting a dependency.
+16.0 remains in progress; 16.1–16.6 have not started. Neither production source,
+dependencies nor the real profile changed. Diagnostic entry `main` identifies the
+scratch frontend only, not normal-app qualification. No live model request ran.
+
+## Earlier prototype — preserve agent UI, split files only
 
 The user is undecided about the earlier workspace layout and requested a prototype
 that retains Dolores's current agent view and limits split tabs to files. The new

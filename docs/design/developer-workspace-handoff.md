@@ -8,8 +8,10 @@ instruction and mixed chat/file four-pane arrangement are superseded.
 ## Product intent
 
 Keep Dolores's current agent UI on Home, including the session/project side panel
-and main chat. The primary sidebar contains Home, Scheduled, Folders, Source
-Control and Terminal; Settings remains at the bottom. Each page has suitable
+and main chat. The compact primary icon rail follows the user's ChatGPT desktop
+screenshot: Home, Scheduled, Folders, Source Control and Terminal; Settings remains
+at the bottom. Use hover/focus names and semantic labels, with the wider page panel
+beside the rail and one brand there. Each page has suitable
 secondary content. Folders has a project file tree and VS Code-style draggable
 file tabs/splits; chats never become editor tabs. Source Control shows selected
 project changes/history/diffs. Terminal has separate tabs/splits: plus starts at
@@ -50,9 +52,11 @@ single-active-run assumptions. Shared run/document/Git/PTY/LSP ownership is a re
 Navigation must not retarget a run, discard a dirty buffer or kill an existing PTY.
 
 Candidate editor/terminal/window libraries are researched options, not installed
-production dependencies. The 16.0 release editor trial still fails the unchanged
-large-file-sequence typing target; native shortcut, multi-view and resource gates
-remain open. See [qualification](../qualification/workspace-editor.md). Older
+production dependencies. Fresh isolated typing now passes without a performance
+fix or explanation of the earlier 94 ms failure. Six controller/widget checks
+cover shortcuts/shared-view undo, but four-view reopening after large files fails
+at 389.306 ms versus the unchanged 250 ms target. Physical input, byte-safe Save
+and production protocol/resource gates remain open. See [qualification](../qualification/workspace-editor.md). Older
 prototypes are evidence, not approval of the revised separate-page UI.
 
 [Remaining work](../qualification/remaining-work.md) retains broad model, learning,

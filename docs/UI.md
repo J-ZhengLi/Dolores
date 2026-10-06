@@ -1,8 +1,10 @@
 # Universal UI style
 
 **Target page contract — 2026-10-07:** retain the existing agent/session/message/
-composer design on Home. The primary sidebar contains Home, Scheduled, Folders,
-Source Control and Terminal, with Settings anchored at the bottom. The previous
+composer design on Home. Following the user's ChatGPT desktop screenshot, use a
+compact 64-pixel icon rail for Home, Scheduled, Folders, Source Control and Terminal,
+with Settings anchored at the bottom, hover/focus names and semantic labels.
+The wider chat/file page panel remains beside it; brand appears once there. The previous
 mixed-pane and A/B/C prototypes are historical explorations. Review the revised
 page prototype before runtime rollout; existing [editor qualification](qualification/workspace-editor.md)
 gates remain open.

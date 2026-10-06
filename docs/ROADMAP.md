@@ -1,8 +1,10 @@
 # Dolores roadmap
 
 **Current planning revision — 2026-10-07.** Preserve the current agent UI on Home.
-Use separate Home, Scheduled, Folders, Source Control and Terminal pages, with
-Settings anchored at the bottom. Files have VS Code-style draggable split tabs;
+Use separate Home, Scheduled, Folders, Source Control and Terminal pages, reached
+through a compact icon rail with hover/focus names and Settings at the bottom.
+The user's ChatGPT desktop screenshot replaces full-width navigation labels;
+the chat/file side panel stays beside the rail. Files have VS Code-style draggable split tabs;
 chats remain in Home. Terminal has its own tabs/splits. The selected project
 binds Folders, Source Control and new terminals; without a project, new terminals
 start at the OS user home. The earlier mixed chat/file and A/B/C prototypes are
@@ -727,8 +729,9 @@ exact configuration/evidence access. Remaining model/platform gaps stay visible.
 ## Milestone 16 — Home, navigation and Folders editor
 
 **Revised 2026-10-07; planning/incomplete.** Preserve the current agent UI on Home.
-Primary sidebar: Home / Scheduled / Folders / Source Control / Terminal; Settings
-at bottom. Folders has the selected project's tree and file-only split tabs. No
+Compact primary icon rail: Home / Scheduled / Folders / Source Control / Terminal;
+hover/focus names, semantic labels and Settings at bottom. Folders has the selected
+project's tree and file-only split tabs. No
 mixed chat/file four-pane acceptance or chat editor tabs. The former 16.0–16.5
 unimplemented plan is reshaped into 16.0–16.6; no delivered brick is renumbered.
 See [workspace contract](design/developer-workspace.md). Implement one brick at a
@@ -757,7 +760,8 @@ same-root agent writes, automatic worktrees and new grants.
 
 ### 16.2 Primary navigation and project-bound page shells
 
-**Scope:** labeled sidebar, bottom Settings, page side panels, Home unchanged,
+**Scope:** compact icon rail with hover/focus names, bottom Settings, page side
+panels, Home unchanged,
 selected-project picker and truthful unavailable Scheduled/Source Control/Terminal.
 No project on Folders offers Open folder to select/create a canonical project.
 Include Experimental preferences (Multiple Window default On, unavailable until
