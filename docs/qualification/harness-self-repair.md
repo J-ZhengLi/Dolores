@@ -312,3 +312,96 @@ opens that maintained version. Persistent routing, signing/public updates, direc
 user review/graceful Close, real-model authored repair, low-end/other-OS hosts and
 the complete native visual matrix remain unaccepted. 20.3 Wasm is not adopted;
 milestones 16–19 and CI 8.4 remain deferred.
+
+## 20.6 — bounded DeepSeek-authored candidate and a real task
+
+2026-10-06. The configured `deepseek-v4.1-flash` connection is used from an isolated
+profile, with its key held in memory and the original profile read-only. No
+original chat is copied into prompts, exports or test reports. Automatic memory
+is disabled only in the test profile. Reports retain public source diffs,
+identities, numeric outcomes and booleans rather than model transcripts or keys.
+
+The task gives the model a public example of the existing wrapped-JSON argument
+fault and the provider source path. It does not give replacement code. DeepSeek
+uses nine successful source inspections, prepares matching managed source and
+authors its own small replacement at final call assembly. It unwraps exactly one
+JSON string layer, then runs the existing call validation and object check.
+Malformed/non-object/recursively encoded input still fails, and output exhaustion
+still produces no executable partial calls. Two attempted reads outside the
+test's file scope are denied; the model recovers without changing that scope.
+
+This is a file-scoped assisted diagnosis, not discovery of an unspecified defect.
+The fault is independently reconstructed with fixed public provider responses;
+it was not spontaneously observed on the configured live DeepSeek connection.
+The reproduction is host-owned, frozen and supplied separately after the model
+proposal. The model cannot rewrite tests or alter approval/policy/limits. Every
+proposal, native test and build review pauses for inspection; none is blanket
+approval, and native code still has account permissions rather than OS containment.
+
+### Results and identity
+
+Private disposable run: `4e7bf33c-795c-4f8b-a3bf-36db299a52a1`; repair
+`090ced32-d372-4854-b382-eb2cbb6c57e6`; evaluation
+`0e3cdd14-f40c-487c-9cb1-33e3c3a023fc`; release build
+`6a2a5203-45ed-41ee-b4ae-2763b501c18d`. All local artifacts stay under ignored output.
+The maintained provider implementation is unchanged; the reviewed model patch
+exists only in its managed candidate.
+
+- Baseline reproduction: two pass and the actual wrapped-object fault fails.
+  Candidate: three pass, including five malformed/recursive/non-object variants
+  in one case and exhausted-output refusal. All 354 unchanged Rust workspace
+  library regressions pass. No criterion is weakened or invented after results.
+- Separate fixed offline/locked release build returns ready. Native command
+  bounds remain 300 seconds and 256 KiB each. Model requests never install code.
+- The actual normal candidate shell passes protected startup using trusted
+  fixed test intents. After stopping only that recorded idle fixture process,
+  an actual two-call DeepSeek read task runs through the candidate bridge.
+  Its saved implementation identity equals the candidate source identity.
+- The task reads `notes/report.json` once with explicit exact-path approval,
+  correctly reports its status and true completion field, and returns quoted JSON
+  and Chinese content intact. Project digests compare equal before/after. The
+  model correctly distinguishes the literal file marker from proof of a repair.
+- Subsequent trusted Restore preserves the completed live model turn and a newer
+  acknowledged draft. Interrupted waiting-helper refusal leaves the old app and
+  history intact. Deliberate candidate startup source mismatch cannot become
+  healthy; bounded rollback starts the previous normal bundle and preserves all
+  current history. Used/interrupted intents refuse replay. All table contents
+  compare equal across each handoff.
+- Native dark foreground inspection after rollback shows the live read receipt,
+  correct public answer and newer draft. This is a sample, not a complete theme,
+  compact window, IME or accessibility matrix. Original-profile comparison again
+  confirms all 38 original tables unchanged and only the accepted empty repair
+  tables at schema 33.
+
+The first live-task driver result falsely failed because it expected the generic
+tool status `completed`; this file tool's successful status is `read`. The original
+false report is retained. Independent audit verifies the saved completed turn,
+no pause reason, exact candidate implementation, actual answer, file digests and
+history preservation before recording success. The driver is corrected for later
+runs; no model retry or production-default adjustment is used to conceal failure.
+
+### Bounds, costs and acceptance boundary
+
+There are 14 actual model calls: 8 proposal, 2 evaluation, 2 build, 2 candidate task.
+Observed phase wall times are 120.13, 357.97, 215.55 and 5.20 seconds respectively;
+these include review waits and native work, not just model latency. Output limits
+are 4096 tokens per repair-phase call and 1024 for the read task; inactivity is
+60 seconds. Driver caps are 10/4/4/4 model calls per phase, with separate bounded
+phase/review waits and no automatic continuation. The production ceilings remain.
+
+Provider-reported usage totals: 229,991 input, 13,513 output, 243,504 total tokens;
+16,768 cached input tokens are a subset of input, not an additional total. Source
+inspection dominates repeated context. The cold private profile retains
+5359.04 MiB including compiler caches and versioned bundles. These are observations
+for one development laptop; no cost, low-end or general-reliability target is
+claimed to pass. No new idle service or schema is added by this qualification.
+
+One bounded model-authored repair candidate and a real candidate task now pass.
+The earlier reviewed non-improvement remains withheld, and trusted helper
+restart/Restore/rollback qualification passes for this actual model patch.
+Direct human installation approval and graceful product Close remain unexercised:
+fixed intents and exact owned idle cleanup do not replace those gates. Nothing is
+installed in the original profile and no model-authored code is promoted to the
+maintained checkout. General model repair competence, persistent shortcut routing,
+qualified OS containment and other-platform/complete visual acceptance remain
+open. Milestones 16–19, Wasm 20.3 and CI 8.4 retain their deferred status.

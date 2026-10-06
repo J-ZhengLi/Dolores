@@ -1,5 +1,51 @@
 # Dolores acceptance — 2026-10-06
 
+## Harness self-repair 20.6 — one configured DeepSeek repair case passes
+
+Configured DeepSeek V4.1 Flash inspected the running source and authored its own
+provider argument-normalization patch, without receiving replacement code. The
+file-scoped prompt supplied a public example of the existing double-encoded JSON
+fault. This is a model-authored candidate, unlike 20.5's fixed patch. The malformed
+provider responses remain deterministic independent test inputs; this fault was
+not observed spontaneously on the configured DeepSeek connection.
+
+Separate inspected proposal, native test and release-build reviews pass. The
+frozen baseline passes two cases and fails the actual wrapped-object case; the
+model candidate passes all three, including malformed/non-object/recursive input
+refusal and exhausted output publishing no partial call. All 354 unchanged Rust
+workspace regressions pass. The resulting release bundle is ready.
+
+The protected trusted handoff starts the actual normal candidate shell. A real
+DeepSeek task then runs through the candidate bridge, reads a public JSON file
+exactly once, correctly reports its status and boolean with quoted/Chinese content,
+and changes no project files. Saved implementation identity matches the candidate.
+Restore and subsequent startup-failure rollback preserve that completed model turn
+and a newer acknowledged draft. Interrupted waiting-helper and used-intent replay
+refusals also pass. These handoffs use fixed test intents and exact owned idle
+process cleanup; direct user approval and graceful product Close remain manual
+gates. No model controls installation and no repair is applied to the original profile.
+
+14 model calls total: 8 diagnosis/proposal, 2 test, 2 build, 2 live task. Stage wall
+times are 120.13 / 357.97 / 215.55 / 5.20 seconds, including review and native
+execution waits. Output is bounded to 4096 tokens per repair-phase call and 1024
+per live-task call, with 60-second model inactivity and unchanged native command
+limits. Provider-reported totals are 229,991 input / 13,513 output / 243,504 total
+tokens, including 16,768 cached input tokens. This cold profile retains 5359.04 MiB.
+
+Two out-of-file inspections were denied by the test's narrow review scope; the
+model recovered and retained its proposal. The live-task driver's initial status
+assertion expected `completed` instead of the actual successful `read`. Its false
+report is retained; an independent audit checks the completed saved turn, exact
+candidate source, correct values and preservation before marking this case passed.
+No additional model retry or production-default change was needed.
+
+The original profile's 38 tables, selected model, settings and paused work remain
+unchanged. This closes one bounded model-authored repair case, not general repair
+competence, direct user installation/Close, containment, persistent shortcut
+routing or broader platform/visual acceptance. The normal app is rebuilt and
+visibly reopened after this verification task; detailed evidence and exclusions
+are in the [qualification report](qualification/harness-self-repair.md).
+
 ## Harness self-repair 20.5 — Windows Rust implementation and packaged fixture qualification
 
 Separate build, installation and Restore reviews are implemented for qualified

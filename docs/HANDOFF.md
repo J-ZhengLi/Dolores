@@ -44,7 +44,14 @@ intact. 20.4 now implements reviewed Rust reproduction/regression execution and
 schema 33; packaged dispatch, bounded DeepSeek non-improvement and normal foreground
 checks pass. 20.5 adds a separately reviewed Windows Rust build and protected lazy
 launcher with versioned bundles and current-history Restore. Its latest packaged
-evidence and unresolved user/model/platform gates are in ACCEPTANCE.
+   evidence and unresolved user/model/platform gates are in ACCEPTANCE.
+20.6 now verifies one bounded configured DeepSeek-authored parser repair: frozen
+baseline fault, three candidate cases, 354 unchanged regressions, reviewed release
+build, actual candidate source identity, a two-call real read task and preservation
+through trusted Restore/rollback. The original profile is unchanged. This does
+not close direct user installation/Close or general model/platform competence;
+see the newest acceptance and qualification report rather than inferring broader
+milestone completion.
 
 - Blank output delegates the response maximum to the provider. Existing numeric
   settings remain. Model inactivity is separate from optional task time; human
@@ -106,7 +113,7 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 | 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
 | 20.4 | Reviewed Rust evaluator implemented; packaged dispatch, bounded DeepSeek non-improvement and normal foreground checks pass; trial-card/real-repair/resource/platform gaps remain. |
 | 20.5 | Windows Rust build/install/Restore implemented; [scope and recovery](design/native-repair-installation.md), latest evidence in ACCEPTANCE. |
-| 20.6 | Real repair, withheld non-improvement and rollback qualification. |
+| 20.6 | One configured DeepSeek-authored candidate and real task pass; trusted Restore/rollback preserves work. Direct user installation/Close and general reliability remain open. |
 
 The [specification](design/harness-self-repair.md) owns authority, source-bundle,
 state-machine and test/install contracts. Native/core replacement stays reviewed;

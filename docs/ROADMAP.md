@@ -1073,7 +1073,7 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
-**Status: 20.1–20.2 and 20.4 implemented; 20.5 Windows Rust build/install/Restore is implemented and passes packaged trusted-fixture qualification. User-approval, model and broader platform qualification remains open.** This milestone takes priority before
+**Status: 20.1–20.2 and 20.4 implemented; 20.5 passes packaged trusted-fixture qualification, and 20.6 passes one configured DeepSeek-authored repair candidate and real task. Direct user installation/Close, general model competence and broader platform qualification remain open.** This milestone takes priority before
 the paused 16–19 developer-workspace track after immediate AI reliability fixes.
 The [specification](design/harness-self-repair.md) defines scope, ownership,
 authority, test/activation and restore contracts for every brick:
@@ -1088,12 +1088,16 @@ authority, test/activation and restore contracts for every brick:
    implemented; packaged dispatch and bounded DeepSeek non-improvement pass;
    a fixed provider-parser repair now reproduces its actual failure, passes three
    frozen candidate cases and all workspace library regressions. This is fixture
-   evidence; a model-authored repair remains open.
+   evidence; 20.6 now also verifies one independently reviewed DeepSeek-authored
+   candidate against the frozen fault and unchanged regressions.
 5. **20.5:** separately reviewed Windows Rust release build, normal restart and
    Restore implemented; packaged fixtures verify protected startup, newer-history
    preservation, interrupted-helper refusal and automatic startup-failure recovery.
    Direct user review/graceful close remains unexercised. See [installation scope](design/native-repair-installation.md).
-6. **20.6:** real repair, withheld non-improvement and rollback qualification.
+6. **20.6:** one configured DeepSeek-authored provider repair, reviewed release
+   build, real candidate task and trusted protected Restore/rollback pass.
+   Earlier reviewed non-improvement remains withheld. Direct user installation/
+   graceful Close, general model competence and broader platforms remain open.
 
 Each brick's basic and realistic failure/recovery criteria are in the spec.
 Success means a fault is reproduced and repaired without losing work; inspection,
