@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 async-trait.workspace = true
 tempfile = "3"
 dolores-core = { path = "../dolores-core" }
+dolores-native-update = { path = "../dolores-native-update" }
 dolores-mod-runtime = { path = "../dolores-mod-runtime" }
 dolores-provider-openai = { path = "../dolores-provider-openai" }
 dolores-store-sqlite = { path = "../dolores-store-sqlite" }

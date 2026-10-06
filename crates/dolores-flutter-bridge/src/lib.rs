@@ -23,19 +23,21 @@ mod experience;
 #[cfg(test)]
 mod experience_tests;
 mod export;
+mod harness_repair;
 mod instructions;
 mod introspection;
-mod harness_repair;
-mod repair_evaluation;
 mod knowledge;
 mod mcp;
 mod memory;
 mod memory_suggestions;
 mod mod_generation;
 mod mods;
+mod native_build;
+mod native_update;
 mod permissions;
 mod recovery;
 mod registry;
+mod repair_evaluation;
 mod run_journal;
 mod settings;
 mod skill_drafts;
@@ -107,12 +109,32 @@ struct Engine {
     mcp_credentials: Arc<dyn CredentialStore>,
     desktop_access: desktop_control::Grants,
     desktop_boot_ms: u64,
+    native_review: Mutex<Option<native_update::Review>>,
+    native_startup: Option<PathBuf>,
+    native_leaving: std::sync::atomic::AtomicBool,
 }
 static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    NativeRepairs {
+        session: Option<String>,
+    },
+    ReviewNativeUpdate {
+        session: String,
+        #[serde(rename = "buildId")]
+        build_id: String,
+        restore: bool,
+    },
+    ApplyNativeUpdate {
+        token: String,
+    },
+    DiscardNativeUpdate {
+        token: String,
+    },
+    NativeStartupReady,
+    NativeUpdateReady,
     ModelDetails {
         preferences: ConnectionPreferences,
     },
@@ -324,7 +346,7 @@ enum Command {
     },
     HarnessRepairs {
         session: String,
-        #[serde(rename="repairId")]
+        #[serde(rename = "repairId")]
         repair_id: Option<String>,
         source: Option<String>,
     },
@@ -733,16 +755,50 @@ impl Engine {
             mcp_credentials: credentials,
             desktop_access: Mutex::new(Default::default()),
             desktop_boot_ms: desktop_control::now_millis(),
+            native_review: Mutex::new(None),
+            native_startup: None,
+            native_leaving: std::sync::atomic::AtomicBool::new(false),
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
         // Reserve/prepare/cancel are synchronized. Persistence runs on Dart's worker
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;
+        if self
+            .native_leaving
+            .load(std::sync::atomic::Ordering::SeqCst)
+            && !matches!(&command, Command::Shutdown)
+        {
+            return Err(
+                "Native restart is in progress. Saved drafts remain; no new task can start.".into(),
+            );
+        }
+        if self.native_startup.is_some()
+            && !self.native_ready()?
+            && !matches!(
+                &command,
+                Command::Bootstrap
+                    | Command::Workspace { .. }
+                    | Command::MessagesPage { .. }
+                    | Command::SessionsPage { .. }
+                    | Command::SavedDraft { .. }
+                    | Command::DraftAttachments { .. }
+                    | Command::NativeStartupReady
+                    | Command::NativeUpdateReady
+                    | Command::NativeRepairs { .. }
+                    | Command::Shutdown
+            )
+        {
+            return Err("Native startup is still being verified. History is available; wait for the handoff result before editing or starting work.".into());
+        }
         if active.closed() {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::NativeRepairs { session } => return self.native_repairs(session.as_deref()),
+            Command::NativeStartupReady => return self.native_startup_ready(),
+            Command::NativeUpdateReady => return Ok(json!({"ready":self.native_ready()?})),
+            Command::DiscardNativeUpdate { token } => return self.discard_native(&token),
             Command::ModelDetails { preferences } => return Ok(json!(self.store.model_details(&preferences)?)),
             Command::SaveAppearance { theme } => {
                 self.store.save_appearance(theme)?;
@@ -857,6 +913,12 @@ impl Engine {
             return Err("Stop the current response first.".into());
         }
         match command {
+            Command::ReviewNativeUpdate {
+                session,
+                build_id,
+                restore,
+            } => self.review_native(&session, &build_id, restore),
+            Command::ApplyNativeUpdate { token } => self.apply_native(&token),
             Command::SetModelDetails {
                 preferences,
                 expected,
@@ -1164,7 +1226,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"appearance":self.store.appearance()?,"durableDrafts":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -1672,9 +1734,26 @@ impl Engine {
                     tools.push(Arc::new(introspection::InspectHarness(
                         self.harness_inventory(session.as_deref())?,
                     )));
-                    if let Some(directory)=self.workspace_directory.as_ref().and_then(|p|p.parent()) {
-                        tools.push(Arc::new(harness_repair::RepairTool::new(self.store.clone(),session.clone().unwrap(),directory.join("repairs"))));
-                        tools.push(Arc::new(repair_evaluation::EvaluationTool::new(self.store.clone(),session.clone().unwrap(),directory.join("repairs"))));
+                    if let Some(directory) =
+                        self.workspace_directory.as_ref().and_then(|p| p.parent())
+                    {
+                        tools.push(Arc::new(harness_repair::RepairTool::new(
+                            self.store.clone(),
+                            session.clone().unwrap(),
+                            directory.join("repairs"),
+                        )));
+                        tools.push(Arc::new(repair_evaluation::EvaluationTool::new(
+                            self.store.clone(),
+                            session.clone().unwrap(),
+                            directory.join("repairs"),
+                        )));
+                        if cfg!(windows) {
+                            tools.push(Arc::new(native_build::BuildTool::new(
+                                self.store.clone(),
+                                session.clone().unwrap(),
+                                directory.to_path_buf(),
+                            )));
+                        }
                     }
                     if desktop::helper().is_ok() {
                         tools.push(Arc::new(desktop_access::RequestAccess));
@@ -2459,12 +2538,16 @@ fn initialize() -> Result<Engine, String> {
     };
     std::fs::create_dir_all(&directory).map_err(|_| "Could not create the data directory.")?;
     let data_lock = run_journal::lock_directory(&directory)?;
+    let native_startup = native_update::preflight(&directory)?;
     let credentials = Arc::new(dolores_credentials::OsCredentialStore::new(&directory)?);
     let mut engine = Engine::new(
         Arc::new(SqliteStore::open(&directory.join("dolores.db"))?),
         credentials,
     )?;
-    engine.store.interrupt_runs()?;
+    if native_startup.is_none() {
+        engine.store.interrupt_runs()?;
+    }
+    engine.native_startup = native_startup;
     engine.data_lock = Some(data_lock);
     engine.workspace_directory = Some(directory.join("workspaces"));
     engine.global_skills_directory = Some(match std::env::var_os("DOLORES_GLOBAL_SKILLS_DIR") {

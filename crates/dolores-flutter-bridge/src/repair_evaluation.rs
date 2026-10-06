@@ -83,7 +83,7 @@ fn tests(text: &str) -> Result<Vec<String>, String> {
     visitor.visit_file(&ast);
     Ok(visitor.0)
 }
-fn eligible(state: &RepairWorkspace) -> Result<(), String> {
+pub(super) fn eligible(state: &RepairWorkspace) -> Result<(), String> {
     matching(state)?;
     if !state.files.iter().any(|f| f.before != f.after) {
         return Err("Prepare a changed candidate before requesting native tests; retained baseline remains.".into());
@@ -124,6 +124,7 @@ struct Plan {
     receipt: RepairEvaluation,
     command: dolores_core::CommandPreview,
     reproduction_command: dolores_core::CommandPreview,
+    baseline_command: dolores_core::CommandPreview,
     cargo_id: String,
 }
 pub(super) struct EvaluationTool {
@@ -157,6 +158,7 @@ impl EvaluationTool {
         Ok(state)
     }
 }
+#[cfg(test)]
 fn command_call(id: &str) -> ToolCall {
     ToolCall {
         id: id.into(),
@@ -166,7 +168,7 @@ fn command_call(id: &str) -> ToolCall {
                 .to_string(),
     }
 }
-fn cargo_identity(command: &dolores_core::CommandPreview) -> Result<String, String> {
+pub(super) fn cargo_identity(command: &dolores_core::CommandPreview) -> Result<String, String> {
     use std::io::Read;
     let file = fs::File::open(&command.executable)
         .map_err(|_| "Installed Cargo unavailable; request a fresh native review.")?;
@@ -199,7 +201,7 @@ async fn checked_variant(
     }
     variant(root, command, cancel).await
 }
-fn materialize(
+pub(super) fn materialize(
     root: &Path,
     state: &RepairWorkspace,
     cancel: &CancellationToken,
@@ -236,7 +238,7 @@ fn materialize(
     }
     Ok(())
 }
-fn verify_sources(root: &Path, state: &RepairWorkspace) -> Result<(), String> {
+pub(super) fn verify_sources(root: &Path, state: &RepairWorkspace) -> Result<(), String> {
     if is_alias(&fs::symlink_metadata(root).map_err(|_| "Native evaluation storage unavailable.")?)
     {
         return Err("Native evaluation storage changed; no improvement qualified.".into());
@@ -455,12 +457,25 @@ impl ToolPlugin for EvaluationTool {
         {
             return Err("This repair has four retained native trials. Inspect them or explicitly prepare a separate repair; no trial was replayed.".into());
         }
-        let command = dolores_tools_command::RunCommand::new(&self.directory)?
-            .prepare(&command_call("native-probe"))?
-            .command
-            .unwrap();
-        let reproduction_command=dolores_tools_command::RunCommand::new(&self.directory)?.prepare(&ToolCall{id:"reproduction-probe".into(),name:"run_command".into(),arguments:json!({"program":"cargo","args":["test","--offline","--locked","-p",q.package,"--test","dolores_repair_reproduction","--","--test-threads=1"],"timeout_seconds":SECONDS,"capture_bytes":CAPTURE}).to_string()})?.command.unwrap();
         let id = uuid::Uuid::new_v4().to_string();
+        let profile = self
+            .directory
+            .parent()
+            .ok_or("Native profile unavailable.")?;
+        let baseline_target = super::native_build::target_dir(profile, &id, "b")?;
+        let candidate_target = super::native_build::target_dir(profile, &id, "c")?;
+        let mut args = ARGS.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let at = args.iter().position(|a| a == "--").unwrap();
+        args.splice(
+            at..at,
+            [
+                "--target-dir".into(),
+                candidate_target.to_string_lossy().into_owned(),
+            ],
+        );
+        let command=dolores_tools_command::RunCommand::new(&self.directory)?.prepare(&ToolCall{id:"native-probe".into(),name:"run_command".into(),arguments:json!({"program":"cargo","args":args,"timeout_seconds":SECONDS,"capture_bytes":CAPTURE}).to_string()})?.command.unwrap();
+        let reproduction_command=dolores_tools_command::RunCommand::new(&self.directory)?.prepare(&ToolCall{id:"reproduction-probe".into(),name:"run_command".into(),arguments:json!({"program":"cargo","args":["test","--offline","--locked","-p",q.package,"--test","dolores_repair_reproduction","--target-dir",candidate_target,"--","--test-threads=1"],"timeout_seconds":SECONDS,"capture_bytes":CAPTURE}).to_string()})?.command.unwrap();
+        let baseline_command=dolores_tools_command::RunCommand::new(&self.directory)?.prepare(&ToolCall{id:"baseline-probe".into(),name:"run_command".into(),arguments:json!({"program":"cargo","args":["test","--offline","--locked","-p",q.package,"--test","dolores_repair_reproduction","--target-dir",baseline_target,"--","--test-threads=1"],"timeout_seconds":SECONDS,"capture_bytes":CAPTURE}).to_string()})?.command.unwrap();
         let cargo_id = cargo_identity(&command)?;
         let receipt=RepairEvaluation{id:id.clone(),session:self.session.clone(),repair_id:state.id.clone(),revision:state.revision,bundle_id:state.bundle_id.clone(),candidate_ids:state.files.iter().map(|f|f.candidate_id.clone()).collect(),criteria_id:criterion(&state,&q.package,&q.reproduction),cargo_id:cargo_id.clone(),package:q.package,reproduction:q.reproduction,status:"started".into(),artifact:format!("evaluation-{id}"),baseline:None,candidate:None,regression:None,note:"No installation authority. An unfinished receipt requires a fresh reviewed trial; nothing resumes automatically.".into()};
         let mut diff = state
@@ -483,7 +498,7 @@ impl ToolPlugin for EvaluationTool {
         if diff.len() > 12288 {
             return Err("Combined native review diff exceeds 12 KiB. Retain the proposal and prepare a smaller repair before execution.".into());
         }
-        let request=ToolRequest{call_id:call.id.clone(),name:call.name.clone(),target:"Dolores native evaluation".into(),query:Some(json!({"repairId":state.id,"revision":state.revision,"evaluationId":id,"bundleId":state.bundle_id,"criteriaId":receipt.criteria_id,"cargoId":cargo_id,"commands":{"baselineReproduction":reproduction_command,"candidateReproduction":reproduction_command,"candidateRegressions":command},"candidateRunsOnlyAfter":"complete baseline test failure","storage":"separate owned evaluation workspace","authority":"account permissions; not OS sandboxed; no installation"}).to_string()),diff:Some(diff),command:None,mcp:None};
+        let request=ToolRequest{call_id:call.id.clone(),name:call.name.clone(),target:"Dolores native evaluation".into(),query:Some(json!({"repairId":state.id,"revision":state.revision,"evaluationId":id,"bundleId":state.bundle_id,"criteriaId":receipt.criteria_id,"cargoId":cargo_id,"commands":{"baselineReproduction":baseline_command,"candidateReproduction":reproduction_command,"candidateRegressions":command},"candidateRunsOnlyAfter":"complete baseline test failure","storage":"separate owned evaluation workspace","authority":"account permissions; not OS sandboxed; no installation"}).to_string()),diff:Some(diff),command:None,mcp:None};
         let mut plans = self
             .plans
             .lock()
@@ -499,6 +514,7 @@ impl ToolPlugin for EvaluationTool {
                 receipt,
                 command,
                 reproduction_command,
+                baseline_command,
                 cargo_id,
             },
         );
@@ -533,13 +549,14 @@ impl ToolPlugin for EvaluationTool {
         self.store.save_repair_evaluation(&receipt)?;
         let root = self.directory.join(&receipt.artifact);
         let result=async {
+            super::native_build::create_targets(self.directory.parent().ok_or("Native profile unavailable.")?,&receipt.id)?;
             fs::create_dir(&root).map_err(|_|"Native evaluation storage unavailable; no command ran.")?;
             let state=plan.state.clone();let staging=root.clone();let token=cancel.clone();
             tokio::task::spawn_blocking(move||materialize(&staging,&state,&token)).await.map_err(|_|"Native staging worker failed.")??;
             stage_reproduction(&root,&receipt)?;
             verify_sources(&root,&plan.state)?;
             verify_reproduction(&root,&receipt)?;
-            receipt.baseline=Some(checked_variant(&root.join("baseline"),&plan.reproduction_command,&plan.cargo_id,cancel.clone()).await?);
+            receipt.baseline=Some(checked_variant(&root.join("baseline"),&plan.baseline_command,&plan.cargo_id,cancel.clone()).await?);
             self.store.save_repair_evaluation(&receipt)?;
             verify_sources(&root,&plan.state)?;
             verify_reproduction(&root,&receipt)?;

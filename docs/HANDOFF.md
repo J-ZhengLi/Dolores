@@ -17,7 +17,9 @@ CI 8.4 remains deferred until the user explicitly requests it.
    and document actual model failures separately.
 4. 20.1–20.2 now provide matching-source inspection and reviewed native proposals.
    The user selected native-first; 20.3's proposed broader Wasm hook is not adopted.
-   Prepare dependent native evaluation/install/restore when prerequisites pass.
+   20.4 now runs separately reviewed frozen Rust trials; 20.5 implements the narrow
+   Windows Rust release build, installation and Restore path. Consult the newest
+   acceptance evidence before claiming end-to-end model repair.
    Commit each completed brick. Discuss material
    architecture/authority changes before adopting them.
 5. At milestone 20 exit, report actual repair/restore evidence and remaining
@@ -39,8 +41,10 @@ was not executed; a complete build workspace/evaluation remains unimplemented.
 The original normal profile is preserved. The user unlocked Windows and the normal
 20.2 app was inspected in the foreground with selected chat/model and paused work
 intact. 20.4 now implements reviewed Rust reproduction/regression execution and
-schema 33; normal packaged/live and updated-desktop qualification remain pending.
-Do not advance to installation/restore without their separate review and evidence.
+schema 33; packaged dispatch, bounded DeepSeek non-improvement and normal foreground
+checks pass. 20.5 adds a separately reviewed Windows Rust build and protected lazy
+launcher with versioned bundles and current-history Restore. Its latest packaged
+evidence and unresolved user/model/platform gates are in ACCEPTANCE.
 
 - Blank output delegates the response maximum to the provider. Existing numeric
   settings remain. Model inactivity is separate from optional task time; human
@@ -101,7 +105,7 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 | 20.2 | Implemented scoped selected-file snapshots and visible reviewed native proposals; no generated execution or complete build checkout. |
 | 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
 | 20.4 | Reviewed Rust evaluator implemented; packaged dispatch, bounded DeepSeek non-improvement and normal foreground checks pass; trial-card/real-repair/resource/platform gaps remain. |
-| 20.5 | Reviewed native build/install/restart and restore; [Windows Rust proposal](design/native-repair-installation.md) prepared for scope discussion. |
+| 20.5 | Windows Rust build/install/Restore implemented; [scope and recovery](design/native-repair-installation.md), latest evidence in ACCEPTANCE. |
 | 20.6 | Real repair, withheld non-improvement and rollback qualification. |
 
 The [specification](design/harness-self-repair.md) owns authority, source-bundle,

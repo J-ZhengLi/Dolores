@@ -22,8 +22,10 @@ This document describes implemented behavior. The [evolving-harness specificatio
 General conversation-driven harness repair is still missing. Bricks 20.1–20.2
 provide matching-source navigation and separately retained, reviewed native
 proposals; 20.4 adds separately reviewed frozen Rust reproduction/regression trials.
-[Milestone 20](design/harness-self-repair.md) still requires qualified reviewed
-native installation/restart/restore. The user prioritized this native
+[Milestone 20](design/harness-self-repair.md) now includes a Windows-only reviewed
+release build, native installation/restart and Restore path. End-to-end model
+repair reliability and remaining installation qualification are tracked separately.
+The user prioritized this native
 pipeline; a broader Wasm seam has not been adopted. Current proposals and
 recovery-hint mods should not be presented as the complete repair workflow.
 

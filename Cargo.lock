@@ -608,6 +608,7 @@ dependencies = [
  "dolores-core",
  "dolores-credentials",
  "dolores-mod-runtime",
+ "dolores-native-update",
  "dolores-provider-openai",
  "dolores-store-sqlite",
  "dolores-tools-browser",
@@ -638,6 +639,19 @@ dependencies = [
  "tokio-util",
  "wasmi",
  "wat",
+]
+
+[[package]]
+name = "dolores-native-update"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "uuid",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

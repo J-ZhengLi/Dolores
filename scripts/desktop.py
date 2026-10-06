@@ -129,7 +129,7 @@ def build(args):
     rust_env = dict(env, CARGO_ENCODED_RUSTFLAGS='\x1f'.join(flags))
     rust = ['cargo', 'build', '-p', 'dolores-flutter-bridge']
     if platform == 'windows':
-        rust += ['-p', 'dolores-desktop-helper']
+        rust += ['-p', 'dolores-desktop-helper', '-p', 'dolores-native-update']
     checked(rust + ['--release', '--locked'], env=rust_env)
     base = [flutter, '--no-version-check', '--suppress-analytics']
     dependencies = run(base + ['pub', 'get'], cwd=APP, env=env, capture=True)
@@ -170,6 +170,7 @@ def build(args):
     shutil.copy2(ROOT / 'target/release' / library, library_dir / library)
     if platform == 'windows':
         shutil.copy2(ROOT / 'target/release/dolores-desktop-helper.exe', destination)
+        shutil.copy2(ROOT / 'target/release/dolores-update-launcher.exe', destination)
     stat = executable().stat()
     BUILD_STATE.write_text(json.dumps({'entry': entry, 'size': stat.st_size,
                                       'modifiedNs': stat.st_mtime_ns}), encoding='utf-8')

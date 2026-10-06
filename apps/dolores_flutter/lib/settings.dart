@@ -21,9 +21,11 @@ import 'comparison.dart';
 import 'capabilities.dart';
 import 'attachment_storage.dart';
 import 'advanced_home.dart';
+import 'native_repairs.dart';
 
 enum SettingsCategory {
   advancedHome,
+  nativeRepairs,
   appearance,
   models,
   personalization,
@@ -94,6 +96,7 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
       SettingsCategory.personalization => SettingsSection.personalization,
       SettingsCategory.memory => SettingsSection.memory,
       SettingsCategory.advancedHome ||
+      SettingsCategory.nativeRepairs ||
       SettingsCategory.mods ||
       SettingsCategory.limits ||
       SettingsCategory.skillTesting ||
@@ -259,6 +262,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       ModelsPage.connection,
       'mods source tests restore',
     ),
+    ('Native repairs', SettingsCategory.nativeRepairs, ModelsPage.connection, 'native qualified build install restart restore repair'),
   ];
   void navigate(
     SettingsCategory category, [
@@ -336,6 +340,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.nativeRepairs => NativeRepairs(chat:widget.chat,hasUnsavedSettings:()=>drafts.values.any((draft)=>draft.dirty)),
     SettingsCategory.advancedHome => AdvancedHome(
       open: (category, page) => navigate(
         SettingsCategory.values.byName(category),

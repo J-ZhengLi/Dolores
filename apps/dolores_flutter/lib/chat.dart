@@ -60,6 +60,17 @@ class ChatController extends ChangeNotifier {
 
   final ChatBridge bridge;
   ChatController(this.bridge);
+  bool nativeStartup = false;
+  Future<void> saveNativeDrafts() async {
+    if (busy || loading) throw StateError('Finish or stop the current task first.');
+    _draftTimer?.cancel();
+    for (final entry in _views.entries) {
+      if (entry.key.isNotEmpty && entry.key != session) {
+        await bridge.call({'command':'saveDraft','session':entry.key,'text':entry.value.draft});
+      }
+    }
+    if (session != null) await bridge.call({'command':'saveDraft','session':session,'text':draft});
+  }
   int settingsRevision = 0;
   void invalidateContext() {
     settingsRevision++;
@@ -567,6 +578,15 @@ class ChatController extends ChangeNotifier {
       await bridge.open();
       await refresh();
       if (sessions.isNotEmpty) await select(sessions.first['id'] as String);
+      if (nativeStartup) {
+        if (error != null) throw StateError('Chat initialization failed: $error');
+        await bridge.call({'command':'nativeStartupReady'});
+        final deadline = DateTime.now().add(const Duration(seconds: 35));
+        while ((await bridge.call({'command':'nativeUpdateReady'}))['ready'] != true) {
+          if (DateTime.now().isAfter(deadline)) throw StateError('Native startup verification did not finish. Keep retained versions and history; inspect Native repairs before recovery.');
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        }
+      }
     } catch (failure) {
       error = failure.toString();
     } finally {
@@ -577,6 +597,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> refresh() async {
     final state = await bridge.call({'command': 'bootstrap'});
+    nativeStartup = state['nativeStartup'] == true;
     appearance = state['appearance'] as String? ?? 'system';
     durableDrafts = state['durableDrafts'] == true;
     attachmentsAvailable = state['attachments'] == true;

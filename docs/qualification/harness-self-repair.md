@@ -125,8 +125,9 @@ establish it.
 
 ## Later bricks
 
-20.3's broader extension ABI is not adopted. Native installation/restore in
-20.5 and actual repair/rollback qualification in 20.6 remain unimplemented.
+20.3's broader extension ABI is not adopted. The Windows 20.5 implementation and
+its current evidence are recorded below. Real-model repair qualification in 20.6
+remains open.
 
 ## 20.4 — reviewed Rust reproduction and regression trials
 
@@ -211,3 +212,103 @@ Native code/build scripts use the
 account's OS permissions: supervision, source checks and offline Cargo are not OS
 containment against malicious code. Arbitrary generated native execution remains
 separately reviewed; frozen-input/receipt checks do not establish such containment.
+
+## 20.5 — reviewed Windows Rust build and retained normal startup
+
+2026-10-06. Implemented a separately reviewed offline/locked Rust release build
+for qualified provider and command-outcome/task-budget repairs. Only the bridge
+DLL may change. Policy, credentials, SQLite schema, tests, build scripts,
+evaluator, native launcher and Flutter shell remain protected. Full access
+cannot authorize build or installation. Installation and Restore use fresh
+one-use five-minute UI reviews; neither is exposed as a model tool.
+
+The lazy protected launcher validates every file in both complete retained
+bundles, owns one intent, waits at most 30 seconds for the old app to leave,
+takes a consistent SQLite backup and blocks candidate startup writes until
+source, schema, process identity and logical history agree. The normal Flutter
+shell must initialize and acknowledge health within 30 seconds. A startup
+failure stops only the verified candidate, recovers pre-startup history and
+starts the previous normal bundle. A later explicit Restore keeps current
+history, including work acknowledged after installation. No task is replayed.
+Unknown ownership or changed state retains evidence and requires fresh review.
+
+### Actual packaged evidence
+
+The final private disposable run is `0899abfd-55d8-4803-8d03-28dba7ac41b7`;
+evaluation `07dfa6bd-d4b6-45a0-8e35-273d7f76cbe6`, build
+`94c7d014-8cbd-417f-946c-31904731e880`. Evidence stays under ignored output.
+The fixed public provider repair unwraps one JSON-string layer only if it contains
+an object; host validation and approval remain mandatory. It is trusted fixture
+code, not a model-authored patch or a change to the maintained provider source.
+
+- Complete baseline: two cases pass and the double-encoded argument case fails.
+  Candidate: all three frozen cases pass, including malformed/non-object/recursive
+  arguments and exhausted-output refusal. Unchanged workspace regressions:
+  354 pass. The three bounded phases take 320.25 seconds total; each retains its
+  existing 300-second and 256-KiB combined-output limits without retries.
+- Stale and declined builds execute nothing. The approved cold release build
+  completes in 182.89 seconds and retains a ready bundle. A Python bridge host
+  refuses installation because it is not the genuine normal app executable.
+- The protected helper starts the actual candidate normal shell successfully.
+  A supported acknowledged draft is then written through that candidate bridge.
+  Restore starts the retained previous normal shell and preserves this newer
+  work. All table contents compare equal across each handoff.
+- Interrupting the owned waiting helper leaves the old app and history intact;
+  reopening the same intent refuses replay. A fresh trusted test intent with a
+  mismatched candidate source cannot become healthy and recovers the previous
+  normal version after the 30-second startup bound. History remains identical.
+  A completed intent also refuses replay. The helper exits after its handoff.
+- These fixed test intents are created outside the product UI. Only precisely
+  recorded idle fixture processes are stopped. They do not establish direct
+  user approval or the product's graceful Close path. Those are manual gates.
+
+### Failures found and recovery verified
+
+The first Windows baseline link failed because an owned compiler directory made
+MSVC's build-script path exceed its effective path limit. Fresh compact compiler
+roots now carry the full owner identity and refuse collisions; limits remain
+unchanged. The next regression run found that the matching source omitted the
+existing `scripts/mock-mcp.mjs` helper; it is now included unchanged. Both trials
+withheld qualification rather than treating compilation or incomplete regressions
+as improvement. A driver field-name error subsequently stopped before build.
+
+The first completed candidate compile then failed DLL staging because Windows
+cannot flush a read-only file handle. Its failed receipt offered inspection and
+fresh review without installation. Staging now writes and flushes through the
+same writable handle, with a Windows regression check. During the first handoff
+test, a transient Windows receipt-read sharing conflict stopped driver polling;
+the helper still completed rollback. Polling now tolerates only that transient
+error within its original deadline. A complete rerun passes all helper cases.
+
+### UI, model, resource and remaining acceptance boundaries
+
+354 Rust library tests pass, one ignored; Clippy all targets with warnings denied
+passes. All 256 Flutter tests and analysis pass. Compact light/dark widgets cover
+stale review recovery, unsaved Settings preventing restart, ready-build wording,
+failed-build inspection and truthful condensed qualified trial evidence.
+Native dark checks inspect the empty page, retained failed/ready build cards and
+the recovered normal shell with its post-install draft. This is a sample, not the
+full theme/window/input/accessibility matrix. The original profile's 38 tables,
+selected model and paused work are preserved; only the previously accepted empty
+schema-33 repair tables exist there.
+
+Routine configured Qwen3.5-2B performs two bounded calls in 14.58 seconds and
+completes inspection, but does not identify the build tool correctly. It runs no
+native build or installation, and its unrelated project remains unchanged.
+20.6 real-model repair and broader reliability remain open; prior DeepSeek's
+20.4 non-improvement check does not close that gap.
+
+Each retained normal bundle has 139 files and is 62.33 MiB; the protected launcher
+is about 2.14 MiB. This cold fixture profile retains 5360.19 MiB, dominated by
+compiler outputs. This is a desktop observation, not a low-end resource target
+pass. There is no idle helper service. Four build receipts per repair, per-file
+128-MiB and per-bundle 512-MiB/2048-file bounds are explicit; retained compiler
+outputs are not silently pruned. Native code still runs with account permissions,
+not qualified OS containment.
+
+The repaired normal app runs from its retained versioned directory. Maintained
+launchers/shortcuts are not retargeted, so reopening through the maintained launcher
+opens that maintained version. Persistent routing, signing/public updates, direct
+user review/graceful Close, real-model authored repair, low-end/other-OS hosts and
+the complete native visual matrix remain unaccepted. 20.3 Wasm is not adopted;
+milestones 16–19 and CI 8.4 remain deferred.

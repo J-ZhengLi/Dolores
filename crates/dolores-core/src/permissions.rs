@@ -90,7 +90,12 @@ impl PermissionPolicy {
     }
     pub fn automatic(&self, request: &ToolRequest, now: u64) -> bool {
         // Native repair proposals have an independent exact review, even in Full access.
-        if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair") {return false;}
+        if matches!(
+            request.name.as_str(),
+            "harness_repair" | "test_harness_repair" | "build_harness_repair"
+        ) {
+            return false;
+        }
         if self.expired(now) || self.validate().is_err() {
             return false;
         }
@@ -157,14 +162,26 @@ mod tests {
     use super::*;
     #[test]
     fn native_repair_cannot_inherit_full_access_or_an_inspection_grant() {
-        let mut policy = PermissionPolicy {mode:PermissionMode::FullAccess,..Default::default()};
-        let mut r=request("Dolores managed repair");r.name="harness_repair".into();
-        assert!(!policy.automatic(&r,1));
-        r.name="test_harness_repair".into();
-        assert!(!policy.automatic(&r,1));
-        policy.mode=PermissionMode::Auto;
-        policy.grants.push(ToolGrant{tool:"inspect_harness".into(),path_prefix:None,command:None,mcp_connection:None,mcp_revision:None});
-        assert!(!policy.automatic(&r,1));
+        let mut policy = PermissionPolicy {
+            mode: PermissionMode::FullAccess,
+            ..Default::default()
+        };
+        let mut r = request("Dolores managed repair");
+        r.name = "harness_repair".into();
+        assert!(!policy.automatic(&r, 1));
+        r.name = "test_harness_repair".into();
+        assert!(!policy.automatic(&r, 1));
+        r.name = "build_harness_repair".into();
+        assert!(!policy.automatic(&r, 1));
+        policy.mode = PermissionMode::Auto;
+        policy.grants.push(ToolGrant {
+            tool: "inspect_harness".into(),
+            path_prefix: None,
+            command: None,
+            mcp_connection: None,
+            mcp_revision: None,
+        });
+        assert!(!policy.automatic(&r, 1));
     }
     #[test]
     fn browser_input_is_never_covered_by_blanket_full_access() {

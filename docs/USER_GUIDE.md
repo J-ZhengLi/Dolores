@@ -24,6 +24,33 @@ shortcuts and border resizing are available too.
 **Models** lists your enabled models. Connect a provider, then choose a model to edit its context window, image support and optional response limits. **Personalization** edits All chats by default; project/chat customization is deliberate. Advanced contains response defaults, scope overrides and execution limits. Edited forms retain drafts across pages. Close offers Save, Discard or Keep editing; failed saves retain your values.
 
 
+## Repair Dolores on Windows
+
+In a working chat, Dolores can inspect its matching source, propose a repair in
+separate storage, then ask to run a frozen reproduction and regressions. A passing
+baseline withholds improvement. A complete baseline failure followed by candidate
+and regression passes permits a separate release-build review. Native compilation
+and tests use your account permissions; they are not an OS sandbox. Full access
+does not skip these reviews.
+
+Open **Settings → Advanced → Diagnostics & storage → Native repairs** to inspect
+retained builds and restart evidence. For a ready build, **Review installation**
+shows the exact versions, profile and restart plan before **Install & restart**.
+Finish or stop current work and save other Settings edits first. Chat drafts are
+saved before restart; your selected provider and history remain in the same profile.
+Dolores verifies idle startup before allowing new work. It never replays the task.
+
+**Review Restore** separately returns to the retained previous code while keeping
+current history, including work created after installation. Failed startup instead
+recovers the pre-startup snapshot. Refresh only reads evidence. An interrupted or
+changed intent needs inspection and a fresh review from a verified retained version;
+unknown ownership/compatibility leaves both versions and the history backup intact.
+This first path supports provider and selected Rust task-limit handling repairs.
+UI, credentials, policy, schema, dependencies and build scripts require other work.
+The repaired app runs from a retained folder. This first version does not change
+your existing shortcut or maintained launch command; those still open the original
+installation. Reopen the retained app to keep using its repair after quitting.
+
 ## Attach images
 
 To share an image in chat, copy it and paste into the message box, or use

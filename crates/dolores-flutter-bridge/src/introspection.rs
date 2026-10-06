@@ -369,6 +369,10 @@ impl Engine {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
             if self.workspace_directory.is_some(){tools.push(crate::harness_repair::spec());tools.push(crate::repair_evaluation::spec());}
+            #[cfg(windows)]
+            if self.workspace_directory.is_some() {
+                tools.push(crate::native_build::spec());
+            }
             tools.push(crate::subagents::spec());
             tools.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
             if self.browser_runtime().is_ok() {
@@ -398,6 +402,11 @@ impl Engine {
         let recent = self.recent_harness_failures(session)?;
         let mut inventory = json!({"version":env!("CARGO_PKG_VERSION"),"revision":env!("DOLORES_BUILD_REVISION"),"sourceIdentity":"bundled file identities; revision may include local source changes","workspace":workspace.map(|w| w.kind),"configured":configured,"model":preferences.model,"modelCapabilities":{"input":if images {vec!["text","image"]} else {vec!["text"]},"tools":"adapter supports function calls; selected model support not established","images":if images {"image input configured; comprehension not established"} else {"disabled; enable a capable model in Model connection"}},"attachments":{"formats":["text/plain","image/png","image/jpeg"],"draftFiles":dolores_core::MAX_DRAFT_ATTACHMENTS,"textBytes":dolores_core::MAX_TEXT_ATTACHMENT_BYTES,"imageBytes":dolores_core::MAX_IMAGE_ATTACHMENT_BYTES,"storeBytes":dolores_core::MAX_ATTACHMENT_STORE_BYTES},"approval":format!("{:?}",effective.permissions.mode),"containment":"file tools use folder capabilities; commands/MCP have user-account permissions","selfUpdate":"not available","contextWindowTokens":capacity.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),"contextOrigin":if capacity.is_some(){"model override"}else{"128K default"},"effectiveSettings":effective,"requestSettings":effective.request,"automaticCheckpoints":{"modelCalls":effective.task.model_limit(),"toolOperations":effective.task.tool_limit(),"repeatedFailures":2,"consecutiveFailures":6},"limits":{"modelCalls":effective.task.model_calls,"toolOperations":effective.task.tool_calls,"taskSegments":effective.task.segments,"taskDeadlineSeconds":effective.task.elapsed_seconds,"inputBytes":dolores_core::MAX_INPUT_BYTES,"contextBytes":dolores_core::MAX_CONTEXT_BYTES,"maxSourceLines":2048},"extensionApi":dolores_core::HOST_EXTENSION_API,"extensions":registry.entries,"hookOrder":registry.order,"adapters":[self.store.descriptor(),connection.descriptor(),self.mcp_credentials.descriptor()],"tools":catalog,"unavailableReason":if working {""}else{"No working folder. Start a project or temporary working session for tool use."},"sources":sources});
         inventory["sourceBundle"] = bundle::summary();
+        #[cfg(windows)]
+        {
+            inventory["selfUpdate"] = json!("Reviewed Windows Rust build; installation and Restore require separate direct user review in the idle normal app.");
+            inventory["nativeRepair"] = json!({"buildAvailable":working && self.workspace_directory.is_some(),"scope":"provider implementation or core command-outcome/task-budget handling; unchanged existing tests","qualification":"complete frozen baseline failure, candidate success and library regressions","installation":"Settings > Advanced > Native repairs; exact user review","unattended":false,"osContainment":false});
+        }
         inventory["recentFailures"] = recent;
         inventory["diagnosticCoverage"] = json!("Latest 20 runs in this chat, at most 3 failed/paused/interrupted runs; no private transcripts, file paths, tool arguments or credentials.");
         Ok(inventory)
@@ -643,5 +652,21 @@ mod tests {
         assert!(value["tools"].as_array().unwrap().is_empty());
         assert_eq!(value["contextWindowTokens"], 131072);
         assert!(!value.to_string().contains("apiKey"));
+    }
+    #[cfg(windows)]
+    #[test]
+    fn working_inventory_reports_reviewed_build_without_installation_authority() {
+        let profile = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let mut engine = Engine::new(store, Arc::new(connection::testing::MemoryCredentials::default())).unwrap();
+        engine.workspace_directory = Some(profile.path().join("workspaces"));
+        let session = engine.call(serde_json::from_value(json!({"command":"createSession","kind":"project","path":project.path()})).unwrap()).unwrap();
+        let value = engine.harness_inventory(session["session"]["id"].as_str()).unwrap();
+        assert!(value["tools"].as_array().unwrap().iter().any(|t| t["id"] == "build_harness_repair"));
+        assert_eq!(value["nativeRepair"]["buildAvailable"], true);
+        assert_eq!(value["nativeRepair"]["unattended"], false);
+        assert!(value["selfUpdate"].as_str().unwrap().contains("direct user review"));
+        assert!(!value.to_string().contains(&project.path().display().to_string()));
     }
 }

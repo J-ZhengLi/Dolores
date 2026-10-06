@@ -125,8 +125,12 @@ intent, retain the previous bundle, stop the old normal app, start the candidate
 check startup/data compatibility, then record health. Failed startup restores the
 previous bundle. Interrupted installation reconciles without replay. Preserve
 provider/history; prohibit automatic destructive migrations and publication.
-The [20.5 Windows Rust installation proposal](native-repair-installation.md)
-specifies the first implementation scope for discussion; it is not implemented.
+The [20.5 Windows Rust installation path](native-repair-installation.md) implements
+separate release-build and direct user installation/Restore reviews. Its first
+allowlist covers provider implementation, command outcomes and task budgets.
+Approval, storage, credentials, evaluator, launcher, UI and manifest changes stay
+outside that path. Startup blocks writes until source/schema/history and usable
+idle chat initialization are verified; later Restore preserves current history.
 
 ## Planned bricks and acceptance
 

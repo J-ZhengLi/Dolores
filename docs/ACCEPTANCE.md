@@ -1,4 +1,62 @@
-# Dolores acceptance — 2026-10-05
+# Dolores acceptance — 2026-10-06
+
+## Harness self-repair 20.5 — Windows Rust implementation and packaged fixture qualification
+
+Separate build, installation and Restore reviews are implemented for qualified
+Rust provider/command-outcome/task-budget changes. Protected policy, credentials,
+schema, tests, build scripts, evaluator, launcher and Flutter shell cannot change
+through this path. Full access does not skip review. A lazy bundled launcher
+retains complete versions, verifies source/schema/process/history during blocked
+startup and preserves current history for a later Restore. No task is replayed.
+
+The fixed provider-parser repair reproduces double-encoded JSON arguments: two
+baseline cases pass and the actual fault fails; all three candidate cases pass,
+including malformed/non-object/recursive arguments and exhausted-output refusal.
+The final packaged rerun passes 354 unchanged workspace regressions. This is trusted
+fixture evidence, not a model-authored repair or general model reliability.
+
+Windows verification exposed a linker path-length failure, an omitted existing MCP
+test helper, and a candidate DLL flush using a read-only handle. The respective
+trial/build receipts withheld qualification or installation and retained evidence.
+Compiler outputs now use fresh compact owned directories, the matching source
+includes that helper, and staging flushes a writable handle. No time/output limits
+were raised. A driver receipt-field error stopped before build approval and was
+corrected separately. Final packaged qualification takes 320.25 seconds across
+three bounded trial commands, followed by a 182.89-second reviewed release build.
+Stale/declined builds execute nothing; a Python bridge host cannot install.
+
+The actual normal shell and protected launcher pass installation, later Restore
+with an acknowledged post-install draft preserved, interrupted waiting-helper
+refusal without stopping the old app, and recovery to the previous normal version
+after the candidate cannot publish healthy startup. Every table's contents remain
+unchanged across handoffs except the deliberately acknowledged new draft. Used
+and interrupted intents cannot replay. The fixture constructs trusted test intents
+and stops only its recorded idle processes; direct user approval and graceful
+product Close remain separate acceptance gates. A transient Windows receipt-read
+sharing error was corrected in the bounded driver polling; recovery itself had
+already completed. The complete rerun then passed.
+
+Protocol checks cover complete-bundle tampering, protected launcher changes,
+stale process creation identity, a changed/interrupted intent refusing replay,
+consistent WAL/draft snapshots and Windows DLL staging. Compact light/dark widget
+checks retain stale-review errors and unsaved Settings drafts without restart.
+354 Rust library tests pass (one ignored), Clippy passes, and all 256 Flutter
+tests and analysis pass. Saved build failures expose their actual reason before
+review details, and condensed qualified trials do not invent missing counts.
+The normal dark native empty-state page was inspected, Escape closed Settings,
+and the recovered normal shell's Native repairs page shows the recovery reason,
+Ready to review and separate installation/Restore actions without submitting them.
+Its acknowledged post-install draft is visible after rollback,
+and all 38 original profile tables remain unchanged. Remaining gates include
+direct user approval and graceful close, full native visual matrix, real-model
+repair, other OS/lower-end hosts, containment and persistent shortcut routing.
+Maintained launch still opens the maintained bundle; the repaired normal app
+runs from its retained versioned directory. The fixed test profile retains about
+5.24 GiB including cold compiler outputs; each complete bundle is 62.33 MiB.
+The bounded routine Qwen probe performs two model calls in 14.58 seconds and
+completes inspection but does not identify the build tool correctly. It performs
+no build/install and does not establish model repair reliability. See the
+[qualification report](qualification/harness-self-repair.md).
 
 ## Harness self-repair 20.4 — reviewed Rust evaluator, bounded qualification
 
@@ -43,7 +101,8 @@ and analysis pass. The normal-release fixture exercises two reviewed writes,
 stale/cross-chat refusals and Stop preservation in seven requests. Bounded live
 DeepSeek passes five inspected/reviewed steps; routine Qwen remains unqualified
 after a driver parsing failure. The user selected native-first preparation;
-20.3's broader Wasm hook remains unadopted and 20.4–20.6 remain unimplemented.
+At that stage 20.4–20.6 were not implemented. The later entries above supersede
+that snapshot; 20.3's broader Wasm hook remains unadopted.
 Final normal build/launch and packaged fixture pass. All 38 original profile
 tables are unchanged; schema 32 adds only an empty repair table. The launcher
 reports the normal window present. Foreground inspection awaits desktop unlock; see

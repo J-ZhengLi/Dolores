@@ -39,6 +39,8 @@ fn bundle(root: &Path) {
         "Cargo.lock".into(),
         "apps/dolores_flutter/pubspec.yaml".into(),
         "adapters/browser/worker.cjs".into(),
+        // Workspace regressions execute this unchanged Node fixture by path.
+        "scripts/mock-mcp.mjs".into(),
     ];
     for directory in [
         "crates",
@@ -86,11 +88,19 @@ fn main() {
     bundle(&root);
     println!("cargo:rerun-if-changed=../../.git/HEAD");
     println!("cargo:rerun-if-changed=../../.git/refs");
-    let revision = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(root)
-        .output()
+    // A staged repair below a checkout must not inherit that parent's Git identity.
+    let revision = root
+        .join(".git")
+        .exists()
+        .then(|| {
+            Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(root)
+                .output()
+        })
+        .transpose()
         .ok()
+        .flatten()
         .filter(|o| o.status.success())
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| s.trim().to_owned())

@@ -49,6 +49,7 @@ class AdvancedHome extends StatelessWidget {
           children: [
             entry('Compare instructions', Icons.compare_arrows, 'comparisons'),
             entry('Capabilities & source', Icons.code, 'capabilities'),
+            entry('Native repairs', Icons.restore, 'nativeRepairs'),
             entry('Attachment storage', Icons.inventory_2_outlined, 'storage'),
           ],
         ),

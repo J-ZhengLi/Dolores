@@ -1,5 +1,35 @@
 # Flutter/Rust bridge contract
 
+## Reviewed Windows native updates (20.5)
+
+Working-chat `build_harness_repair {repairId,revision,evaluationId}` requires a
+complete qualified 20.4 receipt matching current source, candidate and Cargo.
+Its independent one-use review includes the exact implementation diff and fixed
+offline/locked release command, 300 seconds/256 KiB, plus a host-owned compiler
+target. No provider-chosen path/argv or installation action exists. At most four
+builds per repair are retained locally; ready means only the Rust bridge DLL
+differs in two complete hashed bundles. Build scripts, UI, policy, credentials,
+storage, evaluator and launcher changes are refused by the initial allowlist.
+
+`nativeRepairs {session?}` reads build summaries and the last durable handoff.
+`reviewNativeUpdate {session,buildId,restore}` creates a five-minute single-use
+direct user review for an idle normal app, exact profile/process/bundles and
+compatible schema. `applyNativeUpdate {token}` consumes/rechecks it and returns
+`restart:true` only after durable intent and protected helper dispatch;
+`discardNativeUpdate {token}` releases that review. These are local UI commands,
+not model tools. Full access does not cover any native build or restart review.
+
+`bootstrap.nativeStartup` identifies a launcher-owned blocked startup.
+After normal idle chat initialization, `nativeStartupReady` publishes the pinned
+source/schema/process and logical history receipt; `nativeUpdateReady` releases
+the write barrier only after the launcher records healthy acceptance. No model
+request or task replay occurs. Helper/child creation identities and complete
+bundle hashes survive interruption. Failed startup can recover the consistent
+pre-startup SQLite snapshot; separately reviewed later Restore changes code while
+preserving current history. Schema stays 33. Compiler caches use compact private
+`nt/<intent-prefix>/<phase>` directories to avoid the reproduced Windows linker
+path limit; their full owner IDs and exact commands are retained without reuse.
+
 ## Native repair proposals (20.2)
 
 20.4 adds working-chat `test_harness_repair {repairId,revision,package,reproduction}`.

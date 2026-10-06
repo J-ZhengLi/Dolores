@@ -1073,7 +1073,7 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
-**Status: 20.1–20.2 implemented; 20.4 Rust evaluator has packaged/DeepSeek non-improvement and normal-foreground evidence; broader qualification remains open.** This milestone takes priority before
+**Status: 20.1–20.2 and 20.4 implemented; 20.5 Windows Rust build/install/Restore is implemented and passes packaged trusted-fixture qualification. User-approval, model and broader platform qualification remains open.** This milestone takes priority before
 the paused 16–19 developer-workspace track after immediate AI reliability fixes.
 The [specification](design/harness-self-repair.md) defines scope, ownership,
 authority, test/activation and restore contracts for every brick:
@@ -1081,13 +1081,18 @@ authority, test/activation and restore contracts for every brick:
 1. **20.1:** useful failure evidence and bounded source search/read — implemented;
    [qualification](qualification/harness-self-repair.md) retains model, visual and platform gaps.
 2. **20.2:** separate matching-source snapshots and reviewed patch proposal —
-   implemented; native execution and a complete build workspace remain later work.
+   implemented; native execution and matching build workspaces follow in 20.4–20.5.
 3. **20.3:** broader qualified extension seams beyond recovery hints — not adopted.
    The user selected the reviewed native pipeline first; no ABI 2 is implemented.
 4. **20.4:** reviewed frozen Rust reproduction and candidate/regression trials —
    implemented; packaged dispatch and bounded DeepSeek non-improvement pass;
-   native trial-card, actual repair, resource and platform qualification remain open.
-5. **20.5:** qualifying activation or reviewed native build/restart, with restore.
+   a fixed provider-parser repair now reproduces its actual failure, passes three
+   frozen candidate cases and all workspace library regressions. This is fixture
+   evidence; a model-authored repair remains open.
+5. **20.5:** separately reviewed Windows Rust release build, normal restart and
+   Restore implemented; packaged fixtures verify protected startup, newer-history
+   preservation, interrupted-helper refusal and automatic startup-failure recovery.
+   Direct user review/graceful close remains unexercised. See [installation scope](design/native-repair-installation.md).
 6. **20.6:** real repair, withheld non-improvement and rollback qualification.
 
 Each brick's basic and realistic failure/recovery criteria are in the spec.

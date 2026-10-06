@@ -1,5 +1,18 @@
 # Universal UI style
 
+Native repairs uses the existing Advanced → Diagnostics & storage entry and
+embedded inspector. Show retained build/handoff status and recovery reasons before
+Details. Build results say “Build ready · installation needs review”; withheld
+trials show “Candidate: not run” without fabricated counts. Saved build outcomes
+precede collapsed build review details; failed builds point to
+retained logs and fresh review, while qualified condensed receipts keep regression
+detail availability explicit. Use readable recovery labels rather than raw states.
+Installation and Restore have separate exact reviews and fixed wrapping footer
+actions. Pending restart
+blocks Close/navigation; failed or stale review preserves drafts, brings the error
+into view and requires fresh review. Unsaved edits in other Settings pages prevent
+restart. No composer/header button or idle updater is added.
+
 The proposed [developer workspace](design/developer-workspace.md) defines a
 Chats/Files/Git feature rail, project panel and movable split tabs for milestones
 16–19. Prototype review precedes implementation. Its target layouts retain this

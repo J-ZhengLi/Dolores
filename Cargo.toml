@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/dolores-desktop-helper", "crates/dolores-mod-runtime", "crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "crates/dolores-credentials", "crates/dolores-tools-fs", "crates/dolores-tools-command", "crates/dolores-tools-mcp", "crates/dolores-tools-web", "crates/dolores-tools-browser", "crates/dolores-flutter-bridge"]
+members = ["crates/dolores-native-update", "crates/dolores-desktop-helper", "crates/dolores-mod-runtime", "crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "crates/dolores-credentials", "crates/dolores-tools-fs", "crates/dolores-tools-command", "crates/dolores-tools-mcp", "crates/dolores-tools-web", "crates/dolores-tools-browser", "crates/dolores-flutter-bridge"]
 resolver = "2"
 default-members = ["crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "crates/dolores-credentials", "crates/dolores-flutter-bridge"]
 
