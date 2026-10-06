@@ -1,5 +1,17 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.0 — proceed decision and frozen initial limits
+
+The user reports gaming during the old slow samples, directs moving on and restores
+one milestone per batch. Host contention is plausible, not proven; the old reports
+remain without blocking adoption alone. The new native four-view 1 MiB editing
+case passes 40 replacements at 19.558 ms typing frame p95, with shared undo/redo.
+The [initial document contract](design/editor-documents.md) freezes byte/line/history,
+resident-document, delta and explicit-save bounds; the former 5 MiB proposal is not
+adopted. Complete milestone 16's bricks in order with separate commits before 17.
+Production save, native physical input/IME/accessibility and integrated resources
+remain later-brick checks. No normal UI/profile setting has changed in this step.
+
 ## Workspace/editor 16.0 — opening diagnosis follow-up
 
 The original isolated native loop passes on rerun: four-view post-corpus opening

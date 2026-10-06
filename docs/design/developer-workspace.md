@@ -2,7 +2,7 @@
 
 **Planning contract, not delivered behavior.** The user replaced mixed chat/file
 panes with the familiar Home agent view and separate project-bound developer pages.
-Implement one roadmap brick at a time. Earlier prototypes remain references; no
+Complete one milestone per batch, implementing and committing its bricks in order. Earlier prototypes remain references; no
 A/B/C selection from earlier mixed-pane studies applies to this page structure.
 The user finalized **developer-pages variant B** with the amendments below on
 2026-10-07; no further prototype revision is requested. Existing editor feasibility failures in
@@ -89,7 +89,8 @@ Qualify that adapter: sharing the candidate's widget controller is insufficient.
 
 Keep buffer, disk, Git index and commit distinct. Preserve UTF-8/BOM/line endings
 and unchanged bytes; binary/unsupported encoding stays read-only. The proposed
-5 MiB editable limit is unqualified; freeze after the spike. Larger files get
+5 MiB editable proposal is replaced by the frozen 1 MiB initial limit and 8 KiB
+physical-line bound in [editor documents](editor-documents.md). Larger files get
 bounded preview. Clean outside changes reload; dirty changes retain both versions
 and offer Compare/Reload disk/Keep edits. Keep edits requires a revision-checked
 save against the reviewed new base. Failed writes, rename/deletion or interruption
@@ -180,7 +181,7 @@ mutex across network/Git hooks/PTY/LSP. Page disposal only unsubscribes.
 
 Rust owns scoped snapshots/writes/processes and disk revisions; Flutter owns editor
 interaction/layout. Freeze bounded delta/version messages and document authority
-in 16.0; avoid whole-file JSON on each keystroke. Lazy traversal excludes generated
+in [16.0's document contract](editor-documents.md); avoid whole-file JSON on each keystroke. Lazy traversal excludes generated
 trees; coalesce watches and recover overflow with rescan/Refresh. No eager global
 index from visiting Home.
 

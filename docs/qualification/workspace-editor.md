@@ -1,5 +1,23 @@
 # Workspace/editor 16.0 — partial feasibility evidence
 
+## Proceed decision and initial envelope — 2026-10-07
+
+The user reports playing a video game around the old slow samples and explicitly
+directs moving on. Host contention is plausible, not established. Those reports
+remain below; they no longer block adoption alone. Performance targets are unchanged.
+A new native 1 MiB four-view editing case passes 40 replacements at **19.558 ms**
+typing frame p95, with shared buffer/undo/redo and bounded history. Short matched
+incremental peaks are 63.957 MiB working / 59.996 MiB private. The initial editable
+limit is 1 MiB, with very long lines and larger/unsupported files safely previewed.
+See [frozen document protocol and bounds](../design/editor-documents.md).
+
+The user restores **one milestone per batch**. Continue milestone 16's ownership,
+navigation, safe files and editor integration with separate brick commits; do not
+stop after each brick or begin 17 in this batch. Native physical input/IME and
+normal-app save/resource qualification remain explicit integration gaps, not claims
+made by the scratch test. `20261007-editor-limits.json` and its memory samples live
+in the ignored trial output alongside the retained earlier reports.
+
 ## Final layout decision — 2026-10-07
 
 The user selects **developer-pages B**, amended as follows: top-left title-bar

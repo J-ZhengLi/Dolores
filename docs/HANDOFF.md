@@ -3,7 +3,7 @@
 ## Start here
 
 **Current user steering:** plan a developer workspace and extend the roadmap;
-implement later **one brick at a time**, replacing the earlier milestone batches.
+implement **one milestone per batch**, retaining separate commits for its bricks.
 The current revision changes documents only. No memory, schedule, companion or
 new production workspace feature is activated by this plan.
 
@@ -33,15 +33,19 @@ occasional and in-app, during chosen hours with a daily cap and configured weake
 model. Proposed numerical defaults must be frozen before their runtime bricks.
 
 The previous mixed-pane and A/B/C prototypes are historical explorations, not the
-current page contract. Production workspace rollout has not started. **Next brick:
-16.0**, resolve editor feasibility gates; page direction review is complete.
+current page contract. **Current batch: milestone 16**, continue with 16.1 shared
+ownership after the initial 16.0 document envelope. Page direction is final, and
+the user directs moving past the isolated slow samples, plausibly affected by gaming.
 Fresh isolated typing passes without explaining the historical 94 ms failure;
 the earlier four-view ordinary reopening failed at 389.306 ms versus 250 ms.
 The complete follow-up passes at 136.258 ms; 24 focused ordinary openings pass
 at worst 144.306 ms without identifying or fixing the historical spike. Six
 controller/widget checks now cover shortcuts and shared-view undo. Physical input,
-byte-safe Save and production protocol/resource gates remain open. Do not adopt the trial dependency
-or claim 16.0 complete. Public trial evidence is in the qualification report.
+byte-safe Save and integrated resource checks remain for the later implementation
+bricks. The 1 MiB four-view editing trial passes at 19.558 ms; initial protocol and
+limits are frozen in [editor documents](design/editor-documents.md). Candidate
+integration still needs its production checks; do not claim the whole milestone
+delivered from scratch evidence. Public trial evidence is in the qualification report.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)
@@ -50,7 +54,7 @@ or claim 16.0 complete. Public trial evidence is in the qualification report.
    and [memory research](research/memory-foundations.md) for work in 21–24.
 3. Check Git status and ownership when relevant; process/build snapshots are
    historical. Preserve original configuration/history and unrelated paused work.
-4. Implement only the authorized next brick after its prerequisites pass. Commit
+4. Complete only the current milestone batch, observing brick prerequisites. Commit
    completed bricks in English and record basic/failure/recovery evidence. Match
    verification to the change; no desktop launch or visual check after every task.
    Prefer `view_image` on saved UI renders; computer-use only when interaction or

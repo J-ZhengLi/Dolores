@@ -18,8 +18,8 @@ open; see [qualification](qualification/workspace-editor.md).
 **Implementation order:** reshape **16–19**, then add **21 — Automatic useful
 memory**, **22 — Chat-created scheduled tasks**, **23 — Opt-in companionship**
 and **24 — Optional closed-UI scheduling**. Keep milestone 20's existing numbering
-and evidence. Work proceeds **one brick at a time**, replacing the earlier batch
-instruction; this revision is planning only. Start with 16.0's revised page
+and evidence. Work proceeds **one milestone per batch**, with separate brick commits; this revision
+records the approved implementation direction. Start with 16.0's revised page
 prototype and unchanged editor gates. Experimental Settings will contain
 default-on Multiple Window and a default-off Windows keep-awake option with
 truthful platform limits. Follow the [workspace specification](design/developer-workspace.md),
@@ -126,7 +126,7 @@ This table records the planning baseline, not current missing features. See the 
 | **24 — Optional closed-UI scheduling** | Opt-in local worker while the UI is closed | 24.1–24.3 | Requires 22; qualify one host owner, availability limits and worker cleanup separately. |
 
 The next implementation brick is 16.0; the earlier milestone 20 priority is
-historical. Proceed one brick at a time, in dependency order. Milestones 16–19
+historical. Proceed one milestone per batch, with bricks in dependency order. Milestones 16–19
 form the developer-workspace track; their manual editor/Git work does not close
 prior model-reliability gates. Then follow 21–24; 24 may follow 22 directly if
 closed-UI execution is prioritized. Questioning/personality starts in 9.4 and is
@@ -738,8 +738,7 @@ hover/focus names, semantic labels and Settings at bottom. Folders has the selec
 project's tree and file-only split tabs. No
 mixed chat/file four-pane acceptance or chat editor tabs. The former 16.0–16.5
 unimplemented plan is reshaped into 16.0–16.6; no delivered brick is renumbered.
-See [workspace contract](design/developer-workspace.md). Implement one brick at a
-time, each with a focused check and separate English commit.
+See [workspace contract](design/developer-workspace.md). Complete this milestone as a batch, each brick with a focused check and separate English commit.
 
 ### 16.0 Revised page prototype and editor feasibility
 
@@ -749,7 +748,9 @@ duplicate-view adapter; freeze corpus, byte/delta bounds, file and memory budget
 **Basic:** page direction finalized as B with the recorded amendments; native typing/selection/undo/find,
 Unicode/CRLF/BOM and long-line behavior meet recorded targets. **Recovery:** invalid
 drop retains buffers; large/unsupported files remain safely previewable. Earlier
-94 ms post-large-file typing failure stays open against the unchanged 32 ms target.
+94 ms post-large-file typing and 389 ms opening reports remain evidence; the user
+reports gaming/host contention and directs moving on after passing follow-ups.
+The frozen initial limits are in [editor documents](design/editor-documents.md).
 **Excluded:** production rollout, selected package without evidence, SDK migration.
 
 ### 16.1 Shared host, selected project and run ownership

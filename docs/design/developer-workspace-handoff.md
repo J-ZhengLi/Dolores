@@ -2,8 +2,8 @@
 
 **Current revision — 2026-10-07. Planning only.** Read the [current handoff](../HANDOFF.md)
 for delivered work and the [roadmap](../ROADMAP.md) for order. The user reshaped
-16–19 and added 21–24. Implement one brick at a time; the earlier milestone-batch
-instruction and mixed chat/file four-pane arrangement are superseded.
+16–19 and added 21–24. The latest instruction restores one milestone per batch;
+keep separate brick commits. Mixed chat/file four-pane arrangements remain superseded.
 
 ## Product intent
 
@@ -77,10 +77,11 @@ replay unrelated paused work or silently raise limits to disguise failures.
 
 - Read applicable AGENTS.md/RTK guidance; use RTK commands and CodeGraph first for
   indexed source. Follow [UI](../UI.md).
-- Continue **16.0: revised page prototype and editor feasibility**. The amended B
-  direction is final; resolve editor gates without another prototype revision.
-  Do not promote a failing trial.
-- Keep work to the authorized brick; commit completed bricks in English with hooks.
+- Complete **milestone 16 as a batch**, starting with the frozen initial 16.0
+  envelope then 16.1 ownership. The amended B direction is final. The user reports
+  gaming/host contention and directs proceeding after passing follow-ups. Retain
+  historical measurements and qualify production integration; do not revise the prototype.
+- Keep work to the current milestone batch; commit completed bricks in English with hooks.
   Do not push without explicit instruction. Platform CI 8.4 stays deferred.
 - Verify basic flow and one or two realistic failures/recovery when applicable;
   record actual results/gaps in [acceptance](../ACCEPTANCE.md).
