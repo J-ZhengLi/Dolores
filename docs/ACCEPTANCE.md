@@ -28,6 +28,9 @@ General native self-repair was not implemented by the recovery-hint mod mileston
 Matching-source navigation, managed patches, independent trials and installation
 with rollback are planned separately as milestone 20. The 120-line per-read limit
 is not expanded by this fix. See [evidence and boundaries](qualification/reasoning-streams.md).
+The final normal desktop release was rebuilt through Python, launched with the
+original profile, brought to the foreground and visually inspected. All 38
+original settings/history tables are unchanged; the app is left visibly open.
 
 ## AI fixes — streamed generation, image chat and self-diagnosis
 
