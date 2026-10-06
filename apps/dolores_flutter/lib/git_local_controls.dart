@@ -61,6 +61,48 @@ class GitLocalControls extends StatelessWidget {
           ),
         ],
       ),
+      TextButton(
+        onPressed: w.busy ? null : () => git.loadRemotes(w),
+        child: const Text('Remotes & tracking'),
+      ),
+      if (w.remoteState != null) ...[
+        Text(
+          w.remoteState!['ahead'] == null
+              ? 'Tracking not configured. Set it using external Git, then Refresh.'
+              : '${w.remoteState!['ahead']} ahead · ${w.remoteState!['behind']} behind',
+        ),
+        for (final remote in w.remoteState!['remotes'] as List)
+          ListTile(
+            dense: true,
+            title: Text(remote as String),
+            trailing: PopupMenuButton<String>(
+              tooltip: 'Reviewed remote actions',
+              enabled: !w.busy,
+              onSelected: (kind) => review({
+                'kind': kind,
+                'remote': remote,
+                if (kind != 'fetch') 'branch': w.remoteState!['branch'],
+              }),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'fetch',
+                  child: Text('Review fetch'),
+                ),
+                if (w.remoteState!['remote'] == remote &&
+                    w.remoteState!['branch'] != null) ...[
+                  const PopupMenuItem(
+                    value: 'pull',
+                    child: Text('Review fast-forward pull'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'push',
+                    child: Text('Review push'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
       if (w.status?['reverting'] == true)
         TextButton(
           onPressed: w.busy ? null : () => review({'kind': 'revertAbort'}),

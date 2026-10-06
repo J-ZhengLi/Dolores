@@ -21,6 +21,7 @@ class GitWorkspace {
   String? historyHead;
   Map<String, dynamic>? historyFiles;
   Map<String, dynamic>? localState;
+  Map<String, dynamic>? remoteState;
   bool sideBySide = false;
   GitWorkspace(this.root, this.session);
 }
@@ -207,6 +208,15 @@ class GitHost extends ChangeNotifier {
     changed();
   }
 
+  Future<void> loadRemotes(GitWorkspace w) async {
+    try {
+      w.remoteState = Map<String, dynamic>.from(
+        await run(w, {'action': 'remoteState', 'repo': w.status!['repo']}),
+      );
+    } catch (_) {}
+    changed();
+  }
+
   Future<Map<String, dynamic>?> review(
     GitWorkspace w,
     Map<String, dynamic> operation,
@@ -260,6 +270,7 @@ class GitHost extends ChangeNotifier {
           w.busy = false;
         }
         w.localState = null;
+        w.remoteState = null;
       }
     } catch (e) {
       w.error = '$e';

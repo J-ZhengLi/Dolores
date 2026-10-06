@@ -1,6 +1,8 @@
 use super::*;
 #[path = "git_local.rs"]
 pub(super) mod local;
+#[path = "git_remote.rs"]
+pub(super) mod remote;
 use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
@@ -53,6 +55,17 @@ pub(crate) enum Mutation {
         commit: String,
     },
     RevertAbort,
+    Fetch {
+        remote: String,
+    },
+    Pull {
+        remote: String,
+        branch: String,
+    },
+    Push {
+        remote: String,
+        branch: String,
+    },
 }
 pub(super) struct Review {
     pub token: String,
@@ -63,6 +76,7 @@ pub(super) struct Review {
     created: Instant,
     author: Option<String>,
     patch: String,
+    remote_basis: Option<remote::Basis>,
 }
 impl Repo {
     pub(super) fn review(
@@ -74,6 +88,7 @@ impl Repo {
     ) -> Result<Value, String> {
         let status = self.revision(revision, cancel)?;
         let entries = status["entries"].as_array().unwrap();
+        let mut remote_basis = None;
         let (paths, author, patch) = match &operation {
             Mutation::Stage { paths } | Mutation::Unstage { paths } => {
                 if paths.is_empty() || paths.len() > 16 {
@@ -166,6 +181,11 @@ impl Repo {
                     text(&patch)?.to_string(),
                 )
             }
+            Mutation::Fetch { .. } | Mutation::Pull { .. } | Mutation::Push { .. } => {
+                let (preview, basis) = self.review_remote(&status, &operation, registry, cancel)?;
+                remote_basis = Some(basis);
+                (vec![], None, preview)
+            }
             _ => self.review_local(revision, &status, &operation, cancel)?,
         };
         self.revision(revision, cancel)?;
@@ -194,6 +214,7 @@ impl Repo {
                 created: Instant::now(),
                 author,
                 patch,
+                remote_basis,
             },
         );
         Ok(view)
@@ -208,7 +229,7 @@ impl Repo {
         let id = self.id();
         let review = {
             let mut state = registry.lock().map_err(|_| "Git reviews unavailable.")?;
-            if !state.reviews.get(&id).is_some_and(|r| r.token == token) {
+            if state.reviews.get(&id).is_none_or(|r| r.token != token) {
                 return Err("Git review is no longer current. Review again.".into());
             }
             state.reviews.remove(&id).unwrap()
@@ -273,7 +294,9 @@ impl Repo {
         ) {
             args.extend(review.paths.clone());
         }
-        let outcome = if args.is_empty() {
+        let outcome = if review.remote_basis.is_some() {
+            self.apply_remote(&review, registry, cancel)
+        } else if args.is_empty() {
             self.apply_local(&review, cancel)
         } else {
             git_process::run(&self.executable, &self.root, &args, cancel, false)

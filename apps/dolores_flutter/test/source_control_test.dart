@@ -119,6 +119,55 @@ class GitBridge implements ChatBridge {
 
 void main() {
   testWidgets(
+    'remote actions require a named configured target and expose only tracked pull and push',
+    (t) async {
+      final host = GitHost(DiffBridge());
+      final w = GitWorkspace('C:/A', 'A')
+        ..remoteState = {
+          'remotes': ['origin', 'archive'],
+          'remote': 'origin',
+          'branch': 'refs/heads/main',
+          'ahead': 1,
+          'behind': 0,
+        };
+      Map<String, dynamic>? op;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GitLocalControls(
+                git: host,
+                w: w,
+                review: (v) async {
+                  op = v;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.byTooltip('Reviewed remote actions').first);
+      await t.pumpAndSettle();
+      expect(find.text('Review fast-forward pull'), findsOneWidget);
+      await t.tap(find.text('Review push'));
+      await t.pumpAndSettle();
+      expect(op, {
+        'kind': 'push',
+        'remote': 'origin',
+        'branch': 'refs/heads/main',
+      });
+      await t.tap(find.byTooltip('Reviewed remote actions').last);
+      await t.pumpAndSettle();
+      expect(find.text('Review push'), findsNothing);
+      await t.tap(find.text('Review fetch'));
+      await t.pumpAndSettle();
+      expect(op, {'kind': 'fetch', 'remote': 'archive'});
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
+  testWidgets(
     'hunk choices review selected host IDs and stale comparisons disable apply',
     (t) async {
       final host = GitHost(DiffBridge());

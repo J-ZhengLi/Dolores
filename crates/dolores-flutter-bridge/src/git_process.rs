@@ -37,6 +37,21 @@ pub(super) fn run(
     remote: bool,
 ) -> Result<Output, String> {
     let mut env = process::environment();
+    if remote {
+        for name in [
+            "SSH_AUTH_SOCK",
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "NO_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "no_proxy",
+        ] {
+            if let Ok(value) = std::env::var(name) {
+                env.push((name.into(), value));
+            }
+        }
+    }
     env.extend([
         ("GIT_OPTIONAL_LOCKS".into(), "0".into()),
         ("GIT_TERMINAL_PROMPT".into(), "0".into()),

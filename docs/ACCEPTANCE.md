@@ -1,5 +1,25 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control 17.5 — deliberate remote actions
+
+Remotes/tracking and ahead/behind load locally on request; network work begins
+only when reviewing a named remote action. Fetch, fast-forward-only Pull and Push
+use installed Git and configured credential helpers, without credential copying
+or interactive prompts. Push reviews exact HEAD/remote ref and rechecks that ref;
+uncertain results reconcile before a fresh remote review. Eight uncertain results
+are retained at most. Restart loses that in-memory warning, but every fresh Push
+still reads the current remote ref and refuses an already-present HEAD. Remote
+helper diagnostics are withheld because they may contain credential-bearing URLs.
+
+Eleven native Source Control checks pass, including a disposable bare remote's
+Push/Fetch/fast-forward Pull, changed remote-ref refusal, divergent Pull preserving
+HEAD/files, and injected uncertain-push reconciliation without repetition. Eight
+focused Source Control UI checks pass, including named remote selection and only
+offering Pull/Push for configured tracking. Flutter analysis is clean. No hosted
+remote, actual credential-provider failure or real interrupted network publication
+was exercised; the latter uncertainty is deterministic fixture evidence. These
+limits remain distinct from the release qualification in 17.6.
+
 ## Source Control 17.4 — selected hunks and local recovery
 
 Text hunks use host-derived IDs and patches against the displayed revision;

@@ -55,6 +55,9 @@ pub(crate) enum Request {
     LocalState {
         repo: String,
     },
+    RemoteState {
+        repo: String,
+    },
 }
 struct Job {
     session: String,
@@ -63,6 +66,7 @@ struct Job {
 }
 #[derive(Default)]
 pub(crate) struct Registry {
+    uncertain: BTreeMap<String, mutation::remote::Basis>,
     jobs: BTreeMap<String, Job>,
     pub(super) active: BTreeMap<String, String>,
     closed: bool,
@@ -433,6 +437,10 @@ impl Engine {
                             Request::LocalState { repo: id } => {
                                 repo.check(&id)?;
                                 repo.local_state(&cancel)
+                            }
+                            Request::RemoteState { repo: id } => {
+                                repo.check(&id)?;
+                                repo.remote_state(&cancel)
                             }
                             _ => unreachable!(),
                         }
