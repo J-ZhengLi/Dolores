@@ -1,6 +1,6 @@
 # Dolores acceptance — 2026-10-05
 
-## Harness self-repair 20.4 — reviewed Rust evaluator, packaged gates pending
+## Harness self-repair 20.4 — reviewed Rust evaluator, visual acceptance pending
 
 2026-10-06: Native execution has its own exact review, including candidate diff,
 frozen reproduction source and bounded Cargo sequence. A complete baseline test
@@ -14,8 +14,15 @@ Task Full access cannot authorize this operation. No installation is delivered.
 and analysis pass. Real installed-Cargo fixtures exercise faulty baseline → fixed
 candidate → regressions and Stop after a child starts, preserving source/marker.
 Source/test drift, truncated evidence and stale/cross-chat persistence are covered.
-Normal packaged dispatch, updated desktop foreground check and live-provider
-evaluation qualification remain pending; see [evidence](qualification/harness-self-repair.md).
+Normal packaged dispatch passes, including declined/stale refusal and a passing
+baseline withholding improvement without candidate execution. Configured DeepSeek
+passes this bounded live path in two calls/23.53 seconds; Qwen remains unqualified
+after choosing denied source inspections instead of a trial. No actual repair or
+installation is claimed. All 38 original profile tables remain unchanged; only
+two empty repair tables were added. Normal build/launch passes, but foreground
+capture fails after a fresh-window retry and shows the Windows background.
+The corrected fixture requires a final build/rerun, and updated native visual
+acceptance remains pending; see [evidence](qualification/harness-self-repair.md).
 The earlier normal 20.2 app's foreground check now passes after desktop unlock.
 
 ## Harness self-repair 20.2 — native proposal stage implemented

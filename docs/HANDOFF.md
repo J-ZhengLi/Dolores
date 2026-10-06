@@ -100,7 +100,7 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 | 20.1 | Implemented matching-source navigation and typed failed-stream evidence; visual/platform/general-model gaps remain. |
 | 20.2 | Implemented scoped selected-file snapshots and visible reviewed native proposals; no generated execution or complete build checkout. |
 | 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
-| 20.4 | Reviewed frozen Rust reproduction/regression evaluator implemented; packaged/live gates pending. |
+| 20.4 | Reviewed frozen Rust evaluator implemented; packaged dispatch and bounded DeepSeek non-improvement pass; native visual acceptance remains open. |
 | 20.5 | Qualified extension activation or reviewed native build/install/restart, with restore. |
 | 20.6 | Real repair, withheld non-improvement and rollback qualification. |
 
@@ -147,8 +147,9 @@ The maintained commands are `python scripts/desktop.py build` and
 `python scripts/desktop.py launch`. The original local preview profile is
 `output/model-picker/preview/data`, with owned-process record
 `output/maintained-preview.json`. Use an absolute profile path when launching and
-verify ownership before replacement. The maintained launcher reports the normal
-window present, but foreground inspection is pending desktop unlock. Verify
+verify ownership before replacement. The maintained launcher reports the updated
+normal window present, but activation/capture could not show its content after a
+fresh-window retry. The earlier 20.2 app was inspected after unlock. Verify
 current process/window state rather than trusting old process IDs.
 
 Routine live tests use configured Qwen/Qwen3.5-2B; harder cases use configured

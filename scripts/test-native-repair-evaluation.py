@@ -74,7 +74,7 @@ def main(directory):
             for command in query['commands'].values():
                 assert command['invocation']['program'] == 'cargo'
                 assert '--offline' in command['invocation']['args'] and '--locked' in command['invocation']['args']
-                assert command['timeoutSeconds'] == 300 and command['captureBytes'] == 262144
+                assert command['timeout_seconds'] == 300 and command['capture_bytes'] == 262144
             # Only the exact trusted test above is authorized by this fixture.
             call('approveTool', id=identity, callId=request['callId'], allow=mode == 'evaluate')
         else:

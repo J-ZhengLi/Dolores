@@ -174,10 +174,32 @@ makes old qualification stale. These receipts grant no installation authority.
   and command-interpreter hints now pass; credentials and arbitrary compiler
   overrides remain excluded. Compile failure was never counted as improvement.
 
-Normal packaged approval/dispatch and live-provider evaluation qualification are
-pending. The earlier normal 20.2 app was inspected in the foreground after unlock,
-with its existing chat, paused work and selected model intact. Updated 20.4 normal
-build/launch remains required before acceptance. Native code/build scripts use the
+The normal release build at `53c4178` passed. The packaged native fixture passed:
+10 fixture requests, two proposal reviews and two native reviews. Decline/stale
+revision executed nothing; the approved ordinary-budget reproduction passed one
+baseline test and withheld improvement, with zero candidate execution/install.
+The initial driver used camelCase command-preview keys; correcting them to the
+actual snake_case fields fixed that driver failure before any execution approval.
+
+Configured DeepSeek V4.1 Flash passed the same live non-improvement path in two
+model calls, 23.53 seconds: one separately reviewed trial, one passing baseline
+test, zero candidate tests and no installation. Output was bounded to 4096 tokens,
+inactivity to 60 seconds and the driver to 180 seconds. The routine Qwen3.5-2B
+probe remains unqualified: four calls repeatedly chose source inspection rather
+than the requested trial; those operations were denied by the fixed test review,
+and no native tests ran. Neither probe demonstrates an actual behavioral repair.
+All live/fixture projects remained unchanged; isolated profiles retained results.
+
+The maintained normal launcher reported a visible window with the original
+profile. Read-only comparison verified all 38 original tables unchanged, with
+only empty `harness_repairs`/`repair_evaluations` additions and schema version 33.
+The earlier normal 20.2 app was inspected after unlock with its paused chat/model
+intact. Updated 20.4 foreground acceptance remains open: fresh-window activation
+retried once still returned `failed to activate captured window`, and read-only
+capture displayed the Windows background. A user-assisted foreground check and
+final build including the corrected fixture remain required.
+
+Native code/build scripts use the
 account's OS permissions: supervision, source checks and offline Cargo are not OS
 containment against malicious code. Arbitrary generated native execution remains
 separately reviewed; frozen-input/receipt checks do not establish such containment.
