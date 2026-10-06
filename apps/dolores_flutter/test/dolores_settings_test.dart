@@ -37,6 +37,14 @@ class SettingsBridge implements ChatBridge {
       },
     ],
     'effective': {
+      'task':
+          patch['task'] ??
+          {
+            'modelCalls': null,
+            'toolCalls': null,
+            'segments': 4,
+            'elapsedSeconds': null,
+          },
       'request':
           patch['generation'] ??
           {'maxOutputTokens': 1024, 'timeoutSeconds': 180},
@@ -75,17 +83,68 @@ class SettingsBridge implements ChatBridge {
   }
 }
 
-Future<void> show(WidgetTester tester, ChatController chat) async {
+Future<void> show(
+  WidgetTester tester,
+  ChatController chat, {
+  SettingsGroup group = SettingsGroup.all,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData.dark(),
-      home: DoloresSettingsInspector(chat: chat),
+      home: DoloresSettingsInspector(chat: chat, group: group),
     ),
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets(
+    'Automatic task limits save blank values and preserve existing numeric limits and draft',
+    (tester) async {
+      final bridge = SettingsBridge();
+      bridge.patch['task'] = {
+        'modelCalls': 4,
+        'toolCalls': 4,
+        'segments': 4,
+        'elapsedSeconds': null,
+      };
+      final chat = ChatController(bridge)
+        ..session = 'thread-a'
+        ..loading = false
+        ..draft = 'Keep my work';
+      await show(tester, chat, group: SettingsGroup.task);
+      expect(find.text('4 model calls · 4 tools'), findsOneWidget);
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(bridge.commands.last['patch']['task']['modelCalls'], 4);
+      final calls = find.widgetWithText(TextField, 'Model calls (optional)');
+      final tools = find.widgetWithText(
+        TextField,
+        'Tool operations (optional)',
+      );
+      await tester.ensureVisible(calls);
+      await tester.enterText(calls, 'many');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.text('Use whole numbers for task limits.'), findsOneWidget);
+      expect(bridge.patch['task']['modelCalls'], 4);
+      await tester.enterText(calls, '');
+      await tester.enterText(tools, '');
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(bridge.commands.last['patch']['task'], {
+        'modelCalls': null,
+        'toolCalls': null,
+        'segments': 4,
+        'elapsedSeconds': null,
+      });
+      expect(chat.draft, 'Keep my work');
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
   testWidgets(
     'Changed window exposes invalid settings and keeps reset usable',
     (tester) async {

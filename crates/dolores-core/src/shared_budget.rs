@@ -25,7 +25,7 @@ impl SharedTaskBudget {
     }
     pub fn reserve_model(&self, child: bool) -> bool {
         let mut used = self.used.lock().unwrap_or_else(|e| e.into_inner());
-        let limit = self.limit.model_calls.saturating_sub(usize::from(child));
+        let limit = self.limit.model_limit().saturating_sub(usize::from(child));
         if used.model_calls >= limit {
             return false;
         }
@@ -34,7 +34,7 @@ impl SharedTaskBudget {
     }
     pub fn reserve_tools(&self, count: usize) -> bool {
         let mut used = self.used.lock().unwrap_or_else(|e| e.into_inner());
-        if count > self.limit.tool_calls.saturating_sub(used.tool_calls) {
+        if count > self.limit.tool_limit().saturating_sub(used.tool_calls) {
             return false;
         }
         used.tool_calls += count;
@@ -47,7 +47,11 @@ mod tests {
     use super::*;
     #[test]
     fn children_cannot_spend_parent_report_or_race_past_total() {
-        let shared = std::sync::Arc::new(SharedTaskBudget::new(TaskBudget::default()));
+        let shared = std::sync::Arc::new(SharedTaskBudget::new(TaskBudget {
+            model_calls: Some(4),
+            tool_calls: Some(4),
+            ..Default::default()
+        }));
         let threads: Vec<_> = (0..12)
             .map(|_| {
                 let shared = shared.clone();

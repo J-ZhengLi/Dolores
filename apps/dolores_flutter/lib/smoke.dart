@@ -1996,9 +1996,9 @@ Future<void> _run(
     check(
       chat.error == null &&
           chat.draft.isEmpty &&
-          chat.messages.last['metadata']['paused']['reason'] == 'stepLimit' &&
-          chat.messages.last['metadata']['agent']['modelCalls'] == 4,
-      'Repeated tool requests pause at the fixed model-call budget and retain progress with receipts',
+          chat.messages.last['metadata']['paused']['reason'] == 'noProgress' &&
+          chat.messages.last['metadata']['agent']['modelCalls'] == 3,
+      'Repeated failed tool requests pause before a third attempt and retain progress with receipts',
       checks,
     );
     await screenshot(capture, output, 'paused-task-dark');

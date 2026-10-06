@@ -527,6 +527,11 @@ impl ToolPlugin for McpPlugin {
         plans.insert(call.id.clone(), request.clone());
         Ok(request)
     }
+    fn discard(&self, request: &ToolRequest) {
+        if let Ok(mut plans) = self.plans.lock() {
+            plans.remove(&request.call_id);
+        }
+    }
     async fn invoke(
         &self,
         request: &ToolRequest,

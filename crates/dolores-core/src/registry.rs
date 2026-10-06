@@ -242,7 +242,14 @@ impl ToolPlugin for RegistryTool {
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         let proposal = self.inner.prepare(call)?;
-        self.snapshot.transform_proposal(&proposal)
+        let result = self.snapshot.transform_proposal(&proposal);
+        if result.is_err() {
+            self.inner.discard(&proposal);
+        }
+        result
+    }
+    fn discard(&self, request: &ToolRequest) {
+        self.inner.discard(request);
     }
     async fn invoke(
         &self,

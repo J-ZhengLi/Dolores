@@ -31,14 +31,16 @@ def worker(directory):
         def log_message(self,*args):pass
         def do_POST(self):
             payload=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append(payload)
-            delta={'tool_calls':[{'index':0,'id':f'call-{len(requests)}','type':'function','function':{'name':'read_text_file','arguments':'{"path":"greeting.txt"}'}}]}
+            calls=4 if mode=='batch' else 1
+            path='missing.txt' if mode=='failed' else 'greeting.txt'
+            delta={'tool_calls':[{'index':index,'id':f'call-{len(requests)}-{index}','type':'function','function':{'name':'read_text_file','arguments':json.dumps({'path':path})}} for index in range(calls)]}
             self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
             for item in [{'choices':[{'delta':delta,'finish_reason':None}]},{'choices':[{'delta':{},'finish_reason':'length' if mode=='output' else 'tool_calls'}]}]:
                 self.wfile.write(f'data: {json.dumps(item)}\n\n'.encode())
             self.wfile.write(b'data: [DONE]\n\n')
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start()
     def finish(identity,stop=False):
-        deadline=time.monotonic()+15;approvals=0
+        deadline=time.monotonic()+30;approvals=0
         while time.monotonic()<deadline:
             for event in call('poll',id=identity):
                 if event['type']=='toolApproval':
@@ -65,7 +67,7 @@ def worker(directory):
         before=len(requests)
         refused=envelope('start',id=2,session=session,input='Continue working on the previous task.',continuation=paused['id'])
         assert not refused['ok'] and 'segments' in refused['error'] and len(requests)==before
-        assert not envelope('saveScopedSettings',session=session,scope='thread',revision=1,patch={'task':{**budget,'toolCalls':33}})['ok']
+        assert not envelope('saveScopedSettings',session=session,scope='thread',revision=1,patch={'task':{**budget,'toolCalls':257}})['ok']
         assert call('scopedSettings',session=session)['effective']['task']==budget
         mode='output';call('start',id=3,session=session,input='truncate a pending call');done,count=finish(3)
         assert 'error' not in done and count==0
@@ -75,7 +77,25 @@ def worker(directory):
         run=call('runs',session=session)[0]
         assert not any(e['kind'] in ['toolIntent','effectIntent'] for e in call('runEvents',session=session,runId=run['id']))
         assert (folder/'greeting.txt').read_bytes()==b'Hello.\n'
-        print(json.dumps({'passed':True,'modelRequests':len(requests),'toolCap':5,'continuationRefusedBeforeRequest':True,'outputLimitNoDispatch':True,'stopNoEffectIntent':True}))
+        view=call('saveScopedSettings',session=session,scope='thread',revision=1,patch={'task':None})
+        assert view['effective']['task']['modelCalls'] is None and view['effective']['task']['toolCalls'] is None
+        mode='batch';before=len(requests)
+        call('start',id=5,session=session,input='read in batches until a resource checkpoint');done,count=finish(5)
+        assert 'error' not in done and count==128
+        paused=call('messagesPage',session=session)['items'][-1]
+        assert paused['metadata']['paused']['reason']=='checkpoint'
+        assert len(paused['metadata']['agent']['tools'])==128 and len(requests)-before==33
+        run=call('runs',session=session)[0]
+        events=call('runEvents',session=session,runId=run['id'])
+        assert len(events)>256 and events[-1]['kind']=='finished'
+        mode='failed';before=len(requests)
+        call('start',id=6,session=session,input='read a missing file repeatedly');done,count=finish(6)
+        assert 'error' not in done and count==0
+        paused=call('messagesPage',session=session)['items'][-1]
+        assert paused['metadata']['paused']['reason']=='noProgress'
+        assert len(paused['metadata']['agent']['tools'])==2 and len(requests)-before==3
+        assert (folder/'greeting.txt').read_bytes()==b'Hello.\n'
+        print(json.dumps({'passed':True,'modelRequests':len(requests),'toolCap':5,'continuationRefusedBeforeRequest':True,'outputLimitNoDispatch':True,'stopNoEffectIntent':True,'automaticCheckpointTools':128,'checkpointJournalEvents':len(events),'repeatedFailureReceipts':2}))
     finally:call('shutdown');server.shutdown();loader.close()
 if __name__=='__main__':
     if len(sys.argv)>1:worker(sys.argv[1])

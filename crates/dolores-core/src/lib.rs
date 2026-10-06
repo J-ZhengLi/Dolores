@@ -14,6 +14,7 @@ mod feedback;
 pub use comparison::*;
 pub use feedback::*;
 mod agent;
+mod agent_watchdog;
 pub use agent::ModelActivity;
 mod web;
 pub use web::*;

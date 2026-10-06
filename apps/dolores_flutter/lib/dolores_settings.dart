@@ -98,10 +98,10 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
     final t =
         (patch['task'] ??
                 effective['task'] ??
-                {'modelCalls': 4, 'toolCalls': 4, 'segments': 4})
+                {'modelCalls': null, 'toolCalls': null, 'segments': 4})
             as Map;
-    calls.text = t['modelCalls'].toString();
-    tools.text = t['toolCalls'].toString();
+    calls.text = t['modelCalls']?.toString() ?? '';
+    tools.text = t['toolCalls']?.toString() ?? '';
     segments.text = t['segments'].toString();
     elapsed.text = t['elapsedSeconds']?.toString() ?? '';
     generation = patch['generation'] != null;
@@ -160,8 +160,9 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
     if (!reset &&
         shows(SettingsGroup.task) &&
         task &&
-        (int.tryParse(calls.text) == null ||
-            int.tryParse(tools.text) == null ||
+        ((calls.text.trim().isNotEmpty && int.tryParse(calls.text) == null) ||
+            (tools.text.trim().isNotEmpty &&
+                int.tryParse(tools.text) == null) ||
             int.tryParse(segments.text) == null ||
             (elapsed.text.trim().isNotEmpty &&
                 int.tryParse(elapsed.text) == null))) {
@@ -197,8 +198,8 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
               ? record['patch']['task']
               : !reset && task
               ? {
-                  'modelCalls': int.parse(calls.text),
-                  'toolCalls': int.parse(tools.text),
+                  'modelCalls': int.tryParse(calls.text.trim()),
+                  'toolCalls': int.tryParse(tools.text.trim()),
                   'segments': int.parse(segments.text),
                   'elapsedSeconds': int.tryParse(elapsed.text),
                 }
@@ -328,7 +329,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           )
                         else if (widget.group == SettingsGroup.task)
                           SelectableText(
-                            '${effective!['task']?['modelCalls'] ?? 4} model calls · ${effective['task']?['toolCalls'] ?? 4} tools · ${effective['task']?['segments'] ?? 4} segments',
+                            '${effective!['task']?['modelCalls'] == null ? 'Automatic model calls' : '${effective['task']['modelCalls']} model calls'} · ${effective['task']?['toolCalls'] == null ? 'Automatic tools' : '${effective['task']['toolCalls']} tools'}',
                           )
                         else
                           SettingsDetails(
@@ -352,8 +353,8 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           ),
                         if (shows(SettingsGroup.task) && task) ...[
                           for (final field in [
-                            (calls, 'Model calls per segment (2–16)'),
-                            (tools, 'Tool operations per segment (1–32)'),
+                            (calls, 'Model calls (optional)'),
+                            (tools, 'Tool operations (optional)'),
                             (segments, 'Total task segments (1–8)'),
                             (
                               elapsed,
@@ -364,10 +365,15 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                               controller: field.$1,
                               enabled: !locked,
                               keyboardType: TextInputType.number,
-                              decoration: InputDecoration(labelText: field.$2),
+                              decoration: InputDecoration(
+                                labelText: field.$2,
+                                hintText: field.$1 == calls || field.$1 == tools
+                                    ? 'Automatic'
+                                    : null,
+                              ),
                             ),
                           const Text(
-                            'Continue uses another segment. Applied work remains. Limits do not grant tool access or change model output/context settings.',
+                            'Leave call limits blank for Automatic. Continue resumes saved progress.',
                           ),
                         ],
                         if (shows(SettingsGroup.generation) && scope == 'user')

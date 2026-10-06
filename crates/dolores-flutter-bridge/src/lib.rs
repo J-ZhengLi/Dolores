@@ -2030,7 +2030,7 @@ async fn execute(
         if compacted {
             return Err("Compaction preserved a valid summary but this window still omits history. Review Session summary, shorten context or increase the model window before sending again.".into());
         }
-        if task.model_calls < 3 {
+        if task.model_limit() < 3 {
             return Err("Automatic compaction needs one summary call and at least two remaining model calls. Increase Task limits or use Session summary manually.".into());
         }
         forward(output,json!({"type":"compacting","id":id,"message":"Compacting one complete source batch; full history is retained."}),&cancel).await?;
@@ -2095,7 +2095,7 @@ async fn execute(
             )
             .await?;
         }
-        task.model_calls -= 1;
+        task.model_calls = Some(task.model_limit() - 1);
         let spent = started_at.elapsed().as_secs();
         if let Some(seconds) = task.elapsed_seconds {
             let remaining = u64::from(seconds).saturating_sub(spent);
@@ -2251,7 +2251,7 @@ async fn execute(
                 elapsed_seconds: Some(
                     task.handoff_deadline(settings.unwrap_or_default().timeout_seconds),
                 ),
-                ..task
+                ..task.bounded()
             };
             log.record(None, "desktopHandoff", json!({"modelCalls":usage.model_calls,"toolCalls":usage.tool_calls,"elapsedSeconds":started_at.elapsed().as_secs(),"budget":saved_budget})).await?;
         }

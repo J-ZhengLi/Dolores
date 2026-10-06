@@ -61,7 +61,7 @@ pub struct RunEvent {
     pub state: RunState,
     pub data: serde_json::Value,
 }
-pub const MAX_RUN_EVENTS: u32 = 256;
+pub const MAX_RUN_EVENTS: u32 = 2048;
 pub const MAX_RUN_EVENT_BYTES: usize = 128 * 1024;
 
 fn first_segment() -> u32 {

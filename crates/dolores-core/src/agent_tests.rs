@@ -1,6 +1,261 @@
 use super::*;
 
 #[tokio::test]
+async fn repeated_failures_inside_one_batch_stop_before_later_requests() {
+    struct Batch;
+    #[async_trait]
+    impl ModelProvider for Batch {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "batch",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            _: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            unreachable!()
+        }
+        async fn tool_turn(
+            &self,
+            _: &[AgentMessage],
+            _: &[ToolSpec],
+            _: CancellationToken,
+        ) -> Result<AgentTurn, String> {
+            Ok(AgentTurn {
+                content: "Inspecting the requested file.".into(),
+                output_limit: false,
+                usage: None,
+                calls: vec![
+                    call("one", "../missing"),
+                    call("two", "../missing"),
+                    call("three", "../missing"),
+                    call("later", "readme"),
+                ],
+            })
+        }
+    }
+    let read = Arc::new(Read {
+        count: AtomicUsize::new(0),
+    });
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    let reply = run_agent(
+        &Batch,
+        context(),
+        &[read.clone() as Arc<dyn ToolPlugin>],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply.pause, Some(PauseReason::NoProgress));
+    assert_eq!(reply.summary.tools.len(), 2);
+    assert_eq!(
+        reply.summary.steps[0].text,
+        "Inspecting the requested file."
+    );
+    assert_eq!(read.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn repeated_failed_or_denied_requests_pause_before_a_third_attempt() {
+    for denied in [false, true] {
+        let read = Arc::new(Read {
+            count: AtomicUsize::new(0),
+        });
+        let approval = Approval {
+            allow: !denied,
+            count: AtomicUsize::new(0),
+        };
+        let path = if denied { "readme" } else { "../missing" };
+        let provider = Scripted {
+            calls: Mutex::new(
+                (0..4)
+                    .map(|n| call(&format!("failure-{n}"), path))
+                    .collect(),
+            ),
+            loop_forever: false,
+        };
+        let (events, _receiver) = mpsc::channel(128);
+        let reply = run_agent(
+            &provider,
+            context(),
+            &[read.clone() as Arc<dyn ToolPlugin>],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.pause, Some(PauseReason::NoProgress));
+        assert_eq!(reply.summary.tools.len(), 2);
+        assert_eq!(reply.summary.model_calls, 3);
+        assert_eq!(read.count.load(Ordering::SeqCst), 0);
+        assert_eq!(approval.count.load(Ordering::SeqCst), usize::from(denied));
+        assert!(reply.answer.contains("resolve their cause"));
+        assert_eq!(provider.calls.lock().unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn distinct_failure_streak_pauses_but_successful_work_clears_it() {
+    for repaired in [false, true] {
+        let read = Arc::new(Read {
+            count: AtomicUsize::new(0),
+        });
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let paths = if repaired {
+            vec!["../bad", "../bad", "readme", "../bad", "../bad", "readme"]
+        } else {
+            vec!["../a", "../b", "../c", "../d", "../e", "../f", "readme"]
+        };
+        let provider = Scripted {
+            calls: Mutex::new(
+                paths
+                    .iter()
+                    .enumerate()
+                    .map(|(n, p)| call(&format!("step-{n}"), p))
+                    .collect(),
+            ),
+            loop_forever: false,
+        };
+        let (events, _receiver) = mpsc::channel(128);
+        let reply = run_agent(
+            &provider,
+            context(),
+            &[read.clone() as Arc<dyn ToolPlugin>],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            reply.pause,
+            if repaired {
+                None
+            } else {
+                Some(PauseReason::NoProgress)
+            }
+        );
+        assert_eq!(
+            read.count.load(Ordering::SeqCst),
+            if repaired { 2 } else { 0 }
+        );
+        assert_eq!(reply.summary.tools.len(), 6);
+        assert_eq!(provider.calls.lock().unwrap().len(), usize::from(!repaired));
+    }
+}
+
+#[tokio::test]
+async fn automatic_resource_checkpoint_keeps_receipts_and_never_runs_pending_calls() {
+    let read = Arc::new(Read {
+        count: AtomicUsize::new(0),
+    });
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let provider = Scripted {
+        calls: Mutex::new(vec![]),
+        loop_forever: true,
+    };
+    let (events, _receiver) = mpsc::channel(1024);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &[read.clone() as Arc<dyn ToolPlugin>],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply.pause, Some(PauseReason::Checkpoint));
+    assert_eq!(reply.summary.model_calls, 64);
+    assert_eq!(read.count.load(Ordering::SeqCst), 63);
+    assert_eq!(reply.summary.tools.len(), 63);
+    assert!(reply.answer.contains("resource checkpoint"));
+}
+
+#[tokio::test]
+async fn long_literal_command_arguments_reach_approval_without_hitting_old_hidden_limit() {
+    let provider = Scripted {
+        calls: Mutex::new(vec![ToolCall {
+            id: "long".into(),
+            name: "run_command".into(),
+            arguments: json!({"program":"node","args":["-e", "x".repeat(6000)]}).to_string(),
+        }]),
+        loop_forever: false,
+    };
+    let approval = Approval {
+        allow: false,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &[Arc::new(CommandMock)],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(approval.count.load(Ordering::SeqCst), 1);
+    assert_eq!(reply.summary.tools[0].status, "denied");
+    assert!(reply.summary.tools[0].command.as_ref().unwrap().args[1].len() == 6000);
+}
+
+#[tokio::test]
+async fn default_task_completes_six_reviewed_operations_without_continue() {
+    let read = Arc::new(Read {
+        count: AtomicUsize::new(0),
+    });
+    let approval = Approval {
+        allow: true,
+        count: AtomicUsize::new(0),
+    };
+    let provider = Scripted {
+        calls: Mutex::new(
+            (0..6)
+                .map(|n| call(&format!("step-{n}"), &format!("file-{n}")))
+                .collect(),
+        ),
+        loop_forever: false,
+    };
+    let (events, _receiver) = mpsc::channel(128);
+    let reply = run_agent(
+        &provider,
+        context(),
+        &[read.clone() as Arc<dyn ToolPlugin>],
+        &approval,
+        events,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reply.pause, None);
+    assert_eq!(reply.answer, "Final answer");
+    assert_eq!(reply.summary.model_calls, 7);
+    assert_eq!(read.count.load(Ordering::SeqCst), 6);
+    assert_eq!(approval.count.load(Ordering::SeqCst), 6);
+}
+
+#[tokio::test]
 async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry() {
     struct Batch;
     #[async_trait]
@@ -75,7 +330,7 @@ async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry
         };
         let (events, _receiver) = mpsc::channel(32);
         let plugins: Vec<Arc<dyn ToolPlugin>> = vec![plugin.clone()];
-        let reply = run_agent(
+        let reply = run_small_agent(
             &Batch,
             context(),
             &plugins,
@@ -158,7 +413,7 @@ async fn snapshot_image_context_refuses_before_model_and_legacy_records_keep_emp
         count: AtomicUsize::new(0),
     };
     let (events, _) = mpsc::channel(32);
-    let error = run_agent(
+    let error = run_small_agent(
         &provider,
         context(),
         &[Arc::new(Snapshot)],
@@ -301,7 +556,7 @@ async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_mode
             count: AtomicUsize::new(0),
         };
         let (events, _receiver) = mpsc::channel(32);
-        let error = run_agent(
+        let result = run_small_agent(
             &provider,
             context(),
             &plugins,
@@ -309,10 +564,15 @@ async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_mode
             events,
             CancellationToken::new(),
         )
-        .await
-        .err()
-        .unwrap();
-        assert!(error.contains("context budget"));
+        .await;
+        if large_schema {
+            assert!(result.err().unwrap().contains("context budget"));
+        } else {
+            let reply = result.unwrap();
+            assert_eq!(reply.pause, Some(PauseReason::Checkpoint));
+            assert_eq!(reply.summary.tools.len(), 1);
+            assert!(reply.answer.contains("Compact"));
+        }
         assert_eq!(
             provider.calls.load(Ordering::SeqCst),
             if large_schema { 0 } else { 1 }
@@ -453,7 +713,7 @@ async fn invalid_browser_arguments_explain_correction_without_access_denial_or_d
         count: AtomicUsize::new(0),
     };
     let (events, _receiver) = mpsc::channel(32);
-    let reply = run_agent(
+    let reply = run_small_agent(
         &provider,
         context(),
         &[Arc::new(BrowserMock)],
@@ -514,7 +774,7 @@ async fn oversized_command_receipt_preserves_script_file_recovery_without_approv
         count: AtomicUsize::new(0),
     };
     let (events, _receiver) = mpsc::channel(32);
-    let reply = run_agent(
+    let reply = run_small_agent(
         &provider,
         context(),
         &[Arc::new(OversizedCommand)],
@@ -557,8 +817,8 @@ async fn configured_limits_allow_a_fifth_operation_and_stop_the_next_without_eff
             events,
             CancellationToken::new(),
             crate::TaskBudget {
-                model_calls: 8,
-                tool_calls: tools,
+                model_calls: Some(8),
+                tool_calls: Some(tools),
                 ..Default::default()
             },
         )
@@ -602,7 +862,7 @@ async fn inspection_preparation_refusal_has_actionable_recovery_without_approval
         count: AtomicUsize::new(0),
     };
     let (events, _receiver) = mpsc::channel(32);
-    let reply = run_agent(
+    let reply = run_small_agent(
         &provider,
         context(),
         &[Arc::new(InvalidInspection)],
@@ -762,7 +1022,7 @@ async fn command_denial_binds_exact_arguments_and_public_records_omit_executable
         count: AtomicUsize::new(0),
     };
     let (events, _receiver) = mpsc::channel(32);
-    let reply = run_agent(
+    let reply = run_small_agent(
         &provider,
         context(),
         &plugins,
@@ -860,7 +1120,7 @@ async fn denial_cache_is_scoped_to_tool_folder_and_exact_query_and_records_keep_
             count: AtomicUsize::new(0),
         };
         let (events, _receiver) = mpsc::channel(32);
-        let reply = run_agent(
+        let reply = run_small_agent(
             &provider,
             context(),
             &plugins,
@@ -1002,7 +1262,7 @@ async fn model_text_is_visible_before_completion_without_preparing_or_approving_
     let tool = read.clone();
     let policy = approval.clone();
     let task = tokio::spawn(async move {
-        run_agent(
+        run_small_agent(
             &provider,
             context(),
             &[tool as Arc<dyn ToolPlugin>],
@@ -1060,7 +1320,7 @@ async fn partial_invalid_and_oversized_streams_cannot_run_tools() {
             count: AtomicUsize::new(0),
         };
         let (events, _receiver) = mpsc::channel(32);
-        let result = run_agent(
+        let result = run_small_agent(
             &provider,
             context(),
             &[read.clone() as Arc<dyn ToolPlugin>],
@@ -1092,7 +1352,7 @@ async fn approved_data_cannot_authorize_another_read_and_denials_do_not_repeat_p
             loop_forever: false,
         };
         let (events, _receiver) = mpsc::channel(32);
-        let reply = run_agent(
+        let reply = run_small_agent(
             &provider,
             context(),
             &[read.clone() as Arc<dyn ToolPlugin>],
@@ -1130,7 +1390,7 @@ async fn unknown_replayed_and_excessive_calls_never_bypass_the_registry_or_budge
             loop_forever: case == 2,
         };
         let (events, _receiver) = mpsc::channel(32);
-        let result = run_agent(
+        let result = run_small_agent(
             &provider,
             context(),
             &[read.clone() as Arc<dyn ToolPlugin>],
@@ -1240,7 +1500,7 @@ async fn automatic_output_recovery_preserves_progress_and_never_replays_partial_
             count: AtomicUsize::new(0),
         };
         let (events, _receiver) = mpsc::channel(64);
-        let reply = run_agent(
+        let reply = run_small_agent(
             &provider,
             context(),
             &[read.clone() as Arc<dyn ToolPlugin>],
@@ -1268,4 +1528,28 @@ async fn automatic_output_recovery_preserves_progress_and_never_replays_partial_
             assert_eq!(reply.summary.steps[0].text, "Saved partial plan");
         }
     }
+}
+
+async fn run_small_agent(
+    provider: &dyn ModelProvider,
+    context: Vec<Message>,
+    plugins: &[Arc<dyn ToolPlugin>],
+    approval: &dyn ToolApproval,
+    events: mpsc::Sender<AgentEvent>,
+    cancel: CancellationToken,
+) -> Result<AgentReply, String> {
+    run_agent_with_budget(
+        provider,
+        context,
+        plugins,
+        approval,
+        events,
+        cancel,
+        crate::TaskBudget {
+            model_calls: Some(4),
+            tool_calls: Some(4),
+            ..Default::default()
+        },
+    )
+    .await
 }

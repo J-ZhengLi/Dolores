@@ -107,6 +107,9 @@ impl ToolPlugin for LoggedTool {
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         self.inner.prepare(call)
     }
+    fn discard(&self, request: &ToolRequest) {
+        self.inner.discard(request);
+    }
     async fn invoke(
         &self,
         request: &ToolRequest,

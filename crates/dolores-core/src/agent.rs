@@ -40,7 +40,9 @@ pub fn prepare_agent_context(mut context: Vec<Message>) -> Result<Vec<Message>, 
         context[0].content.push_str(CODING_GUIDANCE);
     }
     let budget = budget_note(1, 0);
-    if !context[0].content.contains("\n\nThis run: model call ") {
+    if !context[0].content.contains("\n\nThis run: model call ")
+        && !context[0].content.contains("\n\nAutomatic task execution:")
+    {
         context[0].content.push_str(&budget);
     }
     while context
@@ -89,11 +91,14 @@ pub fn reset_agent_budget_note(
     )
 }
 fn budget_note_for(number: usize, used_tools: usize, budget: crate::TaskBudget) -> String {
-    let max_models = budget.model_calls;
+    let max_models = budget.model_limit();
+    if budget.model_calls.is_none() && budget.tool_calls.is_none() {
+        return format!("\n\nAutomatic task execution: model call {number}, {used_tools} tool attempts used. Continue useful work until the task is complete or truly blocked; reserve validation before optional polish. The host detects repeated failed requests and saves progress at context/resource checkpoints. Do not repeat denied or failed operations without resolving their cause. Report actual results and remaining work honestly.");
+    }
     format!(
         "\n\nThis run: model call {number}/{max_models}; {} tool operations remain; {} tool-producing model calls remain including this one. The final model call must report results without tools. For coding, reserve a tool operation and a tool-producing call for validation before more optional work. Failed or incomplete command receipts require repair and a fresh approved rerun of the same check; do not weaken tests merely to make them pass. If that cannot fit, report remaining work and pause for explicit continuation.",
-        budget.tool_calls.saturating_sub(used_tools),
-        budget.model_calls.saturating_sub(number),
+        budget.tool_limit().saturating_sub(used_tools),
+        max_models.saturating_sub(number),
     )
 }
 pub fn prepare_external_tool_context(
@@ -256,6 +261,8 @@ pub enum PauseReason {
     DesktopAccess,
     ResponseTimeout,
     TaskTimeout,
+    NoProgress,
+    Checkpoint,
 }
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -308,6 +315,8 @@ pub trait ToolPlugin: Send + Sync {
     fn spec(&self) -> ToolSpec;
     /// Validate and identify the resource before asking for permission.
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String>;
+    /// Release a prepared one-use plan that the user declined; never execute it.
+    fn discard(&self, _request: &ToolRequest) {}
     async fn invoke(
         &self,
         request: &ToolRequest,
@@ -466,6 +475,7 @@ pub async fn run_agent_with_shared_budget(
     };
     let mut output_bytes = 0;
     let mut output_recoveries = 0;
+    let mut failures = crate::agent_watchdog::FailureWatchdog::default();
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
     let base_system = messages[0].content.clone();
@@ -490,9 +500,9 @@ pub async fn run_agent_with_shared_budget(
     {
         return Err("Selected screenshot exceeds this model's context allowance. Choose a larger-context image model or compact/start a fresh chat; your screenshot and draft remain. Nothing was sent.".into());
     }
-    for number in 1..=budget.model_calls {
+    for number in 1..=budget.model_limit() {
         if !shared.reserve_model(child) {
-            return Ok(AgentReply { answer: "Paused at the shared task model-call limit. Completed tool effects and saved evidence remain. Review subagent reports and explicitly Continue or change Task limits; nothing was replayed.".into(), summary, pause: Some(PauseReason::StepLimit) });
+            return Ok(AgentReply { answer: "Task checkpoint saved. Completed tool effects and evidence remain. Review progress and Continue; nothing was replayed.".into(), summary, pause: Some(if budget.model_calls.is_none() { PauseReason::Checkpoint } else { PauseReason::StepLimit }) });
         }
         messages[0].content = base_system.replacen(
             &budget_note_for(1, 0, budget),
@@ -501,7 +511,7 @@ pub async fn run_agent_with_shared_budget(
         );
         let bytes = serde_json::to_vec(&messages).map_err(|_| "Could not prepare tool context.")?;
         if bytes.len() > MAX_CONTEXT_BYTES {
-            return Err("Tool context exceeds the 128 KiB limit.".into());
+            return Ok(checkpoint_reply(summary, "Task context checkpoint saved. Compact the conversation or start a new chat with its saved progress before continuing. Completed changes remain; no pending request ran."));
         }
         let tokens = crate::estimate_agent_tokens(&messages, &specs)?;
         if crate::input_token_allowance(
@@ -510,7 +520,7 @@ pub async fn run_agent_with_shared_budget(
         )?
         .is_some_and(|limit| tokens > limit)
         {
-            return Err("Tool results exceed the model context budget. Start a new chat or increase the context window. Your message was not saved; already applied tool effects remain.".into());
+            return Ok(checkpoint_reply(summary, "The task reached this model's context allowance. Compact the conversation or start a new chat with its saved progress before continuing. Completed changes remain; no pending request ran."));
         }
         emit(&events, AgentEvent::ModelStep { number }, &cancel).await?;
         let (text, mut receiver) = mpsc::channel(32);
@@ -650,7 +660,7 @@ pub async fn run_agent_with_shared_budget(
                 .max_output_tokens
                 .is_none()
                 && output_recoveries == 0
-                && number < budget.model_calls
+                && number < budget.model_limit()
                 && !turn.content.trim().is_empty()
                 && crate::unresolved_commands(&summary.tools).is_empty()
                 && subagent_pause(&summary.tools).is_none()
@@ -703,18 +713,31 @@ pub async fn run_agent_with_shared_budget(
                 summary,
             });
         }
-        if number == budget.model_calls
-            || summary.tools.len() + turn.calls.len() > budget.tool_calls
+        if number == budget.model_limit()
+            || summary.tools.len() + turn.calls.len() > budget.tool_limit()
             || !shared.reserve_tools(turn.calls.len())
         {
+            let reason = if (number == budget.model_limit() && budget.model_calls.is_some())
+                || (summary.tools.len() + turn.calls.len() > budget.tool_limit()
+                    && budget.tool_calls.is_some())
+                || (budget.model_calls.is_some() && budget.tool_calls.is_some())
+            {
+                PauseReason::StepLimit
+            } else {
+                PauseReason::Checkpoint
+            };
             return Ok(AgentReply {
                 answer: if turn.content.trim().is_empty() {
-                    "Paused at this run's step limit. Saved tool results are available below; the remaining tool requests have not run.".into()
+                    if reason == PauseReason::Checkpoint {
+                        "Task resource checkpoint saved. Review progress and Continue to resume. Completed changes remain; the remaining tool requests have not run.".into()
+                    } else {
+                        "Paused at your configured step limit. Saved tool results are available below; the remaining tool requests have not run.".into()
+                    }
                 } else {
                     turn.content
                 },
+                pause: Some(reason),
                 summary,
-                pause: Some(PauseReason::StepLimit),
             });
         }
         for call in &turn.calls {
@@ -732,6 +755,9 @@ pub async fn run_agent_with_shared_budget(
                 text: turn.content.clone(),
             });
         }
+        if turn.calls.iter().any(|call| failures.repeats_failure(call)) {
+            return Ok(no_progress_reply(summary));
+        }
         messages.push(AgentMessage {
             parts: vec![],
             role: "assistant".into(),
@@ -740,6 +766,9 @@ pub async fn run_agent_with_shared_budget(
             call_id: None,
         });
         for call in turn.calls {
+            if failures.repeats_failure(&call) {
+                return Ok(no_progress_reply(summary));
+            }
             let plugin = &plugins[specs.iter().position(|s| s.name == call.name).unwrap()];
             let prepare_plugin = plugin.clone();
             let prepare_call = call.clone();
@@ -862,10 +891,13 @@ pub async fn run_agent_with_shared_budget(
                                 || c.executable.is_empty()
                                 || c.invocation.program != request.target
                                 || c.invocation.args.len() > 32
+                                || c.invocation.args.iter().any(|arg| arg.len() > 8192 || arg.contains('\0'))
+                                || c.invocation.args.iter().map(String::len).sum::<usize>() > 16 * 1024
                                 || serde_json::to_string(&c.invocation)
-                                    .map_or(true, |s| s.len() > 4096)
+                                    .map_or(true, |s| s.len() > 32 * 1024)
                         })
                     {
+                        plugin.discard(&request);
                         return Err("Tool prepared an invalid approval request.".into());
                     }
                     let denial = (
@@ -879,6 +911,7 @@ pub async fn run_agent_with_shared_budget(
                     if denied.contains(&denial)
                         || !approval.authorize(&request, cancel.clone()).await?
                     {
+                        plugin.discard(&request);
                         denied.insert(denial);
                         (request.target, "denied", "User denied this tool request. Do not retry it without a new user request.".into())
                     } else {
@@ -973,7 +1006,7 @@ pub async fn run_agent_with_shared_budget(
             let record = ToolRecord {
                 parts: parts.clone(),
                 call_id: call.id.clone(),
-                name: call.name,
+                name: call.name.clone(),
                 target,
                 status: status.into(),
                 content: content.clone(),
@@ -991,6 +1024,7 @@ pub async fn run_agent_with_shared_budget(
             )
             .await?;
             let desktop_failed = record.name == "desktop_control" && record.status != "completed";
+            let no_progress = failures.record(&call, &record);
             summary.tools.push(record);
             if summary
                 .tools
@@ -1008,6 +1042,9 @@ pub async fn run_agent_with_shared_budget(
                     summary,
                 });
             }
+            if no_progress {
+                return Ok(no_progress_reply(summary));
+            }
             messages.push(AgentMessage {
                 parts,
                 role: "tool".into(),
@@ -1018,6 +1055,17 @@ pub async fn run_agent_with_shared_budget(
         }
     }
     Err("Agent reached its model-call limit.".into())
+}
+
+fn checkpoint_reply(summary: AgentSummary, answer: &str) -> AgentReply {
+    AgentReply {
+        pause: Some(PauseReason::Checkpoint),
+        answer: answer.into(),
+        summary,
+    }
+}
+fn no_progress_reply(summary: AgentSummary) -> AgentReply {
+    AgentReply { pause: Some(PauseReason::NoProgress), answer: "Dolores paused after repeated tool failures. Your progress and completed changes are saved. Inspect the failed results and resolve their cause or choose another approach before Continue. No later queued operation ran and no permission was expanded.".into(), summary }
 }
 
 fn subagent_pause(tools: &[ToolRecord]) -> Option<PauseReason> {

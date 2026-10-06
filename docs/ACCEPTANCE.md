@@ -1,5 +1,29 @@
 # Dolores acceptance — 2026-10-05
 
+## AI follow-up — automatic task execution
+
+2026-10-06: Fresh task settings use Automatic counts rather than four model calls
+and four tools. Useful work continues to a saved resource checkpoint (64 model
+calls / 128 tool attempts per segment). Explicit saved counts remain authoritative.
+Repeated failed requests pause before a third identical attempt, or after six
+consecutive failures; successful work clears the streak. Human approval still
+has no model timeout. Declined prepared plans release their review slots.
+
+Rust workspace library suites, Clippy, 248 Flutter tests, analysis and Python
+compilation PASS. Native integration PASS: 128 completed reads, 33 model calls,
+saved checkpoint and all 514 activity entries, plus missing-file recovery,
+explicit caps, Stop and no incomplete-call dispatch. Explicit-limit continuation
+save/restore PASS across independent processes. Live Qwen PASS: six reviewed reads
+and seven model calls with correct final markers. Four DeepSeek large-command
+probes remain unqualified: model size/content variation caused driver denial or
+adapter refusal. Thinking updates were observed; no command execution pass is
+claimed. Full native Mario validation remains a gap.
+
+The normal release was rebuilt and visibly inspected with the original profile;
+Automatic settings and blank optional fields fit the native dialog. No settings
+were saved during visual inspection. Self-repair 20 and CI 8.4 remain
+undelivered/deferred. See [qualification and boundaries](qualification/task-loop.md).
+
 ## AI follow-up — response recovery and approval waits
 
 2026-10-06: The inherited whole-task timeout was reproduced in the normal app.

@@ -124,7 +124,7 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
                         ),
                         const SizedBox(height: 12),
                         SelectableText(
-                          'Run: ${data['limits']['modelCalls']} model calls / ${data['limits']['toolOperations']} tool operations\nSelf-updates: ${data['selfUpdate']}',
+                          'Run: ${data['limits']['modelCalls'] ?? 'Automatic'} model calls / ${data['limits']['toolOperations'] ?? 'Automatic'} tool operations\nSelf-updates: ${data['selfUpdate']}',
                         ),
                       ],
                     ),

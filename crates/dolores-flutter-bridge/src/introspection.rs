@@ -22,6 +22,14 @@ const SOURCES: &[(&str, &str)] = &[
     ),
     ("recovery", include_str!("recovery.rs")),
     ("attachments", include_str!("attachments.rs")),
+    (
+        "task_budget",
+        include_str!("../../dolores-core/src/task_budget.rs"),
+    ),
+    (
+        "failure_watchdog",
+        include_str!("../../dolores-core/src/agent_watchdog.rs"),
+    ),
 ];
 const PATHS: &[&str] = &[
     "crates/dolores-core/src/lib.rs",
@@ -34,6 +42,8 @@ const PATHS: &[&str] = &[
     "crates/dolores-provider-openai/src/lib.rs",
     "crates/dolores-flutter-bridge/src/recovery.rs",
     "crates/dolores-flutter-bridge/src/attachments.rs",
+    "crates/dolores-core/src/task_budget.rs",
+    "crates/dolores-core/src/agent_watchdog.rs",
 ];
 
 fn source_id(text: &str) -> String {
@@ -234,7 +244,7 @@ impl Engine {
                 .image_models(&preferences.base_url)?
                 .contains(&preferences.model);
         let recent = self.recent_harness_failures(session)?;
-        let mut inventory = json!({"version":env!("CARGO_PKG_VERSION"),"revision":env!("DOLORES_BUILD_REVISION"),"sourceIdentity":"bundled file identities; revision may include local source changes","workspace":workspace.map(|w| w.kind),"configured":configured,"model":preferences.model,"modelCapabilities":{"input":if images {vec!["text","image"]} else {vec!["text"]},"tools":"adapter supports function calls; selected model support not established","images":if images {"image input configured; comprehension not established"} else {"disabled; enable a capable model in Model connection"}},"attachments":{"formats":["text/plain","image/png","image/jpeg"],"draftFiles":dolores_core::MAX_DRAFT_ATTACHMENTS,"textBytes":dolores_core::MAX_TEXT_ATTACHMENT_BYTES,"imageBytes":dolores_core::MAX_IMAGE_ATTACHMENT_BYTES,"storeBytes":dolores_core::MAX_ATTACHMENT_STORE_BYTES},"approval":format!("{:?}",effective.permissions.mode),"containment":"file tools use folder capabilities; commands/MCP have user-account permissions","selfUpdate":"not available","contextWindowTokens":capacity.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),"contextOrigin":if capacity.is_some(){"model override"}else{"128K default"},"effectiveSettings":effective,"requestSettings":effective.request,"limits":{"modelCalls":effective.task.model_calls,"toolOperations":effective.task.tool_calls,"taskSegments":effective.task.segments,"taskDeadlineSeconds":effective.task.elapsed_seconds,"inputBytes":dolores_core::MAX_INPUT_BYTES,"contextBytes":dolores_core::MAX_CONTEXT_BYTES,"maxSourceLines":120},"extensionApi":dolores_core::HOST_EXTENSION_API,"extensions":registry.entries,"hookOrder":registry.order,"adapters":[self.store.descriptor(),connection.descriptor(),self.mcp_credentials.descriptor()],"tools":catalog,"unavailableReason":if working {""}else{"No working folder. Start a project or temporary working session for tool use."},"sources":sources});
+        let mut inventory = json!({"version":env!("CARGO_PKG_VERSION"),"revision":env!("DOLORES_BUILD_REVISION"),"sourceIdentity":"bundled file identities; revision may include local source changes","workspace":workspace.map(|w| w.kind),"configured":configured,"model":preferences.model,"modelCapabilities":{"input":if images {vec!["text","image"]} else {vec!["text"]},"tools":"adapter supports function calls; selected model support not established","images":if images {"image input configured; comprehension not established"} else {"disabled; enable a capable model in Model connection"}},"attachments":{"formats":["text/plain","image/png","image/jpeg"],"draftFiles":dolores_core::MAX_DRAFT_ATTACHMENTS,"textBytes":dolores_core::MAX_TEXT_ATTACHMENT_BYTES,"imageBytes":dolores_core::MAX_IMAGE_ATTACHMENT_BYTES,"storeBytes":dolores_core::MAX_ATTACHMENT_STORE_BYTES},"approval":format!("{:?}",effective.permissions.mode),"containment":"file tools use folder capabilities; commands/MCP have user-account permissions","selfUpdate":"not available","contextWindowTokens":capacity.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),"contextOrigin":if capacity.is_some(){"model override"}else{"128K default"},"effectiveSettings":effective,"requestSettings":effective.request,"automaticCheckpoints":{"modelCalls":effective.task.model_limit(),"toolOperations":effective.task.tool_limit(),"repeatedFailures":2,"consecutiveFailures":6},"limits":{"modelCalls":effective.task.model_calls,"toolOperations":effective.task.tool_calls,"taskSegments":effective.task.segments,"taskDeadlineSeconds":effective.task.elapsed_seconds,"inputBytes":dolores_core::MAX_INPUT_BYTES,"contextBytes":dolores_core::MAX_CONTEXT_BYTES,"maxSourceLines":120},"extensionApi":dolores_core::HOST_EXTENSION_API,"extensions":registry.entries,"hookOrder":registry.order,"adapters":[self.store.descriptor(),connection.descriptor(),self.mcp_credentials.descriptor()],"tools":catalog,"unavailableReason":if working {""}else{"No working folder. Start a project or temporary working session for tool use."},"sources":sources});
         inventory["recentFailures"] = recent;
         inventory["diagnosticCoverage"] = json!("Latest 20 runs in this chat, at most 3 failed/paused/interrupted runs; no private transcripts, file paths, tool arguments or credentials.");
         Ok(inventory)

@@ -136,8 +136,8 @@ async fn encoded_reports_are_shortened_without_losing_status_or_evidence() {
         provider,
         dir.path(),
         TaskBudget {
-            model_calls: 8,
-            tool_calls: 8,
+            model_calls: Some(8),
+            tool_calls: Some(8),
             ..Default::default()
         },
     );
@@ -291,8 +291,8 @@ async fn two_children_share_allowance_and_retained_evidence_without_recursive_to
         std::fs::write(dir.path().join("right.txt"), "right").unwrap();
         let provider = fixture(false, fail);
         let budget = TaskBudget {
-            model_calls: limit,
-            tool_calls: 8,
+            model_calls: Some(limit),
+            tool_calls: Some(8),
             ..Default::default()
         };
         let (rt, store, _events) = runtime(provider.clone(), dir.path(), budget);
@@ -348,7 +348,7 @@ async fn stop_drops_inflight_models_and_records_interruption_before_parent_termi
         provider.clone(),
         dir.path(),
         TaskBudget {
-            model_calls: 8,
+            model_calls: Some(8),
             ..Default::default()
         },
     );

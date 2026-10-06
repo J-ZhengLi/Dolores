@@ -385,6 +385,10 @@ class _ChatPageState extends State<ChatPage> {
                     ? 'Model connection stalled. Progress saved. Continue when ready.'
                     : metadata['paused']['reason'] == 'taskTimeout'
                     ? 'Paused at your task time limit. Progress saved. Inspect Changes before continuing.'
+                    : metadata['paused']['reason'] == 'noProgress'
+                    ? 'Paused after repeated tool failures. Progress saved.'
+                    : metadata['paused']['reason'] == 'checkpoint'
+                    ? 'Task checkpoint saved. Review progress before continuing.'
                     : 'Paused at this run’s step limit. Progress and tool results saved.',
                 style: TextStyle(color: p.muted, fontSize: 12),
               ),
@@ -460,6 +464,8 @@ class _ChatPageState extends State<ChatPage> {
                       'desktopReview',
                       'commandReview',
                       'subagentReview',
+                      'noProgress',
+                      'checkpoint',
                     ].contains(metadata['paused']['reason']))
                       TextButton(
                         onPressed: chat.busy || chat.changing

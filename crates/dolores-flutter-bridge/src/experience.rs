@@ -276,7 +276,7 @@ pub(super) async fn one(
     let (tx, mut rx) = mpsc::channel(16);
     let drain = tokio::spawn(async move { while rx.recv().await.is_some() {} });
     let child = cancel.child_token();
-    let result = tokio::select! {biased;_ = cancel.cancelled()=>Err("Stopped; no trial activation allowed.".into()),r=tokio::time::timeout(Duration::from_secs(30),run_agent_with_budget(provider,context,&plugins,&TrialApproval,tx,child.clone(),TaskBudget{model_calls:5,tool_calls:8,segments:1,elapsed_seconds:Some(30)}))=>r.unwrap_or_else(|_|Err("Trial reached its 30-second deadline; earlier evidence remains. Start a fresh trial.".into()))};
+    let result = tokio::select! {biased;_ = cancel.cancelled()=>Err("Stopped; no trial activation allowed.".into()),r=tokio::time::timeout(Duration::from_secs(30),run_agent_with_budget(provider,context,&plugins,&TrialApproval,tx,child.clone(),TaskBudget{model_calls:Some(5),tool_calls:Some(8),segments:1,elapsed_seconds:Some(30)}))=>r.unwrap_or_else(|_|Err("Trial reached its 30-second deadline; earlier evidence remains. Start a fresh trial.".into()))};
     child.cancel();
     let _ = drain.await;
     let w = world.lock().unwrap();

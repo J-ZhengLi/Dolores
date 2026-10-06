@@ -128,10 +128,10 @@ impl SqliteStore {
             return Err("Run belongs to another chat or is unavailable.".into());
         }
         let mut stmt = conn
-            .prepare("SELECT data FROM run_events WHERE run_id=?1 ORDER BY sequence LIMIT 257")
+            .prepare("SELECT data FROM run_events WHERE run_id=?1 ORDER BY sequence LIMIT ?2")
             .map_err(storage_error)?;
         let rows = stmt
-            .query_map([id], |r| r.get::<_, String>(0))
+            .query_map(params![id, MAX_RUN_EVENTS + 1], |r| r.get::<_, String>(0))
             .map_err(storage_error)?;
         rows.map(|r| serde_json::from_str(&r.map_err(storage_error)?).map_err(storage_error))
             .collect()

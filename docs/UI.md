@@ -26,6 +26,12 @@ named Details retains exact budgets, source and provenance. Sharing and experime
 status remain visible beside their actions. Escape follows Close's draft/pending
 checks. Expanded editors retain state when errors or status notices appear.
 
+Task limits show Automatic when model/tool counts are blank, with optional numeric
+overrides under the existing scope control. Preserve saved numeric settings.
+Repeated-failure pauses and context/resource checkpoints have distinct short
+labels, saved progress and the existing Continue action. Do not suggest changing
+model settings to resolve a tool failure or replay an incomplete request.
+
 ## Desktop window frame
 
 The normal desktop app uses a 32-pixel custom title strip above the conversation

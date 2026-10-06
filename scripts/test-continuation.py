@@ -152,6 +152,9 @@ try:
         folder = directory / 'project'
         folder.mkdir()
         work = call('createSession', kind='project', path=str(folder))['session']['id']
+        # This fixture deliberately tests the legacy explicit four-call pause.
+        call('saveScopedSettings', session=work, scope='thread', revision=0,
+             patch={'task': {'modelCalls': 4, 'toolCalls': 4, 'segments': 4, 'elapsedSeconds': None}})
         start(5, work, 'steps')
         assert 'error' not in done(5)
         paused = messages(work)[-1]

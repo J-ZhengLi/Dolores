@@ -53,6 +53,36 @@ fn call(path: &str, content: &str) -> ToolCall {
 }
 
 #[tokio::test]
+async fn discarded_previews_do_not_fill_long_run_or_retain_write_authority() {
+    let dir = tempfile::tempdir().unwrap();
+    let tools = folder_tools(dir.path()).unwrap();
+    let create = tools
+        .iter()
+        .find(|t| t.spec().name == "create_text_file")
+        .unwrap();
+    for n in 0..6 {
+        let mut proposal = call(&format!("declined-{n}.txt"), "declined");
+        proposal.id = format!("declined-{n}");
+        let request = create.prepare(&proposal).unwrap();
+        create.discard(&request);
+        assert!(create
+            .invoke(&request, CancellationToken::new())
+            .await
+            .is_err());
+        assert!(!dir.path().join(&request.target).exists());
+    }
+    let request = create.prepare(&call("approved.txt", "saved")).unwrap();
+    create
+        .invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("approved.txt")).unwrap(),
+        "saved"
+    );
+}
+
+#[tokio::test]
 async fn larger_creation_keeps_complete_review_cancel_journal_and_file_diff_limits() {
     let dir = tempfile::tempdir().unwrap();
     let journal = Arc::new(Journal::default());

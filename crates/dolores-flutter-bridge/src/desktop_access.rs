@@ -30,7 +30,7 @@ impl crate::Engine {
                     settings.task,
                     settings.request.timeout_seconds,
                 )?;
-                if remaining.model_calls < 3 {
+                if remaining.model_limit() < 3 {
                     return Err("There are too few remaining model calls for an image check and desktop task. Choose an already verified model or start a deliberate new task. Progress remains.".into());
                 }
                 Some((run, remaining))
@@ -195,8 +195,8 @@ pub fn remainder(
     timeout: u32,
 ) -> Result<TaskBudget, String> {
     let remaining = TaskBudget {
-        model_calls: budget.model_calls.saturating_sub(models),
-        tool_calls: budget.tool_calls.saturating_sub(tools),
+        model_calls: Some(budget.model_limit().saturating_sub(models)),
+        tool_calls: Some(budget.tool_limit().saturating_sub(tools)),
         elapsed_seconds: Some(
             u64::from(budget.handoff_deadline(timeout))
                 .saturating_sub(elapsed)
@@ -239,8 +239,8 @@ pub fn source(
     let original: TaskBudget = serde_json::from_value(usage.data["budget"].clone())
         .map_err(|_| "Saved task allowance is unavailable.")?;
     let bounded = TaskBudget {
-        model_calls: budget.model_calls.min(original.model_calls),
-        tool_calls: budget.tool_calls.min(original.tool_calls),
+        model_calls: Some(budget.model_limit().min(original.model_limit())),
+        tool_calls: Some(budget.tool_limit().min(original.tool_limit())),
         segments: budget.segments.min(original.segments),
         elapsed_seconds: Some(
             budget
@@ -255,6 +255,13 @@ pub fn source(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn limited() -> TaskBudget {
+        TaskBudget {
+            model_calls: Some(4),
+            tool_calls: Some(4),
+            ..Default::default()
+        }
+    }
     #[test]
     fn saved_handoff_refuses_changed_goal_and_enlarged_limits_even_after_restart() {
         let dir = tempfile::tempdir().unwrap();
@@ -288,7 +295,15 @@ mod tests {
                 &json!({}),
             )
             .unwrap();
-        let seq = store.append_run_event(id, seq, None, "desktopHandoff", &json!({"modelCalls":1,"toolCalls":1,"elapsedSeconds":3,"budget":TaskBudget::default()})).unwrap();
+        let seq = store
+            .append_run_event(
+                id,
+                seq,
+                None,
+                "desktopHandoff",
+                &json!({"modelCalls":1,"toolCalls":1,"elapsedSeconds":3,"budget":limited()}),
+            )
+            .unwrap();
         let seq = store
             .append_run_event(
                 id,
@@ -301,46 +316,37 @@ mod tests {
         let _ = seq;
         drop(store);
         let store = dolores_store_sqlite::SqliteStore::open(&path).unwrap();
-        let (_, remaining) =
-            source(&store, "chat", id, &run.input, TaskBudget::default(), 180).unwrap();
+        let (_, remaining) = source(&store, "chat", id, &run.input, limited(), 180).unwrap();
         assert_eq!(
             (
                 remaining.model_calls,
                 remaining.tool_calls,
                 remaining.elapsed_seconds
             ),
-            (3, 3, Some(177))
+            (Some(3), Some(3), Some(177))
         );
-        assert!(source(
-            &store,
-            "chat",
-            id,
-            "Different goal",
-            TaskBudget::default(),
-            180
-        )
-        .is_err());
-        assert!(source(&store, "other", id, &run.input, TaskBudget::default(), 180).is_err());
+        assert!(source(&store, "chat", id, "Different goal", limited(), 180).is_err());
+        assert!(source(&store, "other", id, &run.input, limited(), 180).is_err());
         let enlarged = TaskBudget {
-            model_calls: 16,
-            tool_calls: 32,
-            ..TaskBudget::default()
+            model_calls: Some(16),
+            tool_calls: Some(32),
+            ..limited()
         };
         assert_eq!(
             source(&store, "chat", id, &run.input, enlarged, 180)
                 .unwrap()
                 .1
                 .model_calls,
-            3
+            Some(3)
         );
     }
     #[test]
     fn handoff_spends_attempts_and_refuses_exhausted_or_short_deadlines() {
-        let b = TaskBudget::default();
+        let b = limited();
         let next = remainder(b, 1, 1, 7, 180).unwrap();
         assert_eq!(
             (next.model_calls, next.tool_calls, next.elapsed_seconds),
-            (3, 3, Some(173))
+            (Some(3), Some(3), Some(173))
         );
         assert!(remainder(b, 3, 1, 0, 180).is_err());
         assert!(remainder(b, 1, 4, 0, 180).is_err());

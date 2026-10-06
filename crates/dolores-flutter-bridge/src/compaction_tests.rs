@@ -110,7 +110,7 @@ fn compaction_is_opt_in_once_charged_and_failure_preserves_summary_history_and_d
                     remaining = e["taskBudget"]["modelCalls"].as_u64();
                 }
             }
-            assert_eq!(remaining, Some(3));
+            assert_eq!(remaining, Some(63));
         }
     }
 }

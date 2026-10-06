@@ -110,7 +110,9 @@ counts/usage remain parent-only; child usage is retained in run events. Child
 file approval IDs use `child.<id>.<call>` and still bind one waiting decision.
 `subagentReview` is an additional backward-readable pause reason; failed/blocked
 children retain reports and require explicit review/continuation. Shared step
-exhaustion uses `stepLimit`; neither automatically replays work.
+exhaustion uses `stepLimit` for explicit numeric limits or `checkpoint` for
+Automatic resource/context bounds. `noProgress` saves repeated tool-failure
+evidence. None automatically replay work.
 
 Transport/Stop/malformed ordinary responses do not publish an incomplete chat turn; explicit output/step limits can save a paused reply with completed evidence. Continue requires the latest saved source and a fresh bounded run. File/command effects are independent of turn persistence. Feedback/comparison exports remain separate from provider-visible history.
 
