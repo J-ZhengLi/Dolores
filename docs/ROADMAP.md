@@ -1073,7 +1073,7 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
-**Status: 20.1–20.2 implemented; 20.4 Rust evaluator has packaged/DeepSeek non-improvement evidence; native visual acceptance remains open.** This milestone takes priority before
+**Status: 20.1–20.2 implemented; 20.4 Rust evaluator has packaged/DeepSeek non-improvement and normal-foreground evidence; broader qualification remains open.** This milestone takes priority before
 the paused 16–19 developer-workspace track after immediate AI reliability fixes.
 The [specification](design/harness-self-repair.md) defines scope, ownership,
 authority, test/activation and restore contracts for every brick:
@@ -1086,7 +1086,7 @@ authority, test/activation and restore contracts for every brick:
    The user selected the reviewed native pipeline first; no ABI 2 is implemented.
 4. **20.4:** reviewed frozen Rust reproduction and candidate/regression trials —
    implemented; packaged dispatch and bounded DeepSeek non-improvement pass;
-   native visual, actual repair, resource and platform qualification remain open.
+   native trial-card, actual repair, resource and platform qualification remain open.
 5. **20.5:** qualifying activation or reviewed native build/restart, with restore.
 6. **20.6:** real repair, withheld non-improvement and rollback qualification.
 

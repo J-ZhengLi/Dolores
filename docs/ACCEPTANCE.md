@@ -1,6 +1,6 @@
 # Dolores acceptance — 2026-10-05
 
-## Harness self-repair 20.4 — reviewed Rust evaluator, visual acceptance pending
+## Harness self-repair 20.4 — reviewed Rust evaluator, bounded qualification
 
 2026-10-06: Native execution has its own exact review, including candidate diff,
 frozen reproduction source and bounded Cargo sequence. A complete baseline test
@@ -19,10 +19,13 @@ baseline withholding improvement without candidate execution. Configured DeepSee
 passes this bounded live path in two calls/23.53 seconds; Qwen remains unqualified
 after choosing denied source inspections instead of a trial. No actual repair or
 installation is claimed. All 38 original profile tables remain unchanged; only
-two empty repair tables were added. Normal build/launch passes, but foreground
-capture fails after a fresh-window retry and shows the Windows background.
+two empty repair tables were added. The initial foreground check failed after a
+fresh-window retry and showed the Windows background.
 The final normal build at `576187b`, packaged fixture rerun and original-profile
-preservation check pass. Updated native visual acceptance remains pending; see
+preservation check pass. Follow-up foreground inspection of the updated normal
+app passes with the original paused Mario chat and selected DeepSeek model intact;
+no task continuation or approval was submitted. The native trial-card matrix,
+actual repair, resources and other platforms remain open; see
 [evidence](qualification/harness-self-repair.md).
 The earlier normal 20.2 app's foreground check now passes after desktop unlock.
 

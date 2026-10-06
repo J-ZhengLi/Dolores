@@ -3,8 +3,8 @@
 2026-10-06. Bricks 20.1–20.2 are implemented with [qualification gaps](../qualification/harness-self-repair.md).
 The user prioritized the reviewed native pipeline; 20.3's broader Wasm ABI is
 not adopted. 20.4 implements the bounded reviewed Rust evaluator; packaged and
-bounded DeepSeek non-improvement checks pass, native visual acceptance remains
-open. Native install/restore and real repair in 20.5–20.6 remain
+bounded DeepSeek non-improvement and normal foreground checks pass; native trial
+cards and broader qualification remain open. Native install/restore and real repair in 20.5–20.6 remain
 planned. The milestone follows the immediate
 streaming/progress fixes and takes priority over the paused milestones 16–19.
 Platform CI 8.4 stays deferred.
