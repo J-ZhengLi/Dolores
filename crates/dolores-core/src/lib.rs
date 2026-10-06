@@ -15,7 +15,7 @@ pub use comparison::*;
 pub use feedback::*;
 mod agent;
 mod agent_watchdog;
-pub use agent::ModelActivity;
+pub use agent::{ModelActivity, StreamDiagnostics, StreamMeasurements};
 mod web;
 pub use web::*;
 mod runs;
@@ -224,6 +224,21 @@ pub trait ModelProvider: Send + Sync {
             usage: self.stream_with_usage(messages, output, cancel).await?,
             output_limit: false,
         })
+    }
+    /// Optional per-request counters; legacy providers explicitly report no measurements.
+    #[allow(clippy::too_many_arguments)]
+    async fn stream_tool_turn_with_diagnostics(
+        &self,
+        messages: &[AgentMessage],
+        tools: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        activity: mpsc::Sender<agent::ModelActivity>,
+        thinking: mpsc::Sender<String>,
+        _diagnostics: agent::StreamDiagnostics,
+        cancel: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        self.stream_tool_turn_with_thinking(messages, tools, output, activity, thinking, cancel)
+            .await
     }
     /// Optional activity reporting; existing provider plugins keep their text contract.
     async fn stream_tool_turn_with_thinking(

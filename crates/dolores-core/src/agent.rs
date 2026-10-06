@@ -1,4 +1,4 @@
-use crate::{Message, ModelProvider, TokenUsage, MAX_CONTEXT_BYTES, MAX_OUTPUT_BYTES};
+use crate::{MAX_CONTEXT_BYTES, MAX_OUTPUT_BYTES, Message, ModelProvider, TokenUsage};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -93,7 +93,9 @@ pub fn reset_agent_budget_note(
 fn budget_note_for(number: usize, used_tools: usize, budget: crate::TaskBudget) -> String {
     let max_models = budget.model_limit();
     if budget.model_calls.is_none() && budget.tool_calls.is_none() {
-        return format!("\n\nAutomatic task execution: model call {number}, {used_tools} tool attempts used. Continue useful work until the task is complete or truly blocked; reserve validation before optional polish. The host detects repeated failed requests and saves progress at context/resource checkpoints. Do not repeat denied or failed operations without resolving their cause. Report actual results and remaining work honestly.");
+        return format!(
+            "\n\nAutomatic task execution: model call {number}, {used_tools} tool attempts used. Continue useful work until the task is complete or truly blocked; reserve validation before optional polish. The host detects repeated failed requests and saves progress at context/resource checkpoints. Do not repeat denied or failed operations without resolving their cause. Report actual results and remaining work honestly."
+        );
     }
     format!(
         "\n\nThis run: model call {number}/{max_models}; {} tool operations remain; {} tool-producing model calls remain including this one. The final model call must report results without tools. For coding, reserve a tool operation and a tool-producing call for validation before more optional work. Failed or incomplete command receipts require repair and a fresh approved rerun of the same check; do not weaken tests merely to make them pass. If that cannot fit, report remaining work and pause for explicit continuation.",
@@ -267,6 +269,10 @@ pub enum PauseReason {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentEvent {
+    ModelTelemetry {
+        number: usize,
+        measurements: StreamMeasurements,
+    },
     ModelStep {
         number: usize,
     },
@@ -296,7 +302,7 @@ pub enum AgentEvent {
 }
 
 /// Public transport activity only, never model reasoning text or partial arguments.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ModelActivity {
     Waiting,
@@ -304,6 +310,25 @@ pub enum ModelActivity {
     ToolArguments,
     Responding,
 }
+
+/// Host-authored counters only: never prompt, reasoning, argument or remote error text.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StreamMeasurements {
+    pub phase: Option<ModelActivity>,
+    pub connected: bool,
+    pub elapsed_ms: u64,
+    pub wire_bytes: u64,
+    pub wire_chunks: u64,
+    pub events: u64,
+    pub content_bytes: usize,
+    pub reasoning_bytes: usize,
+    pub tool_bytes: usize,
+    pub last_activity_ms: Option<u64>,
+    pub incomplete_call: Option<bool>,
+    pub finished: bool,
+}
+pub type StreamDiagnostics = Arc<std::sync::Mutex<Option<StreamMeasurements>>>;
 
 #[async_trait]
 pub trait ToolPlugin: Send + Sync {
@@ -511,7 +536,10 @@ pub async fn run_agent_with_shared_budget(
         );
         let bytes = serde_json::to_vec(&messages).map_err(|_| "Could not prepare tool context.")?;
         if bytes.len() > MAX_CONTEXT_BYTES {
-            return Ok(checkpoint_reply(summary, "Task context checkpoint saved. Compact the conversation or start a new chat with its saved progress before continuing. Completed changes remain; no pending request ran."));
+            return Ok(checkpoint_reply(
+                summary,
+                "Task context checkpoint saved. Compact the conversation or start a new chat with its saved progress before continuing. Completed changes remain; no pending request ran.",
+            ));
         }
         let tokens = crate::estimate_agent_tokens(&messages, &specs)?;
         if crate::input_token_allowance(
@@ -520,7 +548,10 @@ pub async fn run_agent_with_shared_budget(
         )?
         .is_some_and(|limit| tokens > limit)
         {
-            return Ok(checkpoint_reply(summary, "The task reached this model's context allowance. Compact the conversation or start a new chat with its saved progress before continuing. Completed changes remain; no pending request ran."));
+            return Ok(checkpoint_reply(
+                summary,
+                "The task reached this model's context allowance. Compact the conversation or start a new chat with its saved progress before continuing. Completed changes remain; no pending request ran.",
+            ));
         }
         emit(&events, AgentEvent::ModelStep { number }, &cancel).await?;
         let (text, mut receiver) = mpsc::channel(32);
@@ -534,13 +565,15 @@ pub async fn run_agent_with_shared_budget(
         let mut pulse = tokio::time::interval(std::time::Duration::from_secs(1));
         pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut streamed = String::new();
+        let diagnostics = StreamDiagnostics::default();
         let turn = {
-            let request = provider.stream_tool_turn_with_thinking(
+            let request = provider.stream_tool_turn_with_diagnostics(
                 &messages,
                 &specs,
                 text,
                 activity,
                 thinking,
+                diagnostics.clone(),
                 cancel.clone(),
             );
             tokio::pin!(request);
@@ -572,6 +605,18 @@ pub async fn run_agent_with_shared_budget(
                 }
             }
         };
+        let measured = diagnostics.lock().ok().and_then(|d| d.clone());
+        if let Some(measurements) = measured {
+            emit(
+                &events,
+                AgentEvent::ModelTelemetry {
+                    number,
+                    measurements,
+                },
+                &cancel,
+            )
+            .await?;
+        }
         while let Ok(text) = thinking_receiver.try_recv() {
             retain_thinking(&mut summary, number, &text);
             emit(&events, AgentEvent::ModelThinking { number, text }, &cancel).await?;
@@ -612,7 +657,9 @@ pub async fn run_agent_with_shared_budget(
                 .await?;
                 return Ok(AgentReply {
                     pause: Some(PauseReason::ResponseTimeout),
-                    answer: format!("{streamed}\n\nThe model stopped sending new response data. Completed changes and progress are saved. No incomplete tool request ran. Continue explicitly when ready, or check the provider."),
+                    answer: format!(
+                        "{streamed}\n\nThe model stopped sending new response data. Completed changes and progress are saved. No incomplete tool request ran. Continue explicitly when ready, or check the provider."
+                    ),
                     summary,
                 });
             }
@@ -797,22 +844,38 @@ pub async fn run_agent_with_shared_budget(
                         "Invalid subagent plan".into()
                     } else if call.name == "inspect_harness" {
                         "Invalid harness inspection".into()
-                    } else if call.name == "desktop_control" { "Invalid desktop operation".into()
+                    } else if call.name == "desktop_control" {
+                        "Invalid desktop operation".into()
                     } else if call.name == "browser" {
                         "Invalid browser operation".into()
                     } else {
                         "Invalid or unavailable path".into()
                     },
                     "blocked",
-                    if matches!(error.as_str(), "Extension policy hook failed. No operation was dispatched; inspect its registration." | "Extension changed a prepared tool plan. Prepare and review a fresh proposal.") {
+                    if matches!(
+                        error.as_str(),
+                        "Extension policy hook failed. No operation was dispatched; inspect its registration."
+                            | "Extension changed a prepared tool plan. Prepare and review a fresh proposal."
+                    ) {
                         error
-                    } else if child && matches!(error.as_str(), "Child file request is outside its assigned scope." | "Prepared file target is outside child scope.") {
-                        format!("{error} Use only the assigned relative file/folder; no operation ran.")
+                    } else if child
+                        && matches!(
+                            error.as_str(),
+                            "Child file request is outside its assigned scope."
+                                | "Prepared file target is outside child scope."
+                        )
+                    {
+                        format!(
+                            "{error} Use only the assigned relative file/folder; no operation ran."
+                        )
                     } else if call.name == "delegate_tasks" {
                         "delegate_tasks requires 1–2 tasks with goal (1–512 bytes), scope (direct relative file/folder or '.'), and readOnly (boolean). Writable scopes must not overlap any other child scope. One batch per run; commands, MCP and recursive delegation are unavailable. No child started.".into()
                     } else if call.name == "inspect_harness" {
-                        "Use inspect_harness with {} for inventory, or source set to core, agent, host, files, provider or subagents. Optional startLine must be positive and lineCount must be 1–120. No project path is accepted. No inspection ran.".into()
-                    } else if call.name == "desktop_control" { error
+                        format!(
+                            "{error} Use empty arguments for inventory, action=list/search for navigation, or source with startLine and lineCount (1–2048) for a bounded read. No inspection ran."
+                        )
+                    } else if call.name == "desktop_control" {
+                        error
                     } else if call.name == "browser" {
                         "Invalid browser arguments; no operation ran. Use only fields needed by the operation: open requires url; state/close require only operation. fill requires ref, state and text; click requires ref and state; press also requires key; scroll requires state and direction; screenshot requires state. Copy the full state token and eN ref from the latest receipt. Omit irrelevant fields instead of empty strings. Use HTTPS or literal loopback HTTP; text is at most 512 UTF-8 bytes. This is an argument error, not an access denial; do not bypass it with another tool.".into()
                     } else if call.name.starts_with("mcp_tool_") {
@@ -855,7 +918,18 @@ pub async fn run_agent_with_shared_budget(
                         || request.name != call.name
                         || request.target.len() > 1024
                         || request.query.as_ref().is_some_and(|query| {
-                            query.len() > if matches!(request.name.as_str(), "delegate_tasks" | "browser" | "desktop_control") { 4096 } else { 256 }
+                            query.len()
+                                > if matches!(
+                                    request.name.as_str(),
+                                    "delegate_tasks"
+                                        | "browser"
+                                        | "desktop_control"
+                                        | "inspect_harness"
+                                ) {
+                                    4096
+                                } else {
+                                    256
+                                }
                                 || query.chars().any(char::is_control)
                         })
                         || request.diff.as_ref().is_some_and(|diff| {
@@ -891,8 +965,12 @@ pub async fn run_agent_with_shared_budget(
                                 || c.executable.is_empty()
                                 || c.invocation.program != request.target
                                 || c.invocation.args.len() > 32
-                                || c.invocation.args.iter().any(|arg| arg.len() > 8192 || arg.contains('\0'))
-                                || c.invocation.args.iter().map(String::len).sum::<usize>() > 16 * 1024
+                                || c.invocation
+                                    .args
+                                    .iter()
+                                    .any(|arg| arg.len() > 8192 || arg.contains('\0'))
+                                || c.invocation.args.iter().map(String::len).sum::<usize>()
+                                    > 16 * 1024
                                 || serde_json::to_string(&c.invocation)
                                     .map_or(true, |s| s.len() > 32 * 1024)
                         })
@@ -953,7 +1031,8 @@ pub async fn run_agent_with_shared_budget(
                                     }
                                 } else if request.name == "delegate_tasks" {
                                     "Subagent batch could not complete. Inspect Run history and Changes before continuing; completed file changes remain. Only one batch is allowed per run.".into()
-                                } else if request.name == "desktop_control" { error
+                                } else if request.name == "desktop_control" {
+                                    error
                                 } else if request.name == "inspect_desktop_capture" {
                                     "Selected screenshot is missing or changed. Open Settings → Computer use, capture again and explicitly share it. Nothing was retried.".into()
                                 } else if request.name == "browser" {

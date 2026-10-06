@@ -211,6 +211,22 @@ impl Assembly {
     }
 }
 
+/// Publish only once, including on dropped/interrupted stream futures.
+struct Measurements {
+    slot: Option<dolores_core::StreamDiagnostics>,
+    started: std::time::Instant,
+    data: dolores_core::StreamMeasurements,
+}
+impl Drop for Measurements {
+    fn drop(&mut self) {
+        self.data.elapsed_ms = self.started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+        if let Some(slot) = &self.slot {
+            if let Ok(mut value) = slot.lock() {
+                *value = Some(self.data.clone());
+            }
+        }
+    }
+}
 impl OpenAiProvider {
     pub(crate) async fn request_stream_tool_turn(
         &self,
@@ -233,18 +249,25 @@ impl OpenAiProvider {
     ) -> Result<AgentTurn, String> {
         tokio::select! { biased;
             _ = cancel.cancelled() => Err("Response stopped.".into()),
-            result = self.stream_agent_request(messages, tools, output, activity, thinking, cancel.clone()) => result,
+            result = self.stream_agent_request(messages, tools, output, activity, thinking, None, cancel.clone()) => result,
         }
     }
-    async fn stream_agent_request(
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn stream_agent_request(
         &self,
         messages: &[AgentMessage],
         tools: &[ToolSpec],
         output: mpsc::Sender<String>,
         activity: Option<mpsc::Sender<dolores_core::ModelActivity>>,
         thinking: Option<mpsc::Sender<String>>,
+        diagnostics: Option<dolores_core::StreamDiagnostics>,
         cancel: CancellationToken,
     ) -> Result<AgentTurn, String> {
+        let mut measurements = Measurements {
+            slot: diagnostics,
+            started: std::time::Instant::now(),
+            data: Default::default(),
+        };
         let mut wire_limit = MAX_CONTEXT_BYTES
             + if messages
                 .iter()
@@ -300,6 +323,7 @@ impl OpenAiProvider {
         {
             return Err("Model did not return a streamed tool response. Start a side chat or check model support.".into());
         }
+        measurements.data.connected = true;
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
         let mut assembly = Assembly::default();
@@ -315,10 +339,16 @@ impl OpenAiProvider {
             let Some(chunk) = next else { break };
             let chunk =
                 chunk.map_err(|_| "Connection interrupted before the response finished.")?;
+            measurements.data.wire_bytes = measurements
+                .data
+                .wire_bytes
+                .saturating_add(chunk.len() as u64);
+            measurements.data.wire_chunks = measurements.data.wire_chunks.saturating_add(1);
             idle_wire_bytes = idle_wire_bytes.saturating_add(chunk.len());
             let previous_payload = assembly.payload_bytes();
             let mut done = false;
             for data in decoder.push(&chunk)? {
+                measurements.data.events = measurements.data.events.saturating_add(1);
                 // Event count reflects provider fragmentation, not generated work.
                 // Bound fields and inactivity, not the total time of an active stream.
                 if data.len() > MAX_AGENT_FRAME_BYTES {
@@ -330,8 +360,19 @@ impl OpenAiProvider {
                 }
                 let value = serde_json::from_str(&data)
                     .map_err(|_| "Provider returned a malformed stream.")?;
-                let text = assembly.push(value)?;
+                let decoded = assembly.push(value);
+                measurements.data.content_bytes = assembly.content.len();
+                measurements.data.reasoning_bytes =
+                    assembly.reasoning.as_ref().map_or(0, String::len);
+                measurements.data.tool_bytes = assembly
+                    .calls
+                    .values()
+                    .map(|c| c.id.len() + c.name.len() + c.arguments.len())
+                    .sum();
+                measurements.data.incomplete_call = Some(!assembly.calls.is_empty());
+                let text = decoded?;
                 let phase = assembly.activity();
+                measurements.data.phase = Some(phase);
                 if assembly.payload_bytes() > previous_payload {
                     if let Some(activity) = &activity {
                         // These pulses report actual decoded progress, never heartbeats.
@@ -359,6 +400,13 @@ impl OpenAiProvider {
                 }
             }
             if assembly.payload_bytes() > previous_payload {
+                measurements.data.last_activity_ms = Some(
+                    measurements
+                        .started
+                        .elapsed()
+                        .as_millis()
+                        .min(u64::MAX as u128) as u64,
+                );
                 idle_wire_bytes = 0;
                 deadline = tokio::time::Instant::now() + allowance;
             }
@@ -368,6 +416,10 @@ impl OpenAiProvider {
             if done {
                 let reasoning = assembly.reasoning.take();
                 let turn = assembly.complete()?;
+                if !turn.output_limit {
+                    measurements.data.incomplete_call = Some(false);
+                }
+                measurements.data.finished = true;
                 self.remember_reasoning(&turn, reasoning)?;
                 return Ok(turn);
             }
@@ -379,6 +431,10 @@ impl OpenAiProvider {
         }
         let reasoning = assembly.reasoning.take();
         let turn = assembly.complete()?;
+        if !turn.output_limit {
+            measurements.data.incomplete_call = Some(false);
+        }
+        measurements.data.finished = true;
         self.remember_reasoning(&turn, reasoning)?;
         Ok(turn)
     }

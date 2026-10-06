@@ -1073,12 +1073,13 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
-**Status: proposed, not implemented.** This milestone takes priority before
+**Status: 20.1 implemented with qualification gaps; 20.2–20.6 planned.** This milestone takes priority before
 the paused 16–19 developer-workspace track after immediate AI reliability fixes.
 The [specification](design/harness-self-repair.md) defines scope, ownership,
 authority, test/activation and restore contracts for every brick:
 
-1. **20.1:** useful failure evidence and context-aware source search/read.
+1. **20.1:** useful failure evidence and bounded source search/read — implemented;
+   [qualification](qualification/harness-self-repair.md) retains model, visual and platform gaps.
 2. **20.2:** separate matching-source repair workspace and patch proposal.
 3. **20.3:** broader qualified extension seams beyond recovery hints.
 4. **20.4:** independent reproduction and fixed candidate/regression trials.

@@ -317,6 +317,9 @@ enum Command {
     HarnessInventory {
         session: Option<String>,
     },
+    HarnessNavigation {
+        query: Value,
+    },
     HarnessSource {
         source: String,
         #[serde(rename = "startLine", default)]
@@ -770,6 +773,7 @@ impl Engine {
             Command::ChangesPage {session,cursor} => return self.changes_page(&session,cursor),
             Command::ChangeDetails {session,change_id} => return self.change_details(&session,change_id),
             Command::HarnessInventory { session } => return self.harness_inventory(session.as_deref()),
+            Command::HarnessNavigation { query } => return introspection::source(&query.to_string(), None),
             Command::HarnessSource { source, start_line, line_count, checkout } => return introspection::source(&json!({"source":source,"startLine":start_line.unwrap_or(1),"lineCount":line_count.unwrap_or(60)}).to_string(), checkout.as_deref()),
             Command::DraftAttachments{session}=>return Ok(json!(self.store.draft_attachments(&session)?)),
             Command::AttachmentPreview{session,digest}=>return self.attachment_preview(&session,&digest),
@@ -1932,6 +1936,14 @@ async fn execute(
     if cancel.is_cancelled() {
         return Err(stopped());
     }
+    if let Some(log) = &log {
+        log.record(
+            None,
+            "implementation",
+            json!({"revision":env!("DOLORES_BUILD_REVISION"),"bundleId":introspection::bundle::ID}),
+        )
+        .await?;
+    }
     let reader = store.clone();
     let (session, history, count, guidance, memories, session_summary, skills) =
         blocking(move || {
@@ -2210,8 +2222,11 @@ async fn execute(
             let reply = loop {
                 tokio::select! { biased;
                     _ = cancel.cancelled() => return Err(stopped()),
-                    result = &mut request => break result?,
+                    result = &mut request => break result,
                     Some(event) = receiver.recv() => {
+                        if let (Some(log), dolores_core::AgentEvent::ModelTelemetry { number, measurements }) = (&log, &event) {
+                            log.record(None, "modelTelemetry", json!({"number":number,"measurements":measurements})).await?;
+                        }
                         progress.lock().map_err(|_| "Task progress is unavailable.")?.record(&event);
                         let mut event = serde_json::to_value(event).map_err(|_| "Tool event is unavailable.")?;
                         event["id"] = json!(id);
@@ -2220,6 +2235,21 @@ async fn execute(
                 }
             };
             while let Some(event) = receiver.recv().await {
+                if let (
+                    Some(log),
+                    dolores_core::AgentEvent::ModelTelemetry {
+                        number,
+                        measurements,
+                    },
+                ) = (&log, &event)
+                {
+                    log.record(
+                        None,
+                        "modelTelemetry",
+                        json!({"number":number,"measurements":measurements}),
+                    )
+                    .await?;
+                }
                 progress
                     .lock()
                     .map_err(|_| "Task progress is unavailable.")?
@@ -2229,7 +2259,7 @@ async fn execute(
                 event["id"] = json!(id);
                 task_execution::deliver(output, event, &cancel, delivery_seconds).await?;
             }
-            Ok::<_, String>(reply)
+            reply
         };
         let reply = tokio::select! { biased;
             _ = cancel.cancelled() => return Err(stopped()),

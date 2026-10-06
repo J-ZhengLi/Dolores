@@ -14,7 +14,7 @@ impl ToolProposalHook for ValidateProposal {
                 q.len()
                     > if matches!(
                         request.name.as_str(),
-                        "delegate_tasks" | "browser" | "desktop_control"
+                        "delegate_tasks" | "browser" | "desktop_control" | "inspect_harness"
                     ) {
                         4096
                     } else {
@@ -315,6 +315,12 @@ mod tests {
                 arguments: r#"{"source":"inventory"}"#.into()
             })
             .is_err());
+        assert!(tool.prepare(&ToolCall {
+            id: "pinned-range".into(), name: "inspect_harness".into(),
+            arguments: serde_json::json!({"source":"core","startLine":150,"lineCount":180,
+                "bundleId":crate::introspection::bundle::ID,
+                "sourceId":crate::introspection::bundle::find("crates/dolores-core/src/lib.rs").unwrap().id}).to_string(),
+        }).is_ok());
         let side = engine.extension_registry(Some("side")).unwrap();
         assert!(
             !side

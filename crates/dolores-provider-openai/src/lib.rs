@@ -461,6 +461,21 @@ impl ModelProvider for OpenAiProvider {
         )
         .await
     }
+    async fn stream_tool_turn_with_diagnostics(
+        &self,
+        messages: &[dolores_core::AgentMessage],
+        tools: &[dolores_core::ToolSpec],
+        output: mpsc::Sender<String>,
+        activity: mpsc::Sender<dolores_core::ModelActivity>,
+        thinking: mpsc::Sender<String>,
+        diagnostics: dolores_core::StreamDiagnostics,
+        cancel: CancellationToken,
+    ) -> Result<dolores_core::AgentTurn, String> {
+        tokio::select! { biased;
+            _ = cancel.cancelled() => Err("Response stopped.".into()),
+            result = self.stream_agent_request(messages, tools, output, Some(activity), Some(thinking), Some(diagnostics), cancel.clone()) => result,
+        }
+    }
     async fn tool_turn(
         &self,
         messages: &[dolores_core::AgentMessage],

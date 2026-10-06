@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-05
 
+## Harness self-repair 20.1 — implemented, visual/platform gates remain
+
+2026-10-06: Build-pinned compressed source now supports bounded manifest listing,
+identifier/literal search and ranged reads up to 2048 lines with identities and
+continuation. Actual delivery retains the existing 16 KiB tool ceiling. Failed
+tool-model streams retain host-authored numeric telemetry; older/missing evidence
+stays unknown and stale source is refused without touching the user's project.
+
+332 Rust library tests pass (one ignored), Clippy passes, and the existing 248
+Flutter tests/analysis pass. The normal native fixture passes reviewed navigation
+with both identities plus failed partial-call privacy/no-dispatch recovery.
+Configured DeepSeek passes three live inspections with correct final identity;
+two Qwen probes remain unqualified. Original profile tables are unchanged.
+Normal build/launch passed; foreground visual inspection awaits desktop unlock.
+General model, resource and other-platform qualification remains open. 20.2–20.6
+are not implemented; this does not claim actual self-repair.
+See [evidence and limits](qualification/harness-self-repair.md).
+
 ## Useful Mario task follow-up — command path exercised, completion unqualified
 
 2026-10-06: A bounded configured DeepSeek V4.1 Flash native-host run used the

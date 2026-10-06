@@ -1,6 +1,7 @@
 # Harness self-repair
 
-2026-10-06. Milestone 20 is planned, not implemented. It follows the immediate
+2026-10-06. Brick 20.1 is implemented with [qualification gaps](../qualification/harness-self-repair.md);
+20.2–20.6 remain planned. The milestone follows the immediate
 streaming/progress fixes and takes priority over the paused milestones 16–19.
 Platform CI 8.4 stays deferred.
 

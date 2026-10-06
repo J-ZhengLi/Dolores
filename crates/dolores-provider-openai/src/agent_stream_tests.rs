@@ -97,6 +97,94 @@ fn provider(base_url: String) -> OpenAiProvider {
 }
 
 #[tokio::test]
+async fn telemetry_measures_decoded_work_and_never_retains_private_stream_text() {
+    let private = "PRIVATE_THINKING 世界";
+    let response = wire(
+        &[
+            delta(json!({"reasoning_content":private}), Value::Null),
+            delta(
+                json!({"content":"public","tool_calls":[call(0,"one","read_text_file",r#"{"path":"private.txt"}"#)]}),
+                json!("tool_calls"),
+            ),
+        ],
+        true,
+    );
+    let wire_bytes = response.split_once("\r\n\r\n").unwrap().1.len();
+    let (url, server) = crate::tests::sequence_server(vec![response]).await;
+    let diagnostics = dolores_core::StreamDiagnostics::default();
+    let (text, _texts) = mpsc::channel(8);
+    let (activity, _) = mpsc::channel(8);
+    let (thinking, _) = mpsc::channel(8);
+    let turn = provider(url)
+        .stream_tool_turn_with_diagnostics(
+            &[],
+            &[],
+            text,
+            activity,
+            thinking,
+            diagnostics.clone(),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(turn.calls.len(), 1);
+    let data = diagnostics.lock().unwrap().clone().unwrap();
+    assert_eq!(data.wire_bytes, wire_bytes as u64);
+    assert_eq!(data.events, 3);
+    assert_eq!(data.reasoning_bytes, private.len());
+    assert_eq!(data.content_bytes, 6);
+    assert!(
+        data.tool_bytes > 0 && data.connected && data.finished && data.last_activity_ms.is_some()
+    );
+    assert_eq!(data.incomplete_call, Some(false));
+    let encoded = serde_json::to_string(&data).unwrap();
+    assert!(
+        !encoded.contains("PRIVATE")
+            && !encoded.contains("private.txt")
+            && !encoded.contains("public")
+    );
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn telemetry_preserves_incomplete_call_counts_on_failed_streams_and_is_request_scoped() {
+    let response = wire(
+        &[delta(
+            json!({"content":"usable","tool_calls":[call(0,"one","read_text_file",r#"{"path":"#)]}),
+            Value::Null,
+        )],
+        false,
+    );
+    let (url, server) = crate::tests::sequence_server(vec![response]).await;
+    let diagnostics = dolores_core::StreamDiagnostics::default();
+    let (text, _texts) = mpsc::channel(8);
+    let (activity, _) = mpsc::channel(8);
+    let (thinking, _) = mpsc::channel(8);
+    assert!(provider(url)
+        .stream_tool_turn_with_diagnostics(
+            &[],
+            &[],
+            text,
+            activity,
+            thinking,
+            diagnostics.clone(),
+            CancellationToken::new()
+        )
+        .await
+        .is_err());
+    let data = diagnostics.lock().unwrap().clone().unwrap();
+    assert_eq!(data.incomplete_call, Some(true));
+    assert!(!data.finished);
+    assert_eq!(data.content_bytes, 6);
+    assert!(data.wire_bytes > 0);
+    assert!(dolores_core::StreamDiagnostics::default()
+        .lock()
+        .unwrap()
+        .is_none());
+    server.await.unwrap();
+}
+
+#[tokio::test]
 async fn active_reasoning_stream_outlives_the_inactivity_allowance() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
