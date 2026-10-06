@@ -28,6 +28,95 @@ fn provider(base_url: String) -> OpenAiProvider {
     .unwrap()
 }
 
+#[tokio::test]
+async fn tool_reasoning_is_returned_exactly_but_never_emitted_and_new_runs_clear_it() {
+    let secret = "PRIVATE_REASONING_SENTINEL 世界";
+    let response = wire(
+        &[
+            delta(json!({"reasoning_content":secret}), Value::Null),
+            delta(
+                json!({"content":"Inspect file","tool_calls":[call(0,"read-1","read_text_file",r#"{"path":"game.html"}"#)]}),
+                json!("tool_calls"),
+            ),
+        ],
+        true,
+    );
+    let (url, _) = crate::tests::sequence_server(vec![response]).await;
+    let provider = provider(url);
+    let input = vec![dolores_core::AgentMessage {
+        role: "user".into(),
+        content: "Inspect".into(),
+        parts: vec![],
+        calls: vec![],
+        call_id: None,
+    }];
+    let (tx, mut rx) = mpsc::channel(8);
+    let turn = provider
+        .stream_tool_turn(&input, &[], tx, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(rx.recv().await.unwrap(), "Inspect file");
+    assert!(rx.recv().await.is_none());
+    let message = dolores_core::AgentMessage {
+        role: "assistant".into(),
+        content: turn.content.clone(),
+        parts: vec![],
+        calls: turn.calls.clone(),
+        call_id: None,
+    };
+    let wire = provider.wire_agent_messages(&[message.clone()]).unwrap();
+    assert_eq!(wire[0]["reasoning_content"], secret);
+    assert!(!json!({"content":turn.content,"calls":turn.calls})
+        .to_string()
+        .contains(secret));
+    let mut changed = message.clone();
+    changed.calls[0].arguments = r#"{"path":"different.html"}"#.into();
+    assert!(provider.wire_agent_messages(&[changed]).unwrap()[0]
+        .get("reasoning_content")
+        .is_none());
+    provider.wire_agent_messages(&input).unwrap();
+    assert!(provider.wire_agent_messages(&[message]).unwrap()[0]
+        .get("reasoning_content")
+        .is_none());
+}
+
+#[tokio::test]
+async fn valid_html_tool_arguments_survive_many_small_stream_events() {
+    let html = format!(
+        "<!doctype html><html><body><script>{}</script></body></html>",
+        "let x=1;\n".repeat(650)
+    );
+    assert!(html.len() < dolores_core::MAX_TOOL_BYTES);
+    let arguments = json!({"path":"game.html","content":html}).to_string();
+    let mut frames = vec![delta(
+        json!({"tool_calls":[call(0,"html-file","create_text_file","")]}),
+        Value::Null,
+    )];
+    for character in arguments.chars() {
+        frames.push(delta(
+            json!({"tool_calls":[{"index":0,"function":{"arguments":character.to_string()}}]}),
+            Value::Null,
+        ));
+    }
+    frames.push(delta(json!({}), json!("tool_calls")));
+    frames.push(json!({"choices":[],"usage":{"completion_tokens":6000}}));
+    assert!(frames.len() > 4096);
+    let response = wire(&frames, true);
+    assert!(response.len() < MAX_WIRE_BYTES);
+    let (base_url, server) = crate::tests::sequence_server(vec![response]).await;
+    let (sender, _receiver) = mpsc::channel(8);
+    let result = provider(base_url)
+        .stream_tool_turn(&[], &[], sender, CancellationToken::new())
+        .await;
+    let requests = server.await.unwrap();
+    assert_eq!(requests.split("\nREQUEST\n").count(), 1);
+    let turn = result
+        .expect("a bounded HTML file must not fail because its provider uses small SSE events");
+    assert_eq!(turn.calls.len(), 1);
+    assert_eq!(turn.calls[0].arguments, arguments);
+    assert_eq!(turn.usage.unwrap().output_tokens, Some(6000));
+}
+
 #[test]
 fn large_fragmented_file_json_survives_but_other_tools_and_overflow_remain_bounded() {
     let arguments = json!({"path":"main.js","content":"世界\\\"\r\n".repeat(900)}).to_string();
@@ -391,13 +480,11 @@ async fn generic_rejections_and_stream_errors_do_not_retry_or_fall_back_to_plain
 }
 
 #[tokio::test]
-async fn stream_wire_frame_and_event_budgets_are_enforced() {
-    let normal = delta(json!({}), Value::Null);
+async fn stream_wire_and_individual_frame_budgets_are_enforced() {
     for (frames, expected) in [
-        (vec![normal; MAX_FRAMES + 1], "frame limit"),
         (
             vec![json!({"choices":[],"padding":"x".repeat(MAX_AGENT_FRAME_BYTES+1)})],
-            "frame limit",
+            "oversized stream event",
         ),
         // Many tiny incomplete chunks of a comment cannot allocate forever.
         (

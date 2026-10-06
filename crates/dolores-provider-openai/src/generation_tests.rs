@@ -19,6 +19,7 @@ async fn explicit_controls_reach_chat_streamed_and_strict_tool_requests() {
     for reasoning in [
         ProviderDefault,
         DeepseekThinkingOff,
+        GlmLow,
         OpenaiLow,
         OpenaiMedium,
         OpenaiHigh,
@@ -78,6 +79,12 @@ async fn explicit_controls_reach_chat_streamed_and_strict_tool_requests() {
                     assert_eq!(value["thinking"], json!({"type":"disabled"}));
                     assert!(value.get("reasoning_effort").is_none());
                     assert_eq!(value["max_tokens"], 4096);
+                }
+                GlmLow => {
+                    assert_eq!(value["thinking"], json!({"type":"enabled"}));
+                    assert_eq!(value["reasoning_effort"], "low");
+                    assert_eq!(value["max_tokens"], 4096);
+                    assert!(value.get("max_completion_tokens").is_none());
                 }
                 _ => {
                     assert!(value.get("max_tokens").is_none());

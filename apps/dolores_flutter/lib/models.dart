@@ -373,6 +373,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                               for (final r in [
                                 'providerDefault',
                                 'deepseekThinkingOff',
+                                'glmLow',
                                 'openaiLow',
                                 'openaiMedium',
                                 'openaiHigh',
@@ -384,6 +385,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                                     'deepseekThinkingOff' =>
                                       'DeepSeek thinking off',
                                     'openaiLow' => 'OpenAI low',
+                                    'glmLow' => 'GLM low',
                                     'openaiMedium' => 'OpenAI medium',
                                     _ => 'OpenAI high',
                                   }),

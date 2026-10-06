@@ -227,6 +227,10 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                       child: Text('DeepSeek · thinking off'),
                     ),
                     DropdownMenuItem(
+                      value: 'glmLow',
+                      child: Text('GLM · low effort'),
+                    ),
+                    DropdownMenuItem(
                       value: 'openaiLow',
                       child: Text('OpenAI · low effort'),
                     ),

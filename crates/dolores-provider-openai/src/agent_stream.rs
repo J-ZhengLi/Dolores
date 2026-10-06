@@ -11,7 +11,6 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_WIRE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_AGENT_FRAME_BYTES: usize = 256 * 1024;
-const MAX_FRAMES: usize = 4096;
 const INVALID: &str = "Model returned an invalid streamed tool response.";
 
 #[derive(Default)]
@@ -23,6 +22,7 @@ struct PartialCall {
 }
 #[derive(Default)]
 struct Assembly {
+    reasoning: Option<String>,
     content: String,
     calls: BTreeMap<usize, PartialCall>,
     finish: Option<String>,
@@ -50,6 +50,16 @@ impl Assembly {
             self.usage = Some(usage);
         }
         let choices = value["choices"].as_array().ok_or(INVALID)?;
+        if let Some(reasoning) = value
+            .pointer("/choices/0/delta/reasoning_content")
+            .filter(|v| !v.is_null())
+        {
+            append(
+                self.reasoning.get_or_insert_with(String::new),
+                reasoning,
+                MAX_CONTEXT_BYTES,
+            )?;
+        }
         if choices.is_empty() {
             return Ok(String::new());
         }
@@ -245,7 +255,6 @@ impl OpenAiProvider {
         let mut decoder = SseDecoder::default();
         let mut assembly = Assembly::default();
         let mut wire_bytes = 0;
-        let mut frames = 0;
         while let Some(chunk) = stream.next().await {
             let chunk =
                 chunk.map_err(|_| "Connection interrupted before the response finished.")?;
@@ -254,12 +263,17 @@ impl OpenAiProvider {
                 return Err("Streamed tool response exceeds the 2 MiB wire limit.".into());
             }
             for data in decoder.push(&chunk)? {
-                frames += 1;
-                if frames > MAX_FRAMES || data.len() > MAX_AGENT_FRAME_BYTES {
-                    return Err("Streamed tool response exceeds its frame limit.".into());
+                // Event count reflects provider fragmentation, not generated work.
+                // Total wire bytes, each event, assembled fields and the request
+                // deadline still bound allocation and processing, including idle events.
+                if data.len() > MAX_AGENT_FRAME_BYTES {
+                    return Err("Provider sent an oversized stream event (256 KiB maximum). No incomplete tool call was executed. Try a smaller generated file or check the provider's streaming support.".into());
                 }
                 if data == "[DONE]" {
-                    return assembly.complete();
+                    let reasoning = assembly.reasoning.take();
+                    let turn = assembly.complete()?;
+                    self.remember_reasoning(&turn, reasoning)?;
+                    return Ok(turn);
                 }
                 let value = serde_json::from_str(&data)
                     .map_err(|_| "Provider returned a malformed stream.")?;
@@ -275,7 +289,10 @@ impl OpenAiProvider {
         if !decoder.buffer.is_empty() {
             return Err("Connection ended before the tool response finished.".into());
         }
-        assembly.complete()
+        let reasoning = assembly.reasoning.take();
+        let turn = assembly.complete()?;
+        self.remember_reasoning(&turn, reasoning)?;
+        Ok(turn)
     }
 }
 

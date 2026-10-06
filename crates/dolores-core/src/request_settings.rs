@@ -6,6 +6,7 @@ pub enum ReasoningControl {
     #[default]
     ProviderDefault,
     DeepseekThinkingOff,
+    GlmLow,
     OpenaiLow,
     OpenaiMedium,
     OpenaiHigh,

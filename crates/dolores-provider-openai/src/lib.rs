@@ -171,6 +171,8 @@ async fn usage_option_rejected(
 
 #[derive(Clone)]
 pub struct OpenAiProvider {
+    // Protocol-only continuation, never serialized into core turns or journals.
+    reasoning: std::sync::Arc<std::sync::Mutex<std::collections::BTreeMap<String, String>>>,
     assets: std::sync::Arc<std::collections::BTreeMap<String, dolores_core::AttachmentData>>,
     images: bool,
     resolver: Option<std::sync::Arc<dyn dolores_core::AttachmentResolver>>,
@@ -265,6 +267,10 @@ impl OpenAiProvider {
             DeepseekThinkingOff => {
                 body["thinking"] = json!({"type":"disabled"});
             }
+            GlmLow => {
+                body["thinking"] = json!({"type":"enabled"});
+                body["reasoning_effort"] = json!("low");
+            }
             OpenaiLow | OpenaiMedium | OpenaiHigh => {
                 let effort = match self.settings.reasoning {
                     OpenaiLow => "low",
@@ -296,6 +302,7 @@ impl OpenAiProvider {
             .build()
             .map_err(|_| "Could not initialize the connection.".to_string())?;
         Ok(Self {
+            reasoning: Default::default(),
             assets: Default::default(),
             images: false,
             resolver: None,
@@ -425,6 +432,7 @@ impl ModelProvider for OpenAiProvider {
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;
         Ok(std::sync::Arc::new(Self {
+            reasoning: Default::default(),
             resolver: self.resolver.clone(),
             assets: self.assets.clone(),
             images: self.images,

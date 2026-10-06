@@ -5,10 +5,48 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 impl OpenAiProvider {
+    fn reasoning_key(content: &str, calls: &[ToolCall]) -> Result<String, String> {
+        serde_json::to_string(&(content, calls))
+            .map_err(|_| "Could not bind reasoning continuation.".into())
+    }
+    pub(crate) fn remember_reasoning(
+        &self,
+        turn: &AgentTurn,
+        reasoning: Option<String>,
+    ) -> Result<(), String> {
+        let mut cache = self
+            .reasoning
+            .lock()
+            .map_err(|_| "Reasoning continuation is unavailable.")?;
+        if turn.calls.is_empty() || turn.output_limit {
+            cache.clear();
+            return Ok(());
+        }
+        if let Some(reasoning) = reasoning {
+            let key = Self::reasoning_key(&turn.content, &turn.calls)?;
+            if cache.len() >= 16
+                || cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
+                    + key.len()
+                    + reasoning.len()
+                    > MAX_CONTEXT_BYTES
+            {
+                return Err("Reasoning continuation exceeds its 128 KiB allowance. Completed work remains; start a smaller task or reduce model reasoning.".into());
+            }
+            cache.insert(key, reasoning);
+        }
+        Ok(())
+    }
     pub(crate) fn wire_agent_messages(
         &self,
         messages: &[AgentMessage],
     ) -> Result<Vec<Value>, String> {
+        let mut cache = self
+            .reasoning
+            .lock()
+            .map_err(|_| "Reasoning continuation is unavailable.")?;
+        if !messages.iter().any(|m| !m.calls.is_empty()) {
+            cache.clear();
+        }
         let mut wire = vec![];
         let mut images = vec![];
         // Finish the complete tool-result group before inserting image evidence;
@@ -29,6 +67,11 @@ impl OpenAiProvider {
             if !message.calls.is_empty() {
                 value["tool_calls"] = json!(message.calls.iter().map(|call|
                     json!({"id":call.id,"type":"function","function":{"name":call.name,"arguments":call.arguments}})).collect::<Vec<_>>());
+                if let Some(reasoning) =
+                    cache.get(&Self::reasoning_key(&message.content, &message.calls)?)
+                {
+                    value["reasoning_content"] = json!(reasoning);
+                }
             }
             if let Some(id) = &message.call_id {
                 value["tool_call_id"] = json!(id);
@@ -157,12 +200,23 @@ impl OpenAiProvider {
             {
                 return Err("Model finished without a complete tool response.".into());
             }
-            Ok(AgentTurn {
+            let turn = AgentTurn {
                 output_limit: false,
                 content,
                 calls,
                 usage: reported_usage(&value),
-            })
+            };
+            let reasoning = choice["message"]
+                .get("reasoning_content")
+                .filter(|v| !v.is_null())
+                .map(|v| {
+                    v.as_str()
+                        .map(String::from)
+                        .ok_or("Invalid provider reasoning continuation.")
+                })
+                .transpose()?;
+            self.remember_reasoning(&turn, reasoning)?;
+            Ok(turn)
         };
         tokio::select! { biased;
             _ = cancel.cancelled() => Err("Response stopped.".into()),
