@@ -52,6 +52,9 @@ pub(crate) enum Request {
         repo: String,
         token: String,
     },
+    LocalState {
+        repo: String,
+    },
 }
 struct Job {
     session: String,
@@ -149,6 +152,15 @@ impl Repo {
         digest.update(&raw);
         digest.update(head.as_deref().unwrap_or("unborn").as_bytes());
         digest.update(self.command(&["config", "--null", "--list", "--show-origin"], cancel)?);
+        digest.update(self.command(
+            &[
+                "for-each-ref",
+                "--format=%(refname)%00%(objectname)",
+                "refs/heads",
+                "refs/stash",
+            ],
+            cancel,
+        )?);
         let mut total = 0u64;
         for entry in &entries {
             let path = entry["path"].as_str().ok_or("Invalid Git path.")?;
@@ -178,7 +190,7 @@ impl Repo {
             digest.update(std::fs::read(index).map_err(|_| "Index is unavailable.")?);
         }
         Ok(
-            json!({"repo":self.id(),"root":self.root,"projectRoot":self.project,"head":head,"branch":branch,"entries":entries,"revision":format!("{:x}",digest.finalize())}),
+            json!({"repo":self.id(),"root":self.root,"projectRoot":self.project,"head":head,"branch":branch,"entries":entries,"revision":format!("{:x}",digest.finalize()),"reverting":self.git.join("REVERT_HEAD").exists()}),
         )
     }
     fn path(&self, path: &str) -> Result<PathBuf, String> {
@@ -417,6 +429,10 @@ impl Engine {
                                     state.reviews.remove(&id);
                                 }
                                 Ok(Value::Null)
+                            }
+                            Request::LocalState { repo: id } => {
+                                repo.check(&id)?;
+                                repo.local_state(&cancel)
                             }
                             _ => unreachable!(),
                         }

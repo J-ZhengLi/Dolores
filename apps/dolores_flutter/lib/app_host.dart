@@ -133,7 +133,12 @@ class AppHost extends ChangeNotifier {
         final dw = files.workspaces[d.project];
         if (dw == null) continue;
         final full = gitPath(paths.join(dw.root, d.path));
-        if (selectedPaths.any((p) => gitPath(paths.join(root, p)) == full) &&
+        if ((selectedPaths.isEmpty
+                ? (full == gitPath(root) ||
+                      full.startsWith('${gitPath(root)}/'))
+                : selectedPaths.any(
+                    (p) => gitPath(paths.join(root, p)) == full,
+                  )) &&
             (d.dirty || d.pending || d.blocked || d.text != d.acknowledged)) {
           throw StateError(
             'Save or close unsaved editors for these Git paths, then review again. Drafts remain.',
@@ -151,6 +156,7 @@ class AppHost extends ChangeNotifier {
             ).startsWith('${gitPath(w.status?['root'] as String? ?? w.root)}/'),
       )) {
         await files.refreshDocuments(fw);
+        await files.load(fw, '.', refresh: true);
       }
     };
     visible = initial;

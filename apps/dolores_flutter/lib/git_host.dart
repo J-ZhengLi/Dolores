@@ -20,6 +20,7 @@ class GitWorkspace {
   int? historyNext;
   String? historyHead;
   Map<String, dynamic>? historyFiles;
+  Map<String, dynamic>? localState;
   bool sideBySide = false;
   GitWorkspace(this.root, this.session);
 }
@@ -197,6 +198,15 @@ class GitHost extends ChangeNotifier {
     }
   }
 
+  Future<void> loadLocal(GitWorkspace w) async {
+    try {
+      w.localState = Map<String, dynamic>.from(
+        await run(w, {'action': 'localState', 'repo': w.status!['repo']}),
+      );
+    } catch (_) {}
+    changed();
+  }
+
   Future<Map<String, dynamic>?> review(
     GitWorkspace w,
     Map<String, dynamic> operation,
@@ -243,7 +253,13 @@ class GitHost extends ChangeNotifier {
         if (value['status'] != null) {
           w.status = Map<String, dynamic>.from(value['status']);
         }
-        await afterMutation?.call(w);
+        w.busy = true;
+        try {
+          await afterMutation?.call(w);
+        } finally {
+          w.busy = false;
+        }
+        w.localState = null;
       }
     } catch (e) {
       w.error = '$e';

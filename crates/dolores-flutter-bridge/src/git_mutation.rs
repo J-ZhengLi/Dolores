@@ -1,7 +1,6 @@
 use super::*;
-#[cfg(test)]
-#[path = "git_mutation_tests.rs"]
-mod tests;
+#[path = "git_local.rs"]
+pub(super) mod local;
 use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
@@ -19,9 +18,41 @@ fn author_identity(value: &str) -> String {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Mutation {
-    Stage { paths: Vec<String> },
-    Unstage { paths: Vec<String> },
-    Commit { message: String },
+    Stage {
+        paths: Vec<String>,
+    },
+    Unstage {
+        paths: Vec<String>,
+    },
+    Commit {
+        message: String,
+    },
+    Hunks {
+        path: String,
+        staged: bool,
+        ids: Vec<String>,
+    },
+    StashCreate {
+        paths: Vec<String>,
+        message: String,
+    },
+    StashApply {
+        stash: String,
+        pop: bool,
+    },
+    BranchCreate {
+        name: String,
+    },
+    BranchSwitch {
+        name: String,
+    },
+    Discard {
+        path: String,
+    },
+    Revert {
+        commit: String,
+    },
+    RevertAbort,
 }
 pub(super) struct Review {
     pub token: String,
@@ -31,6 +62,7 @@ pub(super) struct Review {
     paths: Vec<String>,
     created: Instant,
     author: Option<String>,
+    patch: String,
 }
 impl Repo {
     pub(super) fn review(
@@ -134,6 +166,7 @@ impl Repo {
                     text(&patch)?.to_string(),
                 )
             }
+            _ => self.review_local(revision, &status, &operation, cancel)?,
         };
         self.revision(revision, cancel)?;
         let token = uuid::Uuid::new_v4().to_string();
@@ -160,6 +193,7 @@ impl Repo {
                 paths,
                 created: Instant::now(),
                 author,
+                patch,
             },
         );
         Ok(view)
@@ -216,6 +250,7 @@ impl Repo {
                 }
             }
             Mutation::Commit { .. } => vec![],
+            _ => vec![],
         };
         let mut message = None;
         if let Mutation::Commit { message: text } = &review.operation {
@@ -232,16 +267,25 @@ impl Repo {
                 "--cleanup=verbatim".into(),
             ];
             message = Some(file);
-        } else {
+        } else if matches!(
+            &review.operation,
+            Mutation::Stage { .. } | Mutation::Unstage { .. }
+        ) {
             args.extend(review.paths.clone());
         }
-        let outcome = git_process::run(&self.executable, &self.root, &args, cancel, false);
+        let outcome = if args.is_empty() {
+            self.apply_local(&review, cancel)
+        } else {
+            git_process::run(&self.executable, &self.root, &args, cancel, false)
+        };
         drop(message);
         let after = self.status(&CancellationToken::new());
-        let committed = matches!(&review.operation, Mutation::Commit { .. })
-            && after.as_ref().is_ok_and(|s| s["head"] != before["head"]);
+        let committed = matches!(
+            &review.operation,
+            Mutation::Commit { .. } | Mutation::Revert { .. }
+        ) && after.as_ref().is_ok_and(|s| s["head"] != before["head"]);
         let warning=match outcome {
-            Ok(output) if output.code==0=>None,
+            Ok(output) if output.code==0=>if output.stderr.is_empty(){None}else{Some(String::from_utf8_lossy(&output.stderr).to_string())},
             Ok(output) if committed=>Some(format!("HEAD changed despite Git exit {}. Inspect the new commit before repeating anything.",output.code)),
             Ok(output)=>return Err(format!("Git refused the operation ({}): {}. Commit draft and any existing index changes remain; Refresh before reviewing again.",output.code,String::from_utf8_lossy(&output.stderr))),
             Err(error) if committed=>Some(format!("{error} HEAD changed; inspect the completed commit before retrying.")),
@@ -252,3 +296,6 @@ impl Repo {
         )
     }
 }
+#[cfg(test)]
+#[path = "git_mutation_tests.rs"]
+mod tests;

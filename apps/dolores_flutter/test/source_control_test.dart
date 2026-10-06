@@ -6,6 +6,7 @@ import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/git_host.dart';
 import 'package:dolores_flutter/source_control.dart';
 import 'package:dolores_flutter/git_diff_view.dart';
+import 'package:dolores_flutter/git_local_controls.dart';
 
 class DiffBridge implements ChatBridge {
   bool fail = false;
@@ -55,7 +56,7 @@ class MutationBridge implements ChatBridge {
       pending = r;
       return {'job': 'mutation'};
     }
-    if (pending!['action'] == 'review')
+    if (pending!['action'] == 'review') {
       return {
         'done': true,
         'value': {
@@ -69,6 +70,7 @@ class MutationBridge implements ChatBridge {
           'notice': 'Configured hooks remain enabled.',
         },
       };
+    }
     if (reject) throw StateError('Commit hook refused. Draft remains.');
     return {
       'done': true,
@@ -116,6 +118,71 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  testWidgets(
+    'hunk choices review selected host IDs and stale comparisons disable apply',
+    (t) async {
+      final host = GitHost(DiffBridge());
+      final w = GitWorkspace('C:/A', 'A')..status = {'revision': 'v1'};
+      final diff = <String, dynamic>{
+        'revision': 'v1',
+        'path': 'same.txt',
+        'basis': 'working',
+        'hunks': [
+          {'id': 'host-one', 'header': '@@ -1,2 +1,2 @@'},
+          {'id': 'host-two', 'header': '@@ -20,2 +20,2 @@'},
+        ],
+      };
+      Map<String, dynamic>? operation;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GitHunkControls(
+              git: host,
+              w: w,
+              diff: diff,
+              review: (op) async {
+                operation = op;
+              },
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.text('Choose hunks'));
+      await t.pumpAndSettle();
+      await t.tap(find.byType(CheckboxListTile).first);
+      await t.pump();
+      await t.tap(find.text('Review stage selected hunks'));
+      await t.pump();
+      expect(operation!['ids'], ['host-one']);
+      expect(operation!.containsKey('patch'), false);
+      w.status = {'revision': 'v2'};
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GitHunkControls(
+              git: host,
+              w: w,
+              diff: diff,
+              review: (op) async {
+                operation = op;
+              },
+            ),
+          ),
+        ),
+      );
+      expect(
+        t
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'Review stage selected hunks'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   test('failed reviewed commit retains its draft; a fresh successful review clears it', () async {
     final bridge = MutationBridge();
     final host = GitHost(bridge);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'git_host.dart';
 import 'git_diff_view.dart';
+import 'git_local_controls.dart';
 
 Future<void> reviewGitAction(
   BuildContext context,
@@ -189,6 +190,12 @@ class SourceControlPanel extends StatelessWidget {
               children: [
                 if (w != null)
                   GitCommitBox(key: ValueKey(w.root), git: git, workspace: w),
+                if (w?.status != null)
+                  GitLocalControls(
+                    git: git,
+                    w: w!,
+                    review: (op) => reviewGitAction(context, git, w, op),
+                  ),
                 for (final staged in [true, false]) ...[
                   Padding(
                     padding: const EdgeInsets.all(12),
@@ -228,7 +235,12 @@ class SourceControlPanel extends StatelessWidget {
                             onSelected: (kind) =>
                                 reviewGitAction(context, git, w!, {
                                   'kind': kind,
-                                  'paths': [entry['path']],
+                                  if (kind == 'discard')
+                                    'path': entry['path']
+                                  else
+                                    'paths': [entry['path']],
+                                  if (kind == 'stashCreate')
+                                    'message': 'Saved ${entry['path']}',
                                 }),
                             itemBuilder: (_) => [
                               PopupMenuItem(
@@ -237,6 +249,18 @@ class SourceControlPanel extends StatelessWidget {
                                   staged ? 'Review unstage' : 'Review stage',
                                 ),
                               ),
+                              if (!staged &&
+                                  entry['index'] != '?' &&
+                                  entry['conflict'] != true) ...[
+                                const PopupMenuItem(
+                                  value: 'stashCreate',
+                                  child: Text('Review stash this file'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'discard',
+                                  child: Text('Review discard saved changes'),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -260,6 +284,20 @@ class SourceControlPanel extends StatelessWidget {
                       onTap: w.busy
                           ? null
                           : () => git.commitFiles(w, item['id'] as String),
+                      trailing: PopupMenuButton<String>(
+                        tooltip: 'Commit actions',
+                        enabled: !w.busy,
+                        onSelected: (_) => reviewGitAction(context, git, w, {
+                          'kind': 'revert',
+                          'commit': item['id'],
+                        }),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'revert',
+                            child: Text('Review revert with a new commit'),
+                          ),
+                        ],
+                      ),
                     ),
                 if (w?.historyNext != null)
                   TextButton(
@@ -392,6 +430,15 @@ class SourceControlView extends StatelessWidget {
               child: Text(
                 'Unresolved conflict. Edit and save the file, inspect it, then stage deliberately.',
               ),
+            ),
+          if ((diff['hunks'] as List? ?? []).isNotEmpty &&
+              diff['conflict'] != true)
+            GitHunkControls(
+              key: ValueKey('${w.root}:${w.activeTab}:${diff['revision']}'),
+              git: git,
+              w: w,
+              diff: diff,
+              review: (op) => reviewGitAction(context, git, w, op),
             ),
           Expanded(
             child: GitDiffView(

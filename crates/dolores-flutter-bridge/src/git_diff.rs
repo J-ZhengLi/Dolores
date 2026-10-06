@@ -218,7 +218,7 @@ impl Repo {
         };
         self.revision(revision, cancel)?;
         Ok(
-            json!({"path":path,"basis":basis,"revision":revision,"leftLabel":left_label,"rightLabel":right_label,"left":left.value,"right":right.value,"patch":patch,"reason":reason,"historical":basis=="commit","commit":commit,"conflict":entry.is_some_and(|e|e["conflict"]==true)}),
+            json!({"path":path,"basis":basis,"revision":revision,"leftLabel":left_label,"rightLabel":right_label,"left":left.value,"right":right.value,"hunks":if basis=="commit" {vec![]} else {mutation::local::hunks(&patch,revision,path,basis)},"patch":patch,"reason":reason,"historical":basis=="commit","commit":commit,"conflict":entry.is_some_and(|e|e["conflict"]==true)}),
         )
     }
     pub(super) fn history(

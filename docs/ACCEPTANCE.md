@@ -1,5 +1,25 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control 17.4 — selected hunks and local recovery
+
+Text hunks use host-derived IDs and patches against the displayed revision;
+selected staging/unstaging preserves other hunks and working bytes. New, renamed,
+mode-changing and binary files use reviewed whole-file operations. Local actions
+include selected tracked-file stash, exact stash apply/pop, branch create/switch,
+tracked-file discard from Index and a new non-merge reversing commit. Conflicted
+pop retains its stash; conflicted revert exposes reviewed Abort. Whole-repository
+actions refuse unsaved editors, and successful changes refresh saved editor/tree
+state. Rename stash is explicitly deferred to external Git rather than guessing
+which names to include.
+
+Eight native Source Control checks pass: selected/stale/reverse hunks, selective
+stash/pop, unrelated untracked preservation, branch create/switch, discard, new
+reversing commit, conflicted pop retention and revert Abort, plus the prior corpus.
+Fourteen focused Flutter/editor/recovery checks pass, including host-ID-only hunk
+selection and disabling stale hunk actions. Flutter analysis is clean. Fixtures
+set their own line-ending policy; the user's Git configuration is unchanged.
+Normal packaging, saved renders and process/resource qualification follow in 17.6.
+
 ## Source Control 17.3 — reviewed stage, unstage and commit
 
 Whole-file actions use a host-owned two-minute, single-use review of exact saved
