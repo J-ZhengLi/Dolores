@@ -10,6 +10,74 @@ import 'history_test.dart' show HistoryBridge;
 
 void main() {
   testWidgets(
+    'native execution has separate review and bounded account-access disclosure',
+    (tester) async {
+      tester.view.physicalSize = const Size(420, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final chat = ChatController(HistoryBridge())
+        ..model = 'fixture'
+        ..toolApproval = {
+          'name': 'test_harness_repair',
+          'target': 'Dolores native evaluation',
+          'callId': 'trial',
+          'query': '{"repairId":"retained","revision":2,"commands":{"baseline":"cargo test --offline --locked --workspace --lib","candidate":"same frozen suite"}}',
+          'diff': '--- before\n+++ after\n@@ -1 +1 @@\n-old\n+candidate\n',
+        };
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ToolApprovalCard(chat: chat)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Build and test this repair?'), findsOneWidget);
+      expect(find.text('Run once'), findsOneWidget);
+      await tester.ensureVisible(find.text('Operation details'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Operation details'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('not an OS sandbox'), findsOneWidget);
+      expect(find.textContaining('300 seconds and 256 KiB'), findsOneWidget);
+      expect(
+        find.textContaining('cannot install, restart or replay'),
+        findsOneWidget,
+      );
+      expect(find.byType(EditDiff), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
+  test('withheld native evidence explains baseline passing and preserves next step', () {
+    final text = toolResultText({
+      'name': 'test_harness_repair',
+      'status': 'completed',
+      'content': jsonEncode({
+        'evaluation': {
+          'status': 'withheld',
+          'baseline': {
+            'passed': ['check'],
+            'failed': [],
+          },
+          'candidate': null,
+          'note': 'Baseline already passes. Candidate not executed; reproduce the actual fault with frozen criteria.',
+        },
+      }),
+    });
+    expect(text, contains('withheld'));
+    expect(text, contains('Candidate: not run'));
+    expect(text, contains('frozen criteria'));
+    expect(
+      toolStatus({
+        'name': 'test_harness_repair',
+        'status': 'completed',
+        'content': '{"evaluation":{"status":"withheld"}}',
+      }),
+      'Improvement withheld',
+    );
+  });
+  testWidgets(
     'repair approval shows separate storage and exact diff in compact themes',
     (tester) async {
       tester.view.physicalSize = const Size(420, 720);

@@ -38,6 +38,7 @@ fn bundle(root: &Path) {
         "Cargo.toml".into(),
         "Cargo.lock".into(),
         "apps/dolores_flutter/pubspec.yaml".into(),
+        "adapters/browser/worker.cjs".into(),
     ];
     for directory in [
         "crates",

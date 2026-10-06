@@ -2,6 +2,19 @@
 
 ## Native repair proposals (20.2)
 
+20.4 adds working-chat `test_harness_repair {repairId,revision,package,reproduction}`.
+Package is `dolores-core` or `dolores-provider-openai`; reproduction is complete
+Rust integration-test source up to 4096 bytes. Its one-use review includes the
+exact candidate/test diff and three host-fixed command previews. Full access
+cannot approve it automatically. Baseline/candidate get identical frozen tests;
+candidate regressions run only after successful reproduction. Each command has
+300 seconds/256 KiB capture, offline/locked, with no retry/install action.
+Schema 33 retains per-phase results and four trials per repair. Repair inspection
+adds `evaluations` summaries with revision/current/status, criteria identity,
+counts and actionable notes; old receipt qualification becomes stale on edits.
+Typed completed results distinguish withheld improvement from a qualified test
+receipt, which still has no install authority. Interrupted receipts remain explicit.
+
 `harnessRepairs {session,repairId?,source?}` is a local chat-scoped read, available
 during an active run. Omitted ID lists retained IDs; an ID returns its current
 revision, matching-source status, file identities and artifact-integrity notice.

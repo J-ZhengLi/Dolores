@@ -19,6 +19,7 @@ String toolLabel(dynamic name) => switch (name) {
   'run_command' => 'Command',
   'inspect_harness' => 'Harness inspection',
   'harness_repair' => 'Repair proposal',
+  'test_harness_repair' => 'Native evaluation',
   'delegate_tasks' => 'Subagents',
   'web_search' => 'Web search',
   'read_web_page' => 'Web page',
@@ -42,6 +43,15 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'test_harness_repair') {
+      final trial = result['evaluation'] as Map? ?? result;
+      final baseline = trial['baseline'] as Map?;
+      final candidate = trial['candidate'] as Map?;
+      return '${trial['status']} · Native evaluation\n'
+          'Baseline: ${baseline == null ? trial['baselinePassed'] ?? 'not run' : (baseline['passed'] as List? ?? []).length} passed, ${baseline == null ? trial['baselineFailed'] ?? 'unknown' : (baseline['failed'] as List? ?? []).length} failed\n'
+          'Candidate: ${candidate == null ? trial['candidatePassed'] ?? 'not run' : (candidate['passed'] as List? ?? []).length} passed, ${candidate == null ? trial['candidateFailed'] ?? 'unknown' : (candidate['failed'] as List? ?? []).length} failed\n'
+          '${trial['note'] ?? result['note']}';
+    }
     if (record['name'] == 'harness_repair') {
       if (result['repairIds'] is List) {
         return 'Retained repairs: ${(result['repairIds'] as List).join(', ')}\n${result['note'] ?? ''}';
@@ -129,6 +139,21 @@ String toolStatus(dynamic record) {
       /* Failure/legacy content stays literal. */
     }
   }
+  if (record['name'] == 'test_harness_repair' &&
+      record['status'] == 'completed') {
+    try {
+      final result = jsonDecode('${record['content']}') as Map;
+      final trial = result['evaluation'] as Map? ?? result;
+      return switch (trial['status']) {
+        'qualified' => 'Tests qualified · installation needs review',
+        'withheld' => 'Improvement withheld',
+        'stopped' => 'Stopped · proposal retained',
+        _ => 'Verification incomplete',
+      };
+    } catch (_) {
+      return 'Verification incomplete';
+    }
+  }
   if (record['name'] != 'run_command' ||
       ['denied', 'blocked', 'error'].contains(record['status'])) {
     return '${record['status']}';
@@ -203,6 +228,7 @@ class ToolApprovalCard extends StatelessWidget {
     final editing = name == 'edit_text_file';
     final creating = name == 'create_text_file';
     final repairing = name == 'harness_repair';
+    final evaluating = name == 'test_harness_repair';
     final running = name == 'run_command';
     final external = request['mcp'] is Map;
     final credentialNames =
@@ -217,6 +243,7 @@ class ToolApprovalCard extends StatelessWidget {
       'run_command' => 'Run this command?',
       'inspect_harness' => 'Inspect the running harness?',
       'harness_repair' => 'Review this repair step?',
+      'test_harness_repair' => 'Build and test this repair?',
       'delegate_tasks' => 'Delegate these scoped tasks?',
       'web_search' => 'Share this web search query?',
       'read_web_page' => 'Read this public web page?',
@@ -237,6 +264,8 @@ class ToolApprovalCard extends StatelessWidget {
         'Share the selected running capabilities or bounded bundled source with ${chat.model}? This is read-only and cannot update Dolores or grant permissions. Results are kept with a completed reply.',
       'harness_repair' =>
         'Review matching source and the proposed diff in Dolores’s separate repair storage. Your project stays unchanged. This step cannot compile, execute tests or install a replacement app. Results go to ${chat.model} and retained local evidence. Native execution and installation need separate review.',
+      'test_harness_repair' =>
+        'Build and run the same reviewed reproduction test against matching baseline and candidate, then run candidate library regressions in separate repair storage. Build scripts and native code run with your account permissions and can access files, network or processes; this is not an OS sandbox. At most three commands, each with 300 seconds and 256 KiB output. Candidate runs only after a complete baseline test failure. Tests stay fixed; Stop preserves the proposal and available evidence. Results go to ${chat.model}. This cannot install, restart or replay your task.',
       String value when value.startsWith('mcp_tool_') =>
         'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.${credentialNames.isEmpty ? '' : '\nServer receives saved credentials: ${credentialNames.join(', ')}.'}',
       'list_folder' =>
@@ -266,7 +295,13 @@ class ToolApprovalCard extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: editing || creating || repairing || running || external
+              maxHeight:
+                  editing ||
+                      creating ||
+                      repairing ||
+                      evaluating ||
+                      running ||
+                      external
                   ? 270
                   : 180,
             ),
@@ -291,7 +326,7 @@ class ToolApprovalCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    repairing
+                    repairing || evaluating
                         ? 'Storage: Dolores repair workspace'
                         : 'Folder: ${chat.workspaceKind == 'temporary' ? 'Temporary workspace' : path.basename(chat.workspaceRoot ?? '')}',
                     style: TextStyle(color: p.muted, fontSize: 12),
@@ -380,7 +415,7 @@ class ToolApprovalCard extends StatelessWidget {
                           ? 'Exact child goals and file scopes:'
                           : name == 'inspect_harness'
                           ? 'Inspect this source/range:'
-                          : repairing
+                          : repairing || evaluating
                           ? 'Exact repair step:'
                           : name == 'read_text_file'
                           ? 'Read these lines (start:count):'
@@ -426,7 +461,7 @@ class ToolApprovalCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if ((editing || creating || repairing) &&
+                  if ((editing || creating || repairing || evaluating) &&
                       request['diff'] is String) ...[
                     const SizedBox(height: 8),
                     EditDiff(
@@ -456,7 +491,7 @@ class ToolApprovalCard extends StatelessWidget {
                 child: Text(
                   chat.decidingTool
                       ? 'Sending decision…'
-                      : running || external
+                      : running || external || evaluating
                       ? 'Run once'
                       : creating
                       ? 'Create once'

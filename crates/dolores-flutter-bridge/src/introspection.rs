@@ -368,7 +368,7 @@ impl Engine {
         if working {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
-            if self.workspace_directory.is_some(){tools.push(crate::harness_repair::spec());}
+            if self.workspace_directory.is_some(){tools.push(crate::harness_repair::spec());tools.push(crate::repair_evaluation::spec());}
             tools.push(crate::subagents::spec());
             tools.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
             if self.browser_runtime().is_ok() {

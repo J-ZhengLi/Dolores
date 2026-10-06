@@ -2,7 +2,8 @@
 
 2026-10-06. Bricks 20.1–20.2 are implemented with [qualification gaps](../qualification/harness-self-repair.md).
 The user prioritized the reviewed native pipeline; 20.3's broader Wasm ABI is
-not adopted. Independent native evaluation/install/restore in 20.4–20.6 remain
+not adopted. 20.4 implements the bounded reviewed Rust evaluator with packaged/
+live gates pending; native install/restore and real repair in 20.5–20.6 remain
 planned. The milestone follows the immediate
 streaming/progress fixes and takes priority over the paused milestones 16–19.
 Platform CI 8.4 stays deferred.
@@ -96,6 +97,17 @@ executing generated native tests. Without it, retain the patch and require revie
 execution rather than silently expanding authority.
 
 ## Tests, activation and restart
+
+20.4's first native evaluator supports an explicitly reviewed Rust integration
+reproduction against core/provider public APIs. Freeze the exact reproduction
+for both versions, preserve existing qualifying test definitions and run candidate
+library regressions. Materialize full matching source in separate owned folders;
+pin candidate/source/Cargo identities and persist each completed phase. Three
+fixed offline/locked Cargo commands each have 300 seconds/256 KiB capture. Baseline
+passing, compilation/evidence failure or test/source drift withholds qualification.
+An unfinished/stopped trial never automatically resumes. This does not qualify
+OS containment or general Flutter/native evaluation. Every native execution stays
+reviewed even under Full access; installation/restore remains a separate gate.
 
 States: diagnosed → reproduced → proposed → testing → qualified → ready → applied,
 plus rejected, cancelled, interrupted and restored. Retain baseline/candidate

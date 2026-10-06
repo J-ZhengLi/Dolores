@@ -125,5 +125,59 @@ establish it.
 
 ## Later bricks
 
-20.3's broader extension ABI is not adopted. 20.4–20.6 remain unimplemented;
-independent evaluation, reviewed native installation and rollback gates apply.
+20.3's broader extension ABI is not adopted. Native installation/restore in
+20.5 and actual repair/rollback qualification in 20.6 remain unimplemented.
+
+## 20.4 — reviewed Rust reproduction and regression trials
+
+2026-10-06. `test_harness_repair` adds a separate execution review for a retained
+repair ID/revision, supported public-API test target (`dolores-core` or
+`dolores-provider-openai`) and complete Rust reproduction source up to 4096 bytes.
+The review shows the candidate diff, exact reproduction and three fixed Cargo
+commands. Host-owned storage freezes that same reproduction in baseline/candidate
+workspaces. Existing inline/test-file definitions must remain unchanged; test,
+manifest, build-script, evaluator and other-language candidate edits refuse this
+evaluator. This is a bounded Rust path, not general Flutter/native evaluation.
+
+After explicit review, the host materializes the entire matching source bundle,
+including the browser worker asset needed by Rust compilation. It runs baseline
+reproduction, candidate reproduction only after complete baseline test failure,
+then candidate workspace library regressions only after successful reproduction.
+Each command has 300 seconds and 256 KiB combined output; at most three commands
+run, offline/locked and without retries. Cargo identity, source/revision and frozen
+test bytes are checked. Output limits, incomplete/failed compilation, zero tests,
+missing regression evidence and baseline already passing cannot qualify.
+
+SQLite schema 33 retains bounded chat/repair-scoped receipts with source/candidate,
+criteria and Cargo identities, the frozen reproduction and separate typed results.
+Completed phases are saved before starting the next. Four trials per repair are
+allowed. Stop/crash leaves source, logs and completed evidence; an unfinished
+receipt requires a fresh review and never resumes automatically. A newer proposal
+makes old qualification stale. These receipts grant no installation authority.
+
+### Exercised so far
+
+- Rust library suites: 342 passed, one ignored; Clippy all targets with warnings
+  denied passed. Flutter: 252 tests and analysis passed; subsequent focused card
+  checks pass, including explicit Run once and withheld-improvement labeling.
+- A real installed Cargo fixture runs an unchanged integration reproduction
+  against a deliberately faulty baseline and fixed candidate, then library
+  regressions. It demonstrates the evaluator mechanics, not a real-model repair.
+- Fixed inline assertions/ignore/configuration changes refuse; duplicate test
+  names retain their multiplicity. Truncated evidence and changed source cannot
+  qualify. Cross-chat access, immutable/finished receipts, revision drift and
+  reopening storage preserve evidence without replay.
+- A native child fixture writes a completed marker, then Stop interrupts it.
+  Its marker and staged source remain. No candidate installation occurs.
+- Compiler qualification initially failed because filtered Windows child
+  environment omitted MSVC discovery hints. Standard installation, architecture
+  and command-interpreter hints now pass; credentials and arbitrary compiler
+  overrides remain excluded. Compile failure was never counted as improvement.
+
+Normal packaged approval/dispatch and live-provider evaluation qualification are
+pending. The earlier normal 20.2 app was inspected in the foreground after unlock,
+with its existing chat, paused work and selected model intact. Updated 20.4 normal
+build/launch remains required before acceptance. Native code/build scripts use the
+account's OS permissions: supervision, source checks and offline Cargo are not OS
+containment against malicious code. Arbitrary generated native execution remains
+separately reviewed; frozen-input/receipt checks do not establish such containment.

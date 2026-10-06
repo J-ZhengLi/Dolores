@@ -846,6 +846,8 @@ pub async fn run_agent_with_shared_budget(
                         "Invalid harness inspection".into()
                     } else if call.name == "harness_repair" {
                         "Repair proposal unavailable".into()
+                    } else if call.name == "test_harness_repair" {
+                        "Native evaluation unavailable".into()
                     } else if call.name == "desktop_control" {
                         "Invalid desktop operation".into()
                     } else if call.name == "browser" {
@@ -876,7 +878,7 @@ pub async fn run_agent_with_shared_budget(
                         format!(
                             "{error} Use empty arguments for inventory, action=list/search for navigation, or source with startLine and lineCount (1–2048) for a bounded read. No inspection ran."
                         )
-                    } else if matches!(call.name.as_str(), "harness_repair" | "desktop_control") {
+                    } else if matches!(call.name.as_str(), "harness_repair" | "test_harness_repair" | "desktop_control") {
                         error
                     } else if call.name == "browser" {
                         "Invalid browser arguments; no operation ran. Use only fields needed by the operation: open requires url; state/close require only operation. fill requires ref, state and text; click requires ref and state; press also requires key; scroll requires state and direction; screenshot requires state. Copy the full state token and eN ref from the latest receipt. Omit irrelevant fields instead of empty strings. Use HTTPS or literal loopback HTTP; text is at most 512 UTF-8 bytes. This is an argument error, not an access denial; do not bypass it with another tool.".into()
@@ -928,6 +930,7 @@ pub async fn run_agent_with_shared_budget(
                                         | "desktop_control"
                                         | "inspect_harness"
                                         | "harness_repair"
+                                        | "test_harness_repair"
                                 ) {
                                     4096
                                 } else {
@@ -936,7 +939,7 @@ pub async fn run_agent_with_shared_budget(
                                 || query.chars().any(char::is_control)
                         })
                         || request.diff.as_ref().is_some_and(|diff| {
-                            !matches!(request.name.as_str(), "edit_text_file" | "create_text_file" | "harness_repair")
+                            !matches!(request.name.as_str(), "edit_text_file" | "create_text_file" | "harness_repair" | "test_harness_repair")
                                 || diff.len() > MAX_TOOL_BYTES
                         })
                         || (matches!(request.name.as_str(), "edit_text_file" | "create_text_file")
@@ -1034,7 +1037,7 @@ pub async fn run_agent_with_shared_budget(
                                     }
                                 } else if request.name == "delegate_tasks" {
                                     "Subagent batch could not complete. Inspect Run history and Changes before continuing; completed file changes remain. Only one batch is allowed per run.".into()
-                                } else if matches!(request.name.as_str(), "harness_repair" | "desktop_control") {
+                                } else if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair" | "desktop_control") {
                                     error
                                 } else if request.name == "inspect_desktop_capture" {
                                     "Selected screenshot is missing or changed. Open Settings → Computer use, capture again and explicitly share it. Nothing was retried.".into()

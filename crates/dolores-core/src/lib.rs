@@ -333,8 +333,14 @@ pub enum Appearance {
 
 pub mod harness_repair;
 pub use harness_repair::{RepairFile, RepairWorkspace};
+mod repair_evaluation;
+pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 
 pub trait SessionStore: Send + Sync {
+    fn repair_evaluations(&self, _: &str, _: &str) -> Result<Vec<RepairEvaluation>, String> { Ok(vec![]) }
+    fn save_repair_evaluation(&self, _: &RepairEvaluation) -> Result<(), String> {
+        Err("Native evaluation storage unavailable; retained proposal remains.".into())
+    }
     fn repair_ids(&self, _: &str) -> Result<Vec<String>, String> { Ok(vec![]) }
     fn repair_workspace(&self, _: &str, _: &str) -> Result<RepairWorkspace, String> {
         Err("Repair workspace is unavailable. Original task remains.".into())

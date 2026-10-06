@@ -189,6 +189,14 @@ composer controls and footer positions. No idle worker or new help label.
 
 ## Native repair review (20.2)
 
+20.4's separate native execution card says Build and test this repair? / Run once.
+Show the exact candidate plus frozen reproduction and bounded command sequence;
+disclose account permissions, three command limits, unchanged tests and separate
+installation authority. Keep disclosure/diff scrollable and buttons reachable.
+Saved native cards say Improvement withheld or Tests qualified · installation
+needs review rather than ordinary Completed. Incomplete/stopped results retain
+the proposal and give a fresh-review/reproduction next step.
+
 Reuse the ordinary tool review card and selectable diff for `harness_repair`.
 Label it Repair proposal / Review this repair step?, with Storage: Dolores repair
 workspace and Exact repair step. Show the matching source and diff before Allow

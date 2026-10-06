@@ -124,6 +124,16 @@ fn environment() -> Vec<(String, String)> {
         "USERPROFILE",
         "APPDATA",
         "LOCALAPPDATA",
+        // Rust/MSVC discovery uses these standard installation directories.
+        // No compiler overrides, credentials or arbitrary caller environment.
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "ProgramW6432",
+        "PROCESSOR_ARCHITECTURE",
+        "PROCESSOR_ARCHITEW6432",
+        "ProgramData",
+        "ALLUSERSPROFILE",
+        "COMSPEC",
         "LANG",
         "LC_ALL",
         "LC_CTYPE",

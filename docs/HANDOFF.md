@@ -36,8 +36,11 @@ snapshots. Verify its latest commit from Git rather than this guide. Rust 336
 library tests (one ignored), Clippy, 250 Flutter tests/analysis, normal-native
 fixture and bounded five-step DeepSeek proposal handling pass. Candidate code
 was not executed; a complete build workspace/evaluation remains unimplemented.
-The original normal profile is preserved. Foreground visual verification awaits
-Windows unlock; do not interact with the locked desktop.
+The original normal profile is preserved. The user unlocked Windows and the normal
+20.2 app was inspected in the foreground with selected chat/model and paused work
+intact. 20.4 now implements reviewed Rust reproduction/regression execution and
+schema 33; normal packaged/live and updated-desktop qualification remain pending.
+Do not advance to installation/restore without their separate review and evidence.
 
 - Blank output delegates the response maximum to the provider. Existing numeric
   settings remain. Model inactivity is separate from optional task time; human
@@ -97,7 +100,7 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 | 20.1 | Implemented matching-source navigation and typed failed-stream evidence; visual/platform/general-model gaps remain. |
 | 20.2 | Implemented scoped selected-file snapshots and visible reviewed native proposals; no generated execution or complete build checkout. |
 | 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
-| 20.4 | Independent baseline reproduction, candidate and frozen regression trials. |
+| 20.4 | Reviewed frozen Rust reproduction/regression evaluator implemented; packaged/live gates pending. |
 | 20.5 | Qualified extension activation or reviewed native build/install/restart, with restore. |
 | 20.6 | Real repair, withheld non-improvement and rollback qualification. |
 

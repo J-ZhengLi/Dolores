@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-05
 
+## Harness self-repair 20.4 — reviewed Rust evaluator, packaged gates pending
+
+2026-10-06: Native execution has its own exact review, including candidate diff,
+frozen reproduction source and bounded Cargo sequence. A complete baseline test
+failure, candidate reproduction success and unchanged library regression passes
+are all required; baseline passing, compilation failure or incomplete evidence
+withhold improvement. Existing tests cannot be weakened through this evaluator.
+Schema 33 retains completed phases and unfinished/stopped evidence without replay.
+Task Full access cannot authorize this operation. No installation is delivered.
+
+342 Rust library tests pass (one ignored), Clippy passes, and 252 Flutter tests
+and analysis pass. Real installed-Cargo fixtures exercise faulty baseline → fixed
+candidate → regressions and Stop after a child starts, preserving source/marker.
+Source/test drift, truncated evidence and stale/cross-chat persistence are covered.
+Normal packaged dispatch, updated desktop foreground check and live-provider
+evaluation qualification remain pending; see [evidence](qualification/harness-self-repair.md).
+The earlier normal 20.2 app's foreground check now passes after desktop unlock.
+
 ## Harness self-repair 20.2 — native proposal stage implemented
 
 2026-10-06: Ordinary working chats can retain a matching-source repair separately

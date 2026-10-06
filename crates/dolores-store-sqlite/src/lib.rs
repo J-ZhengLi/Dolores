@@ -24,7 +24,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 32;
+pub const SCHEMA_VERSION: i64 = 33;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -51,6 +51,7 @@ fn now() -> i64 {
 }
 
 mod harness_repair;
+mod repair_evaluation;
 
 impl SqliteStore {
     pub fn open(path: &Path) -> Result<Self, String> {
@@ -197,6 +198,9 @@ impl SqliteStore {
         if version < 32 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS harness_repairs(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS harness_repairs_session ON harness_repairs(session); PRAGMA user_version=32; COMMIT;").map_err(storage_error)?;
         }
+        if version < 33 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS repair_evaluations(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,repair TEXT NOT NULL REFERENCES harness_repairs(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS repair_evaluations_scope ON repair_evaluations(session,repair); PRAGMA user_version=33; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -207,6 +211,8 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn repair_evaluations(&self, session:&str, repair:&str)->Result<Vec<dolores_core::RepairEvaluation>,String> {self.evaluation_list(session,repair)}
+    fn save_repair_evaluation(&self, value:&dolores_core::RepairEvaluation)->Result<(),String>{self.evaluation_save(value)}
     fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> { self.repair_list(session) }
     fn repair_workspace(&self, session: &str, id: &str) -> Result<dolores_core::RepairWorkspace, String> { self.read_repair(session,id) }
     fn save_repair_workspace(&self, state: &dolores_core::RepairWorkspace, revision: Option<u32>) -> Result<dolores_core::RepairWorkspace, String> { self.write_repair(state,revision) }

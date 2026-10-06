@@ -26,6 +26,8 @@ serde_json.workspace = true
 base64 = "0.22"
 sha2 = "0.10"
 miniz_oxide = "0.8"
+syn = { version = "2", features = ["full", "visit"] }
+quote = "1"
 tokio = { workspace = true, features = ["process", "io-util"] }
 tokio-util.workspace = true
 uuid.workspace = true

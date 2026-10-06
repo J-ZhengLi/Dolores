@@ -5,10 +5,10 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 
-fn identity(text: &str) -> String {
+pub(super) fn identity(text: &str) -> String {
     format!("sha256:{:x}", Sha256::digest(text.as_bytes()))
 }
-fn is_alias(metadata: &std::fs::Metadata) -> bool {
+pub(super) fn is_alias(metadata: &std::fs::Metadata) -> bool {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
@@ -36,7 +36,7 @@ fn check(state: &RepairWorkspace) -> Result<(), String> {
     }
     Ok(())
 }
-fn matching(state: &RepairWorkspace) -> Result<(), String> {
+pub(super) fn matching(state: &RepairWorkspace) -> Result<(), String> {
     check(state)?;
     if state.bundle_id != introspection::bundle::ID {
         return Err("Running source changed. Keep this repair and its diff; prepare a new repair from the current bundle before changing it.".into());
@@ -122,7 +122,7 @@ fn direct_file(root: &std::path::Path, path: &str) -> Result<String, String> {
     }
     Ok(text)
 }
-fn artifact_matches(root: &std::path::Path, state: &RepairWorkspace) -> Result<(), String> {
+pub(super) fn artifact_matches(root: &std::path::Path, state: &RepairWorkspace) -> Result<(), String> {
     check(state)?;
     if is_alias(
         &std::fs::symlink_metadata(root)
@@ -287,6 +287,7 @@ impl RepairTool {
         }
         let state = self.state(q)?;
         let mut view = summary(&state);
+        view["evaluations"] = json!(self.store.repair_evaluations(&self.session,&state.id)?.iter().map(|r|json!({"evaluationId":r.id,"revision":r.revision,"current":r.revision==state.revision && r.bundle_id==state.bundle_id && r.candidate_ids==state.files.iter().map(|f|f.candidate_id.clone()).collect::<Vec<_>>(),"status":r.status,"criteriaId":r.criteria_id,"artifact":r.artifact,"baselinePassed":r.baseline.as_ref().map(|t|t.passed.len()),"baselineFailed":r.baseline.as_ref().map(|t|t.failed.len()),"candidatePassed":r.candidate.as_ref().map(|t|t.passed.len()),"candidateFailed":r.candidate.as_ref().map(|t|t.failed.len()),"note":r.note})).collect::<Vec<_>>());
         view["artifactIntegrity"] = json!(artifact_matches(&self.directory, &state)
             .err()
             .unwrap_or_else(|| "matches".into()));

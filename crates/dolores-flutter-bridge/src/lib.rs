@@ -26,6 +26,7 @@ mod export;
 mod instructions;
 mod introspection;
 mod harness_repair;
+mod repair_evaluation;
 mod knowledge;
 mod mcp;
 mod memory;
@@ -1673,6 +1674,7 @@ impl Engine {
                     )));
                     if let Some(directory)=self.workspace_directory.as_ref().and_then(|p|p.parent()) {
                         tools.push(Arc::new(harness_repair::RepairTool::new(self.store.clone(),session.clone().unwrap(),directory.join("repairs"))));
+                        tools.push(Arc::new(repair_evaluation::EvaluationTool::new(self.store.clone(),session.clone().unwrap(),directory.join("repairs"))));
                     }
                     if desktop::helper().is_ok() {
                         tools.push(Arc::new(desktop_access::RequestAccess));

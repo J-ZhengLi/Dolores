@@ -21,8 +21,9 @@ This document describes implemented behavior. The [evolving-harness specificatio
 
 General conversation-driven harness repair is still missing. Bricks 20.1–20.2
 provide matching-source navigation and separately retained, reviewed native
-proposals. [Milestone 20](design/harness-self-repair.md) still requires independent
-tests and reviewed native build/restart/restore. The user prioritized this native
+proposals; 20.4 adds separately reviewed frozen Rust reproduction/regression trials.
+[Milestone 20](design/harness-self-repair.md) still requires qualified reviewed
+native installation/restart/restore. The user prioritized this native
 pipeline; a broader Wasm seam has not been adopted. Current proposals and
 recovery-hint mods should not be presented as the complete repair workflow.
 
@@ -125,6 +126,16 @@ still allow database-backed inspection; further changes refuse. Limits are four
 repairs per chat, eight files/2 MiB snapshots per repair, sixteen revisions and
 an 8 KiB cumulative file diff. No task replay, build, generated code execution or
 installation occurs. These selected snapshots are not yet a buildable checkout.
+
+`test_harness_repair` separately reviews an exact candidate and Rust reproduction
+for the public core/provider API. Matching full source is materialized into owned
+baseline/candidate directories; one frozen integration test runs in both, followed
+by candidate library regressions. Existing test syntax, source hashes, revisions
+and Cargo identity are checked. Three fixed offline/locked commands are bounded
+to 300 seconds/256 KiB each. Schema 33 stores phase receipts; baseline passing or
+incomplete evidence withholds improvement. Full access cannot auto-approve native
+execution. No OS containment, installation or restart is implied; stopped/crashed
+trials keep evidence and require a fresh review. There is no idle evaluator service.
 
 ## Context and learning
 
