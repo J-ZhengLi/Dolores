@@ -15,8 +15,14 @@ eight 245,783-byte saved comparisons. Earlier tiny/mixed render measurements are
 explicitly invalidated. [Qualification](qualification/source-control.md) records
 actual timings, memory/CPU observations, fixture failures and remaining native,
 hosted-network and model gaps. Original 42-table profile preservation and normal
-main-entry build/launch remain the final handoff check; no diagnostic entry is
-reported as the normal app. Milestone 18 has not started.
+main-entry build/launch passed at source commit `f19106f`: the maintained normal
+build opened a visible Windows window (PID 18620), and hashes of every original
+table remained unchanged, with no new tables. The original configuration, selected
+settings and history were preserved. No diagnostic entry is reported as the normal
+app. The final normal-bundle C ABI recheck passes all nine cases, including native
+dirty-buffer refusal and hook Stop/recovery (469 ms; no surviving owned children).
+The original 42 tables remain unchanged after that recheck. Milestone 18 has not
+started. Receipt: `output/source-control-17-normal-handoff.json`.
 
 ## Source Control 17.5 — deliberate remote actions
 

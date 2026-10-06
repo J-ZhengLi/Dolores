@@ -74,5 +74,11 @@ Earlier failed fixtures are retained as failed evidence, not acceptance passes.
   general model reliability are unqualified. No model calls were needed for these
   human Git flows, and no configured model/settings were changed.
 
-The final normal `main` build/launch and original-profile preservation are recorded
-separately in acceptance. Diagnostic renders do not establish normal-app startup.
+The final normal `main` build/launch at source commit `f19106f` passed, exposing
+a visible Windows window at PID 18620. Hashes of all 42 original profile tables
+are unchanged, with no new tables. Normal startup is separate from the diagnostic
+renders; foreground interaction is not claimed by window presence alone.
+The final normal bundle repeats all nine C ABI cases successfully. Its public
+record is `output/source-control-17-534653ed06bb432199b9e83f1aba454f/result.json`;
+hook Stop/reap is 469 ms, private-memory increment 0.234 MiB, and no child process
+survives. All 42 original-profile hashes are unchanged after this final recheck.
