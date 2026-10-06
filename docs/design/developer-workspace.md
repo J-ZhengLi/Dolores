@@ -1,5 +1,14 @@
 # Developer workspace specification
 
+**Latest design exploration — 2026-10-06.** The user has not selected the mixed
+chat/file layout and now wants to preserve Dolores's current agent view with
+split tabs **for files only**. A new three-variant prototype compares files beside
+the agent, below it, and a file-focused workspace with the familiar agent on the
+right. No variant is selected yet. The earlier mixed-view/four-pane proposal below
+is reference material, not the current approved UI. Revise that contract after
+review before implementing it; do not turn the agent view into a draggable tab.
+See [the latest qualification note](../qualification/workspace-editor.md).
+
 **Resumed — 2026-10-06.** The user authorized milestones 16–19, one milestone
 batch at a time, starting with 16. The 16.0 prototype and editor trial are in
 progress; production workspace features are not delivered. The user requested

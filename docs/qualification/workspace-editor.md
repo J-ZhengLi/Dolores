@@ -1,5 +1,32 @@
 # Workspace/editor 16.0 — partial feasibility evidence
 
+## Latest prototype — preserve agent UI, split files only
+
+The user is undecided about the earlier workspace layout and requested a prototype
+that retains Dolores's current agent view and limits split tabs to files. The new
+self-contained HTML uses the current palette, sidebar, conversation controls,
+message/composer layout and bottom Settings with synthetic content. Three variants
+share one route: A files beside the agent, B files below it, C file focus with the
+familiar agent on the right. No variant is selected or implemented in production.
+
+Review URL: `http://127.0.0.1:8766/agent-files-prototype.html?variant=B`. Local
+source/screenshots: `output/workspace-16-prototype/agent-files-prototype.html` and
+`agent-files-A.jpg`, `agent-files-B.jpg`, `agent-files-C.jpg` in the same directory.
+Captured public source: `codex/prototype-agent-files`, commit
+`04de922e31878eb1c86801fa84ffcbdfd3ef91bb`, path
+`apps/dolores_flutter/prototypes/agent-files/`.
+
+Browser checks exercised all three renderings, preserved a synthetic agent draft
+and unsaved file edit while switching layouts and closing/reopening Files, moved
+a file tab between groups, and created a third file-only group with an edge drop.
+Dropping a file onto the agent refused the move and retained all work. Narrow
+620-pixel rendering was inspected; file groups stack and the sidebar hides. This
+does not qualify a production compact navigation drawer or native accessibility.
+These are in-memory UI checks, with no disk writes or model calls. Reload/reset
+clears the demo; it is not crash recovery. No formal tests are added for throwaway
+UI. The earlier mixed chat/file four-pane layout is not approved. Native editor
+performance/input/resource gates below remain unchanged and open.
+
 2026-10-06. The user resumed milestones 16–19, one milestone batch at a time,
 starting with 16. **16.0 is in progress; 16.1–16.5 have not started.** Neither the
 revised layout nor the editor dependency is accepted for production rollout yet.

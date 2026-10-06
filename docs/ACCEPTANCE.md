@@ -1,5 +1,17 @@
 # Dolores acceptance — 2026-10-06
 
+## Workspace/editor 16.0 — agent UI retained in a file-only split comparison
+
+The user requested a new prototype preserving the current agent view and limiting
+split tabs to files. Three synthetic variants compare files beside the agent,
+below it, and file focus with the familiar agent on the right. The browser retains
+agent drafts and unsaved file edits across variant changes and Files close/reopen.
+Actual file-tab move and edge split work; a drop onto the agent is cancelled with
+work retained. Wide/narrow rendering was inspected. These are prototype behaviors;
+the production app and existing editor qualification gaps are unchanged. No layout
+has been selected, no model call was made and 16.0 remains in progress. Captured
+source and precise limits are in [qualification](qualification/workspace-editor.md).
+
 ## Workspace/editor 16.0 — revised prototype; editor adoption held
 
 The user resumed milestones 16–19, one milestone batch at a time. The revised

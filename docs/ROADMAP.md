@@ -1,5 +1,11 @@
 # Dolores roadmap
 
+**Latest 16.0 exploration:** the user prefers the current agent UI and requested
+file-only split tabs. A new beside/below/file-focus comparison is ready; no layout
+has been selected. The earlier mixed chat/file pane plan is not approved for
+implementation. Update that UI contract after review; existing editor feasibility
+gates remain open. See [qualification](qualification/workspace-editor.md).
+
 **Current order — 2026-10-06.** The user resumed milestones **16–19**, one
 milestone batch at a time, starting with **16 — Workspace and editor**.
 16.0's revised prototype/editor feasibility gate is in progress; 16.1–16.5 have

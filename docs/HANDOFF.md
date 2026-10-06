@@ -2,6 +2,15 @@
 
 ## Start here
 
+**Latest user steering:** preserve the current agent view; split tabs apply only
+to files. The new prototype compares A (files beside), B (files below) and C
+(file focus with agent on the right) at
+`http://127.0.0.1:8766/agent-files-prototype.html?variant=B`. No choice is made;
+the earlier mixed chat/file four-pane prototype is not approved. The public source
+is captured on `codex/prototype-agent-files` at
+`04de922e31878eb1c86801fa84ffcbdfd3ef91bb`. Production UI is unchanged; review and
+the editor's existing feasibility gates remain open.
+
 The user resumed **milestones 16–19**, one milestone batch at a time, starting
 with **16 — Workspace and editor**. 16.0's revised prototype/editor trial is in
 progress; production workspace rollout has not started. The user rejected the

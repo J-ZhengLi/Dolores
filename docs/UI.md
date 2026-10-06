@@ -1,5 +1,11 @@
 # Universal UI style
 
+**Current workspace exploration:** retain the existing agent/sidebar/message/
+composer design and compare file-only split workspaces beside, below or alongside
+a right-hand agent view. The user has not selected a layout. The earlier mixed
+chat/file pane proposal is not approved for rollout; see the latest
+[prototype evidence](qualification/workspace-editor.md). Keep Settings at the bottom.
+
 Native repairs uses the existing Advanced → Diagnostics & storage entry and
 embedded inspector. Show retained build/handoff status and recovery reasons before
 Details. Build results say “Build ready · installation needs review”; withheld
