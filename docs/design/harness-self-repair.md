@@ -125,6 +125,8 @@ intent, retain the previous bundle, stop the old normal app, start the candidate
 check startup/data compatibility, then record health. Failed startup restores the
 previous bundle. Interrupted installation reconciles without replay. Preserve
 provider/history; prohibit automatic destructive migrations and publication.
+The [20.5 Windows Rust installation proposal](native-repair-installation.md)
+specifies the first implementation scope for discussion; it is not implemented.
 
 ## Planned bricks and acceptance
 

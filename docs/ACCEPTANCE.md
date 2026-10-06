@@ -21,8 +21,9 @@ after choosing denied source inspections instead of a trial. No actual repair or
 installation is claimed. All 38 original profile tables remain unchanged; only
 two empty repair tables were added. Normal build/launch passes, but foreground
 capture fails after a fresh-window retry and shows the Windows background.
-The corrected fixture requires a final build/rerun, and updated native visual
-acceptance remains pending; see [evidence](qualification/harness-self-repair.md).
+The final normal build at `576187b`, packaged fixture rerun and original-profile
+preservation check pass. Updated native visual acceptance remains pending; see
+[evidence](qualification/harness-self-repair.md).
 The earlier normal 20.2 app's foreground check now passes after desktop unlock.
 
 ## Harness self-repair 20.2 — native proposal stage implemented

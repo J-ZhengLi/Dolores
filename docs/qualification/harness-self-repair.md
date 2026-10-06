@@ -196,8 +196,10 @@ only empty `harness_repairs`/`repair_evaluations` additions and schema version 3
 The earlier normal 20.2 app was inspected after unlock with its paused chat/model
 intact. Updated 20.4 foreground acceptance remains open: fresh-window activation
 retried once still returned `failed to activate captured window`, and read-only
-capture displayed the Windows background. A user-assisted foreground check and
-final build including the corrected fixture remain required.
+capture displayed the Windows background. A user-assisted foreground check
+remains required. The final normal build at `576187b` includes the corrected
+fixture; its packaged rerun passed with the same 10 requests and no installation.
+The original-profile preservation check passed again after normal launch.
 
 Native code/build scripts use the
 account's OS permissions: supervision, source checks and offline Cargo are not OS

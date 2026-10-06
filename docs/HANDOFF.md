@@ -101,7 +101,7 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 | 20.2 | Implemented scoped selected-file snapshots and visible reviewed native proposals; no generated execution or complete build checkout. |
 | 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
 | 20.4 | Reviewed frozen Rust evaluator implemented; packaged dispatch and bounded DeepSeek non-improvement pass; native visual acceptance remains open. |
-| 20.5 | Qualified extension activation or reviewed native build/install/restart, with restore. |
+| 20.5 | Reviewed native build/install/restart and restore; [Windows Rust proposal](design/native-repair-installation.md) prepared for scope discussion. |
 | 20.6 | Real repair, withheld non-improvement and rollback qualification. |
 
 The [specification](design/harness-self-repair.md) owns authority, source-bundle,
