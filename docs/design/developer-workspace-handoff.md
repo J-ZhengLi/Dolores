@@ -1,12 +1,15 @@
 # Next roadmap handoff — developer workspace
 
-**Superseded starting order — 2026-10-06.** Use the
-[current session handoff](../HANDOFF.md) for immediate implementation. AI reliability
-and milestone 20 self-repair take priority; milestones 16–19 remain paused. This
-earlier handoff preserves the workspace requirements and prototype gate for when
-that track resumes. Its baseline/process details are historical snapshots.
+**Resumed starting order — 2026-10-06.** Use the
+[current session handoff](../HANDOFF.md) for current evidence. The user resumed
+milestones 16–19, one milestone batch at a time. Start at 16.0: the first prototype
+was reviewed and revised to remove pane action bars in favor of VS Code-style
+draggable tabs, close/overflow controls and breadcrumbs. Revised review and editor
+qualification remain gates before rollout. Settings stays at the rail's bottom;
+the specification records the newly requested Experimental toggles. This guide's
+older baseline/process details are historical snapshots.
 
-**2026-10-06. Planning only; runtime implementation has not started.** Use this
+**Earlier planning baseline — 2026-10-06.** Runtime implementation had not started. Use this
 document when opening a fresh Dolores development chat. The new direction is
 milestones 16–19 in [ROADMAP](../ROADMAP.md), specified in
 [developer workspace](developer-workspace.md). Read those before proposing code.

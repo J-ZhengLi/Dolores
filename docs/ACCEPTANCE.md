@@ -1,5 +1,34 @@
 # Dolores acceptance — 2026-10-06
 
+## Workspace/editor 16.0 — revised prototype; editor adoption held
+
+The user resumed milestones 16–19, one milestone batch at a time. The revised
+synthetic prototype follows their VS Code screenshot: draggable tab strips,
+close/overflow controls, breadcrumbs and no pane action bars. Settings stays at
+the bottom. Actual pointer move, edge split and invalid-drop cancellation retain
+the four project-bound views and drafts; stale synthetic Save offers comparison
+and Keep editing. Revised user review is pending.
+
+The separate Windows release editor trial passes three controller probes and
+ordinary native character input. It opens the sampled text within the 250 ms
+target, but typing after the large-file sequence has frame p95 94.340 ms; disabling
+large-file highlighting still gives 94.056 ms against the unchanged 32 ms target.
+Ordinary-only typing (19.252 ms) and TextField (3.626 ms) are separate controls.
+Ctrl+Z/Find integration and duplicate-view ownership remain unqualified. Single
+editor memory measurements do not qualify four-pane cost or sustained idle CPU.
+
+Public prototype/trial sources are captured on `codex/prototype-workspace-16`;
+production source/dependencies are unchanged. 16.0 remains in progress and no
+16.1–16.5 runtime brick is complete. Detailed numerical evidence, scope and open
+gates are in [workspace/editor qualification](qualification/workspace-editor.md).
+These checks use no model calls. The original profile audit reports all 38
+original tables unchanged; existing empty repair migrations remain accepted.
+
+The specification now records the requested Experimental toggles: Multiple Window
+defaults On, activated only after backend qualification; Windows keep-awake
+defaults Off, with actual platform limitations disclosed. They are planned for
+the named runtime bricks, not delivered by the prototype.
+
 ## Harness self-repair 20.6 — separately authorized desktop Restore passes
 
 The user separately approved **Restore & restart** for the installed DeepSeek

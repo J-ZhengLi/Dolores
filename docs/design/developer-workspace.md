@@ -1,11 +1,16 @@
 # Developer workspace specification
 
-**Proposed — 2026-10-06.** The user requested an integrated editor, Git workflow,
-terminal, language support and flexible project views. This document plans
-milestones 16–19; it does not report delivered features or authorize their runtime
-implementation. Review the workspace prototype before changing the application.
+**Resumed — 2026-10-06.** The user authorized milestones 16–19, one milestone
+batch at a time, starting with 16. The 16.0 prototype and editor trial are in
+progress; production workspace features are not delivered. The user requested
+VS Code-style draggable tab strips after inspecting the first prototype: remove
+the pane action bar, keep tab close/overflow controls and breadcrumbs, and support
+reorder, move and edge split. Review the revised prototype before UI rollout.
 Flutter/Rust, the existing visual identity and the self-evolving harness vision
 remain the foundation. Platform CI (8.4) remains explicitly deferred.
+The [16.0 qualification record](../qualification/workspace-editor.md) preserves
+the revised prototype and failed post-large-file typing target; the candidate is
+not adopted and resource/input/ownership gates remain open.
 
 ## Everyday outcome
 
@@ -57,6 +62,9 @@ than unrelated modal dialogs. Each pane owns its tab strip. Drag to reorder with
 a strip, to move into another pane, or to an edge to split left/right/up/down.
 Show a quiet drop preview. Provide equivalent tab-menu/keyboard actions; drag is
 never the only route. Split dividers are resizable, resettable and keyboard usable.
+Do not place a permanent move/split/save action bar below every tab strip.
+Use close buttons and a compact pane overflow menu; file actions are contextual
+and Save remains available through Ctrl/Cmd+S. Breadcrumbs disambiguate paths.
 
 The user's reference arrangement is a required acceptance case:
 
@@ -157,6 +165,32 @@ Discover existing project/toolchain installations first; if missing, show a shor
 Install language support action with a reviewed pinned managed installation.
 Opening a file alone cannot start a download. Offline editing still works.
 Routine setup must not require users to write command strings or configuration JSON.
+
+### Experimental options
+
+The user requested a clearly labeled **Experimental** Settings page containing:
+
+- **Multiple Window**, enabled by default. This is a saved user preference;
+  enabling it does not open another window on startup. Before milestone 19's
+  backend exists, show its availability truthfully. Existing explicit Off values
+  survive upgrades. Off prevents new detach/create actions; existing detached
+  views must rejoin with acknowledgement before their windows close.
+- A Windows keep-awake option requested as **Prevent Windows From Locked**.
+  Default Off; scope is the running Dolores application. The implementation must
+  disclose the actual supported effect: keep the display/system awake, release
+  the request when disabled or the host exits, and report a failed request.
+  It must not promise to prevent secure screen savers, manual locking, lid-close
+  sleep or organization-enforced locks. Do not rewrite authentication/security
+  policy, simulate user input, or leave a permanent OS preference change.
+
+Introduce the page with workspace navigation in 16.2; qualify the window backend
+and activate detach controls in 19. The user prefers limited effort on experimental
+multi-window support: one bounded Windows backend trial, with honest unsupported
+states, rather than an extended backend comparison or an SDK channel switch.
+Experimental status does not waive document preservation, one-host ownership,
+acknowledged transfer or cleanup. See Microsoft's
+[execution-state contract](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate)
+and [power-request lifetime](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-powersetrequest).
 
 ## Architecture and boundaries
 

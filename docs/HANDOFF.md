@@ -2,29 +2,35 @@
 
 ## Start here
 
-Continue the existing implementation in a fresh chat. The immediate order is
-long-task reliability qualification, then **milestone 20 — Harness self-repair**.
-Milestones 16–19 (developer workspace) remain the later, paused track. Platform
-CI 8.4 remains deferred until the user explicitly requests it.
+The user resumed **milestones 16–19**, one milestone batch at a time, starting
+with **16 — Workspace and editor**. 16.0's revised prototype/editor trial is in
+progress; production workspace rollout has not started. The user rejected the
+first pane action bars and supplied a VS Code screenshot: use draggable tab strips,
+close/overflow controls and breadcrumbs. The revised prototype's review remains
+pending. Settings belongs at the bottom of the feature rail. Experimental Settings
+will include default-on Multiple Window and a default-off Windows keep-awake
+control, with screen-saver/policy limits disclosed. Milestones 17–19 follow 16's
+batch exit. Platform CI 8.4 remains deferred until explicitly requested.
+
+Earlier self-repair and exact long-task evidence below remains valid historical
+context. The unresolved Mario qualification is not resumed by this workspace batch.
 
 1. Read the repository's `AGENTS.md`, this guide, the newest sections of
-   [acceptance](ACCEPTANCE.md), [task-loop qualification](qualification/task-loop.md)
-   and the [self-repair specification](design/harness-self-repair.md).
+   [acceptance](ACCEPTANCE.md), [workspace/editor qualification](qualification/workspace-editor.md)
+   and the [workspace specification](design/developer-workspace.md).
 2. Check current Git status/build/process ownership. This guide records a
    snapshot; commit IDs and local process state must be verified afresh.
-3. Preserve the exact task's retained HTML/scripts and useful qualification below;
-   end-to-end completion remains unqualified. Repair reproduced harness faults
-   and document actual model failures separately.
-4. 20.1–20.2 now provide matching-source inspection and reviewed native proposals.
-   The user selected native-first; 20.3's proposed broader Wasm hook is not adopted.
-   20.4 now runs separately reviewed frozen Rust trials; 20.5 implements the narrow
-   Windows Rust release build, installation and Restore path. Consult the newest
-   acceptance evidence before claiming end-to-end model repair.
-   Commit each completed brick. Discuss material
-   architecture/authority changes before adopting them.
-5. At milestone 20 exit, report actual repair/restore evidence and remaining
-   gaps. The later workspace track retains its reviewed prototype and component
-   feasibility gate; a plan's presence does not make it implemented or accepted.
+3. Finish 16.0's revised prototype review and editor qualification. Public trial
+   sources are captured on `codex/prototype-workspace-16` at
+   `7798985d871bbf35c3f8b18576d2a8e67ffd1027`. Large-file-sequence typing still
+   fails the unchanged performance target; shortcut/multi-view/resource gates
+   remain open. Do not promote the trial dependency or claim 16.0 complete.
+4. Continue 16.1–16.5 in dependency order after their prerequisites pass. Commit
+   each completed brick, record actual basic/failure recovery and visibly launch
+   the normal desktop app. Preserve the original profile and unrelated paused work.
+5. Report milestone 16's batch exit before starting 17. Keep earlier repair,
+   model reliability and computer-use evidence/gaps separate. The user selected
+   native-first repair previously; 20.3's proposed broader Wasm hook is not adopted.
 
 ## Latest delivered work and unresolved task
 

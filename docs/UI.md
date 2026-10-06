@@ -17,7 +17,12 @@ The proposed [developer workspace](design/developer-workspace.md) defines a
 Chats/Files/Git feature rail, project panel and movable split tabs for milestones
 16–19. Prototype review precedes implementation. Its target layouts retain this
 document's palette, icons, single Settings entry, focus and compact behavior;
-the current application does not yet expose the new rail/editor.
+the current application does not yet expose the new rail/editor. The user resumed
+milestone 16 and revised the prototype toward VS Code-style draggable tabs:
+compact tab close/overflow controls and breadcrumbs, with no permanent pane
+action bar. Settings stays at the rail's bottom. The planned Experimental page
+contains Multiple Window (default On, backend availability explicit) and the
+Windows keep-awake control (default Off, actual power/security limits disclosed).
 
 Milestone 15's [UX audit and target contract](design/ux-simplification.md) defines
 conversation-first computer use, simpler settings navigation and progressive

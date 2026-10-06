@@ -1,20 +1,23 @@
 # Dolores roadmap
 
-**Fresh-session continuation — 2026-10-06.** The
-[current handoff](HANDOFF.md) gathers earlier handoffs, design references and the
-latest acceptance evidence. Response/approval recovery and Automatic task loops
-are implemented; exact DeepSeek task-validation qualification remains open. Start
-there, then implement milestone 20. The user requested continuation in a fresh
-chat; 16–19 retain their paused status and 8.4 remains deferred.
+**Current order — 2026-10-06.** The user resumed milestones **16–19**, one
+milestone batch at a time, starting with **16 — Workspace and editor**.
+16.0's revised prototype/editor feasibility gate is in progress; 16.1–16.5 have
+not started. The user requested VS Code-style draggable tab strips without pane
+action bars and Settings at the bottom of the feature rail. Later Experimental
+Settings will contain default-on Multiple Window and a default-off Windows
+keep-awake option with truthful platform limits. See the
+[workspace specification](design/developer-workspace.md) and [current handoff](HANDOFF.md).
+Milestones 17–19 follow separate batch exits; platform CI 8.4 remains deferred.
 
-**Priority change — 2026-10-06.** Milestones 16–19 are paused at the user's
+**Earlier priority change — 2026-10-06.** Milestones 16–19 were paused at the user's
 request. Fix fragmented reasoning-stream failures and silent progress first.
 Then **20 — Harness self-repair** is proposed in [its specification](design/harness-self-repair.md):
 source navigation, managed patch workspaces, broader qualified extension seams,
 independent trials and activation/build/restart/restore. It is planned work,
 not a claim that milestone 13's recovery-hint mods repair the native harness.
 
-**Developer workspace planning addition — 2026-10-06.** The planned direction is
+**Earlier developer workspace planning addition — 2026-10-06.** The planned direction is
 integrated code editing, Git, terminal/LSP and flexible multi-project views.
 Milestones **16–19 are proposed, not implemented**; first language support is
 TypeScript/JavaScript and Rust, confirmed by the user. The
@@ -100,9 +103,9 @@ This table records the planning baseline, not current missing features. See the 
 | **17 — Git workflow** | Real diffs/history, staging, commit, stash/revert and remote actions | 17.1–17.5 | Requires 16's project/document revisions; serialize repository mutations and preserve conflicted work. |
 | **18 — Terminal and language support** | Interactive project terminals and TypeScript/JavaScript/Rust language services | 18.1–18.5 | Requires 16's ownership; lazy supervised processes, useful missing-tool setup and bounded cleanup. |
 | **19 — Detached windows** | Move live views between windows/monitors without duplicating resources | 19.1–19.4 | Requires shared owners from 16–18; qualify pinned-SDK backend and per-window overhead before adoption. |
-| **20 — Harness self-repair** | Diagnose/reproduce a real fault, test a matching patch and activate or build/restart with restore | 20.1–20.6 | Prioritized before 16–19 after immediate AI fixes; broaden 13's narrow ABI only after containment and independent-test gates. |
+| **20 — Harness self-repair** | Diagnose/reproduce a real fault, test a matching patch and activate or build/restart with restore | 20.1–20.6 | Earlier repair priority is retained as history; broaden 13's narrow ABI only after containment and independent-test gates. |
 
-Milestone 20 is prioritized before the paused milestones 16–19; other dependencies remain sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Milestones 16–19 form the newly requested developer-workspace track using delivered contracts; their manual editor/Git work does not require falsely closing prior model-reliability gates. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
+The current user-requested batch starts at milestone 16; the earlier milestone 20 priority is historical. Other dependencies remain sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Milestones 16–19 form the developer-workspace track using delivered contracts; their manual editor/Git work does not require falsely closing prior model-reliability gates. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
 
 ## Milestone 9 — Know itself and own its runs
 
@@ -709,6 +712,11 @@ switching focus changes navigation context, never a live task's authority.
 
 ### 16.0 Workspace prototype and editor feasibility
 
+**Current evidence:** revised user review is pending; post-large-file typing fails
+the unchanged 32 ms frame target in the isolated native trial. The dependency is
+not adopted. See [qualification](qualification/workspace-editor.md) for captured
+public sources, actual measurements and remaining gates. 16.0 is not complete.
+
 **Scope:** prototype Chats/Files/Git rail, project panel, chat/file tabs and the
 requested A/B four-pane layout. Exercise tab move/split, compact focus and dirty
 file/conflict flows with synthetic data. Compare a Flutter-native editor candidate
@@ -758,6 +766,10 @@ retain project/session icons and hints. Files uses lazy scoped traversal and qui
 open. Introduce typed chat/file/diff/history/terminal ViewRefs and per-pane tab
 strips; Git/terminal surfaces show availability until their later bricks exist.
 Implement preview/pin/close/reorder and project selection with explicit identities.
+Use draggable tab strips, breadcrumbs and compact close/overflow controls without
+the prototype's earlier pane action bars. Add the requested Experimental Settings
+page: Multiple Window defaults On but remains unavailable until 19; Windows
+keep-awake defaults Off and discloses screen-saver/policy limits.
 
 **Basic acceptance:** switch feature panels, open an A file and B chat as tabs,
 disambiguate equal names and return with view state intact. Side chats offer
@@ -1004,12 +1016,16 @@ debugger, full VS Code extension support and remote development are not claimed.
 
 Complete the user's drag-out/multiple-monitor request without copying the host,
 database, credentials or live resources into independently initialized apps.
+Expose this as Experimental **Multiple Window**, default On, per the user's
+revised scope. Limit backend investigation to one bounded Windows trial. Unsupported
+platforms keep a usable single window; state/transfer/cleanup checks remain required.
 
 ### 19.1 Window backend and resource gate
 
 **Scope:** verify maintained SDK support; measure an isolated two-window candidate
-with native focus/input/close/theme behavior. Compare official experimental API
-availability against a pinned compatible community/native backend. Record engines,
+with native focus/input/close/theme behavior. Use a compatible bounded backend
+trial on the maintained SDK; do not migrate channels to obtain the experimental
+official API or undertake an extended comparison. Record engines,
 processes, incremental memory/CPU and a numeric resource ceiling before adoption.
 
 **Basic acceptance:** usable normal-build-compatible backend and single-host
@@ -1073,8 +1089,8 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
-**Status: 20.1–20.2 and 20.4 implemented; 20.5 passes packaged trusted-fixture qualification, and 20.6 passes one configured DeepSeek-authored repair candidate, real task, separately authorized desktop installation/Restore and idle Close/reopen. This qualifies one bounded Windows Rust repair cycle; general model competence and broader platform/resource qualification remain open.** This milestone takes priority before
-the paused 16–19 developer-workspace track after immediate AI reliability fixes.
+**Status: 20.1–20.2 and 20.4 implemented; 20.5 passes packaged trusted-fixture qualification, and 20.6 passes one configured DeepSeek-authored repair candidate, real task, separately authorized desktop installation/Restore and idle Close/reopen. This qualifies one bounded Windows Rust repair cycle; general model competence and broader platform/resource qualification remain open.** The earlier priority before
+16–19 is superseded by the user's resumed workspace batch starting at 16.
 The [specification](design/harness-self-repair.md) defines scope, ownership,
 authority, test/activation and restore contracts for every brick:
 
