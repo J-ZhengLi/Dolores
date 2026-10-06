@@ -18,6 +18,7 @@ String toolLabel(dynamic name) => switch (name) {
   'create_text_file' => 'File creation',
   'run_command' => 'Command',
   'inspect_harness' => 'Harness inspection',
+  'harness_repair' => 'Repair proposal',
   'delegate_tasks' => 'Subagents',
   'web_search' => 'Web search',
   'read_web_page' => 'Web page',
@@ -41,6 +42,19 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'harness_repair') {
+      if (result['repairIds'] is List) {
+        return 'Retained repairs: ${(result['repairIds'] as List).join(', ')}\n${result['note'] ?? ''}';
+      }
+      final files = (result['files'] as List? ?? []).whereType<Map>();
+      final source = result['source'] as Map?;
+      return '${result['status']} · Revision ${result['revision']}\n'
+          'Repair: ${result['repairId']}\nSource: ${result['sourceMatch']}\n'
+          '${files.map((f) => '${f['path']} · ${f['changed'] == true ? 'changed' : 'baseline'}${f['protectedReview'] == true ? ' · protected review' : ''}').join('\n')}\n'
+          '${result['artifactIntegrity'] == null ? '' : 'Saved files: ${result['artifactIntegrity']}\n'}'
+          '${source == null ? '' : '\n${source['text']}\nCandidate: ${source['candidateId']}\n${source['hasMore'] == true ? 'Continue at line ${source['nextLine']}' : ''}\n'}'
+          '${result['diffNotice'] ?? ''}\n${result['note'] ?? ''}';
+    }
     if (record['name'] == 'web_search') {
       final sources = (result['results'] as List).whereType<Map>();
       return '${result['provider']} · ${sources.length} sources\nQuery: ${result['query']}\n\n${sources.map((s) => '${s['title']}\n${s['url']}\n${s['snippet']}').join('\n\n')}\n\n${result['note']}';
@@ -188,6 +202,7 @@ class ToolApprovalCard extends StatelessWidget {
     final name = request['name'];
     final editing = name == 'edit_text_file';
     final creating = name == 'create_text_file';
+    final repairing = name == 'harness_repair';
     final running = name == 'run_command';
     final external = request['mcp'] is Map;
     final credentialNames =
@@ -201,6 +216,7 @@ class ToolApprovalCard extends StatelessWidget {
       'create_text_file' => 'Create this file?',
       'run_command' => 'Run this command?',
       'inspect_harness' => 'Inspect the running harness?',
+      'harness_repair' => 'Review this repair step?',
       'delegate_tasks' => 'Delegate these scoped tasks?',
       'web_search' => 'Share this web search query?',
       'read_web_page' => 'Read this public web page?',
@@ -219,6 +235,8 @@ class ToolApprovalCard extends StatelessWidget {
       'delegate_tasks' => 'Start up to two children with this model and the parent’s shared task limits. Children get scoped file tools; each operation still follows current permissions. No commands, external tools or further delegation. Stop reaches both; applied changes remain. Reports require parent verification.',
       'inspect_harness' =>
         'Share the selected running capabilities or bounded bundled source with ${chat.model}? This is read-only and cannot update Dolores or grant permissions. Results are kept with a completed reply.',
+      'harness_repair' =>
+        'Review matching source and the proposed diff in Dolores’s separate repair storage. Your project stays unchanged. This step cannot compile, execute tests or install a replacement app. Results go to ${chat.model} and retained local evidence. Native execution and installation need separate review.',
       String value when value.startsWith('mcp_tool_') =>
         'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.${credentialNames.isEmpty ? '' : '\nServer receives saved credentials: ${credentialNames.join(', ')}.'}',
       'list_folder' =>
@@ -248,7 +266,9 @@ class ToolApprovalCard extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: editing || creating || running || external ? 270 : 180,
+              maxHeight: editing || creating || repairing || running || external
+                  ? 270
+                  : 180,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -271,7 +291,9 @@ class ToolApprovalCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Folder: ${chat.workspaceKind == 'temporary' ? 'Temporary workspace' : path.basename(chat.workspaceRoot ?? '')}',
+                    repairing
+                        ? 'Storage: Dolores repair workspace'
+                        : 'Folder: ${chat.workspaceKind == 'temporary' ? 'Temporary workspace' : path.basename(chat.workspaceRoot ?? '')}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                   if (running || external) ...[
@@ -358,6 +380,8 @@ class ToolApprovalCard extends StatelessWidget {
                           ? 'Exact child goals and file scopes:'
                           : name == 'inspect_harness'
                           ? 'Inspect this source/range:'
+                          : repairing
+                          ? 'Exact repair step:'
                           : name == 'read_text_file'
                           ? 'Read these lines (start:count):'
                           : name == 'web_search'
@@ -402,7 +426,8 @@ class ToolApprovalCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if ((editing || creating) && request['diff'] is String) ...[
+                  if ((editing || creating || repairing) &&
+                      request['diff'] is String) ...[
                     const SizedBox(height: 8),
                     EditDiff(
                       source: request['diff'] as String,
@@ -538,6 +563,8 @@ class ToolRecords extends StatelessWidget {
                         ? 'Plan'
                         : record['name'] == 'inspect_harness'
                         ? 'Inspection'
+                        : record['name'] == 'harness_repair'
+                        ? 'Repair'
                         : 'Search'}: ${record['query']}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),

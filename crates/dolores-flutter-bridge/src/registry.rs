@@ -14,7 +14,7 @@ impl ToolProposalHook for ValidateProposal {
                 q.len()
                     > if matches!(
                         request.name.as_str(),
-                        "delegate_tasks" | "browser" | "desktop_control" | "inspect_harness"
+                        "delegate_tasks" | "browser" | "desktop_control" | "inspect_harness" | "harness_repair"
                     ) {
                         4096
                     } else {
@@ -154,6 +154,7 @@ impl Engine {
             vec!["read-bundled-source".into()],
             vec!["inspect_harness".into()],
         )?;
+        add("harness/repair",true,working && self.workspace_directory.is_some(),vec!["managed-native-proposal".into()],vec!["harness_repair".into()])?;
         add(
             "desktop/observation",
             true,

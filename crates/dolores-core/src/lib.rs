@@ -331,7 +331,17 @@ pub enum Appearance {
     Dark,
 }
 
+pub mod harness_repair;
+pub use harness_repair::{RepairFile, RepairWorkspace};
+
 pub trait SessionStore: Send + Sync {
+    fn repair_ids(&self, _: &str) -> Result<Vec<String>, String> { Ok(vec![]) }
+    fn repair_workspace(&self, _: &str, _: &str) -> Result<RepairWorkspace, String> {
+        Err("Repair workspace is unavailable. Original task remains.".into())
+    }
+    fn save_repair_workspace(&self, _: &RepairWorkspace, _: Option<u32>) -> Result<RepairWorkspace, String> {
+        Err("Repair workspace storage is unavailable. Original task remains.".into())
+    }
     fn mod_state(&self, _: &str) -> Result<ModState, String> {
         Ok(Default::default())
     }

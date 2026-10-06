@@ -25,6 +25,7 @@ mod experience_tests;
 mod export;
 mod instructions;
 mod introspection;
+mod harness_repair;
 mod knowledge;
 mod mcp;
 mod memory;
@@ -319,6 +320,12 @@ enum Command {
     },
     HarnessNavigation {
         query: Value,
+    },
+    HarnessRepairs {
+        session: String,
+        #[serde(rename="repairId")]
+        repair_id: Option<String>,
+        source: Option<String>,
     },
     HarnessSource {
         source: String,
@@ -774,6 +781,7 @@ impl Engine {
             Command::ChangeDetails {session,change_id} => return self.change_details(&session,change_id),
             Command::HarnessInventory { session } => return self.harness_inventory(session.as_deref()),
             Command::HarnessNavigation { query } => return introspection::source(&query.to_string(), None),
+            Command::HarnessRepairs { session, repair_id, source } => return self.repair_view(&session, repair_id.as_deref(), source),
             Command::HarnessSource { source, start_line, line_count, checkout } => return introspection::source(&json!({"source":source,"startLine":start_line.unwrap_or(1),"lineCount":line_count.unwrap_or(60)}).to_string(), checkout.as_deref()),
             Command::DraftAttachments{session}=>return Ok(json!(self.store.draft_attachments(&session)?)),
             Command::AttachmentPreview{session,digest}=>return self.attachment_preview(&session,&digest),
@@ -1663,6 +1671,9 @@ impl Engine {
                     tools.push(Arc::new(introspection::InspectHarness(
                         self.harness_inventory(session.as_deref())?,
                     )));
+                    if let Some(directory)=self.workspace_directory.as_ref().and_then(|p|p.parent()) {
+                        tools.push(Arc::new(harness_repair::RepairTool::new(self.store.clone(),session.clone().unwrap(),directory.join("repairs"))));
+                    }
                     if desktop::helper().is_ok() {
                         tools.push(Arc::new(desktop_access::RequestAccess));
                     }

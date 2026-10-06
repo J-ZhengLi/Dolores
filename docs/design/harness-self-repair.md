@@ -1,7 +1,9 @@
 # Harness self-repair
 
-2026-10-06. Brick 20.1 is implemented with [qualification gaps](../qualification/harness-self-repair.md);
-20.2–20.6 remain planned. The milestone follows the immediate
+2026-10-06. Bricks 20.1–20.2 are implemented with [qualification gaps](../qualification/harness-self-repair.md).
+The user prioritized the reviewed native pipeline; 20.3's broader Wasm ABI is
+not adopted. Independent native evaluation/install/restore in 20.4–20.6 remain
+planned. The milestone follows the immediate
 streaming/progress fixes and takes priority over the paused milestones 16–19.
 Platform CI 8.4 stays deferred.
 
@@ -56,6 +58,23 @@ decoded lengths, last activity and incomplete-call status. Do not persist raw
 reasoning or arbitrary remote error bodies. Missing older telemetry stays unknown.
 
 ## Protected boundary and broader extension seams
+
+### Native-first decision
+
+The user chose native-first for architectural simplicity. It reuses the existing
+Rust/Flutter source, build and test tools, and can fix behavior outside a narrow
+hook. Its cost is reviewed execution, build/restart and restore: generated native
+code runs with its process account's authority unless actual containment is
+qualified. Passing tests does not grant installation or automatic execution.
+The proposed import-free Wasm normalization hook would have a narrower runtime
+capability surface but requires a new ABI and can repair only host-exposed seams.
+It is deferred rather than implemented or qualified.
+
+20.2 currently materializes selected matching files and a visible exact patch,
+with immutable baseline snapshots and bounded revisions. It has no compile/test/
+install action. A complete matching build workspace, independent frozen criteria
+and separately reviewed native execution must precede any native repair claim.
+
 
 Keep credentials, grants, final tool validation/dispatch, hard ceilings, evaluator
 identity, evidence integrity and activation/rollback decisions host-owned. A

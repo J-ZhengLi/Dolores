@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-05
 
+## Harness self-repair 20.2 — native proposal stage implemented
+
+2026-10-06: Ordinary working chats can retain a matching-source repair separately
+from the user's project, review an exact diff and inspect its saved candidate.
+Each step needs independent review even under Full access. Source/revision drift,
+another chat, cancellation and changed saved files preserve prior work and give
+an inspection/fresh-proposal next step. Schema 32 adds scoped repair snapshots.
+No candidate build, native execution, installation or improvement is claimed.
+
+336 Rust library tests pass (one ignored), Clippy passes, and 250 Flutter tests
+and analysis pass. The normal-release fixture exercises two reviewed writes,
+stale/cross-chat refusals and Stop preservation in seven requests. Bounded live
+DeepSeek passes five inspected/reviewed steps; routine Qwen remains unqualified
+after a driver parsing failure. The user selected native-first preparation;
+20.3's broader Wasm hook remains unadopted and 20.4–20.6 remain unimplemented.
+Normal foreground visual inspection awaits desktop unlock; see
+[evidence and limits](qualification/harness-self-repair.md).
+
 ## Harness self-repair 20.1 — implemented, visual/platform gates remain
 
 2026-10-06: Build-pinned compressed source now supports bounded manifest listing,
@@ -14,8 +32,8 @@ with both identities plus failed partial-call privacy/no-dispatch recovery.
 Configured DeepSeek passes three live inspections with correct final identity;
 two Qwen probes remain unqualified. Original profile tables are unchanged.
 Normal build/launch passed; foreground visual inspection awaits desktop unlock.
-General model, resource and other-platform qualification remains open. 20.2–20.6
-are not implemented; this does not claim actual self-repair.
+General model, resource and other-platform qualification remains open. Later
+bricks were not implemented by 20.1; this does not claim actual self-repair.
 See [evidence and limits](qualification/harness-self-repair.md).
 
 ## Useful Mario task follow-up — command path exercised, completion unqualified

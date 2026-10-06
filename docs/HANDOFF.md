@@ -12,10 +12,13 @@ CI 8.4 remains deferred until the user explicitly requests it.
    and the [self-repair specification](design/harness-self-repair.md).
 2. Check current Git status/build/process ownership. This guide records a
    snapshot; commit IDs and local process state must be verified afresh.
-3. Finish the exact DeepSeek task qualification below, repairing reproduced
-   harness faults and documenting actual model failures separately.
-4. Implement 20.1 first, then the dependent 20.2–20.6 bricks in batches when their
-   prerequisite gates pass. Commit each completed brick. Discuss material
+3. Preserve the exact task's retained HTML/scripts and useful qualification below;
+   end-to-end completion remains unqualified. Repair reproduced harness faults
+   and document actual model failures separately.
+4. 20.1–20.2 now provide matching-source inspection and reviewed native proposals.
+   The user selected native-first; 20.3's proposed broader Wasm hook is not adopted.
+   Prepare dependent native evaluation/install/restore when prerequisites pass.
+   Commit each completed brick. Discuss material
    architecture/authority changes before adopting them.
 5. At milestone 20 exit, report actual repair/restore evidence and remaining
    gaps. The later workspace track retains its reviewed prototype and component
@@ -26,6 +29,15 @@ CI 8.4 remains deferred until the user explicitly requests it.
 Implementation baseline: `007b60ea56d78c50e68acb4f11a3d23191f28b98`
 (`fix: [agent] Continue ordinary tasks beyond four tool calls`). Earlier response
 recovery: `b7ba04c721aac90854055b5436952b1a6f399c46`.
+
+Newer source/evidence brick: `8dd1b5f3961ac13d68fc90084e52e61ea92fccb0`.
+20.2 adds scoped native proposals, schema 32 and separate baseline/candidate
+snapshots. Verify its latest commit from Git rather than this guide. Rust 336
+library tests (one ignored), Clippy, 250 Flutter tests/analysis, normal-native
+fixture and bounded five-step DeepSeek proposal handling pass. Candidate code
+was not executed; a complete build workspace/evaluation remains unimplemented.
+The original normal profile is preserved. Foreground visual verification awaits
+Windows unlock; do not interact with the locked desktop.
 
 - Blank output delegates the response maximum to the provider. Existing numeric
   settings remain. Model inactivity is separate from optional task time; human
@@ -55,6 +67,12 @@ approval survived a measured 190-second wait. The agent then hit command bounds
 and its old four-call allowance before qualified final validation. The file and
 receipts remain. Preserve them; inspect current files before another creation.
 
+A useful bounded follow-up used eight reviewed list/read/create/command steps
+and created two validation scripts. Rendering/gameplay evidence is retained;
+the HTML stayed byte-identical. The driver reached its 600-second bound before
+the pending bot-test edit and final response. No edit was consumed after timeout.
+Command execution was exercised; successful completion/winning was not qualified.
+
 Latest evidence: live Qwen six-file task passes with seven model calls and six
 reviewed reads. A normal native fixture preserves 128 reads, a checkpoint and all
 514 activity entries; repeated missing-file recovery and explicit continuation
@@ -76,9 +94,9 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 
 | Brick | Next deliverable |
 | --- | --- |
-| 20.1 | Version-matched failure evidence, source search/list/ranged reads beyond the current 120-line pages, without changing the user's project. |
-| 20.2 | Separate matching-source repair workspace and a visible candidate patch. |
-| 20.3 | Qualified broader extension seams that repair behavior beyond guidance labels. |
+| 20.1 | Implemented matching-source navigation and typed failed-stream evidence; visual/platform/general-model gaps remain. |
+| 20.2 | Implemented scoped selected-file snapshots and visible reviewed native proposals; no generated execution or complete build checkout. |
+| 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
 | 20.4 | Independent baseline reproduction, candidate and frozen regression trials. |
 | 20.5 | Qualified extension activation or reviewed native build/install/restart, with restore. |
 | 20.6 | Real repair, withheld non-improvement and rollback qualification. |
@@ -126,8 +144,9 @@ The maintained commands are `python scripts/desktop.py build` and
 `python scripts/desktop.py launch`. The original local preview profile is
 `output/model-picker/preview/data`, with owned-process record
 `output/maintained-preview.json`. Use an absolute profile path when launching and
-verify ownership before replacement. The last normal app was left visibly open;
-discover its current window instead of trusting old process IDs.
+verify ownership before replacement. The maintained launcher reports the normal
+window present, but foreground inspection is pending desktop unlock. Verify
+current process/window state rather than trusting old process IDs.
 
 Routine live tests use configured Qwen/Qwen3.5-2B; harder cases use configured
 DeepSeek V4.1 Flash. Preserve selected settings and bound test spending. Retrieve

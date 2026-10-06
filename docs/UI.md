@@ -187,6 +187,18 @@ holds applied file snapshots. Failed/stopped runs retain live child status until
 changing chats or retrying; no automatic child replay. Preserve the theme,
 composer controls and footer positions. No idle worker or new help label.
 
+## Native repair review (20.2)
+
+Reuse the ordinary tool review card and selectable diff for `harness_repair`.
+Label it Repair proposal / Review this repair step?, with Storage: Dolores repair
+workspace and Exact repair step. Show the matching source and diff before Allow
+once/Decline; disclose separate storage, provider sharing and separately reviewed
+native execution/installation. Keep buttons outside the scrolling body and allow
+the same 270-pixel body as file edits so compact light/dark layouts remain usable.
+Saved results show status, revision, file identities and an actionable integrity
+notice. Never label a retained proposal as tested, installed or improved. No new
+composer control, idle polling, decorative border or settings pane is introduced.
+
 ## Brand mark
 
 Keep the original `Icons.all_inclusive_rounded` infinity mark and existing semantic accent colors in Flutter's home and sidebar. Chat messages have no sender avatars. `assets/dolores.svg` retains that exact Material Icons outline for Windows, macOS, Linux and web/Tauri icons on the dark rounded tile. Do not redesign it as closed loops or reintroduce a letter monogram. Regenerate platform assets with `scripts/generate-icons.py`; Pillow is development-only and normal builds use checked-in outputs. Preserve the upstream attribution/license in `assets/LICENSE.material-icons`. The visible app name is Dolores; framework names stay out of its window title.

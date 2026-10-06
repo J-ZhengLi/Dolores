@@ -64,7 +64,59 @@ The normal desktop was built/launched with the original profile; its window was
 reported present by the maintained launcher and all 38 original tables were
 unchanged. Foreground visual inspection is pending while Windows is locked.
 
+## 20.2 — reviewed native proposals
+
+2026-10-06. Implemented separate, chat-scoped snapshots and exact diff review.
+The user chose to prioritize the reviewed native pipeline. No broader Wasm ABI,
+native test execution, installation or actual behavioral repair is delivered here.
+
+`harness_repair` prepares matching bundled source, adds captured files, proposes
+one unique exact replacement, and lists/inspects retained repairs. Every step
+requires its own review even under task Full access. Preparation checks copied
+bundle/source identities; proposal and dispatch recheck revisions, source and
+artifact integrity. SQLite schema 32 stores immutable baselines and current
+candidates; separately retained version directories contain baseline/candidate
+files and an identity receipt. This is selected-file materialization, not a full
+buildable checkout. It never opens the user's project for repair output.
+
+Limits are four workspaces per chat, eight files and 2 MiB combined snapshots per
+workspace, sixteen retained revisions, 4096 bytes per replacement operand, an
+8 KiB cumulative file diff and the existing 16 KiB encoded tool-result ceiling.
+Inspection pages at most 2048 lines/8 KiB text with continuation. Exhaustion keeps
+work and gives a smaller-proposal or explicitly separate-repair next step;
+there is no silent cleanup, retry or background service.
+
+### Exercised
+
+- Rust workspace library suites: 336 passed, one ignored; Clippy all targets with
+  warnings denied passed. Flutter: 250 tests and analysis passed. Compact
+  light/dark cards show separate storage, exact diff and review buttons.
+- Storage/host tests cover restart, immutable baseline, stale revisions, changed
+  source, cross-chat access, cancelled dispatch and tampered saved files. A missing
+  or changed artifact still permits database-backed inspection with an actionable
+  notice; further mutation refuses and retained source remains.
+- `scripts/test-harness-repair.py` passed against the normal release DLL: seven
+  fixture HTTP requests, two reviewed prepare/propose operations, a retained
+  visible diff, stale/cross-chat refusal and Stop before a fresh preparation.
+  The original temporary project and prior candidate bytes stayed unchanged.
+- Configured DeepSeek V4.1 Flash passed inventory → source read → prepare →
+  propose → inspect in five reviewed operations/model calls, 21.1 seconds.
+  The candidate added a harmless comment, not a behavioral fix. Output was capped
+  at 4096 tokens, inactivity at 60 seconds and the driver at 180 seconds. An
+  isolated profile preserved selected settings; no candidate code ran.
+
+### Failures and limits
+
+The routine Qwen3.5-2B probe remains unqualified: the test driver attempted to
+decode a non-harness tool query as JSON and cancelled after two steps. The driver
+was corrected; this attempt establishes neither product failure nor Qwen repair
+reliability. Test qualification above does not establish containment, independent
+baseline failure/candidate improvement, frozen regression criteria, installation
+or rollback. A complete matching build workspace and reviewed native execution
+remain later work. Normal-desktop foreground inspection remains pending while
+Windows is locked.
+
 ## Later bricks
 
-20.2–20.6 remain unimplemented. The design's matching workspace, independent
-evaluation, reviewed native installation and rollback gates still apply.
+20.3's broader extension ABI is not adopted. 20.4–20.6 remain unimplemented;
+independent evaluation, reviewed native installation and rollback gates apply.

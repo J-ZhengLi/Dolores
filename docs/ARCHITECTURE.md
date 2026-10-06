@@ -19,11 +19,12 @@ This document describes implemented behavior. The [evolving-harness specificatio
 
 ## Does the current architecture support self-evolution?
 
-General conversation-driven harness repair is still missing. Planned
-[milestone 20](design/harness-self-repair.md) adds matching-source search,
-separate repair workspaces, independent tests and qualified activation or
-reviewed native build/restart. Current inspection and recovery-hint mods should
-not be presented as that workflow.
+General conversation-driven harness repair is still missing. Bricks 20.1–20.2
+provide matching-source navigation and separately retained, reviewed native
+proposals. [Milestone 20](design/harness-self-repair.md) still requires independent
+tests and reviewed native build/restart/restore. The user prioritized this native
+pipeline; a broader Wasm seam has not been adopted. Current proposals and
+recovery-hint mods should not be presented as the complete repair workflow.
 
 **It supports a narrow executable adaptation envelope.** Typed ports, persisted knowledge, retained skill versions, approvals and recovery support inspection and controlled adaptation. The [shared registry](design/extension-registry.md) describes compiled, MCP and restricted Wasm registrations. [ABI 1 mods](design/executable-mods.md) can refine stateless recovery hints after fixed host-owned tests, with transactional activation, pinned source and restore/quarantine. They cannot replace the agent loop, permission kernel, context preparation or arbitrary UI/native code.
 
@@ -113,6 +114,20 @@ strict all-pass improvement at equal runtime allowances. This is interpreter
 containment for a narrow ABI, not an OS sandbox or general self-replacement.
 
 ## Context and learning
+
+### Native repair proposal storage
+
+Working chats advertise `harness_repair` for prepare/add/propose/inspect/list.
+It captures selected matching bundle files, stores immutable baselines and current
+candidates in SQLite schema 32, and retains versioned baseline/candidate artifacts
+under the profile's separate `repairs` directory. Expected revisions, one-use
+review plans, source identities and artifact rechecks bind dispatch. Every step
+requires explicit review regardless of task Full access. Missing/changed artifacts
+still allow database-backed inspection; further changes refuse. Limits are four
+repairs per chat, eight files/2 MiB snapshots per repair, sixteen revisions and
+an 8 KiB cumulative file diff. No task replay, build, generated code execution or
+installation occurs. These selected snapshots are not yet a buildable checkout.
+
 
 Working chats pin the global [web connection](design/web-search.md) and two
 optional compiled web tools. Their approved literal queries/URLs consume the

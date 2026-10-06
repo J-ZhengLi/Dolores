@@ -33,7 +33,7 @@ const ALIASES: &[(&str, &str)] = &[
         "crates/dolores-core/src/agent_watchdog.rs",
     ),
 ];
-fn resolve(name: &str) -> Result<&'static bundle::Source, String> {
+pub(super) fn resolve(name: &str) -> Result<&'static bundle::Source, String> {
     bundle::find(
         ALIASES
             .iter()
@@ -368,6 +368,7 @@ impl Engine {
         if working {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
+            if self.workspace_directory.is_some(){tools.push(crate::harness_repair::spec());}
             tools.push(crate::subagents::spec());
             tools.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
             if self.browser_runtime().is_ok() {

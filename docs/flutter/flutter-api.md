@@ -1,5 +1,24 @@
 # Flutter/Rust bridge contract
 
+## Native repair proposals (20.2)
+
+`harnessRepairs {session,repairId?,source?}` is a local chat-scoped read, available
+during an active run. Omitted ID lists retained IDs; an ID returns its current
+revision, matching-source status, file identities and artifact-integrity notice.
+Optional source reads a bounded retained candidate page/diff. Missing or changed
+files preserve database snapshots; another chat cannot inspect them.
+
+Working-chat `harness_repair` actions are prepare/add/propose/inspect/list. Prepare
+copies exact `sourceId`/`bundleId` from inspection; add/propose require current
+`repairId`/`revision`, and propose's `sourceId` is the inspected `candidateId`.
+One unique `oldText` → `newText` replacement is capped at 4096 bytes per operand.
+Every prepared step receives exact independent review even under Full access;
+dispatch consumes its one-use plan and rechecks source/revision/artifacts.
+No build/test/activation action exists. SQLite schema 32 and separate immutable
+artifact versions retain source snapshots. Limits: four workspaces per chat,
+eight files/2 MiB snapshots per workspace, sixteen revisions, 8 KiB cumulative
+file diff, 2048-line/8 KiB inspection text and 16 KiB encoded tool result.
+
 ## Selected-window observation (14.1)
 
 `desktopState {session?}` returns local adapter availability, capture bounds,

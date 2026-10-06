@@ -24,7 +24,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 31;
+pub const SCHEMA_VERSION: i64 = 32;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -49,6 +49,8 @@ fn now() -> i64 {
         .unwrap_or_default()
         .as_millis() as i64
 }
+
+mod harness_repair;
 
 impl SqliteStore {
     pub fn open(path: &Path) -> Result<Self, String> {
@@ -192,6 +194,9 @@ impl SqliteStore {
         if version < 31 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS project_mods(root TEXT PRIMARY KEY,data TEXT NOT NULL); PRAGMA user_version=31; COMMIT;").map_err(storage_error)?;
         }
+        if version < 32 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS harness_repairs(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS harness_repairs_session ON harness_repairs(session); PRAGMA user_version=32; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -202,6 +207,9 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> { self.repair_list(session) }
+    fn repair_workspace(&self, session: &str, id: &str) -> Result<dolores_core::RepairWorkspace, String> { self.read_repair(session,id) }
+    fn save_repair_workspace(&self, state: &dolores_core::RepairWorkspace, revision: Option<u32>) -> Result<dolores_core::RepairWorkspace, String> { self.write_repair(state,revision) }
     fn mod_state(&self, root: &str) -> Result<dolores_core::ModState, String> {
         self.read_mods(root)
     }
