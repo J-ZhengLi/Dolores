@@ -1,5 +1,31 @@
 # Dolores acceptance — 2026-10-06
 
+## Harness self-repair 20.6 — authorized desktop installation and idle Close pass
+
+The user approved installation/restart of the existing verified DeepSeek candidate
+in its isolated profile. The actual Native repairs screen prepared the exact
+bundle/profile review and its **Install & restart** action saved drafts, shut down
+the old app and started the candidate through the protected launcher. The receipt
+records Applied with the expected candidate source and healthy normal startup.
+The old app and lazy launcher exited without fixture force-termination.
+
+Read-only comparison verifies every isolated table unchanged across installation,
+including the completed real DeepSeek turn and retained draft. A native keystroke
+then adds one public character to that unsent draft; storage acknowledges it and
+only `session_drafts` changes. The candidate's normal window Close exits, and
+reopening the retained installed normal bundle shows the updated draft and saved
+answer. All table contents compare equal after Close/reopen. The original app's
+process, all original-profile tables, provider and selected settings stay unchanged.
+This verification makes zero additional model calls and changes no product code.
+
+This closes the approved desktop installation/graceful restart and idle Close
+sample. It does not qualify closing busy work or an unacknowledged last keystroke.
+Direct desktop **Restore & restart** still needs its own user review; trusted
+Restore/rollback evidence remains valid but does not substitute for that action.
+General repair competence, containment, persistent shortcut routing and the full
+native/platform visual matrix remain open. See the updated
+[qualification report](qualification/harness-self-repair.md).
+
 ## Harness self-repair 20.6 — one configured DeepSeek repair case passes
 
 Configured DeepSeek V4.1 Flash inspected the running source and authored its own

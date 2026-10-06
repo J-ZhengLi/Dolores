@@ -405,3 +405,39 @@ installed in the original profile and no model-authored code is promoted to the
 maintained checkout. General model repair competence, persistent shortcut routing,
 qualified OS containment and other-platform/complete visual acceptance remain
 open. Milestones 16–19, Wasm 20.3 and CI 8.4 retain their deferred status.
+
+### Follow-up — authorized desktop installation and idle Close
+
+2026-10-06. The human explicitly approves the prepared isolated installation and
+restart. The actual Native repairs review identifies the existing ready revision
+2, retained current/target bundles and private test profile. Its installation
+button dispatches the production review path rather than a constructed test
+intent. Intent `023679c1-6816-46ae-96b6-b6caebe493a9` reaches `applied` with candidate
+source `sha256:564dbd3e4850fd581896c6d71a8f38dc9deece5049e4decb3801201dadba6303`.
+The old process and lazy helper exit normally; the candidate process identity and
+foreground normal window are verified. No fixture stop or model request is used.
+
+Every private-profile table compares equal before/after installation. The saved
+real DeepSeek answer, read receipt and prior draft are visible in the restarted
+candidate. A native `x` keystroke appends to the public draft and is acknowledged
+in `session_drafts`; no other table changes. Normal title-bar Close exits the idle
+candidate. Reopening the retained installed bundle through `desktop.py`'s launch
+function preserves all current table contents and visibly renders the appended
+draft and saved answer. The maintained launcher is not retargeted.
+
+Ignored evidence stays in the same disposable run: `native-ui-review-before.json`,
+`native-ui-install-audit.json`, `native-ui-close-audit.json`,
+`native-ui-after-draft-tables.json` and `native-ui-reopen-audit.json`. The complete
+previous/candidate bundles are verified against their saved manifests before
+launch. The original app remains the same owned process and every original table
+compares equal. No credentials or private original transcripts are exported.
+
+The automation's literal-text entry did not change the composer despite reported
+focus; a physical keystroke succeeds and storage independently confirms the edit.
+This does not establish a product typing regression or a paste/IME pass. Idle Close
+with an acknowledged draft is qualified; busy Close and a last unacknowledged
+keystroke are not. Desktop installation/restart now passes with direct human
+authorization, but desktop Restore remains separately unexercised and requires
+its own review. Earlier trusted rollback, interruption and replay-refusal cases
+remain separate evidence. General competence, containment, shortcut routing and
+other-platform/full native visual acceptance remain open.

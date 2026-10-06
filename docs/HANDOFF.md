@@ -48,8 +48,10 @@ launcher with versioned bundles and current-history Restore. Its latest packaged
 20.6 now verifies one bounded configured DeepSeek-authored parser repair: frozen
 baseline fault, three candidate cases, 354 unchanged regressions, reviewed release
 build, actual candidate source identity, a two-call real read task and preservation
-through trusted Restore/rollback. The original profile is unchanged. This does
-not close direct user installation/Close or general model/platform competence;
+through trusted Restore/rollback. Its authorized desktop installation/restart and
+idle Close/reopen now preserve all saved work and an acknowledged newer draft.
+The original profile is unchanged. Direct desktop Restore and general
+model/platform competence remain open;
 see the newest acceptance and qualification report rather than inferring broader
 milestone completion.
 
@@ -113,7 +115,7 @@ Milestone 20's full conversation-level repair workflow is not implemented:
 | 20.3 | Broader Wasm seam not adopted; reviewed native pipeline prioritized by the user. |
 | 20.4 | Reviewed Rust evaluator implemented; packaged dispatch, bounded DeepSeek non-improvement and normal foreground checks pass; trial-card/real-repair/resource/platform gaps remain. |
 | 20.5 | Windows Rust build/install/Restore implemented; [scope and recovery](design/native-repair-installation.md), latest evidence in ACCEPTANCE. |
-| 20.6 | One configured DeepSeek-authored candidate and real task pass; trusted Restore/rollback preserves work. Direct user installation/Close and general reliability remain open. |
+| 20.6 | One configured DeepSeek-authored candidate and real task pass; trusted Restore/rollback preserves work. Authorized desktop installation/restart and idle Close/reopen pass. Direct desktop Restore and general reliability remain open. |
 
 The [specification](design/harness-self-repair.md) owns authority, source-bundle,
 state-machine and test/install contracts. Native/core replacement stays reviewed;
