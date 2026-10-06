@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 
 import 'app_host.dart';
+import 'source_control.dart';
 import 'chat_sidebar.dart';
 import 'main.dart' show ChatPage;
 import 'settings.dart';
@@ -87,6 +88,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   void changed() {
+    if (page == WorkspacePage.sourceControl &&
+        (host.git.selected?.root != host.projectRoot ||
+            host.git.selected?.session != host.visible.session)) {
+      unawaited(host.git.bind(host.visible.session, host.projectRoot));
+    }
     if (page == WorkspacePage.folders &&
         (host.files.selected?.root != host.projectRoot ||
             host.files.selected?.session != host.visible.session)) {
@@ -144,6 +150,14 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                               ),
                             );
                           }
+                          if (value == WorkspacePage.sourceControl) {
+                            unawaited(
+                              host.git.bind(
+                                host.visible.session,
+                                host.projectRoot,
+                              ),
+                            );
+                          }
                         },
                         icon: Icon(icons[value.index], size: 21),
                       ),
@@ -164,6 +178,12 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     ),
   );
   Widget panel(Palette p) {
+    if (page == WorkspacePage.sourceControl) {
+      return SourceControlPanel(
+        git: host.git,
+        openFolder: () => unawaited(openProject()),
+      );
+    }
     if (page == WorkspacePage.folders) {
       return FolderTree(
         files: host.files,
@@ -218,6 +238,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Widget content() {
+    if (page == WorkspacePage.sourceControl) {
+      return SourceControlView(git: host.git);
+    }
     if (page == WorkspacePage.folders) {
       return FileWorkspaceView(host: host);
     }

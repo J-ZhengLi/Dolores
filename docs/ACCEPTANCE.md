@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control 17.1 — lazy repository status
+
+Source Control follows the selected Home conversation without a project picker.
+It discovers the enclosing canonical worktree and Git directory, showing exact
+NUL-delimited Changes/Staged/rename/conflict filenames. Repository owners retain
+their own results; late A responses cannot replace B. Missing Git/repository and
+failed refresh have explicit recovery while the last useful status remains.
+Git runs asynchronously outside the global chat lock, with two global jobs,
+per-worktree serialization, eight retained results, bounded binary output and
+owned process-tree cancellation. Shutdown cancels and reaps owned jobs.
+
+Two native checks pass for real unborn repositories, Unicode/rename records,
+invalid encoding, incomplete records, missing repository and cancellation. Four
+Flutter checks pass for A/B response ordering, failed Refresh/recovery, exact
+paths/no picker, retained Home/rail and Experimental settings. Full release,
+resource and visual integration follows 17.6. Diffs and mutation are later bricks
+in this batch. Initial limits are frozen in [Source Control](design/source-control.md).
+
 ## Workspace 16.6 — integrated recovery and qualification
 
 Home, the compact rail, project-bound Folders and file-only splits are implemented.

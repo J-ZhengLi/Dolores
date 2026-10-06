@@ -4,10 +4,12 @@ import 'package:flutter/foundation.dart';
 
 import 'chat.dart';
 import 'file_host.dart';
+import 'git_host.dart';
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
   late final FileHost files = FileHost(initial.bridge);
+  late final GitHost git = GitHost(initial.bridge);
   final ChatController initial;
   final owners = <ChatController>[];
   late ChatController visible;
@@ -22,7 +24,8 @@ class AppHost extends ChangeNotifier {
   Future<bool> Function()? closeReview;
   Future<bool> requestClose() async => await closeReview?.call() ?? false;
   Future<void> prepareNativeRestart(ChatController caller) async {
-    if (owners.any((c) => c.busy || c.loading || c.changing) ||
+    if (git.workspaces.values.any((w) => w.busy) ||
+        owners.any((c) => c.busy || c.loading || c.changing) ||
         files.loading ||
         files.documents.values.any(
           (d) => d.dirty || d.pending || d.blocked || d.text != d.acknowledged,
@@ -38,6 +41,11 @@ class AppHost extends ChangeNotifier {
 
   Future<bool> prepareQuit({required bool saveFiles}) async {
     try {
+      if (git.workspaces.values.any((w) => w.busy)) {
+        throw StateError(
+          'Stop or finish the Source Control operation before closing.',
+        );
+      }
       if (owners.any((c) => c.changing || c.loading)) {
         throw StateError('Finish the current operation before closing.');
       }
@@ -227,6 +235,7 @@ class AppHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    git.dispose();
     files.dispose();
     for (final owner in owners) {
       owner.beforeNativeRestart = null;

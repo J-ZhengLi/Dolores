@@ -22,6 +22,8 @@ mod desktop_recovery;
 mod experience;
 mod experimental;
 mod editor;
+mod git_process;
+mod source_control;
 #[cfg(test)]
 mod experience_tests;
 mod export;
@@ -95,6 +97,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    git: Arc<Mutex<source_control::Registry>>,
     editor: Mutex<editor::Registry>,
     keep_awake: Mutex<Option<experimental::PowerRequest>>,
     runtime: Runtime,
@@ -123,6 +126,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Git { session:String, request:source_control::Request },
     Editor { session:String, request:editor::Request },
     ExperimentalPreferences,
     SaveExperimentalPreferences { preferences: dolores_core::ExperimentalPreferences },
@@ -746,6 +750,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            git: Arc::new(Mutex::new(Default::default())),
             editor: Mutex::new(Default::default()),
             keep_awake: Mutex::new(None),
             runtime,
@@ -805,6 +810,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::Git {session,request} => {drop(active);return self.git_call(&session,request);},
             Command::Editor {session,request} => return self.editor_call(&session,request),
             Command::ExperimentalPreferences => return self.experimental_view(),
             Command::SaveExperimentalPreferences { preferences } => return self.save_experimental(preferences),
@@ -909,6 +915,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.stop_git()?;
                 self.keep_awake.lock().map_err(|_| "Keep-awake state is unavailable.")?.take();
                 active.close();
                 self.clear_revert()?;
