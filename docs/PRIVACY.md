@@ -37,6 +37,20 @@ sharing; reports can contain approved file content.
 
 Selected text/image attachments are immutable local plaintext snapshots, identified by digest and basename. Preview is local; Send shares the included contents with your configured provider. Sent snapshots can be shared again when included in later context. Ordinary conversation exports retain references; the separate attachment export explicitly copies draft/sent bytes. Removing references and cleaning unused snapshots do not securely erase SQLite free pages, backups or export copies. See [attachment boundaries](design/attachments.md).
 
+Image paste reads the clipboard only when requested, performs any Windows bitmap
+conversion locally and creates short-lived local copies for the attachment
+bridge. Interrupted operations or OS cleanup failures can leave temporary files.
+No clipboard polling or automatic upload occurs.
+
+Approved harness inspection shares current bundled source and up to three
+recent failed, paused or interrupted run summaries from the current chat with
+the configured model. Summaries contain host-authored categories, build/model
+and frozen request limits; arbitrary error bodies and private transcripts are
+omitted. Selected source content and approved tool receipts remain subject to
+the ordinary local evidence/export rules. Provider reasoning needed for tool
+continuation is held in a bounded transient protocol cache, returned to the
+same provider and excluded from chat text, journals and exports.
+
 Dolores sends selected context, enabled instructions/memories/skills and approved tool results to your configured endpoint. Provider retention belongs to that provider. The desktop app has no background telemetry or automatic model download.
 
 Conversations, preferences, source evidence, comparisons and change snapshots are local unencrypted SQLite data. Remembered model/MCP keys use the OS vault, scoped to the data directory. Launch-only keys stay in memory. Exports can retain approved content and evidence: inspect them before sharing.

@@ -12,6 +12,7 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error == "Streamed tool response exceeds its frame limit." || error.starts_with("Provider sent an oversized stream event") || error == "Streamed tool response exceeds the 2 MiB wire limit." || error == "Streamed tool field exceeds its byte limit." => ("streamLimit", false, "The provider stream exceeded a harness limit. No incomplete tool call ran. Keep completed changes, then ask Dolores to inspect the recent failure and provider_stream source. Try a smaller first file; changing the model context size will not fix a stream limit. No automatic retry."),
         error if error.starts_with("Desktop ") || error.starts_with("Observation model ") => ("desktop", false, "Open Settings → Computer use. Inspect the selected window and saved receipts, make a fresh capture, then explicitly reconcile the original goal. Input may already have occurred; nothing is replayed automatically."),
         error if error.starts_with("Model rejected generation settings.") => ("generationSettings", false, "Open Request settings for this model. Choose Provider default or a supported output limit, then send the restored draft. Completed file changes remain; Dolores will not retry automatically."),
         error if error.starts_with("Model returned incomplete or invalid tool arguments.") => ("malformedTools", false, "Review completed work in Changes, then narrow the task or choose another tool-capable model. The unfinished call did not run; your draft is restored. No automatic retry."),
@@ -50,6 +51,23 @@ pub fn advice(error: &str) -> Recovery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stream_limits_explain_manual_recovery_without_changing_context_or_replaying() {
+        for message in [
+            "Streamed tool response exceeds its frame limit.",
+            "Provider sent an oversized stream event (256 KiB maximum). No incomplete tool call was executed.",
+            "Streamed tool response exceeds the 2 MiB wire limit.",
+            "Streamed tool field exceeds its byte limit.",
+        ] {
+            let recovery = advice(message);
+            assert_eq!(recovery.kind, "streamLimit");
+            assert!(!recovery.retryable);
+            assert!(recovery.guidance.contains("No incomplete tool call ran"));
+            assert!(recovery.guidance.contains("Keep completed changes"));
+            assert!(recovery.guidance.contains("provider_stream"));
+            assert!(recovery.guidance.contains("context size will not fix"));
+        }
+    }
     #[test]
     fn known_failures_have_explicit_manual_recovery_and_unknown_errors_stay_neutral() {
         assert_eq!(

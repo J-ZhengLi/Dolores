@@ -1866,7 +1866,7 @@ impl Engine {
                         } else { None }
                     } else { None };
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
-                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
+                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"pauseReason":pause_reason,"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
                     let mut event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update,"learningUpdate":learning_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),

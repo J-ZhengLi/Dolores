@@ -1,5 +1,48 @@
 # Dolores acceptance — 2026-10-05
 
+## AI fixes — streamed generation, image chat and self-diagnosis
+
+2026-10-06: A deterministic HTML tool call with more than 4096 small SSE events
+reproduced the reported frame-limit banner. Removing that event-count guard lets
+the same bounded response complete; wire/event/field/timeout limits and incomplete
+call refusal remain. Protocol-only reasoning continuation and an explicit GLM Low
+option support reasoning-model tool follow-up without publishing private reasoning.
+
+Bounded live DeepSeek V4.1 Flash and GLM-5.3-Flash tasks completed the exact HTML
+game prompt, created standalone artifacts and passed JavaScript syntax checks.
+Both games rendered in an isolated browser and responded to keyboard input.
+The passing settings were DeepSeek thinking off / 8192 output tokens and GLM Low /
+16384 tokens, each with 180-second responses and 240-second task deadlines.
+Earlier provider-default output-limit/timeout failures remain recorded; these are
+not provider-default or general coding reliability passes. Defaults and original
+provider settings were preserved, with no hidden retry or command execution.
+
+Harness inventory now includes bounded, chat-scoped recent failure summaries and
+bundled streaming/settings/recovery/attachment code. A live DeepSeek follow-up to
+an injected oversized event inspected inventory and exact streaming source,
+identified the 256-KiB bound and explained that no incomplete call ran. Privacy
+fixtures cover other-chat isolation and private prompt/plugin-error omission.
+
+Native Windows Paint copy → Shift+Insert/right-Control+V → draft thumbnail PASS.
+The delayed local provider received one image while its thumbnail was already in
+the pending user bubble; saved preview remained after completion and restart.
+The helper's known injected left-Control timing issue remains separate from
+physical-keyboard acceptance. Windows BMP conversion, empty-text clipboard,
+malformed/oversized bitmap, delayed session reservation, failed-send restoration,
+retained earlier attachments and temporary cleanup checks PASS.
+
+Core/provider/bridge suites total 190 passed tests; all 244 Flutter tests PASS,
+analysis reports no issues, qualification scripts compile and four packaging
+integrity/refusal tests PASS. The Windows launcher preflight also PASSes missing
+and empty clipboard-DLL refusal and recovery while retaining synthetic history.
+The normal release was rebuilt, restored to the original profile, visibly
+inspected and left open; all 38 original history/settings tables are unchanged.
+The native clipboard plugin is included in generated
+Flutter notices and the Windows runtime contract. Full separate notice collection
+still refuses missing `wasmi` notice text; portable release qualification is not
+claimed. Other OS clipboard behavior, physical IME and general model reliability
+remain open. See [full evidence and boundaries](qualification/stream-and-image-recovery.md).
+
 ## Maintenance follow-up — approved project evidence after command review
 
 2026-10-06: A native bridge regression reproduced lost approved manifest evidence
