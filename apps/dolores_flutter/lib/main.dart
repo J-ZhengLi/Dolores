@@ -30,6 +30,8 @@ import 'settings.dart';
 import 'desktop_frame.dart';
 import 'desktop_share.dart';
 import 'sidebar_resize.dart';
+import 'app_host.dart';
+import 'workspace_shell.dart';
 export 'model_settings.dart' show ConnectionDialog;
 export 'theme.dart' show Palette;
 
@@ -37,7 +39,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final desktopFrame = await initializeDesktopFrame();
   final chat = ChatController(NativeBridge());
-  runApp(DoloresApp(chat: chat, desktopFrame: desktopFrame));
+  final host = AppHost(chat);
+  runApp(DoloresApp(chat: chat, host: host, desktopFrame: desktopFrame));
   unawaited(chat.initialize());
 }
 
@@ -46,16 +49,18 @@ class DoloresApp extends StatelessWidget {
   final ThemeMode? themeMode;
   final GlobalKey? captureKey;
   final bool desktopFrame;
+  final AppHost? host;
   const DoloresApp({
     super.key,
     required this.chat,
     this.themeMode,
     this.captureKey,
     this.desktopFrame = false,
+    this.host,
   });
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: chat.appearanceChanges,
+    animation: host?.appearanceChanges ?? chat.appearanceChanges,
     builder: (context, _) => MaterialApp(
       title: 'Dolores',
       debugShowCheckedModeBanner: false,
@@ -63,23 +68,28 @@ class DoloresApp extends StatelessWidget {
       darkTheme: doloresTheme(true),
       themeMode:
           themeMode ??
-          switch (chat.appearance) {
+          switch ((host?.visible ?? chat).appearance) {
             'light' => ThemeMode.light,
             'dark' => ThemeMode.dark,
             _ => ThemeMode.system,
           },
       builder: (context, child) => RepaintBoundary(
         key: captureKey,
-        child: desktopFrame ? DesktopFrame(child: child!) : child!,
+        child: desktopFrame
+            ? DesktopFrame(onTogglePanel: host?.togglePanel, child: child!)
+            : child!,
       ),
-      home: ChatPage(chat: chat),
+      home: host == null
+          ? ChatPage(chat: chat)
+          : WorkspaceShell(host: host!, nativeTitleBar: desktopFrame),
     ),
   );
 }
 
 class ChatPage extends StatefulWidget {
   final ChatController chat;
-  const ChatPage({super.key, required this.chat});
+  final bool embedded;
+  const ChatPage({super.key, required this.chat, this.embedded = false});
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
@@ -998,7 +1008,7 @@ class _ChatPageState extends State<ChatPage> {
               padding: EdgeInsets.symmetric(horizontal: narrow ? 20 : 32),
               child: Row(
                 children: [
-                  if (narrow)
+                  if (narrow && !widget.embedded)
                     Builder(
                       builder: (context) => IconButton(
                         tooltip: 'Conversations',
@@ -1009,10 +1019,12 @@ class _ChatPageState extends State<ChatPage> {
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: WorkspacePicker(
-                        chat: chat,
-                        onOpenProject: openProject,
-                      ),
+                      child: widget.embedded
+                          ? Text(chat.workspaceLabel)
+                          : WorkspacePicker(
+                              chat: chat,
+                              onOpenProject: openProject,
+                            ),
                     ),
                   ),
                   if (chat.session != null && chat.workspaceRoot != null)
@@ -1217,6 +1229,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ],
         );
+        if (widget.embedded) return Scaffold(body: body);
         return Scaffold(
           key: shell,
           drawer: narrow

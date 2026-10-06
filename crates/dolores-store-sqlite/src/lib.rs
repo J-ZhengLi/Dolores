@@ -4,6 +4,7 @@ use dolores_core::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 mod automatic_memory;
+mod experimental;
 #[cfg(test)]
 mod change_tests;
 mod changes;
@@ -82,6 +83,7 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS projects (root TEXT PRIMARY KEY, name TEXT NOT NULL, updated_at INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS file_changes (id INTEGER PRIMARY KEY, root TEXT NOT NULL, session_id TEXT NOT NULL, target TEXT NOT NULL, created_at INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','applied','notApplied','reverted')), reverts INTEGER REFERENCES file_changes(id), before_text TEXT NOT NULL, after_text TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS file_changes_folder ON file_changes(root, id DESC);
+            CREATE TABLE IF NOT EXISTS experimental_preferences (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
             PRAGMA synchronous = FULL;").map_err(storage_error)?;
         let version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
@@ -289,6 +291,12 @@ impl SessionStore for SqliteStore {
         state: &dolores_core::KnowledgeState,
     ) -> Result<dolores_core::KnowledgeState, String> {
         self.write_knowledge(root, revision, state)
+    }
+    fn experimental_preferences(&self) -> Result<dolores_core::ExperimentalPreferences, String> {
+        experimental::read(&*self.lock()?)
+    }
+    fn save_experimental_preferences(&self, value: &dolores_core::ExperimentalPreferences) -> Result<dolores_core::ExperimentalPreferences, String> {
+        experimental::save(&mut *self.lock()?, value)
     }
     fn appearance(&self) -> Result<dolores_core::Appearance, String> {
         let theme: Option<String> = self

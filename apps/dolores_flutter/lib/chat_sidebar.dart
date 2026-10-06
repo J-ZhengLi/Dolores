@@ -10,6 +10,7 @@ class ChatSidebar extends StatefulWidget {
   final VoidCallback onNewTemporary, onNewSide, onSettings;
   final Future<void> Function() onOpenProject;
   final Future<void> Function(String) onProject, onSelect;
+  final bool independentNavigation, showSettings;
   const ChatSidebar({
     super.key,
     this.width = UiTokens.sidebarWidth,
@@ -20,6 +21,8 @@ class ChatSidebar extends StatefulWidget {
     required this.onOpenProject,
     required this.onProject,
     required this.onSelect,
+    this.independentNavigation = false,
+    this.showSettings = true,
   });
   @override
   State<ChatSidebar> createState() => _ChatSidebarState();
@@ -30,6 +33,10 @@ class _ChatSidebarState extends State<ChatSidebar> {
   final expanded = <String>{}, collapsed = <String>{};
   ChatController get chat => widget.chat;
   bool get locked => chat.busy || chat.changing || chat.loading;
+  bool get navigationLocked =>
+      chat.changing ||
+      chat.loading ||
+      (chat.busy && !widget.independentNavigation);
   Widget section(
     String title,
     String key,
@@ -106,7 +113,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
         child: InkWell(
           key: ValueKey('chat-$id'),
           borderRadius: BorderRadius.circular(8),
-          onTap: locked ? null : () => widget.onSelect(id),
+          onTap: navigationLocked ? null : () => widget.onSelect(id),
           child: Padding(
             padding: const EdgeInsets.only(left: 10),
             child: Row(
@@ -212,7 +219,9 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   Expanded(
                     child: TextButton.icon(
                       key: const Key('new-chat'),
-                      onPressed: locked ? null : widget.onNewTemporary,
+                      onPressed: navigationLocked
+                          ? null
+                          : widget.onNewTemporary,
                       icon: const Icon(Icons.edit_square, size: 19),
                       label: const Text('New chat'),
                       style: TextButton.styleFrom(
@@ -224,7 +233,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   ),
                   PopupMenuButton<String>(
                     key: const Key('new-chat-options'),
-                    enabled: !locked,
+                    enabled: !navigationLocked,
                     tooltip: 'New chat options',
                     icon: Icon(Icons.expand_more, size: 18, color: p.muted),
                     onSelected: (kind) => kind == 'side'
@@ -338,7 +347,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                       key: ValueKey('new-project-chat-$root'),
                                       tooltip: 'New chat in ${project['name']}',
                                       iconSize: 16,
-                                      onPressed: locked
+                                      onPressed: navigationLocked
                                           ? null
                                           : () => widget.onProject(root),
                                       icon: Icon(Icons.add, color: p.muted),
@@ -423,19 +432,20 @@ class _ChatSidebarState extends State<ChatSidebar> {
                     ),
                   ],
                 ),
-              Divider(color: p.border),
-              TextButton.icon(
-                key: const Key('settings'),
-                onPressed: chat.loading || chat.changing
-                    ? null
-                    : widget.onSettings,
-                icon: const Icon(Icons.settings_outlined, size: 18),
-                label: const Text('Settings'),
-                style: TextButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.all(12),
+              if (widget.showSettings) Divider(color: p.border),
+              if (widget.showSettings)
+                TextButton.icon(
+                  key: const Key('settings'),
+                  onPressed: chat.loading || chat.changing
+                      ? null
+                      : widget.onSettings,
+                  icon: const Icon(Icons.settings_outlined, size: 18),
+                  label: const Text('Settings'),
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.all(12),
+                  ),
                 ),
-              ),
             ],
           ),
         ),

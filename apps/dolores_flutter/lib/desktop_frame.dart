@@ -40,7 +40,8 @@ Future<bool> initializeDesktopFrame() async {
 /// Lives above the Navigator, so window controls also work with dialogs open.
 class DesktopFrame extends StatefulWidget {
   final Widget child;
-  const DesktopFrame({super.key, required this.child});
+  final VoidCallback? onTogglePanel;
+  const DesktopFrame({super.key, required this.child, this.onTogglePanel});
 
   @override
   State<DesktopFrame> createState() => _DesktopFrameState();
@@ -163,6 +164,18 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                 children: [
                   // macOS keeps its native traffic lights at the upper left.
                   if (mac) const SizedBox(width: 80),
+                  if (widget.onTogglePanel != null)
+                    IconButton(
+                      key: const Key('title-panel-toggle'),
+                      tooltip: 'Toggle side panel',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 32,
+                      ),
+                      onPressed: widget.onTogglePanel,
+                      icon: const Icon(Icons.vertical_split_outlined, size: 18),
+                    ),
                   Expanded(
                     child: GestureDetector(
                       key: const Key('window-drag-area'),

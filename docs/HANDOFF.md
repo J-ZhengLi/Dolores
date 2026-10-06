@@ -4,8 +4,8 @@
 
 **Current user steering:** plan a developer workspace and extend the roadmap;
 implement **one milestone per batch**, retaining separate commits for its bricks.
-The current revision changes documents only. No memory, schedule, companion or
-new production workspace feature is activated by this plan.
+Milestone 16 implementation is in progress. Memory, scheduling and companionship
+remain future work.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact
 64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,
@@ -33,8 +33,9 @@ occasional and in-app, during chosen hours with a daily cap and configured weake
 model. Proposed numerical defaults must be frozen before their runtime bricks.
 
 The previous mixed-pane and A/B/C prototypes are historical explorations, not the
-current page contract. **Current batch: milestone 16**, continue with 16.1 shared
-ownership after the initial 16.0 document envelope. Page direction is final, and
+current page contract. **Current batch: milestone 16**. Bricks 16.0–16.2 have their
+foundation and checks; continue with 16.3 scoped documents, then editor/splits and
+batch qualification. Page direction is final, and
 the user directs moving past the isolated slow samples, plausibly affected by gaming.
 Fresh isolated typing passes without explaining the historical 94 ms failure;
 the earlier four-view ordinary reopening failed at 389.306 ms versus 250 ms.

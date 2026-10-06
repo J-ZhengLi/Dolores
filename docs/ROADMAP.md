@@ -125,7 +125,7 @@ This table records the planning baseline, not current missing features. See the 
 | **23 — Opt-in companionship** | Occasional grounded in-app messages using a configured weaker model | 23.0–23.4 | Requires memory and scheduler contracts; chosen hours, persisted daily cap and quiet failure. |
 | **24 — Optional closed-UI scheduling** | Opt-in local worker while the UI is closed | 24.1–24.3 | Requires 22; qualify one host owner, availability limits and worker cleanup separately. |
 
-The next implementation brick is 16.0; the earlier milestone 20 priority is
+The current implementation batch is milestone 16; the earlier milestone 20 priority is
 historical. Proceed one milestone per batch, with bricks in dependency order. Milestones 16–19
 form the developer-workspace track; their manual editor/Git work does not close
 prior model-reliability gates. Then follow 21–24; 24 may follow 22 directly if

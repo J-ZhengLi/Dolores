@@ -73,6 +73,9 @@ pub use summary::*;
 pub use token_context::*;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
 
+mod experimental;
+pub use experimental::ExperimentalPreferences;
+
 pub const MAX_INPUT_BYTES: usize = 16 * 1024;
 pub const MAX_CONTEXT_BYTES: usize = 128 * 1024;
 pub const MAX_OUTPUT_BYTES: usize = 128 * 1024;
@@ -405,6 +408,12 @@ pub trait SessionStore: Send + Sync {
     }
     fn appearance(&self) -> Result<Appearance, String> {
         Ok(Appearance::System)
+    }
+    fn experimental_preferences(&self) -> Result<ExperimentalPreferences, String> {
+        Ok(Default::default())
+    }
+    fn save_experimental_preferences(&self, _: &ExperimentalPreferences) -> Result<ExperimentalPreferences, String> {
+        Err("Experimental preferences are unavailable in this store.".into())
     }
     fn save_appearance(&self, _: Appearance) -> Result<(), String> {
         Err("Appearance settings are unavailable in this store.".into())

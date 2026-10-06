@@ -20,6 +20,7 @@ mod desktop_access;
 mod desktop_control;
 mod desktop_recovery;
 mod experience;
+mod experimental;
 #[cfg(test)]
 mod experience_tests;
 mod export;
@@ -93,6 +94,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    keep_awake: Mutex<Option<experimental::PowerRequest>>,
     runtime: Runtime,
     store: Arc<dyn SessionStore>,
     connection: Mutex<ConnectionManager>,
@@ -119,6 +121,8 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ExperimentalPreferences,
+    SaveExperimentalPreferences { preferences: dolores_core::ExperimentalPreferences },
     NativeRepairs {
         session: Option<String>,
     },
@@ -739,6 +743,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            keep_awake: Mutex::new(None),
             runtime,
             store,
             connection: Mutex::new(connection),
@@ -796,6 +801,8 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::ExperimentalPreferences => return self.experimental_view(),
+            Command::SaveExperimentalPreferences { preferences } => return self.save_experimental(preferences),
             Command::NativeRepairs { session } => return self.native_repairs(session.as_deref()),
             Command::NativeStartupReady => return self.native_startup_ready(),
             Command::NativeUpdateReady => return Ok(json!({"ready":self.native_ready()?})),
@@ -897,6 +904,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.keep_awake.lock().map_err(|_| "Keep-awake state is unavailable.")?.take();
                 active.close();
                 self.clear_revert()?;
                 while let Some(run) = active.take() {
@@ -2561,6 +2569,7 @@ fn initialize() -> Result<Engine, String> {
     }
     engine.native_startup = native_startup;
     engine.data_lock = Some(data_lock);
+    engine.restore_keep_awake();
     engine.workspace_directory = Some(directory.join("workspaces"));
     engine.global_skills_directory = Some(match std::env::var_os("DOLORES_GLOBAL_SKILLS_DIR") {
         Some(value) => {

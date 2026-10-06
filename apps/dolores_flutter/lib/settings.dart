@@ -22,8 +22,10 @@ import 'capabilities.dart';
 import 'attachment_storage.dart';
 import 'advanced_home.dart';
 import 'native_repairs.dart';
+import 'experimental_settings.dart';
 
 enum SettingsCategory {
+  experimental,
   advancedHome,
   nativeRepairs,
   appearance,
@@ -88,7 +90,8 @@ enum SettingsSection {
 
 SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
     switch (category) {
-      SettingsCategory.appearance => SettingsSection.general,
+      SettingsCategory.appearance ||
+      SettingsCategory.experimental => SettingsSection.general,
       SettingsCategory.models =>
         page == ModelsPage.overrides || page == ModelsPage.defaults
             ? SettingsSection.advanced
@@ -165,6 +168,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
       SettingsCategory.appearance,
       ModelsPage.connection,
       'appearance system light dark',
+    ),
+    (
+      'Experimental',
+      SettingsCategory.experimental,
+      ModelsPage.connection,
+      'multiple window keep awake prevent windows locked',
     ),
     (
       'Connection & models',
@@ -262,7 +271,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
       ModelsPage.connection,
       'mods source tests restore',
     ),
-    ('Native repairs', SettingsCategory.nativeRepairs, ModelsPage.connection, 'native qualified build install restart restore repair'),
+    (
+      'Native repairs',
+      SettingsCategory.nativeRepairs,
+      ModelsPage.connection,
+      'native qualified build install restart restore repair',
+    ),
   ];
   void navigate(
     SettingsCategory category, [
@@ -340,7 +354,11 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
-    SettingsCategory.nativeRepairs => NativeRepairs(chat:widget.chat,hasUnsavedSettings:()=>drafts.values.any((draft)=>draft.dirty)),
+    SettingsCategory.experimental => ExperimentalSettings(chat: widget.chat),
+    SettingsCategory.nativeRepairs => NativeRepairs(
+      chat: widget.chat,
+      hasUnsavedSettings: () => drafts.values.any((draft) => draft.dirty),
+    ),
     SettingsCategory.advancedHome => AdvancedHome(
       open: (category, page) => navigate(
         SettingsCategory.values.byName(category),

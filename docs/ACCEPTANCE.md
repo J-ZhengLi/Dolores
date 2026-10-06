@@ -1,5 +1,30 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.2 — compact navigation and Experimental preferences
+
+The normal entry point now uses the shared host, a 64-pixel icon rail and bottom
+Settings. Home retains its agent view; the title-bar sidebar-layout button toggles
+the adjacent panel. Mouse dragging can hide it; keyboard arrows, Home and semantic
+resize actions are available. Conversation selection supplies developer-page context
+without a project dropdown. Failed folder selection keeps the prior owner. Later
+Scheduled/Source Control/Terminal pages explicitly state their availability.
+
+Experimental preferences default to Multiple Window On and Windows keep-awake Off.
+They persist with revision checks in an additive table, preserving schema version 33
+for native rollback compatibility. No detached window is advertised as implemented.
+The Windows option owns display/system power requests, releases them on disable or
+shutdown, and retains the prior preference on storage failure. Startup activation
+failure remains visible in Settings; it never disables history. These requests do
+not override manual locks, security policy or Modern Standby restrictions; see
+[Microsoft's power request API](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-powersetrequest).
+
+Seventeen focused Flutter checks pass, including compact navigation, drag hiding,
+retained draft/project, settings defaults and failed saves. Flutter analysis is
+clean after style fixes. All 171 bridge/store tests pass, including an actual Windows
+request enable/disable/shutdown check against an isolated in-memory store. This
+does not establish long-duration idle locking behavior or physical accessibility.
+Normal build and saved-render checks follow the complete milestone integration.
+
 ## Workspace 16.1 — shared run ownership foundation
 
 The Rust host now owns ID-addressed primary runs with two active slots, a four-item
