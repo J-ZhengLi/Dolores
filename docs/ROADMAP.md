@@ -4,8 +4,12 @@
 Use separate Home, Scheduled, Folders, Source Control and Terminal pages, reached
 through a compact icon rail with hover/focus names and Settings at the bottom.
 The user's ChatGPT desktop screenshot replaces full-width navigation labels;
-the chat/file side panel stays beside the rail. Files have VS Code-style draggable split tabs;
-chats remain in Home. Terminal has its own tabs/splits. The selected project
+the chat/file side panel stays beside the rail. Files have VS Code-style draggable
+split tabs; chats remain in Home.
+**Final layout: developer-pages B**, with a top-left title-bar sidebar toggle and
+drag-to-hide divider. Home conversation selection defines the project; omit developer
+page project dropdowns. Terminal opens its view directly at project root/OS home.
+Terminal has its own tabs/splits. The selected project
 binds Folders, Source Control and new terminals; without a project, new terminals
 start at the OS user home. The earlier mixed chat/file and A/B/C prototypes are
 historical explorations, not the new page contract. Editor feasibility remains
@@ -742,7 +746,7 @@ time, each with a focused check and separate English commit.
 **Scope:** prototype primary/page sidebars, familiar Home, Folders tree/empty state,
 file splits and project selection. Resolve native editor performance/shortcuts and
 duplicate-view adapter; freeze corpus, byte/delta bounds, file and memory budgets.
-**Basic:** review the revised page direction; native typing/selection/undo/find,
+**Basic:** page direction finalized as B with the recorded amendments; native typing/selection/undo/find,
 Unicode/CRLF/BOM and long-line behavior meet recorded targets. **Recovery:** invalid
 drop retains buffers; large/unsupported files remain safely previewable. Earlier
 94 ms post-large-file typing failure stays open against the unchanged 32 ms target.
@@ -761,13 +765,14 @@ same-root agent writes, automatic worktrees and new grants.
 ### 16.2 Primary navigation and project-bound page shells
 
 **Scope:** compact icon rail with hover/focus names, bottom Settings, page side
-panels, Home unchanged,
-selected-project picker and truthful unavailable Scheduled/Source Control/Terminal.
-No project on Folders offers Open folder to select/create a canonical project.
+panels with title-bar toggle/drag-to-hide, Home unchanged, conversation-derived
+project context and truthful unavailable Scheduled/Source Control/Terminal.
+No developer-page project dropdowns. No project on Folders offers Open folder
+through the existing project-conversation flow.
 Include Experimental preferences (Multiple Window default On, unavailable until
 19; Windows keep-awake default Off). **Basic:** Home/Folders switching retains
 draft/scroll, active root is visible, side chat clears project and Settings works
-in compact navigation. **Recovery:** picker cancellation retains state; missing
+in compact navigation. **Recovery:** folder cancellation retains state; missing
 root offers recovery without rebinding work. **Excluded:** manual schedule creation,
 fake Git/task results, launching shells or granting agent access on navigation.
 
@@ -876,7 +881,9 @@ remain a distinct first-language enhancement. Expanded 18.1–18.6 isolates UI/l
 ANSI/Unicode input/output/resize/copy/interrupt. **Basic:** interactive command works
 in selected A root; no-project shell starts at home. **Recovery:** missing root/shell
 offers Choose/Retry; failed spawn leaves Home/editing useful. **Excluded:** captured
-stdout called a terminal, implicit model control and shell startup on page visit.
+stdout called a terminal and implicit model control. Enter Terminal directly,
+creating its initial shell only if no terminal exists; reuse it on revisit.
+No welcome screen or shell startup from visiting Home.
 
 ### 18.2 Terminal tabs, plus and splits
 

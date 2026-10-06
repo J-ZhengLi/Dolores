@@ -12,6 +12,11 @@ Preserve the current agent view on **Home**. The primary navigation is a compact
 Folders, Source Control, Terminal, then Settings anchored at the bottom. Page names
 appear on hover/focus and remain semantic labels; the wider page panel stays beside
 the rail. This supersedes the initial full-width labeled navigation study.
+**Final selection: developer-pages B**, with a top-left title-bar sidebar-layout
+toggle and mouse-resizable divider down to hidden. No Close/folder toggle substitute.
+The selected Home conversation supplies the project; no developer-page project
+dropdown. Terminal goes straight into its view, initially at project root or OS
+home, and reuses existing shells on return. The user requests no prototype revision.
 Folders has a selected-project file tree and VS Code-style draggable file tabs
 and splits; chats remain in Home. Source Control is project-bound and includes
 Git diffs. Terminal has its own tabs/splits; plus uses the selected project root,
@@ -29,7 +34,7 @@ model. Proposed numerical defaults must be frozen before their runtime bricks.
 
 The previous mixed-pane and A/B/C prototypes are historical explorations, not the
 current page contract. Production workspace rollout has not started. **Next brick:
-16.0**, review the compact-rail page prototype and resolve editor feasibility gates.
+16.0**, resolve editor feasibility gates; page direction review is complete.
 Fresh isolated typing passes without explaining the historical 94 ms failure;
 the new four-view ordinary reopening fails at 389.306 ms versus 250 ms. Six
 controller/widget checks now cover shortcuts and shared-view undo. Physical input,

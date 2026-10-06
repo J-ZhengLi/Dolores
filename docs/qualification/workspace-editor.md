@@ -1,5 +1,15 @@
 # Workspace/editor 16.0 — partial feasibility evidence
 
+## Final layout decision — 2026-10-07
+
+The user selects **developer-pages B**, amended as follows: top-left title-bar
+sidebar-layout toggle (not Close/folder), resize the adjacent panel down to hidden,
+no project dropdowns, and project selection derived from the chosen Home conversation.
+Terminal enters its view directly, with initial cwd at project root or OS home and
+existing shells reused. No further prototype change is requested. The page-direction
+review gate is closed; the unmodified prototype does not verify these amendments.
+Editor qualification remains separate and open. See the amended [contract](../design/developer-workspace.md).
+
 ## Current page prototype — compact icon rail, 2026-10-07
 
 The user requested separate Home/Scheduled/Folders/Source Control/Terminal pages,
@@ -76,7 +86,7 @@ on this scratch host, not a normal-app heap guarantee, sustained idle CPU check 
 acceptance for multiple distinct documents. The full follow-up loop returns failure
 because ordinary reopening exceeds its unchanged target.
 
-**Held gates:** revised prototype review after the rail adjustment, the historical
+**Held editor gates:** the historical
 typing discrepancy and new four-view opening failure, native keyboard/selection/
 clipboard/IME/accessibility, real byte-safe Save and production protocol/resource
 bounds. The 5 MiB editable proposal remains unqualified; it was not silently adopted.

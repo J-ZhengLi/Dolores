@@ -5,9 +5,17 @@ composer design on Home. Following the user's ChatGPT desktop screenshot, use a
 compact 64-pixel icon rail for Home, Scheduled, Folders, Source Control and Terminal,
 with Settings anchored at the bottom, hover/focus names and semantic labels.
 The wider chat/file page panel remains beside it; brand appears once there. The previous
-mixed-pane and A/B/C prototypes are historical explorations. Review the revised
-page prototype before runtime rollout; existing [editor qualification](qualification/workspace-editor.md)
+mixed-pane and A/B/C prototypes are historical explorations. The amended page
+direction below is final; existing [editor qualification](qualification/workspace-editor.md)
 gates remain open.
+
+**Final page decision — 2026-10-07:** developer-pages **B**, with a top-left
+title-bar sidebar-layout toggle and a draggable divider that shrinks the page panel
+to hidden. Do not substitute a Close/folder icon. Home conversation selection owns
+the selected project; developer pages have no project dropdown. Terminal enters
+its real view directly, initially at that project's root or OS home, then reuses
+existing shells. The user requested no further prototype changes; these amendments
+are implementation requirements, not interaction checks already performed.
 
 Native repairs uses the existing Advanced → Diagnostics & storage entry and
 embedded inspector. Show retained build/handoff status and recovery reasons before

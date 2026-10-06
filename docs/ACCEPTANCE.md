@@ -1,5 +1,16 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.0 — final B layout decision (contract only)
+
+The user finalized developer-pages **B**: a top-left title-bar sidebar-layout
+toggle, drag-resize the page panel to hidden, no developer-page project dropdown,
+selected project derived from the chosen Home conversation, and direct Terminal
+entry at that project root or OS home. Existing terminals keep their CWD on return.
+Settings remains at the bottom of the compact rail; Home remains the agent view.
+The prototype is intentionally unchanged at the user's request. The page-direction
+review gate is closed; the amendments are recorded for implementation and are not
+claimed as tested runtime behavior. Editor adoption/16.0 completion remains open.
+
 ## Workspace/editor 16.0 — compact rail prototype and shared-view trial
 
 The new page study preserves agent Home and file-only Folders splits. Following

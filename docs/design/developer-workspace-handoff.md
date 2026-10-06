@@ -19,6 +19,13 @@ the current project root or OS user home if none is selected, without retargetin
 existing processes. Keep familiar icons, the infinity brand, palette and compact
 behavior. Follow the [workspace contract](developer-workspace.md).
 
+**Final user decision:** developer-pages B. Toggle the collapsible page panel from
+the top-left title bar using the supplied sidebar-layout icon; allow drag-to-hide
+and restore width. Home conversation selection is the only project selector, with
+no developer-page dropdown. Terminal enters its actual view directly at selected
+project root or OS home; revisit retains existing shells. No additional prototype
+change/review is requested. The final amendments still require implementation checks.
+
 Experimental Multiple Window is default On when supported, with a bounded backend
 trial and usable single-window fallback. Detached developer views first; do not
 spend an indefinite milestone on experimental Flutter windowing. Windows keep-awake
@@ -57,7 +64,7 @@ fix or explanation of the earlier 94 ms failure. Six controller/widget checks
 cover shortcuts/shared-view undo, but four-view reopening after large files fails
 at 389.306 ms versus the unchanged 250 ms target. Physical input, byte-safe Save
 and production protocol/resource gates remain open. See [qualification](../qualification/workspace-editor.md). Older
-prototypes are evidence, not approval of the revised separate-page UI.
+prototypes are historical evidence; developer-pages B's amended layout is approved.
 
 [Remaining work](../qualification/remaining-work.md) retains broad model, learning,
 computer-use, idle-resource, platform/accessibility gates. Milestone 20's reviewed
@@ -68,8 +75,9 @@ replay unrelated paused work or silently raise limits to disguise failures.
 
 - Read applicable AGENTS.md/RTK guidance; use RTK commands and CodeGraph first for
   indexed source. Follow [UI](../UI.md).
-- Start with **16.0: revised page prototype and editor feasibility**. Review this
-  concrete UI direction before production changes; do not promote a failing trial.
+- Continue **16.0: revised page prototype and editor feasibility**. The amended B
+  direction is final; resolve editor gates without another prototype revision.
+  Do not promote a failing trial.
 - Keep work to the authorized brick; commit completed bricks in English with hooks.
   Do not push without explicit instruction. Platform CI 8.4 stays deferred.
 - Verify basic flow and one or two realistic failures/recovery when applicable;

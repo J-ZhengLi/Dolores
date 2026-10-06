@@ -3,8 +3,9 @@
 **Planning contract, not delivered behavior.** The user replaced mixed chat/file
 panes with the familiar Home agent view and separate project-bound developer pages.
 Implement one roadmap brick at a time. Earlier prototypes remain references; no
-A/B/C selection is required for this new page structure. Review its navigation/
-page prototype at 16.0 before UI rollout. Existing editor feasibility failures in
+A/B/C selection from earlier mixed-pane studies applies to this page structure.
+The user finalized **developer-pages variant B** with the amendments below on
+2026-10-07; no further prototype revision is requested. Existing editor feasibility failures in
 [qualification](../qualification/workspace-editor.md) remain open.
 
 ## Navigation and page layout
@@ -15,6 +16,11 @@ supplied the ChatGPT desktop screenshot on 2026-10-07, replacing the full-width
 labeled navigation study. Start at 64 logical pixels with 48-pixel targets;
 page names appear on hover/focus and remain semantic labels. Keep the wider page
 panel beside the rail for sessions/files; brand appears once in that panel.
+Use B's collapsible adjacent panel. A sidebar-layout button at the **top-left of
+the title bar**, matching the supplied ChatGPT reference, toggles it; neither a
+Close button nor a folder icon substitutes for this control. The panel's divider
+supports mouse resizing down to hidden; reopening restores its last usable width.
+Provide a named keyboard-accessible toggle and preserve panel contents when hidden.
 Preserve Dolores's
 infinity brand, palette, system appearance, message/composer and conversation
 controls. Inspiration does not mean copying assets or exact dimensions. Primary
@@ -27,7 +33,7 @@ quiet selected backgrounds and contextual actions; no permanent pane action bars
 | Scheduled | Auto-created tasks and status filters | Next run, progress, result/error and run history | Create through chat; no New task form |
 | Folders | Selected project's lazy file hierarchy | VS Code-inspired file tabs/editor and file-only splits | Open folder if no project is selected |
 | Source Control | Selected repo, Changes/Staged/History | Inline/side-by-side Git diff and history | Open folder without a project; explain missing repo/Git |
-| Terminal | Terminal sessions if useful | Interactive terminal tabs/splits and plus button | New terminal at selected root or OS user home |
+| Terminal | Terminal sessions if useful | Interactive terminal tabs/splits and plus button | Enter terminal directly; initial shell at selected root or OS user home, no welcome page |
 | Settings | Existing categories | Current editors plus named new controls as implemented | Always reachable at the bottom |
 
 Scheduled remains truthfully unavailable until 22; manual schedule creation is
@@ -37,11 +43,14 @@ and marketplace remain excluded.
 
 ## Selected project and retained work
 
-Home's project chat or an explicit project picker sets the selected project; show
-its name/root on Folders, Source Control and Terminal. A side chat clears selection
-rather than borrowing a previous folder. Temporary folders may be selected
-explicitly. Open folder creates/reuses a canonical project record and selects it;
-it does not send a message, create a chat or grant model/tool access.
+Selecting a conversation on **Home** sets the project context to that conversation's
+project: selecting an A conversation selects A. An unbound side conversation clears
+selection rather than borrowing a previous folder. Page headers may show a read-only
+name/root, but **no explicit project dropdown/picker** appears on Folders, Source
+Control or Terminal. Open folder remains a deliberate empty-state action on Folders;
+it must enter the existing project-conversation flow, not create a second independent
+selection or silently rebind an existing/running conversation. Cancel retains the
+prior conversation/context. Choosing a folder grants no model/tool access.
 
 Navigation changes visibility, never the project/model/grants of existing work.
 File focus does not select another project. Folders/Source Control retain tabs and
@@ -52,6 +61,9 @@ runs stay visible in sessions. No duplicate chat controllers or double sends.
 
 Terminal plus snapshots selection at click time: selected root or OS home. Existing
 terminals retain their original project/cwd, including a user-changed shell cwd.
+Once the PTY feature is delivered, first entry to Terminal opens its initial view
+and shell directly if none exists; later visits reuse existing terminals. No welcome
+screen or separate Start terminal step. Visiting Home never creates a shell.
 Headers identify this basis. Missing roots offer Choose folder/Open at home rather
 than silent fallback. Selecting B cannot retarget A's running shell.
 
