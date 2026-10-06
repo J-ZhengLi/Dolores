@@ -99,13 +99,33 @@ class FileHost extends ChangeNotifier {
   int _binding = 0;
   String? _pendingBinding;
   bool _disposed = false;
-  FileHost(this.bridge);
-  Future<dynamic> call(FileWorkspace w, Map<String, dynamic> request) =>
-      bridge.call({
-        'command': 'editor',
-        'session': w.session,
-        'request': {'project': w.project, ...request},
-      });
+  final bool Function(String root)? mutationBusy;
+  FileHost(this.bridge, {this.mutationBusy});
+  Future<dynamic> call(FileWorkspace w, Map<String, dynamic> request) {
+    if (mutationBusy?.call(w.root) == true &&
+        [
+          'edit',
+          'save',
+          'saveAs',
+          'rename',
+          'delete',
+          'create',
+          'reload',
+          'rebase',
+        ].contains(request['action'])) {
+      return Future.error(
+        StateError(
+          'Finish the Git action before changing files. Drafts remain.',
+        ),
+      );
+    }
+    return bridge.call({
+      'command': 'editor',
+      'session': w.session,
+      'request': {'project': w.project, ...request},
+    });
+  }
+
   void changed() {
     if (!_disposed) notifyListeners();
   }
@@ -432,6 +452,9 @@ class FileHost extends ChangeNotifier {
 
   bool edit(FileDocument d, String text) {
     try {
+      if (mutationBusy?.call(workspaces[d.project]?.root ?? '') == true) {
+        throw StateError('Finish the Git action before editing.');
+      }
       if (d.readonly || d.pending || d.closed) {
         throw StateError(
           'This document is read-only or completing a file action.',

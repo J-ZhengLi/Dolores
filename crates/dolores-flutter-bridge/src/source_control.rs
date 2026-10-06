@@ -10,6 +10,8 @@ use std::{
 use tokio_util::sync::CancellationToken;
 #[path = "git_diff.rs"]
 mod diff;
+#[path = "git_mutation.rs"]
+mod mutation;
 
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
@@ -37,6 +39,19 @@ pub(crate) enum Request {
     Cancel {
         job: String,
     },
+    Review {
+        repo: String,
+        revision: String,
+        operation: mutation::Mutation,
+    },
+    Apply {
+        repo: String,
+        token: String,
+    },
+    DiscardReview {
+        repo: String,
+        token: String,
+    },
 }
 struct Job {
     session: String,
@@ -46,11 +61,21 @@ struct Job {
 #[derive(Default)]
 pub(crate) struct Registry {
     jobs: BTreeMap<String, Job>,
-    active: BTreeMap<String, String>,
+    pub(super) active: BTreeMap<String, String>,
     closed: bool,
     lanes: BTreeMap<String, Arc<Mutex<()>>>,
+    reviews: BTreeMap<String, mutation::Review>,
+    mutations: BTreeMap<String, PathBuf>,
 }
 impl Registry {
+    pub fn mutation_overlaps(&self, root: &Path) -> bool {
+        self.mutations
+            .values()
+            .any(|r| root.starts_with(r) || r.starts_with(root))
+    }
+    pub fn review_root(&self, id: &str) -> Option<PathBuf> {
+        self.reviews.get(id).map(|r| r.root.clone())
+    }
     pub fn stop(&self) {
         for job in self.jobs.values() {
             job.cancel.cancel();
@@ -123,6 +148,7 @@ impl Repo {
         let mut digest = Sha256::new();
         digest.update(&raw);
         digest.update(head.as_deref().unwrap_or("unborn").as_bytes());
+        digest.update(self.command(&["config", "--null", "--list", "--show-origin"], cancel)?);
         let mut total = 0u64;
         for entry in &entries {
             let path = entry["path"].as_str().ok_or("Invalid Git path.")?;
@@ -314,6 +340,14 @@ impl Engine {
                     );
                 }
                 let id = uuid::Uuid::new_v4().to_string();
+                if let Request::Apply { repo, .. } = &operation {
+                    let review = state
+                        .reviews
+                        .get(repo)
+                        .ok_or("Git review expired. Review again.")?;
+                    let mutation_root = review.root.clone();
+                    state.mutations.insert(id.clone(), mutation_root);
+                }
                 let cancel = CancellationToken::new();
                 state.active.insert(root.clone(), id.clone());
                 state.jobs.insert(
@@ -325,8 +359,9 @@ impl Engine {
                     },
                 );
                 let registry = self.git.clone();
+                let editor = self.editor.clone();
                 let owned = id.clone();
-                self.runtime.spawn_blocking(move || {
+                std::thread::spawn(move || {
                     let result = Repo::discover(&root, &cancel).and_then(|repo| {
                         let lane = {
                             let mut state = registry
@@ -362,11 +397,33 @@ impl Engine {
                                 repo.check(&id)?;
                                 repo.commit_files(&commit, &cancel)
                             }
+                            Request::Review {
+                                repo: id,
+                                revision,
+                                operation,
+                            } => {
+                                repo.check(&id)?;
+                                repo.review(&revision, operation, &registry, &cancel)
+                            }
+                            Request::Apply { repo: id, token } => {
+                                repo.check(&id)?;
+                                repo.apply(&token, &registry, &editor, &cancel)
+                            }
+                            Request::DiscardReview { repo: id, token } => {
+                                repo.check(&id)?;
+                                let mut state =
+                                    registry.lock().map_err(|_| "Git reviews unavailable.")?;
+                                if state.reviews.get(&id).is_some_and(|r| r.token == token) {
+                                    state.reviews.remove(&id);
+                                }
+                                Ok(Value::Null)
+                            }
                             _ => unreachable!(),
                         }
                     });
                     if let Ok(mut state) = registry.lock() {
                         state.active.remove(&root);
+                        state.mutations.remove(&owned);
                         if let Some(job) = state.jobs.get_mut(&owned) {
                             job.result = Some(result);
                         }

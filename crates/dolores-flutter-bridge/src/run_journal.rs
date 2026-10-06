@@ -19,6 +19,9 @@ pub(super) struct RunCoordinator {
     admission: Arc<crate::run_admission::Admission>,
 }
 impl RunCoordinator {
+    pub fn has_repo(&self,root:&std::path::Path)->bool{
+        self.primary.values().any(|scope|std::path::Path::new(scope).starts_with(root)) || self.primary.len()!=self.runs.len()
+    }
     pub fn reserve(&mut self, run: Run) -> Result<(), String> {
         if self.closed || !self.runs.is_empty() {
             return Err("Stop the current response first. Only one execution is allowed.".into());

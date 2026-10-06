@@ -98,7 +98,7 @@ struct TurnRequest {
 }
 struct Engine {
     git: Arc<Mutex<source_control::Registry>>,
-    editor: Mutex<editor::Registry>,
+    editor: Arc<Mutex<editor::Registry>>,
     keep_awake: Mutex<Option<experimental::PowerRequest>>,
     runtime: Runtime,
     store: Arc<dyn SessionStore>,
@@ -751,7 +751,7 @@ impl Engine {
         }
         Ok(Self {
             git: Arc::new(Mutex::new(Default::default())),
-            editor: Mutex::new(Default::default()),
+            editor: Arc::new(Mutex::new(Default::default())),
             keep_awake: Mutex::new(None),
             runtime,
             store,
@@ -810,7 +810,12 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
-            Command::Git {session,request} => {drop(active);return self.git_call(&session,request);},
+            Command::Git {session,request} => {
+                if let source_control::Request::Apply{repo,..}=&request {
+                    if self.git.lock().map_err(|_|"Source Control is unavailable.")?.review_root(repo).is_some_and(|root|active.has_repo(&root)) {return Err("Finish or stop the task in this repository before its Git mutation. Review and drafts remain.".into());}
+                }
+                drop(active);return self.git_call(&session,request);
+            },
             Command::Editor {session,request} => return self.editor_call(&session,request),
             Command::ExperimentalPreferences => return self.experimental_view(),
             Command::SaveExperimentalPreferences { preferences } => return self.save_experimental(preferences),
@@ -1581,6 +1586,7 @@ impl Engine {
                 let scope = self.store.workspace(session.as_deref().unwrap())?.root
                     .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
                 active.check_scope(id,&scope)?;
+                if self.git.lock().map_err(|_|"Source Control is unavailable.")?.mutation_overlaps(std::path::Path::new(&scope)){return Err("Finish the Git operation in this worktree before starting a task. Your draft remains.".into());}
                 if desktop_capture.is_some() != observation_model.is_some()
                     || (desktop_capture.is_some()
                         && (continuation.is_some()

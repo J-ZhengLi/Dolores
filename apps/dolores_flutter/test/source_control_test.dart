@@ -41,6 +41,47 @@ class DiffBridge implements ChatBridge {
   }
 }
 
+class MutationBridge implements ChatBridge {
+  Map<String, dynamic>? pending;
+  bool reject = false;
+  @override
+  Future<void> open() async {}
+  @override
+  Future<void> close() async {}
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    final r = Map<String, dynamic>.from(command['request'] as Map);
+    if (r['action'] != 'poll') {
+      pending = r;
+      return {'job': 'mutation'};
+    }
+    if (pending!['action'] == 'review')
+      return {
+        'done': true,
+        'value': {
+          'token': 'once',
+          'repo': 'A',
+          'paths': ['same.txt'],
+          'root': 'C:/A',
+          'revision': 'v1',
+          'operation': pending!['operation'],
+          'patch': 'fixture saved diff',
+          'notice': 'Configured hooks remain enabled.',
+        },
+      };
+    if (reject) throw StateError('Commit hook refused. Draft remains.');
+    return {
+      'done': true,
+      'value': {
+        'completed': true,
+        'operation': {'kind': 'commit'},
+        'warning': null,
+        'status': {'repo': 'A', 'revision': 'v2'},
+      },
+    };
+  }
+}
+
 class GitBridge implements ChatBridge {
   final jobs = <String, Completer<dynamic>>{};
   bool fail = false;
@@ -75,6 +116,64 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  test('failed reviewed commit retains its draft; a fresh successful review clears it', () async {
+    final bridge = MutationBridge();
+    final host = GitHost(bridge);
+    final w = GitWorkspace('C:/A', 'A')
+      ..status = {'repo': 'A', 'revision': 'v1'}
+      ..commitDraft = 'Keep this message';
+    final review = await host.review(w, {
+      'kind': 'commit',
+      'message': w.commitDraft,
+    });
+    expect(review, isNotNull);
+    bridge.reject = true;
+    await host.resolveReview(w, review!, apply: true);
+    expect(w.commitDraft, 'Keep this message');
+    expect(w.error, contains('hook refused'));
+    expect(w.mutating, false);
+    bridge.reject = false;
+    final retry = await host.review(w, {
+      'kind': 'commit',
+      'message': w.commitDraft,
+    });
+    await host.resolveReview(w, retry!, apply: true);
+    expect(w.commitDraft, '');
+    expect(w.status!['revision'], 'v2');
+    host.dispose();
+  });
+  testWidgets(
+    'Git action review requires a separate decision and Cancel retains draft',
+    (t) async {
+      final host = GitHost(MutationBridge());
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'}
+        ..commitDraft = 'draft';
+      host.selected = w;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => reviewGitAction(context, host, w, {
+                'kind': 'commit',
+                'message': w.commitDraft,
+              }),
+              child: const Text('Review'),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.text('Review'));
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('git-apply-review')), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await t.pumpAndSettle();
+      expect(w.commitDraft, 'draft');
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   test(
     'stale diff failure preserves the displayed tab; explicit refresh recovers',
     () async {

@@ -6,9 +6,26 @@ import 'chat.dart';
 import 'file_host.dart';
 import 'git_host.dart';
 
+import 'package:path/path.dart' as paths;
+
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
-  late final FileHost files = FileHost(initial.bridge);
+  static String gitPath(String value) => value
+      .replaceFirst(r'\\?\', '')
+      .replaceAll('\\', '/')
+      .toLowerCase()
+      .replaceAll(RegExp(r'/+$'), '');
+  late final FileHost files = FileHost(
+    initial.bridge,
+    mutationBusy: (root) => git.workspaces.values.any(
+      (w) =>
+          w.mutating &&
+          (gitPath(root) == gitPath(w.status?['root'] as String? ?? w.root) ||
+              gitPath(root).startsWith(
+                '${gitPath(w.status?['root'] as String? ?? w.root)}/',
+              )),
+    ),
+  );
   late final GitHost git = GitHost(initial.bridge);
   final ChatController initial;
   final owners = <ChatController>[];
@@ -42,6 +59,13 @@ class AppHost extends ChangeNotifier {
 
   Future<bool> prepareQuit({required bool saveFiles}) async {
     try {
+      if (git.workspaces.values.any(
+        (w) => w.reviewOpen != null || w.commitDraft.isNotEmpty,
+      )) {
+        throw StateError(
+          'Close the Git review and commit or clear its message before closing. The commit draft remains.',
+        );
+      }
       if (git.workspaces.values.any((w) => w.busy)) {
         throw StateError(
           'Stop or finish the Source Control operation before closing.',
@@ -94,6 +118,41 @@ class AppHost extends ChangeNotifier {
 
   static const maxOwners = 8;
   AppHost(this.initial) {
+    git.beforeMutation = (w, selectedPaths) {
+      final root = w.status?['root'] as String? ?? w.root;
+      if (tasks.any(
+        (c) =>
+            gitPath(c.workspaceRoot ?? '').startsWith('${gitPath(root)}/') ||
+            gitPath(c.workspaceRoot ?? '') == gitPath(root),
+      )) {
+        throw StateError(
+          'Finish or stop the task in this repository before changing Git state.',
+        );
+      }
+      for (final d in files.documents.values) {
+        final dw = files.workspaces[d.project];
+        if (dw == null) continue;
+        final full = gitPath(paths.join(dw.root, d.path));
+        if (selectedPaths.any((p) => gitPath(paths.join(root, p)) == full) &&
+            (d.dirty || d.pending || d.blocked || d.text != d.acknowledged)) {
+          throw StateError(
+            'Save or close unsaved editors for these Git paths, then review again. Drafts remain.',
+          );
+        }
+      }
+    };
+    git.afterMutation = (w) async {
+      for (final fw in files.workspaces.values.where(
+        (fw) =>
+            gitPath(fw.root) ==
+                gitPath(w.status?['root'] as String? ?? w.root) ||
+            gitPath(
+              fw.root,
+            ).startsWith('${gitPath(w.status?['root'] as String? ?? w.root)}/'),
+      )) {
+        await files.refreshDocuments(fw);
+      }
+    };
     visible = initial;
     _appearance = initial.appearance;
     _add(initial);

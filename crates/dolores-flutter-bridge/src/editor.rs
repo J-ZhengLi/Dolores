@@ -184,6 +184,12 @@ fn apply_edits(text: &str, edits: &[Edit]) -> Result<String, String> {
     Ok(out)
 }
 impl Registry {
+    pub(super) fn ensure_git_clean(&self,root:&std::path::Path,paths:&[String])->Result<(),String>{
+        for d in self.docs.values().filter(|d|d.dirty()) {
+            let full=std::path::Path::new(&d.root).join(&d.snapshot.path);
+            if paths.iter().any(|p|full==root.join(p)){return Err("Save or close unsaved editors for these Git paths, then review again. Their drafts remain.".into());}
+        }Ok(())
+    }
     fn replacement(&self,old:&Document,next:&Document)->Result<(),String>{
         if self.bytes()-old.snapshot.text.len()-old.text.len()+next.snapshot.text.len()+next.text.len()>4*1024*1024{
             return Err("Resident text limit reached. Save and close an inactive document; previous buffer is retained.".into());
@@ -206,6 +212,7 @@ impl Registry {
 }
 impl Engine {
     pub(super) fn editor_can_restart(&self)->Result<(),String>{
+        if !self.git.lock().map_err(|_|"Source Control is unavailable.")?.active.is_empty(){return Err("Finish or stop Source Control before restarting native code.".into());}
         if self.editor.lock().map_err(|_|"Editor state is unavailable.")?.docs.values().any(Document::dirty){
             return Err("Save or close unsaved file editors before installing or restoring native code. Their edits are retained; no restart occurred.".into());
         }Ok(())
@@ -217,6 +224,10 @@ impl Engine {
             .root
             .ok_or("Select a working project conversation on Home or open a folder.")?;
         let project = project_id(&root);
+        if !matches!(&request,Request::Workspace|Request::Tree{..}|Request::Open{..}|Request::Compare{..}|Request::Checkpoint{..}|Request::Layout{..}|Request::Attach{..}|Request::Close{..})
+            && self.git.lock().map_err(|_|"Source Control is unavailable.")?.mutation_overlaps(std::path::Path::new(&root)) {
+            return Err("A Git mutation is running in this worktree. Finish it before editing or saving; drafts remain.".into());
+        }
         let supplied = match &request {
             Request::Workspace => None,
             Request::Attach { project, .. } | Request::Refresh { project, .. } => Some(project),

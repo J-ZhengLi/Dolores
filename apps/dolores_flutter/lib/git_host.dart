@@ -9,6 +9,9 @@ class GitWorkspace {
   String session;
   Map<String, dynamic>? status;
   bool busy = false;
+  bool mutating = false;
+  String? notice;
+  Map<String, dynamic>? reviewOpen;
   String? job, jobSession, error;
   String commitDraft = '';
   final tabs = <String, Map<String, dynamic>>{};
@@ -28,6 +31,8 @@ class GitHost extends ChangeNotifier {
   final workspaces = <String, GitWorkspace>{};
   GitWorkspace? selected;
   String? error;
+  void Function(GitWorkspace w, List<String> paths)? beforeMutation;
+  Future<void> Function(GitWorkspace w)? afterMutation;
   bool _disposed = false;
   void changed() {
     if (!_disposed) notifyListeners();
@@ -70,6 +75,7 @@ class GitHost extends ChangeNotifier {
       throw StateError('Wait for this repository operation, then Retry.');
     }
     w.busy = true;
+    w.mutating = request['action'] == 'apply';
     w.error = null;
     changed();
     final session = w.session;
@@ -96,6 +102,7 @@ class GitHost extends ChangeNotifier {
       rethrow;
     } finally {
       w.busy = false;
+      w.mutating = false;
       w.job = null;
       w.jobSession = null;
       changed();
@@ -188,6 +195,62 @@ class GitHost extends ChangeNotifier {
         'request': {'action': 'cancel', 'job': w.job},
       });
     }
+  }
+
+  Future<Map<String, dynamic>?> review(
+    GitWorkspace w,
+    Map<String, dynamic> operation,
+  ) async {
+    try {
+      final preview = Map<String, dynamic>.from(
+        await run(w, {
+          'action': 'review',
+          'repo': w.status!['repo'],
+          'revision': w.status!['revision'],
+          'operation': operation,
+        }),
+      );
+      beforeMutation?.call(w, (preview['paths'] as List).cast<String>());
+      w.reviewOpen = preview;
+      return preview;
+    } catch (e) {
+      w.error = '$e';
+      changed();
+      return null;
+    }
+  }
+
+  Future<void> resolveReview(
+    GitWorkspace w,
+    Map<String, dynamic> preview, {
+    required bool apply,
+  }) async {
+    try {
+      if (apply) {
+        beforeMutation?.call(w, (preview['paths'] as List).cast<String>());
+      }
+      final value = await run(w, {
+        'action': apply ? 'apply' : 'discardReview',
+        'repo': preview['repo'],
+        'token': preview['token'],
+      });
+      if (apply) {
+        w.notice = value['warning'] as String? ?? 'Git action completed.';
+        if (value['completed'] == true &&
+            (value['operation'] as Map)['kind'] == 'commit') {
+          w.commitDraft = '';
+        }
+        if (value['status'] != null) {
+          w.status = Map<String, dynamic>.from(value['status']);
+        }
+        await afterMutation?.call(w);
+      }
+    } catch (e) {
+      w.error = '$e';
+    } finally {
+      w.reviewOpen = null;
+    }
+    changed();
   }
 
   @override

@@ -3,6 +3,129 @@ import 'package:flutter/material.dart';
 import 'git_host.dart';
 import 'git_diff_view.dart';
 
+Future<void> reviewGitAction(
+  BuildContext context,
+  GitHost git,
+  GitWorkspace w,
+  Map<String, dynamic> operation,
+) async {
+  final preview = await git.review(w, operation);
+  if (preview == null) return;
+  if (!context.mounted) {
+    await git.resolveReview(w, preview, apply: false);
+    return;
+  }
+  final approved = await showDialog<bool>(
+    context: context,
+    builder: (context) => Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 620),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Text(
+                'Review ${operation['kind']}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              SelectableText('${preview['root']}'),
+              if (preview['author'] != null)
+                SelectableText('Author: ${preview['author']}'),
+              Text(preview['notice'] as String),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final path in preview['paths'] as List)
+                      Text(path as String),
+                    if (operation['message'] != null)
+                      SelectableText(operation['message'] as String),
+                    SelectableText(
+                      preview['patch'] as String,
+                      style: const TextStyle(
+                        fontFamily: 'Consolas',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Wrap(
+                spacing: 12,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    key: const Key('git-apply-review'),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text('${operation['kind']} once'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  await git.resolveReview(w, preview, apply: approved == true);
+}
+
+class GitCommitBox extends StatefulWidget {
+  final GitHost git;
+  final GitWorkspace workspace;
+  const GitCommitBox({super.key, required this.git, required this.workspace});
+  @override
+  State<GitCommitBox> createState() => _GitCommitBoxState();
+}
+
+class _GitCommitBoxState extends State<GitCommitBox> {
+  late final controller = TextEditingController(
+    text: widget.workspace.commitDraft,
+  );
+  @override
+  void didUpdateWidget(covariant GitCommitBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (controller.text != widget.workspace.commitDraft) {
+      controller.text = widget.workspace.commitDraft;
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(12),
+    child: Column(
+      children: [
+        TextField(
+          key: const Key('git-commit-message'),
+          controller: controller,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 8192,
+          decoration: const InputDecoration(hintText: 'Commit message'),
+          onChanged: (v) => widget.workspace.commitDraft = v,
+        ),
+        TextButton(
+          onPressed: widget.workspace.busy
+              ? null
+              : () => reviewGitAction(context, widget.git, widget.workspace, {
+                  'kind': 'commit',
+                  'message': controller.text,
+                }),
+          child: const Text('Review commit'),
+        ),
+      ],
+    ),
+  );
+}
+
 class SourceControlPanel extends StatelessWidget {
   final GitHost git;
   final VoidCallback openFolder;
@@ -33,6 +156,12 @@ class SourceControlPanel extends StatelessWidget {
                     onPressed: w.busy ? null : () => git.refresh(w),
                     icon: const Icon(Icons.refresh),
                   ),
+                if (w?.busy == true)
+                  IconButton(
+                    tooltip: 'Stop Git operation',
+                    onPressed: () => git.stop(w!),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                  ),
               ],
             ),
           ),
@@ -53,9 +182,13 @@ class SourceControlPanel extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Text(w?.error ?? git.error!),
             ),
+          if (w?.notice != null)
+            Padding(padding: const EdgeInsets.all(12), child: Text(w!.notice!)),
           Expanded(
             child: ListView(
               children: [
+                if (w != null)
+                  GitCommitBox(key: ValueKey(w.root), git: git, workspace: w),
                 for (final staged in [true, false]) ...[
                   Padding(
                     padding: const EdgeInsets.all(12),
@@ -82,11 +215,31 @@ class SourceControlPanel extends StatelessWidget {
                       subtitle: entry['oldPath'] == null
                           ? null
                           : Text('From ${entry['oldPath']}'),
-                      trailing: Text(
-                        entry['conflict'] == true
-                            ? 'Conflict'
-                            : (staged ? entry['index'] : entry['worktree'])
-                                  as String,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            (staged ? entry['index'] : entry['worktree'])
+                                as String,
+                          ),
+                          PopupMenuButton<String>(
+                            tooltip: 'File Git actions',
+                            enabled: w != null && !w.busy,
+                            onSelected: (kind) =>
+                                reviewGitAction(context, git, w!, {
+                                  'kind': kind,
+                                  'paths': [entry['path']],
+                                }),
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: staged ? 'unstage' : 'stage',
+                                child: Text(
+                                  staged ? 'Review unstage' : 'Review stage',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                 ],

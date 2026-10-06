@@ -1,5 +1,24 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control 17.3 — reviewed stage, unstage and commit
+
+Whole-file actions use a host-owned two-minute, single-use review of exact saved
+paths, HEAD/index/configuration and changed bytes. Rename pairs stay together;
+unstaging an unborn repository retains source files. Commit reviews all staged
+paths, the configured author and bounded staged diff, with hooks enabled. A hook
+failure retains the commit message and existing index; changed HEAD after an
+uncertain result is reported for inspection instead of repeating the commit.
+Unsaved/pending selected editors refuse the action, mutations exclude conflicting
+file edits and agent tasks, and Git work uses bounded owned threads rather than
+the chat runtime's blocking pool. Open review/commit drafts protect final Close.
+
+Five native Source Control checks pass, including selective staging, unborn
+unstage, real hook refusal, fresh reviewed commit and stale-byte single-use refusal.
+Thirteen focused Flutter/editor/recovery checks pass for explicit Cancel, hook
+failure draft retention, fresh retry, compact comparisons and file recovery.
+No fixture mutates the user's repository. Full packaging/resource and native UX
+qualification remain for 17.6; hunk/local/remote operations follow in this batch.
+
 ## Source Control 17.2 — saved Git diff tabs and history
 
 Changes/Staged open retained read-only diff tabs with explicit Index, saved working
