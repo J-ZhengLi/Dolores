@@ -15,7 +15,9 @@ stale/cross-chat refusals and Stop preservation in seven requests. Bounded live
 DeepSeek passes five inspected/reviewed steps; routine Qwen remains unqualified
 after a driver parsing failure. The user selected native-first preparation;
 20.3's broader Wasm hook remains unadopted and 20.4–20.6 remain unimplemented.
-Normal foreground visual inspection awaits desktop unlock; see
+Final normal build/launch and packaged fixture pass. All 38 original profile
+tables are unchanged; schema 32 adds only an empty repair table. The launcher
+reports the normal window present. Foreground inspection awaits desktop unlock; see
 [evidence and limits](qualification/harness-self-repair.md).
 
 ## Harness self-repair 20.1 — implemented, visual/platform gates remain

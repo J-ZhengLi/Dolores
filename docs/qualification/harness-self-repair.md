@@ -116,6 +116,13 @@ or rollback. A complete matching build workspace and reviewed native execution
 remain later work. Normal-desktop foreground inspection remains pending while
 Windows is locked.
 
+The final normal build at `13c1534` passed, and the packaged native fixture passed
+again. The maintained normal launcher reports a present visible window with the
+original profile. Read-only comparison verified all 38 original tables unchanged;
+the only added table is empty `harness_repairs`, with schema version 32. Foreground
+visual acceptance remains pending desktop unlock; window presence alone does not
+establish it.
+
 ## Later bricks
 
 20.3's broader extension ABI is not adopted. 20.4–20.6 remain unimplemented;

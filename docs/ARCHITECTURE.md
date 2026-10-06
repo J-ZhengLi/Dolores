@@ -113,8 +113,6 @@ prefix. Automatic activation is separately opted in, off by default, and require
 strict all-pass improvement at equal runtime allowances. This is interpreter
 containment for a narrow ABI, not an OS sandbox or general self-replacement.
 
-## Context and learning
-
 ### Native repair proposal storage
 
 Working chats advertise `harness_repair` for prepare/add/propose/inspect/list.
@@ -128,6 +126,7 @@ repairs per chat, eight files/2 MiB snapshots per repair, sixteen revisions and
 an 8 KiB cumulative file diff. No task replay, build, generated code execution or
 installation occurs. These selected snapshots are not yet a buildable checkout.
 
+## Context and learning
 
 Working chats pin the global [web connection](design/web-search.md) and two
 optional compiled web tools. Their approved literal queries/URLs consume the
