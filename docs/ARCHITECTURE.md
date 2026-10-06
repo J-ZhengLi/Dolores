@@ -19,6 +19,12 @@ This document describes implemented behavior. The [evolving-harness specificatio
 
 ## Does the current architecture support self-evolution?
 
+General conversation-driven harness repair is still missing. Planned
+[milestone 20](design/harness-self-repair.md) adds matching-source search,
+separate repair workspaces, independent tests and qualified activation or
+reviewed native build/restart. Current inspection and recovery-hint mods should
+not be presented as that workflow.
+
 **It supports a narrow executable adaptation envelope.** Typed ports, persisted knowledge, retained skill versions, approvals and recovery support inspection and controlled adaptation. The [shared registry](design/extension-registry.md) describes compiled, MCP and restricted Wasm registrations. [ABI 1 mods](design/executable-mods.md) can refine stateless recovery hints after fixed host-owned tests, with transactional activation, pinned source and restore/quarantine. They cannot replace the agent loop, permission kernel, context preparation or arbitrary UI/native code.
 
 The [run coordinator and durable evidence](design/run-ownership.md) bind cancellation/decisions to client IDs and primary chat evidence to durable IDs. One foreground execution remains the default; safe reads are available during execution and conflicting mutations refuse. [Bounded subagents](design/subagents.md) run inside that owner's lifecycle with inherited permissions and shared limits. Saved drafts/checkpoints, managed thread recovery and text/image attachments are implemented. Automatic preferences, opt-in project-check skill learning and opt-in recovery-mod activation are distinct policies. A tiny executable repair passed a live DeepSeek probe; Qwen drafting and broader automatic skill improvement remain unaccepted. Literal comparisons cannot establish general task competence.

@@ -1,6 +1,13 @@
 # Dolores roadmap
 
-**Developer workspace planning addition — 2026-10-06.** The next direction is
+**Priority change — 2026-10-06.** Milestones 16–19 are paused at the user's
+request. Fix fragmented reasoning-stream failures and silent progress first.
+Then **20 — Harness self-repair** is proposed in [its specification](design/harness-self-repair.md):
+source navigation, managed patch workspaces, broader qualified extension seams,
+independent trials and activation/build/restart/restore. It is planned work,
+not a claim that milestone 13's recovery-hint mods repair the native harness.
+
+**Developer workspace planning addition — 2026-10-06.** The planned direction is
 integrated code editing, Git, terminal/LSP and flexible multi-project views.
 Milestones **16–19 are proposed, not implemented**; first language support is
 TypeScript/JavaScript and Rust, confirmed by the user. The
@@ -86,8 +93,9 @@ This table records the planning baseline, not current missing features. See the 
 | **17 — Git workflow** | Real diffs/history, staging, commit, stash/revert and remote actions | 17.1–17.5 | Requires 16's project/document revisions; serialize repository mutations and preserve conflicted work. |
 | **18 — Terminal and language support** | Interactive project terminals and TypeScript/JavaScript/Rust language services | 18.1–18.5 | Requires 16's ownership; lazy supervised processes, useful missing-tool setup and bounded cleanup. |
 | **19 — Detached windows** | Move live views between windows/monitors without duplicating resources | 19.1–19.4 | Requires shared owners from 16–18; qualify pinned-SDK backend and per-window overhead before adoption. |
+| **20 — Harness self-repair** | Diagnose/reproduce a real fault, test a matching patch and activate or build/restart with restore | 20.1–20.6 | Prioritized before 16–19 after immediate AI fixes; broaden 13's narrow ABI only after containment and independent-test gates. |
 
-Default order is sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Milestones 16–19 form the newly requested developer-workspace track using delivered contracts; their manual editor/Git work does not require falsely closing prior model-reliability gates. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
+Milestone 20 is prioritized before the paused milestones 16–19; other dependencies remain sequential. Independent documents/measurements may proceed within a milestone; runtime dependencies remain binding. Milestones 16–19 form the newly requested developer-workspace track using delivered contracts; their manual editor/Git work does not require falsely closing prior model-reliability gates. Questioning/personality starts in 9.4 and is exercised throughout. Resource checks run throughout. Dates are not promised before baselines establish work size. Each brick has scope, basic acceptance, realistic failures and exclusions below.
 
 ## Milestone 9 — Know itself and own its runs
 
@@ -1056,6 +1064,26 @@ work; LSP/terminal/helper failure stays within its service and preserves chat/ed
 platform/language/resource envelope. Prior model reliability and broad platform/
 accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
+## Milestone 20 — Harness self-repair
+
+**Status: proposed, not implemented.** This milestone takes priority before
+the paused 16–19 developer-workspace track after immediate AI reliability fixes.
+The [specification](design/harness-self-repair.md) defines scope, ownership,
+authority, test/activation and restore contracts for every brick:
+
+1. **20.1:** useful failure evidence and context-aware source search/read.
+2. **20.2:** separate matching-source repair workspace and patch proposal.
+3. **20.3:** broader qualified extension seams beyond recovery hints.
+4. **20.4:** independent reproduction and fixed candidate/regression trials.
+5. **20.5:** qualifying activation or reviewed native build/restart, with restore.
+6. **20.6:** real repair, withheld non-improvement and rollback qualification.
+
+Each brick's basic and realistic failure/recovery criteria are in the spec.
+Success means a fault is reproduced and repaired without losing work; inspection,
+successful compilation or altered recovery wording alone does not satisfy exit.
+Automatic native/core replacement and publication remain excluded. Execution
+begins only when the user requests it.
+
 ## Validation and change control
 
 - Freeze behavior, numerical defaults, criteria and exclusions before each brick; discuss material technical choices. Evidence may correct an assumption, but added scope requires a named spec/roadmap revision before implementation.
@@ -1079,12 +1107,12 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 | Multiple project chats and flexible pane/tab layout | 16.1, 16.4; detached views 19.1–19.4 |
 | Repository diff/history and everyday Git operations | 17.1–17.5 |
 | Interactive terminal and TypeScript/JavaScript/Rust LSP | 18.1–18.5 |
-| Self-inspection/editable versus protected modules | 9.1, 9.3, 13.1–13.3 |
+| Self-inspection/editable versus protected modules | 9.1, 9.3, 13.1–13.3; practical repair 20.1–20.6 |
 | Experience-driven skills | 12.1–12.4 |
 | Questions/scoped answers/humane character | 9.4 and every milestone; continuity 12.1 |
 | Lean cross-platform design | Per-brick measurements, portability 13.1, manual qualification 13.4; desktop backend qualification 14.4 |
 
-Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync, remote/persistent MCP, vector memory, bundled model hosting, automatic worktree isolation, plugin marketplace, general native self-replacement and unattended swarms. These are not silently included elsewhere. Physical IME/screen-reader, low-end and other-OS gaps remain visible alongside scheduled work.
+Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync, remote/persistent MCP, vector memory, bundled model hosting, automatic worktree isolation, plugin marketplace, unattended native core replacement and unattended swarms. These are not silently included elsewhere. Physical IME/screen-reader, low-end and other-OS gaps remain visible alongside scheduled work.
 
 Developer-workspace exclusions: full VS Code extension compatibility, debugger,
 remote SSH/containers development, notebook editor and advanced destructive Git
