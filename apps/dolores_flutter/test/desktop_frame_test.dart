@@ -24,11 +24,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('window_manager');
   final calls = <MethodCall>[];
-  bool maximized = false, failMaximize = false, failInitialize = false;
+  bool maximized = false,
+      failMaximize = false,
+      failInitialize = false,
+      failDestroy = false;
   Completer<void>? pendingMaximize;
   setUp(() {
     calls.clear();
-    maximized = failMaximize = failInitialize = false;
+    maximized = failMaximize = failInitialize = failDestroy = false;
     pendingMaximize = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -37,6 +40,9 @@ void main() {
             throw PlatformException(code: 'fixture');
           }
           if (call.method == 'isMaximized') return maximized;
+          if (call.method == 'destroy' && failDestroy) {
+            throw PlatformException(code: 'fixture');
+          }
           if (call.method == 'isFullScreen' || call.method == 'isMinimized') {
             return false;
           }
@@ -66,6 +72,50 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'OS Close and title Close share review and preserve the window on cancellation',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      var allow = false, reviews = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (_, child) => DesktopFrame(
+            onBeforeClose: () async {
+              reviews++;
+              return allow;
+            },
+            child: child!,
+          ),
+          home: const Scaffold(body: Text('retained draft')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls.where((c) => c.method == 'setPreventClose'), hasLength(1));
+      for (final listener in windowManager.listeners.toList()) {
+        listener.onWindowClose();
+      }
+      await tester.pumpAndSettle();
+      expect(reviews, 1);
+      expect(calls.where((c) => c.method == 'destroy'), isEmpty);
+      expect(find.text('retained draft'), findsOneWidget);
+      allow = true;
+      failDestroy = true;
+      await tester.tap(find.byKey(const Key('window-close')));
+      await tester.pumpAndSettle();
+      expect(reviews, 2);
+      expect(calls.where((c) => c.method == 'destroy'), hasLength(1));
+      expect(find.text('Could not close the window.'), findsOneWidget);
+      failDestroy = false;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(reviews, 2);
+      expect(calls.where((c) => c.method == 'destroy'), hasLength(2));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
 
   testWidgets(
     'The real app keeps its draft and window controls through theme and dialog changes',

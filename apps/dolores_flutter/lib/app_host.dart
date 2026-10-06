@@ -18,6 +18,60 @@ class AppHost extends ChangeNotifier {
   final appearanceChanges = ValueNotifier(0);
   String? _appearance;
   final _running = <ChatController>{};
+  final _themes = <ChatController, VoidCallback>{};
+  Future<bool> Function()? closeReview;
+  Future<bool> requestClose() async => await closeReview?.call() ?? false;
+  Future<void> prepareNativeRestart(ChatController caller) async {
+    if (owners.any((c) => c.busy || c.loading || c.changing) ||
+        files.loading ||
+        files.documents.values.any(
+          (d) => d.dirty || d.pending || d.blocked || d.text != d.acknowledged,
+        )) {
+      throw StateError(
+        'Finish current work and save or close unsaved file editors before restarting. All drafts and this review remain.',
+      );
+    }
+    for (final owner in owners.where((c) => c != caller)) {
+      await owner.checkpointDraft();
+    }
+  }
+
+  Future<bool> prepareQuit({required bool saveFiles}) async {
+    try {
+      if (owners.any((c) => c.changing || c.loading)) {
+        throw StateError('Finish the current operation before closing.');
+      }
+      if (saveFiles) {
+        for (final d in files.documents.values.where((d) => d.dirty).toList()) {
+          if (!await files.save(files.workspaces[d.project]!, d)) {
+            throw StateError(
+              'A file could not be saved. Its edits remain open.',
+            );
+          }
+        }
+      }
+      for (final w in files.workspaces.values) {
+        if (!await files.checkpoint(w)) {
+          throw StateError(w.recoveryError ?? 'Private recovery failed.');
+        }
+        await files.persistLayout(w);
+        if (w.layoutError != null) throw StateError(w.layoutError!);
+      }
+      for (final c in owners) {
+        await c.checkpointDraft();
+      }
+      for (final c in tasks.toList()) {
+        await c.stop();
+      }
+      await initial.bridge.close();
+      return true;
+    } catch (e) {
+      error = '$e Keep Dolores open and retry.';
+      notifyListeners();
+      return false;
+    }
+  }
+
   void togglePanel() {
     panelHidden = !panelHidden;
     notifyListeners();
@@ -36,8 +90,22 @@ class AppHost extends ChangeNotifier {
     _add(initial);
   }
   void _add(ChatController owner) {
+    owner.beforeNativeRestart = () => prepareNativeRestart(owner);
+    owner.appearance = _appearance ?? owner.appearance;
     owners.add(owner);
     owner.addListener(_changed);
+    void theme() {
+      if (_appearance == owner.appearance) return;
+      _appearance = owner.appearance;
+      for (final other in owners.where((c) => c != owner)) {
+        other.appearance = _appearance!;
+      }
+      appearanceChanges.value++;
+      notifyListeners();
+    }
+
+    _themes[owner] = theme;
+    owner.appearanceChanges.addListener(theme);
   }
 
   void _changed() {
@@ -80,6 +148,7 @@ class AppHost extends ChangeNotifier {
         );
       }
       removable.removeListener(_changed);
+      removable.appearanceChanges.removeListener(_themes.remove(removable)!);
       owners.remove(removable);
       removable.dispose();
     }
@@ -160,7 +229,9 @@ class AppHost extends ChangeNotifier {
   void dispose() {
     files.dispose();
     for (final owner in owners) {
+      owner.beforeNativeRestart = null;
       owner.removeListener(_changed);
+      owner.appearanceChanges.removeListener(_themes[owner]!);
     }
     for (final owner in owners.where((c) => c != initial)) {
       owner.dispose();

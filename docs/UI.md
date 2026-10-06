@@ -37,9 +37,13 @@ breadcrumbs, without a permanent pane action bar. Source Control has project-bou
 changes and Git diffs. Terminal has separate tabs/splits; plus starts at the
 selected project root, or OS user home if no project is selected. Home chats stay
 in their current UI. Keep this document's palette, icons, focus and compact rules.
-The planned Experimental page contains Multiple Window (default On, backend
+The implemented Experimental page contains Multiple Window (default On, backend
 availability explicit) and Windows keep-awake (default Off, actual power/security
-limits disclosed). These targets are not yet the running rail/editor.
+limits disclosed). Home, the compact rail and Folders editor are implemented in
+milestone 16. Source Control, Terminal and detached views remain later milestones.
+File highlighting is bounded to 64 KiB; larger editable documents show a plain-text
+status. Private recovery/layout failures expose Retry, and final Close keeps the
+app open when persistence fails. Native physical input remains separately qualified.
 
 The [memory/scheduling contract](design/memory-scheduling-companionship.md) plans
 one-switch useful automatic memory with inspect/forget, natural-language task
@@ -105,6 +109,11 @@ and semantic increase/decrease resize by 16 pixels. Resizing preserves drafts,
 conversation state and section expansion. Sidebar content starts 12 pixels below
 the title strip, with 16 pixels between the brand and New chat; Settings stays
 anchored at the bottom. Section labels ellipsize before clipping their chevrons.
+
+Milestone 16 supersedes those legacy ChatPage width/drawer values for the normal
+workspace shell: the rail stays 64 pixels, the adjacent panel ranges from 180 to
+420 pixels and dragging below 80 hides it. Below 800 pixels it overlays content.
+The title-bar button restores it at the retained width; Settings stays on the rail.
 
 ## Unified settings
 

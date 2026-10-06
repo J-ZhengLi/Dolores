@@ -53,6 +53,7 @@ impl RunCoordinator {
     pub fn is_some(&self) -> bool {
         !self.runs.is_empty()
     }
+    #[cfg(test)]
     pub fn as_mut(&mut self) -> Option<&mut Run> {
         self.runs.values_mut().next()
     }
@@ -69,7 +70,10 @@ impl RunCoordinator {
     }
     pub fn close(&mut self) {
         self.closed = true;
+        self.admission.close();
+        for run in self.runs.values(){run.cancel.cancel();}
     }
+    pub fn check_scope(&self,id:u64,scope:&str)->Result<(),String>{self.admission.check(id,scope)}
     pub fn closed(&self) -> bool {
         self.closed
     }

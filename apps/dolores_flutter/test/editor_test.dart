@@ -48,6 +48,50 @@ class EditingBridge extends FileBridge {
 }
 
 void main() {
+  test('UTF-8 byte accounting refuses a multibyte long line and refreshes cached bases', () async {
+    final host = AppHost(ChatController(EditingBridge())..loading = false);
+    await host.files.bind('A', 'C:/A');
+    final d = (await host.files.open(host.files.selected!, 'a.txt'))!;
+    final view = d.buffer.createView();
+    view.selection = const CodeLineSelection(
+      baseIndex: 0,
+      baseOffset: 0,
+      extentIndex: 0,
+      extentOffset: 5,
+    );
+    view.replaceSelection('😀' * 2048);
+    await host.files.flush(d);
+    expect(d.textBytes, 8192);
+    expect(d.savedBytes, 5);
+    view.replaceSelection('x');
+    expect(d.error, contains('8 KiB'));
+    expect(d.textBytes, 8192);
+    expect(d.text, '😀' * 2048);
+    d.accept({
+      'snapshot': {...d.snapshot, 'text': 'new'},
+      'text': 'new',
+      'version': d.version + 1,
+    });
+    expect(d.textBytes, 3);
+    expect(d.savedBytes, 3);
+    final separate = '${'x' * 4097}\n${'y' * 4097}';
+    d.accept({
+      'snapshot': {...d.snapshot, 'text': separate},
+      'text': separate,
+      'version': d.version + 1,
+    });
+    view.selection = const CodeLineSelection(
+      baseIndex: 0,
+      baseOffset: 4097,
+      extentIndex: 1,
+      extentOffset: 0,
+    );
+    view.replaceSelection('');
+    expect(d.error, contains('8 KiB'));
+    expect(d.text, separate);
+    view.dispose();
+    host.dispose();
+  });
   test('duplicate views share text and undo, with independent selection and bounded history', () {
     final doc = DocumentBuffer('a😀b\n', onEdit: (_) => true);
     final a = doc.createView(), b = doc.createView();
@@ -163,8 +207,15 @@ void main() {
       );
       await t.pump();
       final editor = t.widget<CodeEditor>(find.byType(CodeEditor));
+      expect(find.byKey(const Key('editor-find')), findsNothing);
       editor.controller!.replaceSelection('mine ');
       await t.pump();
+      final refreshed = t.widget<CodeEditor>(find.byType(CodeEditor));
+      expect(identical(editor.chunkAnalyzer, refreshed.chunkAnalyzer), true);
+      expect(
+        identical(editor.style!.codeTheme, refreshed.style!.codeTheme),
+        true,
+      );
       await host.files.flush(d);
       bridge.failSave = true;
       await t.tap(find.text('Save'));
@@ -178,6 +229,17 @@ void main() {
       await t.tap(find.text('Find (Ctrl+F)'));
       await t.pumpAndSettle();
       expect(find.byKey(const Key('editor-find')), findsOneWidget);
+      d.accept({
+        'snapshot': {...d.snapshot, 'path': 'large.rs', 'text': '\n' * 65537},
+        'text': '\n' * 65537,
+        'version': d.version + 1,
+      });
+      await t.pump();
+      expect(
+        t.widget<CodeEditor>(find.byType(CodeEditor)).style!.codeTheme,
+        isNull,
+      );
+      expect(find.textContaining('Plain text above 64 KiB'), findsOneWidget);
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox());
       host.dispose();

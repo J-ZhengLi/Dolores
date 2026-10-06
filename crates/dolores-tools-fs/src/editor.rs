@@ -272,7 +272,7 @@ impl EditorFolder {
         parent.hard_link(&name, &dest, &new_name).map_err(|_| {
             "Destination exists or rename is unavailable. Original file is retained."
         })?;
-        if let Err(_) = parent.remove_file(&name) {
+        if parent.remove_file(&name).is_err() {
             return Err("The new name was created, but the original could not be removed. Refresh both entries.".into());
         }
         self.snapshot(target)

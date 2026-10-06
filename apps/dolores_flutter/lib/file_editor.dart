@@ -59,6 +59,8 @@ class _FileEditorState extends State<FileEditor> {
   FileDocument get d => widget.document;
   FileHost get files => widget.host.files;
   FileWorkspace get w => widget.workspace;
+  final chunks = NonCodeChunkAnalyzer();
+  final highlights = <String, CodeHighlightTheme?>{};
   @override
   void initState() {
     super.initState();
@@ -310,7 +312,12 @@ class _FileEditorState extends State<FileEditor> {
   }
 
   CodeHighlightTheme? highlight(bool dark) {
+    // Each view's highlighter copies a complete source into its worker. Bound
+    // this optional work independently of the document's editable byte limit.
+    if (d.textBytes > 64 * 1024) return null;
     final extension = d.path.split('.').last.toLowerCase();
+    final key = '$extension:$dark';
+    if (highlights.containsKey(key)) return highlights[key];
     final mode = switch (extension) {
       'js' || 'jsx' => langJavascript,
       'ts' || 'tsx' => langTypescript,
@@ -321,13 +328,13 @@ class _FileEditorState extends State<FileEditor> {
       'md' => langMarkdown,
       _ => null,
     };
-    return mode == null
+    return highlights[key] = mode == null
         ? null
         : CodeHighlightTheme(
             languages: {
               extension: CodeHighlightThemeMode(
                 mode: mode,
-                maxSize: 1024 * 1024,
+                maxSize: 64 * 1024,
                 maxLineLength: 8192,
               ),
             },
@@ -339,67 +346,73 @@ class _FileEditorState extends State<FileEditor> {
     BuildContext context,
     CodeFindController c,
     bool readonly,
-  ) => PreferredSize(
-    preferredSize: Size.fromHeight(c.value?.replaceMode == true ? 104 : 56),
-    child: Material(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('editor-find'),
-                    controller: c.findInputController,
-                    focusNode: c.findInputFocusNode,
-                    decoration: const InputDecoration(hintText: 'Find'),
-                    onSubmitted: (_) => c.nextMatch(),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Previous match',
-                  onPressed: c.previousMatch,
-                  icon: const Icon(Icons.keyboard_arrow_up),
-                ),
-                IconButton(
-                  tooltip: 'Next match',
-                  onPressed: c.nextMatch,
-                  icon: const Icon(Icons.keyboard_arrow_down),
-                ),
-                IconButton(
-                  tooltip: 'Close Find',
-                  onPressed: c.close,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            if (c.value?.replaceMode == true)
-              Row(
+  ) => c.value == null
+      ? const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink())
+      : PreferredSize(
+          preferredSize: Size.fromHeight(
+            c.value?.replaceMode == true ? 104 : 56,
+          ),
+          child: Material(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('editor-replace'),
-                      controller: c.replaceInputController,
-                      focusNode: c.replaceInputFocusNode,
-                      decoration: const InputDecoration(hintText: 'Replace'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const Key('editor-find'),
+                          controller: c.findInputController,
+                          focusNode: c.findInputFocusNode,
+                          decoration: const InputDecoration(hintText: 'Find'),
+                          onSubmitted: (_) => c.nextMatch(),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Previous match',
+                        onPressed: c.previousMatch,
+                        icon: const Icon(Icons.keyboard_arrow_up),
+                      ),
+                      IconButton(
+                        tooltip: 'Next match',
+                        onPressed: c.nextMatch,
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                      ),
+                      IconButton(
+                        tooltip: 'Close Find',
+                        onPressed: c.close,
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  if (c.value?.replaceMode == true)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('editor-replace'),
+                            controller: c.replaceInputController,
+                            focusNode: c.replaceInputFocusNode,
+                            decoration: const InputDecoration(
+                              hintText: 'Replace',
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: readonly ? null : c.replaceMatch,
+                          child: const Text('Replace'),
+                        ),
+                        TextButton(
+                          onPressed: readonly ? null : c.replaceAllMatches,
+                          child: const Text('All'),
+                        ),
+                      ],
                     ),
-                  ),
-                  TextButton(
-                    onPressed: readonly ? null : c.replaceMatch,
-                    child: const Text('Replace'),
-                  ),
-                  TextButton(
-                    onPressed: readonly ? null : c.replaceAllMatches,
-                    child: const Text('All'),
-                  ),
                 ],
               ),
-          ],
-        ),
-      ),
-    ),
-  );
+            ),
+          ),
+        );
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: d,
@@ -451,7 +464,7 @@ class _FileEditorState extends State<FileEditor> {
                 focusNode: focus,
                 readOnly: d.readonly || d.pending,
                 wordWrap: false,
-                chunkAnalyzer: NonCodeChunkAnalyzer(),
+                chunkAnalyzer: chunks,
                 indicatorBuilder: (context, controller, chunks, notifier) =>
                     DefaultCodeLineNumber(
                       controller: controller,
@@ -473,7 +486,7 @@ class _FileEditorState extends State<FileEditor> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${d.dirty ? 'Unsaved · ' : ''}UTF-8${d.snapshot['bom'] == true ? ' BOM' : ''} · ${d.snapshot['newline'].toString().toUpperCase()} · Autosave Off${d.buffer.historyLimited ? ' · Undo history limit reached' : ''}',
+                      '${d.dirty ? 'Unsaved · ' : ''}UTF-8${d.snapshot['bom'] == true ? ' BOM' : ''} · ${d.snapshot['newline'].toString().toUpperCase()} · Autosave Off${d.textBytes > 64 * 1024 ? ' · Plain text above 64 KiB' : ''}${d.buffer.historyLimited ? ' · Undo history limit reached' : ''}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

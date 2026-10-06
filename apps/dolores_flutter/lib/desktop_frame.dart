@@ -41,14 +41,20 @@ Future<bool> initializeDesktopFrame() async {
 class DesktopFrame extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTogglePanel;
-  const DesktopFrame({super.key, required this.child, this.onTogglePanel});
+  final Future<bool> Function()? onBeforeClose;
+  const DesktopFrame({
+    super.key,
+    required this.child,
+    this.onTogglePanel,
+    this.onBeforeClose,
+  });
 
   @override
   State<DesktopFrame> createState() => _DesktopFrameState();
 }
 
 class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
-  bool maximized = false, pending = false;
+  bool maximized = false, pending = false, closePrepared = false;
   String? failure;
   Future<void> Function()? retry;
 
@@ -56,7 +62,28 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    if (widget.onBeforeClose != null) {
+      unawaited(
+        perform(
+          'protect Close for recovery',
+          () => windowManager.setPreventClose(true),
+        ),
+      );
+    }
     unawaited(readWindowState());
+  }
+
+  @override
+  void didUpdateWidget(covariant DesktopFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.onBeforeClose == null) != (widget.onBeforeClose == null)) {
+      unawaited(
+        perform(
+          'protect Close for recovery',
+          () => windowManager.setPreventClose(widget.onBeforeClose != null),
+        ),
+      );
+    }
   }
 
   Future<void> readWindowState() async {
@@ -113,6 +140,20 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
       await windowManager.maximize();
     }
     await readWindowState();
+  }
+
+  Future<void> closeWindow() async {
+    if (widget.onBeforeClose == null) {
+      await windowManager.close();
+      return;
+    }
+    if (!closePrepared) closePrepared = await widget.onBeforeClose!();
+    if (closePrepared) await windowManager.destroy();
+  }
+
+  @override
+  void onWindowClose() {
+    if (widget.onBeforeClose != null) unawaited(perform('close', closeWindow));
   }
 
   Widget control(String label, IconData icon, VoidCallback action, Palette p) =>
@@ -209,7 +250,7 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                     control(
                       'Close',
                       Icons.close,
-                      () => perform('close', windowManager.close),
+                      () => perform('close', closeWindow),
                       p,
                     ),
                   ],

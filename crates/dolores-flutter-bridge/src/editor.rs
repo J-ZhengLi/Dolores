@@ -184,6 +184,11 @@ fn apply_edits(text: &str, edits: &[Edit]) -> Result<String, String> {
     Ok(out)
 }
 impl Registry {
+    fn replacement(&self,old:&Document,next:&Document)->Result<(),String>{
+        if self.bytes()-old.snapshot.text.len()-old.text.len()+next.snapshot.text.len()+next.text.len()>4*1024*1024{
+            return Err("Resident text limit reached. Save and close an inactive document; previous buffer is retained.".into());
+        }Ok(())
+    }
     fn bytes(&self) -> usize {
         self.docs
             .values()
@@ -200,6 +205,11 @@ impl Registry {
     }
 }
 impl Engine {
+    pub(super) fn editor_can_restart(&self)->Result<(),String>{
+        if self.editor.lock().map_err(|_|"Editor state is unavailable.")?.docs.values().any(Document::dirty){
+            return Err("Save or close unsaved file editors before installing or restoring native code. Their edits are retained; no restart occurred.".into());
+        }Ok(())
+    }
     pub(crate) fn editor_call(&self, session: &str, request: Request) -> Result<Value, String> {
         let root = self
             .store
@@ -381,6 +391,7 @@ impl Engine {
                         }
                         next.text = disk.text.clone();
                         next.snapshot = disk;
+                        registry.replacement(d,&next)?;
                         next.next()?;
                         let view = next.view();
                         registry.docs.insert(id, next);
@@ -451,6 +462,10 @@ impl Engine {
                         if d.snapshot.readonly {
                             return Err("This preview cannot be saved.".into());
                         }
+                        if registry.bytes()-d.snapshot.text.len()+d.text.len()>4*1024*1024{
+                            return Err("Resident text limit reached. Close an inactive document before saving.".into());
+                        }
+                        next.next()?;
                         next.snapshot = fs.save(
                             &d.snapshot.path,
                             &d.snapshot.revision,
@@ -458,7 +473,6 @@ impl Engine {
                             d.snapshot.bom,
                             &d.snapshot.newline,
                         )?;
-                        next.next()?;
                         next.text = next.snapshot.text.clone();
                         let view = next.view();
                         registry.docs.insert(id, next);
@@ -484,10 +498,13 @@ impl Engine {
                         } else {
                             validate_text(&next.text, &next.snapshot)?;
                         }
+                        registry.replacement(d,&next)?;
                         next.next()?;
                         let view = next.view();
                         registry.docs.insert(id, next);
-                        self.editor_checkpoint(&registry, &root)?;
+                        if let Err(error)=self.editor_checkpoint(&registry,&root){
+                            return Ok(json!({"saved":view,"recoveryWarning":error}));
+                        }
                         Ok(view)
                     }
                     Request::SaveAs { path, .. } => {
@@ -497,9 +514,12 @@ impl Engine {
                             );
                         }
                         let old_path = d.snapshot.path.clone();
+                        if registry.bytes()-d.snapshot.text.len()+d.text.len()>4*1024*1024{
+                            return Err("Resident text limit reached. Close an inactive document before saving.".into());
+                        }
+                        next.next()?;
                         next.snapshot =
                             fs.create(&path, &d.text, d.snapshot.bom, &d.snapshot.newline)?;
-                        next.next()?;
                         let view = next.view();
                         registry.docs.insert(id, next);
                         if let Err(error) =
@@ -538,12 +558,15 @@ impl Engine {
                         {
                             return Err("Destination is already open.".into());
                         }
-                        next.snapshot = fs.rename(&d.snapshot.path, &path, &d.snapshot.revision)?;
+                        let old_path=d.snapshot.path.clone();
                         next.next()?;
+                        next.snapshot = fs.rename(&d.snapshot.path, &path, &d.snapshot.revision)?;
                         next.text = next.snapshot.text.clone();
                         let view = next.view();
                         registry.docs.insert(id, next);
-                        self.editor_checkpoint(&registry, &root)?;
+                        if let Err(error)=self.editor_checkpoint_forget(&registry,&root,Some(&old_path)){
+                            return Ok(json!({"saved":view,"recoveryWarning":error}));
+                        }
                         Ok(view)
                     }
                     Request::Delete { .. } => {
@@ -553,7 +576,9 @@ impl Engine {
                         let path = d.snapshot.path.clone();
                         fs.delete(&path, &d.snapshot.revision)?;
                         registry.docs.remove(&id);
-                        self.editor_checkpoint_forget(&registry, &root, Some(&path))?;
+                        if let Err(error)=self.editor_checkpoint_forget(&registry,&root,Some(&path)){
+                            return Ok(json!({"deleted":true,"recoveryWarning":error}));
+                        }
                         Ok(Value::Null)
                     }
                     _ => unreachable!(),

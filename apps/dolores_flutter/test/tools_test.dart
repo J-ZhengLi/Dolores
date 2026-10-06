@@ -565,12 +565,15 @@ void main() {
       final bridge = ToolBridge()..streamText = true;
       final chat = ready(bridge);
       await chat.send();
+      final id = bridge.commands.lastWhere(
+        (c) => c['command'] == 'start',
+      )['id'];
       await tester.pump(const Duration(milliseconds: 100));
       bridge.queue.addAll([
-        {'type': 'modelStep', 'id': 1, 'number': 2},
-        {'type': 'modelText', 'id': 1, 'number': 1, 'text': 'STALE'},
-        {'type': 'modelText', 'id': 1, 'number': 2, 'text': 'Final '},
-        {'type': 'modelText', 'id': 1, 'number': 2, 'text': 'answer'},
+        {'type': 'modelStep', 'id': id, 'number': 2},
+        {'type': 'modelText', 'id': id, 'number': 1, 'text': 'STALE'},
+        {'type': 'modelText', 'id': id, 'number': 2, 'text': 'Final '},
+        {'type': 'modelText', 'id': id, 'number': 2, 'text': 'answer'},
       ]);
       await tester.pump(const Duration(milliseconds: 250));
       expect(chat.partial, 'Final answer');
@@ -703,7 +706,10 @@ void main() {
               .where((c) => c['command'] == 'approveTool')
               .single;
           expect(decision['callId'], 'file-one');
-          expect(decision['id'], 1);
+          expect(
+            decision['id'],
+            bridge.commands.singleWhere((c) => c['command'] == 'start')['id'],
+          );
           expect(decision['allow'], allow);
           expect(
             chat.messages.last['metadata']['agent']['tools'].single['status'],

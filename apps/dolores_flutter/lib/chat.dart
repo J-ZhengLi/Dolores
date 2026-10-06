@@ -62,17 +62,44 @@ class ChatController extends ChangeNotifier {
   final bool ownsBridge;
   ChatController(this.bridge, {this.ownsBridge = true});
   bool nativeStartup = false;
+  Future<void> Function()? beforeNativeRestart;
   Future<void> saveNativeDrafts() async {
-    if (busy || loading) throw StateError('Finish or stop the current task first.');
+    await beforeNativeRestart?.call();
+    if (busy || loading) {
+      throw StateError('Finish or stop the current task first.');
+    }
     _draftTimer?.cancel();
     for (final entry in _views.entries) {
       if (entry.key.isNotEmpty && entry.key != session) {
-        await bridge.call({'command':'saveDraft','session':entry.key,'text':entry.value.draft});
+        await bridge.call({
+          'command': 'saveDraft',
+          'session': entry.key,
+          'text': entry.value.draft,
+        });
       }
     }
-    if (session != null) await bridge.call({'command':'saveDraft','session':session,'text':draft});
+    if (session != null) {
+      await bridge.call({
+        'command': 'saveDraft',
+        'session': session,
+        'text': draft,
+      });
+    }
   }
+
   int settingsRevision = 0;
+  Future<void> checkpointDraft() async {
+    if (session == null && draft.isNotEmpty) await _ensureWorkingSession();
+    _draftTimer?.cancel();
+    if (session != null) {
+      await bridge.call({
+        'command': 'saveDraft',
+        'session': session,
+        'text': draft,
+      });
+    }
+  }
+
   void invalidateContext() {
     settingsRevision++;
     contextSummary = null;
@@ -278,8 +305,9 @@ class ChatController extends ChangeNotifier {
       _notify();
     }
   }
-  void acceptAttachmentParts(List<Map<String,dynamic>> parts) {
-    attachments=parts;
+
+  void acceptAttachmentParts(List<Map<String, dynamic>> parts) {
+    attachments = parts;
     invalidateContext();
     _notify();
   }
@@ -586,11 +614,18 @@ class ChatController extends ChangeNotifier {
       await refresh();
       if (sessions.isNotEmpty) await select(sessions.first['id'] as String);
       if (nativeStartup) {
-        if (error != null) throw StateError('Chat initialization failed: $error');
-        await bridge.call({'command':'nativeStartupReady'});
+        if (error != null) {
+          throw StateError('Chat initialization failed: $error');
+        }
+        await bridge.call({'command': 'nativeStartupReady'});
         final deadline = DateTime.now().add(const Duration(seconds: 35));
-        while ((await bridge.call({'command':'nativeUpdateReady'}))['ready'] != true) {
-          if (DateTime.now().isAfter(deadline)) throw StateError('Native startup verification did not finish. Keep retained versions and history; inspect Native repairs before recovery.');
+        while ((await bridge.call({'command': 'nativeUpdateReady'}))['ready'] !=
+            true) {
+          if (DateTime.now().isAfter(deadline)) {
+            throw StateError(
+              'Native startup verification did not finish. Keep retained versions and history; inspect Native repairs before recovery.',
+            );
+          }
           await Future<void>.delayed(const Duration(milliseconds: 150));
         }
       }
@@ -1185,7 +1220,9 @@ class ChatController extends ChangeNotifier {
             _record('Queued · waiting for a run slot or project');
           case 'admitted':
             modelPhase = 'waiting';
-            _clock..reset()..start();
+            _clock
+              ..reset()
+              ..start();
             _record('Run admitted');
           case 'subagent':
             if (event['child'] is Map) {

@@ -15,6 +15,7 @@ controller twice. Navigation, hiding a panel and disposing a view do not discard
 | --- | --- | --- |
 | Editable UTF-8 file, including BOM | 1 MiB | Larger files use a read-only preview |
 | Editable physical line | 8 KiB UTF-8 | Very long lines use a read-only preview |
+| Syntax highlighting — 16.6 resource revision | 64 KiB normalized UTF-8 per document | Larger editable files stay plain text with an explicit status; editing/save limits do not change |
 | Read-only preview | 64 KiB, 2,000 characters per displayed line | Explain truncation; original bytes stay untouched |
 | Resident documents | 4, with 4 MiB total saved/edited text | Evict clean inactive buffers; dirty buffers require Save/Close before admitting more |
 | File groups | 4 | Refuse another split, retaining the current layout |
@@ -70,6 +71,14 @@ and requires replacement review when it exists. Agent tools read saved bytes onl
 unsaved edits enter a model request only through deliberate attachment.
 
 ## Batch qualification
+
+16.6 resource revision bounds highlighting separately from editable text. The
+candidate starts a per-view worker that copies complete source on edits; the
+integrated four-view near-1 MiB probe exposed more than 1.7 GiB incremental
+sampled memory while Flutter tests also ran. This is a measured failing case,
+not attributed entirely to host contention. Files above 64 KiB now receive no
+highlighting work; line numbers, editing, Find/Replace, Save and recovery remain.
+The 1 MiB editable limit, memory envelopes and 32/250 ms targets are unchanged.
 
 The user reports gaming during the old slow measurements and instructs proceeding.
 Treat host contention as a plausible explanation, not a proven cause. Retain those

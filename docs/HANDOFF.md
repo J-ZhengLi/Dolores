@@ -4,8 +4,8 @@
 
 **Current user steering:** plan a developer workspace and extend the roadmap;
 implement **one milestone per batch**, retaining separate commits for its bricks.
-Milestone 16 implementation is in progress. Memory, scheduling and companionship
-remain future work.
+Milestone 16 implementation and batch qualification are delivered; stop before 17.
+Memory, scheduling and companionship remain future work.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact
 64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,
@@ -32,21 +32,21 @@ tasks, with manual creation UI deferred indefinitely. Companionship is opt-in,
 occasional and in-app, during chosen hours with a daily cap and configured weaker
 model. Proposed numerical defaults must be frozen before their runtime bricks.
 
-The previous mixed-pane and A/B/C prototypes are historical explorations, not the
-current page contract. **Current batch: milestone 16**. Bricks 16.0–16.5 have their
-implementation and focused checks; continue with 16.6 integration, resource and
-bounded saved-file model qualification. Page direction is final, and
-the user directs moving past the isolated slow samples, plausibly affected by gaming.
-Fresh isolated typing passes without explaining the historical 94 ms failure;
-the earlier four-view ordinary reopening failed at 389.306 ms versus 250 ms.
-The complete follow-up passes at 136.258 ms; 24 focused ordinary openings pass
-at worst 144.306 ms without identifying or fixing the historical spike. Six
-controller/widget checks now cover shortcuts and shared-view undo. Physical input,
-byte-safe Save and integrated resource checks remain for the later implementation
-bricks. The 1 MiB four-view editing trial passes at 19.558 ms; initial protocol and
-limits are frozen in [editor documents](design/editor-documents.md). Candidate
-integration still needs its production checks; do not claim the whole milestone
-delivered from scratch evidence. Public trial evidence is in the qualification report.
+The previous mixed-pane and A/B/C prototypes are historical explorations.
+**Milestone 16 batch:** separate commits implement 16.0–16.6: shared run ownership,
+64-pixel rail/bottom Settings, scoped files, safe editing/private recovery and
+draggable file-only splits. The final isolated native four-mounted-view case
+passes typing p95 31.367 ms and ordinary opening p95 15.424 ms, with sampled memory
+within the frozen envelopes. Highlighting is bounded to 64 KiB after a measured
+large-file worker spike; larger files remain editable plain text up to 1 MiB.
+Configured Qwen's one approved saved-file read and fresh-process dirty recovery
+pass, with the original profile preserved. See the newest acceptance and
+qualification for normal-release evidence and earlier failed/invalid measurements.
+Historical 94 ms typing/389.306 ms opening failures are not explained by these
+passing runs. Physical input/IME/accessibility, sustained/low-end/other-platform
+resources, existing-target Save as and earlier idle/model gaps remain labeled.
+Do not treat diagnostic screenshots or controller input as physical native UX.
+The next authorized batch is 17 only when the user proceeds; this turn stops at 16.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)

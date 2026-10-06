@@ -76,7 +76,11 @@ class DoloresApp extends StatelessWidget {
       builder: (context, child) => RepaintBoundary(
         key: captureKey,
         child: desktopFrame
-            ? DesktopFrame(onTogglePanel: host?.togglePanel, child: child!)
+            ? DesktopFrame(
+                onTogglePanel: host?.togglePanel,
+                onBeforeClose: host?.requestClose,
+                child: child!,
+              )
             : child!,
       ),
       home: host == null

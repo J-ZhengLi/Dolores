@@ -1,8 +1,40 @@
 # Using Dolores
 
+## Home and files
+
+Home keeps the conversation list and chat. The compact left rail opens Folders;
+Settings stays at its bottom. Selecting a Home conversation also selects its
+project for developer pages. Side chats have no project. The top-left title-bar
+button hides or shows the adjacent panel; dragging its divider can hide it too.
+
+Folders shows that project's tree. Click a file for a preview tab, double-click
+or edit to keep it. Drag tabs to reorder, move to another group or split at an
+editor edge; tab menus and Ctrl+Backslash offer alternatives. Up to four groups
+share file text and undo while retaining independent cursor and scroll positions.
+Small windows expose group selectors. Ctrl+P opens a relative path; Ctrl+F/H
+finds/replaces, Ctrl+G goes to a line and Ctrl+S saves.
+
+Save is explicit; autosave is Off. UTF-8 files up to 1 MiB and physical lines up
+to 8 KiB are editable; unsupported files have a bounded read-only preview. Syntax
+highlighting stops above 64 KiB, with a plain-text status. A changed disk file
+requires Compare, then Reload disk or Keep my edits against that reviewed base.
+Save as creates a new target and refuses an existing one. Failed saves keep edits.
+
+Private recovery preserves settled drafts locally without writing source files.
+Recovery and layout failures offer Retry. Closing the last dirty view offers
+Save, Discard or Keep editing; closing the app can save files or keep recovery.
+If recovery cannot be stored, the app stays open. File editing shares nothing
+with a model; Attach selection deliberately chooses a conversation and snapshot.
+
+Settings → Advanced → Experimental contains Multiple Window (On by default;
+detach awaits milestone 19) and Prevent Windows From Locked (Off by default).
+The Windows option requests display/system wakefulness while Dolores runs; it
+does not override manual locks, screen-saver security or enforced policy.
+Scheduled, Source Control and Terminal remain future pages.
+
 ## Settings
 
-Open **Settings** at the bottom left (open Conversations first in a narrow window). The six sections are **General**, **Models**, **Personalization**, **Memory**, **Tools** and **Advanced**. Search settings to find a specific control. Chat actions contains Branch chat, Export and Chat details; the header icons open Changes and Activity.
+Open **Settings** at the bottom of the left rail. The six sections are **General**, **Models**, **Personalization**, **Memory**, **Tools** and **Advanced**. Search settings to find a specific control. Chat actions contains Branch chat, Export and Chat details; the header icons open Changes and Activity.
 
 **General** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
@@ -14,7 +46,7 @@ checks as Close; it cannot dismiss an operation still saving or running.
 Drag the sidebar’s right border to make it wider or narrower. Double-click the
 border to reset its width. You can also focus it and use Left/Right arrows to
 resize or Home to reset. The chosen width stays for the current window; smaller
-windows use the Conversations drawer and restore your width when expanded.
+windows use an overlay panel and restore your width when expanded.
 
 The top window strip follows the same theme. Drag its empty space to move Dolores
 or double-click to maximize/restore. Window controls remain available with Settings

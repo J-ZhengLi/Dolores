@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, sync::{Arc, Mutex}};
+use std::{collections::VecDeque, sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
@@ -7,19 +7,35 @@ pub(super) const MAX_QUEUED: usize = 4;
 
 struct Entry { id: u64, scope: String, running: bool }
 #[derive(Default)]
-pub(super) struct Admission { entries: Mutex<VecDeque<Entry>>, changed: Notify }
+pub(super) struct Admission { entries: Mutex<VecDeque<Entry>>, changed: Notify, closed: AtomicBool }
 pub(super) struct Permit { owner: Arc<Admission>, id: u64 }
 impl Drop for Permit { fn drop(&mut self) { self.owner.remove(self.id); } }
 
 impl Admission {
-    pub fn insert(&self, id: u64, scope: String) -> Result<(), String> {
-        let mut entries = self.entries.lock().map_err(|_| "Run queue is unavailable.")?;
-        let running = entries.iter().filter(|e| e.running).count();
-        let immediate = running < MAX_PRIMARY && !entries.iter().any(|e| e.running && e.scope == scope);
-        if entries.len() >= MAX_PRIMARY + MAX_QUEUED || (!immediate && entries.iter().filter(|e| !e.running).count() >= MAX_QUEUED) {
+    pub fn close(&self) {
+        let _entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        self.closed.store(true, Ordering::SeqCst);
+        self.changed.notify_waiters();
+    }
+    pub fn check(&self, id:u64, scope:&str) -> Result<(),String> {
+        let entries=self.entries.lock().map_err(|_| "Run queue is unavailable.")?;
+        self.check_entries(&entries,id,scope)
+    }
+    fn check_entries(&self,entries:&VecDeque<Entry>,id:u64,scope:&str)->Result<(),String>{
+        if self.closed.load(Ordering::SeqCst){return Err(crate::stopped());}
+        let running=entries.iter().filter(|e|e.running).count();
+        let immediate=running<MAX_PRIMARY&&!entries.iter().any(|e|e.running&&e.scope==scope);
+        if entries.len()>=MAX_PRIMARY+MAX_QUEUED||(!immediate&&entries.iter().filter(|e|!e.running).count()>=MAX_QUEUED){
             return Err("The run queue is full (two active and four waiting). Stop or cancel a task before sending; your draft remains.".into());
         }
-        if entries.iter().any(|e| e.id == id) { return Err("This run ID is already owned.".into()); }
+        if entries.iter().any(|e|e.id==id){return Err("This run ID is already owned.".into());}
+        Ok(())
+    }
+    pub fn insert(&self, id: u64, scope: String) -> Result<(), String> {
+        let mut entries = self.entries.lock().map_err(|_| "Run queue is unavailable.")?;
+        self.check_entries(&entries,id,&scope)?;
+        let running = entries.iter().filter(|e| e.running).count();
+        let immediate = running < MAX_PRIMARY && !entries.iter().any(|e| e.running && e.scope == scope);
         entries.push_back(Entry { id, scope, running: immediate });
         self.changed.notify_waiters();
         Ok(())
@@ -36,6 +52,7 @@ impl Admission {
             if cancel.is_cancelled() { self.remove(id); return Err(crate::stopped()); }
             {
                 let mut entries = self.entries.lock().map_err(|_| "Run queue is unavailable.")?;
+                if self.closed.load(Ordering::SeqCst){return Err(crate::stopped());}
                 if entries.iter().any(|e| e.id == id && e.running) {
                     return Ok(Permit { owner: self.clone(), id });
                 }
@@ -59,6 +76,17 @@ impl Admission {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn shutdown_cannot_admit_queued_work_after_a_slot_is_released(){
+        let owner=Arc::new(Admission::default());let cancel=CancellationToken::new();
+        owner.insert(1,"A".into()).unwrap();let first=owner.acquire(1,&cancel).await.unwrap();
+        for id in 2..=5{owner.insert(id,"A".into()).unwrap();}
+        assert!(owner.check(6,"A").unwrap_err().contains("queue is full"));
+        let waiting=owner.clone();let task=tokio::spawn(async move{waiting.acquire(2,&cancel).await});
+        tokio::task::yield_now().await;owner.close();drop(first);
+        assert!(tokio::time::timeout(std::time::Duration::from_secs(1),task).await.unwrap().unwrap().is_err());
+        assert!(owner.insert(6,"B".into()).is_err());
+    }
     #[tokio::test]
     async fn two_roots_run_while_same_root_waits_and_cancel_preserves_other_owners() {
         let owner = Arc::new(Admission::default());

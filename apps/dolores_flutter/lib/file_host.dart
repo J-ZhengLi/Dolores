@@ -31,10 +31,17 @@ class FileDocument extends ChangeNotifier {
   String get path => snapshot['path'] as String;
   bool get readonly => snapshot['readonly'] == true;
   bool get dirty => text != snapshot['text'];
+  int? _savedBytes, _textBytes, _textBreaks;
+  int get savedBytes =>
+      _savedBytes ??= utf8.encode(snapshot['text'] as String).length;
+  int get textBytes => _textBytes ??= utf8.encode(text).length;
+  int get textBreaks => _textBreaks ??= '\n'.allMatches(text).length;
   void accept(Map<String, dynamic> value) {
+    if (closed) return;
     final previousText = text;
     snapshot = Map<String, dynamic>.from(value['snapshot'] as Map);
     text = value['text'] as String;
+    _savedBytes = _textBytes = _textBreaks = null;
     acknowledged = text;
     blocked = false;
     if (previousText != text) _buffer?.replace(text);
@@ -43,7 +50,10 @@ class FileDocument extends ChangeNotifier {
     notifyListeners();
   }
 
-  void changed() => notifyListeners();
+  void changed() {
+    if (!closed) notifyListeners();
+  }
+
   @override
   void dispose() {
     closed = true;
@@ -64,6 +74,7 @@ class FileWorkspace {
   final paths = <String, String>{};
   bool restoring = false;
   String? layoutError;
+  String? recoveryError;
   final String project, root;
   String session;
   final tree = <String, TreePage>{};
@@ -220,7 +231,9 @@ class FileHost extends ChangeNotifier {
     if (d != null) {
       d.accept(value);
       if (warning != null) {
-        d.error = '$warning The file was saved; private recovery needs Retry.';
+        d.error =
+            '$warning The file action completed; private recovery needs Retry.';
+        workspaces[d.project]?.recoveryError = '$warning';
       }
       return d;
     }
@@ -424,7 +437,13 @@ class FileHost extends ChangeNotifier {
           'This document is read-only or completing a file action.',
         );
       }
-      final units = text.codeUnits;
+      final local = textDelta(d.text, text);
+      final inserted = local['text'] as String;
+      final removed = d.text.substring(
+        local['start'] as int,
+        local['end'] as int,
+      );
+      final units = inserted.codeUnits;
       for (var i = 0; i < units.length; i++) {
         final u = units[i];
         if (u >= 0xd800 && u <= 0xdbff) {
@@ -436,20 +455,32 @@ class FileHost extends ChangeNotifier {
         } else if (u >= 0xdc00 && u <= 0xdfff) {
           throw StateError('Edit contains an incomplete Unicode character.');
         }
+        if (u == 13 || u == 0) {
+          throw StateError(
+            'Edit exceeds the 8 KiB line limit or contains unsupported text. Split the paste.',
+          );
+        }
       }
-      if (text.contains('\r') ||
-          text.contains('\u0000') ||
-          text.split('\n').any((l) => utf8.encode(l).length > 8192)) {
-        throw StateError(
-          'Edit exceeds the 8 KiB line limit or contains unsupported text. Split the paste.',
-        );
+      final start = local['start'] as int;
+      final left = start == 0 ? 0 : text.lastIndexOf('\n', start - 1) + 1;
+      final right = text.indexOf('\n', start + inserted.length);
+      if (text
+          .substring(left, right < 0 ? text.length : right)
+          .split('\n')
+          .any((line) => utf8.encode(line).length > 8192)) {
+        throw StateError('Edit exceeds the 8 KiB line limit. Split the paste.');
       }
+      final insertBytes = utf8.encode(inserted).length;
+      final normalizedBytes =
+          d.textBytes + insertBytes - utf8.encode(removed).length;
+      final lines =
+          d.textBreaks +
+          '\n'.allMatches(inserted).length -
+          '\n'.allMatches(removed).length;
       final bytes =
-          utf8.encode(text).length +
+          normalizedBytes +
           (d.snapshot['bom'] == true ? 3 : 0) +
-          (d.snapshot['newline'] == 'crlf'
-              ? text.codeUnits.where((u) => u == 10).length
-              : 0);
+          (d.snapshot['newline'] == 'crlf' ? lines : 0);
       if (bytes > 1024 * 1024) {
         throw StateError(
           'Edit exceeds the 1 MiB file limit. Split the change.',
@@ -458,22 +489,23 @@ class FileHost extends ChangeNotifier {
       if (documents.values.fold<int>(
             0,
             (n, x) =>
-                n +
-                utf8.encode(x.snapshot['text'] as String).length +
-                utf8.encode(x == d ? text : x.text).length,
+                n + x.savedBytes + (x == d ? normalizedBytes : x.textBytes),
           ) >
           4 * 1024 * 1024) {
         throw StateError(
           'The resident text limit is reached. Save and close an inactive document.',
         );
       }
-      final transaction = textDelta(d.sending ?? d.acknowledged, text);
+      final base = d.sending ?? d.acknowledged;
+      final transaction = base == d.text ? local : textDelta(base, text);
       if (utf8.encode(transaction['text'] as String).length > 64 * 1024) {
         throw StateError(
           'Pending edit exceeds 64 KiB. Wait for synchronization, or split the paste.',
         );
       }
       d.text = text;
+      d._textBytes = normalizedBytes;
+      d._textBreaks = lines;
       final w = workspaces[d.project];
       if (w != null) {
         for (final group in w.layoutOwner.groups.values) {
@@ -502,6 +534,7 @@ class FileHost extends ChangeNotifier {
   Future<void> _drain(FileDocument d) async {
     final w = workspaces[d.project];
     if (w == null) return;
+    var edited = false;
     try {
       while (!d.closed && !_disposed && d.text != d.acknowledged) {
         final target = d.text;
@@ -515,9 +548,11 @@ class FileHost extends ChangeNotifier {
         if (d.closed || _disposed) return;
         d.version = result['version'] as int;
         d.acknowledged = target;
+        edited = true;
         d.sending = null;
         d.changed();
       }
+      if (!edited || d.closed || _disposed) return;
       _checkpoints[w.project]?.cancel();
       _checkpoints[w.project] = Timer(
         const Duration(milliseconds: 500),
@@ -539,6 +574,7 @@ class FileHost extends ChangeNotifier {
     final w = workspaces[d.project]!;
     try {
       final value = await call(w, {'action': 'open', 'path': d.path});
+      if (_disposed || d.closed) return;
       if (value['document'] != d.id) {
         throw StateError('Document identity changed. Keep edits or Save as.');
       }
@@ -547,6 +583,7 @@ class FileHost extends ChangeNotifier {
       d.blocked = false;
       d.error = null;
       d.snapshot = Map<String, dynamic>.from(value['snapshot'] as Map);
+      d._savedBytes = null;
       await flush(d);
     } catch (e) {
       d.error = '$e';
@@ -599,6 +636,7 @@ class FileHost extends ChangeNotifier {
         'version': d.version,
         'revision': revision,
       });
+      if (_disposed || d.closed) return false;
       _accept(Map<String, dynamic>.from(value as Map));
       error = null;
       return true;
@@ -631,7 +669,11 @@ class FileHost extends ChangeNotifier {
         'version': d.version,
         'path': ?path,
       });
+      if (_disposed || d.closed) return false;
       if (action == 'delete') {
+        if (value is Map && value['recoveryWarning'] != null) {
+          w.recoveryError = '${value['recoveryWarning']}';
+        }
         documents.remove(d.id);
         w.layoutOwner.removeDocument(d.id);
         w.paths.remove(d.id);
@@ -642,7 +684,10 @@ class FileHost extends ChangeNotifier {
         w.paths[d.id] = d.path;
         w.layoutOwner.changed();
       }
-      error = null;
+      error =
+          action == 'delete' && value is Map && value['recoveryWarning'] != null
+          ? '${value['recoveryWarning']} The file was deleted; Retry private recovery.'
+          : null;
       await load(w, '.', refresh: true);
       return true;
     } catch (e) {
@@ -656,15 +701,28 @@ class FileHost extends ChangeNotifier {
     }
   }
 
-  Future<void> checkpoint(FileWorkspace w) async {
+  Future<bool> checkpoint(FileWorkspace w) async {
+    if (_disposed) return false;
     try {
+      for (final d
+          in documents.values.where((d) => d.project == w.project).toList()) {
+        await flush(d);
+        if (d.pending || d.blocked || d.text != d.acknowledged) {
+          throw StateError(
+            'Finish the file action or Retry sync before private recovery.',
+          );
+        }
+      }
       await call(w, {'action': 'checkpoint'});
-      error = null;
+      w.recoveryError = null;
+      changed();
+      return true;
     } catch (e) {
-      error =
+      w.recoveryError =
           '$e Your edits remain open. Retry private recovery before closing.';
     }
     changed();
+    return false;
   }
 
   Future<void> refreshDocuments(FileWorkspace w) async {
@@ -679,6 +737,7 @@ class FileHost extends ChangeNotifier {
           'document': d.id,
           'version': d.version,
         });
+        if (_disposed || d.closed) return;
         if (value['changed'] == true) {
           d.error = 'File changed on disk. Your edits are retained. Compare before saving.';
           d.changed();

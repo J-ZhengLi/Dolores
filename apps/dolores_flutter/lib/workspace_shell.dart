@@ -17,10 +17,12 @@ enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 class WorkspaceShell extends StatefulWidget {
   final AppHost host;
   final bool nativeTitleBar;
+  final WorkspacePage initialPage;
   const WorkspaceShell({
     super.key,
     required this.host,
     this.nativeTitleBar = false,
+    this.initialPage = WorkspacePage.home,
   });
   @override
   State<WorkspaceShell> createState() => _WorkspaceShellState();
@@ -47,7 +49,41 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   @override
   void initState() {
     super.initState();
+    page = widget.initialPage;
     host.addListener(changed);
+    host.closeReview = requestClose;
+  }
+
+  Future<bool> requestClose() async {
+    final dirty = host.files.documents.values.where((d) => d.dirty).length;
+    final tasks = host.tasks.length;
+    if (dirty == 0 && tasks == 0) return host.prepareQuit(saveFiles: false);
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Close Dolores?'),
+        content: Text(
+          '$dirty unsaved files and $tasks running or queued tasks. Closing stops tasks. Private recovery preserves unsaved edits without saving source files.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Keep open'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'recover'),
+            child: const Text('Keep recovery and close'),
+          ),
+          if (dirty > 0)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'save'),
+              child: const Text('Save files and close'),
+            ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return false;
+    return host.prepareQuit(saveFiles: choice == 'save');
   }
 
   void changed() {
@@ -61,6 +97,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   @override
   void dispose() {
+    host.closeReview = null;
     host.removeListener(changed);
     super.dispose();
   }

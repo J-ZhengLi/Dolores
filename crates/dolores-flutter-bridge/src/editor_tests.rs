@@ -51,10 +51,12 @@ fn shared_document_deltas_are_unicode_safe_atomic_and_project_bound() {
     let p = call(&e, "A", json!({"action":"workspace"})).unwrap()["project"].clone();
     let d = doc(&e, &p, "a");
     assert_eq!(doc(&e, &p, "a")["document"], d["document"]);
+    assert!(e.editor_can_restart().is_ok());
     assert!(edit(&e, &p, &d, 2, 3, "x").is_err());
     assert_eq!(doc(&e, &p, "a")["text"], "a😀b\n");
     let ack = edit(&e, &p, &d, 1, 3, "世界").unwrap();
     assert_eq!(ack["version"], 1);
+    assert!(e.editor_can_restart().unwrap_err().contains("Save or close"));
     assert!(ack.get("text").is_none());
     assert!(edit(&e, &p, &d, 0, 1, "stale").is_err());
     let d = doc(&e, &p, "a");

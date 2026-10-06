@@ -1,5 +1,49 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.6 — integrated recovery and qualification
+
+Home, the compact rail, project-bound Folders and file-only splits are implemented.
+Quit reviews dirty files and owned tasks, checkpoints chat/file drafts and layouts,
+then stops owned runs and closes the bridge. Failed Save/checkpoint keeps the app
+open. A failed OS window destruction can retry without repeating shutdown. Theme
+changes propagate to retained conversation owners. Recovery checkpoints run once
+after settled edits, avoiding the earlier checkpoint/flush timer loop.
+
+Native shutdown closes admission before releasing active slots, so queued work
+cannot begin during exit. Queue saturation is checked before preparing a run
+journal. Refresh/rebase/save enforce resident-text bounds. Completed physical
+Save/Rename/Delete actions report explicit recovery warnings if the separate
+private checkpoint fails; they do not misreport the filesystem action as failed.
+Native installation/Restore refuses dirty editor shadows before consuming review;
+the UI also checks local unsynchronized edits and other conversation owners, and
+checkpoints their chat drafts before restart.
+
+The public C ABI fixture passes UTF-8 BOM/CRLF round trips, stale Save refusal,
+comparison-backed rebase, equal-name project isolation, binary/long-line previews,
+checkpoint failure after Save/Rename/Delete, explicit recovery Retry and fresh-process
+dirty recovery with source bytes unchanged. Configured Qwen3.5-2B reads one saved
+file through one approved read and reports the saved marker while the different
+unsaved marker remains private: 2.64 seconds, 65 reported output tokens, 512-token
+request bound. All 40 original profile tables were unchanged by that isolated case.
+This is one bounded real-model case, not general provider reliability.
+
+The final full Flutter suite passes 278 checks and analysis reports no issues.
+Rust bridge passes 121 checks, filesystem/store suites pass 93, and strict
+Clippy passes. Native release captures exercise light/dark four groups and compact
+group access. They use real native fonts and production modules with synthetic
+files; edits are programmatic, not physical keyboard/IME/accessibility checks.
+
+Resource evidence and normal release handoff are recorded in
+[workspace qualification](qualification/workspace-editor.md). Initial diagnostic
+typing probes included a fifth unmounted controller; one also overlapped Flutter
+tests. Their failures remain and do not qualify the intended four-view workflow.
+The per-view whole-source highlighting worker produced a large memory spike;
+the named 16.6 resource revision limits highlighting to 64 KiB, with a plain-text
+status above that size. File/edit/memory bounds and 32/250 ms targets are unchanged.
+Save as replacement of an existing file, physical input, low-end/other-OS checks,
+long-duration keep-awake and earlier idle-CPU/model gaps remain open. Later pages
+stay unavailable honestly; this batch does not implement milestone 17.
+
 ## Workspace 16.5 — file splits and project layout recovery
 
 File tabs drag to reorder, move between groups and split on editor edges; menus

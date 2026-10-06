@@ -593,6 +593,16 @@ class _FileWorkspaceViewState extends State<FileWorkspaceView> {
                 padding: const EdgeInsets.all(8),
                 child: Text(w.layoutError!),
               ),
+            if (w.recoveryError != null)
+              Wrap(
+                children: [
+                  Text(w.recoveryError!),
+                  TextButton(
+                    onPressed: () => files.checkpoint(w),
+                    child: const Text('Retry private recovery'),
+                  ),
+                ],
+              ),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, c) {

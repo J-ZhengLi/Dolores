@@ -1,4 +1,79 @@
-# Workspace/editor 16.0 — partial feasibility evidence
+# Workspace/editor qualification
+
+## Milestone 16 batch — 2026-10-07
+
+Home/navigation/Folders and file-only splits are implemented. Bricks 16.0–16.5
+were committed separately; 16.6 qualifies their production modules and hardens
+shutdown/recovery. The B page decision remains final. This batch stops before 17.
+The older feasibility records below remain historical evidence.
+
+The isolated release diagnostic mounts four production editor views of one
+near-limit UTF-8 file (1 MiB minus 64 bytes), edits through a mounted view forty
+times and checks every edit was accepted. It then opens four distinct approximately
+256 KiB files, captures light/dark/wide/compact layouts, reopens an ordinary Rust
+file nine times, checkpoints layout and recovery, and captures ordinary highlighting.
+No other test/build ran during this final measurement.
+
+| Measurement | Observed | Unchanged target |
+| --- | --- | --- |
+| Edit through next Flutter frame, p95 | 31.367 ms | Below 32 ms |
+| Synchronous selection/edit, p95 | 19.536 ms | Diagnostic breakdown |
+| Frame build / raster, p95 | 3.486 / 3.415 ms | Diagnostic breakdown |
+| Warm ordinary file open through frame, p95 | 15.424 ms | Below 250 ms |
+| One/two/four shared-view incremental peak | Below the matched Home baseline | 128 / 192 / 224 MiB ceilings |
+| Four distinct files incremental working/private peak | 37.746 / 34.148 MiB | 224 MiB ceiling |
+| Owned helpers remaining | 0 | No orphaned helpers |
+
+The Home baseline is 349.398 MiB working / 368.133 MiB private. Lower later peaks
+reflect startup/GC settling, not zero editor allocation; these sampled process
+differences are not a heap guarantee. Forty accepted edits and this public corpus
+do not establish sustained worst-case memory, physical typing, low-end hardware
+or other-platform performance. Home used 0.109 CPU seconds across 10.009 seconds;
+the later Folders phase includes reopen/capture work and is not an idle-only
+measurement. Earlier idle-CPU differences remain unqualified.
+
+Retained local evidence is under ignored
+`output/workspace-native-16/752905aa300b472b886db8be9aafb4b9/`: `qualification.json`,
+`stage.json`, Home and six editor captures. Reproduction uses the maintained
+`python scripts/desktop.py build --diagnostic workspace`, then
+`python scripts/test-workspace-desktop.py`. The runner owns a fresh profile,
+samples only its process/tree and stops only that recorded diagnostic process.
+It returns failure for missed latency/memory bounds. Diagnostic builds do not
+satisfy the normal release handoff.
+
+Earlier integration failures remain under the same ignored parent: the exact
+1 MiB fixture initially rejected its extra bytes, making that first typing report
+invalid; later accepted cases used a fifth unmounted edit controller. One overlapped
+Flutter tests and reached more than 1.7 GiB incremental sampled memory. Plain-text
+large-file runs still missed end-to-end typing at 35.234 and 33.478 ms with that
+extra controller. Validation now checks the changed span/affected physical lines
+and caches byte counts, preserving Unicode/line/file/resident/delta bounds.
+The final harness uses one of exactly four mounted views. These changes do not
+explain historical scratch timing spikes or establish broader performance.
+
+The named 16.6 resource revision bounds per-view whole-source highlighting at
+64 KiB. Larger editable files show plain text with an explicit status; the 1 MiB
+editing limit, memory ceilings and 32/250 ms targets are unchanged. Ordinary Rust
+highlighting and four-group/compact light/dark captures were inspected using
+`view_image`. Controller and pointer fixtures remain distinct from physical input.
+
+`python scripts/test-workspace-editor.py --connection-profile <existing-profile>`
+reads the configured connection without changing its profile or remembered vault
+entry, and runs public C ABI files in a disposable profile. BOM/CRLF saving,
+changed-disk refusal/rebase, cross-project refusal, binary/long-line preview,
+recovery failure after completed Save/Rename/Delete and fresh-process dirty recovery
+pass. Configured Qwen3.5-2B completes one approved saved-file read in 2.64 seconds,
+with 65 reported output tokens and a 512-token request cap. The different unsaved
+marker never reaches the model; all 40 original profile tables remain identical.
+Public report: ignored `output/workspace-editor-qualification/09f9369f-af9e-4e84-b24a-15786b3d052e/report.json`.
+The first driver omitted tools and reused a live process's profile lock; it was
+corrected rather than counted as a provider or recovery pass.
+
+Remaining gates: physical keyboard/IME/clipboard/native accessibility, long-running
+resource behavior, low-end/other OS, duration-based keep-awake and general model
+reliability. Save as deliberately refuses existing targets; replacement review
+is not implemented. The normal release launch/profile check follows below when
+completed. Source Control, Terminal and detach remain later milestone work.
 
 ## Proceed decision and initial envelope — 2026-10-07
 

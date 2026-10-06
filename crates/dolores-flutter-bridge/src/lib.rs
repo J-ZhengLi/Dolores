@@ -1571,6 +1571,9 @@ impl Engine {
                         Some(created["session"]["id"].as_str().unwrap().to_owned())
                     }
                 };
+                let scope = self.store.workspace(session.as_deref().unwrap())?.root
+                    .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
+                active.check_scope(id,&scope)?;
                 if desktop_capture.is_some() != observation_model.is_some()
                     || (desktop_capture.is_some()
                         && (continuation.is_some()
@@ -1927,8 +1930,6 @@ impl Engine {
                 } else {
                     approval
                 };
-                let scope = self.store.workspace(session.as_deref().unwrap())?.root
-                    .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
                 let admission = active.reserve_primary(Run {
                     thread: session.clone(),
                     id,

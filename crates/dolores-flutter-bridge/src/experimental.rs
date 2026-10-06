@@ -6,56 +6,6 @@ pub(crate) struct PowerRequest {
     #[cfg(windows)]
     handle: usize,
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{connection::testing::MemoryCredentials, Command};
-    use dolores_core::SessionStore;
-    use dolores_store_sqlite::SqliteStore;
-    use std::sync::Arc;
-    #[test]
-    fn preferences_have_no_default_power_request_and_stale_write_is_refused() {
-        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
-        let engine = Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
-        assert_eq!(
-            engine.experimental_view().unwrap()["keepAwakeActive"],
-            false
-        );
-        let mut p = store.experimental_preferences().unwrap();
-        p.multiple_window = false;
-        assert_eq!(
-            engine.save_experimental(p.clone()).unwrap()["preferences"]["multipleWindow"],
-            false
-        );
-        assert!(engine.save_experimental(p).is_err());
-        assert_eq!(store.experimental_preferences().unwrap().revision, 1);
-        engine.call(Command::Shutdown).unwrap();
-        assert!(engine.keep_awake.lock().unwrap().is_none());
-    }
-    #[cfg(windows)]
-    #[test]
-    fn process_owned_windows_request_releases_on_disable_and_shutdown() {
-        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
-        let engine = Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
-        let mut p = store.experimental_preferences().unwrap();
-        p.prevent_windows_from_locked = true;
-        assert_eq!(
-            engine.save_experimental(p).unwrap()["keepAwakeActive"],
-            true
-        );
-        let mut p = store.experimental_preferences().unwrap();
-        p.prevent_windows_from_locked = false;
-        assert_eq!(
-            engine.save_experimental(p).unwrap()["keepAwakeActive"],
-            false
-        );
-        let mut p = store.experimental_preferences().unwrap();
-        p.prevent_windows_from_locked = true;
-        engine.save_experimental(p).unwrap();
-        engine.call(Command::Shutdown).unwrap();
-        assert!(engine.keep_awake.lock().unwrap().is_none());
-    }
-}
 impl PowerRequest {
     fn create() -> Result<Self, String> {
         #[cfg(windows)]
@@ -73,7 +23,7 @@ impl PowerRequest {
                 .encode_utf16()
                 .chain(Some(0))
                 .collect();
-            let mut context = REASON_CONTEXT {
+            let context = REASON_CONTEXT {
                 Version: 0,
                 Flags: POWER_REQUEST_CONTEXT_SIMPLE_STRING,
                 Reason: REASON_CONTEXT_0 {
@@ -82,7 +32,7 @@ impl PowerRequest {
             };
             // A process-owned power request: no synthetic input or security setting changes.
             unsafe {
-                let handle = PowerCreateRequest(&mut context);
+                let handle = PowerCreateRequest(&context);
                 if handle == INVALID_HANDLE_VALUE || handle.is_null() {
                     return Err(
                         "Windows could not create a keep-awake request. Retry or leave it off."
@@ -169,5 +119,56 @@ impl Engine {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{connection::testing::MemoryCredentials, Command};
+    use dolores_core::SessionStore;
+    use dolores_store_sqlite::SqliteStore;
+    use std::sync::Arc;
+    #[test]
+    fn preferences_have_no_default_power_request_and_stale_write_is_refused() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let engine = Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
+        assert_eq!(
+            engine.experimental_view().unwrap()["keepAwakeActive"],
+            false
+        );
+        let mut p = store.experimental_preferences().unwrap();
+        p.multiple_window = false;
+        assert_eq!(
+            engine.save_experimental(p.clone()).unwrap()["preferences"]["multipleWindow"],
+            false
+        );
+        assert!(engine.save_experimental(p).is_err());
+        assert_eq!(store.experimental_preferences().unwrap().revision, 1);
+        engine.call(Command::Shutdown).unwrap();
+        assert!(engine.keep_awake.lock().unwrap().is_none());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn process_owned_windows_request_releases_on_disable_and_shutdown() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let engine = Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
+        let mut p = store.experimental_preferences().unwrap();
+        p.prevent_windows_from_locked = true;
+        assert_eq!(
+            engine.save_experimental(p).unwrap()["keepAwakeActive"],
+            true
+        );
+        let mut p = store.experimental_preferences().unwrap();
+        p.prevent_windows_from_locked = false;
+        assert_eq!(
+            engine.save_experimental(p).unwrap()["keepAwakeActive"],
+            false
+        );
+        let mut p = store.experimental_preferences().unwrap();
+        p.prevent_windows_from_locked = true;
+        engine.save_experimental(p).unwrap();
+        engine.call(Command::Shutdown).unwrap();
+        assert!(engine.keep_awake.lock().unwrap().is_none());
     }
 }

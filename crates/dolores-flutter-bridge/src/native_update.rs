@@ -272,6 +272,7 @@ impl Engine {
         Ok(Value::Null)
     }
     pub(super) fn apply_native(&self, token: &str) -> Result<Value, String> {
+        self.editor_can_restart()?;
         let mut slot = self
             .native_review
             .lock()
