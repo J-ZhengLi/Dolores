@@ -68,6 +68,8 @@ impl ToolApproval for RunApproval {
             .await?;
         }
         let (reply, decision) = oneshot::channel();
+        // UI decision identities must not collide when providers reuse call IDs.
+        let approval_id = format!("{}:{}", self.id, uuid::Uuid::new_v4());
         {
             let mut pending = self
                 .pending
@@ -77,14 +79,16 @@ impl ToolApproval for RunApproval {
                 return Err("Another tool decision is pending.".into());
             }
             *pending = Some(PendingApproval {
-                call_id: request.call_id.clone(),
+                call_id: approval_id.clone(),
                 reply,
             });
         }
         let _clear = ClearPending(self.pending.clone());
+        let mut reviewed = json!(request);
+        reviewed["callId"] = json!(approval_id);
         forward(
             &self.output,
-            json!({"type":"toolApproval","id":self.id,"request":request}),
+            json!({"type":"toolApproval","id":self.id,"request":reviewed}),
             &cancel,
         )
         .await?;
@@ -138,7 +142,10 @@ mod tests {
                 )
                 .await
             });
-            assert_eq!(events.recv().await.unwrap()["type"], "toolApproval");
+            let event = events.recv().await.unwrap();
+            assert_eq!(event["type"], "toolApproval");
+            assert!(event["request"]["callId"].as_str().unwrap().starts_with("7:"));
+            assert_ne!(event["request"]["callId"], "one");
             match mode {
                 0 => pending
                     .lock()

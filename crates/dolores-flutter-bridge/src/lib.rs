@@ -39,6 +39,7 @@ mod recovery;
 mod registry;
 mod repair_evaluation;
 mod run_journal;
+mod run_admission;
 mod settings;
 mod skill_drafts;
 mod skills;
@@ -812,7 +813,7 @@ impl Engine {
             Command::SetTaskPermissions {session,revision,policy} => {
                 if active.is_some() && policy.mode != dolores_core::PermissionMode::Review { return Err("Stop the run before expanding or changing task access. Revoke remains available.".into()); }
                 let view=self.set_permissions(&session,revision,policy)?;
-                if let Some(run)=active.as_ref().filter(|r|r.thread.as_deref()==Some(&session)) { run.cancel.cancel(); }
+                active.cancel_session(&session);
                 return Ok(view);
             },
             Command::WebSettings => return self.web_settings(),
@@ -822,7 +823,7 @@ impl Engine {
             Command::BrowserSettings => return self.browser_settings(),
             Command::DesktopRevoke { session } => {
                 let result=self.desktop_revoke(&session)?;
-                if let Some(run)=active.as_ref().filter(|r|r.thread.as_deref()==Some(&session)) {run.cancel.cancel();}
+                active.cancel_session(&session);
                 return Ok(result);
             },
             Command::DesktopState { session } => return self.desktop_state(session.as_deref()),
@@ -843,7 +844,7 @@ impl Engine {
             Command::DraftAttachments{session}=>return Ok(json!(self.store.draft_attachments(&session)?)),
             Command::AttachmentPreview{session,digest}=>return self.attachment_preview(&session,&digest),
             Command::Poll { id } => {
-                let Some(run) = active.as_mut().filter(|run| run.id == id) else {
+                let Some(run) = active.get_mut(id) else {
                     return Ok(json!([]));
                 };
                 let mut events = Vec::new();
@@ -864,8 +865,7 @@ impl Engine {
             }
             Command::ApproveTool { id, call_id, allow } => {
                 let run = active
-                    .as_ref()
-                    .filter(|run| run.id == id)
+                    .get(id)
                     .ok_or("Tool request is no longer waiting.")?;
                 let mut slot = run
                     .approvals
@@ -888,7 +888,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Cancel { id } => {
-                if let Some(run) = active.as_ref().filter(|run| run.id == id) {
+                if let Some(run) = active.get(id) {
                     run.cancel.cancel();
                     self.clear_memory_review()?;
                     self.clear_summary_review()?;
@@ -899,7 +899,7 @@ impl Engine {
             Command::Shutdown => {
                 active.close();
                 self.clear_revert()?;
-                if let Some(run) = active.take() {
+                while let Some(run) = active.take() {
                     run.cancel.cancel();
                 }
                 self.clear_memory_review()?;
@@ -909,7 +909,7 @@ impl Engine {
             }
             _ => {}
         }
-        if active.is_some() {
+        if active.is_some() && !matches!(&command, Command::Start { .. } | Command::Bootstrap | Command::CreateSession { .. } | Command::Context { .. }) {
             return Err("Stop the current response first.".into());
         }
         match command {
@@ -1520,6 +1520,10 @@ impl Engine {
                 input,
                 workspace,
             } => {
+                active.check_primary(id, session.as_deref())?;
+                if desktop_capture.is_some() && active.is_some() {
+                    return Err("Finish existing tasks before starting computer use.".into());
+                }
                 self.clear_revert()?;
                 self.clear_memory_review()?;
                 self.clear_summary_review()?;
@@ -1910,19 +1914,27 @@ impl Engine {
                 } else {
                     approval
                 };
-                active.reserve(Run {
+                let scope = self.store.workspace(session.as_deref().unwrap())?.root
+                    .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
+                let admission = active.reserve_primary(Run {
                     thread: session.clone(),
                     id,
                     cancel: cancel.clone(),
                     events,
                     approvals,
-                })?;
+                }, scope)?;
                 let store = self.store.clone();
+                let _ = output.try_send(json!({"type":"queued","id":id,"note":"Waiting for an available run slot or project."}));
                 self.runtime.spawn(async move {
                     let _desktop_lifetime=control;
                     let learning_session = session.clone();
                     let learning_model = model.clone();
-                    let result = match log.record(Some(dolores_core::RunState::Running),"started",json!({"clientId":id,"desktop":_desktop_lifetime.as_ref().map(|c|json!({"target":c.grant.target,"capture":desktop_capture}))})).await {
+                    let permit = admission.acquire(id, &cancel).await;
+                    let result = match permit.as_ref().map_err(Clone::clone) {
+                    Err(error) => Err(error),
+                    Ok(_) => {
+                    let _ = output.send(json!({"type":"admitted","id":id})).await;
+                    match log.record(Some(dolores_core::RunState::Running),"started",json!({"clientId":id,"desktop":_desktop_lifetime.as_ref().map(|c|json!({"target":c.grant.target,"capture":desktop_capture}))})).await {
                     Err(error)=>Err(error),
                     Ok(())=> execute(
                         store.clone(),
@@ -1948,7 +1960,7 @@ impl Engine {
                         cancel.clone(),
                         &output,
                     )
-                    .await };
+                    .await }} };
                     let child_evidence_error = if let Some(delegation) = &delegation {
                         delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
                     } else { None };
@@ -3084,7 +3096,7 @@ mod tests {
                     input: "".into(),
                     tools: false,
                 })
-                .is_err());
+                .is_ok());
             assert_eq!(engine.call(Command::Poll { id: 6 }).unwrap(), json!([]));
             assert!(engine
                 .call(Command::SetRequestSettings {

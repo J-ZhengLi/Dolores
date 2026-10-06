@@ -10,11 +10,13 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
-/// The execution allowance remains one. IDs own cancellation, queues and decisions.
+/// One app owner, with ID-addressed primary runs and exclusive maintenance work.
 #[derive(Default)]
 pub(super) struct RunCoordinator {
     runs: BTreeMap<u64, Run>,
     closed: bool,
+    primary: BTreeMap<u64, String>,
+    admission: Arc<crate::run_admission::Admission>,
 }
 impl RunCoordinator {
     pub fn reserve(&mut self, run: Run) -> Result<(), String> {
@@ -24,20 +26,46 @@ impl RunCoordinator {
         self.runs.insert(run.id, run);
         Ok(())
     }
+    pub fn reserve_primary(&mut self, run: Run, scope: String) -> Result<Arc<crate::run_admission::Admission>, String> {
+        self.check_primary(run.id, run.thread.as_deref())?;
+        self.admission.insert(run.id, scope.clone())?;
+        self.primary.insert(run.id, scope);
+        self.runs.insert(run.id, run);
+        Ok(self.admission.clone())
+    }
+    pub fn check_primary(&self, id: u64, thread: Option<&str>) -> Result<(), String> {
+        if self.closed || self.primary.len() != self.runs.len() {
+            return Err("Finish the current maintenance operation before starting a task.".into());
+        }
+        if self.runs.contains_key(&id) || self.runs.values().any(|r| r.thread.as_deref() == thread) {
+            return Err("This conversation already owns a task. Stop it before sending another.".into());
+        }
+        if self.runs.len() >= crate::run_admission::MAX_PRIMARY + crate::run_admission::MAX_QUEUED {
+            return Err("The run queue is full. Stop or cancel a task before sending; your draft remains.".into());
+        }
+        Ok(())
+    }
+    pub fn get(&self, id: u64) -> Option<&Run> { self.runs.get(&id) }
+    pub fn get_mut(&mut self, id: u64) -> Option<&mut Run> { self.runs.get_mut(&id) }
+    pub fn cancel_session(&self, session: &str) {
+        for run in self.runs.values().filter(|r| r.thread.as_deref() == Some(session)) { run.cancel.cancel(); }
+    }
     pub fn is_some(&self) -> bool {
         !self.runs.is_empty()
-    }
-    pub fn as_ref(&self) -> Option<&Run> {
-        self.runs.values().next()
     }
     pub fn as_mut(&mut self) -> Option<&mut Run> {
         self.runs.values_mut().next()
     }
     pub fn take(&mut self) -> Option<Run> {
-        self.runs.pop_first().map(|(_, r)| r)
+        let (id, run) = self.runs.pop_first()?;
+        self.primary.remove(&id);
+        self.admission.remove(id);
+        Some(run)
     }
     pub fn remove(&mut self, id: u64) {
         self.runs.remove(&id);
+        self.primary.remove(&id);
+        self.admission.remove(id);
     }
     pub fn close(&mut self) {
         self.closed = true;
@@ -213,5 +241,25 @@ mod tests {
         assert!(!cancel.is_cancelled());
         engine.call(crate::Command::Cancel { id: 7 }).unwrap();
         assert!(cancel.is_cancelled());
+    }
+    #[test]
+    fn multiple_primary_owners_route_stop_and_poll_by_id_and_shutdown_cancels_all() {
+        let store = Arc::new(dolores_store_sqlite::SqliteStore::open(Path::new(":memory:")).unwrap());
+        let engine = crate::Engine::new(store, Arc::new(crate::connection::testing::MemoryCredentials::default())).unwrap();
+        let a = CancellationToken::new();
+        let b = CancellationToken::new();
+        for (id, thread, cancel) in [(11,"A",a.clone()), (22,"B",b.clone())] {
+            let (out,events) = tokio::sync::mpsc::channel(2);
+            out.try_send(json!({"type":"delta","id":id,"text":thread})).unwrap();
+            engine.active.lock().unwrap().reserve_primary(Run {
+                id, thread:Some(thread.into()), cancel, events,
+                approvals:Arc::new(Mutex::new(None)),
+            },thread.into()).unwrap();
+        }
+        assert_eq!(engine.call(crate::Command::Poll{id:22}).unwrap()[0]["text"],"B");
+        engine.call(crate::Command::Cancel{id:22}).unwrap();
+        assert!(!a.is_cancelled()); assert!(b.is_cancelled());
+        assert_eq!(engine.call(crate::Command::Poll{id:11}).unwrap()[0]["text"],"A");
+        engine.call(crate::Command::Shutdown).unwrap(); assert!(a.is_cancelled());
     }
 }

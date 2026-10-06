@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.1 — shared run ownership foundation
+
+The Rust host now owns ID-addressed primary runs with two active slots, a four-item
+waiting queue and one active owner per canonical working folder. Preparation pins
+run context; queued work starts its execution clock after admission. Cancelled
+waiters release their reservation without executing, and Stop/poll/shutdown address
+the intended owners. Maintenance/settings mutation remains exclusive. Tool decision
+IDs are host-generated and unique even when providers reuse call IDs.
+
+Flutter's AppHost retains independent conversation controllers/drafts on one bridge,
+uses globally distinct client run IDs and closes the bridge only through its original
+owner. Failed selection retains the visible conversation. Three host tests plus
+four existing workspace checks pass; all 114 Rust bridge tests pass, including
+two-root admission, same-root waiting, queue exhaustion/wakeup, wrong-ID isolation
+and shutdown. Focused Flutter analysis is clean. The host is wired to the new UI
+in 16.2; normal build and real-model batch checks follow integration. These fixtures
+do not establish real-provider concurrency or native UX qualification.
+
 ## Workspace 16.0 — proceed decision and frozen initial limits
 
 The user reports gaming during the old slow samples, directs moving on and restores

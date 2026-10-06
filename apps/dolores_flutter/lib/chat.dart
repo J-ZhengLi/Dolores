@@ -59,7 +59,8 @@ class ChatController extends ChangeNotifier {
   }
 
   final ChatBridge bridge;
-  ChatController(this.bridge);
+  final bool ownsBridge;
+  ChatController(this.bridge, {this.ownsBridge = true});
   bool nativeStartup = false;
   Future<void> saveNativeDrafts() async {
     if (busy || loading) throw StateError('Finish or stop the current task first.');
@@ -419,6 +420,7 @@ class ChatController extends ChangeNotifier {
       stopping = false;
   bool _disposed = false;
   int _run = 0;
+  static int _nextRun = 0;
   Timer? _timer;
   bool sessionsOlder = false, sessionsNewer = false;
   bool messagesOlder = false, messagesNewer = false;
@@ -1095,7 +1097,7 @@ class ChatController extends ChangeNotifier {
     draft = '';
     partial = '';
     error = null;
-    final id = ++_run;
+    final id = _run = ++_nextRun;
     toolRecords.clear();
     subagents.clear();
     modelTexts.clear();
@@ -1173,6 +1175,13 @@ class ChatController extends ChangeNotifier {
       for (final event in events as List) {
         if (event['id'] != id) continue;
         switch (event['type']) {
+          case 'queued':
+            modelPhase = 'queued';
+            _record('Queued · waiting for a run slot or project');
+          case 'admitted':
+            modelPhase = 'waiting';
+            _clock..reset()..start();
+            _record('Run admitted');
           case 'subagent':
             if (event['child'] is Map) {
               final child = (event['child'] as Map).cast<String, dynamic>();
@@ -1382,7 +1391,7 @@ class ChatController extends ChangeNotifier {
     appearanceChanges.dispose();
     _timer?.cancel();
     _draftTimer?.cancel();
-    unawaited(bridge.close());
+    if (ownsBridge) unawaited(bridge.close());
     super.dispose();
   }
 }
