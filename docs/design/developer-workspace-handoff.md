@@ -61,8 +61,10 @@ Navigation must not retarget a run, discard a dirty buffer or kill an existing P
 Candidate editor/terminal/window libraries are researched options, not installed
 production dependencies. Fresh isolated typing now passes without a performance
 fix or explanation of the earlier 94 ms failure. Six controller/widget checks
-cover shortcuts/shared-view undo, but four-view reopening after large files fails
-at 389.306 ms versus the unchanged 250 ms target. Physical input, byte-safe Save
+cover shortcuts/shared-view undo, but an earlier four-view reopening after large
+files failed at 389.306 ms versus the unchanged 250 ms target. A full follow-up and
+24 focused openings now pass (worst 144.306 ms) without a cause or performance fix.
+Physical input, byte-safe Save
 and production protocol/resource gates remain open. See [qualification](../qualification/workspace-editor.md). Older
 prototypes are historical evidence; developer-pages B's amended layout is approved.
 

@@ -10,6 +10,41 @@ existing shells reused. No further prototype change is requested. The page-direc
 review gate is closed; the unmodified prototype does not verify these amendments.
 Editor qualification remains separate and open. See the amended [contract](../design/developer-workspace.md).
 
+### Reopening diagnosis follow-up
+
+The original complete native loop was rerun before changing the diagnostic
+instrumentation: one/two/four-view post-corpus ordinary opens were
+31.553 / 76.192 / 136.258 ms; maximum typing frame p95 was 4.620 ms. Its existing
+250 ms opening, 32 ms typing and provisional memory checks pass. This is a
+non-reproduction of the earlier 389.306 ms failure, not a performance fix.
+
+A focused native loop then repeats the four-view 1 MiB → 100 KiB line → ordinary
+sequence twelve times, separating document/controller preparation and the original
+two awaited frames from prior-view disposal. Two fresh-process runs pass all
+24 ordinary openings; maxima are **144.306 / 136.098 ms** against the unchanged
+250 ms target. The first run's largest sample has 0.007 ms document preparation,
+0.003 ms controller preparation, 74.623 / 69.673 ms awaited-frame phases and
+0.006 ms prior-view disposal. These timings describe that passing sample only;
+they do not identify the historical failure's cause.
+
+Reproduction commands use `rtk proxy python
+output/workspace-16-prototype/prepare_editor_spike.py benchmark --mode multiview
+--report followup.json` for the original complete case, and `--mode reopen` for
+the focused sequence. The focused mode returns failure if any ordinary open
+reaches 250 ms. It is agent-runnable and red-capable; a repeatable red case has
+not yet been obtained, so no causal fix or dependency adoption is claimed.
+The unchanged six controller/widget checks pass again after instrumentation.
+
+Public follow-up source/reports are on `codex/prototype-developer-pages-16`, commit
+`1eb912dd1f83c04c07abf68e5b88b047ea2ac8fd`, under the same prototype directory.
+Reports are `20261007-reopen-reproduction.json`, its phase-separated memory file,
+`20261007-reopen-focused.json` and `20261007-reopen-focused-repeat.json` in `reports/`.
+The capture verifies the approved HTML blob is unchanged. The native scratch build
+uses the maintained Python machinery; no normal frontend/profile was replaced.
+The historical typing/opening discrepancies, physical input/IME/accessibility,
+byte-safe Save and production protocol/resource gates remain open. 16.0 remains
+in progress; 16.1 has not started.
+
 ## Current page prototype — compact icon rail, 2026-10-07
 
 The user requested separate Home/Scheduled/Folders/Source Control/Terminal pages,
@@ -222,7 +257,7 @@ multi-view cost and save/revision/encoding recovery remain 16.0/16.3–16.4 gate
 
 ## Next work and experimental settings
 
-Finish revised prototype review, resolve the performance/input failures, qualify
+The amended B page direction is final. Resolve the performance/input failures, qualify
 the document adapter and freeze ownership/bounds/resource decisions before the
 next runtime brick. The two-project run registry in 16.1 remains required; tabs
 alone cannot remove the current single-run restriction. Milestone 17 starts only

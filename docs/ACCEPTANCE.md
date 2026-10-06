@@ -1,5 +1,22 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace/editor 16.0 — opening diagnosis follow-up
+
+The original isolated native loop passes on rerun: four-view post-corpus opening
+136.258 ms, typing frame p95 at most 4.620 ms, existing provisional memory checks
+passing. A focused native sequence repeats large/long-line/ordinary opening with
+four shared views 12 times per fresh process. Both runs pass all 24 ordinary opens,
+maxima 144.306/136.098 ms below the unchanged 250 ms target. Separate phase timings
+make the loop more specific; they do not explain the historical 389.306 ms failure.
+The six controller/widget checks pass again. No performance fix is claimed.
+
+Final B layout amendments remain recorded below; its HTML is unchanged. Public
+follow-up source/reports are retained on the isolated branch in
+[qualification](qualification/workspace-editor.md). No production frontend/profile,
+provider/model setting or OS preference was changed; no real model call occurred.
+16.0 remains in progress: intermittent historical results, physical input/IME,
+encoding-safe Save and production protocol/resource qualification stay open.
+
 ## Workspace 16.0 — final B layout decision (contract only)
 
 The user finalized developer-pages **B**: a top-left title-bar sidebar-layout

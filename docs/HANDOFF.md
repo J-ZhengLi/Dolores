@@ -36,7 +36,9 @@ The previous mixed-pane and A/B/C prototypes are historical explorations, not th
 current page contract. Production workspace rollout has not started. **Next brick:
 16.0**, resolve editor feasibility gates; page direction review is complete.
 Fresh isolated typing passes without explaining the historical 94 ms failure;
-the new four-view ordinary reopening fails at 389.306 ms versus 250 ms. Six
+the earlier four-view ordinary reopening failed at 389.306 ms versus 250 ms.
+The complete follow-up passes at 136.258 ms; 24 focused ordinary openings pass
+at worst 144.306 ms without identifying or fixing the historical spike. Six
 controller/widget checks now cover shortcuts and shared-view undo. Physical input,
 byte-safe Save and production protocol/resource gates remain open. Do not adopt the trial dependency
 or claim 16.0 complete. Public trial evidence is in the qualification report.
