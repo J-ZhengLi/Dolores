@@ -173,3 +173,54 @@ fn private_recovery_survives_restart_and_does_not_drop_unopened_recovery() {
         "saved"
     );
 }
+#[test]
+fn clean_agent_disk_changes_refresh_and_dirty_changes_require_review_before_attachment() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a"), "saved").unwrap();
+    let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+    let e = setup(store.clone(), root.path());
+    let p = call(&e, "A", json!({"action":"workspace"})).unwrap()["project"].clone();
+    let d = doc(&e, &p, "a");
+    std::fs::write(root.path().join("a"), "agent saved").unwrap();
+    let refreshed = call(
+        &e,
+        "A",
+        json!({"action":"refresh","project":p,"document":d["document"],"version":d["version"]}),
+    )
+    .unwrap();
+    assert_eq!(refreshed["text"], "agent saved");
+    edit(&e, &p, &refreshed, 0, 11, "unsaved selection").unwrap();
+    let d = doc(&e, &p, "a");
+    std::fs::write(root.path().join("a"), "new disk").unwrap();
+    let changed = call(
+        &e,
+        "A",
+        json!({"action":"refresh","project":p,"document":d["document"],"version":d["version"]}),
+    )
+    .unwrap();
+    assert_eq!(changed["changed"], true);
+    assert_eq!(doc(&e, &p, "a")["text"], "unsaved selection");
+    assert!(store.draft_attachments("A").unwrap().is_empty());
+    assert!(call(&e,"A",json!({"action":"attach","project":p,"document":d["document"],"version":0,"start":0,"end":17,"target":"A"})).is_err());
+    let parts=call(&e,"A",json!({"action":"attach","project":p,"document":d["document"],"version":d["version"],"start":0,"end":17,"target":"A"})).unwrap();
+    let asset = store
+        .attachment_data("A", parts[0]["digest"].as_str().unwrap())
+        .unwrap();
+    let text = String::from_utf8(asset.data).unwrap();
+    assert!(text.contains("(unsaved)"));
+    assert!(text.ends_with("unsaved selection"));
+    assert!(text.contains(d["snapshot"]["revision"].as_str().unwrap()));
+    edit(&e, &p, &d, 0, 17, "later edits").unwrap();
+    assert!(String::from_utf8(
+        store
+            .attachment_data("A", parts[0]["digest"].as_str().unwrap())
+            .unwrap()
+            .data
+    )
+    .unwrap()
+    .ends_with("unsaved selection"));
+    assert_eq!(
+        std::fs::read_to_string(root.path().join("a")).unwrap(),
+        "new disk"
+    );
+}

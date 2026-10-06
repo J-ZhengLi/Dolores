@@ -180,7 +180,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Widget content() {
-    if (page == WorkspacePage.folders) return FolderPreview(files: host.files);
+    if (page == WorkspacePage.folders) {
+      return FolderPreview(files: host.files, host: host);
+    }
     if (page == WorkspacePage.home) {
       return ChatPage(
         key: ObjectKey(host.visible),
@@ -246,7 +248,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
-    return Scaffold(
+    return CallbackShortcuts(bindings:{const SingleActivator(LogicalKeyboardKey.keyP,control:true):()=>unawaited(quickOpen(context,host.files))},child:Scaffold(
       body: Column(
         children: [
           if (!widget.nativeTitleBar)
@@ -338,6 +340,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
           ),
         ],
       ),
-    );
+    ));
   }
 }

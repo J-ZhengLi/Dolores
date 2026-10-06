@@ -1,5 +1,34 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.4 — editor and disk reconciliation
+
+The pinned re_editor 0.10.0 adapter uses one document-owned, bounded undo history and
+independent view controllers. It provides line numbers, bounded syntax highlighting
+for common source formats, indentation/clipboard shortcuts, Find/Replace, line
+navigation, relative-path Quick open and explicit Save (Autosave Off). Text edits
+send one acknowledged delta at a time and coalesce later work. Failed sync retains
+the local draft and requires explicit Retry sync; oversized paste restores the
+previous buffer before adding history. Saving keeps undo when text is unchanged.
+
+Private recovery checkpoints run after 500 ms of settled editing, rather than
+serializing the file on every keystroke. Clean disk changes refresh on returning
+to Folders, explicit Refresh and a project run's completion. Dirty changes retain
+the editor buffer and show Compare; Reload disk and Keep my edits validate the
+reviewed disk digest again. A stale comparison cannot overwrite a newer disk base.
+File actions remain blocked during pending Save; failures keep usable text.
+
+Attach selection explicitly chooses an idle conversation in this project and an
+editor version/range, explains provider sharing and stores an immutable text
+snapshot with saved-byte provenance. Editing alone never attaches or shares it.
+Native tests verify clean/dirty disk changes, stale attachment refusal and unchanged
+source bytes; the attachment remains unchanged after later edits.
+
+Eleven focused Flutter checks pass, including four editor checks for shared undo,
+selection independence, bounded history, coalesced transactions, sync/save failure,
+oversized paste and visible Find. Four native editor checks pass. Source-level
+checks do not qualify physical keyboard, IME, clipboard or native accessibility;
+integrated highlighting/resource measurements follow in 16.6.
+
 ## Workspace 16.3 — scoped tree and document persistence
 
 Folders now binds lazily to the Home conversation's root and retains open document

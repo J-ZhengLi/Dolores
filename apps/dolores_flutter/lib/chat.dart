@@ -278,6 +278,11 @@ class ChatController extends ChangeNotifier {
       _notify();
     }
   }
+  void acceptAttachmentParts(List<Map<String,dynamic>> parts) {
+    attachments=parts;
+    invalidateContext();
+    _notify();
+  }
 
   Future<bool> pasteImage({Future<Uint8List?> Function()? readImage}) async {
     if (busy || changing || loading || _disposed) return true;

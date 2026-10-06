@@ -9,6 +9,19 @@ use std::collections::BTreeMap;
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
     Workspace,
+    Attach {
+        project: String,
+        document: String,
+        version: u64,
+        start: usize,
+        end: usize,
+        target: String,
+    },
+    Refresh {
+        project: String,
+        document: String,
+        version: u64,
+    },
     Tree {
         project: String,
         path: String,
@@ -196,6 +209,7 @@ impl Engine {
         let project = project_id(&root);
         let supplied = match &request {
             Request::Workspace => None,
+            Request::Attach { project, .. } | Request::Refresh { project, .. } => Some(project),
             Request::Tree { project, .. }
             | Request::Open { project, .. }
             | Request::Edit { project, .. }
@@ -312,6 +326,12 @@ impl Engine {
             }
             other => {
                 let (id, version) = match &other {
+                    Request::Attach {
+                        document, version, ..
+                    }
+                    | Request::Refresh {
+                        document, version, ..
+                    } => (document, version),
                     Request::Edit {
                         document, version, ..
                     }
@@ -351,6 +371,62 @@ impl Engine {
                 let mut next = d.clone();
                 let reload = matches!(&other, Request::Reload { .. });
                 match other {
+                    Request::Refresh { .. } => {
+                        let disk = fs.snapshot(&d.snapshot.path)?;
+                        if disk.revision == d.snapshot.revision {
+                            return Ok(json!({"changed":false}));
+                        }
+                        if d.dirty() {
+                            return Ok(json!({"changed":true}));
+                        }
+                        next.text = disk.text.clone();
+                        next.snapshot = disk;
+                        next.next()?;
+                        let view = next.view();
+                        registry.docs.insert(id, next);
+                        Ok(view)
+                    }
+                    Request::Attach {
+                        start, end, target, ..
+                    } => {
+                        if d.snapshot.readonly {
+                            return Err(
+                                "Select text from an editable UTF-8 document before attaching."
+                                    .into(),
+                            );
+                        }
+                        let a = utf16_byte(&d.text, start)?;
+                        let b = utf16_byte(&d.text, end)?;
+                        if b <= a || b - a > 60 * 1024 {
+                            return Err(
+                                "Select nonempty text within 60 KiB before attaching.".into()
+                            );
+                        }
+                        let target_root = self.store.workspace(&target)?.root;
+                        if target_root.as_deref() != Some(&root) {
+                            return Err(
+                                "Choose a conversation in this project for a source attachment."
+                                    .into(),
+                            );
+                        }
+                        let data=format!("Source file: {}\nEditor version: {} ({})\nSaved-byte revision: {}\nUTF-16 range: {}..{}\n\n{}",d.snapshot.path,d.version,if d.dirty(){"unsaved"}else{"saved"},d.snapshot.revision,start,end,&d.text[a..b]).into_bytes();
+                        let reference = dolores_core::AttachmentRef {
+                            digest: format!("{:x}", Sha256::digest(&data)),
+                            name: format!(
+                                "Selection v{} - {}",
+                                d.version,
+                                d.snapshot.path.rsplit('/').next().unwrap_or("source")
+                            ),
+                            mime: "text/plain".into(),
+                            bytes: data.len(),
+                        };
+                        reference.validate()?;
+                        self.store.add_attachment(
+                            &target,
+                            &dolores_core::AttachmentData { reference, data },
+                        )?;
+                        Ok(json!(self.store.draft_attachments(&target)?))
+                    }
                     Request::Edit { edits, .. } => {
                         if d.snapshot.readonly {
                             return Err(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'chat.dart';
@@ -15,6 +17,7 @@ class AppHost extends ChangeNotifier {
   double panelWidth = 252;
   final appearanceChanges = ValueNotifier(0);
   String? _appearance;
+  final _running = <ChatController>{};
   void togglePanel() {
     panelHidden = !panelHidden;
     notifyListeners();
@@ -38,6 +41,18 @@ class AppHost extends ChangeNotifier {
   }
 
   void _changed() {
+    final ended = _running.where((c) => !c.busy).toList();
+    _running
+      ..clear()
+      ..addAll(tasks);
+    for (final owner in ended) {
+      for (final w in files.workspaces.values.where(
+        (w) => w.root == owner.workspaceRoot,
+      )) {
+        unawaited(files.refreshDocuments(w));
+        if (files.selected == w) unawaited(files.load(w, '.', refresh: true));
+      }
+    }
     if (_appearance != visible.appearance) {
       _appearance = visible.appearance;
       appearanceChanges.value++;
