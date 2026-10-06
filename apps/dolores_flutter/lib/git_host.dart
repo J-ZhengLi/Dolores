@@ -11,6 +11,13 @@ class GitWorkspace {
   bool busy = false;
   String? job, jobSession, error;
   String commitDraft = '';
+  final tabs = <String, Map<String, dynamic>>{};
+  String? activeTab;
+  List<Map<String, dynamic>> history = [];
+  int? historyNext;
+  String? historyHead;
+  Map<String, dynamic>? historyFiles;
+  bool sideBySide = false;
   GitWorkspace(this.root, this.session);
 }
 
@@ -101,6 +108,75 @@ class GitHost extends ChangeNotifier {
     } catch (_) {
       /* Retain the last displayed state and its explicit error. */
     }
+    changed();
+  }
+
+  Future<void> openDiff(
+    GitWorkspace w,
+    String path,
+    String basis, {
+    String? commit,
+  }) async {
+    final status = w.status;
+    if (status == null) return;
+    final key = '$basis:$commit:$path';
+    if (!w.tabs.containsKey(key) && w.tabs.length >= 8) {
+      w.error = 'Eight diff tabs are open. Close one before opening another.';
+      changed();
+      return;
+    }
+    try {
+      final value = await run(w, {
+        'action': 'diff',
+        'repo': status['repo'],
+        'revision': status['revision'],
+        'path': path,
+        'basis': basis,
+        'commit': ?commit,
+      });
+      w.tabs[key] = Map<String, dynamic>.from(value);
+      w.activeTab = key;
+    } catch (_) {
+      /* Preserve the prior tab on stale/bounded read failures. */
+    }
+    changed();
+  }
+
+  Future<void> loadHistory(GitWorkspace w, {bool more = false}) async {
+    final status = w.status;
+    if (status?['head'] == null) {
+      w.error = 'This repository has no commits yet.';
+      changed();
+      return;
+    }
+    final head = more ? w.historyHead : status!['head'] as String;
+    try {
+      final value = await run(w, {
+        'action': 'history',
+        'repo': status!['repo'],
+        'head': head,
+        'cursor': more ? w.historyNext ?? 0 : 0,
+      });
+      final items = (value['items'] as List)
+          .map((v) => Map<String, dynamic>.from(v))
+          .toList();
+      w.history = more ? [...w.history, ...items] : items;
+      w.historyHead = head;
+      w.historyNext = value['next'] as int?;
+    } catch (_) {}
+    changed();
+  }
+
+  Future<void> commitFiles(GitWorkspace w, String commit) async {
+    try {
+      w.historyFiles = Map<String, dynamic>.from(
+        await run(w, {
+          'action': 'commitFiles',
+          'repo': w.status!['repo'],
+          'commit': commit,
+        }),
+      );
+    } catch (_) {}
     changed();
   }
 

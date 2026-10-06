@@ -8,13 +8,35 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio_util::sync::CancellationToken;
+#[path = "git_diff.rs"]
+mod diff;
 
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
     Status,
-    Poll { job: String },
-    Cancel { job: String },
+    Diff {
+        repo: String,
+        revision: String,
+        path: String,
+        basis: String,
+        commit: Option<String>,
+    },
+    History {
+        repo: String,
+        head: String,
+        cursor: usize,
+    },
+    CommitFiles {
+        repo: String,
+        commit: String,
+    },
+    Poll {
+        job: String,
+    },
+    Cancel {
+        job: String,
+    },
 }
 struct Job {
     session: String,
@@ -101,6 +123,27 @@ impl Repo {
         let mut digest = Sha256::new();
         digest.update(&raw);
         digest.update(head.as_deref().unwrap_or("unborn").as_bytes());
+        let mut total = 0u64;
+        for entry in &entries {
+            let path = entry["path"].as_str().ok_or("Invalid Git path.")?;
+            match self.path(path) {
+                Ok(file) if file.is_file() => {
+                    let bytes = file
+                        .metadata()
+                        .map_err(|_| "Changed file is unavailable. Refresh.")?
+                        .len();
+                    total += bytes;
+                    if bytes > 16 * 1024 * 1024 || total > 32 * 1024 * 1024 {
+                        return Err("Changed files exceed the 16 MiB file / 32 MiB revision limit. Use external Git, then Refresh.".into());
+                    }
+                    digest.update(
+                        std::fs::read(file).map_err(|_| "Changed file is unavailable. Refresh.")?,
+                    );
+                }
+                Ok(_) => digest.update(b"missing-or-directory"),
+                Err(_) => digest.update(b"restricted-alias"),
+            }
+        }
         let index = self.git.join("index");
         if index.exists() {
             if index.metadata().map_err(|_| "Index is unavailable.")?.len() > 16 * 1024 * 1024 {
@@ -111,6 +154,57 @@ impl Repo {
         Ok(
             json!({"repo":self.id(),"root":self.root,"projectRoot":self.project,"head":head,"branch":branch,"entries":entries,"revision":format!("{:x}",digest.finalize())}),
         )
+    }
+    fn path(&self, path: &str) -> Result<PathBuf, String> {
+        if path.is_empty()
+            || path.len() > 4096
+            || path.contains(['\\', '\0'])
+            || Path::new(path).is_absolute()
+        {
+            return Err("Unsupported Git path. No file was changed.".into());
+        }
+        let mut file = self.root.clone();
+        for part in path.split('/') {
+            if part.is_empty()
+                || part == "."
+                || part == ".."
+                || part.eq_ignore_ascii_case(".git")
+                || (cfg!(windows) && part.contains(':'))
+            {
+                return Err("Git path is outside the worktree or is metadata.".into());
+            }
+            file.push(part);
+            if let Ok(meta) = std::fs::symlink_metadata(&file) {
+                #[cfg(windows)]
+                let alias = {
+                    use std::os::windows::fs::MetadataExt;
+                    meta.file_attributes() & 0x400 != 0
+                };
+                #[cfg(not(windows))]
+                let alias = false;
+                if meta.file_type().is_symlink() || alias {
+                    return Err("Linked paths are read-only in Source Control. Use external Git deliberately.".into());
+                }
+            }
+        }
+        Ok(file)
+    }
+    fn check(&self, id: &str) -> Result<(), String> {
+        if id != self.id() {
+            Err("Repository changed. Return to its Home conversation and Refresh.".into())
+        } else {
+            Ok(())
+        }
+    }
+    fn revision(&self, revision: &str, cancel: &CancellationToken) -> Result<Value, String> {
+        let status = self.status(cancel)?;
+        if status["revision"] != revision {
+            return Err(
+                "Git basis changed. Refresh and review the new state; no action was performed."
+                    .into(),
+            );
+        }
+        Ok(status)
     }
 }
 fn text(bytes: &[u8]) -> Result<&str, String> {
@@ -127,6 +221,9 @@ fn parse_status(raw: &[u8]) -> Result<Vec<Value>, String> {
             return Err("Malformed Git status. Refresh; no action was performed.".into());
         }
         let xy = text(&record[..2])?;
+        if !xy.bytes().all(|b| b" MADRCUT?!".contains(&b)) {
+            return Err("Malformed Git status codes. Refresh.".into());
+        }
         let path = text(&record[3..])?;
         let old = if xy.contains(['R', 'C']) {
             Some(text(
@@ -201,7 +298,7 @@ impl Engine {
                     .cancel();
                 Ok(Value::Null)
             }
-            Request::Status => {
+            operation => {
                 let root = self
                     .store
                     .workspace(session)?
@@ -241,7 +338,32 @@ impl Engine {
                         let _guard = lane
                             .try_lock()
                             .map_err(|_| "This worktree is busy. Wait, then Refresh.")?;
-                        repo.status(&cancel)
+                        match operation {
+                            Request::Status => repo.status(&cancel),
+                            Request::Diff {
+                                repo: id,
+                                revision,
+                                path,
+                                basis,
+                                commit,
+                            } => {
+                                repo.check(&id)?;
+                                repo.diff(&revision, &path, &basis, commit.as_deref(), &cancel)
+                            }
+                            Request::History {
+                                repo: id,
+                                head,
+                                cursor,
+                            } => {
+                                repo.check(&id)?;
+                                repo.history(&head, cursor, &cancel)
+                            }
+                            Request::CommitFiles { repo: id, commit } => {
+                                repo.check(&id)?;
+                                repo.commit_files(&commit, &cancel)
+                            }
+                            _ => unreachable!(),
+                        }
                     });
                     if let Ok(mut state) = registry.lock() {
                         state.active.remove(&root);

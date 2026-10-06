@@ -11,18 +11,23 @@ Future<void> showChanges(BuildContext context, ChatController chat) =>
       () => showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) =>
-            ChangesInspector(bridge: chat.bridge, session: chat.session!),
+        builder: (_) => ChangesInspector(
+          bridge: chat.bridge,
+          session: chat.session!,
+          onOpenSourceControl: chat.onOpenSourceControl,
+        ),
       ),
     );
 
 class ChangesInspector extends StatefulWidget {
   final ChatBridge bridge;
   final String session;
+  final Future<void> Function(String path)? onOpenSourceControl;
   const ChangesInspector({
     super.key,
     required this.bridge,
     required this.session,
+    this.onOpenSourceControl,
   });
   @override
   State<ChangesInspector> createState() => _ChangesInspectorState();
@@ -236,6 +241,17 @@ class _ChangesInspectorState extends State<ChangesInspector> {
                       if (detail != null) ...[
                         const Divider(),
                         SelectableText('${change!['target']}'),
+                        if (widget.onOpenSourceControl != null)
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () {
+                                    final path = change['target'] as String;
+                                    Navigator.pop(context);
+                                    widget.onOpenSourceControl!(path);
+                                  },
+                            child: const Text('Open saved Git comparison'),
+                          ),
                         Text(
                           '${_kind(change)} · ${change['bytesAfter']} bytes after change',
                         ),

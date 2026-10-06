@@ -63,6 +63,7 @@ class ChatController extends ChangeNotifier {
   ChatController(this.bridge, {this.ownsBridge = true});
   bool nativeStartup = false;
   Future<void> Function()? beforeNativeRestart;
+  Future<void> Function(String path)? onOpenSourceControl;
   Future<void> saveNativeDrafts() async {
     await beforeNativeRestart?.call();
     if (busy || loading) {

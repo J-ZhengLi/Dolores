@@ -22,6 +22,7 @@ class AppHost extends ChangeNotifier {
   final _running = <ChatController>{};
   final _themes = <ChatController, VoidCallback>{};
   Future<bool> Function()? closeReview;
+  Future<void> Function(String path)? repositoryNavigation;
   Future<bool> requestClose() async => await closeReview?.call() ?? false;
   Future<void> prepareNativeRestart(ChatController caller) async {
     if (git.workspaces.values.any((w) => w.busy) ||
@@ -98,6 +99,10 @@ class AppHost extends ChangeNotifier {
     _add(initial);
   }
   void _add(ChatController owner) {
+    owner.onOpenSourceControl = (path) async {
+      if (owner.session != null) await select(owner.session!);
+      if (visible == owner) await repositoryNavigation?.call(path);
+    };
     owner.beforeNativeRestart = () => prepareNativeRestart(owner);
     owner.appearance = _appearance ?? owner.appearance;
     owners.add(owner);
@@ -239,6 +244,7 @@ class AppHost extends ChangeNotifier {
     files.dispose();
     for (final owner in owners) {
       owner.beforeNativeRestart = null;
+      owner.onOpenSourceControl = null;
       owner.removeListener(_changed);
       owner.appearanceChanges.removeListener(_themes[owner]!);
     }

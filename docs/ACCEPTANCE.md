@@ -1,5 +1,20 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control 17.2 — saved Git diff tabs and history
+
+Changes/Staged open retained read-only diff tabs with explicit Index, saved working
+tree, HEAD or exact commit/parent labels. Inline and side-by-side views remain
+separate from unsaved editor buffers. History pins HEAD, loads 30 commits per page,
+and opens non-merge commit file comparisons; root commits compare with empty text.
+Home change receipts link to the current saved Git comparison without relabeling
+the receipt as repository truth. Refresh failures retain the prior tab.
+
+The native corpus verifies working/index/HEAD/root-commit distinctions, Unicode,
+malformed paths, binary/long-line refusal and stale saved-byte refusal. Three
+native Source Control checks and eleven focused Flutter/receipt checks pass,
+including compact inline/side-by-side and failed diff Retry. Physical native input,
+larger paging cost and normal release renders remain batch qualification work.
+
 ## Source Control 17.1 — lazy repository status
 
 Source Control follows the selected Home conversation without a project picker.

@@ -6,6 +6,9 @@ import 'package:file_selector/file_selector.dart';
 
 import 'app_host.dart';
 import 'source_control.dart';
+
+import 'package:path/path.dart' as paths;
+
 import 'chat_sidebar.dart';
 import 'main.dart' show ChatPage;
 import 'settings.dart';
@@ -53,6 +56,20 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     page = widget.initialPage;
     host.addListener(changed);
     host.closeReview = requestClose;
+    host.repositoryNavigation = (path) async {
+      setState(() => page = WorkspacePage.sourceControl);
+      await host.git.bind(host.visible.session, host.projectRoot);
+      final w = host.git.selected;
+      if (w?.status != null && host.projectRoot != null) {
+        final relative = paths
+            .relative(
+              paths.join(host.projectRoot!, path),
+              from: w!.status!['root'] as String,
+            )
+            .replaceAll('\\', '/');
+        await host.git.openDiff(w, relative, 'working');
+      }
+    };
   }
 
   Future<bool> requestClose() async {
@@ -104,6 +121,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   @override
   void dispose() {
     host.closeReview = null;
+    host.repositoryNavigation = null;
     host.removeListener(changed);
     super.dispose();
   }
