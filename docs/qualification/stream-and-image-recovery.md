@@ -5,6 +5,11 @@ All model requests use disposable profiles and synthetic prompts. The original
 provider selection, response settings and history are preserved. Private keys,
 transcripts and raw run records stay outside tracked artifacts.
 
+The subsequent [fragmented reasoning/progress follow-up](reasoning-streams.md)
+reproduces and replaces the cumulative 2 MiB guard described below, qualifies
+DeepSeek with default reasoning and adds visible request activity. This document
+records the initial fix and its passing/failed settings, not that later boundary.
+
 ## Stream diagnosis and bounds
 
 A deterministic HTML file call split into more than 4096 small SSE events
@@ -14,7 +19,7 @@ provider fragments, even when the generated file and wire payload were small.
 Its historical error also covered oversized individual events, so the user's
 old banner alone cannot prove which of those bounds fired.
 
-The event-count guard is removed. Total wire data remains bounded to 2 MiB,
+The initial fix removed the event-count guard but bounded total wire data to 2 MiB,
 individual agent events to 256 KiB, assembled fields to 128 KiB, plus existing
 complete-call validation, file limits, cancellation and deadlines. Oversized
 events/total wire data and malformed or truncated calls still refuse dispatch.

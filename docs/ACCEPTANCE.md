@@ -1,5 +1,34 @@
 # Dolores acceptance — 2026-10-05
 
+## AI follow-up — fragmented reasoning and visible activity
+
+2026-10-06: The earlier event-count fix retained a cumulative 2 MiB wire guard.
+A real-adapter regression reproduced its failure with small decoded reasoning and
+HTML surrounded by repeated metadata. The same fixture now passes. The guard
+bounds traffic without decoded progress; individual event/field/tool limits,
+deadlines, Stop and incomplete-call refusal remain. A decoder scan/drain change
+also removes the observed fragmented-batch overhead.
+
+Reasoning-only requests now show phase and elapsed time, with the deadline on
+hover; private reasoning and incomplete arguments remain hidden. Widget and native
+delayed-provider checks cover thinking/tool preparation, stale activity, Stop and
+restored draft without dispatch. Core/provider/bridge: 192 tests PASS; Flutter:
+245 PASS; analysis: no issues. Oversized/no-progress traffic and malformed/truncated
+calls still refuse execution. There is no automatic replay or settings increase.
+
+DeepSeek V4.1 Flash completed the exact HTML game prompt with provider-default
+reasoning and 32,768 output tokens: 13,686-byte standalone file, JavaScript syntax,
+browser rendering and basic input PASS. Activity continued about once a second.
+GLM-5.3-Flash default reasoning timed out at 180 seconds with no file/tool call;
+activity remained visible. This failure remains an acceptance gap.
+A separate GLM Low run completed at the same output allowance and produced a
+9,076-byte standalone HTML file with valid JavaScript; this is not a default pass.
+
+General native self-repair was not implemented by the recovery-hint mod milestone.
+Matching-source navigation, managed patches, independent trials and installation
+with rollback are planned separately as milestone 20. The 120-line per-read limit
+is not expanded by this fix. See [evidence and boundaries](qualification/reasoning-streams.md).
+
 ## AI fixes — streamed generation, image chat and self-diagnosis
 
 2026-10-06: A deterministic HTML tool call with more than 4096 small SSE events

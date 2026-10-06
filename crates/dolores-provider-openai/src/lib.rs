@@ -3,7 +3,7 @@ use dolores_core::{
     ConnectionPreferences, Message, ModelProvider, PluginDescriptor, RequestSettings, TokenUsage,
 };
 use futures_util::StreamExt;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -328,29 +328,29 @@ impl SseDecoder {
     fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, String> {
         self.buffer.extend_from_slice(bytes);
         let mut frames = Vec::new();
+        let mut consumed = 0;
         loop {
-            let delimiter = self
-                .buffer
-                .windows(2)
-                .position(|w| w == b"\n\n")
-                .map(|i| (i, 2));
-            let crlf = self
-                .buffer
-                .windows(4)
-                .position(|w| w == b"\r\n\r\n")
-                .map(|i| (i, 4));
-            let boundary = match (delimiter, crlf) {
-                (Some(a), Some(b)) => Some(if a.0 < b.0 { a } else { b }),
-                (a, b) => a.or(b),
-            };
+            let remaining = &self.buffer[consumed..];
+            // One scan stops at the first delimiter in either line-ending style.
+            // Two independent scans repeatedly traversed the rest of CRLF batches.
+            let boundary = remaining.windows(2).enumerate().find_map(|(index, pair)| {
+                if pair == b"\n\n" {
+                    Some((index, 2))
+                } else if pair == b"\r\n" && remaining.get(index + 2..index + 4) == Some(b"\r\n") {
+                    Some((index, 4))
+                } else {
+                    None
+                }
+            });
             let Some((index, length)) = boundary else {
                 break;
             };
             if index > MAX_FRAME_BYTES {
                 return Err("Provider stream frame exceeds the limit.".into());
             }
-            let frame = String::from_utf8(self.buffer.drain(..index + length).collect())
+            let frame = String::from_utf8(remaining[..index].to_vec())
                 .map_err(|_| "Provider returned invalid UTF-8.".to_string())?;
+            consumed += index + length;
             let data = frame
                 .lines()
                 .filter_map(|line| {
@@ -363,6 +363,7 @@ impl SseDecoder {
                 frames.push(data);
             }
         }
+        self.buffer.drain(..consumed);
         if self.buffer.len() > MAX_FRAME_BYTES {
             return Err("Provider stream frame exceeds the limit.".into());
         }
@@ -413,6 +414,17 @@ impl ModelProvider for OpenAiProvider {
         cancel: CancellationToken,
     ) -> Result<dolores_core::AgentTurn, String> {
         self.request_stream_tool_turn(messages, tools, output, cancel)
+            .await
+    }
+    async fn stream_tool_turn_with_activity(
+        &self,
+        messages: &[dolores_core::AgentMessage],
+        tools: &[dolores_core::ToolSpec],
+        output: mpsc::Sender<String>,
+        activity: mpsc::Sender<dolores_core::ModelActivity>,
+        cancel: CancellationToken,
+    ) -> Result<dolores_core::AgentTurn, String> {
+        self.request_stream_tool_turn_with_activity(messages, tools, output, Some(activity), cancel)
             .await
     }
     async fn tool_turn(
@@ -704,17 +716,21 @@ mod tests {
             "https://example.com/v1?key=secret",
             "file:///v1",
         ] {
-            assert!(validate_preferences(&ConnectionPreferences {
-                base_url: base_url.into(),
+            assert!(
+                validate_preferences(&ConnectionPreferences {
+                    base_url: base_url.into(),
+                    model: "test".into()
+                })
+                .is_err()
+            );
+        }
+        assert!(
+            validate_preferences(&ConnectionPreferences {
+                base_url: "http://[::1]:8080/v1/".into(),
                 model: "test".into()
             })
-            .is_err());
-        }
-        assert!(validate_preferences(&ConnectionPreferences {
-            base_url: "http://[::1]:8080/v1/".into(),
-            model: "test".into()
-        })
-        .is_ok());
+            .is_ok()
+        );
     }
     #[test]
     fn rejects_oversized_stream_frames() {
@@ -1038,7 +1054,14 @@ mod tests {
             "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n{\"error\":{\"message\":\"Unsupported stream_options fixture-secret\"}}",
         ] {
             let (base_url, server) = server(response).await;
-            let provider = OpenAiProvider::new(&ConnectionPreferences { base_url, model: "fixture".into() }, String::new()).unwrap();
+            let provider = OpenAiProvider::new(
+                &ConnectionPreferences {
+                    base_url,
+                    model: "fixture".into(),
+                },
+                String::new(),
+            )
+            .unwrap();
             let (tx, _rx) = mpsc::channel(32);
             let error = provider.stream_with_usage(vec![], tx, CancellationToken::new()).await.unwrap_err();
             assert!(!error.contains("fixture-secret") && !error.contains("Could not reach"));
@@ -1110,7 +1133,14 @@ mod tests {
             "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n{\"data\":[]}",
         ] {
             let (base_url, server) = server(response).await;
-            let provider = OpenAiProvider::new(&ConnectionPreferences { base_url, model: "discovery".into() }, "test-key".into()).unwrap();
+            let provider = OpenAiProvider::new(
+                &ConnectionPreferences {
+                    base_url,
+                    model: "discovery".into(),
+                },
+                "test-key".into(),
+            )
+            .unwrap();
             let error = provider.list_models().await.unwrap_err();
             assert!(!error.contains("fixture-secret-denial") && !error.contains("test-key"));
             server.await.unwrap();

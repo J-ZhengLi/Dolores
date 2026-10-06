@@ -140,6 +140,12 @@ Settings → Task limits includes scoped overrides in its scrollable editor: mod
 
 ## Run evidence
 
+Active model calls show a quiet activity label with elapsed seconds: Waiting for
+model, Thinking, Preparing tool call or Responding. Labels reflect transport
+activity, not invented progress percentages or reasoning text. A hover hint gives
+the response deadline; Stop stays available. Updates stop when the run ends and
+stale step events cannot change the current reply. No idle timer is added.
+
 Activity keeps Earlier tasks available during execution; capabilities live under Advanced. Other actions that prepare or mutate state remain disabled. Run history uses InspectorFrame, a scrollable latest-20 list, selectable ordered evidence and a fixed Refresh footer. Show interruption and uncertain effects literally with inspection guidance, never an automatic Replay action. Changing the foreground chat still waits for Stop/completion; read-only backend inspection of another chat is allowed. No idle polling, new palette or composer change is added.
 
 ## Capability inspection

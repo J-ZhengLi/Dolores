@@ -302,9 +302,14 @@ class _ChatPageState extends State<ChatPage> {
             ModelSteps(steps: metadata!['agent']['steps'] as List),
           if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
           if (user || text.isEmpty)
-            SelectableText(
-              text.isEmpty && streaming ? 'Thinking…' : text,
-              style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
+            Tooltip(
+              message: streaming && chat.modelTimeoutSeconds > 0
+                  ? 'Response deadline: ${chat.modelTimeoutSeconds}s. Stop remains available.'
+                  : '',
+              child: SelectableText(
+                text.isEmpty && streaming ? chat.modelActivityLabel : text,
+                style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
+              ),
             )
           else
             ReplyContent(

@@ -75,9 +75,125 @@ async fn tool_reasoning_is_returned_exactly_but_never_emitted_and_new_runs_clear
         .get("reasoning_content")
         .is_none());
     provider.wire_agent_messages(&input).unwrap();
-    assert!(provider.wire_agent_messages(&[message]).unwrap()[0]
-        .get("reasoning_content")
-        .is_none());
+    assert!(
+        provider.wire_agent_messages(&[message]).unwrap()[0]
+            .get("reasoning_content")
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn reasoning_activity_arrives_before_completion_without_private_text_and_stop_is_prompt() {
+    use dolores_core::ModelActivity;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}/v1", listener.local_addr().unwrap());
+    let (release, gate) = tokio::sync::oneshot::channel::<()>();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut bytes = vec![];
+        loop {
+            let mut buf = [0; 4096];
+            let n = socket.read(&mut buf).await.unwrap();
+            bytes.extend_from_slice(&buf[..n]);
+            if let Some(i) = bytes.windows(4).position(|p| p == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&bytes[..i]);
+                let length = headers
+                    .lines()
+                    .find_map(|s| {
+                        s.to_lowercase()
+                            .strip_prefix("content-length: ")
+                            .map(|n| n.parse::<usize>().unwrap())
+                    })
+                    .unwrap_or(0);
+                if bytes.len() >= i + 4 + length {
+                    break;
+                }
+            }
+        }
+        socket
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            )
+            .await
+            .unwrap();
+        socket
+            .write_all(
+                format!(
+                    "data: {}\n\n",
+                    delta(
+                        json!({"reasoning_content":"PRIVATE_REASONING_SENTINEL"}),
+                        Value::Null
+                    )
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+        let _ = gate.await;
+    });
+    let (text, mut texts) = mpsc::channel(8);
+    let (activity, mut activities) = mpsc::channel(8);
+    let cancel = CancellationToken::new();
+    let stopped = cancel.clone();
+    let task = tokio::spawn(async move {
+        provider(endpoint)
+            .stream_tool_turn_with_activity(&[], &[], text, activity, stopped)
+            .await
+    });
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(2), activities.recv())
+            .await
+            .unwrap(),
+        Some(ModelActivity::Reasoning)
+    );
+    assert!(texts.try_recv().is_err());
+    assert!(!task.is_finished());
+    cancel.cancel();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .err()
+            .unwrap()
+            .contains("stopped")
+    );
+    let _ = release.send(());
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn bounded_reasoning_and_html_survive_large_fragmented_transport() {
+    // Normal one-character deltas repeat provider metadata thousands of times.
+    // Their HTTP size must not become a second, smaller output allowance.
+    let mut frames = Vec::new();
+    for _ in 0..12_000 {
+        let mut frame = delta(json!({"reasoning_content":"x"}), Value::Null);
+        frame["id"] = json!("chatcmpl-fragmented-provider-response");
+        frame["object"] = json!("chat.completion.chunk");
+        frame["model"] = json!("reasoning-model-with-small-token-deltas");
+        frame["created"] = json!(1_700_000_000);
+        frames.push(frame);
+    }
+    let arguments = json!({"path":"game.html","content":"<!doctype html><canvas></canvas><script>let x=1;</script>"}).to_string();
+    frames.push(delta(
+        json!({"tool_calls":[call(0,"game","create_text_file",&arguments)]}),
+        json!("tool_calls"),
+    ));
+    let response = wire(&frames, true);
+    assert!(response.len() > 2 * 1024 * 1024);
+    let (url, server) = crate::tests::sequence_server(vec![response]).await;
+    let (tx, _rx) = mpsc::channel(8);
+    let turn = provider(url)
+        .stream_tool_turn(&[], &[], tx, CancellationToken::new())
+        .await
+        .expect(
+            "valid bounded reasoning and a small complete HTML call must survive metadata overhead",
+        );
+    assert_eq!(turn.calls[0].arguments, arguments);
+    assert!(turn.content.is_empty());
+    server.await.unwrap();
 }
 
 #[tokio::test]
@@ -102,7 +218,7 @@ async fn valid_html_tool_arguments_survive_many_small_stream_events() {
     frames.push(json!({"choices":[],"usage":{"completion_tokens":6000}}));
     assert!(frames.len() > 4096);
     let response = wire(&frames, true);
-    assert!(response.len() < MAX_WIRE_BYTES);
+    assert!(response.len() < 2 * 1024 * 1024);
     let (base_url, server) = crate::tests::sequence_server(vec![response]).await;
     let (sender, _receiver) = mpsc::channel(8);
     let result = provider(base_url)
@@ -480,16 +596,17 @@ async fn generic_rejections_and_stream_errors_do_not_retry_or_fall_back_to_plain
 }
 
 #[tokio::test]
-async fn stream_wire_and_individual_frame_budgets_are_enforced() {
+async fn idle_stream_and_individual_frame_budgets_are_enforced() {
     for (frames, expected) in [
         (
             vec![json!({"choices":[],"padding":"x".repeat(MAX_AGENT_FRAME_BYTES+1)})],
             "oversized stream event",
         ),
-        // Many tiny incomplete chunks of a comment cannot allocate forever.
+        // Padding cannot evade the no-progress limit, even if DONE arrives
+        // in the same network chunk that crosses the allowance.
         (
             vec![json!({"choices":[],"padding":"x".repeat(200*1024)}); 11],
-            "wire limit",
+            "without new response data",
         ),
     ] {
         let (base_url, server) = crate::tests::sequence_server(vec![wire(&frames, true)]).await;

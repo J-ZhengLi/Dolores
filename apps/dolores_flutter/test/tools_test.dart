@@ -326,6 +326,52 @@ void _editTests() {
 }
 
 void main() {
+  testWidgets(
+    'Reasoning-only activity is visible, stale steps are ignored and Stop restores the draft',
+    (tester) async {
+      final bridge = ToolBridge();
+      final chat = ready(bridge);
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      await chat.send();
+      final id = bridge.commands.lastWhere(
+        (c) => c['command'] == 'start',
+      )['id'];
+      bridge.queue.removeWhere((e) => e['type'] == 'toolApproval');
+      bridge.queue.add({
+        'type': 'modelActivity',
+        'id': id,
+        'number': 1,
+        'phase': 'reasoning',
+        'elapsedSeconds': 7,
+        'timeoutSeconds': 180,
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Thinking · 7s'), findsOneWidget);
+      expect(chat.partial, isEmpty);
+      expect(chat.toolApproval, isNull);
+      bridge.queue.add({
+        'type': 'modelActivity',
+        'id': id,
+        'number': 0,
+        'phase': 'toolArguments',
+        'elapsedSeconds': 99,
+        'timeoutSeconds': 180,
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Thinking · 7s'), findsOneWidget);
+      await chat.stop();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(chat.busy, isFalse);
+      expect(chat.draft, 'Read readme');
+      expect(find.text('Thinking · 7s'), findsNothing);
+      expect(
+        bridge.commands.where((c) => c['command'] == 'approveTool'),
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
   _editTests();
   for (final dark in [false, true]) {
     testWidgets(

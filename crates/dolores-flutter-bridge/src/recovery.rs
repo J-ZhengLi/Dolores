@@ -12,6 +12,11 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error.starts_with("Provider stream sent 2 MiB without new response data") => (
+            "stalledStream",
+            false,
+            "The provider kept sending data without making response progress. Your draft and completed changes remain. Check the provider, or send again explicitly. No incomplete tool call ran and nothing was retried automatically.",
+        ),
         error if error == "Streamed tool response exceeds its frame limit." || error.starts_with("Provider sent an oversized stream event") || error == "Streamed tool response exceeds the 2 MiB wire limit." || error == "Streamed tool field exceeds its byte limit." => ("streamLimit", false, "The provider stream exceeded a harness limit. No incomplete tool call ran. Keep completed changes, then ask Dolores to inspect the recent failure and provider_stream source. Try a smaller first file; changing the model context size will not fix a stream limit. No automatic retry."),
         error if error.starts_with("Desktop ") || error.starts_with("Observation model ") => ("desktop", false, "Open Settings → Computer use. Inspect the selected window and saved receipts, make a fresh capture, then explicitly reconcile the original goal. Input may already have occurred; nothing is replayed automatically."),
         error if error.starts_with("Model rejected generation settings.") => ("generationSettings", false, "Open Request settings for this model. Choose Provider default or a supported output limit, then send the restored draft. Completed file changes remain; Dolores will not retry automatically."),
@@ -53,6 +58,10 @@ mod tests {
     use super::*;
     #[test]
     fn stream_limits_explain_manual_recovery_without_changing_context_or_replaying() {
+        let stalled = advice("Provider stream sent 2 MiB without new response data.");
+        assert_eq!(stalled.kind, "stalledStream");
+        assert!(!stalled.retryable);
+        assert!(stalled.guidance.contains("draft and completed changes remain"));
         for message in [
             "Streamed tool response exceeds its frame limit.",
             "Provider sent an oversized stream event (256 KiB maximum). No incomplete tool call was executed.",

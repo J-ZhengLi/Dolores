@@ -14,6 +14,7 @@ mod feedback;
 pub use comparison::*;
 pub use feedback::*;
 mod agent;
+pub use agent::ModelActivity;
 mod web;
 pub use web::*;
 mod runs;
@@ -32,7 +33,7 @@ mod permissions;
 pub use permissions::*;
 mod command_outcome;
 mod continuation;
-pub use command_outcome::{unresolved_commands, CommandOutcome};
+pub use command_outcome::{CommandOutcome, unresolved_commands};
 pub use continuation::PausedTask;
 mod mcp;
 pub use mcp::*;
@@ -49,9 +50,9 @@ mod skills;
 pub use relevant_skills::prepare_relevant_skill_context;
 pub use skill_drafts::*;
 pub use skills::{
-    effective_skills, prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument,
-    SkillScope, SkillSource, SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES,
-    MAX_SKILL_VERSIONS,
+    MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS, ProjectSkill,
+    SkillDocument, SkillScope, SkillSource, SkillVersion, effective_skills, prepare_skill_context,
+    valid_skill_name,
 };
 mod knowledge;
 mod memory;
@@ -62,7 +63,7 @@ pub use agent::*;
 pub use automatic_memory::*;
 pub use change::*;
 pub use instructions::{
-    prepare_instruction_context, InstructionSource, WorkspaceInstructions, MAX_INSTRUCTION_BYTES,
+    InstructionSource, MAX_INSTRUCTION_BYTES, WorkspaceInstructions, prepare_instruction_context,
 };
 pub use memory::*;
 pub use memory_suggestions::*;
@@ -217,6 +218,17 @@ pub trait ModelProvider: Send + Sync {
             usage: self.stream_with_usage(messages, output, cancel).await?,
             output_limit: false,
         })
+    }
+    /// Optional activity reporting; existing provider plugins keep their text contract.
+    async fn stream_tool_turn_with_activity(
+        &self,
+        messages: &[AgentMessage],
+        tools: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        _activity: mpsc::Sender<agent::ModelActivity>,
+        cancel: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        self.stream_tool_turn(messages, tools, output, cancel).await
     }
     /// Optional streaming tool capability; existing provider plugins still work.
     async fn stream_tool_turn(

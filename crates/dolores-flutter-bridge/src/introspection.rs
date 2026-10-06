@@ -171,7 +171,9 @@ impl Engine {
             } else if error.starts_with("Provider sent an oversized stream event") {
                 "A single provider stream event exceeded 256 KiB. No incomplete tool call was executed."
             } else if error == "Streamed tool response exceeds the 2 MiB wire limit." {
-                "The streamed response exceeded the total wire byte allowance."
+                "The older transport guard counted repeated provider metadata toward 2 MiB. The record does not contain decoded output or stream activity measurements. The current build instead bounds decoded fields and traffic without progress."
+            } else if error.starts_with("Provider stream sent 2 MiB without new response data") {
+                "The provider sent excessive traffic without adding reply, reasoning or tool-call data. No incomplete tool call was executed."
             } else if error == "Streamed tool field exceeds its byte limit." {
                 "An assembled response field exceeded its byte allowance."
             } else if run.state == dolores_core::RunState::Paused {
@@ -339,7 +341,12 @@ mod tests {
         assert_eq!(b.as_array().unwrap().len(), 1);
         assert_ne!(b[0]["runId"], a[0]["runId"]);
         let stream = source(r#"{"source":"provider_stream","lineCount":120}"#, None).unwrap();
-        assert!(stream["text"].as_str().unwrap().contains("MAX_WIRE_BYTES"));
+        assert!(
+            stream["text"]
+                .as_str()
+                .unwrap()
+                .contains("MAX_IDLE_WIRE_BYTES")
+        );
         assert!(!stream["text"].as_str().unwrap().contains("MAX_FRAMES"));
     }
     #[test]

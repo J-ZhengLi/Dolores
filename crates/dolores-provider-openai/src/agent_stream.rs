@@ -1,15 +1,15 @@
-use crate::{reported_usage, usage_option_rejected, OpenAiProvider, SseDecoder};
+use crate::{OpenAiProvider, SseDecoder, reported_usage, usage_option_rejected};
 use dolores_core::{
-    validate_call, AgentMessage, AgentTurn, TokenUsage, ToolCall, ToolSpec, MAX_CONTEXT_BYTES,
-    MAX_FILE_ARGUMENT_BYTES, MAX_OUTPUT_BYTES, MAX_TOOL_CALLS,
+    AgentMessage, AgentTurn, MAX_CONTEXT_BYTES, MAX_FILE_ARGUMENT_BYTES, MAX_OUTPUT_BYTES,
+    MAX_TOOL_CALLS, TokenUsage, ToolCall, ToolSpec, validate_call,
 };
 use futures_util::StreamExt;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{collections::BTreeMap, time::Duration};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-const MAX_WIRE_BYTES: usize = 2 * 1024 * 1024;
+const MAX_IDLE_WIRE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_AGENT_FRAME_BYTES: usize = 256 * 1024;
 const INVALID: &str = "Model returned an invalid streamed tool response.";
 
@@ -40,6 +40,27 @@ fn append(target: &mut String, value: &Value, limit: usize) -> Result<(), String
     Ok(())
 }
 impl Assembly {
+    fn payload_bytes(&self) -> usize {
+        self.content.len()
+            + self.reasoning.as_ref().map_or(0, String::len)
+            + self
+                .calls
+                .values()
+                .map(|c| c.id.len() + c.name.len() + c.arguments.len())
+                .sum::<usize>()
+    }
+    fn activity(&self) -> dolores_core::ModelActivity {
+        use dolores_core::ModelActivity;
+        if !self.calls.is_empty() {
+            ModelActivity::ToolArguments
+        } else if !self.content.is_empty() {
+            ModelActivity::Responding
+        } else if self.reasoning.as_ref().is_some_and(|r| !r.is_empty()) {
+            ModelActivity::Reasoning
+        } else {
+            ModelActivity::Waiting
+        }
+    }
     // Only model text leaves the adapter. Partial names/arguments never become
     // a tool request, and no provider text can become an approval decision.
     fn push(&mut self, value: Value) -> Result<String, String> {
@@ -185,10 +206,21 @@ impl OpenAiProvider {
         output: mpsc::Sender<String>,
         cancel: CancellationToken,
     ) -> Result<AgentTurn, String> {
+        self.request_stream_tool_turn_with_activity(messages, tools, output, None, cancel)
+            .await
+    }
+    pub(crate) async fn request_stream_tool_turn_with_activity(
+        &self,
+        messages: &[AgentMessage],
+        tools: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        activity: Option<mpsc::Sender<dolores_core::ModelActivity>>,
+        cancel: CancellationToken,
+    ) -> Result<AgentTurn, String> {
         tokio::select! { biased;
             _ = cancel.cancelled() => Err("Response stopped.".into()),
             result = tokio::time::timeout(Duration::from_secs(self.settings.timeout_seconds.into()),
-                self.stream_agent_request(messages, tools, output, cancel.clone())) =>
+                self.stream_agent_request(messages, tools, output, activity, cancel.clone())) =>
                 result.map_err(|_| "Model request timed out. Adjust the request timeout or try again.")?,
         }
     }
@@ -197,6 +229,7 @@ impl OpenAiProvider {
         messages: &[AgentMessage],
         tools: &[ToolSpec],
         output: mpsc::Sender<String>,
+        activity: Option<mpsc::Sender<dolores_core::ModelActivity>>,
         cancel: CancellationToken,
     ) -> Result<AgentTurn, String> {
         let wire_limit = MAX_CONTEXT_BYTES
@@ -254,30 +287,36 @@ impl OpenAiProvider {
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
         let mut assembly = Assembly::default();
-        let mut wire_bytes = 0;
+        let mut idle_wire_bytes = 0usize;
+        let mut last_phase = dolores_core::ModelActivity::Waiting;
         while let Some(chunk) = stream.next().await {
             let chunk =
                 chunk.map_err(|_| "Connection interrupted before the response finished.")?;
-            wire_bytes += chunk.len();
-            if wire_bytes > MAX_WIRE_BYTES {
-                return Err("Streamed tool response exceeds the 2 MiB wire limit.".into());
-            }
+            idle_wire_bytes = idle_wire_bytes.saturating_add(chunk.len());
+            let previous_payload = assembly.payload_bytes();
+            let mut done = false;
             for data in decoder.push(&chunk)? {
                 // Event count reflects provider fragmentation, not generated work.
-                // Total wire bytes, each event, assembled fields and the request
-                // deadline still bound allocation and processing, including idle events.
+                // Bound each event, decoded fields, idle traffic and the whole
+                // request deadline rather than cumulative repeated metadata.
                 if data.len() > MAX_AGENT_FRAME_BYTES {
                     return Err("Provider sent an oversized stream event (256 KiB maximum). No incomplete tool call was executed. Try a smaller generated file or check the provider's streaming support.".into());
                 }
                 if data == "[DONE]" {
-                    let reasoning = assembly.reasoning.take();
-                    let turn = assembly.complete()?;
-                    self.remember_reasoning(&turn, reasoning)?;
-                    return Ok(turn);
+                    done = true;
+                    break;
                 }
                 let value = serde_json::from_str(&data)
                     .map_err(|_| "Provider returned a malformed stream.")?;
                 let text = assembly.push(value)?;
+                let phase = assembly.activity();
+                if phase != last_phase {
+                    if let Some(activity) = &activity {
+                        // Activity is advisory; never block generation on a closed/full observer.
+                        let _ = activity.try_send(phase);
+                    }
+                    last_phase = phase;
+                }
                 if !text.is_empty() {
                     tokio::select! { biased;
                         _ = cancel.cancelled() => return Err("Response stopped.".into()),
@@ -285,6 +324,20 @@ impl OpenAiProvider {
                     }
                 }
             }
+            if assembly.payload_bytes() > previous_payload {
+                idle_wire_bytes = 0;
+            }
+            if idle_wire_bytes > MAX_IDLE_WIRE_BYTES {
+                return Err("Provider stream sent 2 MiB without new response data. Stop and check the provider or try again explicitly. No incomplete tool call was executed.".into());
+            }
+            if done {
+                let reasoning = assembly.reasoning.take();
+                let turn = assembly.complete()?;
+                self.remember_reasoning(&turn, reasoning)?;
+                return Ok(turn);
+            }
+            // Keep deadline and Stop responsive even with continuously ready metadata.
+            tokio::task::yield_now().await;
         }
         if !decoder.buffer.is_empty() {
             return Err("Connection ended before the tool response finished.".into());

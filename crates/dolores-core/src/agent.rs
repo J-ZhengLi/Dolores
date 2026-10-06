@@ -1,4 +1,4 @@
-use crate::{Message, ModelProvider, TokenUsage, MAX_CONTEXT_BYTES, MAX_OUTPUT_BYTES};
+use crate::{MAX_CONTEXT_BYTES, MAX_OUTPUT_BYTES, Message, ModelProvider, TokenUsage};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -240,9 +240,34 @@ pub enum PauseReason {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentEvent {
-    ModelStep { number: usize },
-    ModelText { number: usize, text: String },
-    ToolResult { record: Box<ToolRecord> },
+    ModelStep {
+        number: usize,
+    },
+    ModelActivity {
+        number: usize,
+        phase: ModelActivity,
+        #[serde(rename = "elapsedSeconds")]
+        elapsed_seconds: u64,
+        #[serde(rename = "timeoutSeconds")]
+        timeout_seconds: u32,
+    },
+    ModelText {
+        number: usize,
+        text: String,
+    },
+    ToolResult {
+        record: Box<ToolRecord>,
+    },
+}
+
+/// Public transport activity only, never model reasoning text or partial arguments.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelActivity {
+    Waiting,
+    Reasoning,
+    ToolArguments,
+    Responding,
 }
 
 #[async_trait]
@@ -449,16 +474,37 @@ pub async fn run_agent_with_shared_budget(
         }
         emit(&events, AgentEvent::ModelStep { number }, &cancel).await?;
         let (text, mut receiver) = mpsc::channel(32);
+        let (activity, mut activity_receiver) = mpsc::channel(8);
+        let started = tokio::time::Instant::now();
+        let mut phase = ModelActivity::Waiting;
+        let mut pulse = tokio::time::interval(std::time::Duration::from_secs(1));
+        pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let mut streamed = String::new();
         let turn = {
-            let request = provider.stream_tool_turn(&messages, &specs, text, cancel.clone());
+            let request = provider.stream_tool_turn_with_activity(
+                &messages,
+                &specs,
+                text,
+                activity,
+                cancel.clone(),
+            );
             tokio::pin!(request);
             loop {
                 tokio::select! { biased;
                     _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
                     result = &mut request => break result?,
                     Some(text) = receiver.recv() => {
+                        phase = ModelActivity::Responding;
                         forward_model_text(&events, number, text, &mut streamed, &mut output_bytes, &cancel).await?;
+                    }
+                    Some(next) = activity_receiver.recv() => {
+                        if next != phase {
+                            phase = next;
+                            emit(&events, AgentEvent::ModelActivity { number, phase, elapsed_seconds: started.elapsed().as_secs(), timeout_seconds: settings.timeout_seconds }, &cancel).await?;
+                        }
+                    }
+                    _ = pulse.tick() => {
+                        emit(&events, AgentEvent::ModelActivity { number, phase, elapsed_seconds: started.elapsed().as_secs(), timeout_seconds: settings.timeout_seconds }, &cancel).await?;
                     }
                 }
             }
@@ -810,7 +856,13 @@ pub async fn run_agent_with_shared_budget(
                 return Ok(AgentReply { pause: Some(PauseReason::DesktopAccess), answer: "Choose a window to continue this task. Nothing has been shared or controlled yet.".into(), summary });
             }
             if desktop_failed {
-                return Ok(AgentReply{pause:Some(PauseReason::DesktopReview),answer:format!("Computer use paused. {content} Inspect the selected window in Settings → Computer use, capture it again, and explicitly reconcile saved progress before continuing. No later queued action was dispatched."),summary});
+                return Ok(AgentReply {
+                    pause: Some(PauseReason::DesktopReview),
+                    answer: format!(
+                        "Computer use paused. {content} Inspect the selected window in Settings → Computer use, capture it again, and explicitly reconcile saved progress before continuing. No later queued action was dispatched."
+                    ),
+                    summary,
+                });
             }
             messages.push(AgentMessage {
                 parts,

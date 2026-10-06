@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import subprocess
 import re
+import time
 from desktop_test_support import NativeHost, ROOT
 
 
@@ -28,6 +29,8 @@ def main():
     host=NativeHost(directory)
     result={'model':args.model,'passed':False,'live':True,'scope':'standalone HTML generation and script syntax only','maxOutputTokens':args.max_output_tokens,'reasoning':args.reasoning,'requestTimeoutSeconds':args.timeout_seconds,'taskDeadlineSeconds':240}
     reviews=[]
+    phases=set()
+    activity_times=[]
     try:
         host.call('configure',preferences={'baseUrl':os.environ['DOLORES_TEST_BASE_URL'],'model':args.model},apiKey=os.environ['DOLORES_TEST_API_KEY'],rememberConnection=False,enabledModels=[args.model])
         host.call('setRequestSettings',settings={'maxOutputTokens':args.max_output_tokens,'timeoutSeconds':args.timeout_seconds,'reasoning':args.reasoning})
@@ -35,6 +38,8 @@ def main():
         session=host.call('createSession',kind='project',path=str(workspace))['session']['id']
         host.call('saveScopedSettings',session=session,scope='thread',revision=0,patch={'task':{'modelCalls':4,'toolCalls':6,'segments':1,'elapsedSeconds':240}})
         def approval(event):
+            if event['type']=='modelActivity':
+                phases.add(event['phase']); activity_times.append(time.monotonic())
             if event['type']!='toolApproval': return
             request=event['request']; target=request.get('target','')
             local_html=(isinstance(target,str) and Path(target).name==target and target.lower().endswith('.html'))
@@ -63,6 +68,9 @@ def main():
                 syntax.append(check.returncode==0)
             result['scriptSyntaxPass']=bool(syntax) and all(syntax)
         result['reviews']=reviews
+        result['activityPhases']=sorted(phases)
+        result['activityUpdates']=len(activity_times)
+        result['maximumActivityGapSeconds']=round(max((b-a for a,b in zip(activity_times,activity_times[1:])),default=0),2)
         result['passed']=len(files)==1 and result.get('standalone',False) and result.get('hasGameSurface',False) and result.get('scriptSyntaxPass',False) and result['errorCategory'] is None and result['pauseReason'] is None
     except Exception as error:
         result['errorType']=type(error).__name__

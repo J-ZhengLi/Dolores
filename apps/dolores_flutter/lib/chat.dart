@@ -165,6 +165,16 @@ class ChatController extends ChangeNotifier {
   final modelTexts = <Map<String, dynamic>>[];
   bool decidingTool = false;
   int modelStep = 0;
+  String modelPhase = 'waiting';
+  int modelElapsedSeconds = 0;
+  int modelTimeoutSeconds = 0;
+  String get modelActivityLabel =>
+      '${switch (modelPhase) {
+        'reasoning' => 'Thinking',
+        'toolArguments' => 'Preparing tool call',
+        'responding' => 'Responding',
+        _ => 'Waiting for model',
+      }} · ${modelElapsedSeconds}s';
   Future<void> chooseToolFolder(Future<String?> Function() choose) async {
     if (busy || changing || loading) return;
     changing = true;
@@ -1065,6 +1075,9 @@ class ChatController extends ChangeNotifier {
     modelTexts.clear();
     toolApproval = null;
     modelStep = 0;
+    modelPhase = 'waiting';
+    modelElapsedSeconds = 0;
+    modelTimeoutSeconds = 0;
     recovery = null;
     _recoveryError = null;
     _requestModel = observationModel ?? model;
@@ -1176,7 +1189,16 @@ class ChatController extends ChangeNotifier {
             }
             partial = '';
             modelStep = event['number'] as int;
+            modelPhase = 'waiting';
+            modelElapsedSeconds = 0;
+            modelTimeoutSeconds = 0;
             _record('Model call $modelStep');
+          case 'modelActivity':
+            if (event['number'] == modelStep && !stopping) {
+              modelPhase = event['phase'] as String;
+              modelElapsedSeconds = event['elapsedSeconds'] as int;
+              modelTimeoutSeconds = event['timeoutSeconds'] as int;
+            }
           case 'modelText':
             if (event['number'] == modelStep) {
               if (!_firstDelta) {
