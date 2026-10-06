@@ -117,6 +117,17 @@ Use existing Allow once/Deny/Stop and task recovery rather than a new retry loop
 
 ## Attachments
 
+Images use bounded thumbnails in the composer and user message bubble, including
+while the response is pending. Keep only one pending copy in view. Hover/focus
+reveals the filename; opening the thumbnail shows the existing local full preview.
+Preview failure offers an explicit retry without replaying Send. Failed sends
+restore the draft and attachment references together.
+
+Ctrl+V/Cmd+V and Shift+Insert probe for an image on explicit paste, then fall back
+to normal text insertion when there is none. Do not poll the clipboard or replace
+selected text when adding an image. Windows clipboard bitmaps are converted to
+bounded PNG snapshots; image size/capability rules remain in force.
+
 Anchor the composer’s quiet plus action for Attach file at the left of its footer, vertically aligned with Send and the context ring. Reserve remaining width for a right-aligned model selector so short or long model names cannot push the plus toward the middle; keep model/context/send in that order. Snapshot chips wrap above the editable content and offer local text/image preview with sharing disclosure; draft removal is disabled during execution or state changes. Preview uses the system dialog theme and bounded scrolling/image dimensions. Chat actions → Export offers snapshot export; Advanced → Attachment storage offers unused-asset cleanup. Settings → Models → Connection & models starts with the selected model’s settings: Supports image input (disabled by default) and the context window, followed by connection/model-list controls. Errors involving attached images offer Model settings directly. Failed saves bring the error into view and retain edits for explicit retry; Cancel leaves capabilities, draft and attachments unchanged. No silent OCR or upload is implied. Context inspection shows the approximate image token allowance only when images are included. Failed chat selection leaves the previous draft and its attachment scope together; attachments count as an occupied draft for Continue/recovery.
 
 ## Task permissions

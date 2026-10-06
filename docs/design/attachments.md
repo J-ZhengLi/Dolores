@@ -4,6 +4,22 @@ Brick 10.6 adds immutable user-selected snapshots without changing text-only his
 
 ## Storage and context
 
+Explicit image paste reads the native clipboard once. PNG/JPEG bytes reuse the
+snapshot pipeline; Windows BMP data is converted locally to PNG after raw-byte
+and dimension checks. Encoded snapshots retain the 2-MiB allowance. Conversion
+does not add OCR or new provider formats. A unique temporary copy is removed
+after the existing attach-file bridge acknowledges it; removal failure is shown.
+The native clipboard adapter can also use a temporary bitmap during conversion.
+Process interruption or OS failure can leave temporary files; cleanup is not
+secure erasure. Native decoding can allocate before the Dart checks, so this is
+not a complete defense against malicious or extremely large native clipboard data.
+
+The chat is reserved while the clipboard read is pending, preventing a delayed
+paste from attaching to another conversation. No image means normal text paste.
+Errors retain the draft and earlier attachments. Thumbnails appear immediately
+in pending user bubbles and use the same session-scoped saved snapshots after
+completion and restart. Text attachment chips retain their existing behavior.
+
 `Message` and stored message pages retain optional `parts`: lowercase SHA-256 digest, basename, MIME and byte count. Older messages deserialize with no parts. Schema 24 adds content-addressed assets, draft references, message references and endpoint-specific image model settings. Snapshots and metadata are local plaintext; original absolute paths are not retained in references or sent by this adapter.
 
 Text must be UTF-8, contain no NUL and fit 64 KiB. PNG/JPEG snapshots fit 2 MiB and declare at most 4096 pixels per side / 4 megapixels. Header checks bound preview dimensions; they are not a full image decoder or malware scan. Empty/unsupported/binary files require a different file or explicit conversion adapter. No PDF parser, OCR, audio, video, remote asset hosting or automatic conversion is installed.
@@ -16,7 +32,7 @@ Prepared text contains the complete included text snapshots, explicitly labeled 
 
 ## Explicit provider adapter
 
-Image input is disabled by default. **Model connection → Image input for this model** records an explicit choice for an enabled model at that endpoint. Unsupported images are refused before HTTP while preserving the draft. Provider image rejection also preserves the draft and offers a capable model or removal; it never retries or silently converts.
+Image input is disabled by default. **Settings → Models → Supports image input** records an explicit choice for an enabled model at that endpoint. Unsupported images are refused before HTTP while preserving the draft. Provider image rejection also preserves the draft and offers a capable model or removal; it never retries or silently converts.
 
 The OpenAI-compatible Chat Completions adapter keeps text-only `content` as a string and uses text plus `image_url` data URLs with `detail: low` for images. The wire format follows the [official image-input documentation](https://developers.openai.com/api/docs/guides/images-vision); other providers must support this format. The switch declares support, rather than proving that the endpoint/model accepts or understands every image. Vision comprehension and formatting reliability remain model-dependent.
 

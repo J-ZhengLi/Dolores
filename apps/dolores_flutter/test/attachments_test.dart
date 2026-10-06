@@ -1,3 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:dolores_flutter/attachments.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/main.dart';
@@ -14,6 +20,14 @@ final part = <String, dynamic>{
 class AttachmentBridge implements ChatBridge {
   final calls = <Map<String, dynamic>>[];
   bool fail = true;
+  Completer<void>? start;
+  bool failAttach = false;
+  final imagePart = {
+    ...part,
+    'name': 'Pasted image.png',
+    'mime': 'image/png',
+    'bytes': 70,
+  };
   @override
   Future<void> open() async {}
   @override
@@ -23,17 +37,29 @@ class AttachmentBridge implements ChatBridge {
     calls.add(command);
     switch (command['command']) {
       case 'start':
+        if (start != null) return start!.future;
         throw StateError(
           'Image input is disabled. Choose a capable model or remove the image; your draft remains.',
         );
       case 'removeAttachment':
         return <Map<String, dynamic>>[];
       case 'attachmentPreview':
+        if (command['digest'] == imagePart['digest']) {
+          // Test rendering separately from the text chip's preview.
+          if (imagePreview) return {'imageBase64': png};
+        }
         return {
           'reference': part,
           'text': 'Saved snapshot',
           'previewTruncated': false,
         };
+      case 'attachFile':
+        if (failAttach) throw StateError('Synthetic storage failure');
+        expect(
+          await File(command['path'] as String).readAsBytes(),
+          base64Decode(png),
+        );
+        return [imagePart];
       case 'cleanupAttachments':
         throw StateError('Synthetic database lock');
       case 'workspace':
@@ -51,9 +77,104 @@ class AttachmentBridge implements ChatBridge {
         return null;
     }
   }
+
+  bool imagePreview = false;
 }
 
+const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=';
+
 void main() {
+  testWidgets(
+    'Images appear in the pending user bubble before the response, and in saved bubbles',
+    (tester) async {
+      final bridge = AttachmentBridge()
+        ..imagePreview = true
+        ..start = Completer<void>();
+      final chat = ChatController(bridge)
+        ..session = 'a'
+        ..loading = false
+        ..configured = true
+        ..attachmentsAvailable = true
+        ..attachments = [bridge.imagePart]
+        ..draft = 'Inspect this image';
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      final sending = chat.send();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('pending-user')),
+          matching: find.byType(AttachmentThumbnail),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(AttachmentThumbnail), findsOneWidget);
+      bridge.start!.completeError(StateError('Synthetic interrupted stream'));
+      await sending;
+      await tester.pump();
+      expect(chat.draft, 'Inspect this image');
+      expect(chat.attachments, [bridge.imagePart]);
+      expect(chat.pendingParts, isEmpty);
+      chat.attachments = [];
+      chat.messages = [
+        {
+          'id': 1,
+          'role': 'user',
+          'content': 'Inspect this image',
+          'parts': [bridge.imagePart],
+        },
+      ];
+      await tester.pumpWidget(
+        DoloresApp(chat: chat, themeMode: ThemeMode.light),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(AttachmentThumbnail), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
+
+  test('Image paste reserves its session, cleans its temporary copy and preserves text on failure', () async {
+    final bridge = AttachmentBridge();
+    final chat = ChatController(bridge)
+      ..session = 'a'
+      ..loading = false
+      ..draft = 'Keep this';
+    final read = Completer<Uint8List?>();
+    final paste = chat.pasteImage(readImage: () => read.future);
+    expect(chat.changing, true);
+    await chat.select('b');
+    expect(chat.session, 'a');
+    read.complete(base64Decode(png));
+    expect(await paste, true);
+    final path =
+        bridge.calls.singleWhere((c) => c['command'] == 'attachFile')['path']
+            as String;
+    expect(File(path).existsSync(), false);
+    expect(chat.draft, 'Keep this');
+    expect(chat.attachments, [bridge.imagePart]);
+    bridge.failAttach = true;
+    expect(
+      await chat.pasteImage(readImage: () async => base64Decode(png)),
+      true,
+    );
+    expect(chat.draft, 'Keep this');
+    expect(chat.attachments, [bridge.imagePart]);
+    expect(chat.error, contains('draft remains'));
+    final count = bridge.calls.length;
+    expect(
+      await chat.pasteImage(
+        readImage: () async => Uint8List(2 * 1024 * 1024 + 1),
+      ),
+      true,
+    );
+    expect(bridge.calls.length, count);
+    expect(await chat.pasteImage(readImage: () async => null), false);
+    expect(chat.changing, false);
+    chat.dispose();
+  });
   testWidgets(
     'Preview and removal stay usable after rejected send in compact themes',
     (tester) async {

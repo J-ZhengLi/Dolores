@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import 'bridge.dart';
+import 'image_clipboard.dart';
 
 class RequestLog {
   final int run;
@@ -221,6 +223,7 @@ class ChatController extends ChangeNotifier {
   bool durableDrafts = false;
   bool attachmentsAvailable = false;
   List<Map<String, dynamic>> attachments = [];
+  List<Map<String, dynamic>> pendingParts = [];
   List<String> imageModels = [];
   void reportLocalError(String message) {
     if (_disposed) return;
@@ -244,6 +247,57 @@ class ChatController extends ChangeNotifier {
     } catch (failure) {
       error = failure.toString();
     } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  Future<bool> pasteImage({Future<Uint8List?> Function()? readImage}) async {
+    if (busy || changing || loading || _disposed) return true;
+    // Reserve this chat before awaiting the clipboard: switching/sending cannot
+    // attach delayed clipboard data to another session.
+    changing = true;
+    Directory? temporary;
+    try {
+      final bytes = await (readImage ?? readClipboardImage)();
+      if (bytes == null) return false;
+      if (_disposed) return true;
+      if (bytes.isEmpty || bytes.length > maxClipboardImageBytes) {
+        throw StateError(
+          'Image exceeds 2 MiB or is empty. Resize it and paste again.',
+        );
+      }
+      await _ensureWorkingSession();
+      if (_disposed) return true;
+      temporary = await Directory.systemTemp.createTemp('dolores-clipboard-');
+      final file = File('${temporary.path}/Pasted image.png');
+      await file.writeAsBytes(bytes, flush: true);
+      if (_disposed) return true;
+      final parts = (await bridge.call({
+        'command': 'attachFile',
+        'session': session,
+        'path': file.path,
+      }) as List).cast<Map<String, dynamic>>();
+      if (!_disposed) {
+        attachments = parts;
+        invalidateContextPreview();
+        error = null;
+      }
+      return true;
+    } catch (failure) {
+      if (!_disposed) {
+        error =
+            'Could not paste the image: $failure. Use Attach file or copy a smaller PNG/JPEG and paste again. Your draft remains.';
+      }
+      return true;
+    } finally {
+      if (temporary != null) {
+        try {
+          await temporary.delete(recursive: true);
+        } catch (_) {
+          if (!_disposed) error = 'Image retained, but its temporary clipboard copy could not be removed. Your draft remains.';
+        }
+      }
       changing = false;
       _notify();
     }
@@ -702,6 +756,7 @@ class ChatController extends ChangeNotifier {
     contextBasis = null;
     messages = [];
     attachments = [];
+    pendingParts = [];
     messagesOlder = messagesNewer = false;
     draft = '';
     scrollOffset = 0;
@@ -998,6 +1053,9 @@ class ChatController extends ChangeNotifier {
     pendingInput =
         taskInput ??
         (draft.trim().isEmpty ? 'Please review the attached files.' : draft);
+    pendingParts = desktopHandoff
+        ? []
+        : [for (final part in attachments) Map.of(part)];
     draft = '';
     partial = '';
     error = null;
@@ -1240,6 +1298,7 @@ class ChatController extends ChangeNotifier {
     _desktopDraft = null;
     _continuing = false;
     pendingInput = '';
+    pendingParts = [];
     partial = '';
     busy = false;
     stopping = false;

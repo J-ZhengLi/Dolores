@@ -733,7 +733,7 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (chat.attachments.isNotEmpty)
+              if (!chat.busy && chat.attachments.isNotEmpty)
                 AttachmentChips(
                   chat: chat,
                   parts: chat.attachments,
@@ -743,6 +743,9 @@ class _ChatPageState extends State<ChatPage> {
                 key: const Key('composer'),
                 controller: input,
                 focusNode: focus,
+                onPasteImage: chat.attachmentsAvailable
+                    ? chat.pasteImage
+                    : null,
                 readOnly: chat.busy || chat.changing || chat.loading,
                 hint: chat.configured
                     ? 'Message Dolores…'
@@ -1111,6 +1114,7 @@ class _ChatPageState extends State<ChatPage> {
                                       p,
                                       'user',
                                       chat.pendingInput,
+                                      parts: chat.pendingParts,
                                       key: const ValueKey('pending-user'),
                                     ),
                                     message(

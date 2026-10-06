@@ -85,6 +85,53 @@ Future<void> shortcut(
 
 void main() {
   testWidgets(
+    'Image paste reaches an empty text clipboard and text paste still replaces all blocks',
+    (tester) async {
+      final controller = ComposerController()..text = source;
+      final focus = FocusNode();
+      var image = true, pastes = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RichComposer(
+              controller: controller,
+              focusNode: focus,
+              readOnly: false,
+              hint: 'Message',
+              trailing: const SizedBox(),
+              onChanged: (_) {},
+              onSend: () {},
+              onPasteImage: () async {
+                pastes++;
+                return image;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tap(field(0));
+      await Clipboard.setData(const ClipboardData(text: ''));
+      await shortcut(tester, LogicalKeyboardKey.keyV);
+      expect(pastes, 1);
+      expect(controller.text, source);
+      await shortcut(tester, LogicalKeyboardKey.keyA);
+      await shortcut(tester, LogicalKeyboardKey.keyV);
+      expect(pastes, 2);
+      expect(controller.text, source);
+      image = false;
+      await Clipboard.setData(const ClipboardData(text: 'Replacement text'));
+      await shortcut(tester, LogicalKeyboardKey.keyV);
+      expect(controller.text, 'Replacement text');
+      expect(pastes, 3);
+      await tester.enterText(field(0), 'Typing still works');
+      expect(controller.text, 'Typing still works');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      controller.dispose();
+      focus.dispose();
+    },
+  );
+  testWidgets(
     'Shift+Enter inserts visible paragraph newlines at end/start and replaces a selection',
     (tester) async {
       final chat = await mount(tester, draft: 'first');

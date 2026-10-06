@@ -15,6 +15,7 @@ class RichComposer extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
   final Widget trailing;
+  final Future<bool> Function()? onPasteImage;
   const RichComposer({
     super.key,
     required this.controller,
@@ -24,6 +25,7 @@ class RichComposer extends StatefulWidget {
     required this.onChanged,
     required this.onSend,
     required this.trailing,
+    this.onPasteImage,
   });
   @override
   State<RichComposer> createState() => _RichComposerState();
@@ -383,6 +385,47 @@ class _RichComposerState extends State<RichComposer> {
     }
   }
 
+  Future<void> _pasteImageOrText() async {
+    final value = input.value;
+    final index = active;
+    final selected = allSelected;
+    final focus = FocusManager.instance.primaryFocus;
+    if (await widget.onPasteImage?.call() ?? false) return;
+    if (!mounted ||
+        widget.readOnly ||
+        input.value != value ||
+        active != index ||
+        allSelected != selected ||
+        FocusManager.instance.primaryFocus != focus) {
+      return;
+    }
+    if (selected) {
+      await _pasteSelection();
+      return;
+    }
+    final field = fields[index];
+    final before = field.value;
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted ||
+          widget.readOnly ||
+          field.value != before ||
+          input.value != value ||
+          data?.text == null ||
+          FocusManager.instance.primaryFocus != focus) {
+        return;
+      }
+      final start = before.selection.start.clamp(0, before.text.length);
+      final end = before.selection.end.clamp(start, before.text.length);
+      field.value = TextEditingValue(
+        text: before.text.replaceRange(start, end, data!.text!),
+        selection: TextSelection.collapsed(offset: start + data.text!.length),
+      );
+    } catch (_) {
+      _clipboardFailure();
+    }
+  }
+
   void _clipboardFailure() {
     if (mounted) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -483,6 +526,15 @@ class _RichComposerState extends State<RichComposer> {
     final keyboard = HardwareKeyboard.instance;
     final modified = keyboard.isControlPressed || keyboard.isMetaPressed;
     if (!input.value.composing.isCollapsed) return KeyEventResult.ignored;
+    // Handle native image paste before text-only clipboard availability can
+    // disable the platform's default paste shortcut.
+    if (widget.onPasteImage != null &&
+        ((modified && event.logicalKey == LogicalKeyboardKey.keyV) ||
+            (keyboard.isShiftPressed &&
+                event.logicalKey == LogicalKeyboardKey.insert))) {
+      unawaited(_pasteImageOrText());
+      return KeyEventResult.handled;
+    }
     if (event.logicalKey == LogicalKeyboardKey.enter &&
         keyboard.isShiftPressed) {
       _insertNewline();
@@ -504,7 +556,13 @@ class _RichComposerState extends State<RichComposer> {
       if ((modified && event.logicalKey == LogicalKeyboardKey.keyV) ||
           (keyboard.isShiftPressed &&
               event.logicalKey == LogicalKeyboardKey.insert)) {
-        unawaited(_pasteSelection());
+        unawaited(() async {
+          final value = input.value;
+          final handled = await widget.onPasteImage?.call() ?? false;
+          if (!handled && mounted && !widget.readOnly && input.value == value) {
+            await _pasteSelection();
+          }
+        }());
         return KeyEventResult.handled;
       }
       if (event.logicalKey == LogicalKeyboardKey.backspace ||
@@ -887,9 +945,35 @@ class _ComposerPasteAction extends Action<PasteTextIntent> {
   _ComposerPasteAction(this.state);
   @override
   bool isEnabled(PasteTextIntent intent) =>
-      state.allSelected || (callingAction?.isEnabled(intent) ?? false);
+      !state.widget.readOnly &&
+      (state.widget.onPasteImage != null ||
+          state.allSelected ||
+          (callingAction?.isEnabled(intent) ?? false));
   @override
   Object? invoke(PasteTextIntent intent) {
+    if (state.widget.onPasteImage != null) {
+      final fallback = callingAction;
+      final value = state.input.value;
+      final selected = state.allSelected;
+      final focus = FocusManager.instance.primaryFocus;
+      unawaited(() async {
+        final handled = await state.widget.onPasteImage!();
+        if (handled ||
+            !state.mounted ||
+            state.widget.readOnly ||
+            state.input.value != value ||
+            state.allSelected != selected ||
+            FocusManager.instance.primaryFocus != focus) {
+          return;
+        }
+        if (selected) {
+          await state._pasteSelection();
+        } else {
+          fallback?.invoke(intent);
+        }
+      }());
+      return null;
+    }
     if (!state.allSelected) return callingAction?.invoke(intent);
     unawaited(state._pasteSelection());
     return null;

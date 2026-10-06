@@ -80,4 +80,4 @@ The synthetic local provider needs no key and exercises output/Stop recovery,
 activation, health rollback and durable restart. Never point this fixture at your
 normal data directory. Live model competence is a separate acceptance check.
 
-Measure normal release builds with `scripts/measure-runtime.ps1 -AppProcessId <pid>`, recording hardware, cache state, DPI/window size and startup separately. Shared working-set pages can be counted repeatedly. Keep raw results ignored; publish aggregate observations with their boundary.
+Measure normal release builds with `python scripts/measure-desktop.py --help`, recording hardware, cache state, DPI/window size and startup separately. Shared working-set pages can be counted repeatedly. Keep raw results ignored; publish aggregate observations with their boundary.

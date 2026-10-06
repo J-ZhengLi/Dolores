@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -95,29 +96,142 @@ class AttachmentChips extends StatelessWidget {
     runSpacing: 4,
     children: [
       for (final part in parts)
-        InputChip(
-          avatar: Icon(
-            (part['mime'] as String).startsWith('image/')
-                ? Icons.image_outlined
-                : Icons.description_outlined,
-            size: 16,
+        if ((part['mime'] as String).startsWith('image/'))
+          AttachmentThumbnail(
+            key: ValueKey('${chat.session}:${part['digest']}'),
+            chat: chat,
+            part: part,
+            removable: removable,
+          )
+        else
+          InputChip(
+            avatar: Icon(
+              (part['mime'] as String).startsWith('image/')
+                  ? Icons.image_outlined
+                  : Icons.description_outlined,
+              size: 16,
+            ),
+            label: SizedBox(
+              width: 160,
+              child: Text(
+                part['name'] as String,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            tooltip:
+                '${part['mime']} · ${part['bytes']} bytes · Click to inspect sharing',
+            onPressed: () => previewAttachment(context, chat, part),
+            onDeleted:
+                removable && !chat.busy && !chat.changing && !chat.loading
+                ? () => chat.removeAttachment(part['digest'] as String)
+                : null,
           ),
-          label: SizedBox(
-            width: 160,
-            child: Text(
-              part['name'] as String,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    ],
+  );
+}
+
+class AttachmentThumbnail extends StatefulWidget {
+  final ChatController chat;
+  final Map<String, dynamic> part;
+  final bool removable;
+  const AttachmentThumbnail({
+    super.key,
+    required this.chat,
+    required this.part,
+    this.removable = false,
+  });
+  @override
+  State<AttachmentThumbnail> createState() => _AttachmentThumbnailState();
+}
+
+class _AttachmentThumbnailState extends State<AttachmentThumbnail> {
+  late Future<Uint8List> image;
+  @override
+  void initState() {
+    super.initState();
+    image = load();
+  }
+
+  Future<Uint8List> load() async {
+    final preview = await widget.chat.bridge.call({
+      'command': 'attachmentPreview',
+      'session': widget.chat.session,
+      'digest': widget.part['digest'],
+    }) as Map;
+    final bytes = base64Decode(preview['imageBase64'] as String);
+    if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) {
+      throw StateError('Preview unavailable');
+    }
+    return bytes;
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 144,
+    height: 112,
+    child: Stack(
+      children: [
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              child: FutureBuilder<Uint8List>(
+                future: image,
+                builder: (context, snap) {
+                  if (snap.hasError) {
+                    return Center(
+                      child: TextButton.icon(
+                        onPressed: () => setState(() => image = load()),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry preview'),
+                      ),
+                    );
+                  }
+                  return InkWell(
+                    onTap: () =>
+                        previewAttachment(context, widget.chat, widget.part),
+                    child: Tooltip(
+                      message: widget.part['name'] as String,
+                      child: snap.hasData
+                          ? Image.memory(
+                              snap.data!,
+                              fit: BoxFit.contain,
+                              cacheWidth: 288,
+                              semanticLabel: widget.part['name'] as String,
+                              errorBuilder: (_, _, _) =>
+                                  const Center(child: Text('Invalid image')),
+                            )
+                          : const Center(child: Icon(Icons.image_outlined)),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-          tooltip:
-              '${part['mime']} · ${part['bytes']} bytes · Click to inspect sharing',
-          onPressed: () => previewAttachment(context, chat, part),
-          onDeleted: removable && !chat.busy && !chat.changing && !chat.loading
-              ? () => chat.removeAttachment(part['digest'] as String)
-              : null,
         ),
-    ],
+        if (widget.removable)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: IconButton.filledTonal(
+              visualDensity: VisualDensity.compact,
+              iconSize: 16,
+              tooltip: 'Remove image',
+              icon: const Icon(Icons.close),
+              onPressed:
+                  widget.chat.busy ||
+                      widget.chat.changing ||
+                      widget.chat.loading
+                  ? null
+                  : () => widget.chat.removeAttachment(
+                      widget.part['digest'] as String,
+                    ),
+            ),
+          ),
+      ],
+    ),
   );
 }
 

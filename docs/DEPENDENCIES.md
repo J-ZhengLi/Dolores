@@ -16,6 +16,15 @@ The Rust selection starts at `dolores-flutter-bridge`, uses Cargo's Windows x64 
 
 ## Reviewed cases
 
+Image paste adds the pinned `pasteboard` 0.5.0 native clipboard plugin
+([package and license](https://pub.dev/packages/pasteboard/versions/0.5.0)).
+Windows requires `pasteboard_plugin.dll` beside the app. Its Apache-2.0 notice is
+included in Flutter's generated notices; regenerate the separate inventory
+after rebuilding. The reviewed payload allowlist includes this plugin and
+still refuses unrelated files. A complete inventory collection currently
+refuses a missing local `wasmi` notice; do not treat this change as portable
+release qualification until that separate dependency-notice gap is resolved.
+
 | Component | Notice handling |
 | --- | --- |
 | Rust crates | Full local LICENSE/COPYING/COPYRIGHT/NOTICE texts, including nested/vendor notices; declared SPDX expression and versioned crate/source-archive links. Missing declarations/text refuse. |

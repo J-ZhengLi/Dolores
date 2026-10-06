@@ -24,6 +24,14 @@ shortcuts and border resizing are available too.
 **Models** lists your enabled models. Connect a provider, then choose a model to edit its context window, image support and optional response limits. **Personalization** edits All chats by default; project/chat customization is deliberate. Advanced contains response defaults, scope overrides and execution limits. Edited forms retain drafts across pages. Close offers Save, Discard or Keep editing; failed saves retain your values.
 
 
+## Attach images
+
+To share an image in chat, copy it and paste into the message box, or use
+**+ → Attach file**. A thumbnail appears before you send and stays in the sent
+message. Click it for a larger local preview. Enable **Supports image input**
+for a compatible model under Settings → Models. Pasting previews locally;
+Send shares the image with your configured provider.
+
 ## Inspect a Windows application
 
 In a project or temporary chat, ask Dolores to inspect or work in an application. When it needs access, choose **Share window**, select one visible window and choose view-only or control access. The composer’s plus menu also offers **Share window**. Review the sharing purpose before sending pixels to your configured provider. A bounded image check helps identify transport problems; it does not prove that a model can reliably control an application.
