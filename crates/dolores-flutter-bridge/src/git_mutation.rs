@@ -121,7 +121,14 @@ impl Repo {
                         None,
                         cancel,
                     )?;
-                    preview.push_str(diff["patch"].as_str().unwrap());
+                    preview.push_str(&format!("\n{path}\n"));
+                    if let Some(reason) = diff["reason"].as_str() {
+                        preview.push_str(reason);
+                    } else if diff["patch"].as_str().unwrap().is_empty() {
+                        preview.push_str(diff["right"].as_str().unwrap());
+                    } else {
+                        preview.push_str(diff["patch"].as_str().unwrap());
+                    }
                     if preview.len() > 256 * 1024 {
                         return Err(
                             "Review diff exceeds 256 KiB. Review fewer paths or use external Git."

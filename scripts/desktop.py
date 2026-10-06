@@ -139,7 +139,7 @@ def build(args):
     else:
         dependencies.check_returncode()
     plugin_links()
-    entry = {'smoke': 'smoke', 'restart': 'restart_smoke', 'history': 'history_smoke', 'workspace': 'workspace_smoke'}.get(args.diagnostic, 'main')
+    entry = {'smoke': 'smoke', 'restart': 'restart_smoke', 'history': 'history_smoke', 'workspace': 'workspace_smoke', 'source-control': 'source_control_smoke'}.get(args.diagnostic, 'main')
     symbols = ROOT / 'output/release-symbols' / uuid.uuid4().hex
     command = base + ['build', platform, '--release', '--no-pub',
                       f'--split-debug-info={symbols}', '--target', f'lib/{entry}.dart']
@@ -299,7 +299,7 @@ def main():
     builder.add_argument('--flutter-sdk')
     builder.add_argument('--cmake')
     builder.add_argument('--generator', default='Visual Studio 18 2026')
-    builder.add_argument('--diagnostic', choices=['smoke', 'restart', 'history', 'workspace'])
+    builder.add_argument('--diagnostic', choices=['smoke', 'restart', 'history', 'workspace', 'source-control'])
     starter = commands.add_parser('launch')
     starter.add_argument('--data-directory')
     starter.add_argument('--pid-file')

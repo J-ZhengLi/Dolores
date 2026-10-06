@@ -1,5 +1,13 @@
 # Privacy and public repository hygiene
 
+Source Control reads saved files, Git metadata/configuration and bounded diffs
+locally for the selected Home project. These human actions do not send content to
+the model or expand tool grants. Reviewed remote actions contact the configured
+Git remote using existing credential helpers; configured hooks/helpers run with
+the OS account's permissions. Remote/helper diagnostics are withheld because
+they can contain credential-bearing URLs. Git views and commit drafts are retained
+in app memory; private file recovery remains the separate editor mechanism.
+
 Task permission grants can retain literal command arguments locally and in run snapshots/exports. Keep secrets out of grants. The host shares the selected access mode/boundary as context; credentials remain in the vault. Revoking access prevents future/pending dispatch and cannot retract data already shared or undo effects already started. Commands and MCP still use the OS account's permissions outside the application grant boundary.
 
 ## When using Dolores

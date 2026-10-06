@@ -6,6 +6,7 @@ import 'package:file_selector/file_selector.dart';
 
 import 'app_host.dart';
 import 'source_control.dart';
+import 'git_host.dart';
 
 import 'package:path/path.dart' as paths;
 
@@ -106,7 +107,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   void changed() {
     if (page == WorkspacePage.sourceControl &&
-        (host.git.selected?.root != host.projectRoot ||
+        (GitHost.rootKey(host.git.selected?.root ?? '') !=
+                GitHost.rootKey(host.projectRoot ?? '') ||
             host.git.selected?.session != host.visible.session)) {
       unawaited(host.git.bind(host.visible.session, host.projectRoot));
     }

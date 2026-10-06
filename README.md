@@ -19,6 +19,7 @@ Dolores connects to models you provide; it does not install or start a local mod
 ## What you can do
 
 - Keep the familiar Home chat, browse project files and edit with draggable file-only split tabs, explicit Save and private draft recovery.
+- Inspect saved Git diffs/history and review staging, commits, stashes, branches and remote actions from Source Control.
 - Read, find, edit and create text files in a working folder, with reviewed diffs and a local change journal.
 - Attach text files or PNG/JPEG images, preview what will be shared, and use images with an explicitly configured capable model.
 - Run reviewed commands and connect installed local MCP tool servers.

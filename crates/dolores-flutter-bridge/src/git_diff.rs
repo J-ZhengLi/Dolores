@@ -57,18 +57,35 @@ impl Repo {
                     ..Side::default()
                 });
             }
-            return Ok(Side::bytes(
-                std::fs::read(file).map_err(|_| "Saved file could not be read.")?,
-            ));
+            return Ok(Side::bytes(read_bounded(&file, 256 * 1024)?));
         }
         let Some(spec) = spec else {
             return Ok(Side::default());
         };
-        // cat-file existence distinguishes absent paths from an empty blob.
-        let size = self.command(&["cat-file", "-s", spec], cancel);
-        let Ok(size) = size else {
-            return Ok(Side::default());
+        // Probe the exact tree/index entry first; transport/corruption errors must
+        // not silently masquerade as an absent file.
+        let entry = if spec.starts_with(':') {
+            self.command(&["ls-files", "--stage", "-z", "--", path], cancel)?
+        } else {
+            let (commit, _) = spec.split_once(':').ok_or("Invalid blob basis.")?;
+            self.command(&["ls-tree", "-z", commit, "--", path], cancel)?
         };
+        if entry.is_empty() {
+            return Ok(Side::default());
+        }
+        if spec.starts_with(':')
+            && !entry
+                .split(|b| *b == 0)
+                .any(|r| r.windows(3).any(|s| s == b" 0\t"))
+        {
+            return Ok(Side {
+                reason: Some(
+                    "Unmerged index; inspect and resolve the saved conflict before staging.".into(),
+                ),
+                ..Side::default()
+            });
+        }
+        let size = self.command(&["cat-file", "-s", spec], cancel)?;
         if text(&size)?
             .trim()
             .parse::<usize>()

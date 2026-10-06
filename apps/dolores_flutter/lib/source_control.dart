@@ -4,6 +4,18 @@ import 'git_host.dart';
 import 'git_diff_view.dart';
 import 'git_local_controls.dart';
 
+String gitActionName(Map<String, dynamic> op) => switch (op['kind']) {
+  'stashCreate' => 'stash selected files',
+  'stashApply' => op['pop'] == true ? 'apply and drop stash' : 'apply stash',
+  'branchCreate' => 'create branch',
+  'branchSwitch' => 'switch branch',
+  'revertAbort' => 'abort revert',
+  'hunks' =>
+    op['staged'] == true ? 'unstage selected hunks' : 'stage selected hunks',
+  'pull' => 'fast-forward pull',
+  _ => op['kind'] as String,
+};
+
 Future<void> reviewGitAction(
   BuildContext context,
   GitHost git,
@@ -26,7 +38,7 @@ Future<void> reviewGitAction(
           child: Column(
             children: [
               Text(
-                'Review ${operation['kind']}',
+                'Review ${gitActionName(operation)}',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               SelectableText('${preview['root']}'),
@@ -60,7 +72,7 @@ Future<void> reviewGitAction(
                   FilledButton(
                     key: const Key('git-apply-review'),
                     onPressed: () => Navigator.pop(context, true),
-                    child: Text('${operation['kind']} once'),
+                    child: Text('Apply ${gitActionName(operation)}'),
                   ),
                 ],
               ),

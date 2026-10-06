@@ -30,7 +30,32 @@ Settings → Advanced → Experimental contains Multiple Window (On by default;
 detach awaits milestone 19) and Prevent Windows From Locked (Off by default).
 The Windows option requests display/system wakefulness while Dolores runs; it
 does not override manual locks, screen-saver security or enforced policy.
-Scheduled, Source Control and Terminal remain future pages.
+Scheduled and Terminal remain future pages.
+
+## Source Control
+
+Select a project conversation on Home, then open Source Control in the rail.
+Changes and Staged show saved Git state for its enclosing repository. Select a
+file for an inline or side-by-side comparison; eight diff tabs can stay open per
+project. Refresh reconciles external edits. Binary, oversized and unsupported
+comparisons explain their limits and offer external Git. History loads 30 commits
+at a time and opens exact non-merge commit comparisons.
+
+File menus review stage/unstage, selected tracked-file stash and discard from the
+index. Choose hunks in a text diff for partial stage/unstage. Review commit shows
+all staged files and your configured author, and keeps Git hooks enabled. Failed
+hooks retain the message and index. Save or close affected unsaved editors first.
+Stash conflicts retain the stash; a conflicted revert offers reviewed Abort.
+Branch switching requires clean tracked files. These actions use your OS account;
+they grant the chat model no additional access.
+
+Remotes & tracking loads local configuration. Remote menus separately review
+Fetch, fast-forward Pull and Push using existing credentials. Changed refs require
+a fresh review; divergent Pull refuses the merge. Stop can leave effects, so
+Refresh and reconcile before retrying. Uncertain push warnings last for this
+launch; every new Push still checks the current remote ref. No force push or
+automatic conflict resolution is offered. Commit messages are retained in the
+current app; commit or clear them before final Close.
 
 ## Settings
 

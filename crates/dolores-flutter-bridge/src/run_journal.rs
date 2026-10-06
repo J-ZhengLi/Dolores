@@ -20,7 +20,7 @@ pub(super) struct RunCoordinator {
 }
 impl RunCoordinator {
     pub fn has_repo(&self,root:&std::path::Path)->bool{
-        self.primary.values().any(|scope|std::path::Path::new(scope).starts_with(root)) || self.primary.len()!=self.runs.len()
+        self.primary.values().any(|scope|crate::source_control::within(std::path::Path::new(scope),root)) || self.primary.len()!=self.runs.len()
     }
     pub fn reserve(&mut self, run: Run) -> Result<(), String> {
         if self.closed || !self.runs.is_empty() {

@@ -78,7 +78,7 @@ impl Registry {
     pub fn mutation_overlaps(&self, root: &Path) -> bool {
         self.mutations
             .values()
-            .any(|r| root.starts_with(r) || r.starts_with(root))
+            .any(|r| within(root, r) || within(r, root))
     }
     pub fn review_root(&self, id: &str) -> Option<PathBuf> {
         self.reviews.get(id).map(|r| r.root.clone())
@@ -88,6 +88,40 @@ impl Registry {
             job.cancel.cancel();
         }
     }
+}
+// Windows Git roots carry the extended prefix while stored project roots may
+// not. Compare the same boundary without changing stored project identities.
+pub(crate) fn path_key(path: &Path) -> String {
+    let value = path.to_string_lossy().into_owned();
+    if cfg!(windows) {
+        let value = value.replace('\\', "/").to_lowercase();
+        value
+            .strip_prefix("//?/unc/")
+            .map(|s| format!("//{s}"))
+            .unwrap_or_else(|| value.strip_prefix("//?/").unwrap_or(&value).to_string())
+            .trim_end_matches('/')
+            .to_string()
+    } else {
+        value.trim_end_matches('/').to_string()
+    }
+}
+pub(crate) fn within(path: &Path, root: &Path) -> bool {
+    let path = path_key(path);
+    let root = path_key(root);
+    path == root || path.starts_with(&format!("{root}/"))
+}
+pub(super) fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let file =
+        std::fs::File::open(path).map_err(|_| "Saved file or index is unavailable. Refresh.")?;
+    let mut bytes = Vec::new();
+    file.take(limit as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "Saved bytes could not be read. Refresh.")?;
+    if bytes.len() > limit {
+        return Err("Saved bytes exceed the revision/diff bound, or grew during reading. Use external Git or Refresh a smaller selection.".into());
+    }
+    Ok(bytes)
 }
 #[derive(Clone)]
 struct Repo {
@@ -174,13 +208,15 @@ impl Repo {
                         .metadata()
                         .map_err(|_| "Changed file is unavailable. Refresh.")?
                         .len();
-                    total += bytes;
-                    if bytes > 16 * 1024 * 1024 || total > 32 * 1024 * 1024 {
+                    if bytes > 16 * 1024 * 1024 {
                         return Err("Changed files exceed the 16 MiB file / 32 MiB revision limit. Use external Git, then Refresh.".into());
                     }
-                    digest.update(
-                        std::fs::read(file).map_err(|_| "Changed file is unavailable. Refresh.")?,
-                    );
+                    let bytes = read_bounded(&file, 16 * 1024 * 1024)?;
+                    total += bytes.len() as u64;
+                    if total > 32 * 1024 * 1024 {
+                        return Err("Changed saved bytes exceed the 32 MiB revision limit. Use external Git, then Refresh.".into());
+                    }
+                    digest.update(bytes);
                 }
                 Ok(_) => digest.update(b"missing-or-directory"),
                 Err(_) => digest.update(b"restricted-alias"),
@@ -191,7 +227,7 @@ impl Repo {
             if index.metadata().map_err(|_| "Index is unavailable.")?.len() > 16 * 1024 * 1024 {
                 return Err("Index exceeds the 16 MiB initial limit. Use external Git.".into());
             }
-            digest.update(std::fs::read(index).map_err(|_| "Index is unavailable.")?);
+            digest.update(read_bounded(&index, 16 * 1024 * 1024)?);
         }
         Ok(
             json!({"repo":self.id(),"root":self.root,"projectRoot":self.project,"head":head,"branch":branch,"entries":entries,"revision":format!("{:x}",digest.finalize()),"reverting":self.git.join("REVERT_HEAD").exists()}),
@@ -460,6 +496,24 @@ impl Engine {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn byte_caps_and_windows_aliases_do_not_bypass_revision_guards() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("growing.txt");
+        std::fs::write(&file, b"five!").unwrap();
+        assert!(read_bounded(&file, 4).is_err());
+        assert_eq!(read_bounded(&file, 5).unwrap(), b"five!");
+        if cfg!(windows) {
+            assert!(within(
+                Path::new(r"C:\Work\A\same.txt"),
+                Path::new(r"\\?\c:\work\a")
+            ));
+            assert!(!within(
+                Path::new(r"C:\Work\AB\same.txt"),
+                Path::new(r"\\?\c:\work\a")
+            ));
+        }
+    }
     use super::*;
     #[test]
     fn nul_paths_and_rename_pairs_are_exact() {

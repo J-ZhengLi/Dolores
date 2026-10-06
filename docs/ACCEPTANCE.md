@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control 17.6 — batch qualification
+
+The complete 17.1–17.6 batch is implemented. Full suites pass with 133 native
+bridge tests and 287 Flutter tests; strict Clippy and Flutter analysis are clean.
+The public release C ABI corpus passes nine owner/editor/history/hook/stash/remote
+and cleanup checks. A real canceled hook reaps in 512 ms, with no owned children
+and a successful fresh reviewed commit. The initial dirty-buffer integration
+failure exposed Windows extended-prefix versus stored-path comparisons; native
+editor/task guards and Flutter owner retention now use the same boundary.
+
+Final public diagnostic light/dark and compact renders were inspected, including
+eight 245,783-byte saved comparisons. Earlier tiny/mixed render measurements are
+explicitly invalidated. [Qualification](qualification/source-control.md) records
+actual timings, memory/CPU observations, fixture failures and remaining native,
+hosted-network and model gaps. Original 42-table profile preservation and normal
+main-entry build/launch remain the final handoff check; no diagnostic entry is
+reported as the normal app. Milestone 18 has not started.
+
 ## Source Control 17.5 — deliberate remote actions
 
 Remotes/tracking and ahead/behind load locally on request; network work begins

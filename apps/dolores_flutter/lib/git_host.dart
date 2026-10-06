@@ -28,6 +28,12 @@ class GitWorkspace {
 
 /// Lazy Git ownership follows Home; late responses update only their own root.
 class GitHost extends ChangeNotifier {
+  static String rootKey(String root) => root
+      .replaceAll('\\', '/')
+      .replaceFirst('//?/UNC/', '//')
+      .replaceFirst('//?/', '')
+      .toLowerCase()
+      .replaceFirst(RegExp(r'/+$'), '');
   final ChatBridge bridge;
   GitHost(this.bridge);
   final workspaces = <String, GitWorkspace>{};
@@ -46,11 +52,17 @@ class GitHost extends ChangeNotifier {
       changed();
       return;
     }
-    var w = workspaces[root];
+    var w =
+        workspaces[root] ??
+        workspaces.values
+            .where((w) => rootKey(w.root) == rootKey(root))
+            .firstOrNull;
     if (w == null) {
       if (workspaces.length >= 8) {
         final available = workspaces.values
-            .where((x) => !x.busy && x.commitDraft.isEmpty)
+            .where(
+              (x) => !x.busy && x.reviewOpen == null && x.commitDraft.isEmpty,
+            )
             .firstOrNull;
         if (available == null) {
           error = 'Eight repositories are retained. Finish work before opening another.';

@@ -40,7 +40,8 @@ in their current UI. Keep this document's palette, icons, focus and compact rule
 The implemented Experimental page contains Multiple Window (default On, backend
 availability explicit) and Windows keep-awake (default Off, actual power/security
 limits disclosed). Home, the compact rail and Folders editor are implemented in
-milestone 16. Source Control, Terminal and detached views remain later milestones.
+milestone 16. Milestone 17 adds Source Control status, saved diff tabs/history and
+reviewed Git actions. Terminal and detached views remain later milestones.
 File highlighting is bounded to 64 KiB; larger editable documents show a plain-text
 status. Private recovery/layout failures expose Retry, and final Close keeps the
 app open when persistence fails. Native physical input remains separately qualified.

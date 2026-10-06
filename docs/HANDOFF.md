@@ -4,7 +4,8 @@
 
 **Current user steering:** plan a developer workspace and extend the roadmap;
 implement **one milestone per batch**, retaining separate commits for its bricks.
-Milestone 16 implementation and batch qualification are delivered; stop before 17.
+Milestones 16 and 17 implementation and batch qualification are delivered; stop
+before 18. The final normal-app receipt is recorded in the newest acceptance.
 Memory, scheduling and companionship remain future work.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact
@@ -46,7 +47,13 @@ Historical 94 ms typing/389.306 ms opening failures are not explained by these
 passing runs. Physical input/IME/accessibility, sustained/low-end/other-platform
 resources, existing-target Save as and earlier idle/model gaps remain labeled.
 Do not treat diagnostic screenshots or controller input as physical native UX.
-The next authorized batch is 17 only when the user proceeds; this turn stops at 16.
+**Milestone 17 batch:** 17.1–17.6 adds real repository status, saved diff/history
+tabs, reviewed file/hunk/commit and local recovery operations, and deliberate remote
+actions. Full native/Flutter suites pass; the two-repository release corpus verifies
+unsaved-buffer protection, hook cancellation/recovery and a disposable bare remote.
+See [Source Control qualification](qualification/source-control.md) for exact
+measurements, invalid earlier renders, Windows-path correction and remaining gaps.
+The next batch is 18 when the user proceeds; do not start it in this batch.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)

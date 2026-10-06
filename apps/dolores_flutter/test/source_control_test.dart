@@ -118,6 +118,19 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  test('equivalent Windows project paths retain diff owners', () async {
+    final host = GitHost(DiffBridge());
+    final w = GitWorkspace('C:/A', 'A')
+      ..status = {'repo': 'A', 'revision': 'v1'}
+      ..tabs['saved'] = {'path': 'same.txt'}
+      ..activeTab = 'saved';
+    host.workspaces[w.root] = w;
+    await host.bind('A', r'\\?\C:\A');
+    expect(host.selected, same(w));
+    expect(host.selected!.activeTab, 'saved');
+    expect(host.workspaces.length, 1);
+    host.dispose();
+  });
   testWidgets(
     'remote actions require a named configured target and expose only tracked pull and push',
     (t) async {

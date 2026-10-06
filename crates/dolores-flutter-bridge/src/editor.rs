@@ -187,7 +187,7 @@ impl Registry {
     pub(super) fn ensure_git_clean(&self,root:&std::path::Path,paths:&[String])->Result<(),String>{
         for d in self.docs.values().filter(|d|d.dirty()) {
             let full=std::path::Path::new(&d.root).join(&d.snapshot.path);
-            if (paths.is_empty()&&full.starts_with(root))||paths.iter().any(|p|full==root.join(p)){return Err("Save or close unsaved editors for these Git paths, then review again. Their drafts remain.".into());}
+            if (paths.is_empty()&&crate::source_control::within(&full,root))||paths.iter().any(|p|crate::source_control::path_key(&full)==crate::source_control::path_key(&root.join(p))){return Err("Save or close unsaved editors for these Git paths, then review again. Their drafts remain.".into());}
         }Ok(())
     }
     fn replacement(&self,old:&Document,next:&Document)->Result<(),String>{
