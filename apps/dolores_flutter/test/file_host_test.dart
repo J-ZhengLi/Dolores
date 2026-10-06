@@ -8,6 +8,8 @@ import 'app_host_test.dart' show HostBridge;
 class FileBridge extends HostBridge {
   final docs = <String, Map<String, dynamic>>{};
   final editorCalls = <Map<String, dynamic>>[];
+  final layouts = <String, dynamic>{};
+  bool failLayout = false;
   Completer<void>? opening;
   @override
   Future<dynamic> call(Map<String, dynamic> cmd) async {
@@ -23,7 +25,7 @@ class FileBridge extends HostBridge {
       return {
         'project': session,
         'root': 'C:/$session',
-        'layout': null,
+        'layout': layouts[session],
         'recovery': [],
         'documents': [],
       };
@@ -31,7 +33,8 @@ class FileBridge extends HostBridge {
     if (r['action'] == 'tree') {
       return {
         'entries': [
-          {'name': 'nested', 'path': 'nested', 'directory': true},
+          if (r['path'] == '.')
+            {'name': 'nested', 'path': 'nested', 'directory': true},
           {'name': 'a.txt', 'path': 'a.txt', 'directory': false},
         ],
         'cursor': r['cursor'] == 0 ? 200 : null,
@@ -60,6 +63,11 @@ class FileBridge extends HostBridge {
     if (r['action'] == 'close') {
       docs.remove(r['document']);
       return null;
+    }
+    if (r['action'] == 'refresh') return {'changed': false};
+    if (r['action'] == 'layout') {
+      if (failLayout) throw StateError('Storage unavailable.');
+      layouts[r['project'] as String] = r['layout'];
     }
     return null;
   }

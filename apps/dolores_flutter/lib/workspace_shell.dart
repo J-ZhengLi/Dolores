@@ -10,6 +10,7 @@ import 'main.dart' show ChatPage;
 import 'settings.dart';
 import 'theme.dart';
 import 'folders.dart';
+import 'file_workspace.dart';
 
 enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 
@@ -181,7 +182,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   Widget content() {
     if (page == WorkspacePage.folders) {
-      return FolderPreview(files: host.files, host: host);
+      return FileWorkspaceView(host: host);
     }
     if (page == WorkspacePage.home) {
       return ChatPage(
@@ -248,98 +249,105 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
-    return CallbackShortcuts(bindings:{const SingleActivator(LogicalKeyboardKey.keyP,control:true):()=>unawaited(quickOpen(context,host.files))},child:Scaffold(
-      body: Column(
-        children: [
-          if (!widget.nativeTitleBar)
-            SizedBox(
-              height: 32,
-              child: Row(
-                children: [
-                  IconButton(
-                    key: const Key('title-panel-toggle'),
-                    tooltip: 'Toggle side panel',
-                    onPressed: host.togglePanel,
-                    icon: const Icon(Icons.vertical_split_outlined, size: 18),
+    return CallbackShortcuts(
+      bindings: {
+        if (page == WorkspacePage.folders)
+          const SingleActivator(LogicalKeyboardKey.keyP, control: true): () =>
+              unawaited(quickOpen(context, host.files)),
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            if (!widget.nativeTitleBar)
+              SizedBox(
+                height: 32,
+                child: Row(
+                  children: [
+                    IconButton(
+                      key: const Key('title-panel-toggle'),
+                      tooltip: 'Toggle side panel',
+                      onPressed: host.togglePanel,
+                      icon: const Icon(Icons.vertical_split_outlined, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            if (host.error != null)
+              MaterialBanner(
+                content: Text(host.error!),
+                actions: [
+                  TextButton(
+                    onPressed: () => setState(() => host.error = null),
+                    child: const Text('Dismiss'),
                   ),
                 ],
               ),
-            ),
-          if (host.error != null)
-            MaterialBanner(
-              content: Text(host.error!),
-              actions: [
-                TextButton(
-                  onPressed: () => setState(() => host.error = null),
-                  child: const Text('Dismiss'),
-                ),
-              ],
-            ),
-          if (host.tasks.isNotEmpty)
-            SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  for (final task in host.tasks)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: TextButton(
-                        onPressed: () => task.session == null
-                            ? null
-                            : host.select(task.session!),
-                        child: Text(
-                          '${task.workspaceLabel} · ${task.modelPhase == 'queued' ? 'Queued' : 'Running'}',
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, c) {
-                final compact = c.maxWidth < 800;
-                return Stack(
+            if (host.tasks.isNotEmpty)
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
                   children: [
-                    Row(
-                      children: [
-                        rail(p),
-                        if (!compact && !host.panelHidden)
-                          SizedBox(
-                            width: host.panelWidth.clamp(
-                              180,
-                              (c.maxWidth - 300).clamp(180, 420),
-                            ),
-                            child: panel(p),
-                          ),
-                        if (!compact) divider(),
-                        Expanded(child: content()),
-                      ],
-                    ),
-                    if (compact && !host.panelHidden)
-                      Positioned(
-                        left: 64,
-                        top: 0,
-                        bottom: 0,
-                        width: host.panelWidth.clamp(180, c.maxWidth - 72),
-                        child: Material(
-                          elevation: 8,
-                          child: Row(
-                            children: [
-                              Expanded(child: panel(p)),
-                              divider(),
-                            ],
+                    for (final task in host.tasks)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: TextButton(
+                          onPressed: () => task.session == null
+                              ? null
+                              : host.select(task.session!),
+                          child: Text(
+                            '${task.workspaceLabel} · ${task.modelPhase == 'queued' ? 'Queued' : 'Running'}',
                           ),
                         ),
                       ),
                   ],
-                );
-              },
+                ),
+              ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, c) {
+                  final compact = c.maxWidth < 800;
+                  return Stack(
+                    children: [
+                      Row(
+                        children: [
+                          rail(p),
+                          if (!compact && !host.panelHidden)
+                            SizedBox(
+                              width: host.panelWidth.clamp(
+                                180,
+                                (c.maxWidth - 300).clamp(180, 420),
+                              ),
+                              child: panel(p),
+                            ),
+                          if (!compact) divider(),
+                          Expanded(child: content()),
+                        ],
+                      ),
+                      if (compact && !host.panelHidden)
+                        Positioned(
+                          left: 64,
+                          top: 0,
+                          bottom: 0,
+                          width: host.panelWidth.clamp(180, c.maxWidth - 72),
+                          child: Material(
+                            elevation: 8,
+                            child: Row(
+                              children: [
+                                Expanded(child: panel(p)),
+                                divider(),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ));
+    );
   }
 }

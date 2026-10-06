@@ -33,9 +33,9 @@ occasional and in-app, during chosen hours with a daily cap and configured weake
 model. Proposed numerical defaults must be frozen before their runtime bricks.
 
 The previous mixed-pane and A/B/C prototypes are historical explorations, not the
-current page contract. **Current batch: milestone 16**. Bricks 16.0–16.2 have their
-foundation and checks; continue with 16.3 scoped documents, then editor/splits and
-batch qualification. Page direction is final, and
+current page contract. **Current batch: milestone 16**. Bricks 16.0–16.5 have their
+implementation and focused checks; continue with 16.6 integration, resource and
+bounded saved-file model qualification. Page direction is final, and
 the user directs moving past the isolated slow samples, plausibly affected by gaming.
 Fresh isolated typing passes without explaining the historical 94 ms failure;
 the earlier four-view ordinary reopening failed at 389.306 ms versus 250 ms.

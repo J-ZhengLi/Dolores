@@ -19,31 +19,76 @@ import 'document_buffer.dart';
 import 'file_host.dart';
 import 'folders.dart' show filePathDialog;
 import 'theme.dart';
+import 'file_layout.dart';
 
 class FileEditor extends StatefulWidget {
   final AppHost host;
   final FileWorkspace workspace;
   final FileDocument document;
+  final FileViewMemory? memory;
+  final VoidCallback? onFocus;
   const FileEditor({
     super.key,
     required this.host,
     required this.workspace,
     required this.document,
+    this.memory,
+    this.onFocus,
   });
   @override
   State<FileEditor> createState() => _FileEditorState();
 }
 
 class _FileEditorState extends State<FileEditor> {
-  late final DocumentView view = widget.document.buffer.createView();
+  late final memory = widget.memory ?? FileViewMemory();
+  late final DocumentView view = createView();
+  DocumentView createView() {
+    final v = widget.document.buffer.createView();
+    v.selection = widget.document.buffer.clamp(memory.selection, v.codeLines);
+    return v;
+  }
+
   late final find = CodeFindController(view);
   final focus = FocusNode();
-  final scroll = CodeScrollController();
+  late final scroll = CodeScrollController(
+    verticalScroller: ScrollController(initialScrollOffset: memory.vertical),
+    horizontalScroller: ScrollController(
+      initialScrollOffset: memory.horizontal,
+    ),
+  );
   FileDocument get d => widget.document;
   FileHost get files => widget.host.files;
   FileWorkspace get w => widget.workspace;
   @override
+  void initState() {
+    super.initState();
+    focus.addListener(focused);
+    view.addListener(remember);
+    scroll.verticalScroller.addListener(remember);
+    scroll.horizontalScroller.addListener(remember);
+  }
+
+  void focused() {
+    if (focus.hasFocus) widget.onFocus?.call();
+  }
+
+  void remember() {
+    memory.selection = view.selection;
+    if (scroll.verticalScroller.hasClients) {
+      memory.vertical = scroll.verticalScroller.offset;
+    }
+    if (scroll.horizontalScroller.hasClients) {
+      memory.horizontal = scroll.horizontalScroller.offset;
+    }
+    files.scheduleLayout(w);
+  }
+
+  @override
   void dispose() {
+    remember();
+    view.removeListener(remember);
+    scroll.verticalScroller.removeListener(remember);
+    scroll.horizontalScroller.removeListener(remember);
     find.dispose();
     view.dispose();
     focus.dispose();
@@ -143,7 +188,12 @@ class _FileEditorState extends State<FileEditor> {
   }
 
   Future<void> line() async {
-    final value = await filePathDialog(context, 'Go to line', initial: '1',label:'Line number');
+    final value = await filePathDialog(
+      context,
+      'Go to line',
+      initial: '1',
+      label: 'Line number',
+    );
     if (value == null || !mounted) return;
     final target = int.tryParse(value);
     if (target == null || target < 1 || target > view.lineCount) {

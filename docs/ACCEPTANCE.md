@@ -1,5 +1,33 @@
 # Dolores acceptance — 2026-10-07
 
+## Workspace 16.5 — file splits and project layout recovery
+
+File tabs drag to reorder, move between groups and split on editor edges; menus
+and Ctrl+Backslash/Ctrl+W/Ctrl+Tab offer alternatives. Four groups share document
+text and undo, with independent cursor/selection/scroll. Clean preview tabs can
+be replaced; editing or double-clicking keeps a tab. Closing a split merges its
+tabs into a remaining group. Only closing the last dirty view offers Save,
+Discard or Keep editing, and failed Save retains it. Close controls sit outside
+the drag recognizer; accepted drops explicitly clear overlays even when their
+source widget disappears.
+
+Versioned layouts retain paths, group structure, proportions and view state per
+project, bounded to four documents and 8 KiB UTF-8 metadata. Opening requests are
+serialized; dirty/pending buffers cannot be evicted. Clean dormant buffers reload
+without losing retained tab identities. Invalid saved layouts are validated before
+any stored path opens, with a safe single group and private recovery retained.
+Failed layout writes show Retry without clearing unrelated recovery errors.
+Compact layouts and narrow sub-splits expose group selectors rather than hiding
+unreachable editors; widening restores the retained splits.
+
+Eighteen focused Flutter checks pass: seven new layout/workspace checks cover
+reorder, cancelled drag, edge drop, four-group bounds, independent view recovery,
+dirty close cancellation/failed Save, corrupt metadata, failed persistence and
+A→B→A with clean eviction. Light/dark four-group and 420×480 saved renders use
+loaded Windows/Material fonts and were inspected. These are widget renders and
+pointer simulations, not physical native-input qualification. Full integration,
+normal release and bounded saved-file model checks follow in 16.6.
+
 ## Workspace 16.4 — editor and disk reconciliation
 
 The pinned re_editor 0.10.0 adapter uses one document-owned, bounded undo history and

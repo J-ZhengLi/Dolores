@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'bridge.dart';
 import 'document_buffer.dart';
+import 'file_layout.dart';
 
 class FileDocument extends ChangeNotifier {
   DocumentBuffer? _buffer;
@@ -59,6 +60,10 @@ class TreePage {
 }
 
 class FileWorkspace {
+  final layoutOwner = FileLayout();
+  final paths = <String, String>{};
+  bool restoring = false;
+  String? layoutError;
   final String project, root;
   String session;
   final tree = <String, TreePage>{};
@@ -71,6 +76,8 @@ class FileWorkspace {
 
 /// Lazy page state and document owners live above widgets and conversation selection.
 class FileHost extends ChangeNotifier {
+  Future<void> _opening = Future.value();
+  final _layouts = <String, Timer>{};
   final _checkpoints = <String, Timer>{};
   final ChatBridge bridge;
   final documents = <String, FileDocument>{};
@@ -111,6 +118,7 @@ class FileHost extends ChangeNotifier {
       loading = false;
       error = null;
       changed();
+      await restoreActive(cached);
       unawaited(refreshDocuments(cached));
       return;
     }
@@ -142,6 +150,8 @@ class FileHost extends ChangeNotifier {
       }
       selected = w;
       workspaces[w.project] = w;
+      wireLayout(w);
+      await restoreLayout(w);
       await load(w, '.');
     } catch (e) {
       if (token == _binding && !_disposed) {
@@ -224,12 +234,88 @@ class FileHost extends ChangeNotifier {
     FileWorkspace w,
     String path, {
     String action = 'open',
+  }) {
+    final result = _opening.then((_) => _open(w, path, action: action));
+    _opening = result.then<void>((_) {});
+    return result;
+  }
+
+  Future<FileDocument?> _open(
+    FileWorkspace w,
+    String path, {
+    required String action,
   }) async {
+    if (_disposed) return null;
     try {
       error = null;
+      final oldId = w.paths.entries
+          .where((e) => e.value == path)
+          .firstOrNull
+          ?.key;
+      if (oldId == null && w.paths.values.toSet().length >= 4) {
+        throw StateError(
+          'Four documents are retained in this project. Close a file before opening another.',
+        );
+      }
+      if (documents.length >= 4 &&
+          !documents.values.any(
+            (d) => d.project == w.project && d.path == path,
+          )) {
+        final candidate = documents.values
+            .where(
+              (d) =>
+                  !d.dirty &&
+                  !d.pending &&
+                  !d.blocked &&
+                  d.syncing == null &&
+                  !(selected?.project == d.project &&
+                      selected!.layoutOwner.groups.values.any(
+                        (g) => g.active == d.id,
+                      )),
+            )
+            .firstOrNull;
+        if (candidate == null) {
+          throw StateError(
+            'Four documents are retained. Save and close an inactive document before opening another.',
+          );
+        }
+        final owner = workspaces[candidate.project]!;
+        await call(owner, {
+          'action': 'close',
+          'document': candidate.id,
+          'version': candidate.version,
+          'discard': false,
+        });
+        if (_disposed) return null;
+        documents.remove(candidate.id);
+        candidate.dispose();
+      }
       final value = await call(w, {'action': action, 'path': path});
       if (_disposed) return null;
       final d = _accept(Map<String, dynamic>.from(value as Map));
+      if (oldId != null && oldId != d.id) {
+        w.layoutOwner.replaceIdentity(oldId, d.id);
+        w.paths.remove(oldId);
+      }
+      w.paths[d.id] = d.path;
+      if (!w.restoring) {
+        final group = w.layoutOwner.active;
+        final previous = group.preview;
+        final preview = documents[previous];
+        if (previous != null &&
+            previous != d.id &&
+            (preview == null || !preview.dirty) &&
+            preview?.pending != true &&
+            preview?.blocked != true) {
+          w.layoutOwner.remove(group.id, previous);
+          if (!w.layoutOwner.groups.values.any(
+            (g) => g.tabs.contains(previous),
+          )) {
+            w.paths.remove(previous);
+          }
+        }
+        w.layoutOwner.open(d.id);
+      }
       w.active = d.id;
       w.recovery.remove(path);
       changed();
@@ -242,6 +328,95 @@ class FileHost extends ChangeNotifier {
   }
 
   FileDocument? get active => documents[selected?.active];
+  void wireLayout(FileWorkspace w) {
+    w.layoutOwner.onChanged = () {
+      w.active = w.layoutOwner.active.active;
+      changed();
+      if (!w.restoring) scheduleLayout(w);
+    };
+  }
+
+  void scheduleLayout(FileWorkspace w) {
+    if (_disposed) return;
+    _layouts[w.project]?.cancel();
+    _layouts[w.project] = Timer(
+      const Duration(milliseconds: 250),
+      () => persistLayout(w),
+    );
+  }
+
+  Future<void> persistLayout(FileWorkspace w) async {
+    if (_disposed) return;
+    try {
+      final data = w.layoutOwner.serialize(w.paths);
+      FileLayout.validate(data);
+      await call(w, {'action': 'layout', 'layout': data});
+      w.layoutError = null;
+    } catch (e) {
+      w.layoutError =
+          '$e Current layout and documents are retained. Retry layout save.';
+    }
+    changed();
+  }
+
+  Future<void> restoreLayout(FileWorkspace w) async {
+    if (w.layout == null) return;
+    w.restoring = true;
+    try {
+      final paths = FileLayout.paths(w.layout);
+      final ids = <String, String>{};
+      for (final path in paths) {
+        final d = await open(
+          w,
+          path,
+          action: w.recovery.contains(path) ? 'recover' : 'open',
+        );
+        if (d != null) ids[path] = d.id;
+      }
+      w.layoutOwner.restore(w.layout, ids);
+      w.active = w.layoutOwner.active.active;
+    } catch (e) {
+      error =
+          '$e A safe single group is available; private recovery is retained.';
+    } finally {
+      w.restoring = false;
+      changed();
+    }
+  }
+
+  Future<void> restoreActive(FileWorkspace w) async {
+    w.restoring = true;
+    try {
+      for (final group in w.layoutOwner.groups.values) {
+        final id = group.active;
+        if (id != null && !documents.containsKey(id)) {
+          final path = w.paths[id];
+          if (path != null) await open(w, path);
+        }
+      }
+      w.active = w.layoutOwner.active.active;
+    } finally {
+      w.restoring = false;
+      changed();
+    }
+  }
+
+  Future<void> activate(FileWorkspace w, String group, String id) async {
+    if (!documents.containsKey(id)) {
+      final path = w.paths[id];
+      if (path == null) return;
+      w.restoring = true;
+      try {
+        final d = await open(w, path);
+        if (d == null) return;
+        id = d.id;
+      } finally {
+        w.restoring = false;
+      }
+    }
+    w.layoutOwner.select(group, id);
+  }
+
   bool edit(FileDocument d, String text) {
     try {
       if (d.readonly || d.pending || d.closed) {
@@ -299,6 +474,12 @@ class FileHost extends ChangeNotifier {
         );
       }
       d.text = text;
+      final w = workspaces[d.project];
+      if (w != null) {
+        for (final group in w.layoutOwner.groups.values) {
+          if (group.preview == d.id) w.layoutOwner.pin(group.id, d.id);
+        }
+      }
       d.error = null;
       d.changed();
       if (!d.blocked) unawaited(flush(d));
@@ -452,10 +633,14 @@ class FileHost extends ChangeNotifier {
       });
       if (action == 'delete') {
         documents.remove(d.id);
+        w.layoutOwner.removeDocument(d.id);
+        w.paths.remove(d.id);
         w.active = null;
         d.dispose();
       } else {
         _accept(Map<String, dynamic>.from(value as Map));
+        w.paths[d.id] = d.path;
+        w.layoutOwner.changed();
       }
       error = null;
       await load(w, '.', refresh: true);
@@ -530,6 +715,8 @@ class FileHost extends ChangeNotifier {
         'discard': discard,
       });
       documents.remove(d.id);
+      w.layoutOwner.removeDocument(d.id);
+      w.paths.remove(d.id);
       if (w.active == d.id) {
         w.active = documents.values
             .where((x) => x.project == w.project)
@@ -549,6 +736,9 @@ class FileHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    for (final timer in _layouts.values) {
+      timer.cancel();
+    }
     for (final timer in _checkpoints.values) {
       timer.cancel();
     }
