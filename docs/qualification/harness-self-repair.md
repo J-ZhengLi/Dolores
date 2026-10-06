@@ -441,3 +441,31 @@ authorization, but desktop Restore remains separately unexercised and requires
 its own review. Earlier trusted rollback, interruption and replay-refusal cases
 remain separate evidence. General competence, containment, shortcut routing and
 other-platform/full native visual acceptance remain open.
+
+### Follow-up — separately authorized desktop Restore
+
+2026-10-06. The user explicitly approves the separately prepared **Restore &
+restart** review in the installed candidate's isolated profile. The production
+desktop path saves drafts and closes the idle candidate. Protected intent
+`870e2df6-d7ab-4274-8ec2-fa8732568ebf` reaches `restored`, with previous source
+`sha256:8e81f052d58b2064cf98ad4a5da25df9f0bb5e00d03b11c78a89496282e778a8`
+and the retained previous normal executable. Candidate/helper exit and the
+restored process's executable/creation identity are independently verified.
+No constructed intent, forced fixture stop or model request is used.
+
+Every table compares equal to the state after the acknowledged post-install `x`
+draft edit. Foreground inspection of the restored normal shell shows that newer
+unsent draft, completed DeepSeek answer and successful read receipt. All original
+profile tables and the maintained process remain unchanged during Restore.
+Ignored `native-ui-restore-audit.json` records these booleans and exact intent;
+`native-ui-restored-process.json` retains its owned process identity. The normal
+maintained desktop is rebuilt and visibly reopened after qualification without
+promoting the model patch into its checkout or original profile.
+
+One bounded Windows Rust repair cycle now has both direct human-authorized desktop
+installation and Restore, with idle Close/reopen qualified separately. Earlier
+trusted non-improvement, startup-failure, helper-interruption and replay-refusal
+checks remain distinct evidence. This is not general autonomous defect discovery
+or repair competence. Busy/last-unacknowledged-keystroke Close, containment,
+retained-version shortcut routing, low-end/other-OS hosts and the full native
+visual matrix remain open. No additional model calls or production changes occur.

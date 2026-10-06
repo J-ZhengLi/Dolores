@@ -3,19 +3,24 @@
 2026-10-06. Bricks 20.1–20.2 are implemented with [qualification gaps](../qualification/harness-self-repair.md).
 The user prioritized the reviewed native pipeline; 20.3's broader Wasm ABI is
 not adopted. 20.4 implements the bounded reviewed Rust evaluator; packaged and
-bounded DeepSeek non-improvement and normal foreground checks pass; native trial
-cards and broader qualification remain open. Native install/restore and real repair in 20.5–20.6 remain
-planned. The milestone follows the immediate
+bounded DeepSeek non-improvement and normal foreground checks pass. 20.5 implements
+the narrow Windows Rust build/install/Restore path. 20.6 verifies one file-scoped
+DeepSeek-authored parser repair, independent trials, a real candidate task and
+separately user-authorized desktop installation/Restore with saved work preserved.
+General competence, containment and broader platform/resource/visual qualification
+remain open. The milestone follows the immediate
 streaming/progress fixes and takes priority over the paused milestones 16–19.
 Platform CI 8.4 stays deferred.
 
-## Existing foundation and missing behavior
+## Foundation before milestone 20
 
 Dolores has source inspection, recent failure evidence, versioned skills and
 ABI 1 recovery-hint mods with trials, activation and restore. Those mods change
 a fixed guidance classification/card. They cannot repair the HTTP decoder,
-agent loop, arbitrary Flutter code or native binary. No conversation-level
-prepare → reproduce → patch → test → install workflow exists for those faults.
+agent loop, arbitrary Flutter code or native binary. Before milestone 20, no
+conversation-level prepare → reproduce → patch → test → install workflow existed
+for those faults. Current native support is limited to the separately reviewed
+Windows Rust scope above; it does not permit arbitrary Flutter/native replacement.
 Milestone 13 delivered its narrow envelope, not general harness self-repair.
 
 120 lines is a per-read page, not total access. Nevertheless, serial reads spend

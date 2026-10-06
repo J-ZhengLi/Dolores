@@ -1073,7 +1073,7 @@ accessibility gaps remain explicit; no claim of complete Cursor/VS Code parity.
 
 ## Milestone 20 — Harness self-repair
 
-**Status: 20.1–20.2 and 20.4 implemented; 20.5 passes packaged trusted-fixture qualification, and 20.6 passes one configured DeepSeek-authored repair candidate, real task, authorized desktop installation/restart and idle Close/reopen. Direct desktop Restore, general model competence and broader platform qualification remain open.** This milestone takes priority before
+**Status: 20.1–20.2 and 20.4 implemented; 20.5 passes packaged trusted-fixture qualification, and 20.6 passes one configured DeepSeek-authored repair candidate, real task, separately authorized desktop installation/Restore and idle Close/reopen. This qualifies one bounded Windows Rust repair cycle; general model competence and broader platform/resource qualification remain open.** This milestone takes priority before
 the paused 16–19 developer-workspace track after immediate AI reliability fixes.
 The [specification](design/harness-self-repair.md) defines scope, ownership,
 authority, test/activation and restore contracts for every brick:
@@ -1093,13 +1093,13 @@ authority, test/activation and restore contracts for every brick:
 5. **20.5:** separately reviewed Windows Rust release build, normal restart and
    Restore implemented; packaged fixtures verify protected startup, newer-history
    preservation, interrupted-helper refusal and automatic startup-failure recovery.
-   20.6 now verifies authorized desktop installation and idle Close; direct desktop
-   Restore remains open. See [installation scope](design/native-repair-installation.md).
+   20.6 now verifies separately authorized desktop installation, Restore and idle
+   Close. See [installation scope](design/native-repair-installation.md).
 6. **20.6:** one configured DeepSeek-authored provider repair, reviewed release
    build, real candidate task and trusted protected Restore/rollback pass.
-   Authorized desktop installation/restart and idle Close/reopen also pass with
-   saved work preserved. Earlier reviewed non-improvement remains withheld.
-   Direct desktop Restore, general model competence and broader platforms remain open.
+   Separately authorized desktop installation/Restore and idle Close/reopen also
+   pass with saved work preserved. Earlier reviewed non-improvement remains
+   withheld. General model competence and broader platform/resource gates remain open.
 
 Each brick's basic and realistic failure/recovery criteria are in the spec.
 Success means a fault is reproduced and repaired without losing work; inspection,

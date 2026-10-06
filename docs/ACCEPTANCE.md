@@ -1,5 +1,30 @@
 # Dolores acceptance — 2026-10-06
 
+## Harness self-repair 20.6 — separately authorized desktop Restore passes
+
+The user separately approved **Restore & restart** for the installed DeepSeek
+candidate's isolated profile. The actual Native repairs review dispatched Restore,
+closed the idle candidate and started the retained previous normal version. The
+protected launcher verifies the previous source and usable startup; its receipt
+records Restored. The candidate and lazy helper exited normally.
+
+Read-only comparison confirms every table equals the state saved after the
+post-install draft edit. The completed real DeepSeek result, read receipt and
+newer unsent draft are visible in the restored normal app. No task is replayed,
+no additional model call is made and the original profile remains unchanged.
+Detailed identities and audit evidence are in the
+[qualification report](qualification/harness-self-repair.md).
+
+This completes the demonstrated Windows Rust repair cycle for one bounded,
+file-scoped DeepSeek-authored parser candidate: independent fault reproduction,
+candidate/regression trials, reviewed release build, real candidate task,
+separately user-authorized desktop installation and Restore, plus idle Close.
+Earlier trusted startup-failure, interruption, non-improvement and replay-refusal
+checks remain separate evidence. General repair competence, busy/last-keystroke
+Close, OS containment, persistent shortcut routing, low-end/other-OS hosts and
+the full native visual matrix remain open. The original maintained provider code
+is unchanged; the candidate is retained only in its managed repair workspace.
+
 ## Harness self-repair 20.6 — authorized desktop installation and idle Close pass
 
 The user approved installation/restart of the existing verified DeepSeek candidate
