@@ -76,6 +76,31 @@ provider endpoints or transcripts; its command mode remains unqualified.
 
 ## Native verification and remaining gaps
 
+Fresh useful Mario rerun (2026-10-06): configured `deepseek-v4.1-flash`, actual
+`D:\Workspace\mario_clone`, exact instruction `Build me a Super Mario clone and
+output it as an HTML file`. The normal UI was restored from minimized state and
+showed the preserved four-call paused chat. An isolated native-host test profile
+used Automatic counts, provider-default output and 180-second inactivity; the
+original profile, selected settings and chat were not changed.
+
+The driver separately reviewed a folder listing, three 120-line game reads,
+creation of `validate-mario.js` and `validate-bot.js`, and their literal Node
+invocations. Eight model calls, eight completed operations and 862 thinking
+updates were observed. Both commands returned exit 0 with complete captures.
+The first simulated 4,830 frames: coins/score changed, lives depleted, game-over
+appeared, and no runtime errors occurred. The heuristic bot reached tile 70 of
+196, then lost its lives; that does not prove the level is unwinnable or won.
+The agent proposed adjusting the bot's jump timing rather than the game.
+
+The ten-minute driver deadline elapsed during that edit review. No adjustment
+executed and no final answer was reached. This is **unqualified end-to-end
+completion**, with a successful useful command path; it is a driver timeout, not
+evidence of another product approval-timeout or parser fault. The original HTML
+is byte-identical, and the two new validation scripts remain as usable work.
+An independent fresh syntax check also passed. No synthetic padding retry or
+silent default change was made. Full level completion, final reporting and a
+new normal-UI end-to-end run remain gaps.
+
 The normal release was built and visibly launched through `scripts/desktop.py`
 with the original profile. The dark-theme Advanced → Task limits page shows
 Automatic counts and optional blank fields; its draft override was closed without

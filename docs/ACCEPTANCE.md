@@ -1,5 +1,19 @@
 # Dolores acceptance — 2026-10-05
 
+## Useful Mario task follow-up — command path exercised, completion unqualified
+
+2026-10-06: A bounded configured DeepSeek V4.1 Flash native-host run used the
+exact Mario instruction and actual project. Eight model calls and eight reviewed
+operations completed under Automatic counts, including two literal Node
+validation commands with exit 0 and untruncated captures. The first exercised
+4,830 game frames without runtime errors; the heuristic bot lost at tile 70 of
+196. The ten-minute driver bound stopped at a proposed bot-test edit before a
+final answer. No game overwrite or pending edit occurred; original HTML is
+byte-identical and both new validation scripts remain. This qualifies the useful
+native command path, not complete gameplay or end-to-end task completion.
+Original settings/history remain and the normal app was visibly restored.
+See [details and remaining gaps](qualification/task-loop.md).
+
 ## AI follow-up — automatic task execution
 
 2026-10-06: Fresh task settings use Automatic counts rather than four model calls
