@@ -81,18 +81,45 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<bool> requestClose() async {
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Finish the open review'),
+          content: const Text(
+            'Close settings or the current review before closing Dolores.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Keep open'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+    final tray = host.background.enabled && !host.quitting;
     final dirty = host.files.documents.values.where((d) => d.dirty).length;
     final tasks = host.tasks.length;
     final terminals = host.terminals.live.length;
     if (dirty == 0 && tasks == 0 && terminals == 0) {
+      if (tray) {
+        await host.background.closeToTray(
+          () => host.prepareQuit(saveFiles: false, keepScheduled: true),
+        );
+        return false;
+      }
       return host.prepareQuit(saveFiles: false);
     }
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Close Dolores?'),
+        title: Text(tray ? 'Close to tray?' : 'Close Dolores?'),
         content: Text(
-          '$dirty unsaved files, $tasks running or queued tasks and $terminals live terminals. Closing stops tasks and terminal processes. Private recovery preserves unsaved edits without saving source files.',
+          tray
+              ? 'Scheduled tasks will continue. Other tasks and terminals stop; unsaved files keep private recovery.'
+              : '$dirty unsaved files, $tasks running or queued tasks and $terminals live terminals. Closing stops tasks and terminal processes. Private recovery preserves unsaved edits without saving source files.',
         ),
         actions: [
           TextButton(
@@ -112,6 +139,13 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       ),
     );
     if (choice == null || !mounted) return false;
+    if (tray) {
+      await host.background.closeToTray(
+        () =>
+            host.prepareQuit(saveFiles: choice == 'save', keepScheduled: true),
+      );
+      return false;
+    }
     return host.prepareQuit(saveFiles: choice == 'save');
   }
 

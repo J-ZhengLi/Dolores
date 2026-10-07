@@ -260,7 +260,8 @@ impl Engine {
     }
     pub(super) fn scheduled_list(&self) -> Result<Value, String> {
         let tasks = self.store.scheduled_tasks()?;
-        tasks.into_iter().filter(|t|!t.deleted).map(|t|Ok(json!({"task":{"id":t.id,"revision":t.revision,"sourceSession":t.source_session,"title":t.title,"paused":t.paused,"nextDue":t.next_due},"receipt":receipt(&t),"occurrences":self.store.scheduled_occurrence_summaries(&t.id)?}))).collect::<Result<Vec<_>,String>>().map(|items|json!({"items":items,"availability":"While Dolores is open"}))
+        let background=self.store.background_policy()?.enabled && cfg!(windows);
+        tasks.into_iter().filter(|t|!t.deleted).map(|t|Ok(json!({"task":{"id":t.id,"revision":t.revision,"sourceSession":t.source_session,"title":t.title,"paused":t.paused,"nextDue":t.next_due},"receipt":receipt(&t),"occurrences":self.store.scheduled_occurrence_summaries(&t.id)?}))).collect::<Result<Vec<_>,String>>().map(|items|json!({"items":items,"backgroundEnabled":background,"availability":if background{"While Dolores is open or in the tray"}else{"While Dolores is open"}}))
     }
     pub(super) fn scheduled_tick(&self) -> Result<Value, String> {
         self.scheduled_tick_at(now_seconds())

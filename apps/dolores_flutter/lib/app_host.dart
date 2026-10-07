@@ -9,11 +9,34 @@ import 'terminal_host.dart';
 import 'language_host.dart';
 import 'scheduled_host.dart';
 import 'companion_host.dart';
+import 'background_host.dart';
 
 import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
+  final _scheduledOwners = <ChatController>{};
+  bool quitting = false;
+  Future<void> Function()? destroyWindow;
+  Future<void> requestQuit() async {
+    quitting = true;
+    try {
+      if (await requestClose()) {
+        await destroyWindow?.call();
+      }
+    } finally {
+      quitting = false;
+    }
+  }
+
+  late final background = BackgroundHost(
+    initial.bridge,
+    restored: () async {
+      await companion.refresh();
+      await scheduled.refresh();
+    },
+    quit: requestQuit,
+  );
   late final companion = CompanionHost(
     initial.bridge,
     session: () => visible.session,
@@ -28,6 +51,7 @@ class AppHost extends ChangeNotifier {
     initial.bridge,
     onClaim: (occurrence) async {
       final owner = await _create();
+      _scheduledOwners.add(owner);
       await owner.send(
         scheduledOccurrence: occurrence['id'] as String,
         taskInput: (occurrence['snapshot'] as Map)['prompt'] as String,
@@ -86,8 +110,17 @@ class AppHost extends ChangeNotifier {
     await languages.stop();
   }
 
-  Future<bool> prepareQuit({required bool saveFiles}) async {
+  Future<bool> prepareQuit({
+    required bool saveFiles,
+    bool keepScheduled = false,
+  }) async {
+    scheduled.suspend();
     try {
+      if (scheduled.pending) {
+        throw StateError(
+          'A scheduled task is starting. Try closing again in a moment.',
+        );
+      }
       if (git.workspaces.values.any(
         (w) => w.reviewOpen != null || w.commitDraft.isNotEmpty,
       )) {
@@ -131,11 +164,18 @@ class AppHost extends ChangeNotifier {
           );
         }
       }
-      for (final c in tasks.toList()) {
+      for (final c
+          in tasks
+              .where((c) => !keepScheduled || !_scheduledOwners.contains(c))
+              .toList()) {
         await c.stop();
       }
       scheduled.suspend();
       companion.suspend();
+      if (keepScheduled) {
+        await scheduled.resume();
+        return true;
+      }
       await initial.bridge.close();
       return true;
     } catch (e) {
@@ -206,6 +246,7 @@ class AppHost extends ChangeNotifier {
     _add(initial);
     unawaited(scheduled.refresh());
     unawaited(companion.refresh());
+    unawaited(background.refresh());
   }
   void _add(ChatController owner) {
     _settings[owner] = owner.settingsRevision;
@@ -237,6 +278,7 @@ class AppHost extends ChangeNotifier {
         _settings[c] = c.settingsRevision;
       }
       unawaited(companion.refresh());
+      unawaited(background.refresh());
     }
     final ended = _running.where((c) => !c.busy).toList();
     _running
@@ -386,6 +428,7 @@ class AppHost extends ChangeNotifier {
   @override
   void dispose() {
     scheduled.dispose();
+    background.dispose();
     companion.dispose();
     terminals.dispose();
     git.dispose();

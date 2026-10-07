@@ -23,6 +23,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
+  const bool secondary=std::find(command_line_arguments.begin(),command_line_arguments.end(),"multi_window")!=command_line_arguments.end();
+  const auto profile=secondary?L"":DoloresProfileKey();
+  HANDLE owner=profile.empty()?nullptr:CreateMutexW(nullptr,FALSE,profile.c_str());
+  if(owner && GetLastError()==ERROR_ALREADY_EXISTS){
+    for(int attempt=0;attempt<60;++attempt){
+      if(HWND existing=DoloresOwnerWindow(profile)){DWORD pid=0;GetWindowThreadProcessId(existing,&pid);AllowSetForegroundWindow(pid);PostMessageW(existing,kDoloresRestore,0,0);CloseHandle(owner);CoUninitialize();return EXIT_SUCCESS;}
+      Sleep(50);
+    }
+    CloseHandle(owner);CoUninitialize();return EXIT_FAILURE;
+  }
+
   const bool compact = std::find(command_line_arguments.begin(),
                                 command_line_arguments.end(), "--compact") != command_line_arguments.end();
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
@@ -33,6 +44,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
+  if(owner)SetPropW(window.GetHandle(),profile.c_str(),reinterpret_cast<HANDLE>(1));
 
   ::MSG msg;
   while (::GetMessage(&msg, nullptr, 0, 0)) {
@@ -41,5 +53,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   ::CoUninitialize();
+  if(owner)CloseHandle(owner);
   return EXIT_SUCCESS;
 }

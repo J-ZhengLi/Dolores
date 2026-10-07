@@ -1,6 +1,15 @@
 use crate::storage_error;
 use dolores_core::scheduling::*;
 use rusqlite::{params, Connection, OptionalExtension};
+pub(super) fn background(c:&Connection)->Result<BackgroundPolicy,String>{
+    c.query_row("SELECT revision,enabled FROM scheduler_background WHERE id=1",[],|r|Ok(BackgroundPolicy{revision:r.get(0)?,enabled:r.get(1)?})).optional().map_err(storage_error).map(|p|p.unwrap_or_default())
+}
+pub(super) fn save_background(c:&mut Connection,enabled:bool,revision:u32)->Result<BackgroundPolicy,String>{
+    let tx=c.transaction().map_err(storage_error)?;let old=background(&tx)?;
+    if old.revision!=revision{return Err("Background setting changed. Refresh before saving.".into());}
+    let next=BackgroundPolicy{revision:revision.checked_add(1).ok_or("Background revision exhausted.")?,enabled};
+    tx.execute("INSERT INTO scheduler_background(id,revision,enabled) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,enabled=excluded.enabled",params![next.revision,next.enabled]).map_err(storage_error)?;tx.commit().map_err(storage_error)?;Ok(next)
+}
 fn tasks(c: &Connection) -> Result<Vec<ScheduledTask>, String> {
     let mut q = c
         .prepare("SELECT data FROM scheduled_tasks ORDER BY id")
@@ -280,6 +289,16 @@ pub(super) fn skip(c: &mut Connection, id: &str, revision: u32) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn background_choice_restart_stale_and_failed_save_preserve_policy(){
+        use dolores_core::SessionStore;
+        let d=tempfile::tempdir().unwrap();let path=d.path().join("db");let s=crate::SqliteStore::open(&path).unwrap();
+        assert!(!s.background_policy().unwrap().enabled);let p=s.set_background_policy(true,1).unwrap();
+        assert!(s.set_background_policy(false,1).is_err());
+        s.lock().unwrap().execute_batch("CREATE TRIGGER deny_background BEFORE UPDATE ON scheduler_background BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(s.set_background_policy(false,p.revision).is_err());drop(s);
+        assert_eq!(crate::SqliteStore::open(&path).unwrap().background_policy().unwrap(),p);
+    }
     use crate::SqliteStore;
     use dolores_core::SessionStore;
     fn task() -> ScheduledTask {

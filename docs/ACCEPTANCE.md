@@ -1,5 +1,19 @@
 # Dolores acceptance — 2026-10-07
 
+## Background scheduling 24.1 — same-owner tray lifecycle
+
+Windows has an Off-by-default background setting, native tray Open/Quit actions
+and per-directory launch ownership. A second launch restores the existing owner
+before creating another engine; the database lock remains the final guard.
+Close saves recovery, stops ordinary tasks/PTYs, and retains scheduled owners;
+Quit uses the normal review/shutdown. No startup or OS wake setting is installed.
+
+Three new lifecycle fixtures and eighteen existing host/frame/scheduler widget
+checks pass. One new store test covers restart, stale revision and failed save.
+The normal main Windows build compiles the native owner/channel/tray integration.
+Packaged hidden execution, duplicate launch and resource checks are subsequent
+qualification; physical tray clicks and other platforms remain open.
+
 ## Companionship 23.4 — qualification and preservation
 
 Milestone 23 is implemented. [Qualification](qualification/companionship.md)

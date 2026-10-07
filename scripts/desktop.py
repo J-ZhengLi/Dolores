@@ -278,6 +278,15 @@ def launch(args):
         if not args.replace_owned:
             raise ValueError('Preview record already exists. Review it or use --replace-owned.')
         stop_owned(record)
+    directory=Path(env.get('DOLORES_DATA_DIR',str(Path(env.get('APPDATA',''))/'dev.dolores.desktop')))
+    existing=profile_window(directory) if os.name=='nt' else None
+    if existing:
+        pid,handle=existing
+        ctypes.windll.user32.PostMessageW(w.HWND(handle),0x8000+73,0,0)
+        window_visible(pid)
+        if record:record.write_text(json.dumps(process_identity(pid)),encoding='utf-8')
+        print(json.dumps({'processId':pid,'windowVisible':True,'entry':entry,'reusedOwner':True}))
+        return
     app = subprocess.Popen([str(binary)], cwd=binary.parent, env=env,
                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                            start_new_session=os.name != 'nt')
@@ -290,6 +299,32 @@ def launch(args):
     print(json.dumps({'processId': app.pid, 'windowVisible': visible is not None,
                       'entry': entry,
                       'visibilityCheck': 'Windows window presence; inspect foreground separately' if os.name == 'nt' else 'Native visual verification required'}))
+
+def profile_window(directory):
+    """Find this executable's same-directory owner, including a hidden tray window."""
+    if os.name!='nt' or not directory.is_dir():return None
+    class Info(ctypes.Structure):
+        _fields_=[('attributes',w.DWORD),('creation',w.FILETIME),('access',w.FILETIME),('write',w.FILETIME),('volume',w.DWORD),('sizeHigh',w.DWORD),('sizeLow',w.DWORD),('links',w.DWORD),('indexHigh',w.DWORD),('indexLow',w.DWORD)]
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True);user=ctypes.WinDLL('user32',use_last_error=True)
+    kernel.CreateFileW.argtypes=[w.LPCWSTR,w.DWORD,w.DWORD,w.LPVOID,w.DWORD,w.DWORD,w.HANDLE];kernel.CreateFileW.restype=w.HANDLE
+    kernel.GetFileInformationByHandle.argtypes=[w.HANDLE,ctypes.POINTER(Info)];kernel.CloseHandle.argtypes=[w.HANDLE]
+    handle=kernel.CreateFileW(str(directory.resolve()),0,7,None,3,0x02000000,None)
+    if handle==w.HANDLE(-1).value:return None
+    info=Info()
+    try:
+        if not kernel.GetFileInformationByHandle(handle,ctypes.byref(info)):return None
+    finally:kernel.CloseHandle(handle)
+    key=f'Local\\DoloresProfile-{info.volume}-{info.indexHigh}-{info.indexLow}'
+    user.GetPropW.argtypes=[w.HWND,w.LPCWSTR];user.GetPropW.restype=w.HANDLE
+    user.GetWindowThreadProcessId.argtypes=[w.HWND,ctypes.POINTER(w.DWORD)]
+    callback_type=ctypes.WINFUNCTYPE(w.BOOL,w.HWND,w.LPARAM);found=[]
+    def scan(window,_):
+        if user.GetPropW(window,key):
+            pid=w.DWORD();user.GetWindowThreadProcessId(window,ctypes.byref(pid));identity=process_identity(pid.value)
+            if identity and Path(identity['executable'])==executable().resolve():found.append((pid.value,int(window)));return False
+        return True
+    callback=callback_type(scan);user.EnumWindows.argtypes=[callback_type,w.LPARAM];user.EnumWindows(callback,0)
+    return found[0] if found else None
 
 
 def main():

@@ -32,6 +32,9 @@ import 'desktop_share.dart';
 import 'sidebar_resize.dart';
 import 'app_host.dart';
 import 'workspace_shell.dart';
+
+import 'package:window_manager/window_manager.dart';
+
 export 'model_settings.dart' show ConnectionDialog;
 export 'theme.dart' show Palette;
 
@@ -40,6 +43,7 @@ Future<void> main() async {
   final desktopFrame = await initializeDesktopFrame();
   final chat = ChatController(NativeBridge());
   final host = AppHost(chat);
+  if (desktopFrame) host.destroyWindow = windowManager.destroy;
   runApp(DoloresApp(chat: chat, host: host, desktopFrame: desktopFrame));
   unawaited(chat.initialize());
 }

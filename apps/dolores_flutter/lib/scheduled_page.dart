@@ -143,7 +143,7 @@ class ScheduledPage extends StatelessWidget {
                 children: [
                   const Text('Scheduled', style: TextStyle(fontSize: 26)),
                   const SizedBox(height: 8),
-                  const Text('Runs while Dolores is open.'),
+                  Text(host.availability),
                   if (host.error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 16),

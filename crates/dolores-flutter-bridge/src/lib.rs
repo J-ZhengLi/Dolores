@@ -139,6 +139,8 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    BackgroundPolicy,
+    SetBackgroundPolicy{enabled:bool,revision:u32},
     CompanionState,
     CompanionPolicy {policy:dolores_core::companionship::CompanionPolicy,revision:u64},
     CompanionTick {session:Option<String>, #[serde(default)] busy:bool},
@@ -848,6 +850,8 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::BackgroundPolicy=>return Ok(json!(self.store.background_policy()?)),
+            Command::SetBackgroundPolicy{enabled,revision}=>{if enabled && !cfg!(windows){return Err("Background scheduling is unavailable on this platform.".into());}return Ok(json!(self.store.set_background_policy(enabled,revision)?));},
             Command::CompanionState=>{drop(active);return self.companion_view();},
             Command::CompanionPolicy{policy,revision}=>{drop(active);return self.companion_policy(policy,revision);},
             Command::CompanionTick{session,busy}=>{drop(active);return self.companion_tick(session.as_deref(),busy);},

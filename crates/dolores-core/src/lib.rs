@@ -342,6 +342,8 @@ pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 pub mod scheduling;
 pub mod companionship;
 pub trait SessionStore: Send + Sync {
+    fn background_policy(&self)->Result<scheduling::BackgroundPolicy,String>{Ok(Default::default())}
+    fn set_background_policy(&self,_:bool,_:u32)->Result<scheduling::BackgroundPolicy,String>{Err("Background scheduling unavailable.".into())}
     #[allow(clippy::too_many_arguments)]
     fn finish_companion(&self,_:&str,_:Option<&str>,_:Option<&str>,_:Option<crate::TokenUsage>,_:i64,_:bool,_:bool)->Result<Option<String>,String>{Err("Companionship unavailable.".into())}
     fn recover_companion(&self)->Result<(),String>{Ok(())}

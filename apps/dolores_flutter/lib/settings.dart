@@ -24,8 +24,10 @@ import 'advanced_home.dart';
 import 'native_repairs.dart';
 import 'experimental_settings.dart';
 import 'companionship_settings.dart';
+import 'background_settings.dart';
 
 enum SettingsCategory {
+  background,
   experimental,
   advancedHome,
   nativeRepairs,
@@ -93,6 +95,7 @@ enum SettingsSection {
 SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
     switch (category) {
       SettingsCategory.appearance ||
+      SettingsCategory.background ||
       SettingsCategory.experimental => SettingsSection.general,
       SettingsCategory.models =>
         page == ModelsPage.overrides || page == ModelsPage.defaults
@@ -177,6 +180,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
       SettingsCategory.experimental,
       ModelsPage.connection,
       'multiple window keep awake prevent windows locked',
+    ),
+    (
+      'Background tasks',
+      SettingsCategory.background,
+      ModelsPage.connection,
+      'scheduled tray quit awake',
     ),
     (
       'Connection & models',
@@ -363,6 +372,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.background => BackgroundSettings(chat: widget.chat),
     SettingsCategory.companionship => CompanionshipSettings(chat: widget.chat),
     SettingsCategory.experimental => ExperimentalSettings(chat: widget.chat),
     SettingsCategory.nativeRepairs => NativeRepairs(

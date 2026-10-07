@@ -9,6 +9,7 @@ class ScheduledHost extends ChangeNotifier {
   final ChatBridge bridge;
   final Future<void> Function(Map occurrence) onClaim;
   List<Map> items = [];
+  String availability = 'Runs while Dolores is open.';
   String filter = 'all';
   List<Map> get visibleItems => items.where((item) {
     final task = item['task'] as Map;
@@ -63,6 +64,9 @@ class ScheduledHost extends ChangeNotifier {
 
   void _accept(dynamic data) {
     items = ((data as Map)['items'] as List).cast<Map>();
+    availability = data['backgroundEnabled'] == true
+        ? 'Runs while Dolores is open or in the tray.'
+        : 'Runs while Dolores is open.';
   }
 
   Future<void> refresh() async {

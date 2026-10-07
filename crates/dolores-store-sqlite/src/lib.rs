@@ -26,7 +26,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 37;
+pub const SCHEMA_VERSION: i64 = 38;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -228,6 +228,9 @@ impl SqliteStore {
         if version < 37 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS companion_state(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL); PRAGMA user_version=37; COMMIT;").map_err(storage_error)?;
         }
+        if version < 38 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS scheduler_background(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN(0,1))); PRAGMA user_version=38; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -238,6 +241,8 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn background_policy(&self)->Result<dolores_core::scheduling::BackgroundPolicy,String>{scheduling::background(&*self.lock()?)}
+    fn set_background_policy(&self,enabled:bool,revision:u32)->Result<dolores_core::scheduling::BackgroundPolicy,String>{scheduling::save_background(&mut *self.lock()?,enabled,revision)}
     #[allow(clippy::too_many_arguments)]
     fn finish_companion(&self,id:&str,body:Option<&str>,note:Option<&str>,usage:Option<dolores_core::TokenUsage>,now:i64,present:bool,busy:bool)->Result<Option<String>,String>{self.companion_finish(id,body,note,usage,now,present,busy)}
     fn recover_companion(&self)->Result<(),String>{self.companion_recover()}
