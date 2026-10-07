@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:xterm/xterm.dart';
 
 import 'bridge.dart';
+import 'file_layout.dart';
 
 class TerminalSession {
   final String id, cwd, shell;
@@ -55,10 +56,14 @@ class _TerminalSink implements StringSink {
 class TerminalHost extends ChangeNotifier {
   final ChatBridge bridge;
   final sessions = <String, TerminalSession>{};
-  String? active, error;
+  final layout = FileLayout();
+  String? error;
+  String? get active => layout.active.active;
   bool opening = false, disposed = false;
   Timer? _timer;
-  TerminalHost(this.bridge);
+  TerminalHost(this.bridge) {
+    layout.onChanged = notifyListeners;
+  }
   Iterable<TerminalSession> get live => sessions.values.where((s) => s.live);
   Future<dynamic> call(Map<String, dynamic> request) =>
       bridge.call({'command': 'terminal', 'request': request});
@@ -66,9 +71,14 @@ class TerminalHost extends ChangeNotifier {
     if (sessions.isEmpty && !opening) await create(session);
   }
 
-  Future<TerminalSession?> create(String? session, {bool home = false}) async {
+  Future<TerminalSession?> create(
+    String? session, {
+    bool home = false,
+    String? group,
+  }) async {
     if (opening || disposed) return null;
     opening = true;
+    final target = group ?? layout.activeGroup;
     error = null;
     notifyListeners();
     try {
@@ -83,7 +93,8 @@ class TerminalHost extends ChangeNotifier {
       }
       final s = TerminalSession(value);
       sessions[s.id] = s;
-      active = s.id;
+      if (layout.groups.containsKey(target)) layout.focus(target);
+      layout.open(s.id, preview: false);
       s.terminal.onOutput = (text) => unawaited(input(s, text));
       s.terminal.onResize = (width, height, _, _) =>
           unawaited(resize(s, height, width));
@@ -104,7 +115,10 @@ class TerminalHost extends ChangeNotifier {
 
   void select(String id) {
     if (!sessions.containsKey(id)) return;
-    active = id;
+    final group = layout.groups.values
+        .where((g) => g.tabs.contains(id))
+        .firstOrNull;
+    if (group != null) layout.select(group.id, id);
     error = null;
     notifyListeners();
   }
@@ -175,7 +189,11 @@ class TerminalHost extends ChangeNotifier {
     try {
       await call({'action': 'close', 'id': s.id});
       sessions.remove(s.id);
-      if (active == s.id) active = sessions.keys.firstOrNull;
+      layout.removeDocument(s.id);
+      for (final group
+          in layout.groups.values.where((g) => g.tabs.isEmpty).toList()) {
+        layout.closeGroup(group.id);
+      }
       s.dispose();
       notifyListeners();
       return true;
@@ -185,6 +203,16 @@ class TerminalHost extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> splitNew(String? session, String group, Axis axis) async {
+    if (layout.groups.length >= 4) {
+      error = 'Four terminal groups are open. Move a tab to an existing group or close a group.';
+      notifyListeners();
+      return;
+    }
+    final s = await create(session, group: group);
+    if (s != null) layout.split(group, s.id, axis, source: group);
   }
 
   Future<bool> stop(TerminalSession s) async {
@@ -205,6 +233,7 @@ class TerminalHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    layout.onChanged = null;
     disposed = true;
     _timer?.cancel();
     for (final s in sessions.values) {

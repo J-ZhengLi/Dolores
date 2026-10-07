@@ -210,6 +210,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     ),
   );
   Widget panel(Palette p) {
+    if (page == WorkspacePage.terminal) {
+      return TerminalPanel(host: host.terminals, session: host.visible.session);
+    }
     if (page == WorkspacePage.sourceControl) {
       return SourceControlPanel(
         git: host.git,

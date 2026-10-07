@@ -1,5 +1,21 @@
 # Dolores acceptance — 2026-10-07
 
+## Terminal 18.2 — tabs and independent split groups
+
+Terminal has its own session list, draggable tabs, plus and overflow actions.
+Plus snapshots current Home selection; right/down split creates a new PTY in
+that default folder. Moving/reordering/edge-splitting an existing tab transfers
+only the view, preserving its emulator/process/output. Four groups resize and
+provide menu move/focus/join alternatives. Compact mode shows the focused group
+and retains menu access to every other group; file layouts and Home are separate.
+
+Four terminal Flutter checks pass, including A/B plus ownership, single-session
+identity after move, invalid drop and failed plus retaining tabs, split creating
+the new B shell, close cancellation and compact group navigation. The existing
+workspace checks remain passing. These are deterministic widget/controller
+checks; native drag, focus and physical shell input are batch qualification gaps.
+Private cold-restart display/output sharing follow in 18.3.
+
 ## Terminal 18.1 — real PTY and initial folder
 
 Terminal entry now starts a real portable-pty/ConPTY shell only when no terminal
