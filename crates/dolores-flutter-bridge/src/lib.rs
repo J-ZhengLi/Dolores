@@ -6,6 +6,8 @@ mod approval;
 mod attachments;
 mod automatic_memory;
 mod memory_maintenance;
+#[cfg(test)]
+mod memory_recall_tests;
 mod browser;
 mod changes;
 #[cfg(test)]
@@ -133,6 +135,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    MemoryEvidence {session:Option<String>, id:String, revision:u32},
     LanguageEdits { session:String, request:editor::language_edits::Request },
     Language { request: language::Request },
     Terminal { request: terminal::Request },
@@ -1238,6 +1241,7 @@ impl Engine {
             } => self.save_memory_suggestion(&session, &token, index, scope, input),
             Command::DiscardMemoryReview { token } => self.discard_memory_review(&token),
             Command::Memories { session } => self.memories(session.as_deref()),
+            Command::MemoryEvidence { session,id,revision } => self.memory_evidence(session.as_deref(),&id,revision),
             Command::SetAutomaticMemory { enabled, revision } => {
                 let policy = self.store.set_automatic_memory_policy(enabled, revision)?;
                 self.memory_maintenance.stop(false);
@@ -1306,7 +1310,7 @@ impl Engine {
                 let guidance =
                     instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
                 let memories =
-                    memory::preferences_for_session(self.store.as_ref(), session.as_deref())?;
+                    memory::recall_for_session(self.store.as_ref(), session.as_deref())?;
                 let skills = skills::for_session(self.store.as_ref(), session.as_deref())?;
                 let tools = match session.as_ref() {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
@@ -1344,8 +1348,6 @@ impl Engine {
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
                 let (messages, skill_sources) =
                     dolores_core::prepare_relevant_skill_context(messages, &skills)?;
-                let (messages, memory_context) =
-                    dolores_core::prepare_memory_context(messages, memories.clone())?;
                 let knowledge_facts = session
                     .as_deref()
                     .map(|s| knowledge::facts(self.store.as_ref(), s))
@@ -1384,6 +1386,7 @@ impl Engine {
                 } else {
                     messages
                 };
+                let (messages, memory_context)=memory::prepare_recall(messages,memories.clone(),&specs,Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),effective.request)?;
                 let (messages, tokens) = dolores_core::prepare_token_context(
                     messages,
                     &specs,
@@ -2110,7 +2113,7 @@ async fn execute(
             };
             let (history, count, session_summary) = reader.summary_context_history(&session)?;
             let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
-            let memories = memory::preferences_for_session(reader.as_ref(), Some(&session))?;
+            let memories = memory::recall_for_session(reader.as_ref(), Some(&session))?;
             let skills = skills::for_session(reader.as_ref(), Some(&session))?;
             Ok((
                 session,
@@ -2163,7 +2166,6 @@ async fn execute(
     };
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
     let (context, skill_sources) = dolores_core::prepare_relevant_skill_context(context, &skills)?;
-    let (context, memory_context) = dolores_core::prepare_memory_context(context, memories)?;
     let knowledge_facts = knowledge::facts(store.as_ref(), &session)?;
     let context = dolores_core::knowledge_context(context, &knowledge_facts)?;
     let context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
@@ -2183,6 +2185,7 @@ async fn execute(
         attachments::prepare_text(store.as_ref(), &session, context)?
     };
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
+    let (context,memory_context)=memory::prepare_recall(context,memories,&specs,provider.context_window_tokens(),settings.unwrap_or_default())?;
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
         &specs,

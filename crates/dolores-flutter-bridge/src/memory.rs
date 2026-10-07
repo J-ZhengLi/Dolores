@@ -2,6 +2,46 @@ use super::Engine;
 use dolores_core::{MemoryDraft, MemoryPreference, MemoryScope, SessionStore};
 use serde_json::{json, Value};
 
+pub(super) fn recall_for_session(
+    store: &dyn SessionStore,
+    session: Option<&str>,
+) -> Result<Vec<MemoryPreference>, String> {
+    let records = preferences_for_session(store, session)?;
+    records
+        .into_iter()
+        .filter_map(|p| match p.origin.as_ref() {
+            Some(origin) => match store.memory_source_message(&origin.session, origin.message_id) {
+                Ok(Some(source)) if source.text.contains(&origin.quote) => Some(Ok(p)),
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            },
+            None => Some(Ok(p)),
+        })
+        .collect()
+}
+
+pub(super) fn prepare_recall(
+    messages: Vec<dolores_core::Message>,
+    memories: Vec<MemoryPreference>,
+    specs: &[dolores_core::ToolSpec],
+    window: Option<u32>,
+    settings: dolores_core::RequestSettings,
+) -> Result<
+    (
+        Vec<dolores_core::Message>,
+        Option<dolores_core::MemoryContext>,
+    ),
+    String,
+> {
+    let (messages, baseline) =
+        dolores_core::prepare_token_context(messages, specs, window, settings)?;
+    let room = baseline
+        .max_input_tokens
+        .map_or(2000, |limit| limit.saturating_sub(baseline.input_tokens))
+        .min(2000);
+    dolores_core::prepare_memory_context_with_budget(messages, memories, room)
+}
+
 #[derive(serde::Deserialize)]
 pub(super) struct MemoryInput {
     pub(super) id: Option<String>,
@@ -25,6 +65,37 @@ pub(super) fn preferences_for_session(
     store.memory_preferences(root.as_deref())
 }
 impl Engine {
+    pub(super) fn memory_evidence(
+        &self,
+        session: Option<&str>,
+        id: &str,
+        revision: u32,
+    ) -> Result<Value, String> {
+        let root = session
+            .map(|s| self.store.workspace(s))
+            .transpose()?
+            .and_then(|w| w.root);
+        let memory = self
+            .store
+            .memory_preferences(root.as_deref())?
+            .into_iter()
+            .find(|p| p.id == id && p.revision == revision)
+            .ok_or(
+                "Memory changed or was forgotten. Refresh Memory to inspect its current source.",
+            )?;
+        let origin = memory
+            .origin
+            .ok_or("This memory was added manually and has no conversation source.")?;
+        let source=self.store.memory_source_message(&origin.session,origin.message_id)?.filter(|s|s.text.contains(&origin.quote)).ok_or("Source evidence is unavailable or changed. The retained quote is historical only and is excluded from recall; inspect or forget this memory.")?;
+        let start = source
+            .text
+            .find(&origin.quote)
+            .ok_or("Source quote is unavailable.")?;
+        let end = start + origin.quote.len();
+        Ok(
+            json!({"session":origin.session,"messageId":origin.message_id,"text":&source.text[start..end],"shortened":start>0 || end<source.text.len(),"note":"Exact retained source excerpt; opening it sends no model request."}),
+        )
+    }
     fn memory_root(
         &self,
         session: Option<&str>,
@@ -159,10 +230,18 @@ mod tests {
         let global = command(json!({"command":"saveMemory","scope":"all","title":"Style","text":"GLOBAL_LITERAL","enabled":true})).unwrap();
         let local = command(json!({"command":"saveMemory","scope":"folder","session":"first","title":"Tests","text":"FOLDER_LITERAL","enabled":true})).unwrap();
         command(json!({"command":"setAutomaticMemory","enabled":false,"revision":2})).unwrap();
-        let off = command(json!({"command":"context","session":"first","input":"hello","tools":false})).unwrap();
+        let off =
+            command(json!({"command":"context","session":"first","input":"hello","tools":false}))
+                .unwrap();
         assert_eq!(off["memoryEntries"], json!([]));
         assert!(!off.to_string().contains("FOLDER_LITERAL"));
-        assert_eq!(command(json!({"command":"memories","session":"first"})).unwrap()["items"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            command(json!({"command":"memories","session":"first"})).unwrap()["items"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
         command(json!({"command":"setAutomaticMemory","enabled":true,"revision":3})).unwrap();
         for id in [None, Some("side"), Some("other")] {
             let items = command(json!({"command":"memories","session":id})).unwrap();

@@ -562,3 +562,5 @@ Use My preferences / Project facts and All projects / This project labels. Remem
 ## Automatic memory (21.1)
 
 Memory uses one primary Memory switch and source-linked inspect/correct/forget cards. Off stops capture and recall, retaining stored entries. Empty states distinguish Off from no useful completed interactions; no input form or manual setup is required. Preserve saved choices. Keep activity, usage and failure recovery inspectable in compact light/dark layouts.
+
+21.3: memory cards offer View source as a local read with exact excerpt and shortened-source label. Missing evidence says unavailable and excluded from recall, retaining inspect/forget actions. Context shows selected memories and omission counts.

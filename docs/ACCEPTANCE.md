@@ -2953,3 +2953,10 @@ Schema 34 adds transactional source indexing; fresh Memory is Off, existing save
 Facts, decisions, reported outcomes and open work accept exact standalone user evidence without a remember phrase. One invalid candidate refuses the entire batch. Background maintenance admits promptly, runs one request with a 16-chat coalescing queue, preserves completed replies and separate usage, and cancels on Off/Shutdown without startup replay. Frozen useful/negative/partial-quote tests and hung-provider queue/full/Off recovery pass. Legacy migration replay fixtures are preserved through idempotent indexing. [Qualification](qualification/automatic-memory.md) records bounds and remaining live-model checks.
 
 21.2 verification: all 277 core/store/bridge native tests pass. Maintained normal Windows build passes. Packaged C ABI save/restore corpus passes in separate processes (30 local fixture requests, zero live requests), including scoped capture, correction/manual protection, malformed/invented/oversized output, provider denial, lower context/deadline, background stop and retained replies. Live-model reliability remains for 21.6.
+
+
+## Milestone 21.3 — Cue-led recall and sources (2026-10-07)
+
+Six frozen English/Chinese cues rank the expected fact/decision/outcome/open work/preference first. Recall inserts at most eight compact entries and three exact source excerpts within the remaining provider context allowance; very small memory allowance preserves the question unchanged. Cross-chat same-project recall, equal entities in separate projects, local scoped source opening and deleted-source exclusion pass native fixtures. Twelve compact Flutter memory/source/recovery tests pass. [Qualification](qualification/automatic-memory.md) separates this fixture coverage from upcoming live model checks.
+
+21.3 packaged qualification passes: 21 local fixture requests, six automatic captures and six correct first-ranked cue matches, zero negative captures or scope leaks, and all six deleted sources excluded. The maintained normal Windows build passes. This remains synthetic evidence; live checks follow in 21.6.

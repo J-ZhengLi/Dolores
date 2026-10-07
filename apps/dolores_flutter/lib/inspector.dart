@@ -358,11 +358,16 @@ class ContextInspector extends StatelessWidget {
             ),
           if (report['memory'] is Map) ...[
             Text(
-              'Memory · ${(report['memory']['used'] as List).length} preferences used · ${report['memory']['omitted']} enabled preferences left out',
+              'Memory · ${(report['memory']['used'] as List).length} memories used · ${report['memory']['omitted']} memories left out',
               style: TextStyle(color: p.muted, fontSize: 12),
             ),
+            if ((report['memory']['note'] as String? ?? '').isNotEmpty)
+              Text(
+                report['memory']['note'] as String,
+                style: TextStyle(color: p.muted, fontSize: 12),
+              ),
             _ContextGroup(
-              label: 'Saved preferences',
+              label: 'Saved memories',
               messages: [
                 for (final item in (report['memoryEntries'] as List? ?? []))
                   {

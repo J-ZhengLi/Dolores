@@ -52,6 +52,8 @@ class _MemoryInspectorState extends State<MemoryInspector> {
   String scope = 'all';
   String? error, notice;
   Map<String, dynamic>? automaticPolicy, automaticAttempt;
+  Map<String, dynamic>? sourceEvidence;
+  String? sourceMemoryId;
 
   @override
   void initState() {
@@ -115,6 +117,8 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       automaticAttempt = (result['automaticAttempt'] as Map?)
           ?.cast<String, dynamic>();
       loaded = true;
+      sourceEvidence = null;
+      sourceMemoryId = null;
     });
   }
 
@@ -153,6 +157,17 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       'revision': automaticPolicy!['revision'],
     });
     await _load();
+  });
+  Future<void> _source(Map<String, dynamic> item) => _act(() async {
+    final result = await _call('memoryEvidence', {
+      'id': item['id'],
+      'revision': item['revision'],
+    });
+    if (mounted)
+      setState(() {
+        sourceMemoryId = item['id'] as String;
+        sourceEvidence = (result as Map).cast<String, dynamic>();
+      });
   });
   void _edit([Map<String, dynamic>? item]) {
     if (busy) return;
@@ -385,7 +400,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
         ),
         if (available == false)
           Text(
-            'Source message is no longer available; the original quote is retained.',
+            'Source evidence is unavailable. This historical quote is excluded from recall; inspect or forget this memory.',
             style: TextStyle(color: p.muted, fontSize: 11),
           ),
         if (showQuote) SelectableText(item['quote'] as String),
@@ -723,6 +738,14 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                 style: TextStyle(fontSize: 11, color: p.muted),
                               ),
                               const SizedBox(height: 8),
+                              if (item['confidence'] is String)
+                                Text(
+                                  item['confidence'] as String,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: p.muted,
+                                  ),
+                                ),
                               if (item['origin'] is Map)
                                 _origin(
                                   item['origin'],
@@ -738,6 +761,19 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                 key: ValueKey('memory-body-${item['id']}'),
                               ),
                               const SizedBox(height: 8),
+                              if (sourceMemoryId == item['id'] &&
+                                  sourceEvidence != null) ...[
+                                Text(
+                                  'Source message ${sourceEvidence!['messageId']}${sourceEvidence!['shortened'] == true ? ' · excerpt' : ''}',
+                                ),
+                                SelectableText(
+                                  sourceEvidence!['text'] as String,
+                                  key: ValueKey(
+                                    'memory-evidence-${item['id']}',
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
                               Text(
                                 'Updated ${DateTime.fromMillisecondsSinceEpoch(item['updatedAt'] as int).toLocal()} · revision ${item['revision']}',
                                 style: TextStyle(fontSize: 11, color: p.muted),
@@ -745,6 +781,16 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                               Wrap(
                                 spacing: 8,
                                 children: [
+                                  if (item['origin'] is Map)
+                                    TextButton(
+                                      key: ValueKey(
+                                        'source-memory-${item['id']}',
+                                      ),
+                                      onPressed: busy
+                                          ? null
+                                          : () => _source(item),
+                                      child: const Text('View source'),
+                                    ),
                                   TextButton(
                                     key: ValueKey('edit-memory-${item['id']}'),
                                     onPressed: busy ? null : () => _edit(item),

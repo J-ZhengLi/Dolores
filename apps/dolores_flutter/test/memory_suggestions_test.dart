@@ -202,11 +202,14 @@ void main() {
       await tester.tap(find.byKey(const Key('discard-memory-suggestions')));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.textContaining('no longer available'),
+        find.textContaining('Source evidence is unavailable'),
         150,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.textContaining('no longer available'), findsOneWidget);
+      expect(
+        find.textContaining('Source evidence is unavailable'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );

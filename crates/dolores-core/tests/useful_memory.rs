@@ -1,5 +1,69 @@
 use dolores_core::{automatic_source_allowed, parse_automatic_memories, MemoryMessage};
 
+fn corpus_records() -> Vec<dolores_core::MemoryPreference> {
+    let corpus: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/fixtures/memory-corpus.json")).unwrap();
+    corpus["eligible"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+        .map(|(n, item)| {
+            let kind = match item["kind"].as_str().unwrap() {
+                "fact" => "Fact",
+                "decision" => "Decision",
+                "outcome" => "Outcome",
+                "open-work" => "Open work",
+                _ => "Preference",
+            };
+            let text = item["text"].as_str().unwrap().to_owned();
+            dolores_core::MemoryPreference {
+                id: format!("item-{n}"),
+                revision: 1,
+                title: format!("{kind}: subject-{n}"),
+                text: text.clone(),
+                scope: dolores_core::MemoryScope::Folder,
+                source: "automatic".into(),
+                enabled: true,
+                created_at: 1,
+                updated_at: n as i64,
+                auto_update: true,
+                origin: Some(dolores_core::MemoryOrigin {
+                    session: "source".into(),
+                    message_id: 7,
+                    quote: text,
+                    model: "fixture".into(),
+                    reviewed_at: 1,
+                }),
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn frozen_memory_cues_rank_the_matching_record_and_low_context_keeps_the_question() {
+    let corpus: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/fixtures/memory-corpus.json")).unwrap();
+    let records = corpus_records();
+    for (n, item) in corpus["eligible"].as_array().unwrap().iter().enumerate() {
+        let question = item["cue"].as_str().unwrap();
+        let messages = dolores_core::preview_context(vec![], question).unwrap();
+        let (prepared, report) =
+            dolores_core::prepare_memory_context(messages.clone(), records.clone()).unwrap();
+        let report = report.unwrap();
+        assert_eq!(report.used[0].id, format!("item-{n}"), "{question}");
+        assert!(report.used.len() <= 8);
+        assert!(prepared[0].content.matches("(exact user statement").count() <= 3);
+        assert!(report.text_bytes <= 4096);
+        let (small, report) =
+            dolores_core::prepare_memory_context_with_budget(messages.clone(), records.clone(), 4)
+                .unwrap();
+        assert_eq!(small, messages);
+        assert!(report.unwrap().used.is_empty());
+        assert_eq!(small.last().unwrap().content, question);
+    }
+}
+
 #[test]
 fn frozen_useful_corpus_requires_exact_unambiguous_evidence() {
     let corpus: serde_json::Value =

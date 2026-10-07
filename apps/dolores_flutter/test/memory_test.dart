@@ -13,6 +13,7 @@ class MemoryBridge implements ChatBridge {
   final items = <Map<String, dynamic>>[];
   bool folder = true, fail = false;
   bool supportsAutomatic = false, automatic = true;
+  bool failSource = false;
   int policyRevision = 1;
   Completer<void>? pending;
   @override
@@ -48,6 +49,17 @@ class MemoryBridge implements ChatBridge {
         automatic = command['enabled'] as bool;
         policyRevision++;
         return {'enabled': automatic, 'revision': policyRevision};
+      case 'memoryEvidence':
+        if (failSource)
+          throw Exception(
+            'Source evidence is unavailable. Inspect or forget this memory.',
+          );
+        final item = items.firstWhere((v) => v['id'] == command['id']);
+        return {
+          'messageId': item['origin']['messageId'],
+          'text': item['origin']['quote'],
+          'shortened': true,
+        };
       case 'saveMemory':
         if (pending != null) await pending!.future;
         if (fail) {
@@ -120,6 +132,56 @@ Future<void> enter(WidgetTester tester, String key, String value) async {
 }
 
 void main() {
+  testWidgets(
+    'source opens locally and missing evidence retains the memory with recovery',
+    (tester) async {
+      final bridge = MemoryBridge();
+      bridge.items.add({
+        'id': 'learned',
+        'revision': 1,
+        'scope': 'folder',
+        'title': 'Fact: codename',
+        'text': 'Our project codename is Cedar.',
+        'enabled': true,
+        'source': 'automatic',
+        'updatedAt': 1,
+        'createdAt': 1,
+        'originAvailable': true,
+        'origin': {
+          'session': 'earlier',
+          'messageId': 7,
+          'quote': 'Our project codename is Cedar.',
+          'model': 'fixture',
+        },
+      });
+      await open(tester, bridge);
+      final source = find.byKey(const Key('source-memory-learned'));
+      await tester.scrollUntilVisible(
+        source,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await Scrollable.ensureVisible(tester.element(source), alignment: 0.5);
+      await tester.pumpAndSettle();
+      await tester.tap(source);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('memory-evidence-learned')), findsOneWidget);
+      expect(bridge.commands.where((c) => c['command'] == 'start'), isEmpty);
+      bridge.failSource = true;
+      await Scrollable.ensureVisible(tester.element(source), alignment: 0.5);
+      await tester.pumpAndSettle();
+      await tester.tap(source);
+      await tester.pumpAndSettle();
+      expect(bridge.items, hasLength(1));
+      await tester.scrollUntilVisible(
+        find.textContaining('Source evidence is unavailable.'),
+        -100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining('Inspect or forget'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'automatic policy and learning activity are inspectable and reversible ($dark)',
@@ -143,7 +205,9 @@ void main() {
           100,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.ensureVisible(find.text('Latest learning activity in this chat'));
+        await tester.ensureVisible(
+          find.text('Latest learning activity in this chat'),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text('Latest learning activity in this chat'));
         await tester.pumpAndSettle();
@@ -364,11 +428,11 @@ void main() {
       ),
     );
     await tester.scrollUntilVisible(
-      find.text('Saved preferences'),
+      find.text('Saved memories'),
       150,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Saved preferences'));
+    await tester.tap(find.text('Saved memories'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('EXACT_LITERAL'),
@@ -377,7 +441,7 @@ void main() {
     );
     expect(find.text('EXACT_LITERAL'), findsOneWidget);
     expect(
-      find.textContaining('2 enabled preferences left out'),
+      find.textContaining('2 memories left out'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);

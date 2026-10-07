@@ -63,3 +63,12 @@ A lazy worker runs one maintenance request at a time and queues at most 16 disti
 Global automatic storage is capped at 8192 records (maximum-field JSON payload about 19 MiB, plus bounded source index and SQLite overhead). Worst-case queued snapshots remain bounded by 17 active/waiting jobs times 280 source-linked records; no idle polling service or new retrieval dependency. Multi-project foreground requests may run concurrently with the one tool-free memory worker.
 
 Frozen positive/negative/partial-qualifier/atomic-validation cases pass. Hung-provider admission completes within 500 ms, one request runs, 16 waiting chats coalesce, overflow skips with guidance, and Off stops without publication while replies remain saved. Full-suite legacy migration tests exposed artificially rolled-back schema fixtures; idempotent index migration preserves them, and a genuinely incompatible destination still rolls back without losing history.
+
+
+## 21.3 Cue-led recall and source opening
+
+Scoped lexical ranking uses English word cues and Chinese bigrams, with stable scope/time/ID tie-breaking. Typed factual/episodic records require cue overlap; durable preferences remain eligible. At most eight compact index entries and three exact source excerpts are inserted, with a 4 KiB text ceiling and at most 2000 estimated tokens including memory framing. Baseline context is prepared first; memory consumes only its remaining allowance. Small windows omit memory instead of making an otherwise valid question fail. Omitted counts remain inspectable.
+
+Source availability is rechecked from retained conversation bytes before recall. Deleted/changed evidence is excluded while its historical record remains inspectable. View source performs a local scoped/revisioned read of the exact excerpt, not a model request or an unbounded conversation fetch. Its unavailable/stale error offers inspect/forget/refresh without losing the card.
+
+All six frozen English/Chinese cues rank their matching record first; four-token memory allowance leaves the question unchanged. A new chat in project A recalls Cedar, B recalls Maple without cross-scope leakage; local source opening succeeds, cross-project opening is refused, and deleting the source excludes Cedar with an honest unavailable state. Twelve compact memory UI tests pass, including local source opening and missing-evidence recovery.
