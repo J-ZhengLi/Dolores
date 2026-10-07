@@ -68,6 +68,7 @@ impl CompanionPolicy {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CompanionSource {
+    pub root: Option<String>,
     pub memory: String,
     pub signature: String,
     pub session: String,
@@ -214,6 +215,46 @@ impl CompanionState {
 }
 pub fn now() -> i64 {
     Utc::now().timestamp()
+}
+
+pub fn invitation(answer: &str) -> Result<String, String> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Answer {
+        invitation: String,
+    }
+    let text = serde_json::from_str::<Answer>(answer)
+        .map_err(|_| "The model returned an unusable message.")?
+        .invitation;
+    let lower = text.to_lowercase();
+    if text.trim() != text
+        || text.chars().count() > 240
+        || text.chars().count() < 8
+        || !text.ends_with('?')
+        || text.contains(['\n', '\r'])
+        || [
+            "remember when",
+            "remember that",
+            "i feel",
+            "i miss",
+            "i need you",
+            "only me",
+            "only i",
+            "you owe",
+            "don't leave",
+            "you forgot",
+            "as we discussed",
+            "our last",
+            "yesterday",
+            "http:",
+            "https:",
+        ]
+        .iter()
+        .any(|s| lower.contains(s))
+    {
+        return Err("The model returned an unsuitable message.".into());
+    }
+    Ok(text)
 }
 
 #[cfg(test)]

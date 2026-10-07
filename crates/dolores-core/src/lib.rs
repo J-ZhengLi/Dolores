@@ -342,6 +342,9 @@ pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 pub mod scheduling;
 pub mod companionship;
 pub trait SessionStore: Send + Sync {
+    #[allow(clippy::too_many_arguments)]
+    fn finish_companion(&self,_:&str,_:Option<&str>,_:Option<&str>,_:Option<crate::TokenUsage>,_:i64,_:bool,_:bool)->Result<Option<String>,String>{Err("Companionship unavailable.".into())}
+    fn recover_companion(&self)->Result<(),String>{Ok(())}
     fn companion_state(&self)->Result<companionship::CompanionState,String>{Ok(Default::default())}
     fn save_companion_state(&self,_:&companionship::CompanionState,_:u64)->Result<companionship::CompanionState,String>{Err("Companionship unavailable.".into())}
     fn claim_companion(&self,_:i64,_:bool,_:bool,_:u32,_:companionship::CompanionCandidate)->Result<Option<companionship::CompanionCandidate>,String>{Err("Companionship unavailable.".into())}

@@ -1,5 +1,21 @@
 # Dolores acceptance — 2026-10-07
 
+## Companionship 23.2 — bounded grounded generation
+
+One no-tool request uses a separately chosen enabled model, 256 output tokens and
+a 20-second deadline. Windows foreground/last-input checks guard admission and
+delivery. Generic chat contains no private history; the reviewed fact links to
+NASA. Recall quotes retained same-project evidence. Open-work sources are usable
+only while their source is the latest user turn; later conversation suppresses
+the reminder rather than guessing whether it is still unresolved.
+
+Delivery and its paired conversation commit atomically with policy/source checks.
+Five focused bridge/store tests pass: suitable/malformed/pressuring output,
+normal and duplicate publication, Off/restart cancellation, failed atomic save,
+and Forget/Memory Off/later completion versus a current source. Unknown usage
+remains unknown. Native presence and actual model generation need batch qualification;
+non-Windows presence is unavailable and stays quiet.
+
 ## Companionship 23.1 — persisted quiet eligibility
 
 Off is the default. Eligibility uses named-zone hours, a persisted 2-attempt daily

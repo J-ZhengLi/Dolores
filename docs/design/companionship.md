@@ -37,6 +37,12 @@ not a source of truth. Memory topics require Memory On, the same project scope,
 an exact retained source and a current non-forgotten record. Open-work reminders
 also require that the record still represents unresolved work.
 
+The initial open-work check additionally requires its source to be the latest
+user turn; later conversation suppresses it instead of guessing completion.
+The initial static fact is sunlight's approximate eight-minute journey to Earth,
+verified against [NASA Earth facts](https://science.nasa.gov/earth/facts/).
+Non-Windows OS presence is currently unavailable, so generation stays quiet there.
+
 Revalidate policy revision, candidate token, presence/quiet/busy state and source
 immediately before committing. Off/Forget/completion/deletion/stale state prevents
 delivery even if generation finished. No old private transcript is copied into a

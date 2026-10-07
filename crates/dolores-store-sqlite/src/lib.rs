@@ -238,6 +238,9 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    #[allow(clippy::too_many_arguments)]
+    fn finish_companion(&self,id:&str,body:Option<&str>,note:Option<&str>,usage:Option<dolores_core::TokenUsage>,now:i64,present:bool,busy:bool)->Result<Option<String>,String>{self.companion_finish(id,body,note,usage,now,present,busy)}
+    fn recover_companion(&self)->Result<(),String>{self.companion_recover()}
     fn companion_state(&self)->Result<dolores_core::companionship::CompanionState,String>{self.companion_read()}
     fn save_companion_state(&self,s:&dolores_core::companionship::CompanionState,r:u64)->Result<dolores_core::companionship::CompanionState,String>{self.companion_save(s,r)}
     fn claim_companion(&self,n:i64,p:bool,b:bool,j:u32,c:dolores_core::companionship::CompanionCandidate)->Result<Option<dolores_core::companionship::CompanionCandidate>,String>{self.companion_claim(n,p,b,j,c)}

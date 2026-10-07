@@ -48,6 +48,7 @@ mod permissions;
 mod recovery;
 mod registry;
 mod scheduling;
+mod companionship;
 mod scheduled_edits;
 mod repair_evaluation;
 mod run_journal;
@@ -105,6 +106,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    companion: Arc<companionship::Generation>,
     memory_maintenance: Arc<memory_maintenance::Maintenance>,
     languages: Mutex<language::Registry>,
     terminals: Mutex<terminal::Registry>,
@@ -114,7 +116,7 @@ struct Engine {
     runtime: Runtime,
     store: Arc<dyn SessionStore>,
     connection: Mutex<ConnectionManager>,
-    active: Mutex<run_journal::RunCoordinator>,
+    active: Arc<Mutex<run_journal::RunCoordinator>>,
     data_lock: Option<std::fs::File>,
     workspace_directory: Option<PathBuf>,
     revert: Mutex<Option<changes::PendingRevert>>,
@@ -137,6 +139,10 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    CompanionState,
+    CompanionPolicy {policy:dolores_core::companionship::CompanionPolicy,revision:u64},
+    CompanionTick {session:Option<String>, #[serde(default)] busy:bool},
+    CompanionFeedback {id:String,action:String},
     ScheduledTasks,
     ScheduledTick,
     ScheduledStart { occurrence:String,id:u64 },
@@ -766,12 +772,14 @@ impl Engine {
         let _ = store.interrupt_adaptations();
         let _ = store.recover_automatic_memory();
         store.recover_scheduled_occurrences()?;
+        store.recover_companion()?;
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            companion: Arc::new(Default::default()),
             memory_maintenance: Arc::new(Default::default()),
             languages: Mutex::new(Default::default()),
             terminals: Mutex::new(Default::default()),
@@ -781,7 +789,7 @@ impl Engine {
             runtime,
             store,
             connection: Mutex::new(connection),
-            active: Mutex::new(Default::default()),
+            active: Arc::new(Mutex::new(Default::default())),
             data_lock: None,
             workspace_directory: None,
             revert: Mutex::new(None),
@@ -840,6 +848,10 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::CompanionState=>{drop(active);return self.companion_view();},
+            Command::CompanionPolicy{policy,revision}=>{drop(active);return self.companion_policy(policy,revision);},
+            Command::CompanionTick{session,busy}=>{drop(active);return self.companion_tick(session.as_deref(),busy);},
+            Command::CompanionFeedback{id,action}=>{drop(active);return self.companion_feedback(&id,&action);},
             Command::Terminal {request} => {drop(active);return self.terminal_call(request);},
             Command::Language {request} => {drop(active);return self.language_call(request);},
             Command::LanguageEdits {session,request} => {
@@ -956,6 +968,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.companion.stop();
                 self.memory_maintenance.stop(true);
                 self.languages.lock().map_err(|_| "Language state is unavailable.")?.stop_all()?;
                 self.terminals.lock().map_err(|_| "Terminal state is unavailable.")?.stop_all()?;
