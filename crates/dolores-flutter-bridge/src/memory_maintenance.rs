@@ -192,7 +192,7 @@ mod tests {
         });
         store.create("active").unwrap();
         store
-            .commit_turn("active", "Our project codename is Cedar.", "Reply retained")
+            .commit_turn("active", "We decided to use SQLite.", "Reply retained")
             .unwrap();
         let result = tokio::time::timeout(
             std::time::Duration::from_millis(500),
@@ -207,7 +207,9 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(result["status"], "queued");
-        provider.entered.notified().await;
+        tokio::time::timeout(std::time::Duration::from_secs(3), provider.entered.notified())
+            .await
+            .expect("The deliberately slow model path must have started");
         for n in 0..16 {
             let session = format!("waiting-{n}");
             store.create(&session).unwrap();

@@ -1,10 +1,12 @@
 # Automatic memory, scheduled work and companionship — 2026-10-07
 
-**Planning only.** This contract extends existing history/preferences/context/run
+**Milestone 21 is implemented; 22–24 remain planning only.** This contract extends existing history/preferences/context/run
 services rather than replacing them. [ROADMAP](../ROADMAP.md) assigns milestones
 21–24; earlier numbers and delivered repair evidence are preserved. Implement and
-commit one brick at a time. Product/acceptance docs must not advertise these targets
-as delivered. The user chose automatic useful facts/decisions with inspect/forget,
+commit one brick at a time. [Memory qualification](../qualification/automatic-memory.md)
+records delivered behavior, bounded live evidence and remaining reliability gaps.
+Product/acceptance docs must not advertise scheduling or companionship as delivered.
+The user chose automatic useful facts/decisions with inspect/forget,
 and opt-in occasional in-app companionship during chosen hours with a daily cap.
 
 ## Memory: a useful index to retained evidence
@@ -48,9 +50,10 @@ do not send project A's private facts into B without an explicit sharing policy.
 Memory shows recent automatic additions/updates, last attempt, source and honest
 Skipped/Failed reason. Empty memory explains whether capture is Off, no eligible
 source exists, or extraction failed. Ordinary chat succeeds even if memory fails.
-The current narrow system extracts explicit preference excerpts only; milestone
-21.0 audits actual trigger/policy/scope/errors before changing that behavior. The
-user's lack of observed updates is a reported gap, not a diagnosed live failure.
+The 21.0 audit traced the earlier narrow explicit-preference system. Milestone 21
+now captures exact useful user statements and explicitly shared images. The
+private-profile report was not itself a diagnosed live failure. Extraction remains
+conservative and model-dependent for statements outside the small literal grammar.
 
 ### Capture, consolidation and correction
 
@@ -72,19 +75,22 @@ pending jobs; explain that original conversation retention is a separate action.
 Deletion of source evidence makes recall unavailable/tombstoned, never an invented
 replacement. Explicit open-work state becomes resolved when completion is evidenced.
 
-Initial proposed bounds: 16 KiB source excerpt per extraction, at most 8 candidates,
-one tool-free request up to 1,024 output tokens/15 seconds, subject to lower provider
-limits. Queue coalesces per chat; one maintenance request at a time. Recall proposes
-8 index candidates, 3 source excerpts and 2,000 inserted tokens, reducing to fit the
-current context. These are design proposals to freeze against fixed corpora before
-implementation, not raised existing defaults or acceptance results. Queue/disk/index
-caps must be measured/frozen in 21.1; no unbounded idle reflection or silent retries.
+Frozen implemented bounds: 8 KiB source, three candidates, 512-byte exact quotes,
+512 output tokens/ten seconds per tool-free request, subject to lower provider
+limits. One active maintenance job, sixteen waiting chats, coalesced per chat;
+text extraction and optional image caption run sequentially. Recall uses at most
+eight index entries, three source excerpts, 4 KiB memory text and 2,000 estimated
+inserted tokens, reduced to fit the current context. Automatic records are capped
+at 128 per scope and 8192 globally; manual records retain their separate allowance.
+No idle reflection, startup replay or silent retries. Older-history Catch up remains
+optional future work, not a delivered control.
 
-Images explicitly supplied in chat can later have source-linked captions/indexes;
+Images explicitly supplied in chat have source-linked captions/indexes in 21.5;
 preserve uncertainty and require eligible image-model handling. Retrieval fetches
 only retained allowed assets when relevant. No claim to remember pixels the model
 never received or sensory data never captured. Missing/unsupported images keep text
-memory useful. This is a separate 21.5 brick after text recall works.
+memory useful. At most one image is indexed per completed interaction and one
+relevant asset is reopened per request, within existing image/context limits.
 
 ## Scheduled: created through ordinary conversation
 

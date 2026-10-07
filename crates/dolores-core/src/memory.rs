@@ -247,6 +247,16 @@ pub fn prepare_memory_context_with_budget(
     }
     let cue = messages.last().unwrap().content.clone();
     let total = preferences.len();
+    // Explicit project evidence overrides an All-chats record for the same
+    // typed subject. Do not ask the model to arbitrate unrelated scope values.
+    let local_subjects: std::collections::BTreeSet<_> = preferences
+        .iter()
+        .filter(|p| p.scope == MemoryScope::Folder && episodic(p) && p.image.is_none())
+        .map(|p| p.title.to_lowercase())
+        .collect();
+    preferences.retain(|p| {
+        p.scope == MemoryScope::Folder || !local_subjects.contains(&p.title.to_lowercase())
+    });
     preferences.retain(|p| !episodic(p) || memory_cue_score(&cue, p) > 0);
     preferences.sort_by(|a, b| {
         let rank = |p: &MemoryPreference| if p.scope == MemoryScope::Folder { 0 } else { 1 };
@@ -270,8 +280,13 @@ pub fn prepare_memory_context_with_budget(
     for p in preferences {
         let mut entry = if episodic(&p) {
             format!(
-                "\nMemory index: {} · id {} · revision {}\n{}{}\n",
+                "\nMemory index: {} · {} · id {} · revision {}\n{}{}\n",
                 p.title,
+                if p.scope == MemoryScope::Folder {
+                    "This working folder"
+                } else {
+                    "All chats"
+                },
                 p.id,
                 p.revision,
                 compact(&p.text, 160),
@@ -323,7 +338,7 @@ pub fn prepare_memory_context_with_budget(
         });
     }
     let note = if total > used.len() {
-        "Some memories were irrelevant or did not fit this request. Inspect Memory for sources; shorten context or increase the configured window for more evidence.".into()
+        "Some memories were irrelevant, superseded by this working folder, or did not fit this request. Inspect Memory for sources; shorten context or increase the configured window for more evidence.".into()
     } else {
         String::new()
     };

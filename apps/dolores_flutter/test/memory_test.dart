@@ -50,10 +50,11 @@ class MemoryBridge implements ChatBridge {
         policyRevision++;
         return {'enabled': automatic, 'revision': policyRevision};
       case 'memoryEvidence':
-        if (failSource)
+        if (failSource) {
           throw Exception(
             'Source evidence is unavailable. Inspect or forget this memory.',
           );
+        }
         final item = items.firstWhere((v) => v['id'] == command['id']);
         return {
           'messageId': item['origin']['messageId'],
@@ -440,10 +441,7 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('EXACT_LITERAL'), findsOneWidget);
-    expect(
-      find.textContaining('2 memories left out'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('2 memories left out'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

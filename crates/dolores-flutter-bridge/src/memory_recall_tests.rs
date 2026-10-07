@@ -129,6 +129,41 @@ fn shared_image_recall_is_scoped_uncertain_bounded_and_missing_safe() {
     .unwrap()
     .is_empty());
     assert!(small.last().unwrap().parts.is_empty());
+    // A recalled asset must not turn an otherwise valid full-image request into
+    // a 17-image / over-8-MiB adapter failure. Keep the caption and current input.
+    for count in [4, 16] {
+        let (mut full, mut full_report) = memory::prepare_recall(
+            preview_context(vec![], "blue square image").unwrap(),
+            vec![record.clone()],
+            &[],
+            None,
+            RequestSettings::default(),
+        )
+        .unwrap();
+        full.last_mut().unwrap().parts = (0..count)
+            .map(|n| AttachmentRef {
+                digest: format!("{n:064x}"),
+                bytes: 2 * 1024 * 1024,
+                name: format!("current-{n}.png"),
+                mime: "image/png".into(),
+            })
+            .collect();
+        let before = full.clone();
+        assert!(memory::recall_image(
+            store.as_ref(),
+            "next",
+            &mut full,
+            &mut full_report,
+            &[],
+            None,
+            RequestSettings::default(),
+            "fixture"
+        )
+        .unwrap()
+        .is_empty());
+        assert_eq!(full, before);
+        assert!(full_report.unwrap().note.contains("request limit"));
+    }
     store.delete("source").unwrap();
     assert!(memory::recall_for_session(store.as_ref(), Some("next"))
         .unwrap()

@@ -3,17 +3,10 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-import struct
 import threading
 import time
-import zlib
 from desktop_test_support import NativeHost, ROOT
-
-def public_image(path):
-    def chunk(kind, data):
-        return struct.pack('>I', len(data))+kind+data+struct.pack('>I', zlib.crc32(kind+data))
-    rows=b''.join(b'\0'+b''.join(bytes((20,90,220)) if 16<=x<48 and 16<=y<48 else bytes((255,255,255)) for x in range(64)) for y in range(64))
-    path.write_bytes(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',64,64,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(rows))+chunk(b'IEND',b''))
+from memory_test_support import public_image
 
 parser=argparse.ArgumentParser()
 parser.add_argument('stage',choices=['save','restore'])
@@ -30,10 +23,11 @@ class Provider(BaseHTTPRequestHandler):
         system=request['messages'][0]['content']
         if system.startswith('Describe this explicitly shared image'):
             assert any(p.get('type')=='image_url' for m in request['messages'] if isinstance(m['content'],list) for p in m['content'])
-            answer=json.dumps({'title':'Image: blue square','description':'A blue square on a white background.','uncertainty':'Simple shape; other context is unknown.'}) if mode=='valid' else 'malformed'
+            answer=json.dumps({'title':'Image: blue square','description':'A blue square on a white background.','uncertainty':'Simple shape; other context is unknown.','title_note':'untrusted caption'}) if mode=='valid' else 'malformed'
         elif system.startswith('You extract automatic useful memory'):
             source=json.loads(request['messages'][1]['content'])['sources'][0]
-            answer=json.dumps({'suggestions':[{'title':'Decision: local database','text':source['text'],'quote':source['text'],'messageId':source['messageId']}]})
+            title='Fact: project codename' if source['text'].startswith('Our project codename') else 'Decision: local database'
+            answer=json.dumps({'suggestions':[{'title':title,'text':source['text'],'quote':source['text'],'messageId':source['messageId']}]})
         else:answer='The shared image shows a blue square on white.'
         self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
         chunks=[{'choices':[{'delta':{'content':answer},'finish_reason':'stop'}]},{'choices':[],'usage':{'prompt_tokens':100,'completion_tokens':25,'total_tokens':125}}]
@@ -71,12 +65,24 @@ try:
         mode='malformed';host.call('attachFile',session=source,path=str(image))
         activity=run(source,'We decided to use SQLite for the local database.')
         assert activity['saved']==1 and 'Image memory unavailable' in activity['note'],activity
+        assert activity['usage']['totalTokens']==250,activity
+        assert 'Image caption was malformed' in activity['note'],activity
         assert len(host.call('memories',session=source)['items'])==2
-        state={'source':source,'next':next_chat,'record':record}
+        # A literal-shaped fact plus an image must retain the selected caption
+        # model identity and actually index both sources, rather than skip vision.
+        mode='valid';mixed_folder=directory/'mixed-project';mixed_folder.mkdir()
+        mixed=host.call('createSession',kind='project',path=str(mixed_folder))['session']['id']
+        host.call('attachFile',session=mixed,path=str(image))
+        assert run(mixed,'Our project codename is Cedar.')['saved']==2
+        mixed_records=host.call('memories',session=mixed)['items']
+        assert any(r.get('image') and r['origin']['model']=='fixture-vision' for r in mixed_records)
+        assert any(r['title']=='Fact: project codename' for r in mixed_records)
+        state={'source':source,'next':next_chat,'record':record,'mixed':mixed}
         (directory/'state.json').write_text(json.dumps(state),encoding='utf-8')
     else:
         state=json.loads((directory/'state.json').read_text(encoding='utf-8'));source=state['source'];next_chat=state['next'];record=state['record']
         assert len(host.call('memories',session=next_chat)['items'])==2
+        assert len(host.call('memories',session=state['mixed'])['items'])==2
         # Without a connected model, local inspection is still usable after restart.
         assert host.call('memoryEvidence',session=next_chat,id=record['id'],revision=1)['imageBase64']
         host.call('setImageModels',models=[])

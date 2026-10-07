@@ -62,6 +62,8 @@ pub(super) fn prepare_recall(
 
 /// Reopen at most one relevant retained image. Small/non-image windows retain
 /// the uncertain caption without making an otherwise usable text request fail.
+// The call mirrors the host's already resolved context/model/settings snapshot.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn recall_image(
     store: &dyn SessionStore,
     session: &str,
@@ -98,6 +100,20 @@ pub(super) fn recall_image(
         .iter()
         .any(|m| m.parts.iter().any(|p| p.digest == image.digest))
     {
+        return Ok(vec![]);
+    }
+    let mut included = std::collections::BTreeMap::new();
+    for part in context
+        .iter()
+        .flat_map(|m| &m.parts)
+        .filter(|p| p.is_image())
+    {
+        included.insert(&part.digest, part.bytes);
+    }
+    if included.len() >= 16
+        || included.values().sum::<usize>().saturating_add(image.bytes) > 8 * 1024 * 1024
+    {
+        report.note.push_str(" Recalled image pixels omitted because the current images fill the request limit; caption remains available. Open its source in Memory.");
         return Ok(vec![]);
     }
     if !source_available(store, memory)? {

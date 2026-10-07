@@ -78,7 +78,7 @@ try:
         assert run(a,text)['status']=='skipped'
     assert len(host.call('memories',session=a)['items'])==6
     mode='malformed'
-    assert run(a,'Our project codename is Fir.')['status']=='failed'
+    assert run(a,'Our service endpoint is Fir.')['status']=='failed'
     assert len(host.call('memories',session=a)['items'])==6
     host.call('delete',session=a)
     unavailable=host.call('memories',session=next_a)['items']

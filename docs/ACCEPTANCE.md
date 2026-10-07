@@ -2972,3 +2972,27 @@ Current facts supersede bounded historical versions; reported completion resolve
 ## Milestone 21.5 — Shared image memory (2026-10-07)
 
 Selected image-capable models can index one explicitly shared image with source/asset IDs and an uncertainty label. Later relevant recall reopens one retained scoped asset within context bounds; missing/unsupported/malformed image handling preserves text memory. All 282 native tests and the normal Windows release build pass. Packaged save/restore uses six local fixture requests, zero live requests, and exercises actual image input, cross-chat recall, malformed caption with valid text capture, restart, missing source and Forget. [Qualification](qualification/automatic-memory.md) records costs and limits; live evaluation follows in 21.6.
+
+
+## Milestone 21.6 — Batch reliability qualification (2026-10-07)
+
+Milestone 21.0–21.6 is delivered with separate brick commits: one switch, useful
+background capture, scoped source-backed recall, correction/history/Forget and
+explicit shared-image memory. 286 native / 310 Flutter tests, analyzer, Clippy
+and maintained normal Windows build PASS. Packaged capture/recall/image fixtures
+PASS (30/19/9 local requests; zero live; restart zero). Six frozen cue hits, zero
+negative captures/scope leaks and six deleted sources excluded. Recovery covers
+Off/interruption/provider failure, stale publication/manual priority/Forget,
+malformed captions preserving text/usage, mixed text/image capture and request-image
+limits. Four compact/wide light/dark history/Forget UI cases PASS; renders are
+diagnostic, not physical native interaction.
+
+Final configured live: Qwen fact/recall PASS, DeepSeek scoped correction
+PASS, image/recall PASS. Qwen fact capture is local; model-based
+Qwen extraction previously missed and remains a gap. Caption metadata/global
+conflict failures prompted parser/scope fixes; refusals count as misses.
+[Qualification](qualification/automatic-memory.md) records earlier runs, costs,
+ceilings and remaining limits. Original main-entry launch at schema 35
+preserves all 42 original table hashes and adds three memory
+tables only. Provider configuration/history/policy are preserved. Scheduling,
+companionship and optional older-history Catch up are not delivered.

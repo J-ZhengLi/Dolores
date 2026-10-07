@@ -1023,6 +1023,12 @@ begins only when the user requests it.
 
 ## Milestone 21 — Automatic evidence-backed memory
 
+**Delivered 2026-10-07:** 21.0–21.6 completed in separate brick commits.
+[Qualification](qualification/automatic-memory.md) and newest
+[acceptance](ACCEPTANCE.md) record bounded live results, earlier misses and remaining
+model/platform gaps. Optional older-history Catch up remains deferred. Milestone 22
+is next planned work and has not started.
+
 One Memory switch enables automatic useful facts/decisions with inspect/forget;
 no manual setup or entry is required. Text first, supplied images later. See
 [memory contract](design/memory-scheduling-companionship.md) and

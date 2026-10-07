@@ -2,47 +2,28 @@
 
 ## Start here
 
-**Current user steering:** plan a developer workspace and extend the roadmap;
-implement **one milestone per batch**, retaining separate commits for its bricks.
-Milestones 16 and 17 implementation and batch qualification are delivered.
-The latest user authorization starts 18 then 19, one milestone batch at a time,
-with unattended implementation and individual brick commits. 18.1–18.6 now deliver
-real PTYs, terminal tabs/splits, stopped recovery and lazy language services.
-146 bridge tests, 302 Flutter tests, upstream TypeScript/Rust, descendant cleanup
-and the harder configured DeepSeek saved-file/approved-command case pass.
-See [terminal qualification](qualification/terminal-language.md) for resource and
-physical-input gaps. The normal Windows release preserves all 42 profile tables.
-19's bounded backend trial has now finished: corrected same-engine creation/close
-preserved primary work, but added idle CPU (1.222% of one core) failed the frozen
-less-than-1% gate. 19.2/19.3 transfer/layout work stays held, not implemented.
-19.4 retains single-window pages and truthful Experimental availability separately
-from the saved preference. See [window qualification](qualification/experimental-windows.md).
-The user now authorizes milestone 21 as one batch with separate brick commits. 21.0 audits narrow memory and freezes the public corpus; implementation is in progress. Milestones 22 onward remain future work.
-Final checks: 147 bridge tests, 303 Flutter tests, analysis/Clippy and fresh-process
-held-preference release corpus pass. Normal main-entry release is restored visibly.
-42 profile tables remain; 41 hashes and existing editor rows match the prior
-baseline, with one new terminal recovery record preserved. Configuration/history
-are unchanged. Receipt: `output/m18-m19-normal-handoff.json`.
-The previous normal-app receipt is recorded in the newest acceptance.
-Memory, scheduling and companionship remain future work.
-The delivered follow-up refines milestone 17 to match the user's VS Code workflow:
-commits expand nested files, file clicks open exact diffs, and the Changes overflow
-menu groups repository actions. Preserve confirmation/dirty-editor guards.
-Runtime `abe1c31` passed 291 Flutter tests and normal build/launch; all 42 original
-profile table hashes stayed unchanged. Saved public diagnostic renders are
-separate from the normal handoff receipt. See the newest acceptance for limits.
+**Current authorized batch: milestone 21, implemented as separate brick commits.**
+21.0–21.5 deliver the audit, one Memory switch, useful background capture,
+source-backed scoped recall, correction/Forget and explicitly shared-image memory.
+21.6 completes bounded reliability qualification; see the newest
+[acceptance](ACCEPTANCE.md) and [memory qualification](qualification/automatic-memory.md)
+for final test counts, live successes/misses, costs and migration evidence.
+Final checks: 286 native / 310 Flutter tests, analyzer/Clippy and normal build PASS.
+Final live: Qwen fact/recall PASS, DeepSeek scoped correction PASS,
+image recall PASS; local capture differs from model extraction. Normal
+main-entry launch preserves 42 original table hashes and adds three memory tables
+at schema 35. Qwen/general/platform limits remain documented.
 
-The newest follow-up fixes reported large-file rejection and indistinguishable
-Side by side views. Git patches now stream into 256-row / 256-KiB pages; aligned
-old/new cells use actual line numbers, red/green changes and shared scrolling.
-Stale continuation retains the readable page for Refresh. Whole-file size does
-not gate viewing; complete mutation-review bounds remain independent. 136 bridge
-tests, 292 Flutter tests, final 14 focused UI tests and twelve release C ABI checks
-pass. Runtime `333b912` also passed maintained normal build and visible main-entry
-launch; all 42 original profile table hashes stayed identical, with no new tables.
-Receipt: `output/source-control-large-diff-normal-handoff.json`.
-See newest acceptance for remaining page-boundary,
-binary-preview, physical-input and platform/resource limits.
+Scheduling and companionship (22–24) remain future work; starting another
+milestone requires the user to request the next batch.
+
+Earlier workspace milestones 16–18 are delivered. Source Control preserves the
+VS Code-inspired Changes menu, expandable commit files and real aligned diffs.
+The terminal keyboard follow-up is delivered; physical IME/accessibility and other
+platform gaps remain documented. Milestone 19's backend trial failed the frozen
+idle CPU gate (1.222% added versus less than 1%); 19.2/19.3 stay held and Experimental
+availability remains truthful. Do not silently enable detached windows or relax
+that gate. Preserve unrelated paused work and the configured provider/history.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact
 64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,
@@ -89,7 +70,7 @@ actions. Full native/Flutter suites pass; the two-repository release corpus veri
 unsaved-buffer protection, hook cancellation/recovery and a disposable bare remote.
 See [Source Control qualification](qualification/source-control.md) for exact
 measurements, invalid earlier renders, Windows-path correction and remaining gaps.
-The current authorized batch is 18, followed by 19 after its qualification.
+The current authorized batch is 21; its final qualification is recorded above.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)

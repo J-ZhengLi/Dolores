@@ -163,11 +163,12 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       'id': item['id'],
       'revision': item['revision'],
     });
-    if (mounted)
+    if (mounted) {
       setState(() {
         sourceMemoryId = item['id'] as String;
         sourceEvidence = (result as Map).cast<String, dynamic>();
       });
+    }
   });
   void _edit([Map<String, dynamic>? item]) {
     if (busy) return;
@@ -470,7 +471,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                     title: const Text('Memory details'),
                     children: [
                       Text(
-                        'Delete or disable preferences to stop using them in new messages. Editing or disabling a learned preference protects it from automatic replacement; past replies keep their original context.',
+                        'Forget removes derived records and their revision history, stops pending learning and prevents old source messages from being indexed again. Original conversations remain separate. Editing or disabling a learned memory protects it from automatic replacement; past replies keep their original context.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                     ],
@@ -490,7 +491,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                       title: const Text('Learning details'),
                       children: [
                         Text(
-                          'Eligible messages may use one extra model request, up to 10 seconds and 512 output tokens. No files, tools or assistant replies are used. Quoted text and common sensitive patterns are skipped; this is a conservative filter, not a complete classifier.',
+                          'Useful text may use one background model request. An explicitly shared image can use one additional request with the selected image-capable model. Each is limited to 10 seconds and 512 output tokens, or lower configured limits. No tools, ambient capture or assistant claims are used. Common sensitive patterns are skipped; this is a conservative filter, not a complete classifier.',
                           style: TextStyle(color: p.muted, fontSize: 12),
                         ),
                       ],

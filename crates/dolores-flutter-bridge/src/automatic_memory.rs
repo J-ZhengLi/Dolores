@@ -3,6 +3,22 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
+fn record_usage(update: &mut AutomaticMemoryUpdate, usage: Option<TokenUsage>) {
+    if let Some(usage) = usage {
+        let sum = |a: Option<u64>, b: Option<u64>| a.zip(b).map(|(a, b)| a.saturating_add(b));
+        update.usage = Some(match update.usage.take() {
+            Some(earlier) => TokenUsage {
+                input_tokens: sum(earlier.input_tokens, usage.input_tokens),
+                output_tokens: sum(earlier.output_tokens, usage.output_tokens),
+                total_tokens: sum(earlier.total_tokens, usage.total_tokens),
+                cached_input_tokens: sum(earlier.cached_input_tokens, usage.cached_input_tokens),
+                reasoning_tokens: sum(earlier.reasoning_tokens, usage.reasoning_tokens),
+            },
+            None => usage,
+        });
+    }
+}
+
 pub(super) async fn prepare(
     store: Arc<dyn SessionStore>,
     session: &str,
@@ -54,16 +70,21 @@ pub(super) async fn learn(
     cancel: CancellationToken,
 ) -> Option<Value> {
     let source = update.source.clone();
-    let literal = if cancel.is_cancelled() {
+    let images = store
+        .memory_source_images(&update.session, source.message_id)
+        .unwrap_or_default();
+    // Mixed text/image jobs retain the selected model identity for caption
+    // eligibility and provenance. Literal capture is the text-only fast path.
+    let literal = if cancel.is_cancelled() || !images.is_empty() {
         None
     } else {
-        literal_response_preference(&source)
+        literal_response_preference(&source).or_else(|| literal_memory_fact(&source))
     };
     if let Some(candidate) = literal {
         update.candidates = vec![candidate];
         update.model = "local-excerpt".into();
         update.status = "completed".into();
-        update.note = "Exact response preference extracted locally; no extra model request.".into();
+        update.note = "Exact useful statement extracted locally; no extra model request.".into();
     } else if automatic_source_allowed(&source.text) && !cancel.is_cancelled() {
         let learning_cancel = cancel.child_token();
         let result = async {
@@ -98,9 +119,6 @@ pub(super) async fn learn(
         }
     }
     if !cancel.is_cancelled() {
-        let images = store
-            .memory_source_images(&update.session, source.message_id)
-            .unwrap_or_default();
         if let Some(asset) = images.first() {
             let enabled = store
                 .preferences()
@@ -132,54 +150,19 @@ pub(super) async fn learn(
                         "Image memory",
                     )
                     .await?;
-                    #[derive(serde::Deserialize)]
-                    #[serde(deny_unknown_fields)]
-                    struct Caption {
-                        title: String,
-                        description: String,
-                        uncertainty: String,
-                    }
-                    let parsed: Caption = serde_json::from_str(&answer)
-                        .map_err(|_| "Image caption was malformed.")?;
-                    let caption = MemoryImageCaption {
-                        asset: asset.clone(),
-                        title: parsed.title,
-                        description: parsed.description,
-                        uncertainty: parsed.uncertainty,
-                    };
-                    caption.validate()?;
-                    Ok::<_, String>((caption, usage))
+                    // A rejected caption still consumed the reported request.
+                    record_usage(&mut update, usage);
+                    let caption =
+                        parse_memory_image_caption(&answer, asset.clone()).map_err(|error| {
+                            update.note.push_str(&format!(" {error}"));
+                            error
+                        })?;
+                    Ok::<_, String>(caption)
                 };
                 match tokio::time::timeout(std::time::Duration::from_secs(10), result).await {
-                    Ok(Ok((caption, usage))) => {
+                    Ok(Ok(caption)) => {
                         update.image = Some(caption);
                         update.status = "completed".into();
-                        if let Some(usage) = usage {
-                            update.usage = Some(match update.usage.take() {
-                                Some(earlier) => {
-                                    let sum = |a: Option<u64>, b: Option<u64>| {
-                                        a.zip(b).map(|(a, b)| a.saturating_add(b))
-                                    };
-                                    TokenUsage {
-                                        input_tokens: sum(earlier.input_tokens, usage.input_tokens),
-                                        output_tokens: sum(
-                                            earlier.output_tokens,
-                                            usage.output_tokens,
-                                        ),
-                                        total_tokens: sum(earlier.total_tokens, usage.total_tokens),
-                                        cached_input_tokens: sum(
-                                            earlier.cached_input_tokens,
-                                            usage.cached_input_tokens,
-                                        ),
-                                        reasoning_tokens: sum(
-                                            earlier.reasoning_tokens,
-                                            usage.reasoning_tokens,
-                                        ),
-                                    }
-                                }
-                                None => usage,
-                            });
-                        }
                         update.note.push_str(" Shared image indexed with an uncertain model description; inspect its source.");
                     }
                     _ => {

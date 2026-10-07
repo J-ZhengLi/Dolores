@@ -3,9 +3,9 @@
 ## 21.0 Audit and frozen evaluation
 
 The baseline captures the latest user message after a successful, unpaused turn.
-`automatic_memory::learn` claims a durable message watermark, obtains the saved
+The pre-21 `automatic_memory::learn` claimed a durable message watermark, obtained the saved
 policy and scoped preferences, then uses literal response-style extraction or a
-tool-free model request. It currently waits before sending `done`. Sources belong
+tool-free model request. It waited before sending `done`. Sources belong
 to completed user/assistant pairs. Atomic publication rechecks source bytes,
 policy revision, scope, cancellation and the existing record set.
 
@@ -88,3 +88,91 @@ The existing selected image-capable model creates a bounded description and unce
 One extra tool-free image request is allowed within 512 output tokens and ten seconds or lower configured limits, after text extraction, with the same single maintenance worker. Missing/unsupported/malformed image output preserves valid text capture and the completed reply. Relevant recall reopens at most one retained scoped image only with enabled image support and enough context; otherwise its uncertain caption stays useful. Source opening displays the actual retained image locally.
 
 Two native recall tests cover malformed uncertainty, exact asset source, scoped recall, small-window omission, missing-source recovery and Forget. All 282 native tests pass. Normal Windows release build passes. Packaged save/restore fixture passes with six local requests and zero live requests: actual image wire input, later cross-chat pixels, local source opening, malformed caption preserving a valid text decision, restart, disabled image support, deleted source and Forget.
+
+
+## 21.6 Final reliability qualification (2026-10-07)
+
+21.0–21.6 are delivered as one authorized milestone batch with separate brick
+commits. Final verification: 286 core/store/bridge tests, 310 Flutter tests,
+analyzer, Clippy with warnings denied and maintained normal Windows release build
+PASS. Four compact/wide light/dark history/Forget tests pass; saved widget renders
+were inspected. Diagnostic renders do not establish physical native input.
+
+Packaged save/restore fixtures pass in separate processes: capture uses 30 local
+requests, six-cue recall uses 19, image qualification uses nine; restore uses zero.
+Zero live requests in fixtures. Six correct first-ranked matches, zero negative
+captures/project leaks and six deleted sources excluded. Failure/recovery includes
+malformed/invented/oversized output, lower context/deadline, provider denial,
+queue saturation, interruption/Off, restart, manual priority/Forget and missing
+assets. Image tests exercise actual wire pixels, unused metadata, literal-shaped
+fact plus image, and malformed captions retaining text and reported usage.
+Requests already at 16 images or 8 MiB omit recalled pixels without losing the
+caption/current input. Same typed folder subject supersedes its All-chats record;
+disabled folder evidence does not shadow it. A queue fixture now has a timeout
+and uses a model-path decision instead of a locally extracted fact.
+
+### Configured live evidence
+
+Public synthetic prompts use configured Qwen3.5-2B and DeepSeek V4.1 Flash through
+the packaged host. Disposable profiles copy configuration only, not conversations
+or assets. Vault credentials are read into memory, never persisted in artifacts.
+Original configuration and table hashes remain unchanged. Foreground and memory
+requests have 512-output-token/ten-second ceilings or lower configured limits;
+no automatic retries or model substitution.
+
+| Final case | Result | Meaning |
+| --- | --- | --- |
+| Qwen Memory Off | No Cedar-742 recalled | No source; not a positive capture hit |
+| Qwen fact and fresh-chat recall | PASS | Exact local capture plus real Qwen recall, not model-based extraction proof |
+| DeepSeek correction / projects A and B | PASS | Exact answers required; refusal mentioning a name is a miss; scope leak False |
+| DeepSeek supplied image / fresh-chat recall | PASS | Requires saved caption and supported description; refusal/absence is a miss |
+
+Final `output/m21-live-complete/receipt.json`: ten foreground turns, reported
+2304 input / 394 output / 2698 total tokens.
+Image maintenance: 283 input / 75 output /
+358 total. Local facts consume no extraction request. Missing usage
+is unknown, never zero. Earlier live responses exposed Qwen paraphrase/category
+misses, unused DeepSeek caption metadata refusal and global/project conflict.
+Quote-only extraction derives stored text from the exact validated quote. A tiny
+identity grammar captures project codename/name, default branch and package name
+locally; other prose remains model-dependent. Mixed text/image jobs retain selected
+caption-model provenance. Only validated caption fields persist; bounded unused
+metadata cannot affect source, scope, grants or tools. Explicit truncation fails.
+Rejected captions now retain consumed reported usage and validation guidance.
+
+Historical receipts stay separate: `m21-live-qualified` missed Qwen but passed
+DeepSeek model-based fact/correction and image capture. `m21-live-final` and
+`m21-live-trace` missed Qwen/image extraction. `m21-live-release` captured Qwen
+locally but project B refused a conflicting global fact and image capture missed.
+`m21-image-live-probe` identified unused `title_note` metadata. Earlier keyword-only
+metrics counting refusals were corrected to misses. These failures are not erased
+by the final recheck. Across qualification: 70 packaged live requests and three
+direct format probes (diagnostic only). Some earlier failed-image usage was not
+retained; no exact aggregate token total is claimed from incomplete counters.
+
+### Cost and original profile
+
+`output/m21-live-complete/cost.json`: forty local context calls per policy, zero
+provider requests. 4 records / 2267 JSON
+payload bytes; whole fixture database 475136 bytes
+includes configuration and history. Off p50/p95
+0.146/0.194 ms; On
+0.406/0.644 ms. On uses 2
+entries and 797 memory-text bytes. One public workload on this
+laptop is not sustained/max-capacity performance proof. Queue/storage/context
+ceilings stay frozen. Images add references, not duplicated pixels; their existing
+approximate 4096-token allowance is separate from the 2000-token memory-text bound.
+
+Normal main-entry launch: schema 35; all 42
+original table hashes unchanged, only new tables memory_forget_watermarks, memory_source_index, memory_versions.
+Receipt `output/m21-normal-handoff.json`. Provider selection/settings, history
+and prior memory policy are preserved; receipts contain no private transcripts.
+
+Remaining gaps: Qwen model-based extraction outside the tiny literal grammar is
+unreliable in observed cases. Chinese/model-diverse/general task competence is not
+proved by six deterministic cues. Captions remain uncertain inferences. Models
+can also misstate that saving requires a memory-edit tool before background
+capture finishes; the saved Memory activity is authoritative, not that acknowledgement.
+Conservative credential/intent filters are not universal classifiers. No old-history Catch up
+UI, embeddings, ambient recording, physical IME/accessibility, other-platform or
+sustained/full-capacity qualification is claimed. Milestones 22–24 remain future.

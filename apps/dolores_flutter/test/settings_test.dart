@@ -173,7 +173,7 @@ void main() {
       );
       await category(tester, 'memory', 'Memory');
       expect(
-        find.text('How Dolores remembers your preferences'),
+        find.text('Memory details'),
         findsOneWidget,
       );
       expect(find.byType(Dialog), findsOneWidget);
