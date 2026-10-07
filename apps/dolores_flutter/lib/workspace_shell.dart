@@ -278,6 +278,66 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         host: host.terminals,
         session: host.visible.session,
         chooseFolder: () => unawaited(openProject()),
+        shareSelection: (terminal) async {
+          final text = terminal.selectedText();
+          if (text.isEmpty) {
+            terminal.notice = 'Select the output you want to attach first.';
+            host.terminals.layout.changed();
+            return;
+          }
+          final choice = await showDialog<String>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Attach selected terminal output'),
+              content: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Choose a conversation. Only this selection enters its draft; Send will share it with the model.',
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 120,
+                      child: SingleChildScrollView(child: SelectableText(text)),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 180,
+                      child: ListView(
+                        children: [
+                          for (final chat in host.initial.sessions)
+                            ListTile(
+                              title: Text(
+                                chat['title']?.toString() ?? 'Conversation',
+                              ),
+                              onTap: () =>
+                                  Navigator.pop(context, chat['id'] as String),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          );
+          if (choice == null) return;
+          try {
+            await host.shareTerminal(choice, text);
+            terminal.notice = 'Selected output attached to the chosen draft.';
+          } catch (e) {
+            terminal.notice = '$e Nothing was sent.';
+          }
+          host.terminals.layout.changed();
+        },
       );
     }
     if (page == WorkspacePage.sourceControl) {

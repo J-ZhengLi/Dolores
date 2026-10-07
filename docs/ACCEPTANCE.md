@@ -2845,3 +2845,7 @@ reproduction and resource observations. Two settled final-release samples used
 private bytes. Sustained idle cost, a matched performance baseline, exhaustive
 native layouts, physical IME/accessibility, other OS and lower-end hosts remain
 acceptance gaps. Optional browser installation still uses setup instructions.
+
+## Brick 18.3 — Terminal supervision and recovery (2026-10-07)
+
+Implemented bounded PTY queues and emulator scrollback, owned Windows process jobs, busy-close/final-quit review, and private stopped-tab display recovery. Selected output can be attached to a chosen chat draft. Native checkpoint tests cover invalid/oversized data retaining the prior record, restart with zero live PTYs, and selection sharing scoped to the recipient. Flutter terminal and workspace recovery tests pass (8); cold split restoration, corrupt recovery, canceled close and failed save preserve owners/output. Analyzer passes. Native flood, descendant-cleanup, normal packaging and the harder live model case remain for 18.6; other operating systems are unqualified.

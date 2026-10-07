@@ -96,6 +96,7 @@ class AppHost extends ChangeNotifier {
       for (final c in owners) {
         await c.checkpointDraft();
       }
+      await terminals.checkpoint();
       for (final c in tasks.toList()) {
         await c.stop();
       }
@@ -210,6 +211,30 @@ class AppHost extends ChangeNotifier {
   }
 
   Iterable<ChatController> get tasks => owners.where((c) => c.busy);
+  Future<void> shareTerminal(String session, String text) async {
+    var owner = owners.where((c) => c.session == session).firstOrNull;
+    if (owner == null) {
+      owner = await _create();
+      await owner.select(session);
+    }
+    if (owner.session != session ||
+        owner.busy ||
+        owner.changing ||
+        owner.loading) {
+      throw StateError(
+        'Finish opening or running the chosen conversation before attaching output.',
+      );
+    }
+    final parts = await terminals.call({
+      'action': 'share',
+      'session': session,
+      'text': text,
+    });
+    owner.acceptAttachmentParts(
+      (parts as List).map((p) => Map<String, dynamic>.from(p)).toList(),
+    );
+  }
+
   String? get projectRoot => visible.workspaceRoot;
   Future<ChatController> _create() async {
     if (owners.length >= maxOwners) {

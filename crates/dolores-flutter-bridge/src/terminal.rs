@@ -15,6 +15,8 @@ use std::{
     },
     time::{Duration, Instant},
 };
+#[path = "terminal_recovery.rs"]
+mod recovery;
 #[path = "terminal_tree.rs"]
 mod tree;
 const QUEUE_BYTES: usize = 1024 * 1024;
@@ -28,6 +30,14 @@ pub(crate) enum Request {
         shell: Option<String>,
     },
     List,
+    Restore,
+    Checkpoint {
+        value: Value,
+    },
+    Share {
+        session: String,
+        text: String,
+    },
     Poll {
         id: String,
     },
@@ -374,6 +384,44 @@ impl Registry {
 }
 impl Engine {
     pub(crate) fn terminal_call(&self, request: Request) -> Result<Value, String> {
+        match &request {
+            Request::Restore => {
+                let mut value = self.store.editor_state(recovery::KEY)?;
+                if !value.is_null() {
+                    recovery::validate(&value)?;
+                    for s in value["sessions"].as_array_mut().unwrap() {
+                        s["state"] = json!("stopped");
+                    }
+                }
+                return Ok(value);
+            }
+            Request::Checkpoint { value } => {
+                recovery::validate(value)?;
+                self.store.save_editor_state(recovery::KEY, value)?;
+                return Ok(json!({"saved":true}));
+            }
+            Request::Share { session, text } => {
+                use sha2::{Digest, Sha256};
+                if text.is_empty() || text.len() > 8192 || text.contains('\0') {
+                    return Err(
+                        "Select up to 8 KiB of terminal output to attach. Nothing was shared."
+                            .into(),
+                    );
+                }
+                let data = dolores_core::AttachmentData {
+                    reference: dolores_core::AttachmentRef {
+                        digest: format!("{:x}", Sha256::digest(text.as_bytes())),
+                        name: "Terminal output.txt".into(),
+                        mime: "text/plain".into(),
+                        bytes: text.len(),
+                    },
+                    data: text.as_bytes().to_vec(),
+                };
+                self.store.add_attachment(session, &data)?;
+                return Ok(json!(self.store.draft_attachments(session)?));
+            }
+            _ => {}
+        }
         let mut state = self
             .terminals
             .lock()
@@ -410,6 +458,50 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn display_checkpoint_and_explicit_selection_share_survive_restart() {
+        use dolores_core::SessionStore;
+        let dir = tempfile::tempdir().unwrap();
+        let store =
+            Arc::new(dolores_store_sqlite::SqliteStore::open(&dir.path().join("test.db")).unwrap());
+        store.create("chosen").unwrap();
+        store.create("other").unwrap();
+        let e = Engine::new(store.clone(), Arc::new(crate::connection::testing::MemoryCredentials::default())).unwrap();
+        let v = json!({"version":1,"sessions":[{"id":"old","cwd":"C:/","shell":"cmd","title":"Shell","output":"kept 世界"}],"groups":[{"id":"g","tabs":["old"],"active":"old"}],"activeGroup":"g","tree":{"group":"g"}});
+        e.terminal_call(Request::Checkpoint { value: v.clone() })
+            .unwrap();
+        let mut bad = v.clone();
+        bad["sessions"][0]["output"] = json!("x".repeat(8193));
+        assert!(e.terminal_call(Request::Checkpoint { value: bad }).is_err());
+        assert_eq!(store.editor_state(recovery::KEY).unwrap(), v);
+        let parts = e
+            .terminal_call(Request::Share {
+                session: "chosen".into(),
+                text: "selected 世界".into(),
+            })
+            .unwrap();
+        assert!(store.draft_attachments("other").unwrap().is_empty());
+        assert_eq!(
+            store
+                .attachment_data("chosen", parts[0]["digest"].as_str().unwrap())
+                .unwrap()
+                .data,
+            "selected 世界".as_bytes()
+        );
+        assert!(e
+            .terminal_call(Request::Share {
+                session: "chosen".into(),
+                text: "x".repeat(8193)
+            })
+            .is_err());
+        drop(e);
+        let e = Engine::new(store, Arc::new(crate::connection::testing::MemoryCredentials::default())).unwrap();
+        assert_eq!(
+            e.terminal_call(Request::Restore).unwrap()["sessions"][0]["state"],
+            "stopped"
+        );
+        assert_eq!(e.terminal_call(Request::List).unwrap(), json!([]));
+    }
     #[test]
     fn real_pty_unicode_input_resize_missing_root_and_cleanup() {
         let folder = tempfile::tempdir().unwrap();

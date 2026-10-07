@@ -73,7 +73,9 @@ class TerminalPage extends StatelessWidget {
     required this.host,
     required this.session,
     required this.chooseFolder,
+    this.shareSelection,
   });
+  final Future<void> Function(TerminalSession)? shareSelection;
   Future<void> close(BuildContext context, TerminalSession s) async {
     if (s.live) {
       final yes = await showDialog<bool>(
@@ -262,6 +264,17 @@ class TerminalPage extends StatelessWidget {
                       unawaited(host.splitNew(session, g.id, Axis.vertical));
                     case 'copy':
                       if (s != null) unawaited(copy(s));
+                    case 'share':
+                      if (s != null && shareSelection != null) {
+                        unawaited(shareSelection!(s));
+                      }
+                    case 'checkpoint':
+                      unawaited(
+                        host.checkpoint().catchError((Object e) {
+                          host.error = '$e';
+                          host.layout.changed();
+                        }),
+                      );
                     case 'paste':
                       if (s != null) {
                         unawaited(
@@ -277,8 +290,9 @@ class TerminalPage extends StatelessWidget {
                     default:
                       if (value.startsWith('move:') && s != null) {
                         host.layout.move(s.id, g.id, value.substring(5));
-                      } else if (value.startsWith('focus:'))
+                      } else if (value.startsWith('focus:')) {
                         host.layout.focus(value.substring(6));
+                      }
                   }
                 },
                 itemBuilder: (context) => [
@@ -296,6 +310,15 @@ class TerminalPage extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'copy',
                     child: Text('Copy selection'),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    enabled: shareSelection != null,
+                    child: const Text('Attach selection to conversation…'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'checkpoint',
+                    child: Text('Save terminal recovery'),
                   ),
                   PopupMenuItem(
                     value: 'paste',

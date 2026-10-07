@@ -65,3 +65,7 @@ Primary references: [portable-pty 0.9.0](https://docs.rs/portable-pty/0.9.0/port
 [xterm 4.0.0](https://pub.dev/packages/xterm/versions/4.0.0),
 [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/),
 [Flutter desktop windowing](https://flutter.dev/blog/desktop-windowing-apis).
+
+## Brick 18.3 display recovery
+
+Keep at most eight stopped display records, 8 KiB UTF-8 plaintext per tab and 96 KiB per checkpoint. Checkpoints use the existing private workspace-state store under an app-owned key. Cold restore never spawns a process, restores a PID or replays input. A failed checkpoint blocks final quit until explicit retry succeeds. Selected output up to 8 KiB is attached only after choosing a conversation; it does not send a request.
