@@ -3023,3 +3023,7 @@ Reduced UI.md from 596 to 98 lines of shared design guidance, with on-demand
 links to feature specifications and an explicit boundary against implementation
 history. Removed obsolete and duplicated feature details. Documentation links
 and whitespace checks PASS; no runtime change or desktop build was needed.
+
+## Milestone 22.0 — Frozen scheduling contract (2026-10-07)
+
+The user authorized the next milestone batch. [Scheduling contract](design/chat-scheduling.md) freezes explicit intent, named-zone/DST/missed-run policy, bounded occurrence ownership, dedicated smaller budgets and the seven-case qualification corpus. This brick changes documentation only; scheduling is not yet available. Local links and whitespace were checked.
