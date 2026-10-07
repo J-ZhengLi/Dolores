@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT/'apps/dolores_flutter/build/windows/x64/runner/Release'
 RUNTIME = {
     'dolores-desktop-helper.exe',
+    'dolores-update-launcher.exe',
     'dolores_flutter.exe', 'dolores_flutter_bridge.dll', 'flutter_windows.dll',
     'file_selector_windows_plugin.dll', 'screen_retriever_windows_plugin.dll',
     'pasteboard_plugin.dll',
@@ -21,7 +22,7 @@ RUNTIME = {
     'data/flutter_assets/fonts/MaterialIcons-Regular.otf',
     'data/flutter_assets/shaders/ink_sparkle.frag', 'data/flutter_assets/shaders/stretch_effect.frag',
 }
-DOCUMENTS = {'START-HERE.md','USER_GUIDE.md','PRIVACY.md','LICENSE',
+DOCUMENTS = {'START-HERE.md','USER_GUIDE.md','PRIVACY.md','LICENSE','CHANGELOG.md',
              'Start-Dolores.cmd','THIRD-PARTY-NOTICES.txt','DEPENDENCIES.json'}
 AUDIT_INPUTS = ('Cargo.lock', 'apps/dolores_flutter/pubspec.lock',
                 'apps/dolores_flutter/pubspec.yaml', 'assets/LICENSE.material-icons',
@@ -157,6 +158,7 @@ def package(bundle, directory, notice_directory):
     notices=notice_documents(notice_directory,files)
     documents={
         'LICENSE':(ROOT/'LICENSE').read_bytes(),
+        'CHANGELOG.md':(ROOT/'CHANGELOG.md').read_bytes(),
         'PRIVACY.md':(ROOT/'docs/PRIVACY.md').read_bytes(),
         'USER_GUIDE.md':(ROOT/'docs/USER_GUIDE.md').read_text(encoding='utf-8').replace(
             'See [privacy](PRIVACY.md) and [tested limitations](ACCEPTANCE.md).',

@@ -3,7 +3,7 @@ setlocal EnableExtensions DisableDelayedExpansion
 title Dolores
 if not "%~1"=="" if not "%~1"=="--check" goto usage
 if not "%~2"=="" goto usage
-for %%F in (dolores_flutter.exe dolores_flutter_bridge.dll flutter_windows.dll file_selector_windows_plugin.dll pasteboard_plugin.dll native_assets.json data\app.so data\icudtl.dat data\flutter_assets\AssetManifest.bin data\flutter_assets\FontManifest.json data\flutter_assets\NativeAssetsManifest.json data\flutter_assets\NOTICES.Z data\flutter_assets\fonts\MaterialIcons-Regular.otf data\flutter_assets\shaders\ink_sparkle.frag data\flutter_assets\shaders\stretch_effect.frag) do (
+for %%F in (dolores_flutter.exe dolores-update-launcher.exe dolores-desktop-helper.exe dolores_flutter_bridge.dll flutter_windows.dll file_selector_windows_plugin.dll pasteboard_plugin.dll screen_retriever_windows_plugin.dll window_manager_plugin.dll native_assets.json data\app.so data\icudtl.dat data\flutter_assets\AssetManifest.bin data\flutter_assets\FontManifest.json data\flutter_assets\NativeAssetsManifest.json data\flutter_assets\NOTICES.Z data\flutter_assets\fonts\MaterialIcons-Regular.otf data\flutter_assets\shaders\ink_sparkle.frag data\flutter_assets\shaders\stretch_effect.frag) do (
   if not exist "%~dp0%%F" goto incomplete
   for %%S in ("%~dp0%%F") do if %%~zS LEQ 0 goto incomplete
 )
