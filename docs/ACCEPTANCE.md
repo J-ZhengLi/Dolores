@@ -2894,3 +2894,24 @@ Disposition: backend HELD. No channel migration or second backend was attempted.
 19.2 acknowledged transfers and 19.3 window-layout/rejoin are HELD, not implemented.
 Physical input/IME, multi-window theme, transfer/monitor recovery and accessibility
 remain unqualified. See [qualification](qualification/experimental-windows.md).
+
+## Brick 19.4 — Explicit single-window fallback (2026-10-07)
+
+The host now returns held window capability separately from saved Experimental
+preferences. Settings explains the failed performance check and points to existing
+split views. Default On remains a preference; Off remains Off across reopen.
+Stale/failed saves retain the acknowledged choice. No window creation, automatic
+trial retry, profile migration or source-group disposal is added. 19.2/19.3 stay held.
+
+147 bridge library tests and 303 Flutter tests PASS; analysis and strict bridge
+Clippy PASS. Native preference restart and stale-save tests leave zero terminal
+owners. Three focused page/settings tests cover existing Home/navigation recovery,
+held reason, failed-save recovery and Off after reopening.
+
+Final release C ABI fallback corpus PASS in two fresh processes: held capability,
+default On, saved Off restored, stale-write refusal and zero shell/child-host
+activation. Normal Windows main-entry build and visible launch PASS. All 42 tables
+remain; 41 hashes and the two pre-existing editor recovery rows match the earlier
+baseline. One new terminal recovery row is preserved. Configuration/model/history
+are unchanged; no recovery was erased to force a matching hash. Receipt:
+`output/m18-m19-normal-handoff.json`.

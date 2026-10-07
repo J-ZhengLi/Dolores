@@ -27,7 +27,9 @@ If recovery cannot be stored, the app stays open. File editing shares nothing
 with a model; Attach selection deliberately chooses a conversation and snapshot.
 
 Settings → Advanced → Experimental contains Multiple Window (On by default;
-detach awaits milestone 19) and Prevent Windows From Locked (Off by default).
+additional windows are currently unavailable because their performance checks did
+not pass). Your choice is saved; use existing file/diff/terminal split views.
+Prevent Windows From Locked is Off by default.
 The Windows option requests display/system wakefulness while Dolores runs; it
 does not override manual locks, screen-saver security or enforced policy.
 Scheduled remains a future page.

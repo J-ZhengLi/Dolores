@@ -56,3 +56,22 @@ that preference does not create a window or extra host. Home, Folders, Source
 Control and terminal splits keep their existing single-window owners. No
 automatic backend retry, partial detach or new window-layout migration is added.
 The normal release does not enable the SDK's experimental window flag.
+
+147 bridge library tests and 303 Flutter tests pass; Flutter analysis and strict
+bridge Clippy pass. Focused held-preference tests cover default On, Off restored,
+stale save refusal and zero shell activation; widget checks retain Home/drafts and
+failed-save recovery. The [release fallback helper](../../scripts/test-window-fallback.py)
+checks saved Off in a fresh isolated native process; it is separate from physical
+UI qualification.
+
+That release C ABI fallback check passed in two fresh processes: default On,
+unavailable capability, explicit Off restored, stale save refused and zero shell
+or child-host activation. Public receipt:
+`output/window-fallback-qualification/1e4dcd671f244e2290163de5ec4797c4/report.json`.
+The normal main-entry Windows release was built and launched visibly using the
+original profile. Its schema/table set remains 42 tables; 41 table hashes and
+both existing editor-recovery rows match the earlier baseline. One new terminal
+recovery row is retained rather than deleted to force a hash match. Provider,
+model, history and existing recovery remain intact. Final handoff receipt:
+`output/m18-m19-normal-handoff.json`. Native window presence is not a physical
+input or exhaustive foreground UX check.

@@ -79,7 +79,13 @@ impl Engine {
             .map_err(|_| "Keep-awake state is unavailable.")?
             .is_some();
         Ok(
-            json!({"preferences":self.store.experimental_preferences()?,"windows":cfg!(windows),"keepAwakeActive":active}),
+            json!({"preferences":self.store.experimental_preferences()?,"windows":cfg!(windows),"keepAwakeActive":active,
+            "multipleWindowCapability": {
+                "available": false,
+                "status": "held",
+                "reason": "Additional windows are unavailable in this build because their performance checks did not pass. Use split views in Folders, Source Control or Terminal.",
+                "qualification": "19.1: added idle CPU exceeded the frozen less-than-1% gate; 19.2/19.3 held"
+            }}),
         )
     }
     pub(crate) fn save_experimental(
@@ -133,6 +139,10 @@ mod tests {
     fn preferences_have_no_default_power_request_and_stale_write_is_refused() {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
         let engine = Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
+        let view = engine.experimental_view().unwrap();
+        assert_eq!(view["preferences"]["multipleWindow"], true);
+        assert_eq!(view["multipleWindowCapability"]["available"], false);
+        assert_eq!(view["multipleWindowCapability"]["status"], "held");
         assert_eq!(
             engine.experimental_view().unwrap()["keepAwakeActive"],
             false
@@ -144,9 +154,50 @@ mod tests {
             false
         );
         assert!(engine.save_experimental(p).is_err());
+        let held = engine.experimental_view().unwrap();
+        assert_eq!(held["preferences"]["multipleWindow"], false);
+        assert_eq!(
+            held["multipleWindowCapability"],
+            view["multipleWindowCapability"]
+        );
         assert_eq!(store.experimental_preferences().unwrap().revision, 1);
         engine.call(Command::Shutdown).unwrap();
         assert!(engine.keep_awake.lock().unwrap().is_none());
+    }
+    #[test]
+    fn held_window_preference_restores_without_starting_processes() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let credentials = Arc::new(MemoryCredentials::default());
+        let engine = Engine::new(store.clone(), credentials.clone()).unwrap();
+        let mut prefs = store.experimental_preferences().unwrap();
+        prefs.multiple_window = false;
+        engine.save_experimental(prefs).unwrap();
+        engine.call(Command::Shutdown).unwrap();
+        drop(engine);
+        let restored = Engine::new(store.clone(), credentials).unwrap();
+        assert_eq!(
+            restored.experimental_view().unwrap()["preferences"]["multipleWindow"],
+            false
+        );
+        assert_eq!(
+            restored.experimental_view().unwrap()["multipleWindowCapability"]["available"],
+            false
+        );
+        let mut prefs = store.experimental_preferences().unwrap();
+        prefs.multiple_window = true;
+        restored.save_experimental(prefs).unwrap();
+        assert_eq!(
+            restored.experimental_view().unwrap()["preferences"]["multipleWindow"],
+            true
+        );
+        assert!(restored.keep_awake.lock().unwrap().is_none());
+        assert!(restored
+            .terminal_call(crate::terminal::Request::List)
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+        restored.call(Command::Shutdown).unwrap();
     }
     #[cfg(windows)]
     #[test]

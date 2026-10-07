@@ -12,7 +12,17 @@ real PTYs, terminal tabs/splits, stopped recovery and lazy language services.
 and the harder configured DeepSeek saved-file/approved-command case pass.
 See [terminal qualification](qualification/terminal-language.md) for resource and
 physical-input gaps. The normal Windows release preserves all 42 profile tables.
-Current work is 19's bounded backend trial; do not start later milestones.
+19's bounded backend trial has now finished: corrected same-engine creation/close
+preserved primary work, but added idle CPU (1.222% of one core) failed the frozen
+less-than-1% gate. 19.2/19.3 transfer/layout work stays held, not implemented.
+19.4 retains single-window pages and truthful Experimental availability separately
+from the saved preference. See [window qualification](qualification/experimental-windows.md).
+Do not start later milestones without user steering.
+Final checks: 147 bridge tests, 303 Flutter tests, analysis/Clippy and fresh-process
+held-preference release corpus pass. Normal main-entry release is restored visibly.
+42 profile tables remain; 41 hashes and existing editor rows match the prior
+baseline, with one new terminal recovery record preserved. Configuration/history
+are unchanged. Receipt: `output/m18-m19-normal-handoff.json`.
 The previous normal-app receipt is recorded in the newest acceptance.
 Memory, scheduling and companionship remain future work.
 The delivered follow-up refines milestone 17 to match the user's VS Code workflow:

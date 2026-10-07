@@ -79,8 +79,10 @@ class _ExperimentalSettingsState extends State<ExperimentalSettings> {
           SwitchListTile(
             key: const Key('experimental-multiple-window'),
             title: const Text('Multiple Window'),
-            subtitle: const Text(
-              'On by default. Detached developer views become available in milestone 19.',
+            subtitle: Text(
+              state!['multipleWindowCapability']?['available'] == true
+                  ? 'Allow developer views to open in additional windows.'
+                  : '${state!['multipleWindowCapability']?['reason'] ?? 'Additional windows are unavailable in this build. Use split views instead.'} Your preference is saved for when this becomes available.',
             ),
             value: state!['preferences']['multipleWindow'] as bool,
             onChanged: pending ? null : (v) => save('multipleWindow', v),

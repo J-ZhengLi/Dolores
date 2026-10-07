@@ -29,6 +29,11 @@ class ExperimentalBridge extends HostBridge {
         'preferences': preferences,
         'windows': true,
         'keepAwakeActive': preferences['preventWindowsFromLocked'],
+        'multipleWindowCapability': {
+          'available': false,
+          'status': 'held',
+          'reason': 'Additional windows are unavailable in this build because their performance checks did not pass. Use split views in Folders, Source Control or Terminal.',
+        },
       };
     }
     return super.call(request);
@@ -54,7 +59,7 @@ void main() {
       expect(find.byKey(const Key('rail-settings')), findsOneWidget);
       await t.tap(find.byKey(const Key('page-folders')));
       await t.pumpAndSettle();
-    expect(host.projectRoot, 'C:/A');
+      expect(host.projectRoot, 'C:/A');
       expect(find.byType(DropdownButton<String>), findsNothing);
       await t.tap(find.byKey(const Key('title-panel-toggle')));
       await t.pumpAndSettle();
@@ -69,10 +74,7 @@ void main() {
       expect(host.panelHidden, true);
       await t.tap(find.byKey(const Key('page-terminal')));
       await t.pumpAndSettle();
-      expect(
-        find.text('Retry'),
-        findsOneWidget,
-      );
+      expect(find.text('Retry'), findsOneWidget);
       await t.tap(find.byKey(const Key('page-home')));
       await t.pumpAndSettle();
       expect(chat.draft, 'Retained draft');
@@ -107,6 +109,11 @@ void main() {
           t.widget<SwitchListTile>(find.byKey(Key(key)));
       expect(tile('experimental-multiple-window').value, true);
       expect(tile('experimental-keep-awake').value, false);
+      expect(
+        find.textContaining('performance checks did not pass'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Your preference is saved'), findsOneWidget);
       bridge.fail = true;
       await t.tap(find.byKey(const Key('experimental-multiple-window')));
       await t.pumpAndSettle();
@@ -120,7 +127,43 @@ void main() {
       await t.pumpAndSettle();
       expect(tile('experimental-multiple-window').value, false);
       expect(bridge.preferences['revision'], 1);
+      expect(
+        find.textContaining('performance checks did not pass'),
+        findsOneWidget,
+      );
       await t.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
+  testWidgets(
+    'held window Off preference remains Off after reopening settings',
+    (t) async {
+      final bridge = ExperimentalBridge();
+      bridge.preferences['multipleWindow'] = false;
+      final chat = ChatController(bridge)..loading = false;
+      for (var visit = 0; visit < 2; visit++) {
+        await t.pumpWidget(
+          MaterialApp(
+            home: SettingsWindow(
+              chat: chat,
+              initial: SettingsCategory.experimental,
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(
+          t
+              .widget<SwitchListTile>(
+                find.byKey(const Key('experimental-multiple-window')),
+              )
+              .value,
+          false,
+        );
+        expect(find.textContaining('split views'), findsOneWidget);
+        expect(t.takeException(), isNull);
+        await t.pumpWidget(const SizedBox());
+        await t.pumpAndSettle();
+      }
       chat.dispose();
     },
   );
