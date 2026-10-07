@@ -101,7 +101,13 @@ impl Engine {
             vec!["local-history".into()],
             vec![],
         )?;
-        add("scheduling",true,true,vec!["chat-task-creation".into()],vec!["schedule_task".into(),"manage_scheduled_task".into()])?;
+        add(
+            "scheduling",
+            true,
+            true,
+            vec!["chat-task-creation".into()],
+            vec!["schedule_task".into(), "manage_scheduled_task".into()],
+        )?;
         add(
             "credentials/os",
             true,

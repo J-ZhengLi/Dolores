@@ -135,7 +135,7 @@ pub(crate) struct Registry {
     docs: BTreeMap<String, Document>,
     language_review: Option<language_edits::Review>,
 }
-#[path="editor_language.rs"]
+#[path = "editor_language.rs"]
 pub(crate) mod language_edits;
 fn project_id(root: &str) -> String {
     format!("{:x}", Sha256::digest(root.as_bytes()))
@@ -187,25 +187,55 @@ fn apply_edits(text: &str, edits: &[Edit]) -> Result<String, String> {
     Ok(out)
 }
 impl Registry {
-    pub(super) fn language_snapshot(&self, root: &str, id: &str, version: u64) -> Result<Value,String> {
-        let d = self.docs.get(id).ok_or("Document closed. Reopen it before using language services.")?;
+    pub(super) fn language_snapshot(
+        &self,
+        root: &str,
+        id: &str,
+        version: u64,
+    ) -> Result<Value, String> {
+        let d = self
+            .docs
+            .get(id)
+            .ok_or("Document closed. Reopen it before using language services.")?;
         if d.root != root || d.version != version || d.snapshot.readonly {
             return Err("Document changed or is read-only. Request the language feature again; edits remain.".into());
         }
-        let mut view=d.view();
-        view["openPaths"]=json!(self.docs.values().filter(|d|d.root==root).map(|d|d.snapshot.path.clone()).collect::<Vec<_>>());
+        let mut view = d.view();
+        view["openPaths"] = json!(self
+            .docs
+            .values()
+            .filter(|d| d.root == root)
+            .map(|d| d.snapshot.path.clone())
+            .collect::<Vec<_>>());
         Ok(view)
     }
-    pub(super) fn ensure_git_clean(&self,root:&std::path::Path,paths:&[String])->Result<(),String>{
-        for d in self.docs.values().filter(|d|d.dirty()) {
-            let full=std::path::Path::new(&d.root).join(&d.snapshot.path);
-            if (paths.is_empty()&&crate::source_control::within(&full,root))||paths.iter().any(|p|crate::source_control::path_key(&full)==crate::source_control::path_key(&root.join(p))){return Err("Save or close unsaved editors for these Git paths, then review again. Their drafts remain.".into());}
-        }Ok(())
+    pub(super) fn ensure_git_clean(
+        &self,
+        root: &std::path::Path,
+        paths: &[String],
+    ) -> Result<(), String> {
+        for d in self.docs.values().filter(|d| d.dirty()) {
+            let full = std::path::Path::new(&d.root).join(&d.snapshot.path);
+            if (paths.is_empty() && crate::source_control::within(&full, root))
+                || paths.iter().any(|p| {
+                    crate::source_control::path_key(&full)
+                        == crate::source_control::path_key(&root.join(p))
+                })
+            {
+                return Err("Save or close unsaved editors for these Git paths, then review again. Their drafts remain.".into());
+            }
+        }
+        Ok(())
     }
-    fn replacement(&self,old:&Document,next:&Document)->Result<(),String>{
-        if self.bytes()-old.snapshot.text.len()-old.text.len()+next.snapshot.text.len()+next.text.len()>4*1024*1024{
+    fn replacement(&self, old: &Document, next: &Document) -> Result<(), String> {
+        if self.bytes() - old.snapshot.text.len() - old.text.len()
+            + next.snapshot.text.len()
+            + next.text.len()
+            > 4 * 1024 * 1024
+        {
             return Err("Resident text limit reached. Save and close an inactive document; previous buffer is retained.".into());
-        }Ok(())
+        }
+        Ok(())
     }
     fn bytes(&self) -> usize {
         self.docs
@@ -223,11 +253,27 @@ impl Registry {
     }
 }
 impl Engine {
-    pub(super) fn editor_can_restart(&self)->Result<(),String>{
-        if !self.git.lock().map_err(|_|"Source Control is unavailable.")?.active.is_empty(){return Err("Finish or stop Source Control before restarting native code.".into());}
-        if self.editor.lock().map_err(|_|"Editor state is unavailable.")?.docs.values().any(Document::dirty){
+    pub(super) fn editor_can_restart(&self) -> Result<(), String> {
+        if !self
+            .git
+            .lock()
+            .map_err(|_| "Source Control is unavailable.")?
+            .active
+            .is_empty()
+        {
+            return Err("Finish or stop Source Control before restarting native code.".into());
+        }
+        if self
+            .editor
+            .lock()
+            .map_err(|_| "Editor state is unavailable.")?
+            .docs
+            .values()
+            .any(Document::dirty)
+        {
             return Err("Save or close unsaved file editors before installing or restoring native code. Their edits are retained; no restart occurred.".into());
-        }Ok(())
+        }
+        Ok(())
     }
     pub(crate) fn editor_call(&self, session: &str, request: Request) -> Result<Value, String> {
         let root = self
@@ -236,8 +282,22 @@ impl Engine {
             .root
             .ok_or("Select a working project conversation on Home or open a folder.")?;
         let project = project_id(&root);
-        if !matches!(&request,Request::Workspace|Request::Tree{..}|Request::Open{..}|Request::Compare{..}|Request::Checkpoint{..}|Request::Layout{..}|Request::Attach{..}|Request::Close{..})
-            && self.git.lock().map_err(|_|"Source Control is unavailable.")?.mutation_overlaps(std::path::Path::new(&root)) {
+        if !matches!(
+            &request,
+            Request::Workspace
+                | Request::Tree { .. }
+                | Request::Open { .. }
+                | Request::Compare { .. }
+                | Request::Checkpoint { .. }
+                | Request::Layout { .. }
+                | Request::Attach { .. }
+                | Request::Close { .. }
+        ) && self
+            .git
+            .lock()
+            .map_err(|_| "Source Control is unavailable.")?
+            .mutation_overlaps(std::path::Path::new(&root))
+        {
             return Err("A Git mutation is running in this worktree. Finish it before editing or saving; drafts remain.".into());
         }
         let supplied = match &request {
@@ -414,7 +474,7 @@ impl Engine {
                         }
                         next.text = disk.text.clone();
                         next.snapshot = disk;
-                        registry.replacement(d,&next)?;
+                        registry.replacement(d, &next)?;
                         next.next()?;
                         let view = next.view();
                         registry.docs.insert(id, next);
@@ -485,7 +545,8 @@ impl Engine {
                         if d.snapshot.readonly {
                             return Err("This preview cannot be saved.".into());
                         }
-                        if registry.bytes()-d.snapshot.text.len()+d.text.len()>4*1024*1024{
+                        if registry.bytes() - d.snapshot.text.len() + d.text.len() > 4 * 1024 * 1024
+                        {
                             return Err("Resident text limit reached. Close an inactive document before saving.".into());
                         }
                         next.next()?;
@@ -521,11 +582,11 @@ impl Engine {
                         } else {
                             validate_text(&next.text, &next.snapshot)?;
                         }
-                        registry.replacement(d,&next)?;
+                        registry.replacement(d, &next)?;
                         next.next()?;
                         let view = next.view();
                         registry.docs.insert(id, next);
-                        if let Err(error)=self.editor_checkpoint(&registry,&root){
+                        if let Err(error) = self.editor_checkpoint(&registry, &root) {
                             return Ok(json!({"saved":view,"recoveryWarning":error}));
                         }
                         Ok(view)
@@ -537,7 +598,8 @@ impl Engine {
                             );
                         }
                         let old_path = d.snapshot.path.clone();
-                        if registry.bytes()-d.snapshot.text.len()+d.text.len()>4*1024*1024{
+                        if registry.bytes() - d.snapshot.text.len() + d.text.len() > 4 * 1024 * 1024
+                        {
                             return Err("Resident text limit reached. Close an inactive document before saving.".into());
                         }
                         next.next()?;
@@ -581,13 +643,15 @@ impl Engine {
                         {
                             return Err("Destination is already open.".into());
                         }
-                        let old_path=d.snapshot.path.clone();
+                        let old_path = d.snapshot.path.clone();
                         next.next()?;
                         next.snapshot = fs.rename(&d.snapshot.path, &path, &d.snapshot.revision)?;
                         next.text = next.snapshot.text.clone();
                         let view = next.view();
                         registry.docs.insert(id, next);
-                        if let Err(error)=self.editor_checkpoint_forget(&registry,&root,Some(&old_path)){
+                        if let Err(error) =
+                            self.editor_checkpoint_forget(&registry, &root, Some(&old_path))
+                        {
                             return Ok(json!({"saved":view,"recoveryWarning":error}));
                         }
                         Ok(view)
@@ -599,7 +663,9 @@ impl Engine {
                         let path = d.snapshot.path.clone();
                         fs.delete(&path, &d.snapshot.revision)?;
                         registry.docs.remove(&id);
-                        if let Err(error)=self.editor_checkpoint_forget(&registry,&root,Some(&path)){
+                        if let Err(error) =
+                            self.editor_checkpoint_forget(&registry, &root, Some(&path))
+                        {
                             return Ok(json!({"deleted":true,"recoveryWarning":error}));
                         }
                         Ok(Value::Null)

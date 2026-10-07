@@ -3,10 +3,20 @@ use chrono::{Datelike, Duration, LocalResult, NaiveDate, NaiveTime, TimeZone, Ut
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone,Debug,Serialize,Deserialize,PartialEq,Eq)]
-#[serde(rename_all="camelCase",deny_unknown_fields)]
-pub struct BackgroundPolicy {pub revision:u32,pub enabled:bool}
-impl Default for BackgroundPolicy {fn default()->Self{Self{revision:1,enabled:false}}}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BackgroundPolicy {
+    pub revision: u32,
+    pub enabled: bool,
+}
+impl Default for BackgroundPolicy {
+    fn default() -> Self {
+        Self {
+            revision: 1,
+            enabled: false,
+        }
+    }
+}
 
 pub const MAX_SCHEDULES: usize = 32;
 pub const MAX_OCCURRENCES: usize = 50;

@@ -33,10 +33,12 @@ impl Maintenance {
             }
             state.closed |= close;
             state.waiting.drain(..).collect::<Vec<_>>()
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         for job in waiting {
             job.cancel.cancel();
-            let _ = job.store.finish_automatic_memory(&job.update,&job.cancel);
+            let _ = job.store.finish_automatic_memory(&job.update, &job.cancel);
         }
     }
 
@@ -207,9 +209,12 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(result["status"], "queued");
-        tokio::time::timeout(std::time::Duration::from_secs(3), provider.entered.notified())
-            .await
-            .expect("The deliberately slow model path must have started");
+        tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            provider.entered.notified(),
+        )
+        .await
+        .expect("The deliberately slow model path must have started");
         for n in 0..16 {
             let session = format!("waiting-{n}");
             store.create(&session).unwrap();

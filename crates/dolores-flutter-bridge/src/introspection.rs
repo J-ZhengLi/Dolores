@@ -368,7 +368,10 @@ impl Engine {
         if working {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
-            if self.workspace_directory.is_some(){tools.push(crate::harness_repair::spec());tools.push(crate::repair_evaluation::spec());}
+            if self.workspace_directory.is_some() {
+                tools.push(crate::harness_repair::spec());
+                tools.push(crate::repair_evaluation::spec());
+            }
             #[cfg(windows)]
             if self.workspace_directory.is_some() {
                 tools.push(crate::native_build::spec());
@@ -583,11 +586,7 @@ mod tests {
         )
         .unwrap_err()
         .contains("bundle changed"));
-        assert!(source(
-            r#"{"source":"D:/Workspace/mario_clone/mario-clone.html"}"#,
-            None
-        )
-        .is_err());
+        assert!(source(r#"{"source":"C:/example/project/game.html"}"#, None).is_err());
         assert!(source(r#"{"source":"core","maxBytes":1024}"#, None)
             .unwrap_err()
             .contains("evidence remains"));
@@ -659,14 +658,36 @@ mod tests {
         let profile = tempfile::tempdir().unwrap();
         let project = tempfile::tempdir().unwrap();
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
-        let mut engine = Engine::new(store, Arc::new(connection::testing::MemoryCredentials::default())).unwrap();
+        let mut engine = Engine::new(
+            store,
+            Arc::new(connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
         engine.workspace_directory = Some(profile.path().join("workspaces"));
-        let session = engine.call(serde_json::from_value(json!({"command":"createSession","kind":"project","path":project.path()})).unwrap()).unwrap();
-        let value = engine.harness_inventory(session["session"]["id"].as_str()).unwrap();
-        assert!(value["tools"].as_array().unwrap().iter().any(|t| t["id"] == "build_harness_repair"));
+        let session = engine
+            .call(
+                serde_json::from_value(
+                    json!({"command":"createSession","kind":"project","path":project.path()}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        let value = engine
+            .harness_inventory(session["session"]["id"].as_str())
+            .unwrap();
+        assert!(value["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == "build_harness_repair"));
         assert_eq!(value["nativeRepair"]["buildAvailable"], true);
         assert_eq!(value["nativeRepair"]["unattended"], false);
-        assert!(value["selfUpdate"].as_str().unwrap().contains("direct user review"));
-        assert!(!value.to_string().contains(&project.path().display().to_string()));
+        assert!(value["selfUpdate"]
+            .as_str()
+            .unwrap()
+            .contains("direct user review"));
+        assert!(!value
+            .to_string()
+            .contains(&project.path().display().to_string()));
     }
 }

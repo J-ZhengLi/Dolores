@@ -339,36 +339,151 @@ pub use harness_repair::{RepairFile, RepairWorkspace};
 mod repair_evaluation;
 pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 
-pub mod scheduling;
 pub mod companionship;
+pub mod scheduling;
 pub trait SessionStore: Send + Sync {
-    fn background_policy(&self)->Result<scheduling::BackgroundPolicy,String>{Ok(Default::default())}
-    fn set_background_policy(&self,_:bool,_:u32)->Result<scheduling::BackgroundPolicy,String>{Err("Background scheduling unavailable.".into())}
+    fn background_policy(&self) -> Result<scheduling::BackgroundPolicy, String> {
+        Ok(Default::default())
+    }
+    fn set_background_policy(
+        &self,
+        _: bool,
+        _: u32,
+    ) -> Result<scheduling::BackgroundPolicy, String> {
+        Err("Background scheduling unavailable.".into())
+    }
     #[allow(clippy::too_many_arguments)]
-    fn finish_companion(&self,_:&str,_:Option<&str>,_:Option<&str>,_:Option<crate::TokenUsage>,_:i64,_:bool,_:bool)->Result<Option<String>,String>{Err("Companionship unavailable.".into())}
-    fn recover_companion(&self)->Result<(),String>{Ok(())}
-    fn companion_state(&self)->Result<companionship::CompanionState,String>{Ok(Default::default())}
-    fn save_companion_state(&self,_:&companionship::CompanionState,_:u64)->Result<companionship::CompanionState,String>{Err("Companionship unavailable.".into())}
-    fn claim_companion(&self,_:i64,_:bool,_:bool,_:u32,_:companionship::CompanionCandidate)->Result<Option<companionship::CompanionCandidate>,String>{Err("Companionship unavailable.".into())}
-    fn scheduled_tasks(&self) -> Result<Vec<scheduling::ScheduledTask>, String> { Ok(vec![]) }
-    fn save_scheduled_task(&self, _: &scheduling::ScheduledTask, _: Option<u32>) -> Result<scheduling::ScheduledTask,String> { Err("Scheduled tasks are unavailable.".into()) }
-    fn scheduled_occurrences(&self, _: &str) -> Result<Vec<scheduling::ScheduledOccurrence>,String> { Ok(vec![]) }
-    fn claim_scheduled_occurrence(&self,_:&str,_:u32,_:i64,_:bool)->Result<Option<scheduling::ScheduledOccurrence>,String>{Err("Scheduled dispatch is unavailable.".into())}
-    fn update_scheduled_occurrence(&self,_:&scheduling::ScheduledOccurrence,_:&str)->Result<(),String>{Err("Scheduled progress is unavailable.".into())}
-    fn recover_scheduled_occurrences(&self)->Result<(),String>{Ok(())}
-    fn skip_scheduled_occurrence(&self,_:&str,_:u32)->Result<(),String>{Err("Skipping scheduled work is unavailable.".into())}
-    fn pending_scheduled_occurrences(&self,id:&str)->Result<Vec<scheduling::ScheduledOccurrence>,String>{Ok(self.scheduled_occurrences(id)?.into_iter().filter(|o|matches!(o.state.as_str(),"claimed"|"queued"|"running"|"waitingForApproval")).collect())}
-    fn scheduled_occurrence_summaries(&self,id:&str)->Result<Vec<serde_json::Value>,String>{self.scheduled_occurrences(id)?.into_iter().map(|o|{let mut v=serde_json::to_value(o).map_err(|_|"Task history unavailable.")?;v.as_object_mut().unwrap().remove("snapshot");Ok(v)}).collect()}
-    fn scheduled_for_run(&self,session:&str,id:u64)->Result<Option<scheduling::ScheduledOccurrence>,String>{for t in self.scheduled_tasks()?{if let Some(o)=self.scheduled_occurrences(&t.id)?.into_iter().find(|o|o.session.as_deref()==Some(session)&&o.run==Some(id)){return Ok(Some(o));}}Ok(None)}
-    fn repair_evaluations(&self, _: &str, _: &str) -> Result<Vec<RepairEvaluation>, String> { Ok(vec![]) }
+    fn finish_companion(
+        &self,
+        _: &str,
+        _: Option<&str>,
+        _: Option<&str>,
+        _: Option<crate::TokenUsage>,
+        _: i64,
+        _: bool,
+        _: bool,
+    ) -> Result<Option<String>, String> {
+        Err("Companionship unavailable.".into())
+    }
+    fn recover_companion(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn companion_state(&self) -> Result<companionship::CompanionState, String> {
+        Ok(Default::default())
+    }
+    fn save_companion_state(
+        &self,
+        _: &companionship::CompanionState,
+        _: u64,
+    ) -> Result<companionship::CompanionState, String> {
+        Err("Companionship unavailable.".into())
+    }
+    fn claim_companion(
+        &self,
+        _: i64,
+        _: bool,
+        _: bool,
+        _: u32,
+        _: companionship::CompanionCandidate,
+    ) -> Result<Option<companionship::CompanionCandidate>, String> {
+        Err("Companionship unavailable.".into())
+    }
+    fn scheduled_tasks(&self) -> Result<Vec<scheduling::ScheduledTask>, String> {
+        Ok(vec![])
+    }
+    fn save_scheduled_task(
+        &self,
+        _: &scheduling::ScheduledTask,
+        _: Option<u32>,
+    ) -> Result<scheduling::ScheduledTask, String> {
+        Err("Scheduled tasks are unavailable.".into())
+    }
+    fn scheduled_occurrences(
+        &self,
+        _: &str,
+    ) -> Result<Vec<scheduling::ScheduledOccurrence>, String> {
+        Ok(vec![])
+    }
+    fn claim_scheduled_occurrence(
+        &self,
+        _: &str,
+        _: u32,
+        _: i64,
+        _: bool,
+    ) -> Result<Option<scheduling::ScheduledOccurrence>, String> {
+        Err("Scheduled dispatch is unavailable.".into())
+    }
+    fn update_scheduled_occurrence(
+        &self,
+        _: &scheduling::ScheduledOccurrence,
+        _: &str,
+    ) -> Result<(), String> {
+        Err("Scheduled progress is unavailable.".into())
+    }
+    fn recover_scheduled_occurrences(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn skip_scheduled_occurrence(&self, _: &str, _: u32) -> Result<(), String> {
+        Err("Skipping scheduled work is unavailable.".into())
+    }
+    fn pending_scheduled_occurrences(
+        &self,
+        id: &str,
+    ) -> Result<Vec<scheduling::ScheduledOccurrence>, String> {
+        Ok(self
+            .scheduled_occurrences(id)?
+            .into_iter()
+            .filter(|o| {
+                matches!(
+                    o.state.as_str(),
+                    "claimed" | "queued" | "running" | "waitingForApproval"
+                )
+            })
+            .collect())
+    }
+    fn scheduled_occurrence_summaries(&self, id: &str) -> Result<Vec<serde_json::Value>, String> {
+        self.scheduled_occurrences(id)?
+            .into_iter()
+            .map(|o| {
+                let mut v = serde_json::to_value(o).map_err(|_| "Task history unavailable.")?;
+                v.as_object_mut().unwrap().remove("snapshot");
+                Ok(v)
+            })
+            .collect()
+    }
+    fn scheduled_for_run(
+        &self,
+        session: &str,
+        id: u64,
+    ) -> Result<Option<scheduling::ScheduledOccurrence>, String> {
+        for t in self.scheduled_tasks()? {
+            if let Some(o) = self
+                .scheduled_occurrences(&t.id)?
+                .into_iter()
+                .find(|o| o.session.as_deref() == Some(session) && o.run == Some(id))
+            {
+                return Ok(Some(o));
+            }
+        }
+        Ok(None)
+    }
+    fn repair_evaluations(&self, _: &str, _: &str) -> Result<Vec<RepairEvaluation>, String> {
+        Ok(vec![])
+    }
     fn save_repair_evaluation(&self, _: &RepairEvaluation) -> Result<(), String> {
         Err("Native evaluation storage unavailable; retained proposal remains.".into())
     }
-    fn repair_ids(&self, _: &str) -> Result<Vec<String>, String> { Ok(vec![]) }
+    fn repair_ids(&self, _: &str) -> Result<Vec<String>, String> {
+        Ok(vec![])
+    }
     fn repair_workspace(&self, _: &str, _: &str) -> Result<RepairWorkspace, String> {
         Err("Repair workspace is unavailable. Original task remains.".into())
     }
-    fn save_repair_workspace(&self, _: &RepairWorkspace, _: Option<u32>) -> Result<RepairWorkspace, String> {
+    fn save_repair_workspace(
+        &self,
+        _: &RepairWorkspace,
+        _: Option<u32>,
+    ) -> Result<RepairWorkspace, String> {
         Err("Repair workspace storage is unavailable. Original task remains.".into())
     }
     fn mod_state(&self, _: &str) -> Result<ModState, String> {
@@ -438,7 +553,10 @@ pub trait SessionStore: Send + Sync {
     fn save_editor_state(&self, _: &str, _: &serde_json::Value) -> Result<(), String> {
         Err("Editor recovery is unavailable in this store.".into())
     }
-    fn save_experimental_preferences(&self, _: &ExperimentalPreferences) -> Result<ExperimentalPreferences, String> {
+    fn save_experimental_preferences(
+        &self,
+        _: &ExperimentalPreferences,
+    ) -> Result<ExperimentalPreferences, String> {
         Err("Experimental preferences are unavailable in this store.".into())
     }
     fn save_appearance(&self, _: Appearance) -> Result<(), String> {
@@ -642,9 +760,15 @@ pub trait SessionStore: Send + Sync {
             revision: 1,
         })
     }
-    fn recover_automatic_memory(&self) -> Result<(), String> { Ok(()) }
-    fn memory_versions(&self, _: &str) -> Result<Vec<MemoryPreference>, String> { Ok(Vec::new()) }
-    fn memory_source_images(&self, _: &str, _: i64) -> Result<Vec<AttachmentRef>, String> { Ok(Vec::new()) }
+    fn recover_automatic_memory(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn memory_versions(&self, _: &str) -> Result<Vec<MemoryPreference>, String> {
+        Ok(Vec::new())
+    }
+    fn memory_source_images(&self, _: &str, _: i64) -> Result<Vec<AttachmentRef>, String> {
+        Ok(Vec::new())
+    }
     fn set_automatic_memory_policy(
         &self,
         _: bool,

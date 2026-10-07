@@ -1,5 +1,8 @@
 use super::{now, storage_error, SqliteStore};
-use dolores_core::{MemoryDraft, MemoryPreference, MemoryScope, MAX_PREFERENCES_PER_SCOPE, MAX_MEMORY_RECORDS_PER_SCOPE};
+use dolores_core::{
+    MemoryDraft, MemoryPreference, MemoryScope, MAX_MEMORY_RECORDS_PER_SCOPE,
+    MAX_PREFERENCES_PER_SCOPE,
+};
 use rusqlite::{params, OptionalExtension};
 
 const CONFLICT: &str =
@@ -19,12 +22,33 @@ pub(super) fn decode(data: String) -> Result<MemoryPreference, String> {
     Ok(value)
 }
 
-pub(super) fn mark_source(conn: &rusqlite::Connection, root:&str, origin:&dolores_core::MemoryOrigin, all_retained:bool) -> Result<(),String> {
-    let exists:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1)",[&origin.session],|r|r.get(0)).map_err(storage_error)?;
-    if !exists { return Ok(()); }
-    let message_id=if all_retained {
-        conn.query_row("SELECT COALESCE(MAX(id),0) FROM messages WHERE session_id=?1",[&origin.session],|r|r.get::<_,i64>(0)).map_err(storage_error)?.max(origin.message_id)
-    } else { origin.message_id };
+pub(super) fn mark_source(
+    conn: &rusqlite::Connection,
+    root: &str,
+    origin: &dolores_core::MemoryOrigin,
+    all_retained: bool,
+) -> Result<(), String> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1)",
+            [&origin.session],
+            |r| r.get(0),
+        )
+        .map_err(storage_error)?;
+    if !exists {
+        return Ok(());
+    }
+    let message_id = if all_retained {
+        conn.query_row(
+            "SELECT COALESCE(MAX(id),0) FROM messages WHERE session_id=?1",
+            [&origin.session],
+            |r| r.get::<_, i64>(0),
+        )
+        .map_err(storage_error)?
+        .max(origin.message_id)
+    } else {
+        origin.message_id
+    };
     conn.execute("INSERT INTO memory_forget_watermarks VALUES(?1,?2,?3) ON CONFLICT(root,session) DO UPDATE SET message_id=MAX(message_id,excluded.message_id)",params![root,origin.session,message_id]).map_err(storage_error)?;
     Ok(())
 }
@@ -200,7 +224,9 @@ impl SqliteStore {
                 if previous.revision != expected {
                     return Err(CONFLICT.into());
                 }
-                if let Some(origin)=&previous.origin { mark_source(&tx,root,origin,false)?; }
+                if let Some(origin) = &previous.origin {
+                    mark_source(&tx, root, origin, false)?;
+                }
                 (
                     expected.checked_add(1).ok_or(CONFLICT)?,
                     previous.created_at,
@@ -267,17 +293,30 @@ impl SqliteStore {
             .optional()
             .map_err(storage_error)?
             .ok_or(CONFLICT)?;
-        let current=decode(data)?;
+        let current = decode(data)?;
         if current.revision != revision {
             return Err(CONFLICT.into());
         }
-        let mut records=vec![current];
+        let mut records = vec![current];
         {
-            let mut query=tx.prepare("SELECT data FROM memory_versions WHERE id=?1 ORDER BY revision DESC LIMIT 4").map_err(storage_error)?;
-            for row in query.query_map([id],|r|r.get::<_,String>(0)).map_err(storage_error)? { records.push(decode(row.map_err(storage_error)?)?); }
+            let mut query = tx
+                .prepare(
+                    "SELECT data FROM memory_versions WHERE id=?1 ORDER BY revision DESC LIMIT 4",
+                )
+                .map_err(storage_error)?;
+            for row in query
+                .query_map([id], |r| r.get::<_, String>(0))
+                .map_err(storage_error)?
+            {
+                records.push(decode(row.map_err(storage_error)?)?);
+            }
         }
-        for record in records { if let Some(origin)=record.origin { mark_source(&tx,root,&origin,true)?; } }
-        crate::companionship::forget_source(&tx,root,id)?;
+        for record in records {
+            if let Some(origin) = record.origin {
+                mark_source(&tx, root, &origin, true)?;
+            }
+        }
+        crate::companionship::forget_source(&tx, root, id)?;
         tx.execute(
             "DELETE FROM memory_preferences WHERE id=?1 AND root=?2",
             params![id, root],

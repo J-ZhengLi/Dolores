@@ -5,9 +5,6 @@ mod adaptation_tests;
 mod approval;
 mod attachments;
 mod automatic_memory;
-mod memory_maintenance;
-#[cfg(test)]
-mod memory_recall_tests;
 mod browser;
 mod changes;
 #[cfg(test)]
@@ -15,6 +12,7 @@ mod checkpoint_tests;
 mod checkpoints;
 #[cfg(test)]
 mod compaction_tests;
+mod companionship;
 mod comparison;
 mod connection;
 mod continuation;
@@ -22,23 +20,24 @@ mod desktop;
 mod desktop_access;
 mod desktop_control;
 mod desktop_recovery;
-mod experience;
-mod experimental;
 mod editor;
-mod git_process;
-mod source_control;
-mod terminal;
-mod language;
-mod language_tools;
+mod experience;
 #[cfg(test)]
 mod experience_tests;
+mod experimental;
 mod export;
+mod git_process;
 mod harness_repair;
 mod instructions;
 mod introspection;
 mod knowledge;
+mod language;
+mod language_tools;
 mod mcp;
 mod memory;
+mod memory_maintenance;
+#[cfg(test)]
+mod memory_recall_tests;
 mod memory_suggestions;
 mod mod_generation;
 mod mods;
@@ -47,18 +46,19 @@ mod native_update;
 mod permissions;
 mod recovery;
 mod registry;
-mod scheduling;
-mod companionship;
-mod scheduled_edits;
 mod repair_evaluation;
-mod run_journal;
 mod run_admission;
+mod run_journal;
+mod scheduled_edits;
+mod scheduling;
 mod settings;
 mod skill_drafts;
 mod skills;
+mod source_control;
 mod subagents;
 mod summaries;
 mod task_execution;
+mod terminal;
 #[cfg(test)]
 mod timeout_tests;
 mod web;
@@ -140,24 +140,66 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
     BackgroundPolicy,
-    SetBackgroundPolicy{enabled:bool,revision:u32},
+    SetBackgroundPolicy {
+        enabled: bool,
+        revision: u32,
+    },
     CompanionState,
-    CompanionPolicy {policy:dolores_core::companionship::CompanionPolicy,revision:u64},
-    CompanionTick {session:Option<String>, #[serde(default)] busy:bool},
-    CompanionFeedback {id:String,action:String},
+    CompanionPolicy {
+        policy: dolores_core::companionship::CompanionPolicy,
+        revision: u64,
+    },
+    CompanionTick {
+        session: Option<String>,
+        #[serde(default)]
+        busy: bool,
+    },
+    CompanionFeedback {
+        id: String,
+        action: String,
+    },
     ScheduledTasks,
     ScheduledTick,
-    ScheduledStart { occurrence:String,id:u64 },
-    ScheduledAbandon { occurrence:String,error:String },
-    ScheduledManage { task:String,revision:u32,action:String },
-    MemoryEvidence {session:Option<String>, id:String, revision:u32},
-    LanguageEdits { session:String, request:editor::language_edits::Request },
-    Language { request: language::Request },
-    Terminal { request: terminal::Request },
-    Git { session:String, request:source_control::Request },
-    Editor { session:String, request:editor::Request },
+    ScheduledStart {
+        occurrence: String,
+        id: u64,
+    },
+    ScheduledAbandon {
+        occurrence: String,
+        error: String,
+    },
+    ScheduledManage {
+        task: String,
+        revision: u32,
+        action: String,
+    },
+    MemoryEvidence {
+        session: Option<String>,
+        id: String,
+        revision: u32,
+    },
+    LanguageEdits {
+        session: String,
+        request: editor::language_edits::Request,
+    },
+    Language {
+        request: language::Request,
+    },
+    Terminal {
+        request: terminal::Request,
+    },
+    Git {
+        session: String,
+        request: source_control::Request,
+    },
+    Editor {
+        session: String,
+        request: editor::Request,
+    },
     ExperimentalPreferences,
-    SaveExperimentalPreferences { preferences: dolores_core::ExperimentalPreferences },
+    SaveExperimentalPreferences {
+        preferences: dolores_core::ExperimentalPreferences,
+    },
     NativeRepairs {
         session: Option<String>,
     },
@@ -811,11 +853,26 @@ impl Engine {
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
-        if matches!(command,Command::ScheduledTasks){return self.scheduled_list();}
-        if matches!(command,Command::ScheduledTick){return self.scheduled_tick();}
-        if let Command::ScheduledStart {occurrence,id}=&command{return self.scheduled_start(occurrence,*id);}
-        if let Command::ScheduledAbandon {occurrence,error}=&command{return self.scheduled_abandon(occurrence,error);}
-        if let Command::ScheduledManage {task,revision,action}=&command{return self.scheduled_manage(task,*revision,action);}
+        if matches!(command, Command::ScheduledTasks) {
+            return self.scheduled_list();
+        }
+        if matches!(command, Command::ScheduledTick) {
+            return self.scheduled_tick();
+        }
+        if let Command::ScheduledStart { occurrence, id } = &command {
+            return self.scheduled_start(occurrence, *id);
+        }
+        if let Command::ScheduledAbandon { occurrence, error } = &command {
+            return self.scheduled_abandon(occurrence, error);
+        }
+        if let Command::ScheduledManage {
+            task,
+            revision,
+            action,
+        } = &command
+        {
+            return self.scheduled_manage(task, *revision, action);
+        }
         // Reserve/prepare/cancel are synchronized. Persistence runs on Dart's worker
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;
@@ -990,7 +1047,15 @@ impl Engine {
             }
             _ => {}
         }
-        if active.is_some() && !matches!(&command, Command::Start { .. } | Command::Bootstrap | Command::CreateSession { .. } | Command::Context { .. }) {
+        if active.is_some()
+            && !matches!(
+                &command,
+                Command::Start { .. }
+                    | Command::Bootstrap
+                    | Command::CreateSession { .. }
+                    | Command::Context { .. }
+            )
+        {
             return Err("Stop the current response first.".into());
         }
         match command {
@@ -1271,12 +1336,16 @@ impl Engine {
             } => self.save_memory_suggestion(&session, &token, index, scope, input),
             Command::DiscardMemoryReview { token } => self.discard_memory_review(&token),
             Command::Memories { session } => self.memories(session.as_deref()),
-            Command::MemoryEvidence { session,id,revision } => self.memory_evidence(session.as_deref(),&id,revision),
+            Command::MemoryEvidence {
+                session,
+                id,
+                revision,
+            } => self.memory_evidence(session.as_deref(), &id, revision),
             Command::SetAutomaticMemory { enabled, revision } => {
                 let policy = self.store.set_automatic_memory_policy(enabled, revision)?;
                 self.memory_maintenance.stop(false);
                 Ok(json!(policy))
-            },
+            }
             Command::SaveMemory {
                 session,
                 scope,
@@ -1339,8 +1408,7 @@ impl Engine {
                 let effective = self.effective_settings(session.as_deref())?;
                 let guidance =
                     instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
-                let memories =
-                    memory::recall_for_session(self.store.as_ref(), session.as_deref())?;
+                let memories = memory::recall_for_session(self.store.as_ref(), session.as_deref())?;
                 let skills = skills::for_session(self.store.as_ref(), session.as_deref())?;
                 let tools = match session.as_ref() {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
@@ -1416,8 +1484,25 @@ impl Engine {
                 } else {
                     messages
                 };
-                let (mut messages, mut memory_context)=memory::prepare_recall(messages,memories.clone(),&specs,Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),effective.request)?;
-                if let Some(session)=session.as_deref(){memory::recall_image(self.store.as_ref(),session,&mut messages,&mut memory_context,&specs,Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),effective.request,&preferences.model)?;}
+                let (mut messages, mut memory_context) = memory::prepare_recall(
+                    messages,
+                    memories.clone(),
+                    &specs,
+                    Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),
+                    effective.request,
+                )?;
+                if let Some(session) = session.as_deref() {
+                    memory::recall_image(
+                        self.store.as_ref(),
+                        session,
+                        &mut messages,
+                        &mut memory_context,
+                        &specs,
+                        Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),
+                        effective.request,
+                        &preferences.model,
+                    )?;
+                }
                 let (messages, tokens) = dolores_core::prepare_token_context(
                     messages,
                     &specs,
@@ -1642,10 +1727,20 @@ impl Engine {
                         Some(created["session"]["id"].as_str().unwrap().to_owned())
                     }
                 };
-                let scope = self.store.workspace(session.as_deref().unwrap())?.root
+                let scope = self
+                    .store
+                    .workspace(session.as_deref().unwrap())?
+                    .root
                     .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
-                active.check_scope(id,&scope)?;
-                if self.git.lock().map_err(|_|"Source Control is unavailable.")?.mutation_overlaps(std::path::Path::new(&scope)){return Err("Finish the Git operation in this worktree before starting a task. Your draft remains.".into());}
+                active.check_scope(id, &scope)?;
+                if self
+                    .git
+                    .lock()
+                    .map_err(|_| "Source Control is unavailable.")?
+                    .mutation_overlaps(std::path::Path::new(&scope))
+                {
+                    return Err("Finish the Git operation in this worktree before starting a task. Your draft remains.".into());
+                }
                 if desktop_capture.is_some() != observation_model.is_some()
                     || (desktop_capture.is_some()
                         && (continuation.is_some()
@@ -1683,9 +1778,15 @@ impl Engine {
                         "Window sharing requires its saved task and selected capture.".into(),
                     );
                 }
-                let scheduled=scheduling::for_run(self.store.as_ref(),session.as_deref(),id)?;
-                if let Some(o)=&scheduled {if o.state!="claimed"||o.snapshot.prompt!=input{return Err("Scheduled run snapshot changed. Refresh Scheduled.".into());}}
-                let mut effective = if let Some(o)=&scheduled {o.snapshot.effective.clone()} else if let Some(model) = &observation_model {
+                let scheduled = scheduling::for_run(self.store.as_ref(), session.as_deref(), id)?;
+                if let Some(o) = &scheduled {
+                    if o.state != "claimed" || o.snapshot.prompt != input {
+                        return Err("Scheduled run snapshot changed. Refresh Scheduled.".into());
+                    }
+                }
+                let mut effective = if let Some(o) = &scheduled {
+                    o.snapshot.effective.clone()
+                } else if let Some(model) = &observation_model {
                     self.observation_settings(session.as_deref().unwrap(), model)?
                 } else {
                     self.effective_settings(session.as_deref())?
@@ -1753,11 +1854,17 @@ impl Engine {
                     effective.task.check_segment(source.segments)?;
                 }
                 let _entered = self.runtime.enter();
-                let mut provider = if let Some(o)=&scheduled {self.connection.lock().map_err(|_|"Connection unavailable.")?.scheduled_provider(&o.snapshot.preferences,effective.request)?}else{self
-                    .connection
-                    .lock()
-                    .map_err(|_| "Connection unavailable.")?
-                    .pipe_provider(observation_model.as_deref(), effective.request)?};
+                let mut provider = if let Some(o) = &scheduled {
+                    self.connection
+                        .lock()
+                        .map_err(|_| "Connection unavailable.")?
+                        .scheduled_provider(&o.snapshot.preferences, effective.request)?
+                } else {
+                    self.connection
+                        .lock()
+                        .map_err(|_| "Connection unavailable.")?
+                        .pipe_provider(observation_model.as_deref(), effective.request)?
+                };
                 if let Some((_, asset)) = &observation {
                     provider = provider.with_attachment_assets(vec![asset.clone()], true)?;
                     if let Some(control) = &control {
@@ -1786,9 +1893,11 @@ impl Engine {
                 };
                 // Scheduling changes local task metadata; it must not execute the
                 // future work or consume the normal project tool catalog now.
-                let creating_schedule = scheduled.is_none() && desktop_capture.is_none()
+                let creating_schedule = scheduled.is_none()
+                    && desktop_capture.is_none()
                     && dolores_core::scheduling::explicit_schedule_intent(&input);
-                let editing_schedule = scheduled.is_none() && desktop_capture.is_none()
+                let editing_schedule = scheduled.is_none()
+                    && desktop_capture.is_none()
                     && scheduled_edits::intent(&input);
                 let mut tools = workspace
                     .filter(|_| !creating_schedule && !editing_schedule)
@@ -1861,10 +1970,19 @@ impl Engine {
                     }
                 }
                 if creating_schedule {
-                    tools.push(Arc::new(scheduling::ScheduleTool::new(self.store.clone(),session.clone().unwrap(),input.clone(),effective.clone())?));
+                    tools.push(Arc::new(scheduling::ScheduleTool::new(
+                        self.store.clone(),
+                        session.clone().unwrap(),
+                        input.clone(),
+                        effective.clone(),
+                    )?));
                 }
                 if editing_schedule {
-                    tools.push(Arc::new(scheduled_edits::ManageTool::new(self.store.clone(),session.clone().unwrap(),input.clone())));
+                    tools.push(Arc::new(scheduled_edits::ManageTool::new(
+                        self.store.clone(),
+                        session.clone().unwrap(),
+                        input.clone(),
+                    )));
                 }
                 let compaction_provider = if desktop_capture.is_none()
                     && self.store.auto_compact(session.as_deref().unwrap())?
@@ -1878,7 +1996,10 @@ impl Engine {
                 } else {
                     None
                 };
-                let model = scheduled.as_ref().map(|o|o.snapshot.preferences.model.clone()).unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
+                let model = scheduled
+                    .as_ref()
+                    .map(|o| o.snapshot.preferences.model.clone())
+                    .unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
                 let settings = provider.request_settings();
                 let reflection_provider = if desktop_capture.is_none()
                     && session
@@ -2017,13 +2138,16 @@ impl Engine {
                 } else {
                     approval
                 };
-                let admission = active.reserve_primary(Run {
-                    thread: session.clone(),
-                    id,
-                    cancel: cancel.clone(),
-                    events,
-                    approvals,
-                }, scope)?;
+                let admission = active.reserve_primary(
+                    Run {
+                        thread: session.clone(),
+                        id,
+                        cancel: cancel.clone(),
+                        events,
+                        approvals,
+                    },
+                    scope,
+                )?;
                 let memory_maintenance = self.memory_maintenance.clone();
                 let store = self.store.clone();
                 let _ = output.try_send(json!({"type":"queued","id":id,"note":"Waiting for an available run slot or project."}));
@@ -2142,8 +2266,12 @@ async fn execute(
     if cancel.is_cancelled() {
         return Err(stopped());
     }
-    let scheduling_metadata = tools.iter().any(|tool|
-        matches!(tool.spec().name.as_str(), "schedule_task" | "manage_scheduled_task"));
+    let scheduling_metadata = tools.iter().any(|tool| {
+        matches!(
+            tool.spec().name.as_str(),
+            "schedule_task" | "manage_scheduled_task"
+        )
+    });
     if let Some(log) = &log {
         log.record(
             None,
@@ -2162,9 +2290,13 @@ async fn execute(
             let (history, count, session_summary) = reader.summary_context_history(&session)?;
             let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
             let memories = memory::recall_for_session(reader.as_ref(), Some(&session))?;
-            let skills = if scheduling_metadata { vec![] }
-                else if let Some(o)=scheduling::for_run(reader.as_ref(),Some(&session),id)?{o.snapshot.skill.into_iter().collect()}
-                else{skills::for_session(reader.as_ref(), Some(&session))?};
+            let skills = if scheduling_metadata {
+                vec![]
+            } else if let Some(o) = scheduling::for_run(reader.as_ref(), Some(&session), id)? {
+                o.snapshot.skill.into_iter().collect()
+            } else {
+                skills::for_session(reader.as_ref(), Some(&session))?
+            };
             Ok((
                 session,
                 history,
@@ -2184,7 +2316,7 @@ async fn execute(
     if scheduling_metadata {
         context[0].content.push_str("\nThis turn creates or changes scheduled task metadata, not the future work. Use the supplied scheduling tool when the current human request fully specifies the schedule. An explicit recurring weekday/time needs no date or report contents now. Resolve only missing schedule, skill, model or task identity details. Future skill guidance is pinned by the host and loaded when the task runs. Do not execute or rehearse that work now. Report the actual tool receipt; never claim creation without one.");
     }
-    if scheduling::for_run(store.as_ref(),Some(&session),id)?.is_some(){
+    if scheduling::for_run(store.as_ref(), Some(&session), id)?.is_some() {
         context[0].content.push_str("\nThis is an occurrence of the user's scheduled task, due now. Execute the underlying work now using the pinned skill. The user request describes its schedule for context only; do not create another schedule or merely confirm future work. Deliver the actual result here. Tool effects still need the supplied host authorization.");
     }
     if let Some(source) = &resume_run {
@@ -2241,8 +2373,23 @@ async fn execute(
         attachments::prepare_text(store.as_ref(), &session, context)?
     };
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
-    let (mut context,mut memory_context)=memory::prepare_recall(context,memories,&specs,provider.context_window_tokens(),settings.unwrap_or_default())?;
-    let recalled_images=memory::recall_image(store.as_ref(),&session,&mut context,&mut memory_context,&specs,provider.context_window_tokens(),settings.unwrap_or_default(),&model)?;
+    let (mut context, mut memory_context) = memory::prepare_recall(
+        context,
+        memories,
+        &specs,
+        provider.context_window_tokens(),
+        settings.unwrap_or_default(),
+    )?;
+    let recalled_images = memory::recall_image(
+        store.as_ref(),
+        &session,
+        &mut context,
+        &mut memory_context,
+        &specs,
+        provider.context_window_tokens(),
+        settings.unwrap_or_default(),
+        &model,
+    )?;
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
         &specs,
@@ -2359,7 +2506,7 @@ async fn execute(
         ))
         .await;
     }
-    let assets = attachments::image_assets(store.as_ref(), &session, &context,&recalled_images)?;
+    let assets = attachments::image_assets(store.as_ref(), &session, &context, &recalled_images)?;
     let provider = if assets.is_empty() {
         provider
     } else {
@@ -2696,13 +2843,18 @@ fn reply(input: &[u8]) -> Value {
     let result = serde_json::from_slice::<Command>(input)
         .map_err(|_| "Invalid bridge request.".to_string())
         .and_then(|command| {
-            if input.len()>128*1024 && !matches!(&command, Command::Editor { .. }) && !(input.len()<=5*1024*1024 && matches!(&command,Command::LanguageEdits {..})) {
+            if input.len() > 128 * 1024
+                && !matches!(&command, Command::Editor { .. })
+                && !(input.len() <= 5 * 1024 * 1024
+                    && matches!(&command, Command::LanguageEdits { .. }))
+            {
                 return Err("Invalid bridge request size.".into());
             }
             match ENGINE.get_or_init(initialize) {
-            Ok(engine) => engine.call(command),
-            Err(error) => Err(error.clone()),
-        }});
+                Ok(engine) => engine.call(command),
+                Err(error) => Err(error.clone()),
+            }
+        });
     match result {
         Ok(result) => json!({"ok":true,"result":result}),
         Err(error) => json!({"ok":false,"error":error}),

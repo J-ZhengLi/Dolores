@@ -192,17 +192,39 @@ mod tests {
         store.create("chat").unwrap();
         store.save_draft("chat", "Keep my work").unwrap();
         let mut run = RunSnapshot {
-            parent_run: None, segments: 1,
+            parent_run: None,
+            segments: 1,
             id: "11111111-1111-4111-8111-111111111111".into(),
-            thread: "chat".into(), model: "fixture".into(),
-            settings: Default::default(), input: "Write my report".into(),
-            state: RunState::Prepared, sequence: 0, created_at: 0,
-            build: "fixture".into(), extensions: vec![], effective_settings: None,
-            tools: ["read_text_file", "list_folder", "search_text", "edit_text_file",
-                "create_text_file", "run_command", "web_search", "read_web_page",
-                "browser", "delegate_tasks", "inspect_harness", "harness_repair",
-                "test_harness_repair", "build_harness_repair", "request_desktop_access"]
-                .into_iter().map(str::to_string).collect(),
+            thread: "chat".into(),
+            model: "fixture".into(),
+            settings: Default::default(),
+            input: "Write my report".into(),
+            state: RunState::Prepared,
+            sequence: 0,
+            created_at: 0,
+            build: "fixture".into(),
+            extensions: vec![],
+            effective_settings: None,
+            tools: [
+                "read_text_file",
+                "list_folder",
+                "search_text",
+                "edit_text_file",
+                "create_text_file",
+                "run_command",
+                "web_search",
+                "read_web_page",
+                "browser",
+                "delegate_tasks",
+                "inspect_harness",
+                "harness_repair",
+                "test_harness_repair",
+                "build_harness_repair",
+                "request_desktop_access",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
         };
         store.begin_run(&run).unwrap();
         run.id = "22222222-2222-4222-8222-222222222222".into();

@@ -874,9 +874,13 @@ async fn inspection_preparation_refusal_has_actionable_recovery_without_approval
     .unwrap();
     assert_eq!(approval.count.load(Ordering::SeqCst), 0);
     assert_eq!(reply.summary.tools[0].status, "blocked");
-    assert!(reply.summary.tools[0].content.contains("empty arguments for inventory"));
+    assert!(reply.summary.tools[0]
+        .content
+        .contains("empty arguments for inventory"));
     assert!(reply.summary.tools[0].content.contains("1–2048"));
-    assert!(reply.summary.tools[0].content.starts_with("Invalid harness inspection arguments."));
+    assert!(reply.summary.tools[0]
+        .content
+        .starts_with("Invalid harness inspection arguments."));
     assert!(!reply.summary.tools[0].content.contains("File request"));
     assert_eq!(reply.answer, "Final answer");
 }

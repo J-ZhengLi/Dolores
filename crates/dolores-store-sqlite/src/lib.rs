@@ -4,12 +4,11 @@ use dolores_core::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 mod automatic_memory;
-mod scheduling;
-mod experimental;
 #[cfg(test)]
 mod change_tests;
 mod changes;
 mod comparison;
+mod experimental;
 mod feedback;
 mod generation_profiles;
 mod history;
@@ -17,6 +16,7 @@ mod instructions;
 mod mcp;
 mod memory;
 mod model_details;
+mod scheduling;
 mod skills;
 mod summaries;
 mod workspace;
@@ -32,8 +32,8 @@ pub struct SqliteStore {
 }
 mod adaptation;
 mod attachments;
-mod drafts;
 mod companionship;
+mod drafts;
 mod experience;
 mod knowledge;
 #[cfg(test)]
@@ -241,29 +241,133 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
-    fn background_policy(&self)->Result<dolores_core::scheduling::BackgroundPolicy,String>{scheduling::background(&*self.lock()?)}
-    fn set_background_policy(&self,enabled:bool,revision:u32)->Result<dolores_core::scheduling::BackgroundPolicy,String>{scheduling::save_background(&mut *self.lock()?,enabled,revision)}
+    fn background_policy(&self) -> Result<dolores_core::scheduling::BackgroundPolicy, String> {
+        scheduling::background(&*self.lock()?)
+    }
+    fn set_background_policy(
+        &self,
+        enabled: bool,
+        revision: u32,
+    ) -> Result<dolores_core::scheduling::BackgroundPolicy, String> {
+        scheduling::save_background(&mut *self.lock()?, enabled, revision)
+    }
     #[allow(clippy::too_many_arguments)]
-    fn finish_companion(&self,id:&str,body:Option<&str>,note:Option<&str>,usage:Option<dolores_core::TokenUsage>,now:i64,present:bool,busy:bool)->Result<Option<String>,String>{self.companion_finish(id,body,note,usage,now,present,busy)}
-    fn recover_companion(&self)->Result<(),String>{self.companion_recover()}
-    fn companion_state(&self)->Result<dolores_core::companionship::CompanionState,String>{self.companion_read()}
-    fn save_companion_state(&self,s:&dolores_core::companionship::CompanionState,r:u64)->Result<dolores_core::companionship::CompanionState,String>{self.companion_save(s,r)}
-    fn claim_companion(&self,n:i64,p:bool,b:bool,j:u32,c:dolores_core::companionship::CompanionCandidate)->Result<Option<dolores_core::companionship::CompanionCandidate>,String>{self.companion_claim(n,p,b,j,c)}
-    fn scheduled_tasks(&self)->Result<Vec<dolores_core::scheduling::ScheduledTask>,String>{scheduling::list(&*self.lock()?)}
-    fn save_scheduled_task(&self,t:&dolores_core::scheduling::ScheduledTask,expected:Option<u32>)->Result<dolores_core::scheduling::ScheduledTask,String>{scheduling::save(&mut *self.lock()?,t,expected)}
-    fn scheduled_occurrences(&self,id:&str)->Result<Vec<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::history(&*self.lock()?,id)}
-    fn claim_scheduled_occurrence(&self,id:&str,revision:u32,now:i64,manual:bool)->Result<Option<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::claim(&mut *self.lock()?,id,revision,now,manual)}
-    fn update_scheduled_occurrence(&self,o:&dolores_core::scheduling::ScheduledOccurrence,state:&str)->Result<(),String>{scheduling::update(&mut *self.lock()?,o,state)}
-    fn recover_scheduled_occurrences(&self)->Result<(),String>{scheduling::recover(&mut *self.lock()?)}
-    fn skip_scheduled_occurrence(&self,id:&str,revision:u32)->Result<(),String>{scheduling::skip(&mut *self.lock()?,id,revision)}
-    fn pending_scheduled_occurrences(&self,id:&str)->Result<Vec<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::pending(&*self.lock()?,id)}
-    fn scheduled_occurrence_summaries(&self,id:&str)->Result<Vec<serde_json::Value>,String>{scheduling::summaries(&*self.lock()?,id)}
-    fn scheduled_for_run(&self,session:&str,id:u64)->Result<Option<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::for_run(&*self.lock()?,session,id)}
-    fn repair_evaluations(&self, session:&str, repair:&str)->Result<Vec<dolores_core::RepairEvaluation>,String> {self.evaluation_list(session,repair)}
-    fn save_repair_evaluation(&self, value:&dolores_core::RepairEvaluation)->Result<(),String>{self.evaluation_save(value)}
-    fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> { self.repair_list(session) }
-    fn repair_workspace(&self, session: &str, id: &str) -> Result<dolores_core::RepairWorkspace, String> { self.read_repair(session,id) }
-    fn save_repair_workspace(&self, state: &dolores_core::RepairWorkspace, revision: Option<u32>) -> Result<dolores_core::RepairWorkspace, String> { self.write_repair(state,revision) }
+    fn finish_companion(
+        &self,
+        id: &str,
+        body: Option<&str>,
+        note: Option<&str>,
+        usage: Option<dolores_core::TokenUsage>,
+        now: i64,
+        present: bool,
+        busy: bool,
+    ) -> Result<Option<String>, String> {
+        self.companion_finish(id, body, note, usage, now, present, busy)
+    }
+    fn recover_companion(&self) -> Result<(), String> {
+        self.companion_recover()
+    }
+    fn companion_state(&self) -> Result<dolores_core::companionship::CompanionState, String> {
+        self.companion_read()
+    }
+    fn save_companion_state(
+        &self,
+        s: &dolores_core::companionship::CompanionState,
+        r: u64,
+    ) -> Result<dolores_core::companionship::CompanionState, String> {
+        self.companion_save(s, r)
+    }
+    fn claim_companion(
+        &self,
+        n: i64,
+        p: bool,
+        b: bool,
+        j: u32,
+        c: dolores_core::companionship::CompanionCandidate,
+    ) -> Result<Option<dolores_core::companionship::CompanionCandidate>, String> {
+        self.companion_claim(n, p, b, j, c)
+    }
+    fn scheduled_tasks(&self) -> Result<Vec<dolores_core::scheduling::ScheduledTask>, String> {
+        scheduling::list(&*self.lock()?)
+    }
+    fn save_scheduled_task(
+        &self,
+        t: &dolores_core::scheduling::ScheduledTask,
+        expected: Option<u32>,
+    ) -> Result<dolores_core::scheduling::ScheduledTask, String> {
+        scheduling::save(&mut *self.lock()?, t, expected)
+    }
+    fn scheduled_occurrences(
+        &self,
+        id: &str,
+    ) -> Result<Vec<dolores_core::scheduling::ScheduledOccurrence>, String> {
+        scheduling::history(&*self.lock()?, id)
+    }
+    fn claim_scheduled_occurrence(
+        &self,
+        id: &str,
+        revision: u32,
+        now: i64,
+        manual: bool,
+    ) -> Result<Option<dolores_core::scheduling::ScheduledOccurrence>, String> {
+        scheduling::claim(&mut *self.lock()?, id, revision, now, manual)
+    }
+    fn update_scheduled_occurrence(
+        &self,
+        o: &dolores_core::scheduling::ScheduledOccurrence,
+        state: &str,
+    ) -> Result<(), String> {
+        scheduling::update(&mut *self.lock()?, o, state)
+    }
+    fn recover_scheduled_occurrences(&self) -> Result<(), String> {
+        scheduling::recover(&mut *self.lock()?)
+    }
+    fn skip_scheduled_occurrence(&self, id: &str, revision: u32) -> Result<(), String> {
+        scheduling::skip(&mut *self.lock()?, id, revision)
+    }
+    fn pending_scheduled_occurrences(
+        &self,
+        id: &str,
+    ) -> Result<Vec<dolores_core::scheduling::ScheduledOccurrence>, String> {
+        scheduling::pending(&*self.lock()?, id)
+    }
+    fn scheduled_occurrence_summaries(&self, id: &str) -> Result<Vec<serde_json::Value>, String> {
+        scheduling::summaries(&*self.lock()?, id)
+    }
+    fn scheduled_for_run(
+        &self,
+        session: &str,
+        id: u64,
+    ) -> Result<Option<dolores_core::scheduling::ScheduledOccurrence>, String> {
+        scheduling::for_run(&*self.lock()?, session, id)
+    }
+    fn repair_evaluations(
+        &self,
+        session: &str,
+        repair: &str,
+    ) -> Result<Vec<dolores_core::RepairEvaluation>, String> {
+        self.evaluation_list(session, repair)
+    }
+    fn save_repair_evaluation(&self, value: &dolores_core::RepairEvaluation) -> Result<(), String> {
+        self.evaluation_save(value)
+    }
+    fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> {
+        self.repair_list(session)
+    }
+    fn repair_workspace(
+        &self,
+        session: &str,
+        id: &str,
+    ) -> Result<dolores_core::RepairWorkspace, String> {
+        self.read_repair(session, id)
+    }
+    fn save_repair_workspace(
+        &self,
+        state: &dolores_core::RepairWorkspace,
+        revision: Option<u32>,
+    ) -> Result<dolores_core::RepairWorkspace, String> {
+        self.write_repair(state, revision)
+    }
     fn mod_state(&self, root: &str) -> Result<dolores_core::ModState, String> {
         self.read_mods(root)
     }
@@ -342,17 +446,35 @@ impl SessionStore for SqliteStore {
         experimental::read(&*self.lock()?)
     }
     fn editor_state(&self, root: &str) -> Result<serde_json::Value, String> {
-        let c=self.lock()?;
-        let raw: Option<String>=c.query_row("SELECT data FROM workspace_editor_state WHERE root=?1",[root],|r|r.get(0)).optional().map_err(storage_error)?;
-        match raw {None=>Ok(serde_json::Value::Null),Some(raw) if raw.len()<=8*1024*1024=>serde_json::from_str(&raw).map_err(storage_error),_=>Err("Editor recovery exceeds its size limit.".into())}
+        let c = self.lock()?;
+        let raw: Option<String> = c
+            .query_row(
+                "SELECT data FROM workspace_editor_state WHERE root=?1",
+                [root],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        match raw {
+            None => Ok(serde_json::Value::Null),
+            Some(raw) if raw.len() <= 8 * 1024 * 1024 => {
+                serde_json::from_str(&raw).map_err(storage_error)
+            }
+            _ => Err("Editor recovery exceeds its size limit.".into()),
+        }
     }
-    fn save_editor_state(&self, root:&str, value:&serde_json::Value)->Result<(),String> {
-        let raw=serde_json::to_string(value).map_err(storage_error)?;
-        if root.len()>4096||raw.len()>8*1024*1024 {return Err("Editor recovery exceeds its size limit.".into());}
+    fn save_editor_state(&self, root: &str, value: &serde_json::Value) -> Result<(), String> {
+        let raw = serde_json::to_string(value).map_err(storage_error)?;
+        if root.len() > 4096 || raw.len() > 8 * 1024 * 1024 {
+            return Err("Editor recovery exceeds its size limit.".into());
+        }
         self.lock()?.execute("INSERT INTO workspace_editor_state(root,data) VALUES(?1,?2) ON CONFLICT(root) DO UPDATE SET data=excluded.data",params![root,raw]).map_err(storage_error)?;
         Ok(())
     }
-    fn save_experimental_preferences(&self, value: &dolores_core::ExperimentalPreferences) -> Result<dolores_core::ExperimentalPreferences, String> {
+    fn save_experimental_preferences(
+        &self,
+        value: &dolores_core::ExperimentalPreferences,
+    ) -> Result<dolores_core::ExperimentalPreferences, String> {
         experimental::save(&mut *self.lock()?, value)
     }
     fn appearance(&self) -> Result<dolores_core::Appearance, String> {
@@ -606,16 +728,30 @@ impl SessionStore for SqliteStore {
         Ok(())
     }
     fn memory_versions(&self, id: &str) -> Result<Vec<dolores_core::MemoryPreference>, String> {
-        let conn=self.lock()?;
-        let mut query=conn.prepare("SELECT data FROM memory_versions WHERE id=?1 ORDER BY revision DESC LIMIT 4").map_err(storage_error)?;
-        let rows=query.query_map([id],|r|r.get::<_,String>(0)).map_err(storage_error)?;
-        rows.map(|r|memory::decode(r.map_err(storage_error)?)).collect()
+        let conn = self.lock()?;
+        let mut query = conn
+            .prepare("SELECT data FROM memory_versions WHERE id=?1 ORDER BY revision DESC LIMIT 4")
+            .map_err(storage_error)?;
+        let rows = query
+            .query_map([id], |r| r.get::<_, String>(0))
+            .map_err(storage_error)?;
+        rows.map(|r| memory::decode(r.map_err(storage_error)?))
+            .collect()
     }
-    fn memory_source_images(&self, session: &str, message_id: i64) -> Result<Vec<dolores_core::AttachmentRef>, String> {
-        let conn=self.lock()?;
+    fn memory_source_images(
+        &self,
+        session: &str,
+        message_id: i64,
+    ) -> Result<Vec<dolores_core::AttachmentRef>, String> {
+        let conn = self.lock()?;
         let exists:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM messages m WHERE m.session_id=?1 AND m.id=?2 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant'))",rusqlite::params![session,message_id],|r|r.get(0)).map_err(storage_error)?;
-        if !exists { return Ok(Vec::new()); }
-        Ok(attachments::parts(&conn,message_id)?.into_iter().filter(|p|p.is_image()).collect())
+        if !exists {
+            return Ok(Vec::new());
+        }
+        Ok(attachments::parts(&conn, message_id)?
+            .into_iter()
+            .filter(|p| p.is_image())
+            .collect())
     }
     fn set_automatic_memory_policy(
         &self,

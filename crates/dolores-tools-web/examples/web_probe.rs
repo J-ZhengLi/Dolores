@@ -1,4 +1,4 @@
-//! Bounded public probe; prints summary only, never keys or private transcripts.
+//! Bounded public web probe; prints summary only, never keys or private transcripts.
 use dolores_core::{CredentialStore, ToolCall};
 use serde_json::json;
 use std::sync::Arc;

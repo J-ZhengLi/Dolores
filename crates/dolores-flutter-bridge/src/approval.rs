@@ -48,7 +48,10 @@ impl ToolApproval for RunApproval {
         self.recheck(request, cancel.clone()).await?;
         // This host-owned request only saves a pause. Actual sharing/authority
         // is decided in the local chooser, never in a model tool invocation.
-        if matches!(request.name.as_str(), "request_desktop_access" | "schedule_task" | "manage_scheduled_task") {
+        if matches!(
+            request.name.as_str(),
+            "request_desktop_access" | "schedule_task" | "manage_scheduled_task"
+        ) {
             return Ok(true);
         }
         if let Some(policy) = &self.policy {
@@ -144,7 +147,10 @@ mod tests {
             });
             let event = events.recv().await.unwrap();
             assert_eq!(event["type"], "toolApproval");
-            assert!(event["request"]["callId"].as_str().unwrap().starts_with("7:"));
+            assert!(event["request"]["callId"]
+                .as_str()
+                .unwrap()
+                .starts_with("7:"));
             assert_ne!(event["request"]["callId"], "one");
             match mode {
                 0 => pending

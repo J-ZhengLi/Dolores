@@ -1,3 +1,4 @@
+//! Bounded browser probe against an explicitly supplied synthetic URL.
 use dolores_core::{ToolCall, ToolPlugin};
 use dolores_tools_browser::{Browser, BrowserRuntime};
 use tokio_util::sync::CancellationToken;

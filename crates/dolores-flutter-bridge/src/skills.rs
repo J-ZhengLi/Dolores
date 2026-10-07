@@ -393,7 +393,11 @@ mod tests {
             .activate_skill("", next["token"].as_str().unwrap())
             .is_err());
         assert!(!store.global_skills().unwrap()[0].enabled);
-        assert!(store.sessions_page(None, false, 50).unwrap().items.is_empty());
+        assert!(store
+            .sessions_page(None, false, 50)
+            .unwrap()
+            .items
+            .is_empty());
     }
     #[test]
     fn skill_export_binds_exact_retained_review_and_preserves_activation_in_both_scopes() {

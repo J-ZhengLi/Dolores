@@ -174,7 +174,11 @@ impl ToolPlugin for ScheduleTool {
             return Err(stopped());
         }
         let saved = self.store.save_scheduled_task(&task, None)?;
-        Ok(receipt(&saved, self.store.background_policy()?.enabled && cfg!(windows)).to_string())
+        Ok(receipt(
+            &saved,
+            self.store.background_policy()?.enabled && cfg!(windows),
+        )
+        .to_string())
     }
 }
 pub(super) fn receipt(task: &ScheduledTask, background: bool) -> Value {
@@ -260,7 +264,7 @@ impl Engine {
     }
     pub(super) fn scheduled_list(&self) -> Result<Value, String> {
         let tasks = self.store.scheduled_tasks()?;
-        let background=self.store.background_policy()?.enabled && cfg!(windows);
+        let background = self.store.background_policy()?.enabled && cfg!(windows);
         tasks.into_iter().filter(|t|!t.deleted).map(|t|Ok(json!({"task":{"id":t.id,"revision":t.revision,"sourceSession":t.source_session,"title":t.title,"paused":t.paused,"nextDue":t.next_due},"receipt":receipt(&t,background),"occurrences":self.store.scheduled_occurrence_summaries(&t.id)?}))).collect::<Result<Vec<_>,String>>().map(|items|json!({"items":items,"backgroundEnabled":background,"availability":if background{"While Dolores is open or in the tray"}else{"While Dolores is open"}}))
     }
     pub(super) fn scheduled_tick(&self) -> Result<Value, String> {

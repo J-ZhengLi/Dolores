@@ -122,7 +122,10 @@ fn direct_file(root: &std::path::Path, path: &str) -> Result<String, String> {
     }
     Ok(text)
 }
-pub(super) fn artifact_matches(root: &std::path::Path, state: &RepairWorkspace) -> Result<(), String> {
+pub(super) fn artifact_matches(
+    root: &std::path::Path,
+    state: &RepairWorkspace,
+) -> Result<(), String> {
     check(state)?;
     if is_alias(
         &std::fs::symlink_metadata(root)

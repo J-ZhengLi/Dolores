@@ -61,7 +61,9 @@ mod tests {
         let stalled = advice("Provider stream sent 2 MiB without new response data.");
         assert_eq!(stalled.kind, "stalledStream");
         assert!(!stalled.retryable);
-        assert!(stalled.guidance.contains("draft and completed changes remain"));
+        assert!(stalled
+            .guidance
+            .contains("draft and completed changes remain"));
         for message in [
             "Streamed tool response exceeds its frame limit.",
             "Provider sent an oversized stream event (256 KiB maximum). No incomplete tool call was executed.",
