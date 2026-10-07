@@ -20,6 +20,34 @@ pub(super) fn write(c: &Connection, state: &CompanionState) -> Result<(), String
     c.execute("INSERT INTO companion_state(id,data) VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET data=excluded.data",[serde_json::to_string(state).map_err(storage_error)?]).map_err(storage_error)?;
     Ok(())
 }
+pub(super) fn forget_source(c: &Connection, root: &str, id: &str) -> Result<(), String> {
+    let mut s = read(c)?;
+    let old = s.clone();
+    let matches = |source: &CompanionSource| {
+        source.memory == id && source.root.as_deref().unwrap_or("") == root
+    };
+    if s.pending
+        .as_ref()
+        .and_then(|p| p.source.as_ref())
+        .is_some_and(matches)
+    {
+        s.pending = None;
+    }
+    for a in &mut s.activity {
+        if a.source.as_ref().is_some_and(matches) {
+            a.source = None;
+            a.note = Some("Source forgotten.".into());
+            if a.status == "generating" {
+                a.status = "cancelled".into();
+            }
+        }
+    }
+    if old != s {
+        s.revision += 1;
+        write(c, &s)?;
+    }
+    Ok(())
+}
 impl SqliteStore {
     pub(super) fn companion_recover(&self) -> Result<(), String> {
         let mut c = self.lock()?;
@@ -102,7 +130,7 @@ impl SqliteStore {
             }
         }
         let body = body.filter(|b| !b.is_empty() && b.len() <= 2048);
-        let session = if valid && body.is_some() {
+        let session = if let Some(body) = body.filter(|_| valid) {
             let session = format!("companion-{id}");
             let kind = match p.workspace.kind {
                 dolores_core::WorkspaceKind::Project => "project",
@@ -119,7 +147,7 @@ impl SqliteStore {
                 params![session, kind, p.workspace.root],
             )
             .map_err(storage_error)?;
-            tx.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user','A note from Dolores'),(?1,'assistant',?2)",params![session,body.unwrap()]).map_err(storage_error)?;
+            tx.execute("INSERT INTO messages(session_id,role,content) VALUES(?1,'user','A note from Dolores'),(?1,'assistant',?2)",params![session,body]).map_err(storage_error)?;
             let last = tx.last_insert_rowid();
             tx.execute(
                 "INSERT INTO message_timestamps(message_id,saved_at) VALUES(?1,?3),(?2,?3)",
@@ -151,7 +179,32 @@ impl SqliteStore {
         Ok(session)
     }
     pub(super) fn companion_read(&self) -> Result<CompanionState, String> {
-        read(&*self.lock()?)
+        let mut c = self.lock()?;
+        let tx = c.transaction().map_err(storage_error)?;
+        let mut s = read(&tx)?;
+        let old = s.clone();
+        for a in &mut s.activity {
+            if !a.seen {
+                if let Some(session) = &a.session {
+                    let exists: bool = tx
+                        .query_row(
+                            "SELECT EXISTS(SELECT 1 FROM sessions WHERE id=?1)",
+                            [session],
+                            |r| r.get(0),
+                        )
+                        .map_err(storage_error)?;
+                    if !exists {
+                        a.seen = true;
+                    }
+                }
+            }
+        }
+        if old != s {
+            s.revision += 1;
+            write(&tx, &s)?;
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(s)
     }
     pub(super) fn companion_save(
         &self,

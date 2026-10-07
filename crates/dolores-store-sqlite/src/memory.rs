@@ -277,6 +277,7 @@ impl SqliteStore {
             for row in query.query_map([id],|r|r.get::<_,String>(0)).map_err(storage_error)? { records.push(decode(row.map_err(storage_error)?)?); }
         }
         for record in records { if let Some(origin)=record.origin { mark_source(&tx,root,&origin,true)?; } }
+        crate::companionship::forget_source(&tx,root,id)?;
         tx.execute(
             "DELETE FROM memory_preferences WHERE id=?1 AND root=?2",
             params![id, root],

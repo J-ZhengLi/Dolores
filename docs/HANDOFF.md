@@ -3,6 +3,10 @@
 ## Start here
 
 **Current batch: milestone 22, implemented as separate brick commits.**
+Milestone 23 is now implemented; see [companionship qualification](qualification/companionship.md).
+It remains Off in the original profile. Continue directly with milestone 24 under
+the user's AFK authorization. Model output reliability, subjective welcome and
+physical presence remain separate from passing timing/source fixtures.
 22.0–22.6 deliver chat-created tasks, named-zone durable claims, shared app-open
 execution and results, concise Scheduled management, and conversational changes.
 See [scheduling qualification](qualification/chat-scheduling.md) and newest

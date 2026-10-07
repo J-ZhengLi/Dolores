@@ -1174,6 +1174,12 @@ limits are visible until 24, not hidden by the successful example.
 
 ## Milestone 23 — Opt-in in-app companionship
 
+**Implemented 2026-10-07:** 23.0–23.4 in separate brick commits.
+[Companionship qualification](qualification/companionship.md) records atomic
+timing/source/dismissal fixtures and bounded Qwen success/miss. Subjective welcome,
+physical presence and enabled sustained resource acceptance remain open.
+Milestone 24 is the next authorized batch.
+
 The user chose occasional in-app messages during chosen hours with a daily cap.
 Use a separately configured enabled weaker model; keep Home's selected model.
 Candidate messages: chat, grounded fun fact, real recalled moment or unresolved

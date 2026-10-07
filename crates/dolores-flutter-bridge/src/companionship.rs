@@ -238,12 +238,14 @@ impl Engine {
         else {
             return self.companion_view();
         };
+        let mut preferences = self.store.preferences()?;
+        preferences.model = s.policy.model.clone();
         let provider = self
             .connection
             .lock()
             .map_err(|_| "Model unavailable.")?
-            .observation_provider(
-                &s.policy.model,
+            .scheduled_provider(
+                &preferences,
                 RequestSettings {
                     max_output_tokens: Some(256),
                     timeout_seconds: 20,
@@ -318,6 +320,47 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    #[ignore = "Explicit configured-provider qualification only"]
+    async fn configured_weaker_model_generates_bounded_invitations() {
+        let preferences = ConnectionPreferences {
+            base_url: std::env::var("DOLORES_COMPANION_LIVE_BASE").unwrap(),
+            model: std::env::var("DOLORES_COMPANION_LIVE_MODEL").unwrap(),
+        };
+        let provider = Arc::new(
+            dolores_provider_openai::OpenAiProvider::with_settings(
+                &preferences,
+                std::env::var("DOLORES_COMPANION_LIVE_KEY").unwrap(),
+                RequestSettings {
+                    max_output_tokens: Some(256),
+                    timeout_seconds: 20,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        );
+        let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        let mut cases = vec![];
+        for kind in ["chat", "memory"] {
+            let mut c = candidate(&store, None, &Default::default(), now()).unwrap();
+            c.kind = kind.into();
+            if kind == "memory" {
+                c.body = "You once noted: “Our public demo project is named Cedar.”".into();
+            }
+            let result = memory_suggestions::collect_review(
+                provider.clone(),
+                prompt(&c),
+                CancellationToken::new(),
+                "Companionship",
+            )
+            .await;
+            cases.push(match result{Ok((answer,usage))=>json!({"kind":kind,"pass":invitation(&answer).is_ok(),"usage":usage,"responseBytes":answer.len()}),Err(_)=>json!({"kind":kind,"pass":false,"error":"Provider request failed or timed out."})});
+        }
+        println!(
+            "COMPANION_LIVE={}",
+            json!({"model":preferences.model,"cases":cases,"requests":2,"tools":0})
+        );
+    }
     #[test]
     fn unsuitable_output_is_quiet_and_prompt_has_no_tool_or_private_history() {
         assert!(invitation(r#"{"invitation":"Would you like a small break?"}"#).is_ok());

@@ -89,13 +89,21 @@ void main() {
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.resetPhysicalSize);
         addTearDown(t.view.resetDevicePixelRatio);
-        final b = CompanionBridge(), c = ChatController(CompanionBridge());
-        c.dispose();
+        final b = CompanionBridge();
         final chat = ChatController(b)..loading = false;
         final key = GlobalKey();
         await t.pumpWidget(
           MaterialApp(
-            theme: doloresTheme(dark),
+            theme: doloresTheme(dark).copyWith(
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  textStyle: const TextStyle(
+                    fontFamily: 'Segoe UI',
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
             home: RepaintBoundary(
               key: key,
               child: SettingsWindow(
@@ -126,10 +134,25 @@ void main() {
         await t.tap(find.byKey(const Key('companion-enabled')));
         await t.pump();
         b.fail = true;
-        await t.ensureVisible(find.byKey(const Key('save-companion')));
+        final scroll = find
+            .descendant(
+              of: find.byKey(const Key('companion-form')),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        await t.scrollUntilVisible(
+          find.byKey(const Key('save-companion')),
+          250,
+          scrollable: scroll,
+        );
         await t.tap(find.byKey(const Key('save-companion')));
         await t.pumpAndSettle();
         expect(b.enabled, false);
+        await t.scrollUntilVisible(
+          find.byKey(const Key('companion-enabled')),
+          -250,
+          scrollable: scroll,
+        );
         expect(
           (t.widget(
             find.byKey(const Key('companion-enabled')),
@@ -138,6 +161,11 @@ void main() {
         );
         expect(find.textContaining('Save failed'), findsOneWidget);
         b.fail = false;
+        await t.scrollUntilVisible(
+          find.byKey(const Key('save-companion')),
+          250,
+          scrollable: scroll,
+        );
         await t.tap(find.byKey(const Key('save-companion')));
         await t.pumpAndSettle();
         expect(b.enabled, true);

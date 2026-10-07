@@ -1,5 +1,17 @@
 # Dolores acceptance — 2026-10-07
 
+## Companionship 23.4 — qualification and preservation
+
+Milestone 23 is implemented. [Qualification](qualification/companionship.md)
+separates fixtures, packaged policy/restart checks and two configured Qwen requests:
+one invitation passes, one is rejected, 287 reported total tokens, no retry/tools.
+296 native and 332 Flutter library/widget checks pass; eight focused companionship
+checks pass after final cleanup, plus clean Clippy/analyzer and normal main build.
+All 45 original tables retain their row values; companionship remains Off with
+no original-profile state row. Final source/failed-save refinements are verified
+by focused checks and the final batch build before handoff. Subjective welcome,
+physical presence, enabled sustained resources and non-Windows support remain open.
+
 ## Companionship 23.3 — calm delivery and preferences
 
 Personalization now has concise Companionship controls with hover help and

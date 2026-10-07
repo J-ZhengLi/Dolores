@@ -11,126 +11,6 @@ struct Edit {
     skill: Option<String>,
     model: Option<String>,
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn ordinary_file_edits_do_not_replace_project_tools() {
-        assert!(!intent("Update the README file"));
-        assert!(!intent("Change this function to use a constant"));
-        assert!(intent("Change it to 8pm"));
-        assert!(intent("Pause this task"));
-    }
-    fn store() -> Arc<SqliteStore> {
-        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
-        store.create("source").unwrap();
-        store.create("other").unwrap();
-        store
-    }
-    fn task(store: &dyn SessionStore, id: &str) -> ScheduledTask {
-        store
-            .save_scheduled_task(
-                &ScheduledTask {
-                    id: id.into(),
-                    revision: 1,
-                    source_session: "source".into(),
-                    source_key: id.into(),
-                    title: "Daily report".into(),
-                    prompt: "Write a daily report at 9pm".into(),
-                    workspace: Default::default(),
-                    rule: ScheduleRule {
-                        kind: "daily".into(),
-                        time: "21:00".into(),
-                        date: None,
-                        weekdays: vec![],
-                        zone: "Asia/Shanghai".into(),
-                    },
-                    next_due: Some(now_seconds() + 60),
-                    paused: false,
-                    deleted: false,
-                    preferences: Default::default(),
-                    skill: None,
-                    effective: dolores_core::inspect_settings(
-                        Default::default(),
-                        "test",
-                        None,
-                        &[],
-                    )
-                    .unwrap(),
-                },
-                None,
-            )
-            .unwrap()
-    }
-    fn call(task: &ScheduledTask, action: &str, time: Option<&str>) -> ToolCall {
-        ToolCall{id:"call".into(),name:"manage_scheduled_task".into(),arguments:json!({"task":task.id,"revision":task.revision,"action":action,"time":time,"skill":null,"model":null}).to_string()}
-    }
-    #[tokio::test]
-    async fn time_change_is_idempotent_and_inflight_snapshot_stays_pinned() {
-        let s = store();
-        let old = task(s.as_ref(), "A");
-        let o = s
-            .claim_scheduled_occurrence(&old.id, old.revision, old.next_due.unwrap(), false)
-            .unwrap()
-            .unwrap();
-        let current = s.scheduled_tasks().unwrap().remove(0);
-        let tool = ManageTool::new(s.clone(), "source".into(), "Change it to 8pm".into());
-        for _ in 0..2 {
-            let r = tool
-                .prepare(&call(&current, "change", Some("20:00")))
-                .unwrap();
-            tool.invoke(&r, CancellationToken::new()).await.unwrap();
-        }
-        let next = s.scheduled_tasks().unwrap().remove(0);
-        assert_eq!(next.rule.time, "20:00");
-        assert_eq!(next.revision, current.revision + 1);
-        assert_eq!(
-            s.scheduled_occurrences(&old.id).unwrap()[0].snapshot,
-            o.snapshot
-        );
-        assert_eq!(o.snapshot.rule.time, "21:00");
-    }
-    #[test]
-    fn ambiguous_other_chat_quoted_or_wrong_action_cannot_change_tasks() {
-        let s = store();
-        let a = task(s.as_ref(), "A");
-        task(s.as_ref(), "B");
-        for (session, input, action) in [
-            ("source", "Change it to 8pm", "change"),
-            ("other", "Pause this task", "pause"),
-            ("source", "Example: pause A", "pause"),
-            ("source", "Pause A", "delete"),
-        ] {
-            let t = ManageTool::new(s.clone(), session.into(), input.into());
-            assert!(t
-                .prepare(&call(
-                    &a,
-                    action,
-                    if action == "change" {
-                        Some("20:00")
-                    } else {
-                        None
-                    }
-                ))
-                .is_err());
-        }
-        assert_eq!(s.scheduled_tasks().unwrap()[0].revision, 1);
-    }
-    #[tokio::test]
-    async fn pause_then_cancel_stops_recurrence_without_losing_history() {
-        let s = store();
-        let a = task(s.as_ref(), "A");
-        let t = ManageTool::new(s.clone(), "source".into(), "Pause this task".into());
-        let r = t.prepare(&call(&a, "pause", None)).unwrap();
-        t.invoke(&r, CancellationToken::new()).await.unwrap();
-        let paused = s.scheduled_tasks().unwrap().remove(0);
-        assert!(paused.paused);
-        let t = ManageTool::new(s.clone(), "source".into(), "Cancel this task".into());
-        let r = t.prepare(&call(&paused, "delete", None)).unwrap();
-        t.invoke(&r, CancellationToken::new()).await.unwrap();
-        assert!(s.scheduled_tasks().unwrap()[0].deleted);
-    }
-}
 struct Plan {
     task: ScheduledTask,
     action: String,
@@ -351,5 +231,126 @@ impl ToolPlugin for ManageTool {
         let receipt = crate::scheduling::receipt(&plan.task).to_string();
         completed.insert(plan.key, receipt.clone());
         Ok(receipt)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn ordinary_file_edits_do_not_replace_project_tools() {
+        assert!(!intent("Update the README file"));
+        assert!(!intent("Change this function to use a constant"));
+        assert!(intent("Change it to 8pm"));
+        assert!(intent("Pause this task"));
+    }
+    fn store() -> Arc<SqliteStore> {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        store.create("source").unwrap();
+        store.create("other").unwrap();
+        store
+    }
+    fn task(store: &dyn SessionStore, id: &str) -> ScheduledTask {
+        store
+            .save_scheduled_task(
+                &ScheduledTask {
+                    id: id.into(),
+                    revision: 1,
+                    source_session: "source".into(),
+                    source_key: id.into(),
+                    title: "Daily report".into(),
+                    prompt: "Write a daily report at 9pm".into(),
+                    workspace: Default::default(),
+                    rule: ScheduleRule {
+                        kind: "daily".into(),
+                        time: "21:00".into(),
+                        date: None,
+                        weekdays: vec![],
+                        zone: "Asia/Shanghai".into(),
+                    },
+                    next_due: Some(now_seconds() + 60),
+                    paused: false,
+                    deleted: false,
+                    preferences: Default::default(),
+                    skill: None,
+                    effective: dolores_core::inspect_settings(
+                        Default::default(),
+                        "test",
+                        None,
+                        &[],
+                    )
+                    .unwrap(),
+                },
+                None,
+            )
+            .unwrap()
+    }
+    fn call(task: &ScheduledTask, action: &str, time: Option<&str>) -> ToolCall {
+        ToolCall{id:"call".into(),name:"manage_scheduled_task".into(),arguments:json!({"task":task.id,"revision":task.revision,"action":action,"time":time,"skill":null,"model":null}).to_string()}
+    }
+    #[tokio::test]
+    async fn time_change_is_idempotent_and_inflight_snapshot_stays_pinned() {
+        let s = store();
+        let old = task(s.as_ref(), "A");
+        let o = s
+            .claim_scheduled_occurrence(&old.id, old.revision, old.next_due.unwrap(), false)
+            .unwrap()
+            .unwrap();
+        let current = s.scheduled_tasks().unwrap().remove(0);
+        let tool = ManageTool::new(s.clone(), "source".into(), "Change it to 8pm".into());
+        for _ in 0..2 {
+            let r = tool
+                .prepare(&call(&current, "change", Some("20:00")))
+                .unwrap();
+            tool.invoke(&r, CancellationToken::new()).await.unwrap();
+        }
+        let next = s.scheduled_tasks().unwrap().remove(0);
+        assert_eq!(next.rule.time, "20:00");
+        assert_eq!(next.revision, current.revision + 1);
+        assert_eq!(
+            s.scheduled_occurrences(&old.id).unwrap()[0].snapshot,
+            o.snapshot
+        );
+        assert_eq!(o.snapshot.rule.time, "21:00");
+    }
+    #[test]
+    fn ambiguous_other_chat_quoted_or_wrong_action_cannot_change_tasks() {
+        let s = store();
+        let a = task(s.as_ref(), "A");
+        task(s.as_ref(), "B");
+        for (session, input, action) in [
+            ("source", "Change it to 8pm", "change"),
+            ("other", "Pause this task", "pause"),
+            ("source", "Example: pause A", "pause"),
+            ("source", "Pause A", "delete"),
+        ] {
+            let t = ManageTool::new(s.clone(), session.into(), input.into());
+            assert!(t
+                .prepare(&call(
+                    &a,
+                    action,
+                    if action == "change" {
+                        Some("20:00")
+                    } else {
+                        None
+                    }
+                ))
+                .is_err());
+        }
+        assert_eq!(s.scheduled_tasks().unwrap()[0].revision, 1);
+    }
+    #[tokio::test]
+    async fn pause_then_cancel_stops_recurrence_without_losing_history() {
+        let s = store();
+        let a = task(s.as_ref(), "A");
+        let t = ManageTool::new(s.clone(), "source".into(), "Pause this task".into());
+        let r = t.prepare(&call(&a, "pause", None)).unwrap();
+        t.invoke(&r, CancellationToken::new()).await.unwrap();
+        let paused = s.scheduled_tasks().unwrap().remove(0);
+        assert!(paused.paused);
+        let t = ManageTool::new(s.clone(), "source".into(), "Cancel this task".into());
+        let r = t.prepare(&call(&paused, "delete", None)).unwrap();
+        t.invoke(&r, CancellationToken::new()).await.unwrap();
+        assert!(s.scheduled_tasks().unwrap()[0].deleted);
     }
 }
