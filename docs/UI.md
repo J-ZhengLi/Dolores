@@ -49,6 +49,10 @@ Ctrl+Enter to review. History commits expand their own changed files; selecting
 a nested file opens that exact diff. Loading/error/Retry stays under the affected
 commit. Remove permanent branch/stash/remote lists and scattered review buttons;
 retain a concrete confirmation before mutations and contextual file/commit menus.
+Git diffs show changed hunk sections and actual old/new line numbers. Side by side
+aligns and colours deletion/addition cells with shared scrolling. Whole-file size
+does not block viewing; large patches expose Previous/Next changes in the main
+view. A failed/stale continuation retains the visible page and explains Refresh.
 File highlighting is bounded to 64 KiB; larger editable documents show a plain-text
 status. Private recovery/layout failures expose Retry, and final Close keeps the
 app open when persistence fails. Native physical input remains separately qualified.

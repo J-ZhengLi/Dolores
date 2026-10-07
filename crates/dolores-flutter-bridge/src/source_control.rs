@@ -10,6 +10,8 @@ use std::{
 use tokio_util::sync::CancellationToken;
 #[path = "git_diff.rs"]
 mod diff;
+#[path = "git_diff_page.rs"]
+mod diff_page;
 #[path = "git_mutation.rs"]
 mod mutation;
 
@@ -23,6 +25,9 @@ pub(crate) enum Request {
         path: String,
         basis: String,
         commit: Option<String>,
+        #[serde(default)]
+        cursor: usize,
+        digest: Option<String>,
     },
     History {
         repo: String,
@@ -123,6 +128,32 @@ pub(super) fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String>
     }
     Ok(bytes)
 }
+
+fn hash_saved_file(
+    digest: &mut Sha256,
+    path: &Path,
+    cancel: &CancellationToken,
+    started: &std::time::Instant,
+) -> Result<(), String> {
+    use std::io::Read;
+    let mut file =
+        std::fs::File::open(path).map_err(|_| "Changed file is unavailable. Refresh.")?;
+    let mut buffer = [0; 64 * 1024];
+    loop {
+        if cancel.is_cancelled() || started.elapsed() > std::time::Duration::from_secs(30) {
+            return Err(
+                "Reading saved changes stopped or reached its deadline. Refresh to retry.".into(),
+            );
+        }
+        let count = file
+            .read(&mut buffer)
+            .map_err(|_| "Changed file could not be read. Refresh.")?;
+        if count == 0 {
+            return Ok(());
+        }
+        digest.update(&buffer[..count]);
+    }
+}
 #[derive(Clone)]
 struct Repo {
     project: PathBuf,
@@ -199,24 +230,12 @@ impl Repo {
             ],
             cancel,
         )?);
-        let mut total = 0u64;
+        let read_started = std::time::Instant::now();
         for entry in &entries {
             let path = entry["path"].as_str().ok_or("Invalid Git path.")?;
             match self.path(path) {
                 Ok(file) if file.is_file() => {
-                    let bytes = file
-                        .metadata()
-                        .map_err(|_| "Changed file is unavailable. Refresh.")?
-                        .len();
-                    if bytes > 16 * 1024 * 1024 {
-                        return Err("Changed files exceed the 16 MiB file / 32 MiB revision limit. Use external Git, then Refresh.".into());
-                    }
-                    let bytes = read_bounded(&file, 16 * 1024 * 1024)?;
-                    total += bytes.len() as u64;
-                    if total > 32 * 1024 * 1024 {
-                        return Err("Changed saved bytes exceed the 32 MiB revision limit. Use external Git, then Refresh.".into());
-                    }
-                    digest.update(bytes);
+                    hash_saved_file(&mut digest, &file, cancel, &read_started)?;
                 }
                 Ok(_) => digest.update(b"missing-or-directory"),
                 Err(_) => digest.update(b"restricted-alias"),
@@ -433,9 +452,18 @@ impl Engine {
                                 path,
                                 basis,
                                 commit,
+                                cursor,
+                                digest,
                             } => {
                                 repo.check(&id)?;
-                                repo.diff(&revision, &path, &basis, commit.as_deref(), &cancel)
+                                repo.diff_page(
+                                    &revision,
+                                    &path,
+                                    &basis,
+                                    commit.as_deref(),
+                                    (cursor, digest.as_deref()),
+                                    &cancel,
+                                )
                             }
                             Request::History {
                                 repo: id,

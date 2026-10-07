@@ -14,6 +14,15 @@ Runtime `abe1c31` passed 291 Flutter tests and normal build/launch; all 42 origi
 profile table hashes stayed unchanged. Saved public diagnostic renders are
 separate from the normal handoff receipt. See the newest acceptance for limits.
 
+The newest follow-up fixes reported large-file rejection and indistinguishable
+Side by side views. Git patches now stream into 256-row / 256-KiB pages; aligned
+old/new cells use actual line numbers, red/green changes and shared scrolling.
+Stale continuation retains the readable page for Refresh. Whole-file size does
+not gate viewing; complete mutation-review bounds remain independent. 136 bridge
+tests, 292 Flutter tests, final 14 focused UI tests and twelve release C ABI checks
+pass. See newest acceptance for normal handoff and remaining page-boundary,
+binary-preview, physical-input and platform/resource limits. Do not begin 18.
+
 Preserve the current agent view on **Home**. The primary navigation is a compact
 64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,
 Folders, Source Control, Terminal, then Settings anchored at the bottom. Page names

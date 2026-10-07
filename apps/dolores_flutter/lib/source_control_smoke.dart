@@ -41,13 +41,23 @@ Future<void> main() async {
   await git(['config', 'user.name', 'Public Fixture']);
   await git(['config', 'user.email', 'fixture@example.invalid']);
   await git(['config', 'core.autocrlf', 'false']);
-  final tail = '// Unchanged public source context.\n' * (240 * 1024 ~/ 36);
+  final tail = '// Unchanged public source context.\n' * (640 * 1024 ~/ 36);
   for (var i = 0; i < 8; i++) {
     await File('${root.path}/example$i.rs')
         .writeAsString('fn main() {\n    println!("Hello Dolores");\n}\n$tail');
   }
   await git(['add', '.']);
   await git(['commit', '-m', 'Public base']);
+  await File('${root.path}/pages.txt')
+      .writeAsString(List.generate(8000, (i) => 'old public line $i\n').join());
+  await git(['add', 'pages.txt']);
+  await git(['commit', '-m', 'Public paging base']);
+  await File('${root.path}/pages.txt').writeAsString(
+    List.generate(
+      8000,
+      (i) => i % 20 == 0 ? 'new public line $i\n' : 'old public line $i\n',
+    ).join(),
+  );
   await File('${root.path}/history-note.md')
       .writeAsString('Public history note\n');
   await git(['add', 'history-note.md']);
@@ -147,6 +157,7 @@ class _SourceControlQualificationState
             final target = element.widget;
             if (target is ListTile) callback = target.onTap;
             if (target is IconButton) callback = target.onPressed;
+            if (target is TextButton) callback = target.onPressed;
           }
           element.visitChildren(visit);
         }
@@ -192,6 +203,19 @@ class _SourceControlQualificationState
       await capture('git-side-light');
       setState(() => dark = true);
       await capture('git-side-dark');
+      await git.openDiff(w, 'pages.txt', 'working');
+      if (w.tabs[w.activeTab]?['next'] == null) {
+        throw StateError('Large diff did not page');
+      }
+      await capture('git-page-one-dark');
+      await press(const Key('git-next-page'));
+      if (w.tabs[w.activeTab]?['cursor'] != 256) {
+        throw StateError('Rendered page navigation failed');
+      }
+      await capture('git-page-two-dark');
+      report['largeFileAndPageNavigation'] = 'passed';
+      w.tabs.removeWhere((key, _) => key.endsWith(':pages.txt'));
+      w.activeTab = w.tabs.keys.first;
       for (var i = 1; i < 8; i++) {
         await git.openDiff(w, 'example$i.rs', 'working');
       }

@@ -8,7 +8,8 @@ not grant model access. Home receipts link to repository views as separate evide
 
 Status uses porcelain v1 NUL records, including rename pairs; filenames must be
 valid UTF-8 to be actionable. Diff bases are saved working tree/index, index/HEAD
-or an exact commit/parent. Unsupported binary/encoding/oversized views are labeled.
+or an exact commit/parent. Binary files show Git's change summary; non-UTF-8
+display bytes carry a visible replacement-character notice.
 History pages pin HEAD and use exact commit IDs. Inline and side-by-side are
 read-only; file editors keep their independent unsaved buffers.
 
@@ -31,19 +32,43 @@ selection uses a temporary picker; opening the menu performs no network request.
 Keep the compact rail, Home project ownership, diff bases and editor guards.
 This refines milestone 17; it does not add a full branch graph or new Git commands.
 
+## Large-diff correction — 2026-10-07
+
+The user rejected a whole-blob size gate and the unaligned full-file side panels.
+Viewing now streams Git's unified changed sections without loading either blob.
+The 256 KiB file gate is removed. A view page holds at most 256 display rows and
+256 KiB of raw patch; long physical lines are segmented at approximately 4 KiB
+UTF-8 boundaries. Previous/Next changes stays inside Dolores and replaces the
+current page. The complete patch fingerprint and saved revision pin continuation;
+stale/failed reads preserve the displayed page and expose Refresh/retry.
+
+Side by side aligns deletion/addition runs within each page, keeps context lines
+on the same row, colours each changed cell and shows actual old/new file line
+numbers. Both columns share vertical and horizontal scrolling. A change run that
+crosses a page boundary can have blank counterpart cells at that boundary.
+Unchanged text outside Git's three-line hunk context is omitted. Binary change
+metadata remains viewable; there is no fabricated textual binary comparison.
+
+Saved-file revision hashing streams through a 64 KiB buffer with Stop and a
+30-second read deadline, replacing the 16 MiB/file and 32 MiB aggregate gates.
+Git process supervision and metadata/index bounds remain. Mutation reviews keep
+their independent complete-patch bounds: a displayed partial page cannot become
+a complete approval or hunk patch. This change qualifies viewing, not unbounded
+mutation reviews or remote operations.
+
 ## Frozen initial bounds
 
 | Item | Bound and recovery |
 | --- | --- |
 | Git jobs | Two executing globally, one per worktree; eight retained jobs; busy requests offer Retry |
 | Process | Owned process tree, closed stdin, 30 seconds local / 60 seconds remote; Stop retains uncertain outcomes |
-| Combined output | 512 KiB; overflow stops the owned tree and refuses partial parsing |
+| Combined output | 512 KiB for ordinary commands; viewer stdout is streamed into bounded pages and a full fingerprint |
 | Status | 2,000 changed paths within output bound; more offers external Git/filtered cleanup then Refresh |
-| Revision checks | HEAD, index (16 MiB), status, stash refs, and changed saved files (16 MiB each / 32 MiB total) |
-| Diff/text | 256 KiB patch or text per side, 8 KiB physical lines; unsupported views stay read-only |
+| Revision checks | HEAD, index (16 MiB), status/config/stash refs, streamed saved-file hashes with 64 KiB buffer and 30-second read deadline |
+| Diff display | 256 rows / 256 KiB raw patch per page; approximately 4 KiB text segments; explicit Previous/Next changes |
 | History | 30 commits per page, cursor at most 10,000; pinned HEAD, explicit Load more |
 | Retained views | Eight repository owners, eight diff tabs each; inactive clean tabs can be closed |
-| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; exact operation and basis |
+| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; complete patch within existing 256 KiB review bounds |
 | Selected paths/hunks | At most 16 literal paths / 32 hunks, 64 KiB patch; stale basis refuses before apply |
 | Commit draft | 8 KiB UTF-8; retained on hook failure; configured author and hooks remain enabled |
 

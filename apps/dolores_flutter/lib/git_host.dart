@@ -163,9 +163,37 @@ class GitHost extends ChangeNotifier {
         'commit': ?commit,
       });
       w.tabs[key] = Map<String, dynamic>.from(value);
+      w.tabs[key]!['pageTrail'] = [0];
       w.activeTab = key;
     } catch (_) {
       /* Preserve the prior tab on stale/bounded read failures. */
+    }
+    changed();
+  }
+
+  Future<void> loadDiffPage(GitWorkspace w, int cursor) async {
+    final key = w.activeTab;
+    final previous = w.tabs[key];
+    if (previous == null || w.busy) return;
+    try {
+      final value = await run(w, {
+        'action': 'diff',
+        'repo': w.status!['repo'],
+        'revision': previous['revision'],
+        'path': previous['path'],
+        'basis': previous['basis'],
+        'commit': ?previous['commit'],
+        'cursor': cursor,
+        'digest': previous['digest'],
+      });
+      final trail = (previous['pageTrail'] as List? ?? [0]).cast<int>();
+      final index = trail.indexOf(cursor);
+      w.tabs[key!] = Map<String, dynamic>.from(value)
+        ..['pageTrail'] = index < 0
+            ? [...trail, cursor]
+            : trail.take(index + 1).toList();
+    } catch (_) {
+      // Keep the readable page, its navigation trail and the explicit error.
     }
     changed();
   }

@@ -1,5 +1,54 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control correction — large files and aligned changes
+
+The reported large-file failure was reproduced on a real saved file: opening its
+small edit returned `Git blob exceeds 256 KiB; use external Git.` Whole blobs
+were loaded before computing the patch. The viewer now streams Git's patch into
+pages of at most 256 display rows / 256 KiB, without a whole-file size gate. Long
+lines are segmented at UTF-8 boundaries. Saved-byte revision hashing streams
+through a 64 KiB buffer instead of rejecting files over 16 MiB. Git work retains
+its deadline, cancellation and owned-process cleanup.
+
+Side by side now aligns old/new changed rows, with red removals, green additions,
+actual file line numbers and shared scrolling. Inline uses the same changes.
+Previous changes / Next changes keep viewing inside Dolores. Continuations pin
+the repository revision and complete patch digest; a stale or failed page load
+retains the readable page and offers Refresh diff. Binary files show Git's change
+summary. Partial pages never become complete mutation approvals; the separate
+256 KiB full-review bound remains explicit.
+
+Verification: 136 native bridge tests and 292 Flutter tests passed; strict Clippy
+and Flutter analysis are clean. The final layout also passed all 14 focused Source
+Control tests. Native regressions exercise a file over 16 MiB with one small edit,
+a patch over the old 512 KiB process-output cap, an untracked file, stale revision
+and mismatched continuation digest. The collector preserves a 300 KiB Unicode
+line across pages and tracks file line numbers. UI checks confirm aligned old/new
+values with distinct colors, retained content after failed Next, explicit retry
+and Previous recovery.
+
+The release C ABI corpus passes all twelve checks, including large-file viewing,
+large-patch paging and stale-page refresh recovery:
+`output/source-control-17-eb1b747ec20c4227b52b68d6865a8293/result.json`.
+Hook Stop/reap took 439 ms with no remaining owned children. Its first run failed
+an incorrect fixture assertion expecting additions on a page containing only
+removals; the corrected assertion verifies the fresh comparison's final page.
+This was a test expectation correction, not a product recovery claim.
+
+Public isolated native renders in `output/source-control-large-diff-renders/`
+were inspected with `view_image`: light/dark aligned changes, compact layout and
+the second page. Rendered widget callbacks verified Next, nested history/file
+selection, review cancellation and eight retained tabs; completion reported no
+error and zero owned children. These are diagnostic renders/callback checks,
+separate from normal startup and physical mouse/keyboard evidence.
+
+Remaining limits: only changed hunks and surrounding context are shown. A very
+large replacement can cross page boundaries, leaving unmatched cells on a page;
+this is not a complete merge editor. Binary content previews, physical input/
+accessibility, full branch graphs and sustained/other-platform resource coverage
+remain unqualified. No model calls or hosted publication were needed. Milestone
+18 remains unstarted. Normal build/profile handoff follows below when exercised.
+
 ## Source Control refinement — VS Code interaction
 
 The user's final reference is implemented within milestone 17: Changes owns

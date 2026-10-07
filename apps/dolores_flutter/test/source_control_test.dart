@@ -78,6 +78,54 @@ class HistoryBridge extends DiffBridge {
   }
 }
 
+class PagedDiffBridge extends DiffBridge {
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    final request = command['request'] as Map;
+    if (request['action'] != 'poll') {
+      pending = Map<String, dynamic>.from(request);
+      return {'job': 'paged'};
+    }
+    if (this.fail) {
+      throw StateError('Git basis changed. Refresh this comparison.');
+    }
+    final cursor = pending!['cursor'] as int? ?? 0;
+    return {
+      'done': true,
+      'value': {
+        'path': 'large.txt',
+        'basis': 'working',
+        'revision': 'v1',
+        'leftLabel': 'Index',
+        'rightLabel': 'Saved working tree',
+        'cursor': cursor,
+        'next': cursor == 0 ? 4 : null,
+        'totalRows': 6,
+        'digest': 'pinned-pages',
+        'patch': '',
+        'reason': null,
+        'hunks': [],
+        'rows': cursor == 0
+            ? [
+                {'kind': 'meta', 'text': '@@ -10,2 +10,2 @@'},
+                {'kind': 'remove', 'text': 'old value', 'oldLine': 10},
+                {'kind': 'add', 'text': 'new value', 'newLine': 10},
+                {
+                  'kind': 'context',
+                  'text': 'unchanged',
+                  'oldLine': 11,
+                  'newLine': 11,
+                },
+              ]
+            : [
+                {'kind': 'add', 'text': 'later change', 'newLine': 12},
+                {'kind': 'add', 'text': 'last change', 'newLine': 13},
+              ],
+      },
+    };
+  }
+}
+
 class MutationBridge implements ChatBridge {
   Map<String, dynamic>? pending;
   bool reject = false;
@@ -154,6 +202,62 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  testWidgets(
+    'side diff aligns and colors changes; stale paging retains the readable page and explicit retry works',
+    (t) async {
+      final bridge = PagedDiffBridge();
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'}
+        ..sideBySide = true;
+      host.selected = w;
+      await host.openDiff(w, 'large.txt', 'working');
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: SourceControlView(git: host)),
+        ),
+      );
+      await t.pumpAndSettle();
+      final old = find.widgetWithText(SelectableText, 'old value');
+      final next = find.widgetWithText(SelectableText, 'new value');
+      expect(t.getTopLeft(old).dy, t.getTopLeft(next).dy);
+      expect(t.getTopLeft(old).dx, lessThan(t.getTopLeft(next).dx));
+      expect(
+        t
+            .widget<Container>(find.byKey(const ValueKey('git-left-cell-1')))
+            .color,
+        Colors.red.withValues(alpha: .18),
+      );
+      expect(
+        t
+            .widget<Container>(find.byKey(const ValueKey('git-right-cell-1')))
+            .color,
+        Colors.green.withValues(alpha: .18),
+      );
+      final displayed = w.tabs[w.activeTab];
+      bridge.fail = true;
+      await t.tap(find.byKey(const Key('git-next-page')));
+      await t.pumpAndSettle();
+      expect(w.tabs[w.activeTab], same(displayed));
+      expect(old, findsOneWidget);
+      expect(find.textContaining('basis changed'), findsOneWidget);
+      bridge.fail = false;
+      await t.tap(find.byKey(const Key('git-next-page')));
+      await t.pumpAndSettle();
+      expect(find.text('later change'), findsOneWidget);
+      expect(old, findsNothing);
+      expect(bridge.pending!['digest'], 'pinned-pages');
+      expect(bridge.pending!['revision'], 'v1');
+      expect(w.tabs[w.activeTab]!['pageTrail'], [0, 4]);
+      await t.tap(find.byKey(const Key('git-previous-page')));
+      await t.pumpAndSettle();
+      expect(old, findsOneWidget);
+      expect(w.tabs[w.activeTab]!['pageTrail'], [0]);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   testWidgets(
     'Ctrl+Enter reviews the retained message and stash menu excludes untracked files',
     (t) async {

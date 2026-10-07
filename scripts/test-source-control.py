@@ -60,6 +60,23 @@ def main():
         report['cancelReapMs']=round((time.monotonic()-t)*1000,2);hook.unlink();assert children(os.getpid(),None)==[];apply(a,review(a,{'kind':'commit','message':'fresh after stop'}));report['checks']['ownedHookCancelAndOtherRepositoryRead']=True
         assert (roots['B']/'same.txt').read_text()=='base B\n';after=memory(os.getpid());report.update(timingsMs=times,hostPrivateIncrementBytes=after['privateBytes']-before['privateBytes'],ownedProcessesAfterJobs=len(children(os.getpid(),None)))
         time.sleep(.3);assert children(os.getpid(),None)==[];report['checks']['noIdleGitProcess']=True
+        # Real C ABI viewer regressions: whole blobs never enter the render DTO.
+        large=roots['A']/'large.txt';context='unchanged context\n'*1_050_000
+        large.write_text('old value\n'+context,encoding='utf-8',newline='');shell(roots['A'],'add','large.txt');shell(roots['A'],'commit','-m','large public base')
+        large.write_text('new value\n'+context,encoding='utf-8',newline='');s=git(a,'status');d=git(a,'diff',repo=s['repo'],revision=s['revision'],path='large.txt',basis='working')
+        assert d['reason'] is None and '+new value' in d['patch'] and d['next'] is None
+        assert any(row['kind']=='remove' and row['oldLine']==1 for row in d['rows']) and any(row['kind']=='add' and row['newLine']==1 for row in d['rows']);report['checks']['largeFileSmallDiff']=True
+        pages=roots['A']/'pages.txt';old=''.join(f'old content {i}\n'for i in range(30000));new=old.replace('old content','new content')
+        pages.write_text(old,encoding='utf-8',newline='');shell(roots['A'],'add','pages.txt');shell(roots['A'],'commit','-m','public patch base');pages.write_text(new,encoding='utf-8',newline='')
+        s=git(a,'status');first=git(a,'diff',repo=s['repo'],revision=s['revision'],path='pages.txt',basis='working');assert len(first['rows'])==256 and first['totalRows']>60000
+        last=git(a,'diff',repo=s['repo'],revision=s['revision'],path='pages.txt',basis='working',cursor=first['totalRows']-32,digest=first['digest']);assert last['next'] is None and '+new content 29999' in last['patch'];report['checks']['largePatchInAppPaging']=True
+        pages.write_text('changed during viewing\n',encoding='utf-8',newline='')
+        try:git(a,'diff',repo=s['repo'],revision=s['revision'],path='pages.txt',basis='working',cursor=first['next'],digest=first['digest']);raise AssertionError('Stale diff page was accepted')
+        except AssertionError as e:assert 'basis changed' in str(e)
+        s=git(a,'status');fresh=git(a,'diff',repo=s['repo'],revision=s['revision'],path='pages.txt',basis='working')
+        recovered=git(a,'diff',repo=s['repo'],revision=s['revision'],path='pages.txt',basis='working',cursor=max(0,fresh['totalRows']-32),digest=fresh['digest']);assert '+changed during viewing' in recovered['patch'];report['checks']['stalePageRefreshRecovery']=True
+        report['viewerFixtures']='Public 17 MiB file/small edit and over-512-KiB patch; pre-viewer resource measurements above remain separate.'
+        assert children(os.getpid(),None)==[]
     finally:host.close()
     assert all(report['checks'].values());(directory/'result.json').write_text(json.dumps(report,indent=2));print(json.dumps({'directory':str(directory),'checks':report['checks'],'cancelReapMs':report['cancelReapMs'],'hostPrivateIncrementBytes':report['hostPrivateIncrementBytes']}))
 if __name__=='__main__':main()

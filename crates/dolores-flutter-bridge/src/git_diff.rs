@@ -1,23 +1,4 @@
 use super::*;
-#[derive(Default)]
-struct Side {
-    value: String,
-    reason: Option<String>,
-}
-impl Side {
-    fn bytes(bytes: Vec<u8>) -> Self {
-        if bytes.len() > 256 * 1024 {
-            return Self {
-                reason: Some("Text exceeds 256 KiB; inspect it using external Git.".into()),
-                ..Self::default()
-            };
-        }
-        match String::from_utf8(bytes) {
-            Ok(value) if !value.contains('\0') && value.lines().all(|line|line.len()<=8192)=>Self{value,reason:None},
-            _=>Self{reason:Some("Binary, unsupported encoding or long physical lines; no editable diff is offered.".into()),..Self::default()},
-        }
-    }
-}
 impl Repo {
     fn commit_id(&self, id: &str, cancel: &CancellationToken) -> Result<String, String> {
         if !matches!(id.len(), 40 | 64) || !id.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -32,72 +13,6 @@ impl Repo {
             return Err("Commit basis changed. Reload history.".into());
         }
         Ok(result.into())
-    }
-    fn side(
-        &self,
-        spec: Option<&str>,
-        path: &str,
-        working: bool,
-        cancel: &CancellationToken,
-    ) -> Result<Side, String> {
-        if working {
-            let file = self.path(path)?;
-            if !file.exists() {
-                return Ok(Side::default());
-            }
-            if !file.is_file() {
-                return Ok(Side {
-                    reason: Some("Submodule or directory; inspect using external Git.".into()),
-                    ..Side::default()
-                });
-            }
-            if file.metadata().map_err(|_| "File unavailable.")?.len() > 256 * 1024 {
-                return Ok(Side {
-                    reason: Some("File exceeds 256 KiB; use external Git for this diff.".into()),
-                    ..Side::default()
-                });
-            }
-            return Ok(Side::bytes(read_bounded(&file, 256 * 1024)?));
-        }
-        let Some(spec) = spec else {
-            return Ok(Side::default());
-        };
-        // Probe the exact tree/index entry first; transport/corruption errors must
-        // not silently masquerade as an absent file.
-        let entry = if spec.starts_with(':') {
-            self.command(&["ls-files", "--stage", "-z", "--", path], cancel)?
-        } else {
-            let (commit, _) = spec.split_once(':').ok_or("Invalid blob basis.")?;
-            self.command(&["ls-tree", "-z", commit, "--", path], cancel)?
-        };
-        if entry.is_empty() {
-            return Ok(Side::default());
-        }
-        if spec.starts_with(':')
-            && !entry
-                .split(|b| *b == 0)
-                .any(|r| r.windows(3).any(|s| s == b" 0\t"))
-        {
-            return Ok(Side {
-                reason: Some(
-                    "Unmerged index; inspect and resolve the saved conflict before staging.".into(),
-                ),
-                ..Side::default()
-            });
-        }
-        let size = self.command(&["cat-file", "-s", spec], cancel)?;
-        if text(&size)?
-            .trim()
-            .parse::<usize>()
-            .map_err(|_| "Invalid Git blob size.")?
-            > 256 * 1024
-        {
-            return Ok(Side {
-                reason: Some("Git blob exceeds 256 KiB; use external Git.".into()),
-                ..Side::default()
-            });
-        }
-        Ok(Side::bytes(self.command(&["show", spec], cancel)?))
     }
     pub(super) fn commit_files(
         &self,
@@ -145,6 +60,34 @@ impl Repo {
         commit: Option<&str>,
         cancel: &CancellationToken,
     ) -> Result<Value, String> {
+        let value = self.collect_diff(revision, path, basis, commit, None, cancel)?;
+        if !value["next"].is_null() {
+            return Err("This action's full review exceeds 256 KiB. All change pages remain viewable in Source Control.".into());
+        }
+        Ok(value)
+    }
+
+    pub(super) fn diff_page(
+        &self,
+        revision: &str,
+        path: &str,
+        basis: &str,
+        commit: Option<&str>,
+        page: (usize, Option<&str>),
+        cancel: &CancellationToken,
+    ) -> Result<Value, String> {
+        self.collect_diff(revision, path, basis, commit, Some(page), cancel)
+    }
+
+    fn collect_diff(
+        &self,
+        revision: &str,
+        path: &str,
+        basis: &str,
+        commit: Option<&str>,
+        page: Option<(usize, Option<&str>)>,
+        cancel: &CancellationToken,
+    ) -> Result<Value, String> {
         self.path(path)?;
         let status = self.revision(revision, cancel)?;
         let entry = status["entries"]
@@ -154,21 +97,9 @@ impl Repo {
             .find(|e| e["path"] == path);
         let old_path = entry.and_then(|e| e["oldPath"].as_str()).unwrap_or(path);
         self.path(old_path)?;
-        let (left_spec, right_spec, left_label, right_label, working) = match basis {
-            "working" => (
-                Some(format!(":{path}")),
-                None,
-                "Index".to_string(),
-                "Saved working tree".to_string(),
-                true,
-            ),
-            "staged" => (
-                status["head"].as_str().map(|h| format!("{h}:{old_path}")),
-                Some(format!(":{path}")),
-                "HEAD".into(),
-                "Index".into(),
-                false,
-            ),
+        let (left_label, right_label) = match basis {
+            "working" => ("Index".to_string(), "Saved working tree".to_string()),
+            "staged" => ("HEAD".to_string(), "Index".to_string()),
             "commit" => {
                 let id = commit.ok_or("Choose a history commit.")?;
                 let details = self.commit_files(id, cancel)?;
@@ -180,63 +111,102 @@ impl Repo {
                 {
                     return Err("Path does not belong to the selected commit.".into());
                 }
-                let parent = details["parents"][0].as_str();
                 (
-                    parent.map(|p| format!("{p}:{path}")),
-                    Some(format!("{id}:{path}")),
-                    parent
+                    details["parents"][0]
+                        .as_str()
                         .map(|s| s[..8].to_string())
                         .unwrap_or("Empty tree".into()),
                     id[..8].into(),
-                    false,
                 )
             }
             _ => return Err("Unsupported Git comparison basis.".into()),
         };
-        let left = self.side(left_spec.as_deref(), path, false, cancel)?;
-        let right = self.side(right_spec.as_deref(), path, working, cancel)?;
-        let mut reason = left.reason.or(right.reason);
+        let untracked = basis == "working" && entry.is_some_and(|e| e["index"] == "?");
         let mut args = vec![
             if basis == "commit" { "show" } else { "diff" },
             "--no-ext-diff",
             "--no-textconv",
             "--no-color",
             "--full-index",
-            "--binary",
             "--unified=3",
         ];
-        let staged = basis == "staged";
-        if staged {
+        if basis == "staged" {
             args.push("--cached");
         }
         if basis == "commit" {
-            args.push("--format=");
-            args.push(commit.unwrap());
+            args.extend(["--format=", commit.unwrap()]);
+        }
+        if untracked {
+            args.push("--no-index");
         }
         args.push("--");
+        if untracked {
+            args.push("/dev/null");
+        }
         args.push(path);
         if old_path != path {
             args.push(old_path);
         }
-        let patch = if reason.is_none() {
-            match self.command(&args, cancel) {
-                Ok(bytes) if bytes.len() <= 256 * 1024 => text(&bytes)?.to_string(),
-                Ok(_) => {
-                    reason = Some("Patch exceeds 256 KiB. Use external Git.".into());
-                    String::new()
+        let (cursor, expected) = page.unwrap_or((0, None));
+        if cursor > 0 && expected.is_none() {
+            return Err("Diff page needs its original fingerprint. Refresh the comparison.".into());
+        }
+        let mut collector = diff_page::Collector::new(
+            cursor,
+            if page.is_some() {
+                diff_page::PAGE_ROWS
+            } else {
+                usize::MAX
+            },
+        );
+        let mut stderr = Vec::new();
+        let code = git_process::run_stream(
+            &self.executable,
+            &self.root,
+            &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            cancel,
+            false,
+            |pipe, bytes| {
+                if pipe == 0 {
+                    collector.push(bytes);
+                } else {
+                    if stderr.len() + bytes.len() > 512 * 1024 {
+                        return Err(
+                            "Git diagnostics exceeded their bound. Refresh before retrying.".into(),
+                        );
+                    }
+                    stderr.extend_from_slice(bytes);
                 }
-                Err(e) => {
-                    reason = Some(e);
-                    String::new()
-                }
-            }
-        } else {
-            String::new()
-        };
+                Ok(())
+            },
+        )?;
+        if code != 0 && !(untracked && code == 1) {
+            return Err(format!(
+                "Git diff failed ({code}): {}. Refresh before retrying.",
+                String::from_utf8_lossy(&stderr)
+            ));
+        }
+        let mut value = collector.finish()?;
+        if expected.is_some_and(|expected| value["digest"] != expected) {
+            return Err("These changes differ from the displayed page. Refresh this comparison before continuing.".into());
+        }
         self.revision(revision, cancel)?;
-        Ok(
-            json!({"path":path,"basis":basis,"revision":revision,"leftLabel":left_label,"rightLabel":right_label,"left":left.value,"right":right.value,"hunks":if basis=="commit" {vec![]} else {mutation::local::hunks(&patch,revision,path,basis)},"patch":patch,"reason":reason,"historical":basis=="commit","commit":commit,"conflict":entry.is_some_and(|e|e["conflict"]==true)}),
-        )
+        let complete = cursor == 0 && value["next"].is_null();
+        value["hunks"] = json!(if complete && basis != "commit" {
+            mutation::local::hunks(value["patch"].as_str().unwrap(), revision, path, basis)
+        } else {
+            vec![]
+        });
+        value["path"] = json!(path);
+        value["basis"] = json!(basis);
+        value["revision"] = json!(revision);
+        value["leftLabel"] = json!(left_label);
+        value["rightLabel"] = json!(right_label);
+        value["reason"] = Value::Null;
+        value["historical"] = json!(basis == "commit");
+        value["commit"] = json!(commit);
+        value["conflict"] = json!(entry.is_some_and(|e| e["conflict"] == true));
+        Ok(value)
     }
     pub(super) fn history(
         &self,
@@ -276,6 +246,145 @@ impl Repo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn large_saved_files_render_their_small_changes_in_dolores() {
+        let dir = tempfile::tempdir().unwrap();
+        let cancel = CancellationToken::new();
+        let git = git_process::executable(dir.path()).unwrap();
+        let invoke = |args: &[&str]| {
+            let out = git_process::run(
+                &git,
+                dir.path(),
+                &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+                &cancel,
+                false,
+            )
+            .unwrap();
+            assert_eq!(out.code, 0);
+        };
+        invoke(&["init"]);
+        invoke(&["config", "user.name", "Fixture"]);
+        invoke(&["config", "user.email", "fixture@example.invalid"]);
+        let context = "unchanged context\n".repeat(1_050_000);
+        std::fs::write(
+            dir.path().join("large.txt"),
+            format!("old value\n{context}"),
+        )
+        .unwrap();
+        invoke(&["add", "large.txt"]);
+        invoke(&["commit", "-m", "large base"]);
+        std::fs::write(
+            dir.path().join("large.txt"),
+            format!("new value\n{context}"),
+        )
+        .unwrap();
+        let repo = Repo::discover(dir.path().to_str().unwrap(), &cancel).unwrap();
+        let status = repo.status(&cancel).unwrap();
+        let diff = repo
+            .diff(
+                status["revision"].as_str().unwrap(),
+                "large.txt",
+                "working",
+                None,
+                &cancel,
+            )
+            .unwrap();
+        assert!(diff["reason"].is_null(), "{}", diff["reason"]);
+        assert!(diff["patch"].as_str().unwrap().contains("+new value"));
+    }
+    #[test]
+    fn large_patch_pages_preserve_content_and_refuse_changed_continuations() {
+        let dir = tempfile::tempdir().unwrap();
+        let cancel = CancellationToken::new();
+        let git = git_process::executable(dir.path()).unwrap();
+        let invoke = |args: &[&str]| {
+            let out = git_process::run(
+                &git,
+                dir.path(),
+                &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+                &cancel,
+                false,
+            )
+            .unwrap();
+            assert_eq!(out.code, 0);
+        };
+        invoke(&["init"]);
+        invoke(&["config", "user.name", "Fixture"]);
+        invoke(&["config", "user.email", "fixture@example.invalid"]);
+        let old = (0..30000)
+            .map(|i| format!("old content {i}\n"))
+            .collect::<String>();
+        let new = old.replace("old content", "new content");
+        std::fs::write(dir.path().join("pages.txt"), &old).unwrap();
+        invoke(&["add", "pages.txt"]);
+        invoke(&["commit", "-m", "page base"]);
+        std::fs::write(dir.path().join("pages.txt"), &new).unwrap();
+        let repo = Repo::discover(dir.path().to_str().unwrap(), &cancel).unwrap();
+        let status = repo.status(&cancel).unwrap();
+        let revision = status["revision"].as_str().unwrap();
+        let first = repo
+            .diff_page(revision, "pages.txt", "working", None, (0, None), &cancel)
+            .unwrap();
+        assert_eq!(first["rows"].as_array().unwrap().len(), 256);
+        assert!(first["totalRows"].as_u64().unwrap() > 60000);
+        let digest = first["digest"].as_str().unwrap();
+        let end = first["totalRows"].as_u64().unwrap() as usize - 32;
+        let last = repo
+            .diff_page(
+                revision,
+                "pages.txt",
+                "working",
+                None,
+                (end, Some(digest)),
+                &cancel,
+            )
+            .unwrap();
+        assert!(last["next"].is_null());
+        assert!(last["patch"]
+            .as_str()
+            .unwrap()
+            .contains("+new content 29999"));
+        assert!(repo
+            .diff_page(
+                revision,
+                "pages.txt",
+                "working",
+                None,
+                (end, Some("wrong fingerprint")),
+                &cancel
+            )
+            .unwrap_err()
+            .contains("differ from"));
+        std::fs::write(dir.path().join("pages.txt"), "changed during viewing\n").unwrap();
+        assert!(repo
+            .diff_page(
+                revision,
+                "pages.txt",
+                "working",
+                None,
+                (end, Some(digest)),
+                &cancel
+            )
+            .unwrap_err()
+            .contains("basis changed"));
+        // No-index displays an untracked file's additions inside Dolores too.
+        std::fs::write(dir.path().join("new.txt"), "new untracked content\n").unwrap();
+        let fresh = repo.status(&cancel).unwrap();
+        let added = repo
+            .diff_page(
+                fresh["revision"].as_str().unwrap(),
+                "new.txt",
+                "working",
+                None,
+                (0, None),
+                &cancel,
+            )
+            .unwrap();
+        assert!(added["patch"]
+            .as_str()
+            .unwrap()
+            .contains("+new untracked content"));
+    }
     #[test]
     fn saved_working_index_and_commit_bases_stay_distinct_and_stale_reads_refuse() {
         let dir = tempfile::tempdir().unwrap();
@@ -329,7 +438,5 @@ mod tests {
             .contains("basis changed"));
         assert!(repo.path("../escape").is_err());
         assert!(repo.path(".git/config").is_err());
-        assert!(Side::bytes(vec![0, 255]).reason.is_some());
-        assert!(Side::bytes(vec![b'x'; 8193]).reason.is_some());
     }
 }

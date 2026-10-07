@@ -609,6 +609,54 @@ class SourceControlView extends StatelessWidget {
                 'Saved Git state changed. Refresh this comparison before acting.',
               ),
             ),
+          if (w.error != null)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 72),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(w.error!),
+                ),
+              ),
+            ),
+          if (diff['encodingWarning'] == true)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text(
+                'Some bytes are not UTF-8; replacement characters are shown.',
+              ),
+            ),
+          if (diff['next'] != null || (diff['cursor'] as int? ?? 0) > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Wrap(
+                spacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Change rows ${(diff['cursor'] as int? ?? 0) + 1}–${(diff['cursor'] as int? ?? 0) + (diff['rows'] as List).length} of ${diff['totalRows']}',
+                  ),
+                  TextButton(
+                    key: const Key('git-previous-page'),
+                    onPressed: w.busy || (diff['pageTrail'] as List).length < 2
+                        ? null
+                        : () {
+                            final trail = (diff['pageTrail'] as List)
+                                .cast<int>();
+                            git.loadDiffPage(w, trail[trail.length - 2]);
+                          },
+                    child: const Text('Previous changes'),
+                  ),
+                  TextButton(
+                    key: const Key('git-next-page'),
+                    onPressed: w.busy || diff['next'] == null
+                        ? null
+                        : () => git.loadDiffPage(w, diff['next'] as int),
+                    child: const Text('Next changes'),
+                  ),
+                ],
+              ),
+            ),
           if (diff['conflict'] == true)
             const Padding(
               padding: EdgeInsets.all(8),

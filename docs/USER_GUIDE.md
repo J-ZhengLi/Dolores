@@ -37,8 +37,12 @@ Scheduled and Terminal remain future pages.
 Select a project conversation on Home, then open Source Control in the rail.
 Working Changes and Staged Changes show saved Git state for its repository. Select a
 file for an inline or side-by-side comparison; eight diff tabs can stay open per
-project. Refresh reconciles external edits. Binary, oversized and unsupported
-comparisons explain their limits and offer external Git. History loads 30 commits
+project. Inline shows the changed sections and their old/new file line numbers.
+Side by side aligns changes with red deletions, green additions and shared scrolling.
+Large files are viewed through their changes; large patches have Previous/Next
+changes inside Dolores. If saved content changes between pages, the readable page
+stays visible; Refresh diff starts a fresh comparison. Binary files show Git's
+change summary. Refresh reconciles external edits. History loads 30 commits
 at a time. Click a commit to expand its changed files, then click a file to open
 its exact non-merge commit comparison. Click the commit again to collapse it.
 Eight commit file sets can stay expanded; collapse one to inspect another.

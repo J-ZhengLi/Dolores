@@ -36,6 +36,35 @@ pub(super) fn run(
     cancel: &CancellationToken,
     remote: bool,
 ) -> Result<Output, String> {
+    let mut stdout = vec![];
+    let mut stderr = vec![];
+    let code = run_stream(executable, root, args, cancel, remote, |i, bytes| {
+        if stdout.len() + stderr.len() + bytes.len() > 512 * 1024 {
+            return Err("Git output exceeds 512 KiB. Partial results were refused; Refresh before retrying.".into());
+        }
+        if i == 0 {
+            stdout.extend_from_slice(bytes);
+        } else {
+            stderr.extend_from_slice(bytes);
+        }
+        Ok(())
+    })?;
+    Ok(Output {
+        code,
+        stdout,
+        stderr,
+    })
+}
+
+/// The caller consumes stdout incrementally; transport supervision stays shared.
+pub(super) fn run_stream(
+    executable: &Path,
+    root: &Path,
+    args: &[String],
+    cancel: &CancellationToken,
+    remote: bool,
+    mut consume: impl FnMut(usize, &[u8]) -> Result<(), String>,
+) -> Result<i32, String> {
     let mut env = process::environment();
     if remote {
         for name in [
@@ -76,8 +105,6 @@ pub(super) fn run(
         process::spawn_stdio(executable, &argv, root, &env)?;
     drop(input);
     let deadline = Instant::now();
-    let mut stdout = vec![];
-    let mut stderr = vec![];
     let mut eof = [false, false];
     let mut exit = None;
     loop {
@@ -89,14 +116,9 @@ pub(super) fn run(
             match process::read_available(pipe, &mut buffer) {
                 Ok(0) => eof[i] = true,
                 Ok(n) => {
-                    if stdout.len() + stderr.len() + n > 512 * 1024 {
+                    if let Err(error) = consume(i, &buffer[..n]) {
                         process.stop();
-                        return Err("Git output exceeds 512 KiB. Partial results were refused; inspect a smaller repository with external Git, then Refresh.".into());
-                    }
-                    if i == 0 {
-                        stdout.extend_from_slice(&buffer[..n]);
-                    } else {
-                        stderr.extend_from_slice(&buffer[..n]);
+                        return Err(error);
                     }
                 }
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
@@ -114,11 +136,7 @@ pub(super) fn run(
         if let Some(code) = exit {
             if eof.iter().all(|x| *x) {
                 process.stop();
-                return Ok(Output {
-                    code,
-                    stdout,
-                    stderr,
-                });
+                return Ok(code);
             }
         }
         if cancel.is_cancelled()

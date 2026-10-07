@@ -1,5 +1,32 @@
 # Source Control qualification — milestone 17, 2026-10-07
 
+## Large-file and side-by-side correction
+
+The newest [acceptance](../ACCEPTANCE.md) supersedes the earlier whole-blob view
+bounds and independent-scroll side-by-side implementation below. See the named
+[contract amendment](../design/source-control.md#large-diff-correction--2026-10-07).
+The viewer streams patches into bounded pages, aligns changed rows and preserves
+the current page on stale/failed continuation. Complete mutation reviews retain
+their independent bound.
+
+136 bridge tests, 292 Flutter tests, strict Clippy and Flutter analysis pass.
+The final layout has a further 14-test focused Source Control pass. The public
+release C ABI run passes twelve checks in
+`output/source-control-17-eb1b747ec20c4227b52b68d6865a8293/result.json`, including
+over-16-MiB saved content, a patch larger than 512 KiB and stale-page recovery.
+Hook cancellation/reap was 438.69 ms. The small pre-large-fixture host memory
+sample increased 372,736 bytes; this is not a matched large-diff performance
+qualification. No owned child remained.
+
+`output/source-control-large-diff-renders/stage.json` records exact historical
+file selection, Next navigation, review Cancel and eight retained tabs. Inspected
+light/dark and compact captures use saved files around 636 KiB; the separate
+multi-page fixture has 3,601 display rows. Old/new values appear on an aligned row
+with red/green backgrounds. Native rendered callbacks are diagnostic interaction
+evidence, not physical input. Page boundaries can split very large replacement
+blocks; binary files show Git metadata rather than decoded content. Existing
+physical input, resource/platform and full-graph gaps remain.
+
 ## Follow-up interaction refinement
 
 The final VS Code-style workflow is specified in
