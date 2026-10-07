@@ -2879,3 +2879,18 @@ for measured incremental samples and reproduction scripts.
 Sustained idle cost remains OPEN: absolute Flutter samples were high and variable
 even where incremental terminal envelopes passed. Physical keyboard/IME,
 accessibility, exhaustive native focus and other hosts remain unqualified.
+
+## Brick 19.1 — Bounded Windows backend trial (2026-10-07)
+
+One maintained Flutter 3.47.5 same-engine backend was tested in an isolated release
+diagnostic. Initial disabled-owner initialization retained primary work. One repair
+then created two visible native windows/two views under one NativeBridge/AppHost,
+observed activation, destroyed the secondary and retained the primary draft/native
+request path. Zero owned descendants remained; saved recovery renders inspected.
+Added memory 66.83 MiB PASS (128 MiB ceiling); added idle CPU 1.222% of one core FAIL
+(less-than-1% gate). Short samples are recorded, not sustained acceptance.
+
+Disposition: backend HELD. No channel migration or second backend was attempted.
+19.2 acknowledged transfers and 19.3 window-layout/rejoin are HELD, not implemented.
+Physical input/IME, multi-window theme, transfer/monitor recovery and accessibility
+remain unqualified. See [qualification](qualification/experimental-windows.md).

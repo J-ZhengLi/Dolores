@@ -936,6 +936,13 @@ correct ownership. **Recovery:** PTY/LSP failures retain editor work and next ac
 
 ## Milestone 19 — Bounded experimental detached developer views
 
+**Status: bounded backend trial delivered; backend held.** A corrected same-engine
+Windows trial created/closed two native windows and preserved the primary draft,
+but added idle CPU failed the frozen gate. 19.2/19.3 remain held, not implemented.
+19.4 supplies truthful single-window fallback. See
+[trial contract](design/experimental-windows.md) and
+[qualification](qualification/experimental-windows.md).
+
 Multiple Window defaults On as requested; single-window work stays useful on
 unsupported backends. One bounded Windows backend investigation, not an extended
 Flutter multi-window project. Detach file/diff/terminal groups; keep Home's current
