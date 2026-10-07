@@ -48,6 +48,7 @@ mod permissions;
 mod recovery;
 mod registry;
 mod scheduling;
+mod scheduled_edits;
 mod repair_evaluation;
 mod run_journal;
 mod run_admission;
@@ -1837,6 +1838,9 @@ impl Engine {
                 }
                 if scheduled.is_none() && desktop_capture.is_none() && dolores_core::scheduling::explicit_schedule_intent(&input) {
                     tools.push(Arc::new(scheduling::ScheduleTool::new(self.store.clone(),session.clone().unwrap(),input.clone(),effective.clone())?));
+                }
+                if scheduled.is_none() && desktop_capture.is_none() && scheduled_edits::intent(&input) {
+                    tools.push(Arc::new(scheduled_edits::ManageTool::new(self.store.clone(),session.clone().unwrap(),input.clone())));
                 }
                 let compaction_provider = if desktop_capture.is_none()
                     && self.store.auto_compact(session.as_deref().unwrap())?
