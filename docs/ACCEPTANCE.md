@@ -47,7 +47,14 @@ large replacement can cross page boundaries, leaving unmatched cells on a page;
 this is not a complete merge editor. Binary content previews, physical input/
 accessibility, full branch graphs and sustained/other-platform resource coverage
 remain unqualified. No model calls or hosted publication were needed. Milestone
-18 remains unstarted. Normal build/profile handoff follows below when exercised.
+18 remains unstarted.
+
+Normal handoff: the maintained release build at runtime commit `333b912` completed;
+the normal `main` entry launched with a visible Windows window (PID 34372). All
+42 original profile table hashes remain identical, with no new tables. Provider,
+selected model, configuration and saved history are preserved. Receipt:
+`output/source-control-large-diff-normal-handoff.json`. This establishes normal
+build/startup and profile preservation; diagnostic renders remain separate.
 
 ## Source Control refinement — VS Code interaction
 

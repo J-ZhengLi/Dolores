@@ -20,7 +20,10 @@ old/new cells use actual line numbers, red/green changes and shared scrolling.
 Stale continuation retains the readable page for Refresh. Whole-file size does
 not gate viewing; complete mutation-review bounds remain independent. 136 bridge
 tests, 292 Flutter tests, final 14 focused UI tests and twelve release C ABI checks
-pass. See newest acceptance for normal handoff and remaining page-boundary,
+pass. Runtime `333b912` also passed maintained normal build and visible main-entry
+launch; all 42 original profile table hashes stayed identical, with no new tables.
+Receipt: `output/source-control-large-diff-normal-handoff.json`.
+See newest acceptance for remaining page-boundary,
 binary-preview, physical-input and platform/resource limits. Do not begin 18.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact

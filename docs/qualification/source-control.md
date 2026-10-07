@@ -27,6 +27,12 @@ evidence, not physical input. Page boundaries can split very large replacement
 blocks; binary files show Git metadata rather than decoded content. Existing
 physical input, resource/platform and full-graph gaps remain.
 
+The maintained normal release at runtime `333b912` built and launched its `main`
+entry with a visible window (PID 34372). All 42 original profile table hashes
+remain unchanged, with no new tables. Receipt:
+`output/source-control-large-diff-normal-handoff.json`. No foreground interaction
+is inferred from visible-window presence.
+
 ## Follow-up interaction refinement
 
 The final VS Code-style workflow is specified in
