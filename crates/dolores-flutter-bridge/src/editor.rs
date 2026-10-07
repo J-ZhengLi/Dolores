@@ -184,6 +184,13 @@ fn apply_edits(text: &str, edits: &[Edit]) -> Result<String, String> {
     Ok(out)
 }
 impl Registry {
+    pub(super) fn language_snapshot(&self, root: &str, id: &str, version: u64) -> Result<Value,String> {
+        let d = self.docs.get(id).ok_or("Document closed. Reopen it before using language services.")?;
+        if d.root != root || d.version != version || d.snapshot.readonly {
+            return Err("Document changed or is read-only. Request the language feature again; edits remain.".into());
+        }
+        Ok(d.view())
+    }
     pub(super) fn ensure_git_clean(&self,root:&std::path::Path,paths:&[String])->Result<(),String>{
         for d in self.docs.values().filter(|d|d.dirty()) {
             let full=std::path::Path::new(&d.root).join(&d.snapshot.path);

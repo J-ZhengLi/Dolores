@@ -645,6 +645,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+ "url",
  "uuid",
  "windows-sys 0.59.0",
 ]

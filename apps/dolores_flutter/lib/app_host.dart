@@ -6,11 +6,13 @@ import 'chat.dart';
 import 'file_host.dart';
 import 'git_host.dart';
 import 'terminal_host.dart';
+import 'language_host.dart';
 
 import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
+  late final languages = LanguageHost(initial.bridge);
   static String gitPath(String value) => value
       .replaceFirst(r'\\?\', '')
       .replaceAll('\\', '/')
@@ -58,6 +60,7 @@ class AppHost extends ChangeNotifier {
     for (final owner in owners.where((c) => c != caller)) {
       await owner.checkpointDraft();
     }
+    await languages.stop();
   }
 
   Future<bool> prepareQuit({required bool saveFiles}) async {
@@ -97,6 +100,14 @@ class AppHost extends ChangeNotifier {
         await c.checkpointDraft();
       }
       await terminals.checkpoint();
+      await languages.stop();
+      for (final terminal in terminals.live.toList()) {
+        if (!await terminals.stop(terminal)) {
+          throw StateError(
+            'A terminal could not stop. Retained output remains; retry closing.',
+          );
+        }
+      }
       for (final c in tasks.toList()) {
         await c.stop();
       }

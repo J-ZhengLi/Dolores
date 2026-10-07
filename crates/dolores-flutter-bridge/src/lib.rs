@@ -25,6 +25,7 @@ mod editor;
 mod git_process;
 mod source_control;
 mod terminal;
+mod language;
 #[cfg(test)]
 mod experience_tests;
 mod export;
@@ -98,6 +99,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    languages: Mutex<language::Registry>,
     terminals: Mutex<terminal::Registry>,
     git: Arc<Mutex<source_control::Registry>>,
     editor: Arc<Mutex<editor::Registry>>,
@@ -128,6 +130,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Language { request: language::Request },
     Terminal { request: terminal::Request },
     Git { session:String, request:source_control::Request },
     Editor { session:String, request:editor::Request },
@@ -753,6 +756,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            languages: Mutex::new(Default::default()),
             terminals: Mutex::new(Default::default()),
             git: Arc::new(Mutex::new(Default::default())),
             editor: Arc::new(Mutex::new(Default::default())),
@@ -815,6 +819,7 @@ impl Engine {
         }
         match command {
             Command::Terminal {request} => {drop(active);return self.terminal_call(request);},
+            Command::Language {request} => {drop(active);return self.language_call(request);},
             Command::Git {session,request} => {
                 if let source_control::Request::Apply{repo,..}=&request {
                     if self.git.lock().map_err(|_|"Source Control is unavailable.")?.review_root(repo).is_some_and(|root|active.has_repo(&root)) {return Err("Finish or stop the task in this repository before its Git mutation. Review and drafts remain.".into());}
@@ -925,6 +930,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.languages.lock().map_err(|_| "Language state is unavailable.")?.stop_all()?;
                 self.terminals.lock().map_err(|_| "Terminal state is unavailable.")?.stop_all()?;
                 self.stop_git()?;
                 self.keep_awake.lock().map_err(|_| "Keep-awake state is unavailable.")?.take();

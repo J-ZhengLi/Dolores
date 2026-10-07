@@ -17,6 +17,10 @@ import 'package:re_highlight/styles/vs2015.dart';
 import 'app_host.dart';
 import 'document_buffer.dart';
 import 'file_host.dart';
+import 'language_host.dart';
+
+import 'package:path/path.dart' as paths;
+
 import 'folders.dart' show filePathDialog;
 import 'theme.dart';
 import 'file_layout.dart';
@@ -206,6 +210,191 @@ class _FileEditorState extends State<FileEditor> {
     view.selection = CodeLineSelection.collapsed(index: target - 1, offset: 0);
     scroll.makeVisible(CodeLinePosition(index: target - 1, offset: 0));
     focus.requestFocus();
+  }
+
+  bool languageBusy = false;
+  Future<void> languageFeature(String feature) async {
+    if (languageBusy || d.readonly) return;
+    setState(() => languageBusy = true);
+    try {
+      final position = {
+        'line': view.selection.extentIndex,
+        'character': view.selection.extentOffset,
+      };
+      final result = await widget.host.languages.feature(
+        files,
+        w,
+        d,
+        feature,
+        position,
+      );
+      final version = d.version, text = d.text;
+      if (!mounted) return;
+      if (feature == 'completion') {
+        final items =
+            (result is List ? result : (result as Map?)?['items'] ?? [])
+                as List;
+        final picked = await showDialog<Map>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Completions'),
+            content: SizedBox(
+              width: 500,
+              height: 350,
+              child: ListView(
+                children: [
+                  for (final item in items.take(100))
+                    ListTile(
+                      title: Text(item['label']?.toString() ?? ''),
+                      subtitle: item['detail'] == null
+                          ? null
+                          : Text(item['detail'].toString()),
+                      onTap: () => Navigator.pop(context, item),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        );
+        if (picked == null) return;
+        if (d.version != version || d.text != text || files.selected != w) {
+          throw StateError(
+            'Document changed while choosing completion. Request it again.',
+          );
+        }
+        if (picked['insertTextFormat'] == 2 ||
+            picked['additionalTextEdits'] != null) {
+          throw StateError(
+            'This completion needs snippet or additional-edit support. Choose a plain completion.',
+          );
+        }
+        final edit = picked['textEdit'] as Map?;
+        final range =
+            edit?['range'] ??
+            edit?['replace'] ??
+            {'start': position, 'end': position};
+        final next = LanguageHost.apply(text, [
+          {
+            'range': range,
+            'newText':
+                edit?['newText'] ?? picked['insertText'] ?? picked['label'],
+          },
+        ]);
+        final seed = CodeLineEditingController.fromText(next);
+        view.value = seed.value;
+        seed.dispose();
+        return;
+      }
+      if (feature == 'definition' || feature == 'references') {
+        final locations =
+            (result is List
+                    ? result
+                    : result == null
+                    ? []
+                    : [result]);
+        final picked = await showDialog<Map>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(feature == 'definition' ? 'Definitions' : 'References'),
+            content: SizedBox(
+              width: 600,
+              height: 350,
+              child: ListView(
+                children: [
+                  for (final item in locations.take(200))
+                    ListTile(
+                      title: Text(
+                        (item['uri'] ?? item['targetUri'])?.toString() ??
+                            'Unavailable location',
+                      ),
+                      onTap: () => Navigator.pop(context, item),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+        if (picked == null) return;
+        if (files.selected != w || d.version != version || d.text != text) {
+          throw StateError(
+            'Document or project changed. Request locations again.',
+          );
+        }
+        final uri = Uri.parse(picked['uri'] ?? picked['targetUri']);
+        if (uri.scheme != 'file') {
+          throw StateError(
+            'Only files inside the selected project can be opened.',
+          );
+        }
+        final full = paths.normalize(uri.toFilePath(windows: true));
+        final root = paths.normalize(w.root.replaceFirst(r'\\?\', ''));
+        if (!paths.isWithin(root, full)) {
+          throw StateError('Location is outside the selected project.');
+        }
+        final target = await files.open(
+          w,
+          paths.relative(full, from: root).replaceAll('\\', '/'),
+        );
+        final range =
+            picked['range'] ??
+            picked['targetSelectionRange'] ??
+            picked['targetRange'];
+        if (target != null && range is Map) {
+          w.layoutOwner
+              .memory(w.layoutOwner.activeGroup, target.id)
+              .selection = CodeLineSelection.collapsed(
+            index: range['start']['line'],
+            offset: range['start']['character'],
+          );
+          files.changed();
+        }
+        return;
+      }
+      final content = feature == 'hover'
+          ? (result is Map ? result['contents'] : result)
+          : result;
+      String plain(dynamic v) => v is String
+          ? v
+          : v is List
+          ? v.map(plain).join('\n\n')
+          : v is Map && v['value'] is String
+          ? v['value']
+          : v?.toString() ?? 'No result.';
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(feature == 'hover' ? 'Hover' : 'Diagnostics'),
+          content: SizedBox(
+            width: 600,
+            height: 350,
+            child: SingleChildScrollView(child: SelectableText(plain(content))),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      d.error = '$e';
+      d.changed();
+    } finally {
+      if (mounted) setState(() => languageBusy = false);
+    }
   }
 
   int offset(int index, int column) {
@@ -426,6 +615,12 @@ class _FileEditorState extends State<FileEditor> {
               unawaited(line()),
           const SingleActivator(LogicalKeyboardKey.keyH, control: true):
               find.replaceMode,
+          const SingleActivator(LogicalKeyboardKey.space, control: true): () =>
+              unawaited(languageFeature('completion')),
+          const SingleActivator(LogicalKeyboardKey.f12): () =>
+              unawaited(languageFeature('definition')),
+          const SingleActivator(LogicalKeyboardKey.f12, shift: true): () =>
+              unawaited(languageFeature('references')),
         },
         child: Column(
           children: [
@@ -499,6 +694,14 @@ class _FileEditorState extends State<FileEditor> {
                     tooltip: 'Editor actions',
                     onSelected: (value) {
                       switch (value) {
+                        case 'diagnostics':
+                        case 'completion':
+                        case 'hover':
+                        case 'definition':
+                        case 'references':
+                          unawaited(languageFeature(value));
+                        case 'stopLanguage':
+                          unawaited(widget.host.languages.stop());
                         case 'find':
                           find.findMode();
                         case 'replace':
@@ -514,6 +717,31 @@ class _FileEditorState extends State<FileEditor> {
                       }
                     },
                     itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'diagnostics',
+                        child: Text('Diagnostics'),
+                      ),
+                      PopupMenuItem(
+                        value: 'completion',
+                        child: Text('Complete (Ctrl+Space)'),
+                      ),
+                      PopupMenuItem(
+                        value: 'hover',
+                        child: Text('Hover information'),
+                      ),
+                      PopupMenuItem(
+                        value: 'definition',
+                        child: Text('Go to definition (F12)'),
+                      ),
+                      PopupMenuItem(
+                        value: 'references',
+                        child: Text('Find references (Shift+F12)'),
+                      ),
+                      PopupMenuItem(
+                        value: 'stopLanguage',
+                        child: Text('Stop language services'),
+                      ),
+                      PopupMenuDivider(),
                       PopupMenuItem(
                         value: 'find',
                         child: Text('Find (Ctrl+F)'),
