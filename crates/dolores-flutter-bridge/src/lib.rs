@@ -140,6 +140,7 @@ enum Command {
     ScheduledTick,
     ScheduledStart { occurrence:String,id:u64 },
     ScheduledAbandon { occurrence:String,error:String },
+    ScheduledManage { task:String,revision:u32,action:String },
     MemoryEvidence {session:Option<String>, id:String, revision:u32},
     LanguageEdits { session:String, request:editor::language_edits::Request },
     Language { request: language::Request },
@@ -803,6 +804,7 @@ impl Engine {
         if matches!(command,Command::ScheduledTick){return self.scheduled_tick();}
         if let Command::ScheduledStart {occurrence,id}=&command{return self.scheduled_start(occurrence,*id);}
         if let Command::ScheduledAbandon {occurrence,error}=&command{return self.scheduled_abandon(occurrence,error);}
+        if let Command::ScheduledManage {task,revision,action}=&command{return self.scheduled_manage(task,*revision,action);}
         // Reserve/prepare/cancel are synchronized. Persistence runs on Dart's worker
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;

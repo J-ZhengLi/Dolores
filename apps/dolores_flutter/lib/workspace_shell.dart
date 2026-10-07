@@ -17,6 +17,7 @@ import 'theme.dart';
 import 'folders.dart';
 import 'file_workspace.dart';
 import 'terminal_page.dart';
+import 'scheduled_page.dart';
 
 enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 
@@ -38,6 +39,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   WorkspacePage page = WorkspacePage.home;
   AppHost get host => widget.host;
   double dragWidth = 0;
+  String? selectedTask;
   static const labels = [
     'Home',
     'Scheduled',
@@ -210,6 +212,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     ),
   );
   Widget panel(Palette p) {
+    if(page==WorkspacePage.scheduled) {
+      return ScheduledPanel(host:host.scheduled,selected:selectedTask,onSelect:(id)=>setState(()=>selectedTask=id));
+    }
     if (page == WorkspacePage.terminal) {
       return TerminalPanel(host: host.terminals, session: host.visible.session);
     }
@@ -273,6 +278,10 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Widget content() {
+    if(page==WorkspacePage.scheduled) {
+      return ScheduledPage(host:host.scheduled,selected:selectedTask,owners:host.owners,
+        openResult:(session) async {await host.select(session);if(mounted)setState(()=>page=WorkspacePage.home);});
+    }
     if (page == WorkspacePage.terminal) {
       return TerminalPage(
         host: host.terminals,

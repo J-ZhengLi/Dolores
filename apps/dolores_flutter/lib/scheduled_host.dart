@@ -7,6 +7,17 @@ class ScheduledHost extends ChangeNotifier {
   final ChatBridge bridge;
   final Future<void> Function(Map occurrence) onClaim;
   List<Map> items = [];
+  String filter = 'all';
+  List<Map> get visibleItems => items.where((item) {
+    final task=item['task'] as Map;
+    return switch(filter) {
+      'paused' => task['paused']==true,
+      'active' => task['paused']!=true && task['nextDue']!=null,
+      'finished' => task['nextDue']==null && task['paused']!=true,
+      _ => true,
+    };
+  }).toList();
+  void setFilter(String value) { filter=value; notifyListeners(); }
   String? error;
   bool pending = false, _closed = false, _suspended = false;
   Timer? _timer;
@@ -61,6 +72,23 @@ class ScheduledHost extends ChangeNotifier {
       pending = false;
       if (!_closed) { notifyListeners(); _arm(); }
     }
+  }
+  Future<void> manage(Map task, String action) async {
+    if (_closed || pending) return;
+    pending=true; notifyListeners();
+    try {
+      final result=await call('scheduledManage', {
+        'task':task['id'], 'revision':task['revision'], 'action':action,
+      });
+      if (action=='runNow') {
+        for (final occurrence in ((result as Map)['claimed'] as List).cast<Map>()) {
+          try { await onClaim(occurrence); }
+          catch (e) { await call('scheduledAbandon', {'occurrence':occurrence['id'], 'error':'$e'}); }
+        }
+      }
+      _accept(await call('scheduledTasks')); error=null;
+    } catch (e) { error='$e'; }
+    finally { pending=false; if(!_closed) {notifyListeners();_arm();} }
   }
   @override void dispose() { _closed = true; _timer?.cancel(); super.dispose(); }
 }

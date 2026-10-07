@@ -98,7 +98,7 @@ impl Engine {
     pub(super) fn scheduled_tick(&self)->Result<Value,String>{self.scheduled_tick_at(now_seconds())}
     fn scheduled_tick_at(&self,now:i64)->Result<Value,String>{
         let mut claimed=vec![];
-        for task in self.store.scheduled_tasks()?.into_iter().filter(|t|!t.deleted){
+        for task in self.store.scheduled_tasks()?{
             for mut o in self.store.scheduled_occurrences(&task.id)?.into_iter().filter(|o|matches!(o.state.as_str(),"claimed"|"running"|"queued"|"waitingForApproval")){
                 let old=o.state.clone();
                 let saved=o.session.as_deref().map(|s|self.store.runs(s)).transpose()?.and_then(|v|v.into_iter().next());
@@ -116,7 +116,7 @@ impl Engine {
                 self.store.update_scheduled_occurrence(&o,&old)?;
             }
             // Admission remains shared; one claim per tick keeps launches bounded.
-            if claimed.is_empty(){
+            if !task.deleted && claimed.is_empty(){
                 if let Some(o)=self.store.claim_scheduled_occurrence(&task.id,task.revision,now,false)?{if o.state=="claimed"{claimed.push(o);}}
             }
         }
@@ -128,7 +128,7 @@ impl Engine {
         let (mut current,mut o)=found.ok_or("Scheduled occurrence unavailable. Refresh.")?;
         if o.state!="claimed"||o.session.is_some()||o.lease_until<now_seconds(){return Err("This occurrence is already running or expired. Refresh Scheduled.".into());}
         let result:Result<Value,String>=(||{
-            if current.deleted || current.paused{return Err("Task paused or deleted before dispatch.".into());}
+            if current.deleted || (current.paused && !o.id.contains(":manual:")){return Err("Task paused or deleted before dispatch.".into());}
             self.store.workspace(&o.snapshot.source_session)?;
             if let Some(root)=&o.snapshot.workspace.root {if !PathBuf::from(root).is_dir(){return Err("Project folder is unavailable. Restore it, then Resume.".into());}}
             if let Some(skill)=&o.snapshot.skill {
@@ -147,6 +147,28 @@ impl Engine {
             current.paused=true;self.store.save_scheduled_task(&current,Some(current.revision))?;
         }
         result
+    }
+    pub(super) fn scheduled_manage(&self,id:&str,revision:u32,action:&str)->Result<Value,String>{
+        let mut task=self.store.scheduled_tasks()?.into_iter().find(|t|t.id==id&&!t.deleted).ok_or("Task unavailable. Refresh Scheduled.")?;
+        if task.revision!=revision{return Err("Task changed. Refresh before trying again.".into());}
+        match action {
+            "pause"=>task.paused=true,
+            "resume"=>{task.paused=false;task.next_due=task.rule.next_after(now_seconds())?;},
+            "delete"=>{task.deleted=true;task.paused=true;task.next_due=None;},
+            "skip"=>{self.store.skip_scheduled_occurrence(id,revision)?;return self.scheduled_list();},
+            "runNow"=>{
+                let o=self.store.claim_scheduled_occurrence(id,revision,now_seconds(),true)?.ok_or("This task already has active work. Stop it or wait before Run now.")?;
+                return Ok(json!({"claimed":[o],"tasks":self.scheduled_list()?}));
+            },
+            "stop"=>{
+                if let Some(o)=self.store.scheduled_occurrences(id)?.into_iter().find(|o|matches!(o.state.as_str(),"queued"|"running"|"waitingForApproval")){
+                    self.call(Command::Cancel{id:o.run.ok_or("Run owner unavailable. Refresh Scheduled.")?})?;
+                }
+                return self.scheduled_list();
+            },
+            _=>return Err("Unknown task action.".into()),
+        }
+        self.store.save_scheduled_task(&task,Some(revision))?;self.scheduled_list()
     }
 }
 #[cfg(test)]
@@ -181,5 +203,14 @@ mod tests {
         let o=t.store.scheduled_occurrences(&saved.id).unwrap().remove(0);assert_eq!(o.state,"failed");assert!(o.session.is_some());
         assert!(t.store.scheduled_tasks().unwrap()[0].paused);
         assert!(engine.scheduled_start(id,124).is_err());
+    }
+    #[test] fn stale_management_skip_pause_and_delete_keep_results(){
+        let t=tool("Write a report every weekday at 9pm");let saved=t.store.save_scheduled_task(&t.resolve(serde_json::from_str(&call(None).arguments).unwrap()).unwrap(),None).unwrap();
+        let engine=Engine::new(t.store.clone(),Arc::new(crate::connection::testing::MemoryCredentials::default())).unwrap();
+        engine.scheduled_manage(&saved.id,1,"pause").unwrap();assert!(engine.scheduled_manage(&saved.id,1,"resume").is_err());
+        let paused=t.store.scheduled_tasks().unwrap().remove(0);engine.scheduled_manage(&saved.id,paused.revision,"skip").unwrap();
+        assert_eq!(t.store.scheduled_occurrences(&saved.id).unwrap()[0].state,"skipped");
+        let current=t.store.scheduled_tasks().unwrap().remove(0);assert!(current.paused);assert!(current.next_due>saved.next_due);
+        engine.scheduled_manage(&saved.id,current.revision,"delete").unwrap();assert!(engine.scheduled_list().unwrap()["items"].as_array().unwrap().is_empty());assert_eq!(t.store.scheduled_occurrences(&saved.id).unwrap().len(),1);
     }
 }

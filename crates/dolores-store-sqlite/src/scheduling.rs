@@ -13,7 +13,13 @@ pub(super) fn save(c:&mut Connection,value:&ScheduledTask,expected:Option<u32>)-
     let existing=tasks(&tx)?;
     if expected.is_none(){
         if let Some(t)=existing.iter().find(|t|t.source_key==value.source_key){return Ok(t.clone());}
-        if existing.len()>=MAX_SCHEDULES{return Err("Scheduled task limit reached. Remove an unused task first.".into());}
+        if existing.iter().filter(|t|!t.deleted).count()>=MAX_SCHEDULES{return Err("Scheduled task limit reached. Remove an unused task first.".into());}
+        if existing.len()>=MAX_SCHEDULES {
+            if let Some(old)=existing.iter().find(|t|t.deleted){
+                tx.execute("DELETE FROM scheduled_occurrences WHERE task=?1",[&old.id]).map_err(storage_error)?;
+                tx.execute("DELETE FROM scheduled_tasks WHERE id=?1",[&old.id]).map_err(storage_error)?;
+            }
+        }
     }
     let old=existing.iter().find(|t|t.id==value.id);
     if old.map(|t|t.revision)!=expected{return Err("Task changed. Refresh before trying again.".into());}
@@ -58,6 +64,18 @@ pub(super) fn update(c:&mut Connection,o:&ScheduledOccurrence,expected:&str)->Re
 pub(super) fn recover(c:&mut Connection)->Result<(),String>{
     let tx=c.transaction().map_err(storage_error)?;
     tx.execute("UPDATE scheduled_occurrences SET data=json_set(data,'$.state','interrupted','$.error','Dolores closed before this run finished. Inspect its result before using Run now.') WHERE json_extract(data,'$.state') NOT IN ('succeeded','failed','interrupted','cancelled','missed','skipped','paused')",[]).map_err(storage_error)?;
+    tx.commit().map_err(storage_error)?;Ok(())
+}
+pub(super) fn skip(c:&mut Connection,id:&str,revision:u32)->Result<(),String>{
+    let tx=c.transaction().map_err(storage_error)?;
+    let mut task=tasks(&tx)?.into_iter().find(|t|t.id==id&&!t.deleted).ok_or("Task unavailable. Refresh Scheduled.")?;
+    if task.revision!=revision{return Err("Task changed. Refresh before trying again.".into());}
+    let due=task.next_due.ok_or("No upcoming run to skip.")?;
+    let o=ScheduledOccurrence{id:format!("{id}:{}:{due}",task.revision),task:id.into(),due,state:"skipped".into(),session:None,run:None,lease_until:0,snapshot:task.clone(),error:Some("Skipped by you.".into())};
+    task.next_due=task.rule.next_after(due)?;task.revision=task.revision.checked_add(1).ok_or("Task revision exhausted.")?;
+    tx.execute("INSERT INTO scheduled_occurrences(id,task,due,data) VALUES(?1,?2,?3,?4)",params![o.id,id,due,serde_json::to_string(&o).map_err(storage_error)?]).map_err(storage_error)?;
+    tx.execute("UPDATE scheduled_tasks SET data=?2 WHERE id=?1",params![id,serde_json::to_string(&task).map_err(storage_error)?]).map_err(storage_error)?;
+    tx.execute("DELETE FROM scheduled_occurrences WHERE task=?1 AND id NOT IN (SELECT id FROM scheduled_occurrences WHERE task=?1 ORDER BY due DESC,id DESC LIMIT 50) AND json_extract(data,'$.state') IN ('succeeded','failed','interrupted','cancelled','missed','skipped','paused')",[id]).map_err(storage_error)?;
     tx.commit().map_err(storage_error)?;Ok(())
 }
 #[cfg(test)]

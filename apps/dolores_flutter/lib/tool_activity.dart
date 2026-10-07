@@ -11,6 +11,7 @@ import 'bridge.dart';
 import 'browser_settings.dart';
 
 String toolLabel(dynamic name) => switch (name) {
+  'schedule_task' => 'Scheduled task',
   String value when value.startsWith('mcp_tool_') => 'External tool',
   'list_folder' => 'Folder listing',
   'search_text' => 'Text search',
