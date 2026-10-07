@@ -12,6 +12,25 @@ or an exact commit/parent. Unsupported binary/encoding/oversized views are label
 History pages pin HEAD and use exact commit IDs. Inline and side-by-side are
 read-only; file editors keep their independent unsaved buffers.
 
+## Final interaction refinement — 2026-10-07
+
+Follow the user's VS Code reference: clicking a history commit toggles its nested
+changed files; clicking one opens that exact commit's diff. Keep each commit's
+loading/error/Retry and files attached to its row. Initially load history when
+binding a committed repository; Refresh history and Load more remain explicit.
+Retain at most eight commit file sets per repository, evicting only collapsed
+sets; if all eight are expanded, ask the user to collapse one. Failed reads retain
+usable cached files and the commit message, and never relabel another commit's files.
+
+Place repository actions in the three-dot menu beside Changes: Commit, Pull,
+Push, Fetch, and grouped Changes, Branch and Stash actions. Use familiar names
+at entry points; show the exact existing host review before applying. Ctrl+Enter
+in the message field also opens the commit review. File and commit overflow menus
+contain their contextual actions, including Revert commit. Branch/stash/remote
+selection uses a temporary picker; opening the menu performs no network request.
+Keep the compact rail, Home project ownership, diff bases and editor guards.
+This refines milestone 17; it does not add a full branch graph or new Git commands.
+
 ## Frozen initial bounds
 
 | Item | Bound and recovery |

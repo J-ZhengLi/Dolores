@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/git_host.dart';
@@ -39,6 +40,41 @@ class DiffBridge implements ChatBridge {
     }
     pending = request;
     return {'job': 'diff'};
+  }
+}
+
+class HistoryBridge extends DiffBridge {
+  String? failCommit;
+  final requests = <Map<String, dynamic>>[];
+  Completer<void>? hold;
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    final r = Map<String, dynamic>.from(command['request'] as Map);
+    if (r['action'] != 'poll') requests.add(r);
+    if (r['action'] == 'poll' && pending!['action'] == 'commitFiles') {
+      await hold?.future;
+      if (pending!['commit'] == failCommit) {
+        throw StateError('Commit temporarily unavailable. Retry files.');
+      }
+      return {
+        'done': true,
+        'value': {
+          'commit': pending!['commit'],
+          'files': ['${pending!['commit']}.txt'],
+        },
+      };
+    }
+    if (r['action'] == 'poll' && pending!['action'] == 'remoteState') {
+      return {
+        'done': true,
+        'value': {
+          'remotes': ['origin', 'archive'],
+          'remote': 'origin',
+          'branch': 'refs/heads/main',
+        },
+      };
+    }
+    return super.call(command);
   }
 }
 
@@ -118,6 +154,202 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  testWidgets(
+    'Ctrl+Enter reviews the retained message and stash menu excludes untracked files',
+    (t) async {
+      final host = GitHost(MutationBridge());
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {
+          'repo': 'A',
+          'revision': 'v1',
+          'entries': [
+            {'path': 'tracked.txt', 'index': ' ', 'worktree': 'M'},
+            {'path': 'new.txt', 'index': '?', 'worktree': '?'},
+          ],
+        }
+        ..commitDraft = 'Keyboard message';
+      host.selected = w;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 300,
+              child: SourceControlPanel(git: host, openFolder: () {}),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.byKey(const Key('git-commit-message')));
+      await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await t.sendKeyEvent(LogicalKeyboardKey.enter);
+      await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('git-apply-review')), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await t.pumpAndSettle();
+      expect(w.commitDraft, 'Keyboard message');
+      Map<String, dynamic>? op;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GitLocalControls(
+              git: host,
+              w: w,
+              review: (value) async {
+                op = value;
+              },
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.byTooltip('Git actions'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Stash'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Stash changes'));
+      await t.pumpAndSettle();
+      expect(op!['paths'], ['tracked.txt']);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
+  testWidgets(
+    'commit expansion nests exact files, opens its diff, and retries only the failed commit',
+    (t) async {
+      final bridge = HistoryBridge();
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'}
+        ..commitDraft = 'Keep message'
+        ..history = [
+          for (final id in ['aaaaaaaa', 'bbbbbbbb'])
+            {'id': id, 'subject': 'Commit $id', 'author': 'Fixture'},
+        ];
+      host.selected = w;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 300,
+              child: SourceControlPanel(git: host, openFolder: () {}),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.byKey(const ValueKey('git-commit-aaaaaaaa')));
+      await t.pumpAndSettle();
+      final firstFile = find.byKey(
+        const ValueKey('git-file-aaaaaaaa:aaaaaaaa.txt'),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('git-history-aaaaaaaa')),
+          matching: firstFile,
+        ),
+        findsOneWidget,
+      );
+      bridge.failCommit = 'bbbbbbbb';
+      await t.tap(find.byKey(const ValueKey('git-commit-bbbbbbbb')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('git-retry-bbbbbbbb')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('git-file-bbbbbbbb:aaaaaaaa.txt')),
+        findsNothing,
+      );
+      expect(firstFile, findsOneWidget);
+      bridge.failCommit = null;
+      await t.ensureVisible(find.byKey(const ValueKey('git-retry-bbbbbbbb')));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const ValueKey('git-retry-bbbbbbbb')));
+      await t.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('git-file-bbbbbbbb:bbbbbbbb.txt')),
+        findsOneWidget,
+      );
+      expect(w.commitDraft, 'Keep message');
+      await t.ensureVisible(firstFile);
+      await t.pumpAndSettle();
+      await t.tap(firstFile);
+      await t.pumpAndSettle();
+      expect(bridge.requests.last, containsPair('commit', 'aaaaaaaa'));
+      expect(bridge.requests.last, containsPair('path', 'aaaaaaaa.txt'));
+      await t.tap(find.byKey(const ValueKey('git-commit-aaaaaaaa')));
+      await t.pumpAndSettle();
+      expect(firstFile, findsNothing);
+      expect(w.commitFileCache['aaaaaaaa'], isNotNull);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
+
+  test('late commit files stay with their owner and eight expanded commits give explicit recovery', () async {
+    final bridge = HistoryBridge()..hold = Completer<void>();
+    final host = GitHost(bridge);
+    final a = GitWorkspace('C:/A', 'A')
+      ..status = {'repo': 'A', 'revision': 'v1'};
+    final b = GitWorkspace('C:/B', 'B')
+      ..status = {'repo': 'B', 'revision': 'v1'};
+    host.selected = a;
+    final request = host.commitFiles(a, 'aaaaaaaa');
+    await Future<void>.delayed(Duration.zero);
+    host.selected = b;
+    bridge.hold!.complete();
+    await request;
+    expect(a.commitFileCache.keys, ['aaaaaaaa']);
+    expect(b.commitFileCache, isEmpty);
+    expect(host.selected, same(b));
+    bridge.hold = null;
+    for (var i = 1; i < 8; i++) {
+      await host.commitFiles(a, 'commit0$i');
+    }
+    await host.commitFiles(a, 'ninth000');
+    expect(a.error, contains('Collapse one'));
+    expect(a.commitFileCache.length, 8);
+    await host.toggleCommit(a, 'aaaaaaaa');
+    await host.toggleCommit(a, 'ninth000');
+    expect(a.error, isNull);
+    expect(a.commitFileCache.length, 8);
+    expect(a.expandedCommits, contains('ninth000'));
+    host.dispose();
+  });
+
+  testWidgets(
+    'Changes menu commits through confirmation and Cancel preserves message',
+    (t) async {
+      final host = GitHost(MutationBridge());
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'}
+        ..commitDraft = 'Retained message';
+      host.selected = w;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 252,
+              child: SourceControlPanel(git: host, openFolder: () {}),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Review commit'), findsNothing);
+      expect(find.text('New branch'), findsNothing);
+      await t.tap(find.byTooltip('Git actions'));
+      await t.pumpAndSettle();
+      expect(find.text('Branch'), findsOneWidget);
+      expect(find.text('Stash'), findsOneWidget);
+      await t.tap(find.text('Commit'));
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('git-apply-review')), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await t.pumpAndSettle();
+      expect(w.commitDraft, 'Retained message');
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   test('equivalent Windows project paths retain diff owners', () async {
     final host = GitHost(DiffBridge());
     final w = GitWorkspace('C:/A', 'A')
@@ -134,8 +366,9 @@ void main() {
   testWidgets(
     'remote actions require a named configured target and expose only tracked pull and push',
     (t) async {
-      final host = GitHost(DiffBridge());
+      final host = GitHost(HistoryBridge());
       final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'}
         ..remoteState = {
           'remotes': ['origin', 'archive'],
           'remote': 'origin',
@@ -159,20 +392,25 @@ void main() {
           ),
         ),
       );
-      await t.tap(find.byTooltip('Reviewed remote actions').first);
+      await t.tap(find.byTooltip('Git actions'));
       await t.pumpAndSettle();
-      expect(find.text('Review fast-forward pull'), findsOneWidget);
-      await t.tap(find.text('Review push'));
+      expect(find.text('Review commit'), findsNothing);
+      await t.tap(find.text('Push'));
+      await t.pumpAndSettle();
+      expect(find.text('origin'), findsOneWidget);
+      expect(find.text('archive'), findsNothing);
+      await t.tap(find.text('origin'));
       await t.pumpAndSettle();
       expect(op, {
         'kind': 'push',
         'remote': 'origin',
         'branch': 'refs/heads/main',
       });
-      await t.tap(find.byTooltip('Reviewed remote actions').last);
+      await t.tap(find.byTooltip('Git actions'));
       await t.pumpAndSettle();
-      expect(find.text('Review push'), findsNothing);
-      await t.tap(find.text('Review fetch'));
+      await t.tap(find.text('Fetch'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('archive'));
       await t.pumpAndSettle();
       expect(op, {'kind': 'fetch', 'remote': 'archive'});
       expect(t.takeException(), isNull);

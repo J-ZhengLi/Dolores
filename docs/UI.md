@@ -42,6 +42,13 @@ availability explicit) and Windows keep-awake (default Off, actual power/securit
 limits disclosed). Home, the compact rail and Folders editor are implemented in
 milestone 16. Milestone 17 adds Source Control status, saved diff tabs/history and
 reviewed Git actions. Terminal and detached views remain later milestones.
+The final Source Control refinement follows the user's VS Code references:
+Changes owns the three-dot repository action menu, with familiar Commit/Fetch/
+Pull/Push names and grouped Changes/Branch/Stash actions. Commit messages support
+Ctrl+Enter to review. History commits expand their own changed files; selecting
+a nested file opens that exact diff. Loading/error/Retry stays under the affected
+commit. Remove permanent branch/stash/remote lists and scattered review buttons;
+retain a concrete confirmation before mutations and contextual file/commit menus.
 File highlighting is bounded to 64 KiB; larger editable documents show a plain-text
 status. Private recovery/layout failures expose Retry, and final Close keeps the
 app open when persistence fails. Native physical input remains separately qualified.

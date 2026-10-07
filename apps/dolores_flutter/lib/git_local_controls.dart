@@ -14,16 +14,107 @@ class GitLocalControls extends StatelessWidget {
     required this.w,
     required this.review,
   });
+
+  Future<String?> choose(
+    BuildContext context,
+    String title,
+    List<Map<String, String>> choices,
+  ) => showDialog<String>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(title),
+      children: [
+        if (choices.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Nothing available. Configure this using Git, then try again.',
+            ),
+          ),
+        for (final item in choices)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, item['id']),
+            child: Text(item['label']!),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> remote(BuildContext context, String kind) async {
+    await git.loadRemotes(w);
+    if (!context.mounted || w.error != null) return;
+    final state = w.remoteState!;
+    final remotes = (state['remotes'] as List).cast<String>();
+    final eligible = kind == 'fetch'
+        ? remotes
+        : remotes
+              .where(
+                (name) => name == state['remote'] && state['branch'] != null,
+              )
+              .toList();
+    if (eligible.isEmpty) {
+      w.error = kind == 'fetch'
+          ? 'No remote configured. Configure a remote using Git, then try again.'
+          : 'Tracking not configured. Set an upstream using Git, then try again.';
+      git.changed();
+      return;
+    }
+    final name = await choose(context, 'Choose remote to $kind', [
+      for (final name in eligible) {'id': name, 'label': name},
+    ]);
+    if (name != null) {
+      await review({
+        'kind': kind,
+        'remote': name,
+        if (kind != 'fetch') 'branch': state['branch'],
+      });
+    }
+  }
+
+  Future<void> local(BuildContext context, String kind) async {
+    await git.loadLocal(w);
+    if (!context.mounted || w.error != null) return;
+    final branches = kind == 'branchSwitch';
+    final items = (w.localState![branches ? 'branches' : 'stashes'] as List)
+        .cast<Map>();
+    final id = await choose(
+      context,
+      branches ? 'Switch branch' : 'Choose stash',
+      [
+        for (final item in items)
+          {
+            'id': (branches ? item['name'] : item['id']) as String,
+            'label':
+                (branches
+                        ? item['name']
+                        : '${item['ref']} · ${item['subject']}')
+                    as String,
+          },
+      ],
+    );
+    if (id != null) {
+      await review(
+        branches
+            ? {'kind': kind, 'name': id}
+            : {'kind': 'stashApply', 'stash': id, 'pop': kind == 'stashPop'},
+      );
+    }
+  }
+
   Future<void> createBranch(BuildContext context) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
+    String name = '';
+    final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Create branch'),
         content: TextField(
-          controller: controller,
           autofocus: true,
           maxLength: 256,
+          onChanged: (value) => name = value,
           decoration: const InputDecoration(labelText: 'Branch name'),
         ),
         actions: [
@@ -32,116 +123,107 @@ class GitLocalControls extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Review'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continue'),
           ),
         ],
       ),
     );
-    // The route owns its field until its closing animation finishes.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    controller.dispose();
-    if (name != null && name.isNotEmpty) {
+    if (accepted == true && name.trim().isNotEmpty) {
       await review({'kind': 'branchCreate', 'name': name});
     }
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Wrap(
-        children: [
-          TextButton(
-            onPressed: w.busy ? null : () => git.loadLocal(w),
-            child: const Text('Branches & stashes'),
-          ),
-          TextButton(
-            onPressed: w.busy ? null : () => createBranch(context),
-            child: const Text('New branch'),
-          ),
-        ],
-      ),
-      TextButton(
-        onPressed: w.busy ? null : () => git.loadRemotes(w),
-        child: const Text('Remotes & tracking'),
-      ),
-      if (w.remoteState != null) ...[
-        Text(
-          w.remoteState!['ahead'] == null
-              ? 'Tracking not configured. Set it using external Git, then Refresh.'
-              : '${w.remoteState!['ahead']} ahead · ${w.remoteState!['behind']} behind',
+  Widget build(BuildContext context) {
+    final enabled = !w.busy && w.reviewOpen == null;
+    Widget action(String label, VoidCallback callback) => MenuItemButton(
+      onPressed: enabled ? callback : null,
+      child: Text(label),
+    );
+    final entries = (w.status?['entries'] as List? ?? []).cast<Map>();
+    final working = entries
+        .where((e) => e['worktree'] != ' ')
+        .map((e) => e['path'] as String)
+        .toList();
+    final staged = entries
+        .where((e) => e['index'] != ' ' && e['index'] != '?')
+        .map((e) => e['path'] as String)
+        .toList();
+    final stashable = entries
+        .where(
+          (e) =>
+              e['worktree'] != ' ' &&
+              e['index'] != '?' &&
+              e['conflict'] != true,
+        )
+        .map((e) => e['path'] as String)
+        .toList();
+    return MenuAnchor(
+      menuChildren: [
+        action(
+          'Commit',
+          () => review({'kind': 'commit', 'message': w.commitDraft}),
         ),
-        for (final remote in w.remoteState!['remotes'] as List)
-          ListTile(
-            dense: true,
-            title: Text(remote as String),
-            trailing: PopupMenuButton<String>(
-              tooltip: 'Reviewed remote actions',
-              enabled: !w.busy,
-              onSelected: (kind) => review({
-                'kind': kind,
-                'remote': remote,
-                if (kind != 'fetch') 'branch': w.remoteState!['branch'],
-              }),
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'fetch',
-                  child: Text('Review fetch'),
-                ),
-                if (w.remoteState!['remote'] == remote &&
-                    w.remoteState!['branch'] != null) ...[
-                  const PopupMenuItem(
-                    value: 'pull',
-                    child: Text('Review fast-forward pull'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'push',
-                    child: Text('Review push'),
-                  ),
-                ],
-              ],
+        const Divider(),
+        action('Pull', () => remote(context, 'pull')),
+        action('Push', () => remote(context, 'push')),
+        action('Fetch', () => remote(context, 'fetch')),
+        const Divider(),
+        SubmenuButton(
+          menuChildren: [
+            MenuItemButton(
+              onPressed: enabled && working.isNotEmpty
+                  ? () => review({'kind': 'stage', 'paths': working})
+                  : null,
+              child: const Text('Stage all changes'),
             ),
-          ),
+            MenuItemButton(
+              onPressed: enabled && staged.isNotEmpty
+                  ? () => review({'kind': 'unstage', 'paths': staged})
+                  : null,
+              child: const Text('Unstage all changes'),
+            ),
+          ],
+          child: const Text('Changes'),
+        ),
+        SubmenuButton(
+          menuChildren: [
+            action('Create branch…', () => createBranch(context)),
+            action('Switch branch…', () => local(context, 'branchSwitch')),
+          ],
+          child: const Text('Branch'),
+        ),
+        SubmenuButton(
+          menuChildren: [
+            MenuItemButton(
+              onPressed: enabled && stashable.isNotEmpty
+                  ? () => review({
+                      'kind': 'stashCreate',
+                      'paths': stashable,
+                      'message': 'Saved workspace changes',
+                    })
+                  : null,
+              child: const Text('Stash changes'),
+            ),
+            action('Apply stash…', () => local(context, 'stashApply')),
+            action('Apply and drop stash…', () => local(context, 'stashPop')),
+          ],
+          child: const Text('Stash'),
+        ),
+        if (w.status?['reverting'] == true)
+          action('Abort revert', () => review({'kind': 'revertAbort'})),
       ],
-      if (w.status?['reverting'] == true)
-        TextButton(
-          onPressed: w.busy ? null : () => review({'kind': 'revertAbort'}),
-          child: const Text('Review abort revert'),
-        ),
-      for (final branch in w.localState?['branches'] as List? ?? [])
-        ListTile(
-          dense: true,
-          title: Text(branch['name'] as String),
-          trailing: IconButton(
-            tooltip: 'Review switch branch',
-            onPressed: w.busy
-                ? null
-                : () =>
-                      review({'kind': 'branchSwitch', 'name': branch['name']}),
-            icon: const Icon(Icons.call_split, size: 18),
-          ),
-        ),
-      for (final stash in w.localState?['stashes'] as List? ?? [])
-        ListTile(
-          dense: true,
-          title: Text(stash['subject'] as String),
-          subtitle: Text(stash['ref'] as String),
-          trailing: PopupMenuButton<bool>(
-            tooltip: 'Stash actions',
-            enabled: !w.busy,
-            onSelected: (pop) => review({
-              'kind': 'stashApply',
-              'stash': stash['id'],
-              'pop': pop,
-            }),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: false, child: Text('Review apply')),
-              PopupMenuItem(value: true, child: Text('Review apply and drop')),
-            ],
-          ),
-        ),
-    ],
-  );
+      builder: (context, controller, child) => IconButton(
+        key: const Key('git-changes-menu'),
+        tooltip: 'Git actions',
+        icon: const Icon(Icons.more_horiz, size: 20),
+        onPressed: enabled
+            ? () => controller.isOpen ? controller.close() : controller.open()
+            : null,
+      ),
+    );
+  }
 }
 
 class GitHunkControls extends StatefulWidget {

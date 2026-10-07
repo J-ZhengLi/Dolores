@@ -19,7 +19,11 @@ class GitWorkspace {
   List<Map<String, dynamic>> history = [];
   int? historyNext;
   String? historyHead;
-  Map<String, dynamic>? historyFiles;
+  final commitFileCache = <String, Map<String, dynamic>>{};
+  final expandedCommits = <String>{};
+  final commitFileErrors = <String, String>{};
+  String? loadingCommit;
+  bool changesExpanded = true, historyExpanded = true;
   Map<String, dynamic>? localState;
   Map<String, dynamic>? remoteState;
   bool sideBySide = false;
@@ -79,6 +83,9 @@ class GitHost extends ChangeNotifier {
     error = null;
     if (w.status == null && !w.busy) {
       await refresh(w);
+      if (w.status?['head'] != null && !w.busy && w.error == null) {
+        await loadHistory(w);
+      }
     } else {
       changed();
     }
@@ -182,6 +189,12 @@ class GitHost extends ChangeNotifier {
           .map((v) => Map<String, dynamic>.from(v))
           .toList();
       w.history = more ? [...w.history, ...items] : items;
+      if (!more) {
+        final ids = items.map((item) => item['id']).toSet();
+        w.expandedCommits.removeWhere((id) => !ids.contains(id));
+        w.commitFileCache.removeWhere((id, _) => !ids.contains(id));
+        w.commitFileErrors.removeWhere((id, _) => !ids.contains(id));
+      }
       w.historyHead = head;
       w.historyNext = value['next'] as int?;
     } catch (_) {}
@@ -189,16 +202,51 @@ class GitHost extends ChangeNotifier {
   }
 
   Future<void> commitFiles(GitWorkspace w, String commit) async {
+    if (w.busy) return;
+    if (!w.commitFileCache.containsKey(commit) &&
+        !w.commitFileErrors.containsKey(commit) &&
+        {...w.commitFileCache.keys, ...w.commitFileErrors.keys}.length >= 8) {
+      final available = {
+        ...w.commitFileCache.keys,
+        ...w.commitFileErrors.keys,
+      }.where((id) => !w.expandedCommits.contains(id)).firstOrNull;
+      if (available == null) {
+        w.error =
+            'Eight commits are expanded. Collapse one before opening another.';
+        changed();
+        return;
+      }
+      w.commitFileCache.remove(available);
+      w.commitFileErrors.remove(available);
+    }
+    w.expandedCommits.add(commit);
+    w.commitFileErrors.remove(commit);
+    w.loadingCommit = commit;
     try {
-      w.historyFiles = Map<String, dynamic>.from(
+      w.commitFileCache[commit] = Map<String, dynamic>.from(
         await run(w, {
           'action': 'commitFiles',
           'repo': w.status!['repo'],
           'commit': commit,
         }),
       );
-    } catch (_) {}
+    } catch (e) {
+      w.commitFileErrors[commit] = '$e';
+    } finally {
+      w.loadingCommit = null;
+    }
     changed();
+  }
+
+  Future<void> toggleCommit(GitWorkspace w, String commit) async {
+    if (w.expandedCommits.remove(commit)) {
+      changed();
+    } else if (w.commitFileCache.containsKey(commit)) {
+      w.expandedCommits.add(commit);
+      changed();
+    } else {
+      await commitFiles(w, commit);
+    }
   }
 
   Future<void> stop(GitWorkspace w) async {

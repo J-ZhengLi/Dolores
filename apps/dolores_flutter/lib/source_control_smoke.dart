@@ -48,6 +48,15 @@ Future<void> main() async {
   }
   await git(['add', '.']);
   await git(['commit', '-m', 'Public base']);
+  await File('${root.path}/history-note.md')
+      .writeAsString('Public history note\n');
+  await git(['add', 'history-note.md']);
+  await git(['commit', '-m', 'Document the public workspace']);
+  await File('${root.path}/history-note.md')
+      .writeAsString('Updated public history note\n');
+  await File('${root.path}/history-guide.md').writeAsString('Public guide\n');
+  await git(['add', 'history-note.md', 'history-guide.md']);
+  await git(['commit', '-m', 'Refine workspace guidance']);
   for (var i = 0; i < 8; i++) {
     await File(
       '${root.path}/example$i.rs',
@@ -127,6 +136,57 @@ class _SourceControlQualificationState
       await publish('rendering');
       await git.openDiff(w, 'example0.rs', 'working');
       await capture('git-inline-light');
+      await git.loadHistory(w);
+      w.changesExpanded = false;
+      git.changed();
+      await frame();
+      Future<void> press(Key key) async {
+        VoidCallback? callback;
+        void visit(Element element) {
+          if (element.widget.key == key) {
+            final target = element.widget;
+            if (target is ListTile) callback = target.onTap;
+            if (target is IconButton) callback = target.onPressed;
+          }
+          element.visitChildren(visit);
+        }
+
+        boundary.currentContext!.visitChildElements(visit);
+        if (callback == null) throw StateError('Missing rendered action $key');
+        callback!();
+        await frame();
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (w.busy) {
+          if (DateTime.now().isAfter(deadline)) {
+            throw StateError('UI action timed out');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+        await frame();
+      }
+
+      final first = w.history[0]['id'] as String;
+      final second = w.history[1]['id'] as String;
+      await press(ValueKey('git-commit-$first'));
+      await press(ValueKey('git-commit-$second'));
+      await press(ValueKey('git-file-$first:history-note.md'));
+      if (w.tabs[w.activeTab]?['commit'] != first ||
+          !w.expandedCommits.containsAll([first, second])) {
+        throw StateError('Rendered commit/file ownership failed');
+      }
+      await capture('git-history-light');
+      setState(() => dark = true);
+      await capture('git-history-dark');
+      report['expandedHistoryFileClick'] = 'passed';
+      w.tabs.removeWhere((key, _) => key.startsWith('commit:'));
+      w.activeTab = w.tabs.keys.first;
+      w.changesExpanded = true;
+      git.changed();
+      await frame();
+      await press(const Key('git-changes-menu'));
+      await capture('git-actions-dark');
+      await press(const Key('git-changes-menu'));
+      setState(() => dark = false);
       w.sideBySide = true;
       git.changed();
       await capture('git-side-light');

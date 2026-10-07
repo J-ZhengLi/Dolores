@@ -35,22 +35,29 @@ Scheduled and Terminal remain future pages.
 ## Source Control
 
 Select a project conversation on Home, then open Source Control in the rail.
-Changes and Staged show saved Git state for its enclosing repository. Select a
+Working Changes and Staged Changes show saved Git state for its repository. Select a
 file for an inline or side-by-side comparison; eight diff tabs can stay open per
 project. Refresh reconciles external edits. Binary, oversized and unsupported
 comparisons explain their limits and offer external Git. History loads 30 commits
-at a time and opens exact non-merge commit comparisons.
+at a time. Click a commit to expand its changed files, then click a file to open
+its exact non-merge commit comparison. Click the commit again to collapse it.
+Eight commit file sets can stay expanded; collapse one to inspect another.
+An unavailable commit shows Retry files underneath it and retains other views.
 
 File menus review stage/unstage, selected tracked-file stash and discard from the
-index. Choose hunks in a text diff for partial stage/unstage. Review commit shows
+index. Choose hunks in a text diff for partial stage/unstage. The three-dot menu
+beside Changes contains Commit, Pull, Push, Fetch and grouped Changes, Branch and
+Stash actions. The message field also accepts Ctrl+Enter. Commit confirmation shows
 all staged files and your configured author, and keeps Git hooks enabled. Failed
 hooks retain the message and index. Save or close affected unsaved editors first.
 Stash conflicts retain the stash; a conflicted revert offers reviewed Abort.
 Branch switching requires clean tracked files. These actions use your OS account;
 they grant the chat model no additional access.
 
-Remotes & tracking loads local configuration. Remote menus separately review
-Fetch, fast-forward Pull and Push using existing credentials. Changed refs require
+Fetch, Pull and Push first offer a configured remote picker, then review the
+operation using existing credentials. Pull and Push require upstream tracking;
+Pull is fast-forward-only. Opening the action menu does not contact remotes.
+Changed refs require
 a fresh review; divergent Pull refuses the merge. Stop can leave effects, so
 Refresh and reconcile before retrying. Uncertain push warnings last for this
 launch; every new Push still checks the current remote ref. No force push or

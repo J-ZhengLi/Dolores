@@ -1,5 +1,25 @@
 # Source Control qualification — milestone 17, 2026-10-07
 
+## Follow-up interaction refinement
+
+The final VS Code-style workflow is specified in
+[Source Control](../design/source-control.md#final-interaction-refinement--2026-10-07).
+All 291 Flutter tests pass, including thirteen Source Control checks covering
+nested history, exact file/commit selection, row-specific read failure/retry,
+late owner responses, eight-cache recovery, grouped action menus, Ctrl+Enter/
+confirmation/Cancel and tracked-only stash selection. Native mutation semantics
+and the previously qualified disposable remote corpus below are unchanged.
+
+`output/source-control-refinement-renders/stage.json` records the diagnostic
+native callback flow: two commits expanded, historical file click checked against
+the exact ID, review cancellation, eight retained tabs, and no final error.
+`resources.json` records zero owned children at completion. Saved history in both
+themes, the Changes menu, eight tabs and compact main view were inspected with
+`view_image`. This is public isolated diagnostic evidence; physical input and
+large expanded histories remain gaps. The tracked-only stash refinement was
+tested separately after those captures. Normal-profile handoff is recorded in
+the newest [acceptance](../ACCEPTANCE.md), separately from diagnostic evidence.
+
 ## Scope and evidence
 
 Milestone 17.1–17.6 implements lazy project-bound status, saved diff tabs and paged

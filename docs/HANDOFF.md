@@ -7,6 +7,9 @@ implement **one milestone per batch**, retaining separate commits for its bricks
 Milestones 16 and 17 implementation and batch qualification are delivered; stop
 before 18. The final normal-app receipt is recorded in the newest acceptance.
 Memory, scheduling and companionship remain future work.
+The current follow-up refines milestone 17 to match the user's VS Code workflow:
+commits expand nested files, file clicks open exact diffs, and the Changes overflow
+menu groups repository actions. Preserve confirmation/dirty-editor guards.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact
 64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,

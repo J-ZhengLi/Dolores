@@ -1,5 +1,43 @@
 # Dolores acceptance — 2026-10-07
 
+## Source Control refinement — VS Code interaction
+
+The user's final reference is implemented within milestone 17: Changes owns
+the repository overflow menu; Branch, Stash and whole-file actions use grouped
+entries, and Commit/Fetch/Pull/Push use familiar names. Branch/stash/remote pickers
+replace permanent action lists. Commit still reviews exact staged work; Ctrl+Enter
+opens the same confirmation, and Cancel retains the message.
+
+History initially loads for a committed repository. Each commit expands its own
+files; a file click opens the exact commit comparison. Loading, failed reads and
+Retry files stay on the affected row. Eight cached commit file sets per repository
+retain usable work; collapse one to recover from the expansion limit. A new
+history refresh drops cached expansions outside its refreshed page.
+
+All 291 Flutter tests pass, including thirteen focused Source Control checks:
+nested commit/file interaction, read failure and row-specific retry, late A
+replies while B is selected, the eight-set limit and recovery, menu/keyboard commit
+confirmation and cancellation, configured remote selection, and stashing tracked
+changes without untracked files. Existing stale-diff, draft/hook, hunk and owner
+checks remain passing. Native Git mutation code and its previous qualification
+are unchanged.
+
+The isolated native release used three public commits and the production panel,
+menu, host and diff widgets. Rendered widget callbacks expanded two different
+commits and opened a historical file; the result verified its exact commit ID.
+Stage review/Cancel, eight retained diff tabs and zero owned child processes at
+completion passed. Saved light/dark history, overflow menu, eight-tab and compact
+renders were inspected using `view_image`:
+`output/source-control-refinement-renders/`. These are diagnostic screenshots and
+callback interaction evidence, not physical mouse/keyboard or normal-profile UX.
+The final tracked-only stash filter is separately exercised by the focused test.
+
+Remaining gaps: full branch graph, aligned side-by-side changed rows, physical
+input/accessibility, large expanded histories and sustained/other-platform
+resource coverage remain unqualified. No model calls or real remote publication
+were needed for this human Git UI refinement. Normal build/profile handoff is
+recorded separately after packaging; milestone 18 is not started.
+
 ## Source Control 17.6 — batch qualification
 
 The complete 17.1–17.6 batch is implemented. Full suites pass with 133 native
