@@ -272,6 +272,9 @@ impl Engine {
         Ok(Value::Null)
     }
     pub(super) fn apply_native(&self, token: &str) -> Result<Value, String> {
+        if self.terminals.lock().map_err(|_| "Terminal state is unavailable.")?.live() {
+            return Err("Stop live terminals before restarting. The review and output remain.".into());
+        }
         self.editor_can_restart()?;
         let mut slot = self
             .native_review

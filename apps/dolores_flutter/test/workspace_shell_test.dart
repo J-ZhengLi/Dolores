@@ -70,7 +70,7 @@ void main() {
       await t.tap(find.byKey(const Key('page-terminal')));
       await t.pumpAndSettle();
       expect(
-        find.text('Terminal is planned for milestone 18.'),
+        find.text('Retry'),
         findsOneWidget,
       );
       await t.tap(find.byKey(const Key('page-home')));

@@ -4,8 +4,12 @@
 
 **Current user steering:** plan a developer workspace and extend the roadmap;
 implement **one milestone per batch**, retaining separate commits for its bricks.
-Milestones 16 and 17 implementation and batch qualification are delivered; stop
-before 18. The final normal-app receipt is recorded in the newest acceptance.
+Milestones 16 and 17 implementation and batch qualification are delivered.
+The latest user authorization starts 18 then 19, one milestone batch at a time,
+with unattended implementation and individual brick commits. 18.1 now adds the
+real lazy PTY/emulator and initial-folder recovery; 18.2–18.6 remain current work.
+Then perform 19's bounded backend trial; do not start later milestones.
+The previous normal-app receipt is recorded in the newest acceptance.
 Memory, scheduling and companionship remain future work.
 The delivered follow-up refines milestone 17 to match the user's VS Code workflow:
 commits expand nested files, file clicks open exact diffs, and the Changes overflow
@@ -24,7 +28,7 @@ pass. Runtime `333b912` also passed maintained normal build and visible main-ent
 launch; all 42 original profile table hashes stayed identical, with no new tables.
 Receipt: `output/source-control-large-diff-normal-handoff.json`.
 See newest acceptance for remaining page-boundary,
-binary-preview, physical-input and platform/resource limits. Do not begin 18.
+binary-preview, physical-input and platform/resource limits.
 
 Preserve the current agent view on **Home**. The primary navigation is a compact
 64-pixel icon rail following the user's ChatGPT desktop screenshot: Home, Scheduled,
@@ -71,7 +75,7 @@ actions. Full native/Flutter suites pass; the two-repository release corpus veri
 unsaved-buffer protection, hook cancellation/recovery and a disposable bare remote.
 See [Source Control qualification](qualification/source-control.md) for exact
 measurements, invalid earlier renders, Windows-path correction and remaining gaps.
-The next batch is 18 when the user proceeds; do not start it in this batch.
+The current authorized batch is 18, followed by 19 after its qualification.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)

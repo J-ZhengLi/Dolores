@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'chat.dart';
 import 'file_host.dart';
 import 'git_host.dart';
+import 'terminal_host.dart';
 
 import 'package:path/path.dart' as paths;
 
@@ -27,6 +28,7 @@ class AppHost extends ChangeNotifier {
     ),
   );
   late final GitHost git = GitHost(initial.bridge);
+  late final TerminalHost terminals = TerminalHost(initial.bridge);
   final ChatController initial;
   final owners = <ChatController>[];
   late ChatController visible;
@@ -42,7 +44,8 @@ class AppHost extends ChangeNotifier {
   Future<void> Function(String path)? repositoryNavigation;
   Future<bool> requestClose() async => await closeReview?.call() ?? false;
   Future<void> prepareNativeRestart(ChatController caller) async {
-    if (git.workspaces.values.any((w) => w.busy) ||
+    if (terminals.live.isNotEmpty ||
+        git.workspaces.values.any((w) => w.busy) ||
         owners.any((c) => c.busy || c.loading || c.changing) ||
         files.loading ||
         files.documents.values.any(
@@ -305,6 +308,7 @@ class AppHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    terminals.dispose();
     git.dispose();
     files.dispose();
     for (final owner in owners) {

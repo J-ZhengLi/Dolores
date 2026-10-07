@@ -16,6 +16,7 @@ import 'settings.dart';
 import 'theme.dart';
 import 'folders.dart';
 import 'file_workspace.dart';
+import 'terminal_page.dart';
 
 enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 
@@ -55,6 +56,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   void initState() {
     super.initState();
     page = widget.initialPage;
+    if (page == WorkspacePage.terminal) {
+      unawaited(host.terminals.enter(host.visible.session));
+    }
     host.addListener(changed);
     host.closeReview = requestClose;
     host.repositoryNavigation = (path) async {
@@ -76,13 +80,16 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   Future<bool> requestClose() async {
     final dirty = host.files.documents.values.where((d) => d.dirty).length;
     final tasks = host.tasks.length;
-    if (dirty == 0 && tasks == 0) return host.prepareQuit(saveFiles: false);
+    final terminals = host.terminals.live.length;
+    if (dirty == 0 && tasks == 0 && terminals == 0) {
+      return host.prepareQuit(saveFiles: false);
+    }
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Close Dolores?'),
         content: Text(
-          '$dirty unsaved files and $tasks running or queued tasks. Closing stops tasks. Private recovery preserves unsaved edits without saving source files.',
+          '$dirty unsaved files, $tasks running or queued tasks and $terminals live terminals. Closing stops tasks and terminal processes. Private recovery preserves unsaved edits without saving source files.',
         ),
         actions: [
           TextButton(
@@ -162,6 +169,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                         ),
                         onPressed: () {
                           setState(() => page = value);
+                          if (value == WorkspacePage.terminal) {
+                            unawaited(
+                              host.terminals.enter(host.visible.session),
+                            );
+                          }
                           if (value == WorkspacePage.folders) {
                             unawaited(
                               host.files.bind(
@@ -258,6 +270,13 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Widget content() {
+    if (page == WorkspacePage.terminal) {
+      return TerminalPage(
+        host: host.terminals,
+        session: host.visible.session,
+        chooseFolder: () => unawaited(openProject()),
+      );
+    }
     if (page == WorkspacePage.sourceControl) {
       return SourceControlView(git: host.git);
     }

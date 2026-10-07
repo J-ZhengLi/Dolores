@@ -24,6 +24,7 @@ mod experimental;
 mod editor;
 mod git_process;
 mod source_control;
+mod terminal;
 #[cfg(test)]
 mod experience_tests;
 mod export;
@@ -97,6 +98,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    terminals: Mutex<terminal::Registry>,
     git: Arc<Mutex<source_control::Registry>>,
     editor: Arc<Mutex<editor::Registry>>,
     keep_awake: Mutex<Option<experimental::PowerRequest>>,
@@ -126,6 +128,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Terminal { request: terminal::Request },
     Git { session:String, request:source_control::Request },
     Editor { session:String, request:editor::Request },
     ExperimentalPreferences,
@@ -750,6 +753,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            terminals: Mutex::new(Default::default()),
             git: Arc::new(Mutex::new(Default::default())),
             editor: Arc::new(Mutex::new(Default::default())),
             keep_awake: Mutex::new(None),
@@ -810,6 +814,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::Terminal {request} => {drop(active);return self.terminal_call(request);},
             Command::Git {session,request} => {
                 if let source_control::Request::Apply{repo,..}=&request {
                     if self.git.lock().map_err(|_|"Source Control is unavailable.")?.review_root(repo).is_some_and(|root|active.has_repo(&root)) {return Err("Finish or stop the task in this repository before its Git mutation. Review and drafts remain.".into());}
@@ -920,6 +925,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.terminals.lock().map_err(|_| "Terminal state is unavailable.")?.stop_all()?;
                 self.stop_git()?;
                 self.keep_awake.lock().map_err(|_| "Keep-awake state is unavailable.")?.take();
                 active.close();

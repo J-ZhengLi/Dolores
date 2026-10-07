@@ -1,5 +1,29 @@
 # Dolores acceptance — 2026-10-07
 
+## Terminal 18.1 — real PTY and initial folder
+
+Terminal entry now starts a real portable-pty/ConPTY shell only when no terminal
+exists. The selected Home conversation supplies its initial root; without a
+project it uses OS home. Revisiting after changing selection keeps the old shell
+and its original owner. Missing roots/spawn failures expose Retry / Choose folder /
+Open at home while Home and editing remain usable. ANSI rendering uses pinned
+xterm 4.0.0, 5,000-line scrollback and incremental Unicode decoding. Copy selection,
+paste, resize and Ctrl+C use terminal input, without model control or credentials.
+
+One real Windows PTY test passes for input, cursor-position handshake, resize,
+invalid sizes/oversized input, missing root, Stop and cleanup. The first test
+failed because its test consumer omitted ConPTY's required cursor reply; the
+corrected consumer models that emulator response. Two new Flutter tests pass for
+lazy/reused ownership, split UTF-8 reads, failed spawn/Home recovery, retained
+output and explicit retry after a connection failure. Updated workspace tests
+exercise the new unavailable-backend recovery rather than the old placeholder.
+Native restart now refuses live terminals before consuming its review.
+
+Normal packaging, native terminal interaction and resource/model qualification
+remain batch work in 18.6. Tabs/splits, private cold-restart display and first
+language services follow in 18.2–18.5. This does not establish complete milestone
+18 or native physical keyboard/IME acceptance.
+
 ## Source Control correction — large files and aligned changes
 
 The reported large-file failure was reproduced on a real saved file: opening its

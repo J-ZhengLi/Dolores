@@ -32,6 +32,7 @@ quote = "1"
 tokio = { workspace = true, features = ["process", "io-util"] }
 tokio-util.workspace = true
 uuid.workspace = true
+portable-pty = "=0.9.0"
 
 [build-dependencies]
 sha2 = "0.10"
@@ -42,4 +43,4 @@ async-trait.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_Power", "Win32_System_Threading"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Power", "Win32_System_Threading"] }
