@@ -5,6 +5,7 @@ mod adaptation_tests;
 mod approval;
 mod attachments;
 mod automatic_memory;
+mod memory_maintenance;
 mod browser;
 mod changes;
 #[cfg(test)]
@@ -100,6 +101,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    memory_maintenance: Arc<memory_maintenance::Maintenance>,
     languages: Mutex<language::Registry>,
     terminals: Mutex<terminal::Registry>,
     git: Arc<Mutex<source_control::Registry>>,
@@ -752,12 +754,14 @@ impl Engine {
         let mut connection = ConnectionManager::new(store.clone(), credentials.clone());
         // Learning recovery never makes ordinary history/chat unavailable.
         let _ = store.interrupt_adaptations();
+        let _ = store.recover_automatic_memory();
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            memory_maintenance: Arc::new(Default::default()),
             languages: Mutex::new(Default::default()),
             terminals: Mutex::new(Default::default()),
             git: Arc::new(Mutex::new(Default::default())),
@@ -936,6 +940,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                self.memory_maintenance.stop(true);
                 self.languages.lock().map_err(|_| "Language state is unavailable.")?.stop_all()?;
                 self.terminals.lock().map_err(|_| "Terminal state is unavailable.")?.stop_all()?;
                 self.stop_git()?;
@@ -1233,9 +1238,11 @@ impl Engine {
             } => self.save_memory_suggestion(&session, &token, index, scope, input),
             Command::DiscardMemoryReview { token } => self.discard_memory_review(&token),
             Command::Memories { session } => self.memories(session.as_deref()),
-            Command::SetAutomaticMemory { enabled, revision } => Ok(json!(self
-                .store
-                .set_automatic_memory_policy(enabled, revision)?)),
+            Command::SetAutomaticMemory { enabled, revision } => {
+                let policy = self.store.set_automatic_memory_policy(enabled, revision)?;
+                self.memory_maintenance.stop(false);
+                Ok(json!(policy))
+            },
             Command::SaveMemory {
                 session,
                 scope,
@@ -1968,6 +1975,7 @@ impl Engine {
                     events,
                     approvals,
                 }, scope)?;
+                let memory_maintenance = self.memory_maintenance.clone();
                 let store = self.store.clone();
                 let _ = output.try_send(json!({"type":"queued","id":id,"note":"Waiting for an available run slot or project."}));
                 self.runtime.spawn(async move {
@@ -2018,7 +2026,7 @@ impl Engine {
                     let learning_update = if desktop_capture.is_none() && result.is_ok(){if let Some(s)=learning_session.as_deref(){adaptation::reflect(store.clone(),reflection_provider,s,&learning_model,cancel.clone(),&output,id).await.unwrap_or_else(|e|Some(format!("{e} Saved reply and prior evidence remain; inspect Skills → Learning. No retry.")))}else{None}}else{None};
                     let memory_update = if result.is_ok() && !paused {
                         if let (Some(session), Some(learner)) = (learning_session, learner) {
-                            automatic_memory::learn(store.clone(), learner, &session, &learning_model, cancel.clone(), &output, id).await
+                            memory_maintenance.enqueue(store.clone(), learner, session, learning_model.clone()).await
                         } else { None }
                     } else { None };
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};

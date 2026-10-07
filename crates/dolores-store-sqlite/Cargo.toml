@@ -8,6 +8,7 @@ license.workspace = true
 dolores-core = { path = "../dolores-core" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde_json.workspace = true
+uuid.workspace = true
 sha2 = "0.10"
 tokio-util.workspace = true
 

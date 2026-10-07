@@ -622,6 +622,7 @@ pub trait SessionStore: Send + Sync {
             revision: 1,
         })
     }
+    fn recover_automatic_memory(&self) -> Result<(), String> { Ok(()) }
     fn set_automatic_memory_policy(
         &self,
         _: bool,

@@ -152,8 +152,8 @@ impl SqliteStore {
         }
         let report = AutomaticMemoryAttempt {
             message_id: source.message_id,
-            status: "interrupted".into(),
-            note: "The attempt did not finish. It will not be retried automatically.".into(),
+            status: "updating".into(),
+            note: "Memory is updating in the background; the completed reply is saved.".into(),
             updated_at: now(),
             saved: 0,
             skipped: 0,
@@ -182,7 +182,7 @@ impl SqliteStore {
         let pending: AutomaticMemoryAttempt =
             serde_json::from_str(&pending.ok_or("Automatic memory attempt changed.")?)
                 .map_err(storage_error)?;
-        if pending.status != "interrupted" {
+        if pending.status != "updating" {
             return Err("Automatic memory attempt already finished.".into());
         }
         let p = policy(&tx)?;
@@ -254,17 +254,21 @@ impl SqliteStore {
                         >= MAX_AUTOMATIC_MEMORIES_PER_SCOPE
                 {
                     report.skipped += 1;
+                    report.note = "Memory reached its 128 automatic-record limit for this scope. Forget an unused memory, then finish a new interaction; no records were silently removed.".into();
                     continue;
+                }
+                if previous.is_none() {
+                    let count: usize = tx.query_row("SELECT count(*) FROM memory_preferences WHERE json_extract(data,'$.source')='automatic'", [], |r|r.get(0)).map_err(storage_error)?;
+                    if count >= 8192 {
+                        report.skipped += 1;
+                        report.note = "Memory reached its 8192 automatic-record application limit. Forget unused memories before another interaction; existing work is retained.".into();
+                        continue;
+                    }
                 }
                 let timestamp = now();
                 let value = MemoryPreference {
                     id: previous.as_ref().map(|p| p.id.clone()).unwrap_or_else(|| {
-                        format!(
-                            "auto-{}-{}-{}",
-                            update.session,
-                            update.source.message_id,
-                            c.title.replace(' ', "-")
-                        )
+                        format!("auto-{}", uuid::Uuid::new_v4().simple())
                     }),
                     revision: previous.as_ref().map_or(Ok(1), |p| {
                         p.revision
@@ -287,10 +291,10 @@ impl SqliteStore {
                 current.push(value);
                 report.saved += 1;
             }
-            report.note = format!(
+            if report.note.is_empty() { report.note = format!(
                 "{} saved · {} duplicates, conflicts or protected entries skipped",
                 report.saved, report.skipped
-            );
+            ); }
         }
         if cancel.is_cancelled() && report.saved > 0 {
             return Err("Automatic memory stopped before saving.".into());

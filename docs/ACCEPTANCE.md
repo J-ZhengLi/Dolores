@@ -2946,3 +2946,10 @@ Isolated SQLite baseline test passes: completed project decision remains in hist
 ## Milestone 21.1 — Memory switch and source index (2026-10-07)
 
 Schema 34 adds transactional source indexing; fresh Memory is Off, existing saved choices are retained. Off stops both capture and recall while keeping inspectable entries. Source-linked confidence labels and setup-free empty states are exposed. 128 automatic records per scope are separate from the existing 12 manual preference allowance; bounded payload costs are in [qualification](qualification/automatic-memory.md). Focused native memory tests and 11 compact light/dark Flutter memory tests pass, including stale policy recovery. Maintained normal Windows release build passes; packaging required stopping only the owned preview after its open DLL blocked replacement. Capture expansion and cue-led recall remain the next bricks.
+
+
+## Milestone 21.2 — Useful automatic capture (2026-10-07)
+
+Facts, decisions, reported outcomes and open work accept exact standalone user evidence without a remember phrase. One invalid candidate refuses the entire batch. Background maintenance admits promptly, runs one request with a 16-chat coalescing queue, preserves completed replies and separate usage, and cancels on Off/Shutdown without startup replay. Frozen useful/negative/partial-quote tests and hung-provider queue/full/Off recovery pass. Legacy migration replay fixtures are preserved through idempotent indexing. [Qualification](qualification/automatic-memory.md) records bounds and remaining live-model checks.
+
+21.2 verification: all 277 core/store/bridge native tests pass. Maintained normal Windows build passes. Packaged C ABI save/restore corpus passes in separate processes (30 local fixture requests, zero live requests), including scoped capture, correction/manual protection, malformed/invented/oversized output, provider denial, lower context/deadline, background stop and retained replies. Live-model reliability remains for 21.6.

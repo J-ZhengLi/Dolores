@@ -206,11 +206,11 @@ impl SqliteStore {
         }
         if version < 34 {
             connection.execute_batch("BEGIN IMMEDIATE;
-                CREATE TABLE memory_source_index(id TEXT PRIMARY KEY REFERENCES memory_preferences(id) ON DELETE CASCADE, session TEXT NOT NULL, message_id INTEGER NOT NULL, quote TEXT NOT NULL);
-                INSERT INTO memory_source_index SELECT id,json_extract(data,'$.origin.session'),json_extract(data,'$.origin.messageId'),json_extract(data,'$.origin.quote') FROM memory_preferences WHERE json_type(data,'$.origin')='object';
-                CREATE INDEX memory_source_lookup ON memory_source_index(session,message_id);
-                CREATE TRIGGER memory_source_insert AFTER INSERT ON memory_preferences WHEN json_type(NEW.data,'$.origin')='object' BEGIN INSERT OR REPLACE INTO memory_source_index VALUES(NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote')); END;
-                CREATE TRIGGER memory_source_update AFTER UPDATE ON memory_preferences BEGIN DELETE FROM memory_source_index WHERE id=NEW.id; INSERT INTO memory_source_index SELECT NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote') WHERE json_type(NEW.data,'$.origin')='object'; END;
+                CREATE TABLE IF NOT EXISTS memory_source_index(id TEXT PRIMARY KEY REFERENCES memory_preferences(id) ON DELETE CASCADE, session TEXT NOT NULL, message_id INTEGER NOT NULL, quote TEXT NOT NULL);
+                INSERT OR REPLACE INTO memory_source_index SELECT id,json_extract(data,'$.origin.session'),json_extract(data,'$.origin.messageId'),json_extract(data,'$.origin.quote') FROM memory_preferences WHERE json_type(data,'$.origin')='object';
+                CREATE INDEX IF NOT EXISTS memory_source_lookup ON memory_source_index(session,message_id);
+                CREATE TRIGGER IF NOT EXISTS memory_source_insert AFTER INSERT ON memory_preferences WHEN json_type(NEW.data,'$.origin')='object' BEGIN INSERT OR REPLACE INTO memory_source_index VALUES(NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote')); END;
+                CREATE TRIGGER IF NOT EXISTS memory_source_update AFTER UPDATE ON memory_preferences BEGIN DELETE FROM memory_source_index WHERE id=NEW.id; INSERT INTO memory_source_index SELECT NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote') WHERE json_type(NEW.data,'$.origin')='object'; END;
                 PRAGMA user_version=34; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
@@ -564,6 +564,10 @@ impl SessionStore for SqliteStore {
     }
     fn automatic_memory_policy(&self) -> Result<dolores_core::AutomaticMemoryPolicy, String> {
         self.auto_policy()
+    }
+    fn recover_automatic_memory(&self) -> Result<(), String> {
+        self.lock()?.execute("UPDATE automatic_memory_attempts SET data=json_set(data,'$.status','interrupted','$.note','Memory was interrupted by restart. Reply and earlier memories remain; finish a new interaction to continue. No request is replayed.') WHERE json_extract(data,'$.status')='updating'", []).map_err(storage_error)?;
+        Ok(())
     }
     fn set_automatic_memory_policy(
         &self,

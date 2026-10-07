@@ -3,15 +3,11 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
-pub(super) async fn learn(
+pub(super) async fn prepare(
     store: Arc<dyn SessionStore>,
-    provider: Arc<dyn ModelProvider>,
     session: &str,
     model: &str,
-    cancel: CancellationToken,
-    output: &tokio::sync::mpsc::Sender<Value>,
-    id: u64,
-) -> Option<Value> {
+) -> Result<Option<AutomaticMemoryUpdate>, String> {
     let reader = store.clone();
     let sid = session.to_owned();
     let snapshot = super::blocking(move || {
@@ -33,11 +29,12 @@ pub(super) async fn learn(
         }
         Ok(Some((policy, source, existing)))
     })
-    .await
-    .ok()
-    .flatten()?;
+    .await?;
+    let Some(snapshot) = snapshot else {
+        return Ok(None);
+    };
     let (policy, source, existing) = snapshot;
-    let mut update = AutomaticMemoryUpdate {
+    Ok(Some(AutomaticMemoryUpdate {
         session: session.into(),
         source: source.clone(),
         policy_revision: policy.revision,
@@ -45,9 +42,18 @@ pub(super) async fn learn(
         candidates: vec![],
         model: model.into(),
         status: "skipped".into(),
-        note: "No eligible explicit preference; no extra model request.".into(),
+        note: "No eligible useful statement; no extra model request. Finish an interaction with a useful fact or decision to capture it.".into(),
         usage: None,
-    };
+    }))
+}
+
+pub(super) async fn learn(
+    store: Arc<dyn SessionStore>,
+    provider: Arc<dyn ModelProvider>,
+    mut update: AutomaticMemoryUpdate,
+    cancel: CancellationToken,
+) -> Option<Value> {
+    let source = update.source.clone();
     let literal = if cancel.is_cancelled() {
         None
     } else {
@@ -68,7 +74,6 @@ pub(super) async fn learn(
                 provider.context_window_tokens(),
                 provider.request_settings().unwrap_or_default(),
             )?;
-            let _ = output.send(json!({"type":"memoryUpdating","id":id})).await;
             let (answer, usage) = super::memory_suggestions::collect_review(
                 provider,
                 prompt,
@@ -88,7 +93,7 @@ pub(super) async fn learn(
             _ => {
                 learning_cancel.cancel();
                 update.status = "failed".into();
-                update.note="Learning did not produce a verified preference. The reply is saved; no automatic retry.".into();
+                update.note="Memory request did not produce verified evidence within its limits. The reply is saved; inspect Memory and finish a new interaction to try again. No automatic retry.".into();
             }
         }
     }

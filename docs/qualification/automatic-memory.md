@@ -52,3 +52,14 @@ Schema 34 adds an atomic source lookup with insert/update triggers and cascade d
 Caps: 128 automatic records plus the existing 12 manual records per scope; at most 280 scoped/global candidates read. Each record retains the existing 1 KiB text, 512-byte source quote, 80-character title and bounded IDs/model. The maximum-field UTF-8 fixture is 2407 bytes per JSON record (308096 bytes for 128); source index duplicates only bounded references/quotes. SQLite page overhead is separate. Full-scope behavior skips new additions with an actionable Forget instruction; no silent eviction. Recall retains its 4 KiB ceiling. No retrieval dependency is added.
 
 Tests cover fresh Off, saved On/Off and history across restart, transaction failure without history/schema loss, recall Off with retained inspectable data, compact light/dark policy and activity/failure recovery.
+
+
+## 21.2 Useful capture and maintenance
+
+Completed user statements can supply exact facts, decisions, reported outcomes and open work without a remember phrase. The bounded tool-free extractor emits stable typed titles and exact standalone excerpts; partial qualifiers, speculation, quoted third-party text, credentials and invented candidates are refused. Reported outcomes retain user attribution, not independent task-completion proof. Legacy literal response preferences still avoid a request.
+
+A lazy worker runs one maintenance request at a time and queues at most 16 distinct chats, coalescing waiting work per chat. Reply completion does not wait for the model. Jobs pin source/policy and re-read current scoped records before extraction. Publication remains atomic; Off/Shutdown cancels requests and clears waiting work. Restart reports interrupted attempts without replay. Queue/full-scope failures preserve replies and explain the next action. Existing extraction bounds remain 512 output tokens, 8 KiB source, three candidates and ten seconds or lower configured limits. Separate reported usage is stored.
+
+Global automatic storage is capped at 8192 records (maximum-field JSON payload about 19 MiB, plus bounded source index and SQLite overhead). Worst-case queued snapshots remain bounded by 17 active/waiting jobs times 280 source-linked records; no idle polling service or new retrieval dependency. Multi-project foreground requests may run concurrently with the one tool-free memory worker.
+
+Frozen positive/negative/partial-qualifier/atomic-validation cases pass. Hung-provider admission completes within 500 ms, one request runs, 16 waiting chats coalesce, overflow skips with guidance, and Off stops without publication while replies remain saved. Full-suite legacy migration tests exposed artificially rolled-back schema fixtures; idempotent index migration preserves them, and a genuinely incompatible destination still rolls back without losing history.

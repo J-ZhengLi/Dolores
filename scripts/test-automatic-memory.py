@@ -49,7 +49,7 @@ class Fixture(BaseHTTPRequestHandler):
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         requests.append(request)
-        learning = request["messages"][0]["content"].startswith("You extract automatic preferences")
+        learning = request["messages"][0]["content"].startswith("You extract automatic useful memory")
         if learning:
             learning_started.set()
             if mode == "denied":
@@ -77,21 +77,36 @@ def done(number, stop_learning=False):
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         for event in call("poll", id=number):
-            if event["type"] == "memoryUpdating" and stop_learning:
-                assert not envelope("setAutomaticMemory", enabled=False, revision=1)["ok"]
-                call("cancel", id=number)
             if event["type"] == "done":
                 assert not event.get("error"), event
+                if (event.get("memoryUpdate") or {}).get("status") == "queued":
+                    if stop_learning:
+                        assert learning_started.wait(3)
+                        set_policy(False)
+                    memory_deadline=time.monotonic()+12
+                    while time.monotonic()<memory_deadline:
+                        attempt=call("memories",session=current_session)["automaticAttempt"]
+                        if attempt and attempt["status"]!="updating":
+                            event["memoryUpdate"]=attempt
+                            break
+                        time.sleep(.01)
+                    else: raise AssertionError("Background memory did not settle")
                 return event
         time.sleep(.01)
     call("cancel", id=number)
     raise AssertionError("Native fixture deadline")
 
 def run(number, session, text):
+    global current_session
+    current_session=session
     call("start", id=number, session=session, input=text)
     return done(number)
 
 def items(session): return call("memories", session=session)["items"]
+
+def set_policy(enabled):
+    policy=call("memories")["automaticPolicy"]
+    return call("setAutomaticMemory",enabled=enabled,revision=policy["revision"])
 
 if args.stage == "save":
     server = ThreadingHTTPServer(("127.0.0.1", 0), Fixture)
@@ -99,6 +114,8 @@ if args.stage == "save":
     try:
         call("configure", preferences={"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"},apiKey="",rememberConnection=True)
         call("setRequestSettings",settings={"maxOutputTokens":4096,"timeoutSeconds":8})
+        assert not call("memories")["automaticPolicy"]["enabled"]
+        set_policy(True)
         project = fixture / "project"; project.mkdir()
         session = call("createSession",kind="project",path=str(project))["session"]["id"]
         side = call("createSession",kind="side")["session"]["id"]
@@ -127,7 +144,7 @@ if args.stage == "save":
         call("setAutomaticMemory",enabled=False,revision=policy["revision"])
         before=len(requests);assert run(11,session,"I prefer concise replies.")["memoryUpdate"] is None
         assert len(requests)==before+1
-        call("setAutomaticMemory",enabled=True,revision=2)
+        set_policy(True)
         # A side-chat preference learns in All chats, with independent usage.
         result=run(12,side,"I prefer clear examples with assumptions labeled.")
         assert result["memoryUpdate"]["saved"]==1 and result["memoryUpdate"]["usage"]["inputTokens"]==100
@@ -138,9 +155,11 @@ if args.stage == "save":
             assert items(side)==[] and len(call("messagesPage",session=side)["items"])==(number-11)*2
             assert result["memoryUpdate"]["saved"]==0
         mode="slow";learning_started.clear()
+        current_session=side
         call("start",id=17,session=side,input="I prefer clear examples with assumptions labeled.")
         assert done(17,stop_learning=True)["memoryUpdate"]["status"]=="stopped"
         assert items(side)==[]
+        set_policy(True)
         call("setRequestSettings",settings={"maxOutputTokens":512,"timeoutSeconds":1})
         assert run(18,side,"I prefer clear examples with assumptions labeled.")["memoryUpdate"]["status"]=="failed"
         assert items(side)==[]
@@ -166,7 +185,7 @@ if args.stage == "save":
     finally: call("shutdown");server.shutdown();server.server_close()
 else:
     state=json.loads((fixture/"state.json").read_text())
-    assert call("memories",session=state["session"])["automaticPolicy"]=={"enabled":True,"revision":3}
+    assert call("memories",session=state["session"])["automaticPolicy"]["enabled"]
     learned=items(state["session"])[0]
     assert learned["id"]==state["id"] and learned["text"]=="USER_CORRECTED" and learned["revision"]==3
     assert learned["origin"]["quote"]=="From now on I prefer detailed replies instead."
