@@ -1,50 +1,55 @@
 # Dolores
 
-Dolores is a desktop agent harness for working with a local or hosted language model. Choose a project folder, ask for help, and review proposed file edits and commands before they run. Its name comes from Dolores in *Westworld*: the aim is an assistant that improves through useful memories, reusable skills and measured feedback.
+[English](README.md) · [简体中文](README_zh.md)
 
-Dolores is an early preview. Windows has been exercised locally; macOS/Linux builds, native accessibility and low-end performance still need verification. See [current acceptance](docs/ACCEPTANCE.md) for the tested scope.
+**An AI assistant for your projects, with chat, files, Git and a terminal in one desktop app.**
 
-## Get started
+Dolores helps you understand code, make changes and work through everyday tasks using your choice of local or hosted model. Pick a project, describe what you need, and review the proposed edits and commands. Useful memories, reusable skills and scheduled tasks help carry work forward across conversations.
 
-For a Windows portable preview, extract the **entire** ZIP to a folder and open `Start-Dolores.cmd` inside it. It checks for missing app files and explains how to install or repair the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) if needed. Keep the DLLs and `data/` folder together. Portable describes the application files; conversations and settings use your account's application data directory.
+The name comes from Dolores in *Westworld*: continuity, curiosity and learning from experience are the inspiration.
 
-The repository includes a [build and packaging guide](CONTRIBUTING.md); it does not yet promise signed installers or an automatic updater.
+![Dolores Source Control showing file changes, commit history and a side-by-side diff](docs/images/source-control.png)
 
-1. Open **Settings → Models**, enter your provider's OpenAI-compatible API base URL and key, then **Fetch models**. Select the models you want available and save. Manual model IDs are available when listing is unsupported.
-2. Choose **Open project…** for an existing folder, or start a **Temporary workspace** and Dolores creates one. Choose **Side chat** for conversation without file tools.
-3. Select a model inside the input box and send a message. Review each proposed tool operation before allowing it. Working chats need a model that supports Chat Completions function calls.
-
-Dolores connects to models you provide; it does not install or start a local model server. **Remember connection** stores a key in the OS credential vault. Without it, the connection lasts for the current launch.
+*Source Control with expandable commit history and side-by-side diffs. Screenshots use synthetic demonstration data.*
 
 ## What you can do
 
-- Keep the familiar Home chat, browse project files and edit with draggable file-only split tabs, explicit Save and private draft recovery.
-- Inspect saved Git diffs/history and review staging, commits, stashes, branches and remote actions from Source Control.
-- Read, find, edit and create text files in a working folder, with reviewed diffs and a local change journal.
-- Attach text files or PNG/JPEG images, preview what will be shared, and use images with an explicitly configured capable model.
-- Run reviewed commands and connect installed local MCP tool servers.
-- Delegate scoped file work to up to two subagents, with shared limits and parent verification.
-- Search the web without setup, read public source pages, or configure Brave/SearXNG for search.
-- Use an optional fresh browser for reviewed page interaction and local screenshots; see [browser setup](docs/USER_GUIDE.md#browser-setup).
-- Share one Windows application from chat for reviewed observation and input. Fresh screenshots and effect checks are required; model reliability remains limited.
-- Browse and export conversations, inspect context and reported token usage, and explicitly continue paused tasks.
-- Inspect preferences and scoped project knowledge, review reusable skills, and compare snapshots on bounded response or disposable tool tests.
-- Opt into narrow experimental project skill learning, inspect its evidence, and restore or quarantine an update.
-- Test experimental recovery mods in **Settings → Advanced → Harness extensions**, draft a bounded repair and restore or quarantine it. Automatic activation starts off; mods cannot change permissions or task limits.
-- Record local **Worked / Needs work** feedback against a reply's original evidence.
-- Inspect running capabilities and run evidence, and configure project/chat request and interaction overrides.
-- Choose task permissions, restore saved drafts, fork completed turns and opt into bounded automatic context compaction.
+- **Work through chat.** Stream replies, attach files or images, inspect context, resume work and delegate scoped tasks to subagents.
+- **Edit your project.** Browse folders, drag file tabs between split views, find text and save changes with draft recovery.
+- **Use Git without leaving the app.** Browse commits, open file diffs, stage changes and review commit, branch, stash and remote actions.
+- **Open a terminal.** Use tabs and split views, starting in the selected project's folder or your home directory.
+- **Remember useful details.** Enable automatic memory for preferences and project facts, then inspect, correct or forget what was saved.
+- **Schedule work in conversation.** Ask for a recurring task and manage its status, results and errors on the Scheduled page. Optional background mode keeps tasks running in the Windows tray while the main window is closed.
+- **Extend your assistant.** Use reusable skills, installed local MCP servers, web search, an optional browser and reviewed Windows computer interaction.
 
-Follow the [user guide](docs/USER_GUIDE.md) for controls, recovery and data handling. File tools stay inside the working folder; commands and MCP servers run with your account permissions. Chat history, preferences and file-change snapshots are local plaintext, and approved content is sent to your configured model provider.
+![Dolores Memory settings with a single switch and separate personal and project scopes](docs/images/memory.png)
 
-## Develop Dolores
+*Memory is optional. Saved preferences and project facts can be inspected and removed.*
 
-The selected desktop UI is Flutter, backed by a Rust core and replaceable provider, storage, credential and tool interfaces. No model or Node sidecar is bundled; optional browser use needs a separately installed Node/Playwright runtime and Edge/Chrome.
+## Get started
 
-- [Contributor guide](CONTRIBUTING.md) — prerequisites, build, tests and packaging.
-- [Architecture](docs/ARCHITECTURE.md) — components, trust boundaries and limits.
-- [UI contract](docs/UI.md) — shared theme and interaction rules.
-- [Documentation index](docs/README.md) — user, developer, design and verification references.
-- [Roadmap](docs/ROADMAP.md) — planned milestones, dependencies and acceptance gates.
+Dolores is an **early preview for Windows x64**. Releases are portable ZIPs; signing and other platforms remain future work. See the [tested scope and remaining gaps](docs/ACCEPTANCE.md).
 
-Dolores is licensed under [MIT](LICENSE).
+1. Extract the **entire** Windows ZIP and open `Start-Dolores.cmd`. The launcher checks for missing files and the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). Keep the DLLs and `data/` folder together.
+2. Open **Settings → Models**, add an OpenAI-compatible API URL and key, then fetch and enable models. Manual model IDs are supported when listing is unavailable.
+3. Open a project, create a temporary workspace, or start a side chat. Select a model in the input box and describe your task.
+
+Working chats require a model that supports Chat Completions function calls. Image input requires an explicitly configured image-capable model. Dolores connects to a model service you provide; it does not bundle or start one.
+
+For setup, controls and recovery, see the [user guide](docs/USER_GUIDE.md). To build from source, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Your data and control
+
+Conversations, settings and memories are stored locally. Content included in a request is sent to your configured model provider. Remembered API keys use the OS credential vault; without **Remember connection**, the key lasts only for the current launch.
+
+File tools stay within the working folder. Commands and MCP servers run with your account's permissions; review prompts are not OS sandboxing. Memory, companionship and background scheduling are optional. [Data handling and privacy](docs/PRIVACY.md) explains the boundaries.
+
+## Development
+
+Dolores uses **Flutter** for the desktop interface and a **Rust** core with replaceable provider, storage, credential and tool interfaces. Windows GitHub Actions check the project and package an unsigned portable ZIP; matching version tags prepare a draft release.
+
+- [Contribute](CONTRIBUTING.md) — build, test and packaging instructions.
+- [Changelog](CHANGELOG.md) · [Release procedure](docs/RELEASING.md).
+- [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Documentation](docs/README.md).
+
+Licensed under [MIT](LICENSE).
