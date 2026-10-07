@@ -3016,3 +3016,10 @@ remain open. No provider requests or memory/runtime-policy changes were made.
 Normal Windows main-entry release build and visible-window launch PASS. The original
 profile retains all 45 table hashes, including provider settings, history and memory.
 Private hash receipt: `output/settings-simplicity-normal-handoff.json`.
+
+## UI guide cleanup (2026-10-07)
+
+Reduced UI.md from 596 to 98 lines of shared design guidance, with on-demand
+links to feature specifications and an explicit boundary against implementation
+history. Removed obsolete and duplicated feature details. Documentation links
+and whitespace checks PASS; no runtime change or desktop build was needed.
