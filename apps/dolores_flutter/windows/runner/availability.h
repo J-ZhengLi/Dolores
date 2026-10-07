@@ -8,6 +8,7 @@
 
 constexpr UINT kDoloresRestore = WM_APP + 73;
 constexpr UINT kDoloresTray = WM_APP + 74;
+constexpr UINT kDoloresQuit = WM_APP + 75;
 std::wstring DoloresProfileKey();
 HWND DoloresOwnerWindow(const std::wstring& key);
 class DoloresAvailability {

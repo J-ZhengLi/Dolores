@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/app_host.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -47,7 +49,46 @@ class ScheduleBridge extends WorkspaceBridge {
   }
 }
 
+class DelayedScheduleBridge extends ScheduleBridge {
+  final ready = Completer<void>();
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    if (command['command'] == 'scheduledTasks') await ready.future;
+    return super.call(command);
+  }
+}
+
 void main() {
+  test(
+    'Close waits for an in-flight refresh and leaves its clock suspended',
+    () async {
+      final bridge = DelayedScheduleBridge();
+      var launched = false, settled = false;
+      final host = ScheduledHost(
+        bridge,
+        onClaim: (_) async {
+          launched = true;
+        },
+      );
+      final refresh = host.refresh();
+      final closing = host.quiesce().then((_) {
+        settled = true;
+      });
+      await Future<void>.value();
+      expect(settled, false);
+      bridge.ready.complete();
+      await refresh;
+      await closing;
+      expect(host.pending, false);
+      await host.tick();
+      expect(launched, false);
+      expect(
+        bridge.commands.where((c) => c['command'] == 'scheduledTick'),
+        isEmpty,
+      );
+      host.dispose();
+    },
+  );
   test('background task keeps Home project model and draft', () async {
     final bridge = ScheduleBridge();
     final chat = ChatController(bridge)

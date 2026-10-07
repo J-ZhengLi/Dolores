@@ -1,4 +1,23 @@
-# Dolores acceptance — 2026-10-07
+# Dolores acceptance — 2026-10-08
+
+## Closed-UI scheduling 24.2 — packaged execution and recovery
+
+The normal Windows main entry retains one owner in the tray. Public fixtures
+complete one report with the UI hidden, retain the Home draft/result on reopen,
+restore the same process on a second launch, and Quit with exit code 0. Separate
+provider-503 and waiting-approval cases preserve recovery; an owned crash/restart
+does not duplicate the occurrence or replay the unapproved read. Background Off
+restores ordinary Close and releases ownership. Native lifecycle protocol checks
+are distinct from physical tray clicks and real wake/suspend behavior.
+
+The first packaged run exposed a 15-built-in catalog against the older bound of
+14; the exact bound is corrected to 15 with a draft-preserving overflow message.
+A separate `0xc000041d` Quit failure was fixed by explicitly destroying the derived
+window and unregistering its channel before engine teardown. A Close retry race
+now waits for the pending scheduler operation, bounded to two seconds. Native
+libraries: **298 pass, 1 ignored**; Flutter regressions: **340 pass**; analyzer and
+Clippy pass. Earlier failed checks are not acceptance evidence. Details and limits:
+[closed-UI qualification](qualification/closed-ui-scheduling.md).
 
 ## Background scheduling 24.1 — same-owner tray lifecycle
 

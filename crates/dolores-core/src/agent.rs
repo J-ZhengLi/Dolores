@@ -13,7 +13,8 @@ pub const MAX_MODEL_CALLS: usize = 4;
 pub const MAX_TOOL_CALLS: usize = 4;
 pub const MAX_TOOL_BYTES: usize = 16 * 1024;
 // Five file tools, command/inspection/delegation, two MCP, two web and browser.
-pub const MAX_REGISTERED_TOOLS: usize = 14;
+// The packaged Windows catalog includes browser and desktop-access adapters.
+pub const MAX_REGISTERED_TOOLS: usize = 15;
 pub const MAX_FILE_ARGUMENT_BYTES: usize = 64 * 1024;
 pub fn tool_argument_limit(name: &str) -> usize {
     match name {

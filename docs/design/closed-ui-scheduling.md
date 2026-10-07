@@ -37,6 +37,15 @@ ownership indicator. This is a same-owner availability implementation of milesto
 
 ## Verification boundaries
 
+### Catalog correction during qualification
+
+The packaged Windows app has 15 built-ins when browser and desktop-access adapters
+are available. Its former 14-registration bound rejected both scheduled and ordinary
+project runs before model execution with a misleading snapshot error. The bound is
+corrected to exactly 15, with an actionable external-connection overflow error.
+Model, output, context, execution and approval allowances remain unchanged. A
+15-entry regression and a 16-entry refusal retain the saved draft and run evidence.
+
 Fixture clocks prove dispatch, late skips and owner recovery. A normal packaged
 awake-host case must hide the UI, execute one public scheduled result, restore the
 same process and retain that result/draft. Duplicate launch, stale owner/crash,

@@ -5,11 +5,13 @@ use rusqlite::{params, OptionalExtension};
 impl SqliteStore {
     pub(crate) fn insert_run(&self, run: &RunSnapshot) -> Result<(), String> {
         run.settings.validate()?;
+        if run.tools.len() > dolores_core::MAX_REGISTERED_TOOLS {
+            return Err(format!("The tool catalog exceeds {} registrations. Disable an unused external tool connection and retry; your draft remains.", dolores_core::MAX_REGISTERED_TOOLS));
+        }
         if run.state != RunState::Prepared
             || run.sequence != 0
             || run.id.len() != 36
             || run.input.len() > dolores_core::MAX_INPUT_BYTES
-            || run.tools.len() > dolores_core::MAX_REGISTERED_TOOLS
         {
             return Err("Run snapshot is invalid.".into());
         }
@@ -184,6 +186,31 @@ impl SqliteStore {
 mod tests {
     use super::*;
     use dolores_core::SessionStore;
+    #[test]
+    fn packaged_catalog_fits_a_saved_run_and_overflow_preserves_the_draft() {
+        let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        store.create("chat").unwrap();
+        store.save_draft("chat", "Keep my work").unwrap();
+        let mut run = RunSnapshot {
+            parent_run: None, segments: 1,
+            id: "11111111-1111-4111-8111-111111111111".into(),
+            thread: "chat".into(), model: "fixture".into(),
+            settings: Default::default(), input: "Write my report".into(),
+            state: RunState::Prepared, sequence: 0, created_at: 0,
+            build: "fixture".into(), extensions: vec![], effective_settings: None,
+            tools: ["read_text_file", "list_folder", "search_text", "edit_text_file",
+                "create_text_file", "run_command", "web_search", "read_web_page",
+                "browser", "delegate_tasks", "inspect_harness", "harness_repair",
+                "test_harness_repair", "build_harness_repair", "request_desktop_access"]
+                .into_iter().map(str::to_string).collect(),
+        };
+        store.begin_run(&run).unwrap();
+        run.id = "22222222-2222-4222-8222-222222222222".into();
+        run.tools.push("external_extra".into());
+        assert!(store.begin_run(&run).unwrap_err().contains("tool catalog"));
+        assert_eq!(store.runs("chat").unwrap().len(), 1);
+        assert_eq!(store.read_draft("chat").unwrap(), "Keep my work");
+    }
     #[test]
     fn event_exhaustion_retains_terminal_marker_and_invalid_transitions_are_atomic() {
         let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();

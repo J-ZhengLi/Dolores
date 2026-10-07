@@ -116,7 +116,9 @@ class AppHost extends ChangeNotifier {
   }) async {
     scheduled.suspend();
     try {
-      if (scheduled.pending) {
+      try {
+        await scheduled.quiesce();
+      } on TimeoutException {
         throw StateError(
           'A scheduled task is starting. Try closing again in a moment.',
         );
@@ -346,6 +348,8 @@ class AppHost extends ChangeNotifier {
       removable.removeListener(_changed);
       removable.appearanceChanges.removeListener(_themes.remove(removable)!);
       owners.remove(removable);
+      _scheduledOwners.remove(removable);
+      _settings.remove(removable);
       removable.dispose();
     }
     final next = ChatController(initial.bridge, ownsBridge: false);

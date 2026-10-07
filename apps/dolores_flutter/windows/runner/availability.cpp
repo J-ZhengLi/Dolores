@@ -39,6 +39,7 @@ DoloresAvailability::DoloresAvailability(HWND window,flutter::BinaryMessenger* m
   });
 }
 DoloresAvailability::~DoloresAvailability(){
+  channel_->SetMethodCallHandler(nullptr);
   if(icon_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);}
 }
 bool DoloresAvailability::Hide(){
@@ -51,6 +52,7 @@ void DoloresAvailability::Restore(){
   channel_->InvokeMethod("restored",std::make_unique<flutter::EncodableValue>());
 }
 bool DoloresAvailability::Handle(UINT message,LPARAM lparam){
+  if(message==kDoloresQuit){Restore();channel_->InvokeMethod("quit",std::make_unique<flutter::EncodableValue>());return true;}
   if(message==kDoloresRestore){Restore();return true;}
   static const UINT taskbar=RegisterWindowMessageW(L"TaskbarCreated");
   if(message==taskbar && icon_){icon_=false;if(!Hide())Restore();return true;}

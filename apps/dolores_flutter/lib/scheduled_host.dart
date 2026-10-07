@@ -28,6 +28,7 @@ class ScheduledHost extends ChangeNotifier {
   String? error;
   bool pending = false, _closed = false, _suspended = false;
   Timer? _timer;
+  Completer<void>? _idle;
   ScheduledHost(this.bridge, {required this.onClaim});
   Future<dynamic> call(
     String command, [
@@ -48,6 +49,24 @@ class ScheduledHost extends ChangeNotifier {
   void suspend() {
     _suspended = true;
     _timer?.cancel();
+  }
+
+  Future<void> quiesce() async {
+    suspend();
+    if (_idle != null) {
+      await _idle!.future.timeout(const Duration(seconds: 2));
+    }
+  }
+
+  void _begin() {
+    pending = true;
+    _idle = Completer<void>();
+  }
+
+  void _end() {
+    pending = false;
+    _idle?.complete();
+    _idle = null;
   }
 
   Future<void> resume() async {
@@ -71,14 +90,14 @@ class ScheduledHost extends ChangeNotifier {
 
   Future<void> refresh() async {
     if (_closed || pending) return;
-    pending = true;
+    _begin();
     try {
       _accept(await call('scheduledTasks'));
       error = null;
     } catch (e) {
       error = '$e';
     } finally {
-      pending = false;
+      _end();
       if (!_closed) {
         notifyListeners();
         _arm();
@@ -88,7 +107,7 @@ class ScheduledHost extends ChangeNotifier {
 
   Future<void> tick() async {
     if (_closed || _suspended || pending) return;
-    pending = true;
+    _begin();
     try {
       final data = await call('scheduledTick') as Map;
       _accept(data['tasks']);
@@ -107,7 +126,7 @@ class ScheduledHost extends ChangeNotifier {
     } catch (e) {
       error = '$e';
     } finally {
-      pending = false;
+      _end();
       if (!_closed) {
         notifyListeners();
         _arm();
@@ -117,7 +136,7 @@ class ScheduledHost extends ChangeNotifier {
 
   Future<void> manage(Map task, String action) async {
     if (_closed || pending) return;
-    pending = true;
+    _begin();
     notifyListeners();
     try {
       final result = await call('scheduledManage', {
@@ -143,7 +162,7 @@ class ScheduledHost extends ChangeNotifier {
     } catch (e) {
       error = '$e';
     } finally {
-      pending = false;
+      _end();
       if (!_closed) {
         notifyListeners();
         _arm();

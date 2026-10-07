@@ -228,7 +228,7 @@ impl ToolPlugin for ManageTool {
                 .store
                 .save_scheduled_task(&plan.task, Some(plan.task.revision))?;
         }
-        let receipt = crate::scheduling::receipt(&plan.task).to_string();
+        let receipt = crate::scheduling::receipt(&plan.task, self.store.background_policy()?.enabled && cfg!(windows)).to_string();
         completed.insert(plan.key, receipt.clone());
         Ok(receipt)
     }
