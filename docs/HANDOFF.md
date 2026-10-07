@@ -17,7 +17,7 @@ preserved primary work, but added idle CPU (1.222% of one core) failed the froze
 less-than-1% gate. 19.2/19.3 transfer/layout work stays held, not implemented.
 19.4 retains single-window pages and truthful Experimental availability separately
 from the saved preference. See [window qualification](qualification/experimental-windows.md).
-Do not start later milestones without user steering.
+The user now authorizes milestone 21 as one batch with separate brick commits. 21.0 audits narrow memory and freezes the public corpus; implementation is in progress. Milestones 22 onward remain future work.
 Final checks: 147 bridge tests, 303 Flutter tests, analysis/Clippy and fresh-process
 held-preference release corpus pass. Normal main-entry release is restored visibly.
 42 profile tables remain; 41 hashes and existing editor rows match the prior

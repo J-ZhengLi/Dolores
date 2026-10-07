@@ -2936,3 +2936,8 @@ native focus and other platforms remain open; programmatic Unicode tests are not
 physical-IME acceptance. The normal Windows main release built and launched
 visibly with the original profile; all 42 table hashes remained unchanged across
 that launch. Only the recorded owned diagnostic processes were stopped.
+
+
+## Milestone 21.0 — Memory audit and frozen corpus (2026-10-07)
+
+Isolated SQLite baseline test passes: completed project decision remains in history but is ineligible for narrow explicit-preference capture; disabled policy prevents claiming and malformed extraction is separately refused. Current trigger/publication/source/scope and master-switch gaps are traced in [memory qualification](qualification/automatic-memory.md). Frozen public corpus and exact-source/scope/Forget/Off targets are recorded before runtime changes. This does not diagnose the private user profile or qualify future automatic memory.
