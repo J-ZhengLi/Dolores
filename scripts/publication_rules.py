@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 def excluded(path):
     name = path.replace('\\', '/')
     return (PurePosixPath(name).name.upper() == 'HANDOFF.MD'
+            or PurePosixPath(name).name.lower().endswith('-handoff.md')
             or name.startswith(('output/', 'target/', 'node_modules/'))
             or (name.startswith('.codegraph/') and name != '.codegraph/.gitignore')
             or PurePosixPath(name).name in ('.env', '.env.local')
@@ -24,6 +25,7 @@ def sanitize(path, value):
     text = re.sub(r'[A-Za-z]:[\\/]+Workspace[\\/]+project_dolores', '<repository>', text, flags=re.I)
     text = re.sub(r'[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s\"\x27`<>]+', '<user-home>', text, flags=re.I)
     if path.endswith('.md'):
+        text = text.replace('developer-workspace-handoff.md', 'developer-workspace-planning.md')
         text = re.sub(r'^@[^\n]*RTK\.md[^\n]*\n?', '', text, flags=re.M)
         text = re.sub(r'\[([^\]]+)\]\((?:\.\./)*HANDOFF\.md(?:#[^)]*)?\)',
                       lambda m: '[roadmap](' + ('../' if path.startswith('docs/') and path.count('/') > 1 else '') + 'ROADMAP.md)', text)
@@ -32,6 +34,10 @@ def sanitize(path, value):
         text = re.sub(r'\bthe user(?: has)? (?:chose|selected)\b', lambda m: 'The design adopts' if m[0][0].isupper() else 'the design adopts', text, flags=re.I)
         text = re.sub(r'\bthe user(?: has)? (?:requested|requests|wants|prefers)\b', lambda m: 'The product design calls for' if m[0][0].isupper() else 'the product design calls for', text, flags=re.I)
         for old, new in {
+            'Use configured Qwen3.5-2B for routine live tests; DeepSeek V4.1 Flash for harder\n  cases.': 'Select available models explicitly for optional live checks.',
+            'Qwen routine and DeepSeek\n  harder checks': 'live checks with explicitly selected available models',
+            'Qwen routine cases and DeepSeek harder cases': 'checks with explicitly selected available models',
+            'Qwen3.5-2B routine probes and DeepSeek V4.1 Flash harder probes': 'live probes with explicitly selected available models',
             'The user prioritized': 'The design prioritizes',
             'The user finalized': 'The finalized design uses',
             'The user selects': 'The design selects',
@@ -51,6 +57,9 @@ def sanitize(path, value):
             text = text.replace(old, new)
         text = re.sub(r'(?m)^After every task, build and visibly launch[^\n]*$',
                       'Choose checks that match the change. Use the maintained Python desktop helper for builds and launches, preserve existing configuration/history, and keep diagnostics separate from normal-app evidence. Documentation-only edits need document checks; native interaction checks are required when relevant.', text)
+        text = text.replace('build/visibly launch the normal app after each task', 'choose build/launch checks that match the change')
+        text = re.sub(r'(?m)^Use `rtk` for shell commands\.[^\n]*$',
+                      'Local command/indexing helpers are optional. Follow `docs/UI.md` when changing desktop UI.', text)
         text = re.sub(r"\bthe user's (?:ChatGPT desktop screenshot|ChatGPT desktop reference|VS Code reference|screenshot|layout preference|verification preference|Dolores reference|final reference)\b", 'the documented interface design', text, flags=re.I)
         text = re.sub(r"\bthe user's (?:answers|final decision|preferences)\b", 'the product decisions', text, flags=re.I)
         text = text.replace('Final user decision:', 'Final design:').replace("User's destination", 'Product direction')

@@ -23,6 +23,7 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(sanitize('AGENTS.md', clean), clean)
         self.assertEqual(sanitize('art.ico', b'\0\xff\x01'), b'\0\xff\x01')
         self.assertTrue(excluded('docs/HANDOFF.md'))
+        self.assertTrue(excluded('docs/design/developer-workspace-handoff.md'))
         self.assertFalse(excluded('docs/UI.md'))
 
     def test_live_checks_refuse_implicit_model_before_creating_output(self):

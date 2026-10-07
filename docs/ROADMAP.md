@@ -41,7 +41,7 @@ integrated code editing, Git, terminal/LSP and flexible multi-project views.
 At that earlier revision, milestones **16–19 were proposed**; first language support is
 TypeScript/JavaScript and Rust, in the initial language scope. The
 [workspace specification](design/developer-workspace.md) defines UX, ownership,
-component gates and resource targets. A [fresh-chat handoff](design/developer-workspace-handoff.md)
+component gates and resource targets. A [historical planning summary](design/developer-workspace-planning.md)
 preserves the earlier vision and work rules. Start with a reviewed prototype and
 editor feasibility evidence before runtime UI changes. Existing reliability
 [gaps](qualification/remaining-work.md) stay open; this is a new planned track,

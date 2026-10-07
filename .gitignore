@@ -17,4 +17,5 @@ __pycache__/
 
 # Session handoffs belong in local notes, including on future branches.
 **/HANDOFF.md
+**/*-handoff.md
 .ci/
