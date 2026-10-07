@@ -23,6 +23,7 @@ import 'attachment_storage.dart';
 import 'advanced_home.dart';
 import 'native_repairs.dart';
 import 'experimental_settings.dart';
+import 'companionship_settings.dart';
 
 enum SettingsCategory {
   experimental,
@@ -31,6 +32,7 @@ enum SettingsCategory {
   appearance,
   models,
   personalization,
+  companionship,
   memory,
   toolHome,
   web,
@@ -96,7 +98,8 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
         page == ModelsPage.overrides || page == ModelsPage.defaults
             ? SettingsSection.advanced
             : SettingsSection.models,
-      SettingsCategory.personalization => SettingsSection.personalization,
+      SettingsCategory.personalization ||
+      SettingsCategory.companionship => SettingsSection.personalization,
       SettingsCategory.memory => SettingsSection.memory,
       SettingsCategory.advancedHome ||
       SettingsCategory.nativeRepairs ||
@@ -198,6 +201,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
       SettingsCategory.memory,
       ModelsPage.connection,
       'preferences project facts remember sharing',
+    ),
+    (
+      'Companionship',
+      SettingsCategory.companionship,
+      ModelsPage.connection,
+      'occasional notes hours daily limit quiet',
     ),
     (
       'Tools overview',
@@ -354,6 +363,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.companionship => CompanionshipSettings(chat: widget.chat),
     SettingsCategory.experimental => ExperimentalSettings(chat: widget.chat),
     SettingsCategory.nativeRepairs => NativeRepairs(
       chat: widget.chat,

@@ -38,8 +38,9 @@ class ScheduleBridge extends WorkspaceBridge {
             : [],
       };
     }
-    if (name == 'scheduledStart')
+    if (name == 'scheduledStart') {
       return {'session': 'result', 'model': 'pinned-model'};
+    }
     if (name == 'scheduledAbandon') return null;
     if (name == 'poll') return <Map>[];
     return super.call(command);

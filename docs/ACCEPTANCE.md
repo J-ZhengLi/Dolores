@@ -1,5 +1,19 @@
 # Dolores acceptance — 2026-10-07
 
+## Companionship 23.3 — calm delivery and preferences
+
+Personalization now has concise Companionship controls with hover help and
+collapsed source/activity details. A small Home card offers Open and a menu for
+Not now, Dismiss, Fewer messages and Turn off. Opening marks the note seen;
+delivery itself does not change the selected chat, draft, project or model.
+The host arms one 60-second eligibility timer only while enabled.
+
+Six new Flutter checks pass across narrow/wide light/dark settings, retained
+edits after a failed save, deliberate card opening, Not now, and failed feedback
+followed by fewer messages. Eleven existing shell/settings checks also pass;
+Flutter analysis is clean. Saved renders show compact forms without paragraphs.
+Physical presence and subjective welcome remain qualification gaps.
+
 ## Companionship 23.2 — bounded grounded generation
 
 One no-tool request uses a separately chosen enabled model, 256 output tokens and

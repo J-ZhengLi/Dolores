@@ -8,19 +8,33 @@ import 'git_host.dart';
 import 'terminal_host.dart';
 import 'language_host.dart';
 import 'scheduled_host.dart';
+import 'companion_host.dart';
 
 import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
-  late final scheduled = ScheduledHost(initial.bridge, onClaim: (occurrence) async {
-    final owner = await _create();
-    await owner.send(
-      scheduledOccurrence: occurrence['id'] as String,
-      taskInput: (occurrence['snapshot'] as Map)['prompt'] as String,
-    );
-    if (!owner.busy && owner.error != null) throw StateError(owner.error!);
-  });
+  late final companion = CompanionHost(
+    initial.bridge,
+    session: () => visible.session,
+    busy: () =>
+        owners.any((c) => c.busy || c.loading || c.changing) ||
+        selecting ||
+        files.loading ||
+        git.workspaces.values.any((w) => w.busy),
+  );
+  final _settings = <ChatController, int>{};
+  late final scheduled = ScheduledHost(
+    initial.bridge,
+    onClaim: (occurrence) async {
+      final owner = await _create();
+      await owner.send(
+        scheduledOccurrence: occurrence['id'] as String,
+        taskInput: (occurrence['snapshot'] as Map)['prompt'] as String,
+      );
+      if (!owner.busy && owner.error != null) throw StateError(owner.error!);
+    },
+  );
   late final languages = LanguageHost(initial.bridge);
   static String gitPath(String value) => value
       .replaceFirst(r'\\?\', '')
@@ -121,10 +135,12 @@ class AppHost extends ChangeNotifier {
         await c.stop();
       }
       scheduled.suspend();
+      companion.suspend();
       await initial.bridge.close();
       return true;
     } catch (e) {
       unawaited(scheduled.resume());
+      unawaited(companion.refresh());
       error = '$e Keep Dolores open and retry.';
       notifyListeners();
       return false;
@@ -189,8 +205,10 @@ class AppHost extends ChangeNotifier {
     _appearance = initial.appearance;
     _add(initial);
     unawaited(scheduled.refresh());
+    unawaited(companion.refresh());
   }
   void _add(ChatController owner) {
+    _settings[owner] = owner.settingsRevision;
     owner.onOpenSourceControl = (path) async {
       if (owner.session != null) await select(owner.session!);
       if (visible == owner) await repositoryNavigation?.call(path);
@@ -214,6 +232,12 @@ class AppHost extends ChangeNotifier {
   }
 
   void _changed() {
+    if (owners.any((c) => _settings[c] != c.settingsRevision)) {
+      for (final c in owners) {
+        _settings[c] = c.settingsRevision;
+      }
+      unawaited(companion.refresh());
+    }
     final ended = _running.where((c) => !c.busy).toList();
     _running
       ..clear()
@@ -309,6 +333,10 @@ class AppHost extends ChangeNotifier {
         }
       }
       visible = next;
+      final note = companion.unread;
+      if (note?['session'] == id) {
+        await companion.feedback(note!['id'] as String, 'seen');
+      }
     } catch (e) {
       error = '$e';
     } finally {
@@ -358,6 +386,7 @@ class AppHost extends ChangeNotifier {
   @override
   void dispose() {
     scheduled.dispose();
+    companion.dispose();
     terminals.dispose();
     git.dispose();
     files.dispose();
