@@ -745,7 +745,16 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                     color: p.muted,
                                   ),
                                 ),
-                              if (item['origin'] is Map)
+                              if (item['image'] is Map)
+                                Text(
+                                  'Shared image: ${item['image']['name']} · message ${item['origin']['messageId']}',
+                                  style: TextStyle(
+                                    color: p.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              if (item['origin'] is Map &&
+                                  item['image'] == null)
                                 _origin(
                                   item['origin'],
                                   p,
@@ -791,6 +800,14 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                     'memory-evidence-${item['id']}',
                                   ),
                                 ),
+                                if (sourceEvidence!['imageBase64'] is String)
+                                  Image.memory(
+                                    base64Decode(
+                                      sourceEvidence!['imageBase64'] as String,
+                                    ),
+                                    height: 180,
+                                    fit: BoxFit.contain,
+                                  ),
                                 const SizedBox(height: 8),
                               ],
                               Text(

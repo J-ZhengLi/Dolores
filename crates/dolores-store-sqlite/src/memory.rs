@@ -168,7 +168,7 @@ impl SqliteStore {
             .optional()
             .map_err(storage_error)?;
         let timestamp = now();
-        let (revision, created_at, origin, source) = match (previous, draft.revision) {
+        let (revision, created_at, origin, source, image) = match (previous, draft.revision) {
             (None, None) => {
                 let count: usize = tx
                     .query_row(
@@ -189,6 +189,7 @@ impl SqliteStore {
                     } else {
                         "user".into()
                     },
+                    None,
                 )
             }
             (Some(data), Some(expected)) => {
@@ -205,6 +206,7 @@ impl SqliteStore {
                     previous.created_at,
                     previous.origin,
                     previous.source,
+                    previous.image,
                 )
             }
             _ => return Err(CONFLICT.into()),
@@ -225,6 +227,7 @@ impl SqliteStore {
             updated_at: timestamp,
             origin,
             auto_update: false,
+            image,
         };
         let data = serde_json::to_string(&value).map_err(storage_error)?;
         if draft.revision.is_some() {

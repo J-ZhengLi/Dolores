@@ -28,6 +28,7 @@ fn corpus_records() -> Vec<dolores_core::MemoryPreference> {
                 created_at: 1,
                 updated_at: n as i64,
                 auto_update: true,
+                image: None,
                 origin: Some(dolores_core::MemoryOrigin {
                     session: "source".into(),
                     message_id: 7,

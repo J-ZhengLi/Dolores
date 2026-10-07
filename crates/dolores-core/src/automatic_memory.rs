@@ -47,6 +47,33 @@ pub struct AutomaticMemoryUpdate {
     pub status: String,
     pub note: String,
     pub usage: Option<crate::TokenUsage>,
+    pub image: Option<MemoryImageCaption>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MemoryImageCaption {
+    pub asset: crate::AttachmentRef,
+    pub title: String,
+    pub description: String,
+    pub uncertainty: String,
+}
+impl MemoryImageCaption {
+    pub fn validate(&self) -> Result<(), String> {
+        self.asset.validate()?;
+        crate::validate_preference(&self.title, &self.description)?;
+        if !self.asset.is_image()
+            || !self.title.starts_with("Image:")
+            || self.description.len() > 512
+            || self.uncertainty.trim().is_empty()
+            || self.uncertainty.len() > 128
+            || self.uncertainty.chars().any(char::is_control)
+            || credential_like(&self.description)
+        {
+            return Err("Image description is invalid; the shared image remains in chat.".into());
+        }
+        Ok(())
+    }
 }
 
 pub fn explicit_preference(text: &str) -> bool {

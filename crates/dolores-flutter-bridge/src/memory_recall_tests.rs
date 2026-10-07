@@ -2,6 +2,151 @@ use super::*;
 use dolores_core::*;
 use std::sync::Arc;
 
+#[test]
+fn shared_image_recall_is_scoped_uncertain_bounded_and_missing_safe() {
+    use sha2::{Digest, Sha256};
+    let dir = tempfile::tempdir().unwrap();
+    let store =
+        Arc::new(dolores_store_sqlite::SqliteStore::open(&dir.path().join("image.db")).unwrap());
+    for id in ["source", "next"] {
+        store.create(id).unwrap();
+    }
+    store.set_automatic_memory_policy(true, 1).unwrap();
+    let data = b"public image fixture".to_vec();
+    let asset = AttachmentRef {
+        digest: format!("{:x}", Sha256::digest(&data)),
+        name: "blue-square.png".into(),
+        mime: "image/png".into(),
+        bytes: data.len(),
+    };
+    store
+        .add_attachment(
+            "source",
+            &AttachmentData {
+                reference: asset.clone(),
+                data,
+            },
+        )
+        .unwrap();
+    store
+        .commit_turn(
+            "source",
+            "What is in this image?",
+            "A blue square appears visible.",
+        )
+        .unwrap();
+    let source = store.memory_source_messages("source").unwrap().items[0].clone();
+    let policy = store.automatic_memory_policy().unwrap();
+    assert!(store
+        .claim_automatic_memory("source", &source, policy.revision)
+        .unwrap());
+    let mut update = AutomaticMemoryUpdate {
+        session: "source".into(),
+        source,
+        policy_revision: policy.revision,
+        existing: vec![],
+        candidates: vec![],
+        model: "fixture".into(),
+        status: "completed".into(),
+        note: String::new(),
+        usage: None,
+        image: Some(MemoryImageCaption {
+            asset: asset.clone(),
+            title: "Image: blue square".into(),
+            description: "A blue square on a white background.".into(),
+            uncertainty: "Simple shape; no identity or context inferred.".into(),
+        }),
+    };
+    update.image.as_mut().unwrap().uncertainty.clear();
+    assert!(store
+        .finish_automatic_memory(&update, &CancellationToken::new())
+        .is_err());
+    assert!(store.memory_preferences(None).unwrap().is_empty());
+    update.image.as_mut().unwrap().uncertainty = "Simple shape; other details are unknown.".into();
+    assert_eq!(
+        store
+            .finish_automatic_memory(&update, &CancellationToken::new())
+            .unwrap()
+            .saved,
+        1
+    );
+    let engine = Engine::new(
+        store.clone(),
+        Arc::new(connection::testing::MemoryCredentials::default()),
+    )
+    .unwrap();
+    let record = store.memory_preferences(None).unwrap()[0].clone();
+    let evidence = engine.memory_evidence(Some("next"), &record.id, 1).unwrap();
+    assert!(evidence["imageBase64"].is_string());
+    let mut prefs = store.preferences().unwrap();
+    prefs.model = "fixture".into();
+    store.save_preferences(&prefs).unwrap();
+    store
+        .save_image_models(&prefs.base_url, &["fixture".into()])
+        .unwrap();
+    let (mut context, mut report) = memory::prepare_recall(
+        preview_context(vec![], "Which shared image shows the blue square?").unwrap(),
+        memory::recall_for_session(store.as_ref(), Some("next")).unwrap(),
+        &[],
+        Some(8192),
+        RequestSettings::default(),
+    )
+    .unwrap();
+    let images = memory::recall_image(
+        store.as_ref(),
+        "next",
+        &mut context,
+        &mut report,
+        &[],
+        Some(8192),
+        RequestSettings::default(),
+        "fixture",
+    )
+    .unwrap();
+    assert_eq!(images.len(), 1);
+    assert_eq!(context.last().unwrap().parts, vec![asset.clone()]);
+    assert!(context[0]
+        .content
+        .contains("model description is uncertain"));
+    let (mut small, mut report) = memory::prepare_recall(
+        preview_context(vec![], "blue square image").unwrap(),
+        vec![record.clone()],
+        &[],
+        Some(4096),
+        RequestSettings::default(),
+    )
+    .unwrap();
+    assert!(memory::recall_image(
+        store.as_ref(),
+        "next",
+        &mut small,
+        &mut report,
+        &[],
+        Some(4096),
+        RequestSettings::default(),
+        "fixture"
+    )
+    .unwrap()
+    .is_empty());
+    assert!(small.last().unwrap().parts.is_empty());
+    store.delete("source").unwrap();
+    assert!(memory::recall_for_session(store.as_ref(), Some("next"))
+        .unwrap()
+        .is_empty());
+    assert!(engine
+        .memory_evidence(Some("next"), &record.id, 1)
+        .unwrap_err()
+        .contains("unavailable"));
+    assert_eq!(
+        engine.memories(Some("next")).unwrap()["items"][0]["originAvailable"],
+        false
+    );
+    engine
+        .delete_memory(Some("next"), MemoryScope::All, &record.id, 1)
+        .unwrap();
+    assert!(store.memory_preferences(None).unwrap().is_empty());
+}
+
 fn capture(store: &dyn SessionStore, session: &str, text: &str) -> MemoryPreference {
     store
         .commit_turn(session, text, "Retained completed answer")
@@ -13,6 +158,7 @@ fn capture(store: &dyn SessionStore, session: &str, text: &str) -> MemoryPrefere
         .unwrap();
     let existing = memory::preferences_for_session(store, Some(session)).unwrap();
     let update = AutomaticMemoryUpdate {
+        image: None,
         session: session.into(),
         source: source.clone(),
         policy_revision: policy.revision,

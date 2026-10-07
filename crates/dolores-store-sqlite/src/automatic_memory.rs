@@ -54,7 +54,12 @@ fn source_matches(
     let text:Option<String>=conn.query_row("SELECT m.content FROM messages m WHERE m.session_id=?1 AND m.id=?2 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant')",params![session,source.message_id],|r|r.get(0)).optional().map_err(storage_error)?;
     Ok(text.as_deref() == Some(&source.text))
 }
-fn forgotten(conn:&rusqlite::Connection,root:&str,session:&str,message_id:i64)->Result<bool,String> {
+fn forgotten(
+    conn: &rusqlite::Connection,
+    root: &str,
+    session: &str,
+    message_id: i64,
+) -> Result<bool, String> {
     conn.query_row("SELECT EXISTS(SELECT 1 FROM memory_forget_watermarks WHERE root=?1 AND session=?2 AND message_id>=?3)",params![root,session,message_id],|r|r.get(0)).map_err(storage_error)
 }
 fn preferences(conn: &rusqlite::Connection, root: &str) -> Result<Vec<MemoryPreference>, String> {
@@ -125,9 +130,13 @@ impl SqliteStore {
     ) -> Result<bool, String> {
         let mut conn = self.lock()?;
         let tx = conn.transaction().map_err(storage_error)?;
-        let root=scope(&tx, session)?;
+        let root = scope(&tx, session)?;
         let p = policy(&tx)?;
-        if !p.enabled || p.revision != revision || !source_matches(&tx, session, source)? || forgotten(&tx,&root,session,source.message_id)? {
+        if !p.enabled
+            || p.revision != revision
+            || !source_matches(&tx, session, source)?
+            || forgotten(&tx, &root, session, source.message_id)?
+        {
             return Ok(false);
         }
         let last: i64 = tx
@@ -195,7 +204,7 @@ impl SqliteStore {
         let fresh = p.enabled
             && p.revision == update.policy_revision
             && source_matches(&tx, &update.session, &update.source)?
-            && !forgotten(&tx,&root,&update.session,update.source.message_id)?
+            && !forgotten(&tx, &root, &update.session, update.source.message_id)?
             && current == expected;
         let mut report = AutomaticMemoryAttempt {
             message_id: update.source.message_id,
@@ -215,7 +224,11 @@ impl SqliteStore {
         } else if update.status == "completed" {
             // Revalidate model JSON/evidence at the atomic publication boundary.
             let answer = serde_json::json!({"suggestions":update.candidates}).to_string();
-            let candidates = parse_automatic_memories(&answer, &update.source)?;
+            let candidates = if update.candidates.is_empty() {
+                Vec::new()
+            } else {
+                parse_automatic_memories(&answer, &update.source)?
+            };
             let desired_scope = if root.is_empty() {
                 MemoryScope::All
             } else {
@@ -228,10 +241,12 @@ impl SqliteStore {
                         .join(" ")
                         .to_lowercase()
                 };
-                let subject=|title:&str| normalized(title.split_once(':').map_or(title,|(_,subject)|subject));
-                let same = current.iter().find(|m| {
-                    m.scope == desired_scope && subject(&m.title) == subject(&c.title)
-                });
+                let subject = |title: &str| {
+                    normalized(title.split_once(':').map_or(title, |(_, subject)| subject))
+                };
+                let same = current
+                    .iter()
+                    .find(|m| m.scope == desired_scope && subject(&m.title) == subject(&c.title));
                 if current
                     .iter()
                     .any(|m| normalized(&m.text) == normalized(&c.text))
@@ -244,7 +259,9 @@ impl SqliteStore {
                         if m.source == "automatic"
                             && m.auto_update
                             && m.enabled
-                            && (explicit_correction(&c.quote) || (m.title.starts_with("Open work:") && c.title.starts_with("Outcome:"))) =>
+                            && (explicit_correction(&c.quote)
+                                || (m.title.starts_with("Open work:")
+                                    && c.title.starts_with("Outcome:"))) =>
                     {
                         Some(m.clone())
                     }
@@ -255,7 +272,10 @@ impl SqliteStore {
                     None => None,
                 };
                 if previous.is_none()
-                    && current.iter().filter(|m| m.scope == desired_scope && m.source == "automatic").count()
+                    && current
+                        .iter()
+                        .filter(|m| m.scope == desired_scope && m.source == "automatic")
+                        .count()
                         >= MAX_AUTOMATIC_MEMORIES_PER_SCOPE
                 {
                     report.skipped += 1;
@@ -271,11 +291,14 @@ impl SqliteStore {
                     }
                 }
                 let timestamp = now();
-                if let Some(origin)=previous.as_ref().and_then(|m|m.origin.as_ref()) { super::memory::mark_source(&tx,&root,origin,false)?; }
+                if let Some(origin) = previous.as_ref().and_then(|m| m.origin.as_ref()) {
+                    super::memory::mark_source(&tx, &root, origin, false)?;
+                }
                 let value = MemoryPreference {
-                    id: previous.as_ref().map(|p| p.id.clone()).unwrap_or_else(|| {
-                        format!("auto-{}", uuid::Uuid::new_v4().simple())
-                    }),
+                    id: previous
+                        .as_ref()
+                        .map(|p| p.id.clone())
+                        .unwrap_or_else(|| format!("auto-{}", uuid::Uuid::new_v4().simple())),
                     revision: previous.as_ref().map_or(Ok(1), |p| {
                         p.revision
                             .checked_add(1)
@@ -290,6 +313,7 @@ impl SqliteStore {
                     updated_at: timestamp,
                     origin: Some(c.origin(&update.session, &update.model, timestamp)),
                     auto_update: true,
+                    image: None,
                 };
                 value.validate()?;
                 tx.execute("INSERT INTO memory_preferences(id,root,data) VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET data=excluded.data",params![value.id,root,serde_json::to_string(&value).map_err(storage_error)?]).map_err(storage_error)?;
@@ -297,10 +321,84 @@ impl SqliteStore {
                 current.push(value);
                 report.saved += 1;
             }
-            if report.note.is_empty() { report.note = format!(
-                "{} saved · {} duplicates, conflicts or protected entries skipped",
-                report.saved, report.skipped
-            ); }
+            if report.note.is_empty() {
+                report.note = format!(
+                    "{} saved · {} duplicates, conflicts or protected entries skipped",
+                    report.saved, report.skipped
+                );
+            }
+            if let Some(caption) = &update.image {
+                caption.validate()?;
+                let parts = super::attachments::parts(&tx, update.source.message_id)?;
+                use sha2::{Digest, Sha256};
+                let bytes: Option<Vec<u8>> = tx
+                    .query_row(
+                        "SELECT data FROM attachment_assets WHERE digest=?1",
+                        [&caption.asset.digest],
+                        |r| r.get(0),
+                    )
+                    .optional()
+                    .map_err(storage_error)?;
+                let available = parts.contains(&caption.asset)
+                    && bytes.is_some_and(|b| {
+                        b.len() == caption.asset.bytes
+                            && format!("{:x}", Sha256::digest(&b)) == caption.asset.digest
+                    });
+                let count:usize=tx.query_row("SELECT count(*) FROM memory_preferences WHERE root=?1 AND json_extract(data,'$.source')='automatic'",[&root],|r|r.get(0)).map_err(storage_error)?;
+                let total:usize=tx.query_row("SELECT count(*) FROM memory_preferences WHERE json_extract(data,'$.source')='automatic'",[],|r|r.get(0)).map_err(storage_error)?;
+                if available
+                    && count < MAX_AUTOMATIC_MEMORIES_PER_SCOPE
+                    && total < 8192
+                    && !current.iter().any(|m| {
+                        m.scope == desired_scope
+                            && m.image
+                                .as_ref()
+                                .is_some_and(|a| a.digest == caption.asset.digest)
+                    })
+                {
+                    let timestamp = now();
+                    let value = MemoryPreference {
+                        id: format!("auto-{}", uuid::Uuid::new_v4().simple()),
+                        revision: 1,
+                        title: caption.title.clone(),
+                        text: format!(
+                            "{}\nUncertainty: {}",
+                            caption.description, caption.uncertainty
+                        ),
+                        scope: desired_scope,
+                        source: "automatic".into(),
+                        enabled: true,
+                        created_at: timestamp,
+                        updated_at: timestamp,
+                        origin: Some(MemoryOrigin {
+                            session: update.session.clone(),
+                            message_id: update.source.message_id,
+                            quote: format!(
+                                "Shared image: {} · asset {}",
+                                caption.asset.name, caption.asset.digest
+                            ),
+                            model: update.model.clone(),
+                            reviewed_at: timestamp,
+                        }),
+                        auto_update: true,
+                        image: Some(caption.asset.clone()),
+                    };
+                    value.validate()?;
+                    tx.execute(
+                        "INSERT INTO memory_preferences(id,root,data) VALUES(?1,?2,?3)",
+                        params![
+                            value.id,
+                            root,
+                            serde_json::to_string(&value).map_err(storage_error)?
+                        ],
+                    )
+                    .map_err(storage_error)?;
+                    report.saved += 1;
+                } else {
+                    report.skipped += 1;
+                    report.note.push_str(" Image duplicate, unavailable or memory full; inspect Memory, reattach or forget an unused record before a new interaction.");
+                }
+            }
         }
         if cancel.is_cancelled() && report.saved > 0 {
             return Err("Automatic memory stopped before saving.".into());
@@ -324,7 +422,14 @@ mod tests {
     use tokio_util::sync::CancellationToken;
     fn prepare(store: &SqliteStore, session: &str, text: &str) -> AutomaticMemoryUpdate {
         // Existing explicit On choice from the earlier preference system.
-        store.lock().unwrap().execute("INSERT OR IGNORE INTO automatic_memory_policy VALUES(1,?1)", [r#"{"enabled":true,"revision":1}"#]).unwrap();
+        store
+            .lock()
+            .unwrap()
+            .execute(
+                "INSERT OR IGNORE INTO automatic_memory_policy VALUES(1,?1)",
+                [r#"{"enabled":true,"revision":1}"#],
+            )
+            .unwrap();
         store
             .commit_turn(session, text, "ASSISTANT_EXCLUDED")
             .unwrap();
@@ -335,6 +440,7 @@ mod tests {
             .unwrap());
         let root = store.workspace(session).unwrap().root;
         AutomaticMemoryUpdate {
+            image: None,
             session: session.into(),
             source: source.clone(),
             policy_revision: p.revision,

@@ -1386,7 +1386,8 @@ impl Engine {
                 } else {
                     messages
                 };
-                let (messages, memory_context)=memory::prepare_recall(messages,memories.clone(),&specs,Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),effective.request)?;
+                let (mut messages, mut memory_context)=memory::prepare_recall(messages,memories.clone(),&specs,Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),effective.request)?;
+                if let Some(session)=session.as_deref(){memory::recall_image(self.store.as_ref(),session,&mut messages,&mut memory_context,&specs,Some(window.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS)),effective.request,&preferences.model)?;}
                 let (messages, tokens) = dolores_core::prepare_token_context(
                     messages,
                     &specs,
@@ -2185,7 +2186,8 @@ async fn execute(
         attachments::prepare_text(store.as_ref(), &session, context)?
     };
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
-    let (context,memory_context)=memory::prepare_recall(context,memories,&specs,provider.context_window_tokens(),settings.unwrap_or_default())?;
+    let (mut context,mut memory_context)=memory::prepare_recall(context,memories,&specs,provider.context_window_tokens(),settings.unwrap_or_default())?;
+    let recalled_images=memory::recall_image(store.as_ref(),&session,&mut context,&mut memory_context,&specs,provider.context_window_tokens(),settings.unwrap_or_default(),&model)?;
     let (context, tokens) = dolores_core::prepare_token_context(
         context,
         &specs,
@@ -2302,7 +2304,7 @@ async fn execute(
         ))
         .await;
     }
-    let assets = attachments::image_assets(store.as_ref(), &session, &context)?;
+    let assets = attachments::image_assets(store.as_ref(), &session, &context,&recalled_images)?;
     let provider = if assets.is_empty() {
         provider
     } else {

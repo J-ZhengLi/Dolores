@@ -624,6 +624,7 @@ pub trait SessionStore: Send + Sync {
     }
     fn recover_automatic_memory(&self) -> Result<(), String> { Ok(()) }
     fn memory_versions(&self, _: &str) -> Result<Vec<MemoryPreference>, String> { Ok(Vec::new()) }
+    fn memory_source_images(&self, _: &str, _: i64) -> Result<Vec<AttachmentRef>, String> { Ok(Vec::new()) }
     fn set_automatic_memory_policy(
         &self,
         _: bool,

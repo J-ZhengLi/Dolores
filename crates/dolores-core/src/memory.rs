@@ -31,6 +31,8 @@ pub struct MemoryPreference {
     pub origin: Option<MemoryOrigin>,
     #[serde(default)]
     pub auto_update: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<crate::AttachmentRef>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -95,7 +97,8 @@ impl MemoryDraft {
             );
         }
         validate_preference(&self.title, &self.text)
-            .and_then(|()| self.origin.as_ref().map_or(Ok(()), MemoryOrigin::validate))
+            .and_then(|()| self.origin.as_ref().map_or(Ok(()), MemoryOrigin::validate))?;
+        Ok(())
     }
 }
 impl MemoryPreference {
@@ -111,7 +114,14 @@ impl MemoryPreference {
             return Err("Saved memory preference is invalid. Review Memory before sending.".into());
         }
         validate_preference(&self.title, &self.text)
-            .and_then(|()| self.origin.as_ref().map_or(Ok(()), MemoryOrigin::validate))
+            .and_then(|()| self.origin.as_ref().map_or(Ok(()), MemoryOrigin::validate))?;
+        if let Some(image) = &self.image {
+            image.validate()?;
+            if !image.is_image() || self.source != "automatic" || self.origin.is_none() {
+                return Err("Image memory requires a retained shared-image source.".into());
+            }
+        }
+        Ok(())
     }
 }
 
@@ -277,9 +287,14 @@ pub fn prepare_memory_context_with_budget(
         if episodic(&p) && expanded < 3 {
             if let Some(origin) = &p.origin {
                 let evidence = format!(
-                    "Source {} message {} (exact user statement{}): {}\n",
+                    "Source {} message {} ({}{}): {}\n",
                     origin.session,
                     origin.message_id,
+                    if p.image.is_some() {
+                        "shared image; model description is uncertain"
+                    } else {
+                        "exact user statement"
+                    },
                     if p.auto_update {
                         ""
                     } else {
@@ -349,6 +364,7 @@ mod tests {
             updated_at: n,
             origin: None,
             auto_update: false,
+            image: None,
         }
     }
     #[test]

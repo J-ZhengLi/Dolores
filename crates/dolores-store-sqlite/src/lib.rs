@@ -582,6 +582,12 @@ impl SessionStore for SqliteStore {
         let rows=query.query_map([id],|r|r.get::<_,String>(0)).map_err(storage_error)?;
         rows.map(|r|memory::decode(r.map_err(storage_error)?)).collect()
     }
+    fn memory_source_images(&self, session: &str, message_id: i64) -> Result<Vec<dolores_core::AttachmentRef>, String> {
+        let conn=self.lock()?;
+        let exists:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM messages m WHERE m.session_id=?1 AND m.id=?2 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant'))",rusqlite::params![session,message_id],|r|r.get(0)).map_err(storage_error)?;
+        if !exists { return Ok(Vec::new()); }
+        Ok(attachments::parts(&conn,message_id)?.into_iter().filter(|p|p.is_image()).collect())
+    }
     fn set_automatic_memory_policy(
         &self,
         enabled: bool,

@@ -176,6 +176,7 @@ pub(super) fn image_assets(
     store: &dyn SessionStore,
     session: &str,
     messages: &[Message],
+    recalled: &[AttachmentData],
 ) -> Result<Vec<AttachmentData>, String> {
     let mut digests = BTreeSet::new();
     let mut refs = vec![];
@@ -192,7 +193,10 @@ pub(super) fn image_assets(
         return Err("Included images exceed 16 snapshots or 8 MiB. Compact history, remove images or start a new chat; your draft remains.".into());
     }
     refs.into_iter()
-        .map(|p| store.attachment_data(session, &p.digest))
+        .map(|p| match recalled.iter().find(|a| a.reference == *p) {
+            Some(a) => Ok(a.clone()),
+            None => store.attachment_data(session, &p.digest),
+        })
         .collect()
 }
 

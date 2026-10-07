@@ -2967,3 +2967,8 @@ Six frozen English/Chinese cues rank the expected fact/decision/outcome/open wor
 Current facts supersede bounded historical versions; reported completion resolves open work and manual corrections take priority. Forget removes derived records/index/history, stops pending maintenance and prevents replay from older retained source messages, while original conversations remain separately controlled. Five store audit cases, all 281 native tests and 12 Flutter memory tests pass. See [qualification](qualification/automatic-memory.md) for retention bounds and replay semantics.
 
 21.4 maintained normal Windows release build PASS.
+
+
+## Milestone 21.5 — Shared image memory (2026-10-07)
+
+Selected image-capable models can index one explicitly shared image with source/asset IDs and an uncertainty label. Later relevant recall reopens one retained scoped asset within context bounds; missing/unsupported/malformed image handling preserves text memory. All 282 native tests and the normal Windows release build pass. Packaged save/restore uses six local fixture requests, zero live requests, and exercises actual image input, cross-chat recall, malformed caption with valid text capture, restart, missing source and Forget. [Qualification](qualification/automatic-memory.md) records costs and limits; live evaluation follows in 21.6.
