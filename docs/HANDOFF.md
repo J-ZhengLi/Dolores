@@ -1,12 +1,18 @@
-# Fresh-session handoff — 2026-10-07
+# Fresh-session handoff — 2026-10-08
 
 ## Start here
 
-**Current batch: milestone 22, implemented as separate brick commits.**
-Milestone 23 is now implemented; see [companionship qualification](qualification/companionship.md).
-It remains Off in the original profile. Continue directly with milestone 24 under
-the user's AFK authorization. Model output reliability, subjective welcome and
-physical presence remain separate from passing timing/source fixtures.
+**Current batches delivered: 23 and 24, as separate brick commits.**
+See [companionship qualification](qualification/companionship.md) and
+[closed-UI scheduling qualification](qualification/closed-ui-scheduling.md).
+Companionship and background mode remain Off in the original profile. Windows
+background mode retains the same app in the tray; another launch restores it.
+Hidden report execution, offline/approval/crash recovery, disable and resource gates
+pass. Native libraries: 298 pass/1 ignored; Flutter: 341 pass; analyzer/Clippy pass.
+One configured DeepSeek chat-only report passes, while an earlier broad report
+request stays at approval. The last native Close retry refinement is included in
+the final normal build and packaged recheck. Model reliability, subjective welcome,
+physical tray/presence/suspend and broader platform acceptance remain separate.
 22.0–22.6 deliver chat-created tasks, named-zone durable claims, shared app-open
 execution and results, concise Scheduled management, and conversational changes.
 See [scheduling qualification](qualification/chat-scheduling.md) and newest
@@ -16,17 +22,22 @@ disabled-skill/restart recovery pass. DeepSeek creation and pinned report pass;
 Qwen creation/report and DeepSeek live time editing still miss. General model
 interpretation and physical timer/platform/resource acceptance remain open.
 
-The normal main preview is restored at schema 36; all 45 original table hashes
-are unchanged and only two scheduler tables were added. Profile/process receipts
+The final normal main preview uses schema 38; all 45 original table row values
+are unchanged and the four added scheduling/companion/background tables are empty.
+The preservation receipt records ownership; earlier schema-36 snapshots are
+historical. Profile/process receipts
 are ignored output, not permanent ownership assumptions. No original-profile
-task was created. Tasks run while Dolores is open; no closed-UI worker was added.
+task was created. Tasks run while open, or in the Windows tray after deliberate
+background opt-in. Quit stops the same owner; no startup/wake service was added.
 Milestone 21 memory remains delivered; its prior bounded evidence and gaps are
 in [memory qualification](qualification/automatic-memory.md).
 
 The user now authorizes continued implementation through the current roadmap
-while AFK: complete milestone 23, then 24, in separate milestone batches and brick
-commits without another start confirmation. Keep model misses separate from host
-mechanics; do not silently relax held performance or deferred platform-CI gates.
+while AFK: milestone 23, then 24, have been implemented without another start
+confirmation. The current revision has no further eligible implementation batch.
+Keep model misses separate from host mechanics; do not silently relax held
+performance or deferred platform-CI gates. Milestone 19's bounded investigation
+ended in its explicitly supported fallback, not accepted detach transfers.
 
 Earlier workspace milestones 16–18 are delivered. Source Control preserves the
 VS Code-inspired Changes menu, expandable commit files and real aligned diffs.
@@ -81,7 +92,7 @@ actions. Full native/Flutter suites pass; the two-repository release corpus veri
 unsaved-buffer protection, hook cancellation/recovery and a disposable bare remote.
 See [Source Control qualification](qualification/source-control.md) for exact
 measurements, invalid earlier renders, Windows-path correction and remaining gaps.
-The current batch is 22; its qualification is recorded above.
+Milestones 22–24 qualification is recorded above.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)
@@ -173,14 +184,15 @@ or successful end-to-end repair. Avoid repeated synthetic padding probes; test t
 actual useful task and its validation. See the linked qualification reports for
 precise settings, evidence and exclusions.
 
-## Self-repair: foundation versus missing implementation
+## Self-repair: implemented scope and remaining limits
 
 Flutter desktop hosts the Rust plugin-based engine, SQLite and native credentials.
 Early desktop experiments were removed. Source inspection and recent failure
 summaries exist, alongside skills and restricted ABI 1 recovery-hint mods with
 trials/activation/restore. They **cannot repair the native parser/agent/UI**.
 
-Milestone 20's full conversation-level repair workflow is not implemented:
+Milestone 20's reviewed Windows conversation-level repair workflow is implemented
+within the following scope; general repair reliability remains unaccepted:
 
 | Brick | Next deliverable |
 | --- | --- |

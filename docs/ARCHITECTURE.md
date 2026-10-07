@@ -6,8 +6,8 @@ in milestones 16–19. Shared run/document/Git/PTY ownership supports file-only 
 tabs; the experimental detached backend remains held. The
 [memory/scheduling contract](design/memory-scheduling-companionship.md) adds useful
 automatic memory, chat-created tasks, opt-in companionship and an optional closed-UI
-worker in 21–24. Memory and app-open scheduling are implemented; companionship
-and closed-UI scheduling remain future work.
+worker in 21–24. These are implemented with bounded qualification; subjective
+companionship, general model reliability and broader platform gates remain open.
 
 The [app-open scheduler](design/chat-scheduling.md) stores revisioned task rules
 and atomic occurrence claims in SQLite. A conditional Flutter clock dispatches
@@ -16,6 +16,19 @@ Tasks pin one reviewed skill version, provider/model and smaller budgets; their
 tool effects stay reviewed. Restart records interruption without replay, and
 management lists omit full execution snapshots. Qualification distinguishes host
 mechanics from model interpretation and physical timing.
+
+The [Windows background mode](design/closed-ui-scheduling.md) retains this same
+AppHost/engine in the tray. Directory-identity mutex/window discovery precedes
+engine initialization, so another launch restores its owner rather than opening a
+second store/vault. Close saves recovery and stops ordinary runs/PTYs; scheduled
+owners continue. Quit unregisters native channels before engine teardown. There
+is no startup installation or OS wake service; the Flutter engine remains resident.
+
+[Companionship](design/companionship.md) uses persisted eligibility/cooldown and
+one conditional timer while enabled. A bounded tool-free model response publishes
+only after policy, presence, source and run-admission checks. The atomic store
+creates one labeled unread conversation; no background notification or tool action
+is authorized by a note.
 
 Dolores is a local desktop harness. Flutter is the selected UI; a bundled Rust host assembles the core and provider/storage/credential/tool plugins. Memories and reviewed skills change request context, not model weights. Outcome evidence helps judge selected changes without claiming consciousness or general autonomous competence.
 
@@ -93,7 +106,7 @@ flowchart TB
   Context --> Core
 ```
 
-The [bridge contract](flutter/flutter-api.md) defines allocation ownership and command coordination. Native calls run off the UI isolate. The host uses two Tokio async workers and at most two blocking workers; command transport additionally uses bounded pipe readers while a process is active. Optional browser use owns one supervised transport thread and Node/browser process tree only during its parent run. No model, idle Node service, vector database, startup tool server, background scheduler or idle polling is bundled.
+The [bridge contract](flutter/flutter-api.md) defines allocation ownership and command coordination. Native calls run off the UI isolate. The host uses two Tokio async workers and at most two blocking workers; command transport additionally uses bounded pipe readers while a process is active. Optional browser use owns one supervised transport thread and Node/browser process tree only during its parent run. No hosted model, idle Node service, vector database or startup tool server is bundled. Scheduling and enabled companionship use conditional app-owned timers; they do not poll a model for idle decisions or start a separate background process.
 
 [Browser use](design/browser-use.md) registers only when the pinned optional
 adapter and Node are discoverable. It shares the parent's budgets, approvals and

@@ -1,5 +1,36 @@
 # Dolores acceptance — 2026-10-08
 
+## Background scheduling 24.3 — qualification and roadmap batch exit
+
+Milestones 23 and 24 are implemented in separate brick commits. Windows background
+mode is optional and Off by default, retaining the same app owner in the tray.
+Packaged report/reopen/duplicate-launch, provider-503, approval/crash, disable and
+Quit checks pass. The frozen resource check passes with no added child process or
+idle model request. Four saved light/dark narrow/wide settings renders were inspected;
+failed policy saves and a failed tray hide offer visible recovery without losing
+the window or draft. [Qualification](qualification/closed-ui-scheduling.md) records
+exact measurements, earlier failures and boundaries.
+
+One configured DeepSeek V4.1 Flash chat-only report completes with the UI hidden:
+5,254 reported total tokens, one model call. A broader report request instead waits
+for file-creation approval and remains a miss; no approval or effect was automated.
+Temporary isolated credentials were removed. This is bounded live execution
+evidence, not general model interpretation/report reliability.
+
+**298 native tests pass (1 ignored), 341 Flutter checks pass**, with clean analyzer,
+Clippy, Markdown links and the normal main Windows build. The maintained normal
+preview uses schema **38**; **all 45 original tables retain their row values**.
+The four added scheduling/companion/background tables have zero original-profile
+rows; both opt-in features remain Off and no task was created in that profile.
+
+The current roadmap has no further eligible feature implementation batch. Its
+documented milestone-19 fallback remains held after the CPU gate failed; detach
+transfers 19.2/19.3 are unavailable. Platform CI 8.4 remains explicitly deferred.
+Physical tray/input/accessibility/suspend, subjective companionship, representative
+other-host resources and general model reliability remain acceptance gaps. No
+startup installation, wake guarantee, desktop notification or general autonomous
+repair claim is added by this batch.
+
 ## Closed-UI scheduling 24.2 — packaged execution and recovery
 
 The normal Windows main entry retains one owner in the tray. Public fixtures

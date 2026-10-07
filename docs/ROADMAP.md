@@ -1,6 +1,6 @@
 # Dolores roadmap
 
-**Current planning revision — 2026-10-07.** Preserve the current agent UI on Home.
+**Current implementation revision — 2026-10-08.** Preserve the current agent UI on Home.
 Use separate Home, Scheduled, Folders, Source Control and Terminal pages, reached
 through a compact icon rail with hover/focus names and Settings at the bottom.
 The user's ChatGPT desktop screenshot replaces full-width navigation labels;
@@ -12,16 +12,18 @@ page project dropdowns. Terminal opens its view directly at project root/OS home
 Terminal has its own tabs/splits. The selected project
 binds Folders, Source Control and new terminals; without a project, new terminals
 start at the OS user home. The earlier mixed chat/file and A/B/C prototypes are
-historical explorations, not the new page contract. Editor feasibility remains
-open; see [qualification](qualification/workspace-editor.md).
+historical explorations, not the new page contract. Broader editor/platform
+qualification remains open; see [qualification](qualification/workspace-editor.md).
 
 **Implementation order:** reshape **16–19**, then add **21 — Automatic useful
 memory**, **22 — Chat-created scheduled tasks**, **23 — Opt-in companionship**
 and **24 — Optional closed-UI scheduling**. Keep milestone 20's existing numbering
 and evidence. Work proceeds **one milestone per batch**, with separate brick commits; this revision
-records the approved implementation direction. Milestones 16–18, 21 and 22 have
+records the approved implementation direction. Milestones 16–18 and 21–24 have
 implementation and bounded qualification; 19's detached backend stays held.
-The next batch is 23. Experimental Settings contains
+There is no further eligible implementation batch in this revision. Physical UX,
+general-model, subjective companionship and broader resource/platform acceptance
+remain separate; see the latest [acceptance](ACCEPTANCE.md). Experimental Settings contains
 default-on Multiple Window and a default-off Windows keep-awake option with
 truthful platform limits. Follow the [workspace specification](design/developer-workspace.md),
 [memory/scheduling contract](design/memory-scheduling-companionship.md) and
@@ -36,7 +38,7 @@ not a claim that milestone 13's recovery-hint mods repair the native harness.
 
 **Earlier developer workspace planning addition — 2026-10-06.** The planned direction is
 integrated code editing, Git, terminal/LSP and flexible multi-project views.
-Milestones **16–19 are proposed, not implemented**; first language support is
+At that earlier revision, milestones **16–19 were proposed**; first language support is
 TypeScript/JavaScript and Rust, confirmed by the user. The
 [workspace specification](design/developer-workspace.md) defines UX, ownership,
 component gates and resource targets. A [fresh-chat handoff](design/developer-workspace-handoff.md)
@@ -1178,7 +1180,8 @@ limits are visible until 24, not hidden by the successful example.
 [Companionship qualification](qualification/companionship.md) records atomic
 timing/source/dismissal fixtures and bounded Qwen success/miss. Subjective welcome,
 physical presence and enabled sustained resource acceptance remain open.
-Milestone 24 is the next authorized batch.
+Milestone 24 has subsequently been implemented and qualified within its Windows
+scope; see its section below.
 
 The user chose occasional in-app messages during chosen hours with a daily cap.
 Use a separately configured enabled weaker model; keep Home's selected model.
@@ -1229,6 +1232,14 @@ irrelevant reminder feedback reduces future eligibility; model failure stays qui
 no verified Meta Muse parity is claimed.
 
 ## Milestone 24 — Opt-in scheduled work while the UI is closed
+
+**Implemented 2026-10-08:** 24.1–24.3 as separate brick commits. Windows retains
+the same supervised owner in the tray, Off by default. Packaged hidden execution,
+reopen, duplicate launch, offline/approval/crash recovery, disable and resource
+gates pass. One configured DeepSeek chat-only report completes; a broader earlier
+request stays at approval. See [qualification](qualification/closed-ui-scheduling.md)
+for measured cost, preservation and physical/other-platform limits. No startup or
+OS wake installation is included.
 
 This is a named availability extension, not silently bundled with the initial
 scheduler. Requires 22 and host ownership from 16; it can be prioritized directly

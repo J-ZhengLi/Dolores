@@ -92,6 +92,19 @@ class AppHost extends ChangeNotifier {
   Future<bool> Function()? closeReview;
   Future<void> Function(String path)? repositoryNavigation;
   Future<bool> requestClose() async => await closeReview?.call() ?? false;
+  Future<void> closeToTray({required bool saveFiles}) async {
+    error = null;
+    final hidden = await background.closeToTray(
+      () => prepareQuit(saveFiles: saveFiles, keepScheduled: true),
+    );
+    if (!hidden) {
+      error ??=
+          background.error ??
+          'Could not close to tray. Keep Dolores open and try again.';
+    }
+    notifyListeners();
+  }
+
   Future<void> prepareNativeRestart(ChatController caller) async {
     if (terminals.live.isNotEmpty ||
         git.workspaces.values.any((w) => w.busy) ||

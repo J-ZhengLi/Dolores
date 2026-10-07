@@ -32,7 +32,27 @@ not pass). Your choice is saved; use existing file/diff/terminal split views.
 Prevent Windows From Locked is Off by default.
 The Windows option requests display/system wakefulness while Dolores runs; it
 does not override manual locks, screen-saver security or enforced policy.
-Scheduled remains a future page.
+
+## Scheduled tasks and companionship
+
+Ask in a chat, for example: “Every weekday at 9pm, write my daily report using
+skill daily-report.” Enable that skill first. Dolores returns the saved schedule;
+check its time, timezone and model. **Scheduled** shows progress, results and errors,
+with Pause, Resume, Skip next, Run now, Stop and Delete. Ask in the original chat
+to change a task. Ambiguous or unsupported model replies may require clarification.
+Tool actions still need approval; creating a task does not grant future access.
+
+Tasks normally run while Dolores is open. On Windows, turn on **Settings →
+General → Background tasks → Run tasks in background** to close it to the tray.
+Open Dolores from the tray or launch it again to restore the same window and see
+results. Tray **Quit Dolores** stops it. Your computer must be awake and connected;
+Dolores does not start with Windows or wake it. After interruption, inspect the
+retained result before **Run now**; uncertain actions are never replayed.
+
+**Settings → Personalization → Companionship** is optional and Off by default.
+Choose an enabled model, hours and daily cap for occasional in-app notes. Home
+offers Open, Not now, Dismiss, Fewer messages and Turn off. Notes stay quiet during
+work or while the window is hidden; they do not send messages or run tasks for you.
 
 ## Terminal and language tools
 
@@ -328,7 +348,14 @@ Stop cancels the run. Failed unsaved turns restore the draft; completed tool eff
 
 ## Memory, instructions and skills
 
-Open **Memory** to inspect/edit/disable/delete preferences and source evidence. Automatic learning is enabled by default for eligible explicit durable preferences after saved replies. Working chats use **This working folder**; side chats use **All chats**. Manual edits/disables protect learned entries. Eligible learning may use one extra bounded request; activity/usage is separate from the reply. Turn off **Learn preferences automatically** for manual control, then use **New preference** or **Suggest from this chat**.
+**Settings → Memory** has one switch for automatically remembering useful facts,
+decisions and preferences from completed conversations and recalling relevant
+entries later. No manual population is required. Inspect, correct or forget entries
+and their sources there. Off stops capture and recall while keeping saved entries
+available to inspect or forget. Learning can use an extra bounded model request;
+eligible excerpts are shared with your configured provider. Activity and reported
+usage are separate from the chat reply; a completed task does not guarantee a
+useful memory was extracted. Manual corrections protect your changes.
 
 **Session summary** reviews an older conversation batch. Generate, correct and explicitly **Save summary**; future context uses it plus recent uncovered turns. Full history remains. Extend, edit or delete as needed. Generated summaries may omit details.
 

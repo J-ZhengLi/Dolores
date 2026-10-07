@@ -1,9 +1,16 @@
-# Reliability follow-up — 2026-10-06
+# Reliability follow-up — 2026-10-08
 
 The user authorized maintaining Python build/launch commands, removing retired
 desktop experiments, and continuing the recorded reliability/qualification work
 before proposing another roadmap. This is a work ledger, not a new feature plan.
 Platform CI (8.4) remains deferred until explicit user instruction.
+
+Milestones 16–18 and 21–24 now have implemented scopes and bounded qualification.
+Milestone 19 reached its documented held-backend fallback; 19.2/19.3 detach
+transfers remain unavailable after the frozen CPU gate failed. This ledger's
+broader model/platform/physical/human acceptance gaps remain open; they are not
+unstarted feature batches. See [companionship](companionship.md) and
+[closed-UI scheduling](closed-ui-scheduling.md) for the final AFK batch evidence.
 
 | Work | Status |
 | --- | --- |
@@ -17,7 +24,8 @@ Platform CI (8.4) remains deferred until explicit user instruction.
 | Current documentation paths/status | Current commands use Python; historical retired-shell evidence labeled; local links checked |
 
 Each fix receives a separate English commit, basic and realistic failure/recovery
-checks, and a normal build/visible launch where runtime changes. Provider settings,
+checks matching the change. Runtime compilation/packaging changes need a normal
+build; launch or native UX checks are chosen when relevant. Provider settings,
 history and selected model are preserved. Live cases use bounded isolated data;
 private transcripts, captures and keys remain ignored. Failures remain failures.
 

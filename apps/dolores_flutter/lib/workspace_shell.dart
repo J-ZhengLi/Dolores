@@ -105,9 +105,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     final terminals = host.terminals.live.length;
     if (dirty == 0 && tasks == 0 && terminals == 0) {
       if (tray) {
-        await host.background.closeToTray(
-          () => host.prepareQuit(saveFiles: false, keepScheduled: true),
-        );
+        await host.closeToTray(saveFiles: false);
         return false;
       }
       return host.prepareQuit(saveFiles: false);
@@ -140,10 +138,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     );
     if (choice == null || !mounted) return false;
     if (tray) {
-      await host.background.closeToTray(
-        () =>
-            host.prepareQuit(saveFiles: choice == 'save', keepScheduled: true),
-      );
+      await host.closeToTray(saveFiles: choice == 'save');
       return false;
     }
     return host.prepareQuit(saveFiles: choice == 'save');
