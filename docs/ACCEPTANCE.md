@@ -1,5 +1,18 @@
 # Dolores acceptance — 2026-10-07
 
+## Companionship 23.1 — persisted quiet eligibility
+
+Off is the default. Eligibility uses named-zone hours, a persisted 2-attempt daily
+cap, a minimum three-hour gap, randomized opportunities, one pending candidate
+and one unread message. Busy/absent periods do not claim requests; overdue
+opportunities reschedule rather than catch up. Idle checks do not rewrite unchanged
+state. Schema 37 adds a bounded singleton without changing existing records.
+
+Four focused core/store tests pass: basic admission/cooldown, DST/unread/quiet
+hours, absence without catch-up, and restart/stale/failed-save preservation.
+Generation, publication and user experience are subsequent bricks; these fixtures
+do not establish actual model generation or physical presence behavior.
+
 ## Terminal 18.2 — tabs and independent split groups
 
 Terminal has its own session list, draggable tabs, plus and overflow actions.

@@ -26,13 +26,14 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 36;
+pub const SCHEMA_VERSION: i64 = 37;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
 mod adaptation;
 mod attachments;
 mod drafts;
+mod companionship;
 mod experience;
 mod knowledge;
 #[cfg(test)]
@@ -224,6 +225,9 @@ impl SqliteStore {
         if version < 36 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS scheduled_tasks(id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS scheduled_occurrences(id TEXT PRIMARY KEY,task TEXT NOT NULL,due INTEGER NOT NULL,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS scheduled_occurrence_task ON scheduled_occurrences(task,due DESC); PRAGMA user_version=36; COMMIT;").map_err(storage_error)?;
         }
+        if version < 37 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS companion_state(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL); PRAGMA user_version=37; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -234,6 +238,9 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn companion_state(&self)->Result<dolores_core::companionship::CompanionState,String>{self.companion_read()}
+    fn save_companion_state(&self,s:&dolores_core::companionship::CompanionState,r:u64)->Result<dolores_core::companionship::CompanionState,String>{self.companion_save(s,r)}
+    fn claim_companion(&self,n:i64,p:bool,b:bool,j:u32,c:dolores_core::companionship::CompanionCandidate)->Result<Option<dolores_core::companionship::CompanionCandidate>,String>{self.companion_claim(n,p,b,j,c)}
     fn scheduled_tasks(&self)->Result<Vec<dolores_core::scheduling::ScheduledTask>,String>{scheduling::list(&*self.lock()?)}
     fn save_scheduled_task(&self,t:&dolores_core::scheduling::ScheduledTask,expected:Option<u32>)->Result<dolores_core::scheduling::ScheduledTask,String>{scheduling::save(&mut *self.lock()?,t,expected)}
     fn scheduled_occurrences(&self,id:&str)->Result<Vec<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::history(&*self.lock()?,id)}
