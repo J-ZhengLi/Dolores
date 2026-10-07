@@ -2,20 +2,25 @@
 
 ## Start here
 
-**Current authorized batch: milestone 21, implemented as separate brick commits.**
-21.0–21.5 deliver the audit, one Memory switch, useful background capture,
-source-backed scoped recall, correction/Forget and explicitly shared-image memory.
-21.6 completes bounded reliability qualification; see the newest
-[acceptance](ACCEPTANCE.md) and [memory qualification](qualification/automatic-memory.md)
-for final test counts, live successes/misses, costs and migration evidence.
-Final checks: 286 native / 310 Flutter tests, analyzer/Clippy and normal build PASS.
-Final live: Qwen fact/recall PASS, DeepSeek scoped correction PASS,
-image recall PASS; local capture differs from model extraction. Normal
-main-entry launch preserves 42 original table hashes and adds three memory tables
-at schema 35. Qwen/general/platform limits remain documented.
+**Current batch: milestone 22, implemented as separate brick commits.**
+22.0–22.6 deliver chat-created tasks, named-zone durable claims, shared app-open
+execution and results, concise Scheduled management, and conversational changes.
+See [scheduling qualification](qualification/chat-scheduling.md) and newest
+[acceptance](ACCEPTANCE.md): 288 native / 326 Flutter tests, analyzer/Clippy and
+normal Windows build pass. Packaged creation/execution/approval/Stop/offline/
+disabled-skill/restart recovery pass. DeepSeek creation and pinned report pass;
+Qwen creation/report and DeepSeek live time editing still miss. General model
+interpretation and physical timer/platform/resource acceptance remain open.
 
-Scheduling and companionship (22–24) remain future work; starting another
-milestone requires the user to request the next batch.
+The normal main preview is restored at schema 36; all 45 original table hashes
+are unchanged and only two scheduler tables were added. Profile/process receipts
+are ignored output, not permanent ownership assumptions. No original-profile
+task was created. Tasks run while Dolores is open; no closed-UI worker was added.
+Milestone 21 memory remains delivered; its prior bounded evidence and gaps are
+in [memory qualification](qualification/automatic-memory.md).
+
+Milestone 23 is next, then 24. Continue one milestone per requested batch; keep
+the model misses separate from the passing host mechanics.
 
 Earlier workspace milestones 16–18 are delivered. Source Control preserves the
 VS Code-inspired Changes menu, expandable commit files and real aligned diffs.
@@ -70,7 +75,7 @@ actions. Full native/Flutter suites pass; the two-repository release corpus veri
 unsaved-buffer protection, hook cancellation/recovery and a disposable bare remote.
 See [Source Control qualification](qualification/source-control.md) for exact
 measurements, invalid earlier renders, Windows-path correction and remaining gaps.
-The current authorized batch is 21; its final qualification is recorded above.
+The current batch is 22; its qualification is recorded above.
 
 1. Read `AGENTS.md`, the newest [acceptance](ACCEPTANCE.md) section,
    [roadmap](ROADMAP.md), [workspace specification](design/developer-workspace.md)

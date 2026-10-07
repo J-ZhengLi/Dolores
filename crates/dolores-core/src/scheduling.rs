@@ -391,9 +391,17 @@ impl ScheduledTask {
         }
         if let Some(s) = &self.skill {
             s.validate()?;
+            if !s.enabled || s.versions.len() != 1 {
+                return Err("Scheduled tasks pin one enabled skill version.".into());
+            }
         }
         self.effective.validate()
     }
+}
+pub fn pin_skill(skill: &crate::ProjectSkill) -> crate::ProjectSkill {
+    let mut snapshot = skill.clone();
+    snapshot.versions = vec![skill.current().clone()];
+    snapshot
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

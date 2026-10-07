@@ -63,22 +63,25 @@ impl ScheduleTool {
             if !self.input.to_lowercase().contains(&name.to_lowercase()) {
                 return Err("Name the skill in your request.".into());
             }
-            Some(
+            Some(pin_skill(
                 dolores_core::effective_skills(&skills)
                     .into_iter()
                     .find(|s| s.name == name)
                     .ok_or(
                         "That skill is missing or disabled. Enable it in Skills, then ask again.",
-                    )?
-                    .clone(),
-            )
+                    )?,
+            ))
         } else {
             if self.input.to_lowercase().contains("skill") || self.input.contains("技能") {
                 return Err("Which enabled skill should this task use?".into());
             }
             None
         };
-        let mut effective = self.effective.clone();
+        let mut effective = if preferences.model == self.preferences.model {
+            self.effective.clone()
+        } else {
+            model_settings(self.store.as_ref(), &self.session, &preferences.model)?
+        };
         effective.task.model_calls = Some(effective.task.model_limit().min(8));
         effective.task.tool_calls = Some(effective.task.tool_limit().min(16));
         effective.task.elapsed_seconds =
@@ -177,6 +180,54 @@ impl ToolPlugin for ScheduleTool {
 pub(super) fn receipt(task: &ScheduledTask) -> Value {
     json!({"task":task.id,"revision":task.revision,"schedule":task.rule.describe(),"nextRun":task.next_due,"timezone":task.rule.zone,"project":task.workspace.root,"skill":task.skill.as_ref().map(|s|s.name.clone()),"model":task.preferences.model,"destination":"Scheduled → Results","availability":"While Dolores is open","paused":task.paused,"deleted":task.deleted})
 }
+pub(super) fn model_settings(
+    store: &dyn SessionStore,
+    session: &str,
+    model: &str,
+) -> Result<dolores_core::EffectiveSettings, String> {
+    use dolores_core::SettingsScope;
+    let mut prefs = store.preferences()?;
+    prefs.model = model.into();
+    let workspace = store.workspace(session)?;
+    let mut layers = vec![(
+        SettingsScope::User,
+        store.scoped_settings(SettingsScope::User, "user")?,
+    )];
+    if workspace.kind == dolores_core::WorkspaceKind::Project {
+        layers.push((
+            SettingsScope::Project,
+            store.scoped_settings(
+                SettingsScope::Project,
+                workspace
+                    .root
+                    .as_deref()
+                    .ok_or("Project folder unavailable.")?,
+            )?,
+        ));
+    }
+    layers.push((
+        SettingsScope::Thread,
+        store.scoped_settings(SettingsScope::Thread, session)?,
+    ));
+    let origin = if store
+        .model_request_settings(&prefs.base_url)?
+        .contains_key(model)
+    {
+        "Model profile"
+    } else {
+        "User generation default"
+    };
+    dolores_core::inspect_settings(
+        store.effective_request_settings(&prefs)?,
+        origin,
+        store
+            .model_contexts(&prefs.base_url)?
+            .get(model)
+            .copied()
+            .flatten(),
+        &layers,
+    )
+}
 pub(super) fn for_run(
     store: &dyn SessionStore,
     session: Option<&str>,
@@ -185,16 +236,7 @@ pub(super) fn for_run(
     let Some(session) = session else {
         return Ok(None);
     };
-    for task in store.scheduled_tasks()? {
-        if let Some(o) = store
-            .scheduled_occurrences(&task.id)?
-            .into_iter()
-            .find(|o| o.session.as_deref() == Some(session) && o.run == Some(id))
-        {
-            return Ok(Some(o));
-        }
-    }
-    Ok(None)
+    store.scheduled_for_run(session, id)
 }
 impl Engine {
     pub(super) fn scheduled_abandon(&self, id: &str, error: &str) -> Result<Value, String> {
@@ -218,7 +260,7 @@ impl Engine {
     }
     pub(super) fn scheduled_list(&self) -> Result<Value, String> {
         let tasks = self.store.scheduled_tasks()?;
-        tasks.into_iter().filter(|t|!t.deleted).map(|t|Ok(json!({"task":t,"receipt":receipt(&t),"occurrences":self.store.scheduled_occurrences(&t.id)?}))).collect::<Result<Vec<_>,String>>().map(|items|json!({"items":items,"availability":"While Dolores is open"}))
+        tasks.into_iter().filter(|t|!t.deleted).map(|t|Ok(json!({"task":{"id":t.id,"revision":t.revision,"sourceSession":t.source_session,"title":t.title,"paused":t.paused,"nextDue":t.next_due},"receipt":receipt(&t),"occurrences":self.store.scheduled_occurrence_summaries(&t.id)?}))).collect::<Result<Vec<_>,String>>().map(|items|json!({"items":items,"availability":"While Dolores is open"}))
     }
     pub(super) fn scheduled_tick(&self) -> Result<Value, String> {
         self.scheduled_tick_at(now_seconds())
@@ -228,7 +270,7 @@ impl Engine {
         for task in self.store.scheduled_tasks()? {
             for mut o in self
                 .store
-                .scheduled_occurrences(&task.id)?
+                .pending_scheduled_occurrences(&task.id)?
                 .into_iter()
                 .filter(|o| {
                     matches!(

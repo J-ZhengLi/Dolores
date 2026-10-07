@@ -19,8 +19,9 @@ open; see [qualification](qualification/workspace-editor.md).
 memory**, **22 — Chat-created scheduled tasks**, **23 — Opt-in companionship**
 and **24 — Optional closed-UI scheduling**. Keep milestone 20's existing numbering
 and evidence. Work proceeds **one milestone per batch**, with separate brick commits; this revision
-records the approved implementation direction. Start with 16.0's revised page
-prototype and unchanged editor gates. Experimental Settings will contain
+records the approved implementation direction. Milestones 16–18, 21 and 22 have
+implementation and bounded qualification; 19's detached backend stays held.
+The next batch is 23. Experimental Settings contains
 default-on Multiple Window and a default-off Windows keep-awake option with
 truthful platform limits. Follow the [workspace specification](design/developer-workspace.md),
 [memory/scheduling contract](design/memory-scheduling-companionship.md) and
@@ -1027,7 +1028,7 @@ begins only when the user requests it.
 [Qualification](qualification/automatic-memory.md) and newest
 [acceptance](ACCEPTANCE.md) record bounded live results, earlier misses and remaining
 model/platform gaps. Optional older-history Catch up remains deferred. Milestone 22
-is next planned work and has not started.
+now has its own implementation and qualification below.
 
 One Memory switch enables automatic useful facts/decisions with inspect/forget;
 no manual setup or entry is required. Text first, supplied images later. See
@@ -1099,6 +1100,12 @@ and memory. **Exit:** measured corpus competence, not universal/human memory cla
 
 ## Milestone 22 — Conversation-created scheduled tasks
 
+**Implemented 2026-10-07:** 22.0–22.6 in separate brick commits.
+[Scheduling qualification](qualification/chat-scheduling.md) records packaged
+creation/execution/recovery, bounded live successes and misses, and resource costs.
+General model interpretation and physical timer/platform acceptance remain open.
+Milestone 23 is the next batch; closed-UI execution remains separate in 24.
+
 “At 9 pm every weekday, write my daily report using skill X” creates one durable
 task from clear human intent. Receipt shows schedule/timezone/skill/project/result
 destination/next run. Scheduled manages tasks; manual creation UI is deferred
@@ -1132,7 +1139,7 @@ tick/DST overlap cannot duplicate dispatch; overdue jobs do not burst catch up.
 
 ### 22.3 Skill-backed scheduled execution and results
 
-**Scope:** host queue, immutable skill/project/model/grants snapshot, bounded runs,
+**Scope:** host queue, immutable skill/project/model snapshot and reviewed tool effects, bounded runs,
 progress/approval/Stop, partial results/artifacts and separate usage. **Basic:** one
 report uses the specified skill and appears in its task result thread. **Recovery:**
 missing/revised skill, revoked grant, offline model or budget stop preserves work

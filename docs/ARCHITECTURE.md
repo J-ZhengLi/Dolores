@@ -1,13 +1,21 @@
 # Dolores architecture
 
-The proposed [developer workspace](design/developer-workspace.md) preserves Home's
+The [developer workspace](design/developer-workspace.md) preserves Home's
 agent UI and adds separate project-bound Folders, Source Control and Terminal pages
-in milestones 16–19. Shared run/document/Git/PTY ownership precedes file-only split
-tabs and bounded experimental detached developer views. The proposed
+in milestones 16–19. Shared run/document/Git/PTY ownership supports file-only split
+tabs; the experimental detached backend remains held. The
 [memory/scheduling contract](design/memory-scheduling-companionship.md) adds useful
 automatic memory, chat-created tasks, opt-in companionship and an optional closed-UI
-worker in 21–24. These features are not implemented by this planning addition.
-This document continues to describe the current runtime.
+worker in 21–24. Memory and app-open scheduling are implemented; companionship
+and closed-UI scheduling remain future work.
+
+The [app-open scheduler](design/chat-scheduling.md) stores revisioned task rules
+and atomic occurrence claims in SQLite. A conditional Flutter clock dispatches
+through existing chat owners/queue and creates separate result conversations.
+Tasks pin one reviewed skill version, provider/model and smaller budgets; their
+tool effects stay reviewed. Restart records interruption without replay, and
+management lists omit full execution snapshots. Qualification distinguishes host
+mechanics from model interpretation and physical timing.
 
 Dolores is a local desktop harness. Flutter is the selected UI; a bundled Rust host assembles the core and provider/storage/credential/tool plugins. Memories and reviewed skills change request context, not model weights. Outcome evidence helps judge selected changes without claiming consciousness or general autonomous competence.
 

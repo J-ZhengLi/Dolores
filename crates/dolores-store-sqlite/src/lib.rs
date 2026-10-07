@@ -222,7 +222,7 @@ impl SqliteStore {
                 PRAGMA user_version=35; COMMIT;").map_err(storage_error)?;
         }
         if version < 36 {
-            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE scheduled_tasks(id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,data TEXT NOT NULL); CREATE TABLE scheduled_occurrences(id TEXT PRIMARY KEY,task TEXT NOT NULL,due INTEGER NOT NULL,data TEXT NOT NULL); CREATE INDEX scheduled_occurrence_task ON scheduled_occurrences(task,due DESC); PRAGMA user_version=36; COMMIT;").map_err(storage_error)?;
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS scheduled_tasks(id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS scheduled_occurrences(id TEXT PRIMARY KEY,task TEXT NOT NULL,due INTEGER NOT NULL,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS scheduled_occurrence_task ON scheduled_occurrences(task,due DESC); PRAGMA user_version=36; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -241,6 +241,9 @@ impl SessionStore for SqliteStore {
     fn update_scheduled_occurrence(&self,o:&dolores_core::scheduling::ScheduledOccurrence,state:&str)->Result<(),String>{scheduling::update(&mut *self.lock()?,o,state)}
     fn recover_scheduled_occurrences(&self)->Result<(),String>{scheduling::recover(&mut *self.lock()?)}
     fn skip_scheduled_occurrence(&self,id:&str,revision:u32)->Result<(),String>{scheduling::skip(&mut *self.lock()?,id,revision)}
+    fn pending_scheduled_occurrences(&self,id:&str)->Result<Vec<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::pending(&*self.lock()?,id)}
+    fn scheduled_occurrence_summaries(&self,id:&str)->Result<Vec<serde_json::Value>,String>{scheduling::summaries(&*self.lock()?,id)}
+    fn scheduled_for_run(&self,session:&str,id:u64)->Result<Option<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::for_run(&*self.lock()?,session,id)}
     fn repair_evaluations(&self, session:&str, repair:&str)->Result<Vec<dolores_core::RepairEvaluation>,String> {self.evaluation_list(session,repair)}
     fn save_repair_evaluation(&self, value:&dolores_core::RepairEvaluation)->Result<(),String>{self.evaluation_save(value)}
     fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> { self.repair_list(session) }

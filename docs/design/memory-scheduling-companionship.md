@@ -1,11 +1,14 @@
 # Automatic memory, scheduled work and companionship — 2026-10-07
 
-**Milestone 21 is implemented; 22–24 remain planning only.** This contract extends existing history/preferences/context/run
+**Milestones 21 and 22 are implemented; 23–24 remain planning only.** This contract extends existing history/preferences/context/run
 services rather than replacing them. [ROADMAP](../ROADMAP.md) assigns milestones
 21–24; earlier numbers and delivered repair evidence are preserved. Implement and
 commit one brick at a time. [Memory qualification](../qualification/automatic-memory.md)
 records delivered behavior, bounded live evidence and remaining reliability gaps.
-Product/acceptance docs must not advertise scheduling or companionship as delivered.
+[Scheduling contract](chat-scheduling.md) and
+[qualification](../qualification/chat-scheduling.md) record app-open behavior and
+model/platform gaps. Product docs must not advertise companionship or closed-UI
+execution as delivered.
 The user chose automatic useful facts/decisions with inspect/forget,
 and opt-in occasional in-app companionship during chosen hours with a daily cap.
 
@@ -122,8 +125,8 @@ deferred. Proposed task counts/progress come from actual work; no fabricated per
 Persist recurrence with named timezone, wall-clock rule, revision and next due time;
 never substitute the machine's UTC offset for the chosen zone. Initial rule scope:
 one-time, daily and selected weekdays at a local time. Holidays are not implicitly
-excluded by “weekdays.” Define DST gap/overlap behavior before activation. Suggested
-policy: next valid instant for gaps and one occurrence for repeated times, shown in
+excluded by “weekdays.” The frozen policy uses the first valid local minute for
+gaps and the earlier instant once for repeated times, shown in
 details. Clock jumps, restart and suspend reconcile unique occurrence IDs.
 
 Each occurrence has an atomic claim/lease and unique result/run identity. One active
@@ -134,13 +137,13 @@ catch-up or rerun of uncertain side effects. Failed/offline jobs retain partial
 work and the next action. A bounded retry is allowed only for known safe operations;
 exactly-once external effects are not promised by a database lease.
 
-Execution snapshots task project, skill version, model and granted capability scope.
+Execution snapshots task project, skill version, model and a reviewed-effects ceiling.
 Revoked grants, missing project/model or incompatible skill changes pause with a
 specific recovery. Pin the approved skill; compatible updates need a deliberate
 policy, not surprise substitution. Human approval remains visible and does not
 expire on the model clock. A scheduled read/write/task does not bypass the host
 approval or protected native-repair boundary. User-requested report generation can
-run automatically under its configured scope; tool effects use existing grants.
+run automatically under its configured scope; future tool effects require review.
 
 Use a task-specific model override when supplied, otherwise pin the current enabled
 selection at task creation. Do not change Home's selected model or silently substitute

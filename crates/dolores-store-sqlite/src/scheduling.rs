@@ -30,11 +30,20 @@ pub(super) fn save(
             return Err("Scheduled task limit reached. Remove an unused task first.".into());
         }
         if existing.len() >= MAX_SCHEDULES {
-            if let Some(old) = existing.iter().find(|t| t.deleted) {
+            let mut pruned = false;
+            for old in existing.iter().filter(|t| t.deleted) {
+                if !pending(&tx, &old.id)?.is_empty() {
+                    continue;
+                }
                 tx.execute("DELETE FROM scheduled_occurrences WHERE task=?1", [&old.id])
                     .map_err(storage_error)?;
                 tx.execute("DELETE FROM scheduled_tasks WHERE id=?1", [&old.id])
                     .map_err(storage_error)?;
+                pruned = true;
+                break;
+            }
+            if !pruned {
+                return Err("Scheduled task limit reached. Finish or stop a deleted task before creating another.".into());
             }
         }
     }
@@ -51,7 +60,11 @@ pub(super) fn save(
     Ok(next)
 }
 pub(super) fn history(c: &Connection, task: &str) -> Result<Vec<ScheduledOccurrence>, String> {
-    let mut q=c.prepare("SELECT data FROM scheduled_occurrences WHERE task=?1 ORDER BY due DESC,id DESC LIMIT 50").map_err(storage_error)?;
+    let mut q = c
+        .prepare(
+            "SELECT data FROM scheduled_occurrences WHERE task=?1 ORDER BY rowid DESC LIMIT 50",
+        )
+        .map_err(storage_error)?;
     let rows = q
         .query_map([task], |r| r.get::<_, String>(0))
         .map_err(storage_error)?;
@@ -63,6 +76,39 @@ fn terminal(state: &str) -> bool {
         state,
         "succeeded" | "failed" | "interrupted" | "cancelled" | "missed" | "skipped" | "paused"
     )
+}
+fn prune(c: &Connection, task: &str) -> Result<(), String> {
+    // Retention must never hide an active owner after many deliberate skips.
+    let active = pending(c, task)?.len();
+    let retained = MAX_OCCURRENCES.saturating_sub(active);
+    c.execute("DELETE FROM scheduled_occurrences WHERE task=?1 AND json_extract(data,'$.state') IN ('succeeded','failed','interrupted','cancelled','missed','skipped','paused') AND id NOT IN (SELECT id FROM scheduled_occurrences WHERE task=?1 AND json_extract(data,'$.state') IN ('succeeded','failed','interrupted','cancelled','missed','skipped','paused') ORDER BY rowid DESC LIMIT ?2)",params![task,retained]).map_err(storage_error)?;
+    Ok(())
+}
+pub(super) fn pending(c: &Connection, task: &str) -> Result<Vec<ScheduledOccurrence>, String> {
+    let mut q=c.prepare("SELECT data FROM scheduled_occurrences WHERE task=?1 AND json_extract(data,'$.state') IN ('claimed','queued','running','waitingForApproval')").map_err(storage_error)?;
+    let rows = q
+        .query_map([task], |r| r.get::<_, String>(0))
+        .map_err(storage_error)?;
+    rows.map(|r| serde_json::from_str(&r.map_err(storage_error)?).map_err(storage_error))
+        .collect()
+}
+pub(super) fn summaries(c: &Connection, task: &str) -> Result<Vec<serde_json::Value>, String> {
+    let mut q=c.prepare("SELECT json_remove(data,'$.snapshot') FROM scheduled_occurrences WHERE task=?1 ORDER BY rowid DESC LIMIT 50").map_err(storage_error)?;
+    let rows = q
+        .query_map([task], |r| r.get::<_, String>(0))
+        .map_err(storage_error)?;
+    rows.map(|r| serde_json::from_str(&r.map_err(storage_error)?).map_err(storage_error))
+        .collect()
+}
+pub(super) fn for_run(
+    c: &Connection,
+    session: &str,
+    id: u64,
+) -> Result<Option<ScheduledOccurrence>, String> {
+    let value:Option<String>=c.query_row("SELECT data FROM scheduled_occurrences WHERE json_extract(data,'$.session')=?1 AND json_extract(data,'$.run')=?2 LIMIT 1",params![session,id],|r|r.get(0)).optional().map_err(storage_error)?;
+    value
+        .map(|v| serde_json::from_str(&v).map_err(storage_error))
+        .transpose()
 }
 pub(super) fn claim(
     c: &mut Connection,
@@ -77,9 +123,9 @@ pub(super) fn claim(
         .find(|t| t.id == id)
         .ok_or("Task unavailable. Refresh Scheduled.")?;
     if task.revision != revision || task.deleted {
-        return Err("Task changed. Refresh Scheduled.").map_err(str::to_string);
+        return Err("Task changed. Refresh Scheduled.".into());
     }
-    if history(&tx, id)?.iter().any(|o| !terminal(&o.state)) {
+    if !pending(&tx, id)?.is_empty() {
         return Ok(None);
     }
     if !manual && task.paused {
@@ -144,7 +190,7 @@ pub(super) fn claim(
         params![id, serde_json::to_string(&task).map_err(storage_error)?],
     )
     .map_err(storage_error)?;
-    tx.execute("DELETE FROM scheduled_occurrences WHERE task=?1 AND id NOT IN (SELECT id FROM scheduled_occurrences WHERE task=?1 ORDER BY due DESC,id DESC LIMIT 50) AND json_extract(data,'$.state') IN ('succeeded','failed','interrupted','cancelled','missed','skipped','paused')",[id]).map_err(storage_error)?;
+    prune(&tx, id)?;
     tx.commit().map_err(storage_error)?;
     Ok(Some(occurrence))
 }
@@ -227,7 +273,7 @@ pub(super) fn skip(c: &mut Connection, id: &str, revision: u32) -> Result<(), St
         params![id, serde_json::to_string(&task).map_err(storage_error)?],
     )
     .map_err(storage_error)?;
-    tx.execute("DELETE FROM scheduled_occurrences WHERE task=?1 AND id NOT IN (SELECT id FROM scheduled_occurrences WHERE task=?1 ORDER BY due DESC,id DESC LIMIT 50) AND json_extract(data,'$.state') IN ('succeeded','failed','interrupted','cancelled','missed','skipped','paused')",[id]).map_err(storage_error)?;
+    prune(&tx, id)?;
     tx.commit().map_err(storage_error)?;
     Ok(())
 }
@@ -340,5 +386,33 @@ mod tests {
             .unwrap()
             .is_none());
         assert_eq!(store.scheduled_occurrences(&t.id).unwrap().len(), 1);
+    }
+    #[test]
+    fn repeated_skips_keep_active_owner_visible_and_prevent_overlap() {
+        let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        let task = store.save_scheduled_task(&task(), None).unwrap();
+        let now = task.next_due.unwrap();
+        let active = store
+            .claim_scheduled_occurrence(&task.id, task.revision, now, false)
+            .unwrap()
+            .unwrap();
+        for _ in 0..60 {
+            let current = store.scheduled_tasks().unwrap().remove(0);
+            store
+                .skip_scheduled_occurrence(&task.id, current.revision)
+                .unwrap();
+        }
+        let history = store.scheduled_occurrences(&task.id).unwrap();
+        assert_eq!(history.len(), MAX_OCCURRENCES);
+        assert!(history.iter().any(|o| o.id == active.id));
+        assert_eq!(
+            store.pending_scheduled_occurrences(&task.id).unwrap().len(),
+            1
+        );
+        let current = store.scheduled_tasks().unwrap().remove(0);
+        assert!(store
+            .claim_scheduled_occurrence(&task.id, current.revision, now, true)
+            .unwrap()
+            .is_none());
     }
 }

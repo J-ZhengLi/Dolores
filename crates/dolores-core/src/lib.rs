@@ -348,6 +348,9 @@ pub trait SessionStore: Send + Sync {
     fn update_scheduled_occurrence(&self,_:&scheduling::ScheduledOccurrence,_:&str)->Result<(),String>{Err("Scheduled progress is unavailable.".into())}
     fn recover_scheduled_occurrences(&self)->Result<(),String>{Ok(())}
     fn skip_scheduled_occurrence(&self,_:&str,_:u32)->Result<(),String>{Err("Skipping scheduled work is unavailable.".into())}
+    fn pending_scheduled_occurrences(&self,id:&str)->Result<Vec<scheduling::ScheduledOccurrence>,String>{Ok(self.scheduled_occurrences(id)?.into_iter().filter(|o|matches!(o.state.as_str(),"claimed"|"queued"|"running"|"waitingForApproval")).collect())}
+    fn scheduled_occurrence_summaries(&self,id:&str)->Result<Vec<serde_json::Value>,String>{self.scheduled_occurrences(id)?.into_iter().map(|o|{let mut v=serde_json::to_value(o).map_err(|_|"Task history unavailable.")?;v.as_object_mut().unwrap().remove("snapshot");Ok(v)}).collect()}
+    fn scheduled_for_run(&self,session:&str,id:u64)->Result<Option<scheduling::ScheduledOccurrence>,String>{for t in self.scheduled_tasks()?{if let Some(o)=self.scheduled_occurrences(&t.id)?.into_iter().find(|o|o.session.as_deref()==Some(session)&&o.run==Some(id)){return Ok(Some(o));}}Ok(None)}
     fn repair_evaluations(&self, _: &str, _: &str) -> Result<Vec<RepairEvaluation>, String> { Ok(vec![]) }
     fn save_repair_evaluation(&self, _: &RepairEvaluation) -> Result<(), String> {
         Err("Native evaluation storage unavailable; retained proposal remains.".into())

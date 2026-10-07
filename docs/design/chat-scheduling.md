@@ -9,7 +9,7 @@ to milestone 24. Home's project/model selection and drafts remain untouched.
 Support one-time local dates, daily, and selected weekdays at a local hour/minute.
 Resolve the system's IANA zone unless the user names another supported zone. A
 typed creation tool is bound to the current human input and source chat; quotes,
-examples, questions, hypothetical discussion and tool/assistant text cannot create
+examples, informational questions, hypothetical discussion and tool/assistant text cannot create
 or edit tasks. Unresolved intent, time or skill asks for the missing detail.
 The host resolves an enabled reviewed skill by name and pins its current version.
 An absent or disabled skill is an error, never an invented default. A request can
@@ -21,6 +21,13 @@ A receipt includes task ID, rule, timezone, next run, project, skill/model and
 result destination. Repeated calls in the same source exchange reconcile to one
 task. Conversational changes resolve a task and its revision; ambiguous references
 ask which task. In-flight work keeps its original snapshot.
+
+Creation/edit turns use only scheduling metadata tools and omit future skill
+instructions. They retain the existing 14-tool catalog limit; project work tools
+and the single pinned skill version are prepared when an occurrence executes.
+Conversational edits initially cover time, enabled skill/model, Pause/Resume/Skip
+and Cancel. A different project or recurrence rule needs a new task. No inferred
+project move or arbitrary cron syntax is implemented.
 
 ## Clock and ownership
 
@@ -47,6 +54,10 @@ or changed access cannot expand a saved task. Missing/revised skills or provider
 configuration pause with a visible recovery. Run now is deliberate, without
 overlap. Pause/Delete stop future recurrence; Stop targets current work. Delete
 retains result conversations and occurrence evidence.
+
+At retention limits, completed deleted task metadata can age out while result
+conversations remain. An active occurrence always keeps a slot in the 50-record
+history and cannot be pruned to admit another task or overlapping run.
 
 ## Frozen qualification corpus
 

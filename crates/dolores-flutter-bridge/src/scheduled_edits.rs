@@ -14,6 +14,13 @@ struct Edit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ordinary_file_edits_do_not_replace_project_tools() {
+        assert!(!intent("Update the README file"));
+        assert!(!intent("Change this function to use a constant"));
+        assert!(intent("Change it to 8pm"));
+        assert!(intent("Pause this task"));
+    }
     fn store() -> Arc<SqliteStore> {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
         store.create("source").unwrap();
@@ -139,6 +146,10 @@ pub(super) struct ManageTool {
 pub(super) fn intent(input: &str) -> bool {
     let s = input.to_lowercase();
     direct_request(input)
+        && (s
+            .split(|c: char| !c.is_alphanumeric())
+            .any(|word| matches!(word, "task" | "schedule" | "scheduled" | "it"))
+            || ["任务", "计划", "它"].iter().any(|word| s.contains(word)))
         && [
             "change", "move", "update", "switch", "pause", "resume", "skip", "cancel", "delete",
             "改成", "改为", "暂停", "恢复", "跳过", "取消",
@@ -181,8 +192,7 @@ impl ToolPlugin for ManageTool {
             .map_err(|_| "Invalid task change. Clarify which task and change.")?;
         let candidates = self.candidates()?;
         if candidates.len() != 1 && !self.input.contains(&edit.task) {
-            return Err("Which task should change? Include its task ID from Scheduled.")
-                .map_err(str::to_string);
+            return Err("Which task should change? Include its task ID from Scheduled.".into());
         }
         let mut task = candidates
             .into_iter()
@@ -233,13 +243,12 @@ impl ToolPlugin for ManageTool {
                     return Err("Name the new skill in your request.".into());
                 }
                 let skills = skills::for_session(self.store.as_ref(), Some(&task.source_session))?;
-                task.skill = Some(
+                task.skill = Some(pin_skill(
                     dolores_core::effective_skills(&skills)
                         .into_iter()
                         .find(|v| v.name == name)
-                        .ok_or("That skill is missing or disabled. Enable it, then ask again.")?
-                        .clone(),
-                );
+                        .ok_or("That skill is missing or disabled. Enable it, then ask again.")?,
+                ));
             }
             if let Some(model) = edit.model {
                 if !self.input.contains(&model)
@@ -250,6 +259,18 @@ impl ToolPlugin for ManageTool {
                 {
                     return Err("Name an enabled model in your request.".into());
                 }
+                let selected = crate::scheduling::model_settings(
+                    self.store.as_ref(),
+                    &task.source_session,
+                    &model,
+                )?;
+                // A deliberate model change uses that model's request profile,
+                // while retaining the saved task's smaller execution ceiling.
+                task.effective.request = selected.request;
+                task.effective.request.max_output_tokens =
+                    Some(selected.request.max_output_tokens.unwrap_or(2048).min(2048));
+                task.effective.request.timeout_seconds = selected.request.timeout_seconds.min(60);
+                task.effective.context_window_tokens = selected.context_window_tokens;
                 task.preferences.model = model;
             }
         }

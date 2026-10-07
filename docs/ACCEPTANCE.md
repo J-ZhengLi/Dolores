@@ -3047,3 +3047,39 @@ Scheduled now lists/filters chat-created tasks and shows next run, actual run st
 ## Milestone 22.5 — Conversational task changes (2026-10-07)
 
 A source-bound manage_scheduled_task tool changes time/skill/model or pauses/resumes/skips/cancels an identified task. Pronouns require one source-chat candidate; otherwise an explicit task ID is needed. Task IDs are inspectable in Details. Twelve focused native scheduling/edit tests pass, including repeated time edits, immutable in-flight snapshots, ambiguous/other-chat/quoted/wrong-action refusal and pause/cancel. Creation deduplication is scoped to one exchange so a later deliberate identical request is possible. Full qualification follows in 22.6; unsupported phrasing remains a model/intent acceptance concern, not a claimed universal parser.
+
+## Milestone 22.6 — Scheduling batch qualification (2026-10-07)
+
+22.0–22.6 implementation and qualification tooling are delivered in separate brick
+commits. All 288 core/store/bridge library tests and 326 Flutter tests PASS; analyzer,
+strict Clippy and normal Windows main-entry build PASS. Packaged public corpus uses
+11 local requests and zero live requests: creation/duplicate calls, due clock/report,
+reviewed read, Stop while waiting, overlap refusal, offline recovery, Pause/Skip/
+Run now, stale writes and disabled-skill conversational recovery PASS. Fresh-process
+interrupted claims do not replay and completed results remain. Clock injection and
+saved renders are diagnostic evidence, not physical 21:00 timer or native input
+acceptance.
+
+Bounded configured live: DeepSeek creation and actual pinned skill report PASS;
+quoted examples create no tasks. Qwen direct creation/report MISS, and DeepSeek
+time-change probes MISS on adapter argument refusal. Failed changes preserve the
+task; no silent model fallback occurs. General natural-language scheduling/editing
+reliability remains **unaccepted**. Four isolated runs use 13 public chat/run turns;
+token totals are unavailable, not zero. Original configuration/history are never
+copied or changed by live qualification. [Full evidence](qualification/chat-scheduling.md)
+records prior misses, exact bounds and remaining gaps.
+
+Qualification fixes cover idempotent migration, metadata-only creation catalogs
+without raising the 14-tool limit, future skill guidance loaded only at execution,
+single-version skill pinning, explicit model profiles, same-second history ordering
+and active-owner retention after 60 skips. Clock queries read pending occurrences;
+management omits full snapshots. At 32 tasks/1,600 maximum-size synthetic occurrences,
+stored JSON is 22,791,996 bytes, list payload 238,232 bytes; ten-sample tick/list
+maxima are 76.319/27.123 ms. Sustained idle/RSS, physical timing/sleep/wake,
+accessibility, exhaustive rules/languages and other platforms remain unqualified.
+
+Only the verified owned preview was stopped after its DLL blocked packaging; saved
+runs were inactive and its database was backed up first. Normal main-entry launch
+reports a visible window after restoration. All 45 original table hashes remain
+unchanged at schema 36, with only two scheduling tables added; no original task was
+created. Milestone 23 is next; closed-UI execution stays deferred to 24.

@@ -1767,7 +1767,14 @@ impl Engine {
                 } else {
                     workspace
                 };
+                // Scheduling changes local task metadata; it must not execute the
+                // future work or consume the normal project tool catalog now.
+                let creating_schedule = scheduled.is_none() && desktop_capture.is_none()
+                    && dolores_core::scheduling::explicit_schedule_intent(&input);
+                let editing_schedule = scheduled.is_none() && desktop_capture.is_none()
+                    && scheduled_edits::intent(&input);
                 let mut tools = workspace
+                    .filter(|_| !creating_schedule && !editing_schedule)
                     .map(|root| {
                         let journal = Arc::new(dolores_core::WorkspaceJournal {
                             store: self.store.clone(),
@@ -1836,10 +1843,10 @@ impl Engine {
                         tools.push(Arc::new(desktop_access::RequestAccess));
                     }
                 }
-                if scheduled.is_none() && desktop_capture.is_none() && dolores_core::scheduling::explicit_schedule_intent(&input) {
+                if creating_schedule {
                     tools.push(Arc::new(scheduling::ScheduleTool::new(self.store.clone(),session.clone().unwrap(),input.clone(),effective.clone())?));
                 }
-                if scheduled.is_none() && desktop_capture.is_none() && scheduled_edits::intent(&input) {
+                if editing_schedule {
                     tools.push(Arc::new(scheduled_edits::ManageTool::new(self.store.clone(),session.clone().unwrap(),input.clone())));
                 }
                 let compaction_provider = if desktop_capture.is_none()
@@ -2118,6 +2125,8 @@ async fn execute(
     if cancel.is_cancelled() {
         return Err(stopped());
     }
+    let scheduling_metadata = tools.iter().any(|tool|
+        matches!(tool.spec().name.as_str(), "schedule_task" | "manage_scheduled_task"));
     if let Some(log) = &log {
         log.record(
             None,
@@ -2136,7 +2145,9 @@ async fn execute(
             let (history, count, session_summary) = reader.summary_context_history(&session)?;
             let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
             let memories = memory::recall_for_session(reader.as_ref(), Some(&session))?;
-            let skills = if let Some(o)=scheduling::for_run(reader.as_ref(),Some(&session),id)?{o.snapshot.skill.into_iter().collect()}else{skills::for_session(reader.as_ref(), Some(&session))?};
+            let skills = if scheduling_metadata { vec![] }
+                else if let Some(o)=scheduling::for_run(reader.as_ref(),Some(&session),id)?{o.snapshot.skill.into_iter().collect()}
+                else{skills::for_session(reader.as_ref(), Some(&session))?};
             Ok((
                 session,
                 history,
@@ -2153,6 +2164,9 @@ async fn execute(
         .transpose()?;
     let mut context =
         dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
+    if scheduling_metadata {
+        context[0].content.push_str("\nThis turn creates or changes scheduled task metadata, not the future work. Use the supplied scheduling tool when the current human request fully specifies the schedule. An explicit recurring weekday/time needs no date or report contents now. Resolve only missing schedule, skill, model or task identity details. Future skill guidance is pinned by the host and loaded when the task runs. Do not execute or rehearse that work now. Report the actual tool receipt; never claim creation without one.");
+    }
     if scheduling::for_run(store.as_ref(),Some(&session),id)?.is_some(){
         context[0].content.push_str("\nThis is an occurrence of the user's scheduled task, due now. Execute the underlying work now using the pinned skill. The user request describes its schedule for context only; do not create another schedule or merely confirm future work. Deliver the actual result here. Tool effects still need the supplied host authorization.");
     }
