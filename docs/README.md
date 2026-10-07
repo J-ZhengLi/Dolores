@@ -14,7 +14,7 @@
 | Check what was actually verified | [Acceptance](ACCEPTANCE.md) |
 | Review priorities, dependencies and acceptance gates | [Roadmap](ROADMAP.md) |
 | Review the proposed integrated editor/Git/terminal workspace | [Developer workspace specification](design/developer-workspace.md) |
-| Continue implementation in a fresh development chat | [Current session handoff](HANDOFF.md) |
+| Continue implementation in a fresh development chat | [roadmap](ROADMAP.md) |
 | Review the planned harness self-repair workflow | [Self-repair specification](design/harness-self-repair.md) |
 | See completed bricks and historical scope | [Implementation history](IMPLEMENTATION_HISTORY.md) |
 

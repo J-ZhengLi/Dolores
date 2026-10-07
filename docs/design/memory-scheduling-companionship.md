@@ -9,7 +9,7 @@ records delivered behavior, bounded live evidence and remaining reliability gaps
 [qualification](../qualification/chat-scheduling.md) record app-open behavior and
 model/platform gaps. Product docs must not advertise companionship or closed-UI
 execution as delivered.
-The user chose automatic useful facts/decisions with inspect/forget,
+The design adopts automatic useful facts/decisions with inspect/forget,
 and opt-in occasional in-app companionship during chosen hours with a daily cap.
 
 ## Memory: a useful index to retained evidence
@@ -159,7 +159,7 @@ OS wake/security bypass or always-running worker is silently installed.
 ## Companionship: occasional, warm and grounded
 
 Settings → Companionship has an opt-in switch, allowed hours, daily cap and an enabled
-configured weaker model. The user chose **in-app messages**, not desktop notifications.
+configured weaker model. The design adopts **in-app messages**, not desktop notifications.
 Proposed defaults: Off initially; after opt-in, 09:00–21:00 local time, at most 2
 messages/day with a 3-hour minimum gap. Chosen hours/cap always override defaults;
 freeze these proposed limits before 23.0. No silent model fallback or foreground
@@ -180,7 +180,7 @@ cannot presume a forgotten task is unfinished or a remembered event occurred
 without evidence. Fun facts use a bounded verified source or known validated
 content; do not invent a recent factual claim to make a message interesting.
 
-Aim for calm companionship inspired by the user's Dolores reference, without
+Aim for calm companionship inspired by the documented interface design, without
 pretending to have human feelings/consciousness, fabricating personal memories,
 guilt, exclusivity or pressure to engage. No task creation/tool execution emerges
 from a proactive message without user intent. Preference learning is inspectable,

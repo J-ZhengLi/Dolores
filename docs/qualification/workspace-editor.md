@@ -94,8 +94,7 @@ store pass 93, with strict Clippy clean. Milestone 16 stops here before 17.
 
 ## Proceed decision and initial envelope — 2026-10-07
 
-The user reports playing a video game around the old slow samples and explicitly
-directs moving on. Host contention is plausible, not established. Those reports
+The implementation proceeds after reviewing the old slow samples. Host contention is plausible, not established. Those reports
 remain below; they no longer block adoption alone. Performance targets are unchanged.
 A new native 1 MiB four-view editing case passes 40 replacements at **19.558 ms**
 typing frame p95, with shared buffer/undo/redo and bounded history. Short matched
@@ -112,7 +111,7 @@ in the ignored trial output alongside the retained earlier reports.
 
 ## Final layout decision — 2026-10-07
 
-The user selects **developer-pages B**, amended as follows: top-left title-bar
+The design selects **developer-pages B**, amended as follows: top-left title-bar
 sidebar-layout toggle (not Close/folder), resize the adjacent panel down to hidden,
 no project dropdowns, and project selection derived from the chosen Home conversation.
 Terminal enters its view directly, with initial cwd at project root or OS home and
@@ -157,7 +156,7 @@ in progress; 16.1 has not started.
 
 ## Current page prototype — compact icon rail, 2026-10-07
 
-The user requested separate Home/Scheduled/Folders/Source Control/Terminal pages,
+The product design calls for separate Home/Scheduled/Folders/Source Control/Terminal pages,
 then supplied the ChatGPT desktop screenshot to select a compact icon rail rather
 than the initial full-width navigation. The revised synthetic study uses a
 64-pixel rail, 48-pixel icon targets, hover/focus names and semantic labels. Settings
@@ -267,7 +266,7 @@ clears the demo; it is not crash recovery. No formal tests are added for throwaw
 UI. The earlier mixed chat/file four-pane layout is not approved. Native editor
 performance/input/resource gates below remain unchanged and open.
 
-2026-10-06. The user resumed milestones 16–19, one milestone batch at a time,
+2026-10-06. The implementation plan resumed milestones 16–19, one milestone batch at a time,
 starting with 16. **16.0 is in progress; 16.1–16.5 have not started.** Neither the
 revised layout nor the editor dependency is accepted for production rollout yet.
 

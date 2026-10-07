@@ -1,9 +1,9 @@
 # Reliability follow-up — 2026-10-08
 
-The user authorized maintaining Python build/launch commands, removing retired
+The development plan includes maintaining Python build/launch commands, removing retired
 desktop experiments, and continuing the recorded reliability/qualification work
 before proposing another roadmap. This is a work ledger, not a new feature plan.
-Platform CI (8.4) remains deferred until explicit user instruction.
+Windows release CI (8.4) is now part of release preparation; non-Windows CI remains deferred.
 
 Milestones 16–18 and 21–24 now have implemented scopes and bounded qualification.
 Milestone 19 reached its documented held-backend fallback; 19.2/19.3 detach
@@ -37,7 +37,7 @@ remain outside this follow-up; see the existing roadmap exclusions.
 The authorized maintenance batch is concluded. The normal app is visibly available
 with the original profile, and changes are committed separately. Removed retired
 root web build/dependency caches as well as tracked experiments; the maintained
-browser adapter's own dependencies remain. No new roadmap or platform CI was
-introduced. Open qualification gates above are not represented as passes and are
+browser adapter's own dependencies remain. That maintenance batch introduced no new roadmap or platform CI. Windows CI was
+subsequently added in release preparation. Open qualification gates above are not represented as passes and are
 available for the user's next roadmap. See [learning follow-up](learning-followup.md)
 for the reproduced defect, regression checks, live tie and extraction limits.

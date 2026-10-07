@@ -1,19 +1,18 @@
 # Developer workspace specification — revised 2026-10-07
 
-**Planning contract, not delivered behavior.** The user replaced mixed chat/file
+**Planning contract, not delivered behavior.** The design replaces mixed chat/file
 panes with the familiar Home agent view and separate project-bound developer pages.
 Complete one milestone per batch, implementing and committing its bricks in order. Earlier prototypes remain references; no
 A/B/C selection from earlier mixed-pane studies applies to this page structure.
-The user finalized **developer-pages variant B** with the amendments below on
+The finalized design uses **developer-pages variant B** with the amendments below on
 2026-10-07; no further prototype revision is requested. Existing editor feasibility failures in
 [qualification](../qualification/workspace-editor.md) remain open.
 
 ## Navigation and page layout
 
 Use a compact ChatGPT-inspired **icon rail** in this order: **Home, Scheduled,
-Folders, Source Control, Terminal**; **Settings** anchors at the bottom. The user
-supplied the ChatGPT desktop screenshot on 2026-10-07, replacing the full-width
-labeled navigation study. Start at 64 logical pixels with 48-pixel targets;
+Folders, Source Control, Terminal**; **Settings** anchors at the bottom. The ChatGPT desktop design reference replaced the full-width
+labeled navigation study on 2026-10-07. Start at 64 logical pixels with 48-pixel targets;
 page names appear on hover/focus and remain semantic labels. Keep the wider page
 panel beside the rail for sessions/files; brand appears once in that panel.
 Use B's collapsible adjacent panel. A sidebar-layout button at the **top-left of

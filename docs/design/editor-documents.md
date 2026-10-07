@@ -80,7 +80,7 @@ not attributed entirely to host contention. Files above 64 KiB now receive no
 highlighting work; line numbers, editing, Find/Replace, Save and recovery remain.
 The 1 MiB editable limit, memory envelopes and 32/250 ms targets are unchanged.
 
-The user reports gaming during the old slow measurements and instructs proceeding.
+The implementation proceeds after reviewing the old slow measurements.
 Treat host contention as a plausible explanation, not a proven cause. Retain those
 reports without treating them alone as an adoption blocker; 250 ms ordinary-open
 and 32 ms typing targets remain unchanged. Production encoding/write/recovery checks

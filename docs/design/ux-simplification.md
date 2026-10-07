@@ -122,7 +122,7 @@ branch. It is not a proposed web implementation or new product route.
 | B — labeled workspace / docked panel | An explicit Workspace panel groups Overview, Changes, Activity and Context | Easier discovery, more occupied space and visible controls |
 | C — conversation / contextual actions | Change review, activity and recovery sit beside the relevant response; details expand in the conversation | Strong task association, more scrolling with expanded evidence |
 
-**Selected decision, 2026-10-05:** the user chose A as the overall design, retaining
+**Selected decision, 2026-10-05:** the design adopts A as the overall design, retaining
 the existing New chat/project/chat and other icons. Changes, Activity and Chat
 actions remain icon-only with hover hints and keyboard-accessible names/hints.
 Keep System/Light/Dark theme preview tiles. Use ordinary surfaces and uniform
@@ -158,7 +158,7 @@ Prototype browser review exercised all three layouts, unified Context, compact
 light Settings, simulated summary-save failure/retry and occupied-draft
 continuation. These are design affordances only. Native keyboard/accessibility,
 full nested editor behavior, truthful durable save/recovery and performance remain
-runtime acceptance work. The user's layout preference is recorded above; it is
+runtime acceptance work. The documented interface design is recorded above; it is
 not a measured usability or native acceptance result.
 
 ## Target information architecture
@@ -286,7 +286,7 @@ top-level categories replace twelve. These are targets, not accomplished metrics
 
 For every runtime brick, check light/dark, 420×480 and normal native release,
 keyboard/focus and long/error text. Use deterministic unavailable/stale/denied
-fixtures plus bounded Qwen routine/DeepSeek harder live checks when behavior needs
+fixtures plus bounded explicitly selected available-model live checks when behavior needs
 a model. Keep model quality separate from UI/host contract passes. Preserve provider
 configuration, selected model, history, explicit access policies, memory/skill
 versions and local evidence. Commit each brick and record gaps in acceptance.

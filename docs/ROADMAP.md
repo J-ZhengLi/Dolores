@@ -3,7 +3,7 @@
 **Current implementation revision — 2026-10-08.** Preserve the current agent UI on Home.
 Use separate Home, Scheduled, Folders, Source Control and Terminal pages, reached
 through a compact icon rail with hover/focus names and Settings at the bottom.
-The user's ChatGPT desktop screenshot replaces full-width navigation labels;
+The documented interface design replaces full-width navigation labels;
 the chat/file side panel stays beside the rail. Files have VS Code-style draggable
 split tabs; chats remain in Home.
 **Final layout: developer-pages B**, with a top-left title-bar sidebar toggle and
@@ -21,13 +21,13 @@ and **24 — Optional closed-UI scheduling**. Keep milestone 20's existing numbe
 and evidence. Work proceeds **one milestone per batch**, with separate brick commits; this revision
 records the approved implementation direction. Milestones 16–18 and 21–24 have
 implementation and bounded qualification; 19's detached backend stays held.
-There is no further eligible implementation batch in this revision. Physical UX,
+The feature batches are delivered; release preparation adds Windows CI 8.4. Physical UX,
 general-model, subjective companionship and broader resource/platform acceptance
 remain separate; see the latest [acceptance](ACCEPTANCE.md). Experimental Settings contains
 default-on Multiple Window and a default-off Windows keep-awake option with
 truthful platform limits. Follow the [workspace specification](design/developer-workspace.md),
 [memory/scheduling contract](design/memory-scheduling-companionship.md) and
-[current handoff](HANDOFF.md). Platform CI 8.4 remains deferred.
+[release procedure](RELEASING.md). Windows CI 8.4 is now in the release-preparation scope.
 
 **Earlier priority change — 2026-10-06.** Milestones 16–19 were paused at the user's
 request. Fix fragmented reasoning-stream failures and silent progress first.
@@ -39,7 +39,7 @@ not a claim that milestone 13's recovery-hint mods repair the native harness.
 **Earlier developer workspace planning addition — 2026-10-06.** The planned direction is
 integrated code editing, Git, terminal/LSP and flexible multi-project views.
 At that earlier revision, milestones **16–19 were proposed**; first language support is
-TypeScript/JavaScript and Rust, confirmed by the user. The
+TypeScript/JavaScript and Rust, in the initial language scope. The
 [workspace specification](design/developer-workspace.md) defines UX, ownership,
 component gates and resource targets. A [fresh-chat handoff](design/developer-workspace-handoff.md)
 preserves the earlier vision and work rules. Start with a reviewed prototype and
@@ -49,9 +49,9 @@ not a reclassification of failed learning/computer-use gates.
 
 **Planning baseline — 2026-10-04.** Writing this plan is authorized; future runtime bricks are not started by this document. Brick **8.4, platform CI, is deferred until the user explicitly requests it**. Completed work is retained in [implementation history](IMPLEMENTATION_HISTORY.md); measured results and open gaps belong in [acceptance](ACCEPTANCE.md).
 
-Implementation update: the user authorized batching milestone 9. Bricks **9.1–9.4 are implemented**, with separate commits and bounded evidence in acceptance. The mechanical contracts are verified; consistent real-model task behavior, native input/platform and representative resource acceptance remain open. Later milestones retain their planned scope and are not implicitly complete.
+Implementation update: the development plan includes batching milestone 9. Bricks **9.1–9.4 are implemented**, with separate commits and bounded evidence in acceptance. The mechanical contracts are verified; consistent real-model task behavior, native input/platform and representative resource acceptance remain open. Later milestones retain their planned scope and are not implicitly complete.
 
-The user subsequently authorized milestone 10 as a batch. **10.1–10.6 are implemented**, with separate commits and release-native/widget/live evidence. The initial routed six-case corpus has five passing observable cases after explicit same-budget recovery; a separate DeepSeek understanding case passes unchanged criteria, completing passing evidence for the small fixed set. Qwen project grounding still fails. The mechanical foundation is delivered, while consistency across configured models remains unaccepted. See [batch results](ACCEPTANCE.md#milestone-10--batch-exit) before treating advanced tools as dependable.
+The subsequent implementation plan includes milestone 10 as a batch. **10.1–10.6 are implemented**, with separate commits and release-native/widget/live evidence. The initial routed six-case corpus has five passing observable cases after explicit same-budget recovery; a separate DeepSeek understanding case passes unchanged criteria, completing passing evidence for the small fixed set. Qwen project grounding still fails. The mechanical foundation is delivered, while consistency across configured models remains unaccepted. See [batch results](ACCEPTANCE.md#milestone-10--batch-exit) before treating advanced tools as dependable.
 
 User-requested UX detour before 11.3: unified Settings replaces scattered configuration entries, combines model/response controls, separates scoped personalization/task budgets, and adds persisted System/Light/Dark appearance. Runtime evidence is recorded in acceptance; this does not change or complete the planned browser brick.
 
@@ -70,7 +70,7 @@ execution remain open. See [web contract](design/web-search.md),
 are implemented**. Automatic activation's real-workflow acceptance gate remains
 unaccepted; reviewed skill updates remain available.
 
-**Planning addition — 2026-10-05:** the user approved a dedicated computer-use
+**Planning addition — 2026-10-05:** the development plan includes a dedicated computer-use
 milestone. **14.1–14.4 implementation and qualification tooling are delivered;
 the real-model exit gate remains unaccepted.** The fixed corpus passes generated-view
 inspection but fails Qwen observation adherence and one DeepSeek Save coordinate.
@@ -79,7 +79,7 @@ and order are preserved. Windows selected-application interaction and visual
 verification are the first target; arbitrary-app reliability and other platforms
 need separate evidence. The subsequent “next” authorized the first observation brick.
 
-**UX milestone — 2026-10-05:** the user requested a dedicated simplification
+**UX milestone — 2026-10-05:** the product design calls for a dedicated simplification
 milestone after computer use proved difficult to reach. **15.1–15.8 implementation
 and qualification tooling are delivered in the authorized batch. Native/model/
 resource acceptance has explicit gaps in the [UX qualification report](qualification/everyday-ux.md).** The
@@ -668,7 +668,7 @@ policy independent and preserve truthful experimental limits.
 **Basic acceptance:** add/edit/disable a scoped memory, import/review a skill and
 create a draft from a completed exchange using the guided flow. Find source/trials
 when requested without needing to create folders/YAML for ordinary use. Verify a
-bounded Qwen routine memory case and DeepSeek skill drafting, retaining criteria.
+bounded available-model memory and skill-drafting cases, retaining criteria.
 
 **Failure/recovery:** malformed import or output-limited draft retains useful text
 and cannot activate; stale version/sharing opt-out protects current memory/skill
@@ -752,7 +752,7 @@ duplicate-view adapter; freeze corpus, byte/delta bounds, file and memory budget
 Unicode/CRLF/BOM and long-line behavior meet recorded targets. **Recovery:** invalid
 drop retains buffers; large/unsupported files remain safely previewable. Earlier
 94 ms post-large-file typing and 389 ms opening reports remain evidence; the user
-reports gaming/host contention and directs moving on after passing follow-ups.
+records possible host contention; follow-up measurements passed.
 The frozen initial limits are in [editor documents](design/editor-documents.md).
 **Excluded:** production rollout, selected package without evidence, SDK migration.
 
@@ -1000,7 +1000,7 @@ authority, test/activation and restore contracts for every brick:
 2. **20.2:** separate matching-source snapshots and reviewed patch proposal —
    implemented; native execution and matching build workspaces follow in 20.4–20.5.
 3. **20.3:** broader qualified extension seams beyond recovery hints — not adopted.
-   The user selected the reviewed native pipeline first; no ABI 2 is implemented.
+   The design adopts the reviewed native pipeline first; no ABI 2 is implemented.
 4. **20.4:** reviewed frozen Rust reproduction and candidate/regression trials —
    implemented; packaged dispatch and bounded DeepSeek non-improvement pass;
    a fixed provider-parser repair now reproduces its actual failure, passes three
@@ -1022,7 +1022,7 @@ Each brick's basic and realistic failure/recovery criteria are in the spec.
 Success means a fault is reproduced and repaired without losing work; inspection,
 successful compilation or altered recovery wording alone does not satisfy exit.
 Automatic native/core replacement and publication remain excluded. Execution
-begins only when the user requests it.
+follows the explicitly agreed implementation scope.
 
 ## Milestone 21 — Automatic evidence-backed memory
 
@@ -1095,7 +1095,7 @@ or ambiguous caption keeps text recall useful and avoids invented visual detail.
 
 **Scope:** fixed multi-session/project recall/correction/negative/Forget/Off corpus,
 no-memory baseline, precision/unsupported-claim/scope metrics and token/storage
-cost; bounded Qwen routine and DeepSeek harder recall. Freeze thresholds at 21.0,
+cost; bounded live recall checks using available models. Freeze thresholds at 21.0,
 report misses separately. **Basic:** useful automatic task remembering works end to
 end with sources. **Recovery:** interruption/provider failure preserves conversation
 and memory. **Exit:** measured corpus competence, not universal/human memory claims.
@@ -1183,7 +1183,7 @@ physical presence and enabled sustained resource acceptance remain open.
 Milestone 24 has subsequently been implemented and qualified within its Windows
 scope; see its section below.
 
-The user chose occasional in-app messages during chosen hours with a daily cap.
+The design adopts occasional in-app messages during chosen hours with a daily cap.
 Use a separately configured enabled weaker model; keep Home's selected model.
 Candidate messages: chat, grounded fun fact, real recalled moment or unresolved
 work. Goal is welcome company, not engagement pressure or simulated consciousness.
@@ -1271,10 +1271,26 @@ shutdown reports honestly without data loss. **Exit:** measured opt-in closed-UI
 service; no desktop companion notifications unless later separately requested.
 
 
+## Brick 8.4 — Windows release CI
+
+The earlier CI deferral is superseded by Windows-only open-source release preparation.
+GitHub Actions checks portable guidance, changelog/version alignment, Rust formatting,
+Clippy/tests, Flutter analysis/widgets and credential-free native regressions, then
+builds the normal main entry and produces an allowlisted unsigned x64 ZIP with
+notices and checksums. Branch/PR/manual runs upload a preview artifact; a matching
+version tag with dated notes creates a draft release for review. Other OS packages,
+signing and automatic public publication remain outside this brick.
+
+**Recovery:** failed checks stop packaging; mismatched tags, missing notes, stale
+dependency notices and unexpected runtime files refuse publication. Fresh outputs
+retain earlier evidence. **Acceptance:** local workflow lint, fixtures, build and
+package checks are recorded separately from the first actual GitHub-hosted run.
+See [release procedure](RELEASING.md) and latest [acceptance](ACCEPTANCE.md).
+
 ## Validation and change control
 
 - Freeze behavior, numerical defaults, criteria and exclusions before each brick; discuss material technical choices. Evidence may correct an assumption, but added scope requires a named spec/roadmap revision before implementation.
-- Basic flow plus one or two realistic failure/recovery cases per brick. Record actual fixtures, bounded live results and gaps separately in ACCEPTANCE. Qwen3.5-2B is routine; DeepSeek V4.1 Flash is for harder cases. Preserve selected settings and private data.
+- Basic flow plus one or two realistic failure/recovery cases per brick. Record actual fixtures, bounded live results and gaps separately in ACCEPTANCE. Optional live checks explicitly select available models suited to each case. Preserve selected settings and private data.
 - Commit each completed brick in English. Choose verification for the change: document/link checks for documentation; focused tests for runtime changes and a normal build when compilation or packaging is affected. No mandatory desktop launch or visual check after every task. Prefer saved renders inspected with `view_image` for UI changes; use computer-use for interactions/native behavior that need it. Launch for relevant integration checks or a user-requested preview, preserving config/history.
 - Measure added state/process/context/catalog/UI costs; keep services lazy and reflection separately bounded. Do not silently relax performance targets.
 - User docs change only when behavior exists. Design targets stay distinct from current architecture/acceptance. Review milestone results before starting the next.
@@ -1303,7 +1319,7 @@ service; no desktop companion notifications unless later separately requested.
 | Questions/scoped answers/humane character | 9.4 and every milestone; continuity 12.1 |
 | Lean cross-platform design | Per-brick measurements, portability 13.1, manual qualification 13.4; desktop backend qualification 14.4 |
 
-Deferred: platform CI (8.4 skipped), signing/public updater, cloud sync,
+Deferred: non-Windows release CI, signing/public updater, cloud sync,
 remote/persistent MCP, a mandatory vector-memory service, bundled model hosting,
 automatic worktree isolation, plugin marketplace, unattended native core
 replacement and unattended swarms. Manual scheduled-task creation UI is deferred

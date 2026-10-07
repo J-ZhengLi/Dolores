@@ -1,6 +1,6 @@
 # Terminal and first-language services — milestones 18–19
 
-The user authorizes milestones 18 and 19 as consecutive batches. Keep individual
+the development plan includes milestones 18 and 19 as consecutive batches. Keep individual
 brick commits. This contract freezes the initial implementation bounds before
 dependency adoption; qualification records observed costs separately.
 

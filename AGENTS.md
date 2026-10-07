@@ -6,10 +6,10 @@ When a limit causes real tasks to fail, trace its effect before changing default
 
 Write commit subjects and bodies in English.
 
-When a build or launch is needed, use `python scripts/desktop.py build` and `python scripts/desktop.py launch`; do not use PowerShell helpers. Keep platform CI (8.4) deferred until the user explicitly requests it.
+When a build or launch is needed, use `python scripts/desktop.py build` and `python scripts/desktop.py launch`. Windows x64 is the supported release target; other platforms need separate qualification.
 
 Choose verification that matches the change. Do not build, launch or visually inspect the desktop after every task. Documentation-only work needs document/link checks; runtime changes need focused tests and a normal build when compilation or packaging is affected. For UX changes, prefer saved renders/screenshots inspected with `view_image`; use the computer-use skill only when an interaction or native behavior needs it. Launch for a relevant integration check or when the user asks to see the app. Preserve provider configuration/history and replace only an owned preview process. Diagnostic evidence must be labeled; it does not establish normal-app behavior.
 
-Use the configured provider's Qwen3.5-2B model for routine live tests and DeepSeek V4.1 Flash for harder live cases. Keep prompts and token usage bounded, preserve the user's selected model/settings, and keep credentials and private transcripts out of test artifacts. Use deterministic fixtures for failure injection; a fixture pass alone does not establish real-model reliability.
+Automated checks use deterministic fixtures and require no provider credentials. For an optional live check, explicitly choose an available model suited to the case, bound prompts and token usage, and preserve existing settings/history. Keep credentials and private transcripts out of artifacts. A fixture pass alone does not establish real-model reliability.
 
-Use `rtk` for shell commands. If `.codegraph/` exists, use CodeGraph before searching source to understand or locate code. Follow `docs/UI.md` when changing desktop UI.
+Follow `docs/UI.md` for desktop UI changes. For builds, CI or releases, read `CONTRIBUTING.md` and `docs/RELEASING.md`. Optional local indexing and command helpers are conveniences, not prerequisites for contributors.

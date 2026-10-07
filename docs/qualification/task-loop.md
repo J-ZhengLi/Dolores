@@ -77,7 +77,7 @@ provider endpoints or transcripts; its command mode remains unqualified.
 ## Native verification and remaining gaps
 
 Fresh useful Mario rerun (2026-10-06): configured `deepseek-v4.1-flash`, actual
-`D:\Workspace\mario_clone`, exact instruction `Build me a Super Mario clone and
+`C:/example/project`, exact instruction `Build me a Super Mario clone and
 output it as an HTML file`. The normal UI was restored from minimized state and
 showed the preserved four-call paused chat. An isolated native-host test profile
 used Automatic counts, provider-default output and 180-second inactivity; the

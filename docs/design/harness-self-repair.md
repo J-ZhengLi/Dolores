@@ -1,7 +1,7 @@
 # Harness self-repair
 
 2026-10-06. Bricks 20.1–20.2 are implemented with [qualification gaps](../qualification/harness-self-repair.md).
-The user prioritized the reviewed native pipeline; 20.3's broader Wasm ABI is
+The design prioritizes the reviewed native pipeline; 20.3's broader Wasm ABI is
 not adopted. 20.4 implements the bounded reviewed Rust evaluator; packaged and
 bounded DeepSeek non-improvement and normal foreground checks pass. 20.5 implements
 the narrow Windows Rust build/install/Restore path. 20.6 verifies one file-scoped
@@ -68,7 +68,7 @@ reasoning or arbitrary remote error bodies. Missing older telemetry stays unknow
 
 ### Native-first decision
 
-The user chose native-first for architectural simplicity. It reuses the existing
+The design adopts native-first for architectural simplicity. It reuses the existing
 Rust/Flutter source, build and test tools, and can fix behavior outside a narrow
 hook. Its cost is reviewed execution, build/restart and restore: generated native
 code runs with its process account's authority unless actual containment is
@@ -149,7 +149,7 @@ idle chat initialization are verified; later Restore preserves current history.
 | 20.6 | Bounded DeepSeek diagnose → reproduce → patch → test → activate case, plus separate reviewed native restart/rollback qualification. | Withhold a non-improvement, restore after a deliberate regression and retain work after exhaustion. |
 
 Each brick gets a commit and basic/edge qualification; runtime changes require
-normal native verification. Qwen handles routine probes, DeepSeek harder repairs.
+normal native verification. Optional live checks explicitly select available models suited to each case.
 Before adopting ABI 2/build services, measure incremental idle/active memory,
 startup, cancellation and cleanup. Keep services lazy. Other-platform/resource
 acceptance remains explicit rather than inferred from a Windows development host.

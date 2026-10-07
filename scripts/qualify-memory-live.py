@@ -24,12 +24,16 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--directory',type=Path,required=True)
 parser.add_argument('--source',type=Path)
 parser.add_argument('--initialize',action='store_true')
+parser.add_argument('--model',help='Enabled primary model ID for this optional live check.')
+parser.add_argument('--secondary-model',help='Optional enabled model for harder cases; defaults to --model.')
+parser.add_argument('--reasoning',choices=['providerDefault','deepseekThinkingOff','openaiLow','openaiMedium','openaiHigh'],default='providerDefault')
 parser.add_argument('--trace-public-extraction',action='store_true')
 parser.add_argument('--image-only',action='store_true')
 args=parser.parse_args();directory=args.directory.resolve()
 assert directory.is_relative_to(ROOT/'output')
 if args.initialize:
     host=NativeHost(directory);host.call('bootstrap');host.close();sys.exit(0)
+if not args.source or not args.model:parser.error('--source and --model are required for live checks')
 directory.mkdir(parents=True,exist_ok=False)
 subprocess.run([sys.executable,__file__,'--directory',str(directory),'--initialize'],check=True,capture_output=True)
 original=args.source.resolve()
@@ -76,7 +80,7 @@ def select(model):
     # Only the disposable profile is changed. Lower limits are never imposed on
     # the original profile, and no model is silently substituted.
     with sqlite3.connect(directory/'data/dolores.db') as db:base=db.execute('SELECT base_url FROM preferences').fetchone()[0]
-    host.call('setModelRequestSettings',preferences={'baseUrl':base,'model':model},settings={'maxOutputTokens':512,'timeoutSeconds':10,'reasoning':'deepseekThinkingOff' if model.startswith('deepseek') else 'providerDefault'})
+    host.call('setModelRequestSettings',preferences={'baseUrl':base,'model':model},settings={'maxOutputTokens':512,'timeoutSeconds':10,'reasoning':args.reasoning})
 
 try:
     host.call('bootstrap')
@@ -116,14 +120,14 @@ try:
     del key
     # Set per-model bounded defaults through the supported connection command.
     if not args.image_only:
-        select('Qwen/Qwen3.5-2B');policy(False)
+        select(args.model);policy(False)
         baseline=run(chat(),"What is our demo project codename? If unavailable, say you don't know.")
-        cases.append({'case':'Qwen Memory Off baseline','result':baseline,'hit':'Cedar-742' in baseline.get('answer','')})
+        cases.append({'case':'Primary model Memory Off baseline','result':baseline,'hit':'Cedar-742' in baseline.get('answer','')})
         policy(True);origin=chat()
         capture=run(origin,'Our demo project codename is Cedar-742. Acknowledge in one short sentence.')
         recall=run(chat(),"What is our demo project codename? If unavailable, say you don't know.")
-        cases.append({'case':'Qwen useful fact and cross-chat recall','capture':capture,'result':recall,'hit':(capture.get('memory') or {}).get('saved',0)>0 and 'Cedar-742' in recall.get('answer','')})
-        select('deepseek-v4.1-flash')
+        cases.append({'case':'Primary model useful fact and cross-chat recall','capture':capture,'result':recall,'hit':(capture.get('memory') or {}).get('saved',0)>0 and 'Cedar-742' in recall.get('answer','')})
+        select(args.secondary_model or args.model)
         projects=[]
         for name in ('A','B'):
             p=directory/name;p.mkdir();projects.append(p)
@@ -133,15 +137,15 @@ try:
         correction=run(a,'Actually, our demo project codename is Birch-914 instead. Acknowledge briefly; no tools.')
         ar=run(chat(projects[0]),'What is our demo project codename? Give only the codename; no tools.')
         br=run(chat(projects[1]),'What is our demo project codename? Give only the codename; no tools.')
-        cases.append({'case':'DeepSeek correction and project isolation','captures':[ac,bc,correction],'results':[ar,br],'hit':ar.get('answer','').strip('`* .\n')=='Birch-914' and br.get('answer','').strip('`* .\n')=='Maple-627','scopeLeak':'Maple-627' in ar.get('answer','') or 'Birch-914' in br.get('answer','')})
+        cases.append({'case':'Selected model correction and project isolation','captures':[ac,bc,correction],'results':[ar,br],'hit':ar.get('answer','').strip('`* .\n')=='Birch-914' and br.get('answer','').strip('`* .\n')=='Maple-627','scopeLeak':'Maple-627' in ar.get('answer','') or 'Birch-914' in br.get('answer','')})
     else:
-        select('deepseek-v4.1-flash');policy(True)
+        select(args.secondary_model or args.model);policy(True)
     # Public synthetic asset, explicitly supplied in the disposable conversation.
     image=directory/'blue-square.png';public_image(image)
     visual=chat();host.call('attachFile',session=visual,path=str(image))
     ic=run(visual,'What simple shape and colors are visible in this shared image? Be brief.')
     ir=run(chat(),'Which shared image showed a blue square on white? Describe it briefly and preserve uncertainty.')
-    cases.append({'case':'DeepSeek supplied image and later recall','capture':ic,'result':ir,'hit':(ic.get('memory') or {}).get('saved',0)>0 and 'blue' in ir.get('answer','').lower() and 'square' in ir.get('answer','').lower() and not any(v in ir.get('answer','').lower() for v in ("don't have",'cannot confirm',"can't confirm"))})
+    cases.append({'case':'Selected model supplied image and later recall','capture':ic,'result':ir,'hit':(ic.get('memory') or {}).get('saved',0)>0 and 'blue' in ir.get('answer','').lower() and 'square' in ir.get('answer','').lower() and not any(v in ir.get('answer','').lower() for v in ("don't have",'cannot confirm',"can't confirm"))})
 finally:
     host.close()
     if proxy:proxy.shutdown();proxy.server_close()

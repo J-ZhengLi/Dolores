@@ -27,7 +27,7 @@ class PageBridge extends ScheduleBridge {
         },
         'receipt': {
           'schedule': 'Mon, Tue, Wed, Thu, Fri at 21:00 (Asia/Shanghai)',
-          'model': 'Qwen3.5-2B',
+          'model': 'fixture-model',
           'skill': 'daily-report',
           'project': 'C:/reports',
           'timezone': 'Asia/Shanghai',

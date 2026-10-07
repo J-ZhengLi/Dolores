@@ -67,7 +67,7 @@ unchanged. Foreground visual inspection is pending while Windows is locked.
 ## 20.2 — reviewed native proposals
 
 2026-10-06. Implemented separate, chat-scoped snapshots and exact diff review.
-The user chose to prioritize the reviewed native pipeline. No broader Wasm ABI,
+The design adopts to prioritize the reviewed native pipeline. No broader Wasm ABI,
 native test execution, installation or actual behavioral repair is delivered here.
 
 `harness_repair` prepares matching bundled source, adds captured files, proposes

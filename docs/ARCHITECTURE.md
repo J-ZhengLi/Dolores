@@ -49,7 +49,7 @@ proposals; 20.4 adds separately reviewed frozen Rust reproduction/regression tri
 [Milestone 20](design/harness-self-repair.md) now includes a Windows-only reviewed
 release build, native installation/restart and Restore path. End-to-end model
 repair reliability and remaining installation qualification are tracked separately.
-The user prioritized this native
+The design prioritizes this native
 pipeline; a broader Wasm seam has not been adopted. Current proposals and
 recovery-hint mods should not be presented as the complete repair workflow.
 

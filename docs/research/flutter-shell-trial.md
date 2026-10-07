@@ -1,6 +1,6 @@
 # Flutter desktop trial — 2026-10-01
 
-Historical trial: built a runnable Flutter candidate to compare visual refinement and resource costs with Tauri and Iced. **Subsequent decision, 2026-10-01:** the user selected Flutter as the default; brick 2.1 now adds secure remembered connections. The measurements below describe the earlier trial artifacts, not a new resource certification.
+Historical trial: built a runnable Flutter candidate to compare visual refinement and resource costs with Tauri and Iced. **Subsequent decision, 2026-10-01:** the design adopts Flutter as the default; brick 2.1 now adds secure remembered connections. The measurements below describe the earlier trial artifacts, not a new resource certification.
 
 ## Implementation
 
@@ -28,7 +28,7 @@ Source evidence: private local benchmark report (excluded from Git). The origina
 
 ## Decision boundary
 
-Flutter demonstrates visual refinement with direct Rust plugin reuse. It adds a Dart layer and an engine distribution; it uses more idle memory than Iced in this trial. The user selected it after review. Neither that decision nor these short measurements establish low-end performance, cold/warm startup, sustained scrolling, screen-reader behavior or cross-platform acceptance. macOS/Linux runners and CI definitions are supplied but have not been executed locally.
+Flutter demonstrates visual refinement with direct Rust plugin reuse. It adds a Dart layer and an engine distribution; it uses more idle memory than Iced in this trial. The design adopts it after review. Neither that decision nor these short measurements establish low-end performance, cold/warm startup, sustained scrolling, screen-reader behavior or cross-platform acceptance. macOS/Linux runners and CI definitions are supplied but have not been executed locally.
 
 ## Primary references
 

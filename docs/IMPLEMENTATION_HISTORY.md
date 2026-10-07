@@ -6,7 +6,7 @@ Brick **10.2** adds explicit task access modes, thread-bound grants, expiry/revo
 
 Brick **10.1** implements fixed synthetic task criteria, scoped segment allowances and bounded continuation accounting. A DeepSeek repair/check passes with five operations; Qwen project understanding remains a recorded failure. See [acceptance](ACCEPTANCE.md) and [task contracts](design/task-budgets.md).
 
-Build one usable brick at a time. Each new brick needs a small design decision, scoped implementation, behavior checks, resource measurements where relevant, and an updated acceptance record. Commit each completed brick separately before proceeding to the next, as requested by the user. Do not equate compilation with product acceptance.
+Build one usable brick at a time. Each new brick needs a small design decision, scoped implementation, behavior checks, resource measurements where relevant, and an updated acceptance record. Commit each completed brick separately before proceeding to the next, under the implementation plan. Do not equate compilation with product acceptance.
 
 | Brick | Usable result | Acceptance boundary |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ Brick 8.2 adds full versioned notices and source references for the selected Win
 
 Brick 8.3 adds accessible composer names and composition-safe Send/language changes, with native keyboard smoke and bounded recovery tests. Its [verification matrix](design/native-input-verification.md) explicitly retains physical-keyboard, real IME and spoken screen-reader gaps; native automation is not a substitute for those checks.
 
-Brick 8.4 (cross-platform build CI) was skipped at the user's request. Future proposals and priorities are in [the roadmap](ROADMAP.md); this document records past implementation and its acceptance boundaries.
+Brick 8.4 (cross-platform build CI) was skipped in the earlier plan. Future proposals and priorities are in [the roadmap](ROADMAP.md); this document records past implementation and its acceptance boundaries.
 
 - **10.3:** ranged reads and snapshot-bound larger-file edits; explicit command limits and inspectable local output logs, with conflict/timeout recovery and a live fixed larger-file check.
 
@@ -84,3 +84,7 @@ Brick 8.4 (cross-platform build CI) was skipped at the user's request. Future pr
 - 10.5: complete-turn shared-folder forks, scoped guidance/relevant skill snapshots and opt-in bounded preflight compaction.
 
 - **10.6:** local immutable text/image attachments, explicit model modality, bounded sharing/export/cleanup and preserved-draft refusal/restart checks. Full batch evidence retains model-specific failures.
+
+## Windows release preparation — 2026-10-08
+
+Brick **8.4** adds Windows x64 GitHub Actions checks, portable packaging and tag-triggered draft releases. Documentation and live-test helpers now use portable contributor guidance; historical model results remain evidence, not required model choices. A separate publication copy removes personal machine paths and historical handoffs while retaining commits and author attribution. Human-written changelogs and version/tag checks define the release procedure. The first hosted workflow run remains pending publication; local verification is recorded in acceptance.

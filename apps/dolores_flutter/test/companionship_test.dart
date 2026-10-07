@@ -18,13 +18,13 @@ class CompanionBridge extends WorkspaceBridge {
   int cap = 2;
   Map get data => {
     'available': true,
-    'models': ['Qwen/Qwen3.5-2B'],
+    'models': ['fixture-model'],
     'state': {
       'revision': 1,
       'policy': {
         'revision': 1,
         'enabled': enabled,
-        'model': 'Qwen/Qwen3.5-2B',
+        'model': 'fixture-model',
         'zone': 'Asia/Shanghai',
         'start': 540,
         'end': 1260,

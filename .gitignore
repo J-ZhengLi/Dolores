@@ -14,3 +14,7 @@ output/
 docs/benchmarks/
 __pycache__/
 *.pyc
+
+# Session handoffs belong in local notes, including on future branches.
+**/HANDOFF.md
+.ci/

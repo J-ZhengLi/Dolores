@@ -1,10 +1,8 @@
 # Dolores vision discussion
 
-Recorded 2026-10-04. Status: discussion proposal, not an approved implementation plan. The user has added the following product direction before choosing the next roadmap. Brick 8.4 remains skipped. Future feature implementation is on hold; the prior roadmap needs revision after these decisions are discussed.
+Recorded 2026-10-04 as a historical discussion proposal. The [architecture specification](evolving-harness-architecture.md), [behavior policy](dolores-behavior.md) and [current roadmap](../ROADMAP.md) supersede its planning sequence. This document preserves the design rationale; current implementation and release status belong in the roadmap and acceptance records.
 
-Follow-up: the user authorized turning this discussion into an [architecture specification](evolving-harness-architecture.md), [behavior policy](dolores-behavior.md) and [complete roadmap](../ROADMAP.md). Those documents supersede the planning sequence below. This discussion is retained as the source of intent/preferences, not as the current plan. Runtime implementation remains a separate next step.
-
-## User's destination
+## Product direction
 
 Dolores should be a calm, kind, caring coding agent that gets work right, questions questionable assumptions, remembers useful answers, and improves its skills and environment from experience. Its Westworld inspiration is continuity and growth across iterations. The harness should support that behavior without claiming that software extensions establish consciousness or AGI.
 
@@ -60,7 +58,7 @@ Prefer event-driven, bounded reflection after meaningful tasks over an always-ru
 
 ## Questioning and personality
 
-Questioning is part of execution judgment, not just tone. The user prefers discussing the reasoning before most implementation work. Before implementation, verify available factual premises and briefly explain the proposed approach, evidence, tradeoffs and uncertainties. For a consequential mismatch, give the observation, implication and a focused question. Discussion does not require a separate approval for every routine edit: agreed work can proceed, while unresolved decisions that would materially change the outcome need an answer. Do not ask about facts a cheap local check can establish, or turn every task into an interview.
+Questioning is part of execution judgment, not just tone. The product design calls for discussing the reasoning before most implementation work. Before implementation, verify available factual premises and briefly explain the proposed approach, evidence, tradeoffs and uncertainties. For a consequential mismatch, give the observation, implication and a focused question. Discussion does not require a separate approval for every routine edit: agreed work can proceed, while unresolved decisions that would materially change the outcome need an answer. Do not ask about facts a cheap local check can establish, or turn every task into an interview.
 
 Example: if asked to improve a Rust app while the repository is Flutter with a Rust backend, explain that distinction and ask which performance surface matters before refactoring. If a skill mandates a command that repeatedly fails because the project changed, question the skill instead of exhausting the same retry pattern. Correction should identify what changed and move work forward without repeated apology loops.
 
@@ -68,7 +66,7 @@ Proposed stable traits: calm language under pressure; honest uncertainty and evi
 
 ## Selected direction and decisions still open
 
-The user selected automatic activation of low-risk changes after tests, with rollback, and discussion of reasoning before most implementation work. These are product decisions, not authorization to start implementing this proposal. Full-access execution is requested as a feature, not granted to every future self-update trial.
+The design adopts automatic activation of low-risk changes after tests, with rollback, and discussion of reasoning before most implementation work. These are product decisions, not authorization to start implementing this proposal. Full-access execution is requested as a feature, not granted to every future self-update trial.
 
 Define low risk by the change's capabilities and impact, not by whether it is called a skill or plugin. Proposed automatic activation applies only to narrowly scoped, versioned changes within an existing host-approved capability envelope, with fixed acceptance criteria, a recoverable state transition and no new external effects. Permission policy, credential handling, the kernel, evaluator criteria, new dependencies/capabilities, destructive migrations and changes with irreversible effects require review. A wording-only skill change can still alter execution safety and must be evaluated accordingly. The host enforces this classification; the candidate cannot label itself low risk. This precise boundary remains to be discussed.
 

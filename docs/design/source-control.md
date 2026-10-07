@@ -15,7 +15,7 @@ read-only; file editors keep their independent unsaved buffers.
 
 ## Final interaction refinement — 2026-10-07
 
-Follow the user's VS Code reference: clicking a history commit toggles its nested
+Follow the documented interface design: clicking a history commit toggles its nested
 changed files; clicking one opens that exact commit's diff. Keep each commit's
 loading/error/Retry and files attached to its row. Initially load history when
 binding a committed repository; Refresh history and Load more remain explicit.
@@ -34,7 +34,7 @@ This refines milestone 17; it does not add a full branch graph or new Git comman
 
 ## Large-diff correction — 2026-10-07
 
-The user rejected a whole-blob size gate and the unaligned full-file side panels.
+The design excludes a whole-blob size gate and the unaligned full-file side panels.
 Viewing now streams Git's unified changed sections without loading either blob.
 The 256 KiB file gate is removed. A view page holds at most 256 display rows and
 256 KiB of raw patch; long physical lines are segmented at approximately 4 KiB

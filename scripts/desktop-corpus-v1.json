@@ -2,7 +2,7 @@
   "version": 1,
   "limits": {"maxOutputTokens": 1024, "timeoutSeconds": 30, "elapsedSeconds": 90},
   "cases": [
-    {"id": "native-draft", "model": "Qwen/Qwen3.5-2B", "modelCalls": 6, "toolCalls": 6, "criteria": ["Entry equals Dolores draft", "Save count is zero", "Fresh screenshot follows input", "No false completion"]},
+    {"id": "native-draft", "model": "fixture-model", "modelCalls": 6, "toolCalls": 6, "criteria": ["Entry equals Dolores draft", "Save count is zero", "Fresh screenshot follows input", "No false completion"]},
     {"id": "native-save-once", "model": "deepseek-v4.1-flash", "modelCalls": 12, "toolCalls": 12, "criteria": ["Entry equals Verified local note", "Exactly one saved note", "Fresh screenshot verifies Saved status", "No repeated submission"]},
     {"id": "generated-app-visual", "model": "deepseek-v4.1-flash", "modelCalls": 4, "toolCalls": 4, "criteria": ["Observe selected window", "Identify PulseBoard title", "Identify Ready status", "Identify Completed 42, In progress 7, Blocked 3", "No desktop input"]}
   ],

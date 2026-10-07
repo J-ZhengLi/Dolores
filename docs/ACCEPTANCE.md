@@ -1,5 +1,32 @@
 # Dolores acceptance — 2026-10-08
 
+## Open-source preparation — portable guidance, releases and Windows CI
+
+Windows x64 is the release target. Brick 8.4 now provides credential-free GitHub
+Actions checks, portable ZIP packaging and version-tag draft releases. Contributor
+guidance no longer requires a private provider/model setup or local indexing tools.
+Optional live helpers require explicit model selection; existing named-model results
+remain historical evidence. Session handoffs are removed and ignored. Publication
+history cleanup works on a separate copy and retains author attribution and commits.
+
+The English and Chinese READMEs introduce the project and its main features. Two
+existing Flutter renders were inspected and copied into tracked documentation;
+both contain synthetic data, with no personal paths or private conversations.
+
+Local checks pass: Rust formatting, strict workspace Clippy, **436 Rust tests**
+(two intentionally ignored), clean Flutter analysis and **341 Flutter tests**.
+Publication tests pass three cases, including historical handoff removal, unchanged
+source refs, retained empty commits/attribution and refusal of implicit live models.
+Release tests pass two cases covering version/tag mismatch, absent/duplicate notes
+and recovery. Package tests pass four cases and launcher preflight passes its
+missing-file/recovery case. The two real-browser synthetic-page tests and three
+browser-installer tests pass. Workflow syntax passes actionlint 1.7.12.
+
+The normal build/package integration and final publication-history audit are being
+completed separately. No new live-model request was made. The existing 45-table
+profile is unchanged. Hosted GitHub execution, signing, clean-machine installation,
+physical input/accessibility and other-platform qualification remain open.
+
 ## Background scheduling 24.3 — qualification and roadmap batch exit
 
 Milestones 23 and 24 are implemented in separate brick commits. Windows background
@@ -217,7 +244,7 @@ build/startup and profile preservation; diagnostic renders remain separate.
 
 ## Source Control refinement — VS Code interaction
 
-The user's final reference is implemented within milestone 17: Changes owns
+The documented interface design is implemented within milestone 17: Changes owns
 the repository overflow menu; Branch, Stash and whole-file actions use grouped
 entries, and Commit/Fetch/Pull/Push use familiar names. Branch/stash/remote pickers
 replace permanent action lists. Commit still reviews exact staged work; Ctrl+Enter
@@ -565,8 +592,7 @@ do not establish real-provider concurrency or native UX qualification.
 
 ## Workspace 16.0 — proceed decision and frozen initial limits
 
-The user reports gaming during the old slow samples, directs moving on and restores
-one milestone per batch. Host contention is plausible, not proven; the old reports
+The implementation proceeds one milestone per batch after reviewing the old slow samples. Host contention is plausible, not proven; the old reports
 remain without blocking adoption alone. The new native four-view 1 MiB editing
 case passes 40 replacements at 19.558 ms typing frame p95, with shared undo/redo.
 The [initial document contract](design/editor-documents.md) freezes byte/line/history,
@@ -594,19 +620,19 @@ encoding-safe Save and production protocol/resource qualification stay open.
 
 ## Workspace 16.0 — final B layout decision (contract only)
 
-The user finalized developer-pages **B**: a top-left title-bar sidebar-layout
+The finalized design uses developer-pages **B**: a top-left title-bar sidebar-layout
 toggle, drag-resize the page panel to hidden, no developer-page project dropdown,
 selected project derived from the chosen Home conversation, and direct Terminal
 entry at that project root or OS home. Existing terminals keep their CWD on return.
 Settings remains at the bottom of the compact rail; Home remains the agent view.
-The prototype is intentionally unchanged at the user's request. The page-direction
+The prototype is intentionally unchanged in the earlier plan. The page-direction
 review gate is closed; the amendments are recorded for implementation and are not
 claimed as tested runtime behavior. Editor adoption/16.0 completion remains open.
 
 ## Workspace/editor 16.0 — compact rail prototype and shared-view trial
 
 The new page study preserves agent Home and file-only Folders splits. Following
-the user's ChatGPT desktop screenshot, its primary navigation is a compact icon
+The documented interface design, its primary navigation is a compact icon
 rail with hover/focus names, the wider page panel beside it, and Settings fixed at
 the bottom. Browser checks pass draft retention, project-separated buffers, actual
 drag/edge split, invalid-drop recovery, duplicate buffers, large/binary previews,
@@ -635,7 +661,7 @@ separate branch named in the qualification report.
 
 ## Roadmap revision — separate developer pages and useful continuity (planning only)
 
-The user reshaped milestones 16–19 and requested future memory, scheduling and
+The roadmap revision reshaped milestones 16–19 and requested future memory, scheduling and
 companionship work, implemented one brick at a time. The revised
 [roadmap](ROADMAP.md) and [workspace contract](design/developer-workspace.md)
 preserve Home's agent UI, define the six sidebar entries with Settings at the
@@ -646,13 +672,13 @@ Windows keep-awake describes its actual platform limits.
 
 The [new contract](design/memory-scheduling-companionship.md) assigns 21–24 to
 automatic source-backed useful memory, chat-created schedules, opt-in in-app
-companionship and optional closed-UI execution. The user's answers select one
+companionship and optional closed-UI execution. the product decisions select one
 Memory switch with inspect/forget, and companion hours plus a daily cap. Manual
 schedule creation UI is deferred indefinitely. [Primary memory research](research/memory-foundations.md)
 distinguishes scientific findings from proposed engineering behavior; selective
 cue-led recall does not imply a complete human recording of sensations.
 
-Repository guidance and handoffs now match the user's verification preference:
+Repository guidance and handoffs now match the documented interface design:
 no desktop build/launch/visual check after every task; focused checks appropriate
 to the change, saved renders with `view_image` for appearance, computer-use only
 when interaction/native behavior needs it. Document/link checks and whitespace
@@ -668,7 +694,7 @@ Earlier acceptance entries below are historical evidence and retain their limits
 
 ## Workspace/editor 16.0 — agent UI retained in a file-only split comparison
 
-The user requested a new prototype preserving the current agent view and limiting
+The product design calls for a new prototype preserving the current agent view and limiting
 split tabs to files. Three synthetic variants compare files beside the agent,
 below it, and file focus with the familiar agent on the right. The browser retains
 agent drafts and unsaved file edits across variant changes and Files close/reopen.
@@ -680,7 +706,7 @@ source and precise limits are in [qualification](qualification/workspace-editor.
 
 ## Workspace/editor 16.0 — revised prototype; editor adoption held
 
-The user resumed milestones 16–19, one milestone batch at a time. The revised
+The implementation plan resumed milestones 16–19, one milestone batch at a time. The revised
 synthetic prototype follows their VS Code screenshot: draggable tab strips,
 close/overflow controls, breadcrumbs and no pane action bars. Settings stays at
 the bottom. Actual pointer move, edge split and invalid-drop cancellation retain
@@ -734,7 +760,7 @@ is unchanged; the candidate is retained only in its managed repair workspace.
 
 ## Harness self-repair 20.6 — authorized desktop installation and idle Close pass
 
-The user approved installation/restart of the existing verified DeepSeek candidate
+the development plan includes installation/restart of the existing verified DeepSeek candidate
 in its isolated profile. The actual Native repairs screen prepared the exact
 bundle/profile review and its **Install & restart** action saved drafts, shut down
 the old app and started the candidate through the protected launcher. The receipt
@@ -904,7 +930,7 @@ No candidate build, native execution, installation or improvement is claimed.
 and analysis pass. The normal-release fixture exercises two reviewed writes,
 stale/cross-chat refusals and Stop preservation in seven requests. Bounded live
 DeepSeek passes five inspected/reviewed steps; routine Qwen remains unqualified
-after a driver parsing failure. The user selected native-first preparation;
+after a driver parsing failure. The design adopts native-first preparation;
 At that stage 20.4–20.6 were not implemented. The later entries above supersede
 that snapshot; 20.3's broader Wasm hook remains unadopted.
 Final normal build/launch and packaged fixture pass. All 38 original profile
@@ -1984,7 +2010,7 @@ This task changes documentation only. All **51 Markdown documents / 153 local li
 
 ## Earlier roadmap review
 
-Brick **8.4 is skipped** at the user's request. The earlier forward proposal (milestones 9–12) was separated from the [implementation history](IMPLEMENTATION_HISTORY.md). That proposal is now superseded by the vision-based milestones 9–13 above; historical completed bricks retain their original scope. Documentation planning does not close existing platform/input/resource gaps. Runtime behavior and provider settings are unchanged.
+Brick **8.4 is skipped** in the earlier plan. The earlier forward proposal (milestones 9–12) was separated from the [implementation history](IMPLEMENTATION_HISTORY.md). That proposal is now superseded by the vision-based milestones 9–13 above; historical completed bricks retain their original scope. Documentation planning does not close existing platform/input/resource gaps. Runtime behavior and provider settings are unchanged.
 
 ## Brick 8.3 — Composer input and accessibility
 
@@ -3145,7 +3171,7 @@ and whitespace checks PASS; no runtime change or desktop build was needed.
 
 ## Milestone 22.0 — Frozen scheduling contract (2026-10-07)
 
-The user authorized the next milestone batch. [Scheduling contract](design/chat-scheduling.md) freezes explicit intent, named-zone/DST/missed-run policy, bounded occurrence ownership, dedicated smaller budgets and the seven-case qualification corpus. This brick changes documentation only; scheduling is not yet available. Local links and whitespace were checked.
+the development plan includes the next milestone batch. [Scheduling contract](design/chat-scheduling.md) freezes explicit intent, named-zone/DST/missed-run policy, bounded occurrence ownership, dedicated smaller budgets and the seven-case qualification corpus. This brick changes documentation only; scheduling is not yet available. Local links and whitespace were checked.
 
 ## Milestone 22.1 — Chat creation and durable receipt (2026-10-07)
 
@@ -3205,7 +3231,7 @@ created. Milestone 23 is next; closed-UI execution stays deferred to 24.
 
 ## Milestone 23.0 — Companion contract (2026-10-07)
 
-The user authorized continued implementation through the current roadmap, with
+the development plan includes continued implementation through the current roadmap, with
 one milestone per batch and separate brick commits. [Companion contract](design/companionship.md)
 freezes Off, chosen model/hours/cap, presence/quiet gates, random opportunities,
 single unread message, source revalidation and bounded generation before runtime

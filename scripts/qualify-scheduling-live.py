@@ -17,11 +17,14 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--directory',type=Path,required=True)
 parser.add_argument('--source',type=Path)
 parser.add_argument('--initialize',action='store_true')
-parser.add_argument('--deepseek-only',action='store_true')
+parser.add_argument('--model',help='Enabled primary model ID for this optional live check.')
+parser.add_argument('--secondary-model',help='Optional enabled model for harder cases; defaults to --model.')
+parser.add_argument('--reasoning',choices=['providerDefault','deepseekThinkingOff','openaiLow','openaiMedium','openaiHigh'],default='providerDefault')
 args=parser.parse_args();directory=args.directory.resolve()
 assert directory.is_relative_to(ROOT/'output')
 if args.initialize:
     host=NativeHost(directory);host.call('bootstrap');host.close();sys.exit(0)
+if not args.source or not args.model:parser.error('--source and --model are required for live checks')
 directory.mkdir(parents=True,exist_ok=False)
 subprocess.run([sys.executable,__file__,'--directory',str(directory),'--initialize'],check=True,capture_output=True)
 original=args.source.resolve()
@@ -57,7 +60,7 @@ def run(session,prompt,occurrence=None):
     return {'error':done.get('error'),'answer':answer.get('content','')[:1200]}
 def select(model):
     host.call('selectModel',model=model)
-    host.call('setModelRequestSettings',preferences={'baseUrl':base,'model':model},settings={'maxOutputTokens':1024,'timeoutSeconds':20,'reasoning':'deepseekThinkingOff' if model.startswith('deepseek') else 'providerDefault'})
+    host.call('setModelRequestSettings',preferences={'baseUrl':base,'model':model},settings={'maxOutputTokens':1024,'timeoutSeconds':20,'reasoning':args.reasoning})
 def tasks():return host.call('scheduledTasks')['items']
 try:
     host.call('bootstrap')
@@ -73,28 +76,28 @@ try:
     skill.write_text('---\nname: daily-report\ndescription: Write a short public daily report\n---\nUse no tools or file access for this public demonstration. Output PUBLIC-SCHEDULE-REPORT and then two short lines: Done: scheduling demo. Next: review tomorrow.\n',encoding='utf-8')
     source=host.call('createSession',kind='project',path=str(project))['session']['id']
     review=host.call('reviewSkill',session=source,name='daily-report');host.call('activateSkill',session=source,token=review['token'])
-    select('deepseek-v4.1-flash' if args.deepseek_only else 'Qwen/Qwen3.5-2B')
+    select(args.model)
     created=run(source,'Every weekday at 9pm, write my daily report using skill daily-report')
-    model_label='DeepSeek' if args.deepseek_only else 'Qwen'
+    model_label=args.model
     items=tasks();cases.append({'case':model_label+' direct weekday task','result':created,'pass':len(items)==1 and items[0]['receipt']['schedule'].startswith('Mon, Tue, Wed, Thu, Fri at 21:00')})
     if items:
         task=items[0]['task'];occurrence=host.call('scheduledManage',task=task['id'],revision=task['revision'],action='runNow')['claimed'][0]
         report=run(source,'',occurrence['id'])
         cases.append({'case':model_label+' pinned skill Run now result','result':report,'pass':not report['error'] and 'PUBLIC-SCHEDULE-REPORT' in report['answer']})
-    select('deepseek-v4.1-flash')
-    if not tasks() and not args.deepseek_only:
-        created=run(source,'Every weekday at 9pm, write my daily report using skill daily-report with model Qwen/Qwen3.5-2B')
-        cases.append({'case':'DeepSeek direct creation with explicit Qwen execution model','result':created,'pass':len(tasks())==1})
+    select(args.secondary_model or args.model)
+    if not tasks() and args.secondary_model:
+        created=run(source,'Every weekday at 9pm, write my daily report using skill daily-report with model '+args.model)
+        cases.append({'case':'Selected model direct creation with explicit Primary model execution model','result':created,'pass':len(tasks())==1})
         if tasks():
             task=tasks()[0]['task'];occurrence=host.call('scheduledManage',task=task['id'],revision=task['revision'],action='runNow')['claimed'][0]
             report=run(source,'',occurrence['id'])
-            cases.append({'case':'Qwen pinned skill Run now after explicit DeepSeek creation','result':report,'pass':not report['error'] and 'PUBLIC-SCHEDULE-REPORT' in report['answer']})
+            cases.append({'case':'Primary model pinned skill Run now after explicit Selected model creation','result':report,'pass':not report['error'] and 'PUBLIC-SCHEDULE-REPORT' in report['answer']})
     if tasks():
         changed=run(source,'Change it to 10pm')
-        cases.append({'case':'DeepSeek conversational time change','result':changed,'pass':'22:00' in tasks()[0]['receipt']['schedule']})
+        cases.append({'case':'Selected model conversational time change','result':changed,'pass':'22:00' in tasks()[0]['receipt']['schedule']})
     count=len(tasks())
     quoted=run(source,'Explain this quoted example: "Every weekday at 9pm, write my daily report using skill daily-report". Do not create any task.')
-    cases.append({'case':'DeepSeek quoted example creates no task','result':quoted,'pass':len(tasks())==count})
+    cases.append({'case':'Selected model quoted example creates no task','result':quoted,'pass':len(tasks())==count})
 finally:host.close()
 with sqlite3.connect(original.as_uri()+'?mode=ro',uri=True) as db:assert before==digest(db),'Original profile changed'
 receipt={'cases':cases,'turns':number,'reportedUsage':{field:sum(v[field] for v in usage) if usage and all(v.get(field) is not None for v in usage) else None for field in ('inputTokens','outputTokens','totalTokens')},'originalProfileUnchanged':True,'configurationOnlyCopy':True,'generalReliabilityClaim':False}

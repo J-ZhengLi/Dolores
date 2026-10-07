@@ -46,7 +46,7 @@ def connection(profile):
     return base,secret['api_key']
 
 
-def exercise(directory, profile):
+def exercise(directory, profile, model=None):
     host=NativeHost(directory);call=host.call;results={}
     a=directory/'A';b=directory/'B';a.mkdir();b.mkdir()
     original=b'\xef\xbb\xbfmarker = OLD\r\n'
@@ -92,7 +92,7 @@ def exercise(directory, profile):
         editor('checkpoint')
         if profile:
             before, count=digest(profile);base,key=connection(profile)
-            call('configure',preferences={'baseUrl':base,'model':'Qwen/Qwen3.5-2B'},apiKey=key,rememberConnection=False,enabledModels=['Qwen/Qwen3.5-2B'],modelContexts={'Qwen/Qwen3.5-2B':32768});del key
+            call('configure',preferences={'baseUrl':base,'model':model},apiKey=key,rememberConnection=False,enabledModels=[model]);del key
             call('setRequestSettings',settings={'maxOutputTokens':512,'timeoutSeconds':60})
             policy=call('memories')['automaticPolicy'];call('setAutomaticMemory',revision=policy['revision'],enabled=False)
             # Keep an unsaved variant; the model must see saved bytes only.
@@ -106,7 +106,7 @@ def exercise(directory, profile):
                 elif event['type']=='toolResult':tools.append(event['record'])
             done,events=host.finish(identity,approve,seconds=70)
             passed=not done.get('error') and approvals==[True] and len(tools)==1 and tools[0]['status']=='read' and 'DOLORES-SAVED-73' in done.get('answer','') and 'UNSAVED-MUST-NOT-SHARE' not in done.get('answer','')
-            results['qwenSavedFile']={'passed':passed,'seconds':round(time.monotonic()-start,2),'approvedReads':sum(approvals),'toolStatuses':[r['status'] for r in tools],'outputTokens':sum((e.get('usage') or {}).get('outputTokens',0) for e in events if e['type']=='modelFinished'),'error':done.get('error'),'fixtureAnswer':done.get('answer'),'eventTypes':sorted(set(e['type'] for e in events))}
+            results['liveSavedFile']={'passed':passed,'seconds':round(time.monotonic()-start,2),'approvedReads':sum(approvals),'toolStatuses':[r['status'] for r in tools],'outputTokens':sum((e.get('usage') or {}).get('outputTokens',0) for e in events if e['type']=='modelFinished'),'error':done.get('error'),'fixtureAnswer':done.get('answer'),'eventTypes':sorted(set(e['type'] for e in events))}
             assert digest(profile)==(before,count),'Original profile changed.'
             results['originalProfilePreserved']={'tables':count,'unchanged':True}
             if not passed:
@@ -133,13 +133,14 @@ def recover(directory):
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--connection-profile',type=Path);parser.add_argument('--recover',type=Path);parser.add_argument('--exercise',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--connection-profile',type=Path);parser.add_argument('--model',help='Explicit enabled model ID for the optional live check.');parser.add_argument('--recover',type=Path);parser.add_argument('--exercise',type=Path);args=parser.parse_args()
+    if args.connection_profile and not args.model:parser.error('--model is required with --connection-profile')
     if args.recover:recover(args.recover.resolve())
-    elif args.exercise:exercise(args.exercise.resolve(),args.connection_profile.resolve() if args.connection_profile else None)
+    elif args.exercise:exercise(args.exercise.resolve(),args.connection_profile.resolve() if args.connection_profile else None,args.model)
     else:
         directory=ROOT/'output/workspace-editor-qualification'/str(uuid.uuid4());directory.mkdir(parents=True)
         command=[sys.executable,__file__,'--exercise',str(directory)]
-        if args.connection_profile:command+=['--connection-profile',str(args.connection_profile.resolve())]
+        if args.connection_profile:command+=['--connection-profile',str(args.connection_profile.resolve()),'--model',args.model]
         subprocess.run(command,check=True)
         subprocess.run([sys.executable,__file__,'--recover',str(directory)],check=True)
         print('Disposable report: '+str(directory/'report.json'))

@@ -10,7 +10,8 @@ from desktop_test_support import NativeHost,ROOT,BUNDLE
 import desktop
 from desktop_resource_probe import cpu_seconds,memory,children
 
-p=argparse.ArgumentParser();p.add_argument('--directory',type=Path,required=True);p.add_argument('--initialize',action='store_true');p.add_argument('--configure-live',action='store_true');p.add_argument('--forget-live',action='store_true');p.add_argument('--port',type=int);p.add_argument('--resources',action='store_true');p.add_argument('--live-source',type=Path);p.add_argument('--mode',choices=['normal','offline','approval'],default='normal');a=p.parse_args();directory=a.directory.resolve();assert directory.is_relative_to(ROOT/'output')
+p=argparse.ArgumentParser();p.add_argument('--directory',type=Path,required=True);p.add_argument('--initialize',action='store_true');p.add_argument('--configure-live',action='store_true');p.add_argument('--forget-live',action='store_true');p.add_argument('--port',type=int);p.add_argument('--resources',action='store_true');p.add_argument('--live-source',type=Path);p.add_argument('--live-model',help='Explicit enabled model ID for the optional live report.');p.add_argument('--live-reasoning',default='providerDefault',choices=['providerDefault','deepseekThinkingOff','openaiLow','openaiMedium','openaiHigh']);p.add_argument('--mode',choices=['normal','offline','approval'],default='normal');a=p.parse_args();directory=a.directory.resolve();assert directory.is_relative_to(ROOT/'output')
+if a.live_source and not a.live_model:p.error('--live-model is required with --live-source')
 mode=a.mode;requests=[]
 class Fixture(BaseHTTPRequestHandler):
     def log_message(self,*_):pass
@@ -75,7 +76,7 @@ if a.configure_live or a.forget_live:
         with sqlite3.connect(directory/'data/dolores.db') as db:
             base,model=db.execute('SELECT base_url,model FROM preferences').fetchone()
             models=json.loads(db.execute('SELECT models FROM model_choices').fetchone()[0])
-        assert 'deepseek-v4.1-flash' in models
+        assert a.live_model in models,'Choose an enabled live model'
         h.call('configure',preferences={'baseUrl':base,'model':model},apiKey=secret['key'],rememberConnection=True,enabledModels=models)
         del secret
     h.close();sys.exit(0)
@@ -96,7 +97,7 @@ directory.mkdir(parents=True,exist_ok=False);server=ThreadingHTTPServer(('127.0.
 app=None;receipt={};original_before=digest(a.live_source) if a.live_source else None
 try:
     initializer=[sys.executable,__file__,'--directory',str(directory),'--initialize','--port',str(server.server_port),'--mode',mode]
-    if a.live_source:initializer+=['--live-source',str(a.live_source.resolve())]
+    if a.live_source:initializer+=['--live-source',str(a.live_source.resolve()),'--live-model',a.live_model,'--live-reasoning',a.live_reasoning]
     r=subprocess.run(initializer,capture_output=True,text=True,encoding='utf-8');assert not r.returncode,r.stderr
     if a.live_source:
         assert mode=='normal' and not a.resources
@@ -108,14 +109,14 @@ try:
                 if rows:target.executemany('INSERT INTO '+table+' VALUES('+','.join('?' for _ in rows[0])+')',rows)
             base=target.execute('SELECT base_url FROM preferences').fetchone()[0]
             task=json.loads(target.execute('SELECT data FROM scheduled_tasks').fetchone()[0])
-            task['preferences']={'baseUrl':base,'model':'deepseek-v4.1-flash'}
-            task['effective']['request'].update(maxOutputTokens=1024,timeoutSeconds=30,reasoning='deepseekThinkingOff')
+            task['preferences']={'baseUrl':base,'model':a.live_model}
+            task['effective']['request'].update(maxOutputTokens=1024,timeoutSeconds=30,reasoning=a.live_reasoning)
             target.execute('UPDATE scheduled_tasks SET data=?',(json.dumps(task),))
         spec=importlib.util.spec_from_file_location('configured',ROOT/'scripts/test-workspace-editor.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         _,key=module.connection(a.live_source.resolve().parent)
-        configured=subprocess.run([sys.executable,__file__,'--directory',str(directory),'--configure-live'],input=json.dumps({'key':key}),capture_output=True,text=True,encoding='utf-8');del key
+        configured=subprocess.run([sys.executable,__file__,'--directory',str(directory),'--configure-live','--live-model',a.live_model],input=json.dumps({'key':key}),capture_output=True,text=True,encoding='utf-8');del key
         assert configured.returncode==0,'Isolated remembered connection setup failed'
-        receipt['liveModel']='deepseek-v4.1-flash';receipt['liveLimit']='One public report; 1024 output tokens, 30-second provider timeout; fixture-created task and due time'
+        receipt['liveModel']=a.live_model;receipt['liveLimit']='One public report; 1024 output tokens, 30-second provider timeout; fixture-created task and due time'
     env=dict(os.environ,DOLORES_DATA_DIR=str(directory/'data'),DOLORES_GLOBAL_SKILLS_DIR=str(directory/'skills'))
     desktop.require_normal_build();app=launch()
     handle=desktop.window_visible(app.pid);wait(lambda:desktop.profile_window(directory/'data'));time.sleep(4)

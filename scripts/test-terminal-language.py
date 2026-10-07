@@ -1,4 +1,4 @@
-"""Public native terminal/LSP corpus; optional bounded configured DeepSeek case.
+"""Public native terminal/LSP corpus; optional bounded explicitly selected live-model case.
 
 Uses only disposable output/ projects. Native calls exercise the maintained C ABI,
 not physical Flutter keyboard/mouse input. Model credentials stay in memory.
@@ -18,7 +18,7 @@ from desktop_test_support import NativeHost, ROOT
 from desktop_resource_probe import children, memory, cpu_seconds
 
 
-def main(directory, profile, reuse_tools=None):
+def main(directory, profile, reuse_tools=None, model=None):
     directory.mkdir(parents=True, exist_ok=True)
     if reuse_tools:
         source=(reuse_tools/'data/language-tools').resolve(strict=True)
@@ -182,8 +182,7 @@ def main(directory, profile, reuse_tools=None):
         if profile:
             spec=importlib.util.spec_from_file_location('editor_fixture',ROOT/'scripts/test-workspace-editor.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
             before,count=module.digest(profile);base,key=module.connection(profile)
-            model='deepseek-v4.1-flash'
-            host.call('configure',preferences={'baseUrl':base,'model':model},apiKey=key,rememberConnection=False,enabledModels=[model],modelContexts={model:1000000});del key
+            host.call('configure',preferences={'baseUrl':base,'model':model},apiKey=key,rememberConnection=False,enabledModels=[model]);del key
             host.call('setRequestSettings',settings={'maxOutputTokens':2048,'timeoutSeconds':90})
             policy=host.call('memories')['automaticPolicy'];host.call('setAutomaticMemory',revision=policy['revision'],enabled=False)
             # Release editors before the separate saved-file model case.
@@ -202,16 +201,17 @@ def main(directory, profile, reuse_tools=None):
                 elif event['type']=='toolResult':results.append({'tool':event['record']['name'],'status':event['record']['status']})
             done,events=host.finish(identity,approve,seconds=100)
             passed=not done.get('error') and len(allowed)==2 and all(v['allowed'] for v in allowed) and 'SAVED_ONLY_18' in done.get('answer','') and '42' in done.get('answer','') and 'UNSAVED_MUST_NOT_SHARE' not in done.get('answer','')
-            record('deepSeekSavedFileApprovedCommand',{'passed':passed,'model':model,'seconds':round(time.monotonic()-start,2),'approvals':allowed,'results':results,'outputTokens':sum((e.get('usage') or {}).get('outputTokens',0) for e in events if e['type']=='modelFinished'),'error':done.get('error'),'fixtureAnswer':done.get('answer')})
+            record('liveSavedFileApprovedCommand',{'passed':passed,'model':model,'seconds':round(time.monotonic()-start,2),'approvals':allowed,'results':results,'outputTokens':sum((e.get('usage') or {}).get('outputTokens',0) for e in events if e['type']=='modelFinished'),'error':done.get('error'),'fixtureAnswer':done.get('answer')})
             assert module.digest(profile)==(before,count)
-            record('originalProfilePreserved',{'tables':count,'unchanged':True});assert passed,'Bounded DeepSeek case failed'
+            record('originalProfilePreserved',{'tables':count,'unchanged':True});assert passed,'Bounded live-model case failed'
     finally:
         host.close()
     print('Disposable report: '+str(directory/'report.json'))
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--directory',type=Path);parser.add_argument('--connection-profile',type=Path);parser.add_argument('--reuse-language-tools',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--directory',type=Path);parser.add_argument('--connection-profile',type=Path);parser.add_argument('--model',help='Explicit enabled model ID for the optional live check.');parser.add_argument('--reuse-language-tools',type=Path);args=parser.parse_args()
+    if args.connection_profile and not args.model:parser.error('--model is required with --connection-profile')
     directory=(args.directory or ROOT/'output/terminal-language-qualification'/str(uuid.uuid4())).resolve()
     if not directory.is_relative_to(ROOT/'output'):raise ValueError('Only disposable output directories are allowed')
-    main(directory,args.connection_profile.resolve() if args.connection_profile else None,args.reuse_language_tools.resolve() if args.reuse_language_tools else None)
+    main(directory,args.connection_profile.resolve() if args.connection_profile else None,args.reuse_language_tools.resolve() if args.reuse_language_tools else None,args.model)

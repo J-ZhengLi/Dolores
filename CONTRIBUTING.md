@@ -59,7 +59,22 @@ The packager accepts reviewed runtime paths, checks required files/x64 binaries,
 
 The infinity logo source is `assets/dolores.svg`, the original rounded Material Icons outline used by Flutter. To regenerate platform assets, install development-only Pillow (`python -m pip install Pillow`), run `python -I -B scripts/generate-icons.py`, then `python -I -B scripts/generate-icons.py --check`. This updates maintained platform icons; Flutter keeps its original `Icons.all_inclusive_rounded`. Preserve the upstream icon license. Normal builds do not need Pillow.
 
-Platform CI (8.4) is deferred until explicitly requested. Retired Iced and Tauri/Svelte shells and their automatic build workflow have been removed. macOS/Linux runner definitions remain; Windows verification does not qualify them. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service. macOS needs its desktop toolchain and signing after adding the Rust library.
+GitHub Actions checks and packages **Windows x64 only** on branch pushes, pull requests and manual runs. Matching version tags also create a draft release after checks pass. See [releasing](docs/RELEASING.md) and [changelog](CHANGELOG.md). The first hosted run remains separate from local verification. Retired Iced and Tauri/Svelte shells are not maintained. macOS/Linux runner definitions remain for development; Windows verification does not qualify them. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service. macOS needs its desktop toolchain and signing after adding the Rust library.
+
+CI pins Flutter 3.47.5, Rust 1.95.0 and its actions. Its deterministic checks use no
+model keys or private profiles. To run the same entry points locally, set
+`FLUTTER_SDK`, install `.github/requirements-ci.txt`, then use
+`python scripts/ci-windows.py check --generator "<installed CMake generator>"` and
+`python scripts/ci-windows.py package`. Fresh output is required. Node 24 is needed
+for fixtures; the optional browser adapter is installed separately and excluded
+from the portable ZIP. The complete ZIP includes the native update launcher,
+changelog and dependency notices. Signing and clean-machine acceptance remain open.
+
+Optional live helpers require an explicitly chosen enabled `--model`; the tray
+helper uses `--live-model` with `--live-source`. Memory/scheduling helpers accept
+an optional `--secondary-model`; reasoning overrides are explicit. Existing
+named-model qualification reports are historical observations, not contributor
+requirements. RTK, CodeGraph and session handoffs are optional local tooling.
 
 `python scripts/desktop.py build` assembles Flutter for the current host. The bridge belongs beside the Windows EXE, in Linux `lib/`, or macOS `Contents/Frameworks/`. See [Flutter module notes](apps/dolores_flutter/README.md). No alternative desktop shell is maintained.
 

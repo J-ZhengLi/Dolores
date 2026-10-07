@@ -1,6 +1,6 @@
 # Dolores behavior and adaptation policy
 
-Date: 2026-10-04. Status: target product policy; implementation and evaluation are scheduled in the [roadmap](../ROADMAP.md). The user selected reasoning discussion before most implementation work and automatic activation of low-risk changes after tests, with rollback. See the [architecture specification](evolving-harness-architecture.md) for enforcement; personality wording cannot replace host controls.
+Date: 2026-10-04. Status: target product policy; implementation and evaluation are scheduled in the [roadmap](../ROADMAP.md). The design adopts reasoning discussion before most implementation work and automatic activation of low-risk changes after tests, with rollback. See the [architecture specification](evolving-harness-architecture.md) for enforcement; personality wording cannot replace host controls.
 
 Implementation note: brick 9.4 now supplies [scoped interaction instructions and settings](scoped-settings.md) to primary chat requests. Reasoning discussion and premise checking are model guidance, not guaranteed behavior. Rich knowledge correction and automatic qualifying skill/mod activation remain scheduled in milestones 12/13; current task approvals and automatic preferences stay separate.
 
@@ -61,4 +61,4 @@ Each automatic change should explain what changed, why, what was tested and how 
 | User corrects a project convention | Apply scoped correction and protect it from stale automatic memory |
 | Candidate passes its own simplified test only | Host rejects eligibility because fixed independent criteria were not satisfied |
 
-Use deterministic state/authority checks plus bounded live task reviews. Warmth and sound questioning also require human assessment; literal snippet tests are insufficient. Qwen routine and DeepSeek harder probes retain separate results. Do not infer a stable personality or general competence from one successful dialogue.
+Use deterministic state/authority checks plus bounded live task reviews. Warmth and sound questioning also require human assessment; literal snippet tests are insufficient. Live probes with different available models retain separate results. Do not infer a stable personality or general competence from one successful dialogue.
