@@ -3031,3 +3031,7 @@ The user authorized the next milestone batch. [Scheduling contract](design/chat-
 ## Milestone 22.1 — Chat creation and durable receipt (2026-10-07)
 
 Source-bound typed schedule_task resolves named-zone rules and enabled saved skills, pins model/project/budgets and returns a Scheduled receipt without a redundant approval. Schema 36 adds two scheduler tables. Five focused native tests pass: direct creation/duplicate calls, absent skill, quoted intent, cancellation/single-use plans, stale or failed writes/reopen, plus named-zone gap/overlap/weekdays and invented time refusal. Future tool effects remain reviewed. Clock dispatch/page/live-model acceptance follow in later bricks; normal build is reserved for the completed runtime batch.
+
+## Milestone 22.2 — Durable clock claims (2026-10-07)
+
+Seven focused native tests pass. Atomic occurrence claims advance next due and task revision together, refuse overlap/duplicate ticks and retain one missed skip after a long suspension. Restart interrupts unfinished claims without replay; backward clock changes cannot redispatch. Failed claim writes roll back next due. Named-zone DST gap/overlap and Friday-to-Monday boundaries pass. Actual app-open ticking/execution follows in 22.3.

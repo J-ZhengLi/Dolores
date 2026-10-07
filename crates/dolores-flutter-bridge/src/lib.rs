@@ -760,6 +760,7 @@ impl Engine {
         // Learning recovery never makes ordinary history/chat unavailable.
         let _ = store.interrupt_adaptations();
         let _ = store.recover_automatic_memory();
+        store.recover_scheduled_occurrences()?;
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();

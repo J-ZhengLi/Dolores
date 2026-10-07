@@ -344,6 +344,9 @@ pub trait SessionStore: Send + Sync {
     fn scheduled_tasks(&self) -> Result<Vec<scheduling::ScheduledTask>, String> { Ok(vec![]) }
     fn save_scheduled_task(&self, _: &scheduling::ScheduledTask, _: Option<u32>) -> Result<scheduling::ScheduledTask,String> { Err("Scheduled tasks are unavailable.".into()) }
     fn scheduled_occurrences(&self, _: &str) -> Result<Vec<scheduling::ScheduledOccurrence>,String> { Ok(vec![]) }
+    fn claim_scheduled_occurrence(&self,_:&str,_:u32,_:i64,_:bool)->Result<Option<scheduling::ScheduledOccurrence>,String>{Err("Scheduled dispatch is unavailable.".into())}
+    fn update_scheduled_occurrence(&self,_:&scheduling::ScheduledOccurrence,_:&str)->Result<(),String>{Err("Scheduled progress is unavailable.".into())}
+    fn recover_scheduled_occurrences(&self)->Result<(),String>{Ok(())}
     fn repair_evaluations(&self, _: &str, _: &str) -> Result<Vec<RepairEvaluation>, String> { Ok(vec![]) }
     fn save_repair_evaluation(&self, _: &RepairEvaluation) -> Result<(), String> {
         Err("Native evaluation storage unavailable; retained proposal remains.".into())

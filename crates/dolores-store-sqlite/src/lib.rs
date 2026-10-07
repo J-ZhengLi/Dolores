@@ -237,6 +237,9 @@ impl SessionStore for SqliteStore {
     fn scheduled_tasks(&self)->Result<Vec<dolores_core::scheduling::ScheduledTask>,String>{scheduling::list(&*self.lock()?)}
     fn save_scheduled_task(&self,t:&dolores_core::scheduling::ScheduledTask,expected:Option<u32>)->Result<dolores_core::scheduling::ScheduledTask,String>{scheduling::save(&mut *self.lock()?,t,expected)}
     fn scheduled_occurrences(&self,id:&str)->Result<Vec<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::history(&*self.lock()?,id)}
+    fn claim_scheduled_occurrence(&self,id:&str,revision:u32,now:i64,manual:bool)->Result<Option<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::claim(&mut *self.lock()?,id,revision,now,manual)}
+    fn update_scheduled_occurrence(&self,o:&dolores_core::scheduling::ScheduledOccurrence,state:&str)->Result<(),String>{scheduling::update(&mut *self.lock()?,o,state)}
+    fn recover_scheduled_occurrences(&self)->Result<(),String>{scheduling::recover(&mut *self.lock()?)}
     fn repair_evaluations(&self, session:&str, repair:&str)->Result<Vec<dolores_core::RepairEvaluation>,String> {self.evaluation_list(session,repair)}
     fn save_repair_evaluation(&self, value:&dolores_core::RepairEvaluation)->Result<(),String>{self.evaluation_save(value)}
     fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> { self.repair_list(session) }
