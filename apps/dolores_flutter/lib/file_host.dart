@@ -361,6 +361,14 @@ class FileHost extends ChangeNotifier {
   }
 
   FileDocument? get active => documents[selected?.active];
+  void acceptLanguage(FileWorkspace w, List values) {
+    for (final value in values) {
+      final d = _accept(Map<String, dynamic>.from(value));
+      w.paths[d.id] = d.path;
+    }
+    changed();
+  }
+
   void wireLayout(FileWorkspace w) {
     w.layoutOwner.onChanged = () {
       w.active = w.layoutOwner.active.active;

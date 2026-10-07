@@ -34,6 +34,10 @@ tokio-util.workspace = true
 uuid.workspace = true
 portable-pty = "=0.9.0"
 url = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+flate2 = "1"
+tar = "0.4"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
 
 [build-dependencies]
 sha2 = "0.10"

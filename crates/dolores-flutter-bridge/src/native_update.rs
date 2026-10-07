@@ -276,6 +276,7 @@ impl Engine {
             return Err("Stop live terminals before restarting. The review and output remain.".into());
         }
         self.editor_can_restart()?;
+        self.languages.lock().map_err(|_| "Language state unavailable.")?.stop_all()?;
         let mut slot = self
             .native_review
             .lock()

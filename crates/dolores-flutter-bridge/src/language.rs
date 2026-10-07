@@ -32,6 +32,16 @@ pub(crate) enum Request {
         id: String,
     },
     Stop,
+    InstallInfo,
+    Install {
+        language: String,
+    },
+    InstallPoll {
+        id: String,
+    },
+    CancelInstall {
+        id: String,
+    },
 }
 struct Work {
     id: String,
@@ -53,11 +63,25 @@ struct Server {
 }
 #[derive(Default)]
 pub(crate) struct Registry {
+    install: Option<crate::language_tools::Install>,
     servers: HashMap<String, Server>,
     jobs: Arc<Mutex<HashMap<String, Job>>>,
 }
 impl Registry {
     pub(crate) fn stop_all(&mut self) -> Result<(), String> {
+        if let Some(i) = &self.install {
+            i.cancel.cancel();
+            let until = Instant::now() + Duration::from_secs(2);
+            while !i.task.is_finished() && Instant::now() < until {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            if !i.task.is_finished() {
+                return Err(
+                    "Language installation is canceling. Keep Dolores open and retry closing."
+                        .into(),
+                );
+            }
+        }
         for s in self.servers.values() {
             s.stop.store(true, Ordering::Release);
         }
@@ -200,6 +224,8 @@ fn language(path: &str) -> Option<&'static str> {
     }
 }
 fn discover(language: &str, managed: &Path) -> Result<(PathBuf, Vec<String>), String> {
+    let installed = crate::language_tools::installed(managed, language)?;
+    let managed = installed.as_deref().unwrap_or(managed);
     if language == "rust" {
         let pinned = managed.join("rust-analyzer.exe");
         let exe = if pinned.is_file() {
@@ -406,6 +432,26 @@ fn run(
             }
             if ready {
                 while let Some(w) = queue.pop_front() {
+                    if let Some(paths) = w.snapshot["openPaths"].as_array() {
+                        let keep = paths
+                            .iter()
+                            .filter_map(|p| p.as_str())
+                            .map(|p| uri(&root.join(p)))
+                            .collect::<Result<std::collections::HashSet<_>, _>>()?;
+                        for old in opened
+                            .keys()
+                            .filter(|u| !keep.contains(*u))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                        {
+                            send(
+                                &tx,
+                                json!({"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":old}}}),
+                            )?;
+                            opened.remove(&old);
+                            diagnostics.remove(&old);
+                        }
+                    }
                     let path = w.snapshot["snapshot"]["path"].as_str().unwrap();
                     let file_uri = uri(&root.join(path))?;
                     let version = w.snapshot["version"].as_u64().unwrap();
@@ -584,6 +630,83 @@ fn run(
 impl Engine {
     pub(crate) fn language_call(&self, request: Request) -> Result<Value, String> {
         match request {
+            Request::InstallInfo => Ok(crate::language_tools::info()),
+            Request::Install { language } => {
+                let mut state = self
+                    .languages
+                    .lock()
+                    .map_err(|_| "Language state unavailable.")?;
+                if state
+                    .install
+                    .as_ref()
+                    .is_some_and(|i| !i.task.is_finished())
+                {
+                    return Err("An installation is running. Finish or cancel it first.".into());
+                }
+                if !state.servers.is_empty() {
+                    return Err(
+                        "Stop language services before installing tools. Buffers remain.".into(),
+                    );
+                }
+                let managed = self
+                    .workspace_directory
+                    .as_ref()
+                    .and_then(|p| p.parent())
+                    .ok_or("Private language storage unavailable.")?
+                    .join("language-tools");
+                let id = uuid::Uuid::new_v4().to_string();
+                let cancel = tokio_util::sync::CancellationToken::new();
+                let progress = Arc::new(Mutex::new(json!({"state":"starting","bytes":0})));
+                let c = cancel.clone();
+                let p = progress.clone();
+                let task = self.runtime.spawn(async move {
+                    let result =
+                        crate::language_tools::install(managed, language, c, p.clone()).await;
+                    if let Ok(mut s) = p.lock() {
+                        *s = match result {
+                            Ok(()) => json!({"state":"done"}),
+                            Err(e) => json!({"state":"failed","error":e}),
+                        };
+                    }
+                });
+                state.install = Some(crate::language_tools::Install {
+                    id: id.clone(),
+                    cancel,
+                    state: progress,
+                    task,
+                });
+                Ok(json!({"id":id}))
+            }
+            Request::InstallPoll { id } => {
+                let state = self
+                    .languages
+                    .lock()
+                    .map_err(|_| "Language state unavailable.")?;
+                let i = state
+                    .install
+                    .as_ref()
+                    .filter(|i| i.id == id)
+                    .ok_or("Installation expired. Review setup again.")?;
+                let value = i
+                    .state
+                    .lock()
+                    .map_err(|_| "Install status unavailable.")?
+                    .clone();
+                Ok(value)
+            }
+            Request::CancelInstall { id } => {
+                let state = self
+                    .languages
+                    .lock()
+                    .map_err(|_| "Language state unavailable.")?;
+                let i = state
+                    .install
+                    .as_ref()
+                    .filter(|i| i.id == id)
+                    .ok_or("Installation expired.")?;
+                i.cancel.cancel();
+                Ok(json!({"canceling":true}))
+            }
             Request::Feature {
                 session,
                 document,

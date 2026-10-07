@@ -69,3 +69,11 @@ Primary references: [portable-pty 0.9.0](https://docs.rs/portable-pty/0.9.0/port
 ## Brick 18.3 display recovery
 
 Keep at most eight stopped display records, 8 KiB UTF-8 plaintext per tab and 96 KiB per checkpoint. Checkpoints use the existing private workspace-state store under an app-owned key. Cold restore never spawns a process, restores a PID or replays input. A failed checkpoint blocks final quit until explicit retry succeeds. Selected output up to 8 KiB is attached only after choosing a conversation; it does not send a request.
+
+## Brick 18.5 install and edit transaction bounds
+
+Managed downloads pin typescript-language-server 6.0.1, TypeScript 6.0.3 and rust-analyzer 2026-10-05 (Windows x64). SHA-512 npm integrity and SHA-256 release-asset hashes are compiled into the installer. Download cap is 64 MiB per artifact, 120 seconds; tar expansion is 64 MiB and 2,048 regular files; the Rust executable is capped at 128 MiB. No lifecycle scripts or server commands execute during setup. Prior install pointers survive cancellation/offline/checksum failures. Startup checks retained member hashes.
+
+Language edits review one to four regular project files and at most 1,000 replacements per file. UTF-16 ranges, saved-byte revisions and open-buffer versions must match. Apply is an atomic private checkpoint plus buffer publication; Save is separate. Undo language edit restores all reviewed buffers if none changed afterward. Native preview JSON has a dedicated 5 MiB request envelope for its 4 MiB edit bound; ordinary commands retain their existing limit. Preview tokens expire after five minutes and advance once. Resource operations and external project paths are refused.
+
+Pinned source metadata: [TypeScript server](https://registry.npmjs.org/typescript-language-server/6.0.1), [TypeScript](https://registry.npmjs.org/typescript/6.0.3), [Rust release](https://github.com/rust-lang/rust-analyzer/releases/tag/2026-10-05).

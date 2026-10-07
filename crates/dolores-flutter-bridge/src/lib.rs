@@ -26,6 +26,7 @@ mod git_process;
 mod source_control;
 mod terminal;
 mod language;
+mod language_tools;
 #[cfg(test)]
 mod experience_tests;
 mod export;
@@ -130,6 +131,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    LanguageEdits { session:String, request:editor::language_edits::Request },
     Language { request: language::Request },
     Terminal { request: terminal::Request },
     Git { session:String, request:source_control::Request },
@@ -820,6 +822,10 @@ impl Engine {
         match command {
             Command::Terminal {request} => {drop(active);return self.terminal_call(request);},
             Command::Language {request} => {drop(active);return self.language_call(request);},
+            Command::LanguageEdits {session,request} => {
+                if !matches!(&request,editor::language_edits::Request::Preview{..}) && self.store.workspace(&session)?.root.is_some_and(|root|active.has_repo(std::path::Path::new(&root))) {return Err("Finish or stop the task in this project before applying language edits. Preview and buffers remain.".into());}
+                drop(active);return self.language_edits_call(&session,request);
+            },
             Command::Git {session,request} => {
                 if let source_control::Request::Apply{repo,..}=&request {
                     if self.git.lock().map_err(|_|"Source Control is unavailable.")?.review_root(repo).is_some_and(|root|active.has_repo(&root)) {return Err("Finish or stop the task in this repository before its Git mutation. Review and drafts remain.".into());}
@@ -2622,7 +2628,7 @@ fn reply(input: &[u8]) -> Value {
     let result = serde_json::from_slice::<Command>(input)
         .map_err(|_| "Invalid bridge request.".to_string())
         .and_then(|command| {
-            if input.len()>128*1024 && !matches!(&command, Command::Editor { .. }) {
+            if input.len()>128*1024 && !matches!(&command, Command::Editor { .. }) && !(input.len()<=5*1024*1024 && matches!(&command,Command::LanguageEdits {..})) {
                 return Err("Invalid bridge request size.".into());
             }
             match ENGINE.get_or_init(initialize) {

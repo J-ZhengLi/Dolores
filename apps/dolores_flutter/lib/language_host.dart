@@ -8,6 +8,13 @@ class LanguageHost {
   final ChatBridge bridge;
   int generation = 0;
   bool used = false;
+  final undoTokens = <String, String>{};
+  Future<dynamic> edits(FileWorkspace w, Map<String, dynamic> request) =>
+      bridge.call({
+        'command': 'languageEdits',
+        'session': w.session,
+        'request': request,
+      });
   LanguageHost(this.bridge);
   Future<dynamic> call(Map<String, dynamic> request) =>
       bridge.call({'command': 'language', 'request': request});

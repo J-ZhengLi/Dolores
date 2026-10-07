@@ -17,6 +17,54 @@ fn setup(store: Arc<SqliteStore>, root: &std::path::Path) -> Engine {
     }
     Engine::new(store, Arc::new(MemoryCredentials::default())).unwrap()
 }
+#[test]
+fn language_workspace_preview_apply_undo_is_atomic_and_refuses_stale_outside_paths() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.ts"), "const old = 1;\n").unwrap();
+    std::fs::write(root.path().join("b.ts"), "old();\n").unwrap();
+    let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+    let e = setup(store, root.path());
+    let project = call(&e, "A", json!({"action":"workspace"})).unwrap()["project"].clone();
+    let source = doc(&e, &project, "a.ts");
+    let uri = |name: &str| {
+        url::Url::from_file_path(root.path().join(name))
+            .unwrap()
+            .to_string()
+    };
+    let edits = json!({"changes":{uri("a.ts"):[{"range":{"start":{"line":0,"character":6},"end":{"line":0,"character":9}},"newText":"newName"}],uri("b.ts"):[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"newText":"newName"}]}});
+    let language = |r: Value| {
+        e.call(
+            serde_json::from_value(json!({"command":"languageEdits","session":"A","request":r}))
+                .unwrap(),
+        )
+    };
+    let preview = language(
+        json!({"action":"preview","document":source["document"],"version":0,"edit":edits}),
+    )
+    .unwrap();
+    assert_eq!(doc(&e, &project, "a.ts")["text"], "const old = 1;\n");
+    std::fs::write(root.path().join("b.ts"), "external();\n").unwrap();
+    assert!(language(json!({"action":"apply","token":preview["token"]})).is_err());
+    assert_eq!(doc(&e, &project, "a.ts")["text"], "const old = 1;\n");
+    std::fs::write(root.path().join("b.ts"), "old();\n").unwrap();
+    let result = language(json!({"action":"apply","token":preview["token"]})).unwrap();
+    assert_eq!(result["documents"][1]["text"], "newName();\n");
+    assert_eq!(
+        std::fs::read_to_string(root.path().join("b.ts")).unwrap(),
+        "old();\n"
+    );
+    assert!(language(json!({"action":"apply","token":preview["token"]})).is_err());
+    let undone = language(json!({"action":"undo","token":preview["token"]})).unwrap();
+    assert_eq!(undone["documents"][1]["text"], "old();\n");
+    assert!(language(json!({"action":"undo","token":preview["token"]})).is_err());
+    let outside = tempfile::tempdir().unwrap();
+    let outside_uri = url::Url::from_file_path(outside.path().join("no.ts"))
+        .unwrap()
+        .to_string();
+    let source = doc(&e, &project, "a.ts");
+    assert!(language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"changes":{outside_uri:[]}}})).is_err());
+    assert!(language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"documentChanges":[{"kind":"delete","uri":uri("a.ts")}]}})).is_err());
+}
 fn call(e: &Engine, session: &str, request: Value) -> Result<Value, String> {
     e.call(
         serde_json::from_value::<Command>(
@@ -56,7 +104,10 @@ fn shared_document_deltas_are_unicode_safe_atomic_and_project_bound() {
     assert_eq!(doc(&e, &p, "a")["text"], "a😀b\n");
     let ack = edit(&e, &p, &d, 1, 3, "世界").unwrap();
     assert_eq!(ack["version"], 1);
-    assert!(e.editor_can_restart().unwrap_err().contains("Save or close"));
+    assert!(e
+        .editor_can_restart()
+        .unwrap_err()
+        .contains("Save or close"));
     assert!(ack.get("text").is_none());
     assert!(edit(&e, &p, &d, 0, 1, "stale").is_err());
     let d = doc(&e, &p, "a");

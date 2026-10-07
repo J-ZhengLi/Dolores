@@ -18,6 +18,7 @@ import 'app_host.dart';
 import 'document_buffer.dart';
 import 'file_host.dart';
 import 'language_host.dart';
+import 'language_setup.dart';
 
 import 'package:path/path.dart' as paths;
 
@@ -221,15 +222,39 @@ class _FileEditorState extends State<FileEditor> {
         'line': view.selection.extentIndex,
         'character': view.selection.extentOffset,
       };
+      var name = '';
+      if (feature == 'rename') {
+        final entered = await filePathDialog(
+          context,
+          'Rename symbol',
+          label: 'New name',
+        );
+        if (entered == null) return;
+        name = entered;
+      }
       final result = await widget.host.languages.feature(
         files,
         w,
         d,
         feature,
         position,
+        name: name,
       );
       final version = d.version, text = d.text;
       if (!mounted) return;
+      if (feature == 'formatting' || feature == 'rename') {
+        final root = w.root.replaceFirst(r'\\?\', '');
+        final edit = feature == 'formatting'
+            ? {
+                'changes': {
+                  Uri.file(paths.join(root, d.path), windows: true).toString():
+                      result,
+                },
+              }
+            : result;
+        await reviewLanguageEdit(edit);
+        return;
+      }
       if (feature == 'completion') {
         final items =
             (result is List ? result : (result as Map?)?['items'] ?? [])
@@ -292,12 +317,11 @@ class _FileEditorState extends State<FileEditor> {
         return;
       }
       if (feature == 'definition' || feature == 'references') {
-        final locations =
-            (result is List
-                    ? result
-                    : result == null
-                    ? []
-                    : [result]);
+        final locations = (result is List
+            ? result
+            : result == null
+            ? []
+            : [result]);
         final picked = await showDialog<Map>(
           context: context,
           builder: (context) => AlertDialog(
@@ -362,6 +386,56 @@ class _FileEditorState extends State<FileEditor> {
         }
         return;
       }
+      if (feature == 'diagnostics') {
+        final items = (result is Map ? result['items'] : null) as List? ?? [];
+        final picked = await showDialog<Map>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Diagnostics'),
+            content: SizedBox(
+              width: 600,
+              height: 350,
+              child: items.isEmpty
+                  ? const Center(child: Text('No current diagnostics.'))
+                  : ListView(
+                      children: [
+                        for (final item in items)
+                          ListTile(
+                            title: Text(item['message']?.toString() ?? ''),
+                            subtitle: Text(
+                              'Line ${(item['range']['start']['line'] as int) + 1}',
+                            ),
+                            onTap: () => Navigator.pop(context, item),
+                          ),
+                      ],
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+        if (picked != null &&
+            d.version == version &&
+            d.text == text &&
+            files.selected == w) {
+          view.selection = CodeLineSelection.collapsed(
+            index: picked['range']['start']['line'],
+            offset: picked['range']['start']['character'],
+          );
+          scroll.makeVisible(
+            CodeLinePosition(
+              index: view.selection.extentIndex,
+              offset: view.selection.extentOffset,
+            ),
+          );
+          focus.requestFocus();
+        }
+        return;
+      }
       final content = feature == 'hover'
           ? (result is Map ? result['contents'] : result)
           : result;
@@ -394,6 +468,124 @@ class _FileEditorState extends State<FileEditor> {
       d.changed();
     } finally {
       if (mounted) setState(() => languageBusy = false);
+    }
+  }
+
+  Future<void> flushLanguageTargets() async {
+    for (final doc
+        in files.documents.values
+            .where((doc) => doc.project == w.project)
+            .toList()) {
+      await files.flush(doc);
+      if (doc.blocked || doc.text != doc.acknowledged) {
+        throw StateError(
+          'Retry sync for ${doc.path} before changing language edits.',
+        );
+      }
+    }
+  }
+
+  Future<void> reviewLanguageEdit(dynamic edit) async {
+    await flushLanguageTargets();
+    final preview = await widget.host.languages.edits(w, {
+      'action': 'preview',
+      'document': d.id,
+      'version': d.version,
+      'edit': edit,
+    });
+    if (!mounted) return;
+    final entries = preview['files'] as List;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Review language changes'),
+        content: SizedBox(
+          width: 880,
+          height: 520,
+          child: DefaultTabController(
+            length: entries.length,
+            child: Column(
+              children: [
+                Text(preview['note']),
+                TabBar(
+                  isScrollable: true,
+                  tabs: [for (final file in entries) Tab(text: file['path'])],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      for (final file in entries)
+                        Row(
+                          children: [
+                            for (final side in ['before', 'after'])
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(side == 'before' ? 'Before' : 'After'),
+                                    Expanded(
+                                      child: SingleChildScrollView(
+                                        padding: const EdgeInsets.all(12),
+                                        child: SelectableText(
+                                          file[side],
+                                          style: const TextStyle(
+                                            fontFamily: UiTokens.codeFont,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Apply to buffers'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true) return;
+    if (files.selected != w) {
+      throw StateError('Project changed. Request a new language preview.');
+    }
+    await flushLanguageTargets();
+    final result = await widget.host.languages.edits(w, {
+      'action': 'apply',
+      'token': preview['token'],
+    });
+    files.acceptLanguage(w, result['documents']);
+    widget.host.languages.undoTokens[w.project] = result['token'];
+  }
+
+  Future<void> undoLanguageEdit() async {
+    try {
+      final token = widget.host.languages.undoTokens[w.project];
+      if (token == null) {
+        throw StateError('No language edit is available to undo.');
+      }
+      await flushLanguageTargets();
+      final result = await widget.host.languages.edits(w, {
+        'action': 'undo',
+        'token': token,
+      });
+      files.acceptLanguage(w, result['documents']);
+      widget.host.languages.undoTokens.remove(w.project);
+    } catch (e) {
+      d.error = '$e';
+      d.changed();
     }
   }
 
@@ -699,7 +891,15 @@ class _FileEditorState extends State<FileEditor> {
                         case 'hover':
                         case 'definition':
                         case 'references':
+                        case 'formatting':
+                        case 'rename':
                           unawaited(languageFeature(value));
+                        case 'undoLanguage':
+                          unawaited(undoLanguageEdit());
+                        case 'installLanguage':
+                          unawaited(
+                            showLanguageSetup(context, widget.host.languages),
+                          );
                         case 'stopLanguage':
                           unawaited(widget.host.languages.stop());
                         case 'find':
@@ -717,6 +917,22 @@ class _FileEditorState extends State<FileEditor> {
                       }
                     },
                     itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'formatting',
+                        child: Text('Format document…'),
+                      ),
+                      PopupMenuItem(
+                        value: 'rename',
+                        child: Text('Rename symbol…'),
+                      ),
+                      PopupMenuItem(
+                        value: 'undoLanguage',
+                        child: Text('Undo language edit'),
+                      ),
+                      PopupMenuItem(
+                        value: 'installLanguage',
+                        child: Text('Install language tools…'),
+                      ),
                       PopupMenuItem(
                         value: 'diagnostics',
                         child: Text('Diagnostics'),

@@ -133,7 +133,10 @@ impl Document {
 #[derive(Default)]
 pub(crate) struct Registry {
     docs: BTreeMap<String, Document>,
+    language_review: Option<language_edits::Review>,
 }
+#[path="editor_language.rs"]
+pub(crate) mod language_edits;
 fn project_id(root: &str) -> String {
     format!("{:x}", Sha256::digest(root.as_bytes()))
 }
@@ -189,7 +192,9 @@ impl Registry {
         if d.root != root || d.version != version || d.snapshot.readonly {
             return Err("Document changed or is read-only. Request the language feature again; edits remain.".into());
         }
-        Ok(d.view())
+        let mut view=d.view();
+        view["openPaths"]=json!(self.docs.values().filter(|d|d.root==root).map(|d|d.snapshot.path.clone()).collect::<Vec<_>>());
+        Ok(view)
     }
     pub(super) fn ensure_git_clean(&self,root:&std::path::Path,paths:&[String])->Result<(),String>{
         for d in self.docs.values().filter(|d|d.dirty()) {
