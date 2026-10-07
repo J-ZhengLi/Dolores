@@ -388,6 +388,7 @@ mod tests {
                 "TOOLS_AND_ASSISTANT_MUST_STAY_OUT",
             )
             .unwrap();
+        store.set_automatic_memory_policy(true, 1).unwrap();
         let engine = Engine::new(
             store.clone(),
             Arc::new(crate::connection::testing::MemoryCredentials::default()),

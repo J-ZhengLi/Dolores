@@ -1,5 +1,5 @@
 use super::{now, storage_error, SqliteStore};
-use dolores_core::{MemoryDraft, MemoryPreference, MemoryScope, MAX_PREFERENCES_PER_SCOPE};
+use dolores_core::{MemoryDraft, MemoryPreference, MemoryScope, MAX_PREFERENCES_PER_SCOPE, MAX_MEMORY_RECORDS_PER_SCOPE};
 use rusqlite::{params, OptionalExtension};
 
 const CONFLICT: &str =
@@ -63,7 +63,7 @@ impl SqliteStore {
     pub(super) fn read_memory(&self, root: Option<&str>) -> Result<Vec<MemoryPreference>, String> {
         let root = scope_key(root)?;
         let conn = self.lock()?;
-        let mut query = conn.prepare("SELECT root,data FROM memory_preferences WHERE root='' OR (root=?1 AND ?1!='') ORDER BY root,id LIMIT 25").map_err(storage_error)?;
+        let mut query = conn.prepare("SELECT root,data FROM memory_preferences WHERE root='' OR (root=?1 AND ?1!='') ORDER BY root,id LIMIT 281").map_err(storage_error)?;
         let rows = query
             .query_map([root], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -84,11 +84,11 @@ impl SqliteStore {
             }
             values.push(value);
         }
-        if values.len() > MAX_PREFERENCES_PER_SCOPE * 2 {
+        if values.len() > MAX_MEMORY_RECORDS_PER_SCOPE * 2 {
             return Err("Saved memory preferences exceed the local entry limit.".into());
         }
         if [MemoryScope::All, MemoryScope::Folder].iter().any(|scope| {
-            values.iter().filter(|p| p.scope == *scope).count() > MAX_PREFERENCES_PER_SCOPE
+            values.iter().filter(|p| p.scope == *scope).count() > MAX_MEMORY_RECORDS_PER_SCOPE
         }) {
             return Err("Saved memory preferences exceed the local scope limit.".into());
         }
@@ -162,7 +162,7 @@ impl SqliteStore {
             (None, None) => {
                 let count: usize = tx
                     .query_row(
-                        "SELECT count(*) FROM memory_preferences WHERE root=?1",
+                        "SELECT count(*) FROM memory_preferences WHERE root=?1 AND json_extract(data,'$.source')!='automatic'",
                         [root],
                         |r| r.get(0),
                     )

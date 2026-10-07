@@ -57,7 +57,7 @@ fn source_matches(
 fn preferences(conn: &rusqlite::Connection, root: &str) -> Result<Vec<MemoryPreference>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT data FROM memory_preferences WHERE root='' OR root=?1 ORDER BY id LIMIT 25",
+            "SELECT data FROM memory_preferences WHERE root='' OR root=?1 ORDER BY id LIMIT 281",
         )
         .map_err(storage_error)?;
     let mut values = stmt
@@ -65,7 +65,7 @@ fn preferences(conn: &rusqlite::Connection, root: &str) -> Result<Vec<MemoryPref
         .map_err(storage_error)?
         .map(|r| decode(r.map_err(storage_error)?))
         .collect::<Result<Vec<_>, _>>()?;
-    if values.len() > 24 {
+    if values.len() > MAX_MEMORY_RECORDS_PER_SCOPE * 2 {
         return Err("Saved memory exceeds the scope limit.".into());
     }
     values.sort_by(|a, b| a.id.cmp(&b.id));
@@ -250,8 +250,8 @@ impl SqliteStore {
                     None => None,
                 };
                 if previous.is_none()
-                    && current.iter().filter(|m| m.scope == desired_scope).count()
-                        >= MAX_PREFERENCES_PER_SCOPE
+                    && current.iter().filter(|m| m.scope == desired_scope && m.source == "automatic").count()
+                        >= MAX_AUTOMATIC_MEMORIES_PER_SCOPE
                 {
                     report.skipped += 1;
                     continue;
@@ -313,6 +313,8 @@ mod tests {
     use super::*;
     use tokio_util::sync::CancellationToken;
     fn prepare(store: &SqliteStore, session: &str, text: &str) -> AutomaticMemoryUpdate {
+        // Existing explicit On choice from the earlier preference system.
+        store.lock().unwrap().execute("INSERT OR IGNORE INTO automatic_memory_policy VALUES(1,?1)", [r#"{"enabled":true,"revision":1}"#]).unwrap();
         store
             .commit_turn(session, text, "ASSISTANT_EXCLUDED")
             .unwrap();

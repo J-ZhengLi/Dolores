@@ -143,7 +143,9 @@ void main() {
           100,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.tap(find.byKey(const Key('automatic-memory-attempt')));
+        await tester.ensureVisible(find.text('Latest learning activity in this chat'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Latest learning activity in this chat'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Learning tokens: 100 in'), findsOneWidget);
         bridge.fail = true;

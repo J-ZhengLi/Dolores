@@ -438,7 +438,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       },
       child: InspectorFrame(
         title: 'Memory',
-        subtitle: 'How Dolores remembers your preferences',
+        subtitle: 'Useful memories, with their sources',
         canClose: !busy,
         onClose: _close,
         child: Column(
@@ -449,7 +449,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   const Text(
-                    'Saved preferences are shared with the model when enabled. Keep credentials and other secrets out of Memory.',
+                    'Memory remembers useful facts, decisions and preferences from completed conversations. Stored locally; eligible excerpts may be sent to your configured model. You can inspect, correct or forget them.',
                   ),
                   const SizedBox(height: 8),
                   ExpansionTile(
@@ -465,11 +465,11 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                     SwitchListTile(
                       key: const Key('automatic-memory'),
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Learn preferences automatically'),
+                      title: const Text('Memory'),
                       value: automaticPolicy!['enabled'] == true,
                       onChanged: busy ? null : _setAutomatic,
                       subtitle: const Text(
-                        'May send your explicit preferences in one small extra model request.',
+                        'On: automatically remember and recall. Off: stop capture and recall; keep stored memories for inspection or forgetting.',
                       ),
                     ),
                     ExpansionTile(
@@ -693,8 +693,10 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                     ],
                   ] else ...[
                     if (loaded && items.isEmpty)
-                      const Text(
-                        'No saved preferences. Add one when you want Dolores to remember how you like to work.',
+                      Text(
+                        automaticPolicy?['enabled'] == true
+                            ? 'No saved memories yet. Finish a useful conversation; activity below the Memory switch explains saved, skipped or failed attempts.'
+                            : 'Memory is Off. Turn it on to remember useful conversations automatically. No manual setup is needed.',
                       ),
                     for (final item in items)
                       Card(

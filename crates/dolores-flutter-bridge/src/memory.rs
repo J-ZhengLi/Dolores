@@ -15,6 +15,9 @@ pub(super) fn preferences_for_session(
     store: &dyn SessionStore,
     session: Option<&str>,
 ) -> Result<Vec<MemoryPreference>, String> {
+    if !store.automatic_memory_policy()?.enabled {
+        return Ok(Vec::new());
+    }
     let root = session
         .map(|id| store.workspace(id))
         .transpose()?
@@ -46,6 +49,12 @@ impl Engine {
         let mut items = Vec::new();
         for preference in preferences {
             let mut item = json!(preference);
+            item["kind"] = json!(preference.title.split(':').next().unwrap_or("Preference"));
+            item["confidence"] = json!(if preference.origin.is_some() {
+                "Source-linked; inspect the exact statement"
+            } else {
+                "Added or corrected by you"
+            });
             if let Some(origin) = &preference.origin {
                 item["originAvailable"] = json!(self
                     .store
@@ -136,6 +145,7 @@ mod tests {
                 )
                 .unwrap();
         }
+        store.set_automatic_memory_policy(true, 1).unwrap();
         let engine = Engine::new(
             store,
             Arc::new(crate::connection::testing::MemoryCredentials::default()),
@@ -148,6 +158,12 @@ mod tests {
         );
         let global = command(json!({"command":"saveMemory","scope":"all","title":"Style","text":"GLOBAL_LITERAL","enabled":true})).unwrap();
         let local = command(json!({"command":"saveMemory","scope":"folder","session":"first","title":"Tests","text":"FOLDER_LITERAL","enabled":true})).unwrap();
+        command(json!({"command":"setAutomaticMemory","enabled":false,"revision":2})).unwrap();
+        let off = command(json!({"command":"context","session":"first","input":"hello","tools":false})).unwrap();
+        assert_eq!(off["memoryEntries"], json!([]));
+        assert!(!off.to_string().contains("FOLDER_LITERAL"));
+        assert_eq!(command(json!({"command":"memories","session":"first"})).unwrap()["items"].as_array().unwrap().len(), 2);
+        command(json!({"command":"setAutomaticMemory","enabled":true,"revision":3})).unwrap();
         for id in [None, Some("side"), Some("other")] {
             let items = command(json!({"command":"memories","session":id})).unwrap();
             assert_eq!(items["items"].as_array().unwrap().len(), 1);

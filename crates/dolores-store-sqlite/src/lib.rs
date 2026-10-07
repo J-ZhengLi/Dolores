@@ -25,7 +25,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 33;
+pub const SCHEMA_VERSION: i64 = 34;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -203,6 +203,15 @@ impl SqliteStore {
         }
         if version < 33 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS repair_evaluations(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,repair TEXT NOT NULL REFERENCES harness_repairs(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE INDEX IF NOT EXISTS repair_evaluations_scope ON repair_evaluations(session,repair); PRAGMA user_version=33; COMMIT;").map_err(storage_error)?;
+        }
+        if version < 34 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE memory_source_index(id TEXT PRIMARY KEY REFERENCES memory_preferences(id) ON DELETE CASCADE, session TEXT NOT NULL, message_id INTEGER NOT NULL, quote TEXT NOT NULL);
+                INSERT INTO memory_source_index SELECT id,json_extract(data,'$.origin.session'),json_extract(data,'$.origin.messageId'),json_extract(data,'$.origin.quote') FROM memory_preferences WHERE json_type(data,'$.origin')='object';
+                CREATE INDEX memory_source_lookup ON memory_source_index(session,message_id);
+                CREATE TRIGGER memory_source_insert AFTER INSERT ON memory_preferences WHEN json_type(NEW.data,'$.origin')='object' BEGIN INSERT OR REPLACE INTO memory_source_index VALUES(NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote')); END;
+                CREATE TRIGGER memory_source_update AFTER UPDATE ON memory_preferences BEGIN DELETE FROM memory_source_index WHERE id=NEW.id; INSERT INTO memory_source_index SELECT NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote') WHERE json_type(NEW.data,'$.origin')='object'; END;
+                PRAGMA user_version=34; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),

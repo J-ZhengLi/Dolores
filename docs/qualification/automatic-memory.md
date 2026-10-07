@@ -43,3 +43,12 @@ Live evaluation uses public bounded prompts with configured Qwen3.5-2B and harde
 DeepSeek V4.1 Flash cases, preserving original selection. Capture/recall hits,
 unsupported claims, scope leaks and usage are reported separately from fixtures.
 Memory Off is the baseline. Universal reliability is not claimed.
+
+
+## 21.1 Records, index and master switch
+
+Schema 34 adds an atomic source lookup with insert/update triggers and cascade deletion. Existing records and saved policy are retained; a fresh profile defaults Off. Recall consults the same switch as capture. UI needs no setup form; optional legacy manual editing remains available.
+
+Caps: 128 automatic records plus the existing 12 manual records per scope; at most 280 scoped/global candidates read. Each record retains the existing 1 KiB text, 512-byte source quote, 80-character title and bounded IDs/model. The maximum-field UTF-8 fixture is 2407 bytes per JSON record (308096 bytes for 128); source index duplicates only bounded references/quotes. SQLite page overhead is separate. Full-scope behavior skips new additions with an actionable Forget instruction; no silent eviction. Recall retains its 4 KiB ceiling. No retrieval dependency is added.
+
+Tests cover fresh Off, saved On/Off and history across restart, transaction failure without history/schema loss, recall Off with retained inspectable data, compact light/dark policy and activity/failure recovery.

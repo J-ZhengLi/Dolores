@@ -20,7 +20,7 @@ pub struct AutomaticMemoryPolicy {
 impl Default for AutomaticMemoryPolicy {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             revision: 1,
         }
     }

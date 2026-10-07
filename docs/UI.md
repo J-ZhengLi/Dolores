@@ -557,3 +557,8 @@ No colored left status stripe is introduced.
 ## Memory and skill authoring (15.6)
 
 Use My preferences / Project facts and All projects / This project labels. Remember this opens editable text with explicit Save. Import/Create skills require exact review before activation; failed/stale reviews retain text. Global skills are accessible before first send. Experimental learning and trials live under Advanced; privacy and activation choices stay independent. Keep details closed by default and never claim a narrow test proves general improvement.
+
+
+## Automatic memory (21.1)
+
+Memory uses one primary Memory switch and source-linked inspect/correct/forget cards. Off stops capture and recall, retaining stored entries. Empty states distinguish Off from no useful completed interactions; no input form or manual setup is required. Preserve saved choices. Keep activity, usage and failure recovery inspectable in compact light/dark layouts.

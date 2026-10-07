@@ -2,6 +2,8 @@ use crate::{Message, Role, MAX_CONTEXT_BYTES};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_PREFERENCES_PER_SCOPE: usize = 12;
+pub const MAX_AUTOMATIC_MEMORIES_PER_SCOPE: usize = 128;
+pub const MAX_MEMORY_RECORDS_PER_SCOPE: usize = MAX_PREFERENCES_PER_SCOPE + MAX_AUTOMATIC_MEMORIES_PER_SCOPE;
 pub const MAX_PREFERENCE_BYTES: usize = 1024;
 pub const MAX_MEMORY_CONTEXT_BYTES: usize = 4096;
 
@@ -160,9 +162,9 @@ pub fn prepare_memory_context(
     mut messages: Vec<Message>,
     mut preferences: Vec<MemoryPreference>,
 ) -> Result<(Vec<Message>, Option<MemoryContext>), String> {
-    if preferences.len() > MAX_PREFERENCES_PER_SCOPE * 2
+    if preferences.len() > MAX_MEMORY_RECORDS_PER_SCOPE * 2
         || [MemoryScope::All, MemoryScope::Folder].iter().any(|scope| {
-            preferences.iter().filter(|p| p.scope == *scope).count() > MAX_PREFERENCES_PER_SCOPE
+            preferences.iter().filter(|p| p.scope == *scope).count() > MAX_MEMORY_RECORDS_PER_SCOPE
         })
     {
         return Err(

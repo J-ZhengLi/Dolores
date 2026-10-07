@@ -2941,3 +2941,8 @@ that launch. Only the recorded owned diagnostic processes were stopped.
 ## Milestone 21.0 — Memory audit and frozen corpus (2026-10-07)
 
 Isolated SQLite baseline test passes: completed project decision remains in history but is ineligible for narrow explicit-preference capture; disabled policy prevents claiming and malformed extraction is separately refused. Current trigger/publication/source/scope and master-switch gaps are traced in [memory qualification](qualification/automatic-memory.md). Frozen public corpus and exact-source/scope/Forget/Off targets are recorded before runtime changes. This does not diagnose the private user profile or qualify future automatic memory.
+
+
+## Milestone 21.1 — Memory switch and source index (2026-10-07)
+
+Schema 34 adds transactional source indexing; fresh Memory is Off, existing saved choices are retained. Off stops both capture and recall while keeping inspectable entries. Source-linked confidence labels and setup-free empty states are exposed. 128 automatic records per scope are separate from the existing 12 manual preference allowance; bounded payload costs are in [qualification](qualification/automatic-memory.md). Focused native memory tests and 11 compact light/dark Flutter memory tests pass, including stale policy recovery. Maintained normal Windows release build passes; packaging required stopping only the owned preview after its open DLL blocked replacement. Capture expansion and cue-led recall remain the next bricks.
