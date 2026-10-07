@@ -32,11 +32,17 @@ renders were inspected using `view_image`:
 callback interaction evidence, not physical mouse/keyboard or normal-profile UX.
 The final tracked-only stash filter is separately exercised by the focused test.
 
+Normal handoff: maintained build of runtime commit `abe1c31` completed and the
+normal `main` entry launched with a visible Windows window (PID 34896). All 42
+original profile table hashes remain identical, with no new tables: provider,
+selected model, configuration and saved history are preserved. Receipt:
+`output/source-control-refinement-normal-handoff.json`. This proves normal build,
+startup and profile preservation; diagnostic callbacks remain separate evidence.
+
 Remaining gaps: full branch graph, aligned side-by-side changed rows, physical
 input/accessibility, large expanded histories and sustained/other-platform
 resource coverage remain unqualified. No model calls or real remote publication
-were needed for this human Git UI refinement. Normal build/profile handoff is
-recorded separately after packaging; milestone 18 is not started.
+were needed for this human Git UI refinement. Milestone 18 is not started.
 
 ## Source Control 17.6 — batch qualification
 
