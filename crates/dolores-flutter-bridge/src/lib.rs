@@ -137,6 +137,9 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
     ScheduledTasks,
+    ScheduledTick,
+    ScheduledStart { occurrence:String,id:u64 },
+    ScheduledAbandon { occurrence:String,error:String },
     MemoryEvidence {session:Option<String>, id:String, revision:u32},
     LanguageEdits { session:String, request:editor::language_edits::Request },
     Language { request: language::Request },
@@ -797,6 +800,9 @@ impl Engine {
     }
     fn call(&self, command: Command) -> Result<Value, String> {
         if matches!(command,Command::ScheduledTasks){return self.scheduled_list();}
+        if matches!(command,Command::ScheduledTick){return self.scheduled_tick();}
+        if let Command::ScheduledStart {occurrence,id}=&command{return self.scheduled_start(occurrence,*id);}
+        if let Command::ScheduledAbandon {occurrence,error}=&command{return self.scheduled_abandon(occurrence,error);}
         // Reserve/prepare/cancel are synchronized. Persistence runs on Dart's worker
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;
@@ -1657,7 +1663,9 @@ impl Engine {
                         "Window sharing requires its saved task and selected capture.".into(),
                     );
                 }
-                let mut effective = if let Some(model) = &observation_model {
+                let scheduled=scheduling::for_run(self.store.as_ref(),session.as_deref(),id)?;
+                if let Some(o)=&scheduled {if o.state!="claimed"||o.snapshot.prompt!=input{return Err("Scheduled run snapshot changed. Refresh Scheduled.".into());}}
+                let mut effective = if let Some(o)=&scheduled {o.snapshot.effective.clone()} else if let Some(model) = &observation_model {
                     self.observation_settings(session.as_deref().unwrap(), model)?
                 } else {
                     self.effective_settings(session.as_deref())?
@@ -1725,11 +1733,11 @@ impl Engine {
                     effective.task.check_segment(source.segments)?;
                 }
                 let _entered = self.runtime.enter();
-                let mut provider = self
+                let mut provider = if let Some(o)=&scheduled {self.connection.lock().map_err(|_|"Connection unavailable.")?.scheduled_provider(&o.snapshot.preferences,effective.request)?}else{self
                     .connection
                     .lock()
                     .map_err(|_| "Connection unavailable.")?
-                    .pipe_provider(observation_model.as_deref(), effective.request)?;
+                    .pipe_provider(observation_model.as_deref(), effective.request)?};
                 if let Some((_, asset)) = &observation {
                     provider = provider.with_attachment_assets(vec![asset.clone()], true)?;
                     if let Some(control) = &control {
@@ -1825,7 +1833,7 @@ impl Engine {
                         tools.push(Arc::new(desktop_access::RequestAccess));
                     }
                 }
-                if desktop_capture.is_none() && dolores_core::scheduling::explicit_schedule_intent(&input) {
+                if scheduled.is_none() && desktop_capture.is_none() && dolores_core::scheduling::explicit_schedule_intent(&input) {
                     tools.push(Arc::new(scheduling::ScheduleTool::new(self.store.clone(),session.clone().unwrap(),input.clone(),effective.clone())?));
                 }
                 let compaction_provider = if desktop_capture.is_none()
@@ -1840,7 +1848,7 @@ impl Engine {
                 } else {
                     None
                 };
-                let model = observation_model.unwrap_or(self.store.preferences()?.model);
+                let model = scheduled.as_ref().map(|o|o.snapshot.preferences.model.clone()).unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
                 let settings = provider.request_settings();
                 let reflection_provider = if desktop_capture.is_none()
                     && session
@@ -2122,7 +2130,7 @@ async fn execute(
             let (history, count, session_summary) = reader.summary_context_history(&session)?;
             let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
             let memories = memory::recall_for_session(reader.as_ref(), Some(&session))?;
-            let skills = skills::for_session(reader.as_ref(), Some(&session))?;
+            let skills = if let Some(o)=scheduling::for_run(reader.as_ref(),Some(&session),id)?{o.snapshot.skill.into_iter().collect()}else{skills::for_session(reader.as_ref(), Some(&session))?};
             Ok((
                 session,
                 history,
@@ -2139,6 +2147,9 @@ async fn execute(
         .transpose()?;
     let mut context =
         dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
+    if scheduling::for_run(store.as_ref(),Some(&session),id)?.is_some(){
+        context[0].content.push_str("\nThis is an occurrence of the user's scheduled task, due now. Execute the underlying work now using the pinned skill. The user request describes its schedule for context only; do not create another schedule or merely confirm future work. Deliver the actual result here. Tool effects still need the supplied host authorization.");
+    }
     if let Some(source) = &resume_run {
         let handoff = store
             .run_events(&session, source)?

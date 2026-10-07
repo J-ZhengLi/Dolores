@@ -3035,3 +3035,7 @@ Source-bound typed schedule_task resolves named-zone rules and enabled saved ski
 ## Milestone 22.2 — Durable clock claims (2026-10-07)
 
 Seven focused native tests pass. Atomic occurrence claims advance next due and task revision together, refuse overlap/duplicate ticks and retain one missed skip after a long suspension. Restart interrupts unfinished claims without replay; backward clock changes cannot redispatch. Failed claim writes roll back next due. Named-zone DST gap/overlap and Friday-to-Monday boundaries pass. Actual app-open ticking/execution follows in 22.3.
+
+## Milestone 22.3 — App-open execution owners (2026-10-07)
+
+Scheduled occurrences use the existing host queue and chat execution, pinned endpoint/model/budgets/skill, reviewed tool effects, result conversations and Stop. App-open clock checks run only when schedules or active occurrences need them. Eight focused native scheduling tests and six targeted Flutter owner tests pass; analyzer is clean. Missing provider fails visibly and pauses recurrence with its result thread retained. Background execution preserves Home model/project/draft; owner-allocation failure is recorded once; paused tasks own no idle clock and failed refresh retains the list. Normal-packaged/live execution qualification remains for 22.6.

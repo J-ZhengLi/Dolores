@@ -23,6 +23,13 @@ pub struct ConnectionManager {
     active_base_url: Option<String>,
 }
 impl ConnectionManager {
+    pub(super) fn scheduled_provider(&self,preferences:&ConnectionPreferences,settings:RequestSettings)->Result<Arc<dyn ModelProvider>,String>{
+        if self.provider.is_none() || self.active_base_url.as_deref()!=Some(preferences.base_url.as_str()) || self.store.preferences()?.base_url!=preferences.base_url {
+            return Err("Reconnect this task's provider, then Resume. Its result remains.".into());
+        }
+        if !self.store.model_choices(&preferences.base_url)?.contains(&preferences.model){return Err("Enable this task's model, then Resume. No fallback was used.".into());}
+        Ok(Arc::new(OpenAiProvider::with_settings(preferences,self.active_key.clone().ok_or("Reconnect this task's model first.")?,settings)?.with_context_window(self.context_window(preferences)?)))
+    }
     pub(super) fn pipe_provider(
         &self,
         model: Option<&str>,

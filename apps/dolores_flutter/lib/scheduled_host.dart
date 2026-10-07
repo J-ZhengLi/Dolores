@@ -1,0 +1,66 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'bridge.dart';
+
+/// One app-open clock; the existing chat owners execute and poll each run.
+class ScheduledHost extends ChangeNotifier {
+  final ChatBridge bridge;
+  final Future<void> Function(Map occurrence) onClaim;
+  List<Map> items = [];
+  String? error;
+  bool pending = false, _closed = false, _suspended = false;
+  Timer? _timer;
+  ScheduledHost(this.bridge, {required this.onClaim});
+  Future<dynamic> call(String command, [Map<String, dynamic> fields = const {}]) =>
+      bridge.call({'command': command, ...fields});
+  bool get needsClock => items.any((item) {
+    final task = item['task'] as Map;
+    final active = (item['occurrences'] as List).any((o) =>
+        ['claimed', 'queued', 'running', 'waitingForApproval'].contains(o['state']));
+    return active || (task['paused'] != true && task['nextDue'] != null);
+  });
+  void suspend() { _suspended = true; _timer?.cancel(); }
+  Future<void> resume() async { _suspended = false; await refresh(); }
+  void _arm() {
+    _timer?.cancel();
+    if (!_closed && !_suspended && needsClock) {
+      _timer = Timer(const Duration(seconds: 15), tick);
+    }
+  }
+  void _accept(dynamic data) {
+    items = ((data as Map)['items'] as List).cast<Map>();
+  }
+  Future<void> refresh() async {
+    if (_closed || pending) return;
+    pending = true;
+    try {
+      _accept(await call('scheduledTasks'));
+      error = null;
+    } catch (e) { error = '$e'; }
+    finally {
+      pending = false;
+      if (!_closed) { notifyListeners(); _arm(); }
+    }
+  }
+  Future<void> tick() async {
+    if (_closed || _suspended || pending) return;
+    pending = true;
+    try {
+      final data = await call('scheduledTick') as Map;
+      _accept(data['tasks']);
+      for (final occurrence in (data['claimed'] as List).cast<Map>()) {
+        try { await onClaim(occurrence); }
+        catch (e) {
+          await call('scheduledAbandon', {'occurrence': occurrence['id'], 'error': '$e'});
+        }
+      }
+      _accept(await call('scheduledTasks'));
+      error = null;
+    } catch (e) { error = '$e'; }
+    finally {
+      pending = false;
+      if (!_closed) { notifyListeners(); _arm(); }
+    }
+  }
+  @override void dispose() { _closed = true; _timer?.cancel(); super.dispose(); }
+}

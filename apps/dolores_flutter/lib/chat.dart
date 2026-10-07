@@ -1084,6 +1084,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> send({
+    String? scheduledOccurrence,
     String? taskInput,
     bool desktopHandoff = false,
     int? continuation,
@@ -1100,12 +1101,12 @@ class ChatController extends ChangeNotifier {
         (taskInput == null && draft.trim().isEmpty && attachments.isEmpty)) {
       return;
     }
-    if (!configured) {
+    if (!configured && scheduledOccurrence == null) {
       error = 'Set up a model connection first.';
       _notify();
       return;
     }
-    if (session == null) {
+    if (session == null && scheduledOccurrence == null) {
       changing = true;
       _notify();
       try {
@@ -1160,7 +1161,7 @@ class ChatController extends ChangeNotifier {
     _record('Request submitted');
     _notify();
     try {
-      await bridge.call({
+      final started = await bridge.call({
         'command': 'start',
         'id': id,
         'session': session,
@@ -1172,7 +1173,15 @@ class ChatController extends ChangeNotifier {
         'desktopCapture': ?desktopCapture,
         'desktopGrant': ?desktopGrant,
         'observationModel': ?observationModel,
+        if (scheduledOccurrence != null) ...{
+          'command': 'scheduledStart',
+          'occurrence': scheduledOccurrence,
+        },
       });
+      if (scheduledOccurrence != null && started is Map) {
+        session = started['session'] as String;
+        _requestModel = started['model'] as String;
+      }
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});
       _schedule(id);

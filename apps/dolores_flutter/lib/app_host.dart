@@ -7,11 +7,20 @@ import 'file_host.dart';
 import 'git_host.dart';
 import 'terminal_host.dart';
 import 'language_host.dart';
+import 'scheduled_host.dart';
 
 import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
+  late final scheduled = ScheduledHost(initial.bridge, onClaim: (occurrence) async {
+    final owner = await _create();
+    await owner.send(
+      scheduledOccurrence: occurrence['id'] as String,
+      taskInput: (occurrence['snapshot'] as Map)['prompt'] as String,
+    );
+    if (!owner.busy && owner.error != null) throw StateError(owner.error!);
+  });
   late final languages = LanguageHost(initial.bridge);
   static String gitPath(String value) => value
       .replaceFirst(r'\\?\', '')
@@ -111,9 +120,11 @@ class AppHost extends ChangeNotifier {
       for (final c in tasks.toList()) {
         await c.stop();
       }
+      scheduled.suspend();
       await initial.bridge.close();
       return true;
     } catch (e) {
+      unawaited(scheduled.resume());
       error = '$e Keep Dolores open and retry.';
       notifyListeners();
       return false;
@@ -177,6 +188,7 @@ class AppHost extends ChangeNotifier {
     visible = initial;
     _appearance = initial.appearance;
     _add(initial);
+    unawaited(scheduled.refresh());
   }
   void _add(ChatController owner) {
     owner.onOpenSourceControl = (path) async {
@@ -214,6 +226,7 @@ class AppHost extends ChangeNotifier {
         if (files.selected == w) unawaited(files.load(w, '.', refresh: true));
       }
     }
+    if (ended.isNotEmpty) unawaited(scheduled.refresh());
     if (_appearance != visible.appearance) {
       _appearance = visible.appearance;
       appearanceChanges.value++;
@@ -344,6 +357,7 @@ class AppHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    scheduled.dispose();
     terminals.dispose();
     git.dispose();
     files.dispose();
