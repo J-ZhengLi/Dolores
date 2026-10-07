@@ -8,9 +8,9 @@ Dolores helps you understand code, make changes and work through everyday tasks 
 
 The name comes from Dolores in *Westworld*: continuity, curiosity and learning from experience are the inspiration.
 
-![Dolores Source Control showing file changes, commit history and a side-by-side diff](docs/images/source-control.png)
+![Dolores chat with project conversations, a code reply and the message composer](docs/images/chat.png)
 
-*Source Control with expandable commit history and side-by-side diffs. Screenshots use synthetic demonstration data.*
+*Project conversations and code replies in the Home view. All screenshots use synthetic demonstration data.*
 
 ## What you can do
 
@@ -21,6 +21,14 @@ The name comes from Dolores in *Westworld*: continuity, curiosity and learning f
 - **Remember useful details.** Enable automatic memory for preferences and project facts, then inspect, correct or forget what was saved.
 - **Schedule work in conversation.** Ask for a recurring task and manage its status, results and errors on the Scheduled page. Optional background mode keeps tasks running in the Windows tray while the main window is closed.
 - **Extend your assistant.** Use reusable skills, installed local MCP servers, web search, an optional browser and reviewed Windows computer interaction.
+
+![Dolores Files view with a project tree and two files open side by side](docs/images/files.png)
+
+*Browse your project and keep the implementation and tests open side by side.*
+
+![Dolores Source Control showing file changes, commit history and a side-by-side diff](docs/images/source-control.png)
+
+*Expandable commit history and side-by-side Git diffs.*
 
 ![Dolores Memory settings with a single switch and separate personal and project scopes](docs/images/memory.png)
 

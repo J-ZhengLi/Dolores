@@ -9,9 +9,11 @@ Optional live helpers require explicit model selection; existing named-model res
 remain historical evidence. Session handoffs are removed and ignored. Publication
 history cleanup works on a separate copy and retains author attribution and commits.
 
-The English and Chinese READMEs introduce the project and its main features. Two
-existing Flutter renders were inspected and copied into tracked documentation;
-both contain synthetic data, with no personal paths or private conversations.
+The English and Chinese READMEs introduce the project and its main features. Chat
+and split Files screenshots were rendered using the current widgets and synthetic
+data. Existing Source Control and Memory renders were inspected and included too.
+All four images have no personal paths or private conversations; widget-test
+fallback glyphs use Windows fonts. They illustrate UI, not real-model behavior.
 
 Local checks pass: Rust formatting, strict workspace Clippy, **436 Rust tests**
 (two intentionally ignored), clean Flutter analysis and **341 Flutter tests**.
