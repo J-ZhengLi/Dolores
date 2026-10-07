@@ -339,7 +339,11 @@ pub use harness_repair::{RepairFile, RepairWorkspace};
 mod repair_evaluation;
 pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 
+pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn scheduled_tasks(&self) -> Result<Vec<scheduling::ScheduledTask>, String> { Ok(vec![]) }
+    fn save_scheduled_task(&self, _: &scheduling::ScheduledTask, _: Option<u32>) -> Result<scheduling::ScheduledTask,String> { Err("Scheduled tasks are unavailable.".into()) }
+    fn scheduled_occurrences(&self, _: &str) -> Result<Vec<scheduling::ScheduledOccurrence>,String> { Ok(vec![]) }
     fn repair_evaluations(&self, _: &str, _: &str) -> Result<Vec<RepairEvaluation>, String> { Ok(vec![]) }
     fn save_repair_evaluation(&self, _: &RepairEvaluation) -> Result<(), String> {
         Err("Native evaluation storage unavailable; retained proposal remains.".into())

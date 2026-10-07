@@ -3027,3 +3027,7 @@ and whitespace checks PASS; no runtime change or desktop build was needed.
 ## Milestone 22.0 — Frozen scheduling contract (2026-10-07)
 
 The user authorized the next milestone batch. [Scheduling contract](design/chat-scheduling.md) freezes explicit intent, named-zone/DST/missed-run policy, bounded occurrence ownership, dedicated smaller budgets and the seven-case qualification corpus. This brick changes documentation only; scheduling is not yet available. Local links and whitespace were checked.
+
+## Milestone 22.1 — Chat creation and durable receipt (2026-10-07)
+
+Source-bound typed schedule_task resolves named-zone rules and enabled saved skills, pins model/project/budgets and returns a Scheduled receipt without a redundant approval. Schema 36 adds two scheduler tables. Five focused native tests pass: direct creation/duplicate calls, absent skill, quoted intent, cancellation/single-use plans, stale or failed writes/reopen, plus named-zone gap/overlap/weekdays and invented time refusal. Future tool effects remain reviewed. Clock dispatch/page/live-model acceptance follow in later bricks; normal build is reserved for the completed runtime batch.

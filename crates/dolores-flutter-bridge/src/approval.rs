@@ -48,7 +48,7 @@ impl ToolApproval for RunApproval {
         self.recheck(request, cancel.clone()).await?;
         // This host-owned request only saves a pause. Actual sharing/authority
         // is decided in the local chooser, never in a model tool invocation.
-        if request.name == "request_desktop_access" {
+        if matches!(request.name.as_str(), "request_desktop_access" | "schedule_task") {
             return Ok(true);
         }
         if let Some(policy) = &self.policy {

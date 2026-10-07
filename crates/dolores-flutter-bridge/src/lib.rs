@@ -47,6 +47,7 @@ mod native_update;
 mod permissions;
 mod recovery;
 mod registry;
+mod scheduling;
 mod repair_evaluation;
 mod run_journal;
 mod run_admission;
@@ -135,6 +136,7 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ScheduledTasks,
     MemoryEvidence {session:Option<String>, id:String, revision:u32},
     LanguageEdits { session:String, request:editor::language_edits::Request },
     Language { request: language::Request },
@@ -793,6 +795,7 @@ impl Engine {
         })
     }
     fn call(&self, command: Command) -> Result<Value, String> {
+        if matches!(command,Command::ScheduledTasks){return self.scheduled_list();}
         // Reserve/prepare/cancel are synchronized. Persistence runs on Dart's worker
         // isolate; network and generation run on the bounded Rust runtime.
         let mut active = self.active.lock().map_err(|_| "Chat state unavailable.")?;
@@ -1820,6 +1823,9 @@ impl Engine {
                     if desktop::helper().is_ok() {
                         tools.push(Arc::new(desktop_access::RequestAccess));
                     }
+                }
+                if desktop_capture.is_none() && dolores_core::scheduling::explicit_schedule_intent(&input) {
+                    tools.push(Arc::new(scheduling::ScheduleTool::new(self.store.clone(),session.clone().unwrap(),input.clone(),effective.clone())?));
                 }
                 let compaction_provider = if desktop_capture.is_none()
                     && self.store.auto_compact(session.as_deref().unwrap())?

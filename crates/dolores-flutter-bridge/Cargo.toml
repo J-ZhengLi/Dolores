@@ -8,6 +8,7 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+iana-time-zone = "0.1"
 async-trait.workspace = true
 tempfile = "3"
 dolores-core = { path = "../dolores-core" }

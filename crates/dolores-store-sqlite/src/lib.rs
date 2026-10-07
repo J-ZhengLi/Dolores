@@ -4,6 +4,7 @@ use dolores_core::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 mod automatic_memory;
+mod scheduling;
 mod experimental;
 #[cfg(test)]
 mod change_tests;
@@ -25,7 +26,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 35;
+pub const SCHEMA_VERSION: i64 = 36;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -220,6 +221,9 @@ impl SqliteStore {
                 CREATE TRIGGER IF NOT EXISTS memory_version_update AFTER UPDATE ON memory_preferences WHEN OLD.data!=NEW.data BEGIN INSERT OR REPLACE INTO memory_versions VALUES(OLD.id,json_extract(OLD.data,'$.revision'),OLD.data); DELETE FROM memory_versions WHERE id=OLD.id AND revision NOT IN (SELECT revision FROM memory_versions WHERE id=OLD.id ORDER BY revision DESC LIMIT 4); END;
                 PRAGMA user_version=35; COMMIT;").map_err(storage_error)?;
         }
+        if version < 36 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE scheduled_tasks(id TEXT PRIMARY KEY,source_key TEXT NOT NULL UNIQUE,data TEXT NOT NULL); CREATE TABLE scheduled_occurrences(id TEXT PRIMARY KEY,task TEXT NOT NULL,due INTEGER NOT NULL,data TEXT NOT NULL); CREATE INDEX scheduled_occurrence_task ON scheduled_occurrences(task,due DESC); PRAGMA user_version=36; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -230,6 +234,9 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn scheduled_tasks(&self)->Result<Vec<dolores_core::scheduling::ScheduledTask>,String>{scheduling::list(&*self.lock()?)}
+    fn save_scheduled_task(&self,t:&dolores_core::scheduling::ScheduledTask,expected:Option<u32>)->Result<dolores_core::scheduling::ScheduledTask,String>{scheduling::save(&mut *self.lock()?,t,expected)}
+    fn scheduled_occurrences(&self,id:&str)->Result<Vec<dolores_core::scheduling::ScheduledOccurrence>,String>{scheduling::history(&*self.lock()?,id)}
     fn repair_evaluations(&self, session:&str, repair:&str)->Result<Vec<dolores_core::RepairEvaluation>,String> {self.evaluation_list(session,repair)}
     fn save_repair_evaluation(&self, value:&dolores_core::RepairEvaluation)->Result<(),String>{self.evaluation_save(value)}
     fn repair_ids(&self, session: &str) -> Result<Vec<String>, String> { self.repair_list(session) }
