@@ -126,6 +126,8 @@ impl Engine {
             } else {
                 "Added or corrected by you"
             });
+            if preference.source=="automatic" && !preference.auto_update { item["confidence"]=json!("Corrected by you; earlier source is historical"); }
+            item["previous"] = json!(self.store.memory_versions(&preference.id)?);
             if let Some(origin) = &preference.origin {
                 item["originAvailable"] = json!(self
                     .store
@@ -176,6 +178,7 @@ impl Engine {
         id: &str,
         revision: u32,
     ) -> Result<Value, String> {
+        self.memory_maintenance.stop(false);
         let root = self.memory_root(session, scope)?;
         self.store
             .delete_memory_preference(root.as_deref(), id, revision)?;

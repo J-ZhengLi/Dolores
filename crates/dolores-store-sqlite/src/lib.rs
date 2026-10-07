@@ -25,7 +25,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 34;
+pub const SCHEMA_VERSION: i64 = 35;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -212,6 +212,13 @@ impl SqliteStore {
                 CREATE TRIGGER IF NOT EXISTS memory_source_insert AFTER INSERT ON memory_preferences WHEN json_type(NEW.data,'$.origin')='object' BEGIN INSERT OR REPLACE INTO memory_source_index VALUES(NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote')); END;
                 CREATE TRIGGER IF NOT EXISTS memory_source_update AFTER UPDATE ON memory_preferences BEGIN DELETE FROM memory_source_index WHERE id=NEW.id; INSERT INTO memory_source_index SELECT NEW.id,json_extract(NEW.data,'$.origin.session'),json_extract(NEW.data,'$.origin.messageId'),json_extract(NEW.data,'$.origin.quote') WHERE json_type(NEW.data,'$.origin')='object'; END;
                 PRAGMA user_version=34; COMMIT;").map_err(storage_error)?;
+        }
+        if version < 35 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS memory_versions(id TEXT NOT NULL REFERENCES memory_preferences(id) ON DELETE CASCADE, revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(id,revision));
+                CREATE TABLE IF NOT EXISTS memory_forget_watermarks(root TEXT NOT NULL, session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, message_id INTEGER NOT NULL, PRIMARY KEY(root,session));
+                CREATE TRIGGER IF NOT EXISTS memory_version_update AFTER UPDATE ON memory_preferences WHEN OLD.data!=NEW.data BEGIN INSERT OR REPLACE INTO memory_versions VALUES(OLD.id,json_extract(OLD.data,'$.revision'),OLD.data); DELETE FROM memory_versions WHERE id=OLD.id AND revision NOT IN (SELECT revision FROM memory_versions WHERE id=OLD.id ORDER BY revision DESC LIMIT 4); END;
+                PRAGMA user_version=35; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -568,6 +575,12 @@ impl SessionStore for SqliteStore {
     fn recover_automatic_memory(&self) -> Result<(), String> {
         self.lock()?.execute("UPDATE automatic_memory_attempts SET data=json_set(data,'$.status','interrupted','$.note','Memory was interrupted by restart. Reply and earlier memories remain; finish a new interaction to continue. No request is replayed.') WHERE json_extract(data,'$.status')='updating'", []).map_err(storage_error)?;
         Ok(())
+    }
+    fn memory_versions(&self, id: &str) -> Result<Vec<dolores_core::MemoryPreference>, String> {
+        let conn=self.lock()?;
+        let mut query=conn.prepare("SELECT data FROM memory_versions WHERE id=?1 ORDER BY revision DESC LIMIT 4").map_err(storage_error)?;
+        let rows=query.query_map([id],|r|r.get::<_,String>(0)).map_err(storage_error)?;
+        rows.map(|r|memory::decode(r.map_err(storage_error)?)).collect()
     }
     fn set_automatic_memory_policy(
         &self,

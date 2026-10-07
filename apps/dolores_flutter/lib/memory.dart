@@ -429,8 +429,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
     });
     if (mounted) {
       setState(
-        () => notice =
-            'Preference deleted. Past replies remain in your saved chats.',
+        () => notice = 'Memory forgotten. Derived records and source history were removed; original conversations remain in your saved chats.',
       );
     }
     await _load();
@@ -760,6 +759,26 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                 item['text'] as String,
                                 key: ValueKey('memory-body-${item['id']}'),
                               ),
+                              if ((item['previous'] as List? ?? []).isNotEmpty)
+                                ExpansionTile(
+                                  key: ValueKey('memory-history-${item['id']}'),
+                                  tilePadding: EdgeInsets.zero,
+                                  title: const Text('Previous versions'),
+                                  subtitle: const Text(
+                                    'Historical; excluded from recall',
+                                  ),
+                                  children: [
+                                    for (final old in item['previous'] as List)
+                                      ListTile(
+                                        title: Text(
+                                          'Revision ${old['revision']} · ${old['title']}',
+                                        ),
+                                        subtitle: SelectableText(
+                                          old['text'] as String,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               const SizedBox(height: 8),
                               if (sourceMemoryId == item['id'] &&
                                   sourceEvidence != null) ...[
@@ -816,7 +835,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                                     onPressed: busy
                                         ? null
                                         : () => _delete(item),
-                                    child: const Text('Delete'),
+                                    child: const Text('Forget'),
                                   ),
                                 ],
                               ),

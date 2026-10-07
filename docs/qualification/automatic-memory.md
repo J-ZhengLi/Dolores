@@ -72,3 +72,10 @@ Scoped lexical ranking uses English word cues and Chinese bigrams, with stable s
 Source availability is rechecked from retained conversation bytes before recall. Deleted/changed evidence is excluded while its historical record remains inspectable. View source performs a local scoped/revisioned read of the exact excerpt, not a model request or an unbounded conversation fetch. Its unavailable/stale error offers inspect/forget/refresh without losing the card.
 
 All six frozen English/Chinese cues rank their matching record first; four-token memory allowance leaves the question unchanged. A new chat in project A recalls Cedar, B recalls Maple without cross-scope leakage; local source opening succeeds, cross-project opening is refused, and deleting the source excludes Cedar with an honest unavailable state. Twelve compact memory UI tests pass, including local source opening and missing-evidence recovery.
+
+
+## 21.4 Correction and Forget
+
+Schema 35 retains at most four previous versions per record, excluded from recall. Explicit corrections replace an automatic fact with the same subject; reported completion resolves matching open work. Manual corrections disable automatic replacement. Forget cancels active/waiting maintenance, deletes the record, source index and revision history, and clears displayed excerpts. Retained source-chat watermarks prevent older evidence from returning even through a future explicit catch-up; later statements remain eligible. Original conversations are retained separately. Watermarks contain IDs only and cascade on source-chat deletion; four maximum-field historical records add at most 9628 payload bytes per current record, plus SQLite overhead.
+
+Five store audit tests cover correction provenance, pending publication after Forget, restart replay refusal, later fresh capture, open-work resolution and manual priority. All 281 core/store/bridge tests and 12 Flutter memory tests pass.

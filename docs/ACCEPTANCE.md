@@ -2960,3 +2960,10 @@ Facts, decisions, reported outcomes and open work accept exact standalone user e
 Six frozen English/Chinese cues rank the expected fact/decision/outcome/open work/preference first. Recall inserts at most eight compact entries and three exact source excerpts within the remaining provider context allowance; very small memory allowance preserves the question unchanged. Cross-chat same-project recall, equal entities in separate projects, local scoped source opening and deleted-source exclusion pass native fixtures. Twelve compact Flutter memory/source/recovery tests pass. [Qualification](qualification/automatic-memory.md) separates this fixture coverage from upcoming live model checks.
 
 21.3 packaged qualification passes: 21 local fixture requests, six automatic captures and six correct first-ranked cue matches, zero negative captures or scope leaks, and all six deleted sources excluded. The maintained normal Windows build passes. This remains synthetic evidence; live checks follow in 21.6.
+
+
+## Milestone 21.4 — Correction and Forget (2026-10-07)
+
+Current facts supersede bounded historical versions; reported completion resolves open work and manual corrections take priority. Forget removes derived records/index/history, stops pending maintenance and prevents replay from older retained source messages, while original conversations remain separately controlled. Five store audit cases, all 281 native tests and 12 Flutter memory tests pass. See [qualification](qualification/automatic-memory.md) for retention bounds and replay semantics.
+
+21.4 maintained normal Windows release build PASS.

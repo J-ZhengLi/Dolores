@@ -54,6 +54,9 @@ fn source_matches(
     let text:Option<String>=conn.query_row("SELECT m.content FROM messages m WHERE m.session_id=?1 AND m.id=?2 AND m.role='user' AND EXISTS(SELECT 1 FROM messages a WHERE a.session_id=m.session_id AND a.id=m.id+1 AND a.role='assistant')",params![session,source.message_id],|r|r.get(0)).optional().map_err(storage_error)?;
     Ok(text.as_deref() == Some(&source.text))
 }
+fn forgotten(conn:&rusqlite::Connection,root:&str,session:&str,message_id:i64)->Result<bool,String> {
+    conn.query_row("SELECT EXISTS(SELECT 1 FROM memory_forget_watermarks WHERE root=?1 AND session=?2 AND message_id>=?3)",params![root,session,message_id],|r|r.get(0)).map_err(storage_error)
+}
 fn preferences(conn: &rusqlite::Connection, root: &str) -> Result<Vec<MemoryPreference>, String> {
     let mut stmt = conn
         .prepare(
@@ -122,9 +125,9 @@ impl SqliteStore {
     ) -> Result<bool, String> {
         let mut conn = self.lock()?;
         let tx = conn.transaction().map_err(storage_error)?;
-        scope(&tx, session)?;
+        let root=scope(&tx, session)?;
         let p = policy(&tx)?;
-        if !p.enabled || p.revision != revision || !source_matches(&tx, session, source)? {
+        if !p.enabled || p.revision != revision || !source_matches(&tx, session, source)? || forgotten(&tx,&root,session,source.message_id)? {
             return Ok(false);
         }
         let last: i64 = tx
@@ -192,6 +195,7 @@ impl SqliteStore {
         let fresh = p.enabled
             && p.revision == update.policy_revision
             && source_matches(&tx, &update.session, &update.source)?
+            && !forgotten(&tx,&root,&update.session,update.source.message_id)?
             && current == expected;
         let mut report = AutomaticMemoryAttempt {
             message_id: update.source.message_id,
@@ -224,8 +228,9 @@ impl SqliteStore {
                         .join(" ")
                         .to_lowercase()
                 };
+                let subject=|title:&str| normalized(title.split_once(':').map_or(title,|(_,subject)|subject));
                 let same = current.iter().find(|m| {
-                    m.scope == desired_scope && normalized(&m.title) == normalized(&c.title)
+                    m.scope == desired_scope && subject(&m.title) == subject(&c.title)
                 });
                 if current
                     .iter()
@@ -239,7 +244,7 @@ impl SqliteStore {
                         if m.source == "automatic"
                             && m.auto_update
                             && m.enabled
-                            && explicit_correction(&c.quote) =>
+                            && (explicit_correction(&c.quote) || (m.title.starts_with("Open work:") && c.title.starts_with("Outcome:"))) =>
                     {
                         Some(m.clone())
                     }
@@ -266,6 +271,7 @@ impl SqliteStore {
                     }
                 }
                 let timestamp = now();
+                if let Some(origin)=previous.as_ref().and_then(|m|m.origin.as_ref()) { super::memory::mark_source(&tx,&root,origin,false)?; }
                 let value = MemoryPreference {
                     id: previous.as_ref().map(|p| p.id.clone()).unwrap_or_else(|| {
                         format!("auto-{}", uuid::Uuid::new_v4().simple())
