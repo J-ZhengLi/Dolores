@@ -111,17 +111,14 @@ void main() {
       expect(tile('experimental-keep-awake').value, false);
       expect(
         find.textContaining('performance checks did not pass'),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.textContaining('Your preference is saved'), findsOneWidget);
+      expect(find.text('Not available yet'), findsOneWidget);
       bridge.fail = true;
       await t.tap(find.byKey(const Key('experimental-multiple-window')));
       await t.pumpAndSettle();
       expect(tile('experimental-multiple-window').value, true);
-      expect(
-        find.textContaining('previous preference is retained'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Your setting is unchanged'), findsOneWidget);
       bridge.fail = false;
       await t.tap(find.byKey(const Key('experimental-multiple-window')));
       await t.pumpAndSettle();
@@ -129,7 +126,7 @@ void main() {
       expect(bridge.preferences['revision'], 1);
       expect(
         find.textContaining('performance checks did not pass'),
-        findsOneWidget,
+        findsNothing,
       );
       await t.pumpWidget(const SizedBox());
       chat.dispose();
@@ -159,7 +156,7 @@ void main() {
               .value,
           false,
         );
-        expect(find.textContaining('split views'), findsOneWidget);
+        expect(find.text('Not available yet'), findsOneWidget);
         expect(t.takeException(), isNull);
         await t.pumpWidget(const SizedBox());
         await t.pumpAndSettle();

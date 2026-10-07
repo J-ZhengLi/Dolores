@@ -141,7 +141,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(bridge.items, isEmpty);
           expect(
-            find.textContaining('original conversations remain'),
+            find.textContaining('your conversations are unchanged'),
             findsOneWidget,
           );
           expect(tester.takeException(), isNull);

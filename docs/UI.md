@@ -1,5 +1,26 @@
 # Universal UI style
 
+## Simplicity and settings copy
+
+Dolores targets general users and a clear, simple interface. These rules override
+older requirements to put lengthy explanations in settings bodies.
+
+- Lead with a short, familiar setting name and its control. Use at most one brief
+  supporting sentence when it helps a user choose; omit redundant introductions.
+- Do not put paragraphs, On/Off instruction manuals or development messages in
+  the default settings view. Internal qualification, performance gates, backend
+  details, implementation status and test results belong in project documentation.
+- When an explanation needs more space, place a circled question-mark icon
+  (`Icons.help_outline`) immediately beside the setting name. Show its wrapped,
+  bounded hint only on mouse hover; never expand the form or open it on tap/hold.
+  Keep the explanation available to assistive technology. Clicking help must not
+  change the setting.
+- Keep real availability and actionable failures visible, in plain words such as
+  “Not available yet” or “Couldn't save. Try again.” Explain the user-facing effect
+  and next action without exposing internal diagnostic prose.
+- Empty states and successful notices should be one short sentence. Check compact
+  light/dark layouts and ensure hover hints do not move surrounding controls.
+
 **Target page contract — 2026-10-07:** retain the existing agent/session/message/
 composer design on Home. Following the user's ChatGPT desktop screenshot, use a
 compact 64-pixel icon rail for Home, Scheduled, Folders, Source Control and Terminal,
@@ -44,7 +65,8 @@ milestone 16. Milestone 17 adds Source Control status, saved diff tabs/history a
 reviewed Git actions. Milestone 18 adds real local terminal tabs/splits, retained
 stopped output and lazy first-language actions. Milestone 19's bounded backend
 trial failed its idle-cost gate; detached views remain unavailable. Experimental
-shows that availability reason separately from the retained default-On preference.
+shows “Not available yet” separately from the retained default-On preference;
+hover help explains the split-view alternative without internal trial details.
 Terminal headers show short shell names and state before CWD. Language diagnostics
 disclose unversioned server results; formatting/rename uses Before/After with Apply
 and separate Save. Keep lazy setup, explicit selected-output sharing and recovery

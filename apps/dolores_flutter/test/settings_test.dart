@@ -172,10 +172,7 @@ void main() {
         'https://search.example/search',
       );
       await category(tester, 'memory', 'Memory');
-      expect(
-        find.text('Memory details'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('memory-help')), findsOneWidget);
       expect(find.byType(Dialog), findsOneWidget);
       await tester.tap(find.byKey(const Key('close-settings')));
       await tester.pumpAndSettle();

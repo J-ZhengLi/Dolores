@@ -2996,3 +2996,23 @@ ceilings and remaining limits. Original main-entry launch at schema 35
 preserves all 42 original table hashes and adds three memory
 tables only. Provider configuration/history/policy are preserved. Scheduling,
 companionship and optional older-history Catch up are not delivered.
+
+## Settings simplicity refinement (2026-10-07)
+
+Memory and Experimental now show short names and brief supporting text. Circled
+question-mark icons beside setting names expose longer explanations on hover only,
+without moving controls or changing settings on click/hold. Memory's empty state,
+Forget notice and recent activity are concise. Experimental shows plain availability
+and actionable errors; internal performance and qualification messages stay in docs.
+The explicit simplicity and settings-copy rules are recorded in [UI.md](UI.md).
+
+All 318 Flutter tests and analyzer PASS, including eight compact/wide light/dark
+hover cases. Existing recovery tests preserve failed-save choices, Off after reopen,
+memory correction and Forget behavior. Saved diagnostic renders were inspected for
+readable text, compact layout and wrapped hints; they do not establish physical
+native hover or screen-reader behavior. Those interaction/accessibility checks
+remain open. No provider requests or memory/runtime-policy changes were made.
+
+Normal Windows main-entry release build and visible-window launch PASS. The original
+profile retains all 45 table hashes, including provider settings, history and memory.
+Private hash receipt: `output/settings-simplicity-normal-handoff.json`.

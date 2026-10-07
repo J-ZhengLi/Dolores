@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'settings_frame.dart';
+import 'settings_help.dart';
 
 class ExperimentalSettings extends StatefulWidget {
   final ChatController chat;
@@ -32,8 +33,10 @@ class _ExperimentalSettingsState extends State<ExperimentalSettings> {
           error = null;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = "Couldn't load settings. Refresh to retry.");
+      }
     } finally {
       if (mounted) setState(() => pending = false);
     }
@@ -55,9 +58,11 @@ class _ExperimentalSettingsState extends State<ExperimentalSettings> {
           error = null;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        setState(() => error = '$e Your previous preference is retained.');
+        setState(
+          () => error = "Couldn't save. Your setting is unchanged. Try again.",
+        );
       }
     } finally {
       if (mounted) setState(() => pending = false);
@@ -67,7 +72,7 @@ class _ExperimentalSettingsState extends State<ExperimentalSettings> {
   @override
   Widget build(BuildContext context) => EmbeddedSettingsFrame(
     title: 'Experimental',
-    subtitle: 'Optional features that are still being qualified',
+    subtitle: 'Optional features',
     pending: SettingsEmbedding.of(context)!.pending,
     canClose: !pending,
     child: ListView(
@@ -78,34 +83,41 @@ class _ExperimentalSettingsState extends State<ExperimentalSettings> {
         if (state != null) ...[
           SwitchListTile(
             key: const Key('experimental-multiple-window'),
-            title: const Text('Multiple Window'),
+            title: SettingsHelpLabel(
+              label: 'Multiple windows',
+              helpKey: const Key('multiple-window-help'),
+              help: state!['multipleWindowCapability']?['available'] == true
+                  ? 'Open workspace views in separate windows.'
+                  : 'Use split views for now. Your choice is saved for when multiple windows become available.',
+            ),
             subtitle: Text(
               state!['multipleWindowCapability']?['available'] == true
-                  ? 'Allow developer views to open in additional windows.'
-                  : '${state!['multipleWindowCapability']?['reason'] ?? 'Additional windows are unavailable in this build. Use split views instead.'} Your preference is saved for when this becomes available.',
+                  ? 'Open views in separate windows'
+                  : 'Not available yet',
             ),
             value: state!['preferences']['multipleWindow'] as bool,
             onChanged: pending ? null : (v) => save('multipleWindow', v),
           ),
           SwitchListTile(
             key: const Key('experimental-keep-awake'),
-            title: const Text('Prevent Windows From Locked'),
+            title: const SettingsHelpLabel(
+              label: 'Keep Windows awake',
+              helpKey: Key('keep-awake-help'),
+              help: 'Keeps the display and computer awake while Dolores is open. You can still lock Windows manually; device security settings may still lock it.',
+            ),
             subtitle: Text(
               state!['windows'] == true
-                  ? 'Keep the display and system awake while Dolores is open. Manual locks, security policy and Modern Standby limits still apply.'
-                  : 'Available on Windows only.',
+                  ? 'While Dolores is open'
+                  : 'Windows only',
             ),
             value: state!['preferences']['preventWindowsFromLocked'] as bool,
             onChanged: pending || state!['windows'] != true
                 ? null
                 : (v) => save('preventWindowsFromLocked', v),
           ),
-          if (state!['preferences']['preventWindowsFromLocked'] == true)
-            Text(
-              state!['keepAwakeActive'] == true
-                  ? 'Windows keep-awake request is active.'
-                  : 'The saved preference could not be activated. Turn it off and on to retry.',
-            ),
+          if (state!['preferences']['preventWindowsFromLocked'] == true &&
+              state!['keepAwakeActive'] != true)
+            Text("Couldn't keep Windows awake. Turn this off and on to retry."),
         ],
         TextButton(
           onPressed: pending ? null : load,

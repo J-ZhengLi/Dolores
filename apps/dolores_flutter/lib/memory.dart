@@ -9,6 +9,13 @@ import 'bridge.dart';
 import 'chat.dart';
 import 'inspector.dart';
 import 'theme.dart';
+import 'settings_help.dart';
+
+const memoryHelp =
+    'Saves useful facts, decisions and preferences locally after conversations. '
+    'Relevant excerpts and shared images may be sent to your selected model. '
+    'Off stops learning and recall, but keeps saved memories. '
+    'You can edit or forget them; your conversations and past replies stay unchanged.';
 
 Future<void> showMemory(BuildContext context, ChatController chat) =>
     chat.inspectLocalSettings(() async {
@@ -430,7 +437,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
     });
     if (mounted) {
       setState(
-        () => notice = 'Memory forgotten. Derived records and source history were removed; original conversations remain in your saved chats.',
+        () => notice = 'Memory forgotten; your conversations are unchanged.',
       );
     }
     await _load();
@@ -453,7 +460,7 @@ class _MemoryInspectorState extends State<MemoryInspector> {
       },
       child: InspectorFrame(
         title: 'Memory',
-        subtitle: 'Useful memories, with their sources',
+        subtitle: 'Saved memories',
         canClose: !busy,
         onClose: _close,
         child: Column(
@@ -463,50 +470,46 @@ class _MemoryInspectorState extends State<MemoryInspector> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  const Text(
-                    'Memory remembers useful facts, decisions and preferences from completed conversations. Stored locally; eligible excerpts may be sent to your configured model. You can inspect, correct or forget them.',
-                  ),
-                  const SizedBox(height: 8),
-                  ExpansionTile(
-                    title: const Text('Memory details'),
-                    children: [
-                      Text(
-                        'Forget removes derived records and their revision history, stops pending learning and prevents old source messages from being indexed again. Original conversations remain separate. Editing or disabling a learned memory protects it from automatic replacement; past replies keep their original context.',
-                        style: TextStyle(color: p.muted, fontSize: 12),
-                      ),
-                    ],
-                  ),
+                  if (automaticPolicy == null || form || sourceMode)
+                    const SettingsHelpLabel(
+                      label: 'Saved memories',
+                      help: memoryHelp,
+                      helpKey: Key('memory-help'),
+                    ),
                   if (automaticPolicy != null && !form && !sourceMode) ...[
                     SwitchListTile(
                       key: const Key('automatic-memory'),
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Memory'),
+                      title: const SettingsHelpLabel(
+                        label: 'Memory',
+                        help: memoryHelp,
+                        helpKey: Key('memory-help'),
+                      ),
                       value: automaticPolicy!['enabled'] == true,
                       onChanged: busy ? null : _setAutomatic,
                       subtitle: const Text(
-                        'On: automatically remember and recall. Off: stop capture and recall; keep stored memories for inspection or forgetting.',
+                        'Remember useful details across chats',
                       ),
-                    ),
-                    ExpansionTile(
-                      title: const Text('Learning details'),
-                      children: [
-                        Text(
-                          'Useful text may use one background model request. An explicitly shared image can use one additional request with the selected image-capable model. Each is limited to 10 seconds and 512 output tokens, or lower configured limits. No tools, ambient capture or assistant claims are used. Common sensitive patterns are skipped; this is a conservative filter, not a complete classifier.',
-                          style: TextStyle(color: p.muted, fontSize: 12),
-                        ),
-                      ],
                     ),
                     if (automaticAttempt != null)
                       ExpansionTile(
                         key: const Key('automatic-memory-attempt'),
                         tilePadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Latest learning activity in this chat',
-                        ),
-                        subtitle: Text(
-                          '${automaticAttempt!['status']} · ${automaticAttempt!['note']}',
-                        ),
+                        title: const Text('Recent activity'),
+                        subtitle: Text(switch (automaticAttempt!['status']) {
+                          'completed' =>
+                            '${automaticAttempt!['saved'] ?? 0} saved',
+                          'updating' => 'Updating…',
+                          'failed' => "Couldn't save memories",
+                          'stopped' || 'interrupted' => 'Stopped',
+                          _ => 'No changes',
+                        }),
                         children: [
+                          SettingsHelpLabel(
+                            label: 'Details',
+                            help: automaticAttempt!['note'] as String,
+                            helpKey: const Key('memory-activity-help'),
+                          ),
                           Text(
                             'Your message ${automaticAttempt!['messageId']} · ${DateTime.fromMillisecondsSinceEpoch(automaticAttempt!['updatedAt'] as int).toLocal()}',
                           ),
@@ -710,8 +713,8 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                     if (loaded && items.isEmpty)
                       Text(
                         automaticPolicy?['enabled'] == true
-                            ? 'No saved memories yet. Finish a useful conversation; activity below the Memory switch explains saved, skipped or failed attempts.'
-                            : 'Memory is Off. Turn it on to remember useful conversations automatically. No manual setup is needed.',
+                            ? 'No memories yet—start a conversation.'
+                            : 'Memory is off; saved memories stay here.',
                       ),
                     for (final item in items)
                       Card(

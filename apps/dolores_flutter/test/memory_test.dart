@@ -206,11 +206,9 @@ void main() {
           100,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.ensureVisible(
-          find.text('Latest learning activity in this chat'),
-        );
+        await tester.ensureVisible(find.text('Recent activity'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Latest learning activity in this chat'));
+        await tester.tap(find.text('Recent activity'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Learning tokens: 100 in'), findsOneWidget);
         bridge.fail = true;
@@ -313,10 +311,11 @@ void main() {
       await tester.tap(find.byKey(const Key('delete-memory-manual')));
       await tester.pumpAndSettle();
       expect(bridge.items, isEmpty);
-      await tester.ensureVisible(find.text('Memory details'));
-      await tester.tap(find.text('Memory details'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('past replies'), findsWidgets);
+      expect(
+        find.textContaining('your conversations are unchanged'),
+        findsOneWidget,
+      );
+      expect(find.text('Memory details'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
