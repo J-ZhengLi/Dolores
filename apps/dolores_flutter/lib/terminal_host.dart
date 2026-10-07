@@ -22,12 +22,26 @@ class TerminalSession {
       cwd = value['cwd'],
       shell = value['shell'],
       state = value['state'],
-      title = value['shell'].toString().split(RegExp(r'[/\\]')).last {
+      title = displayTitle(value['shell'].toString()) {
     decoder = const Utf8Decoder(allowMalformed: true).startChunkedConversion(
       StringConversionSink.fromStringSink(_TerminalSink(terminal)),
     );
   }
   bool get live => state == 'running' || state == 'unknown';
+  String get displayCwd => cwd.replaceFirst(RegExp(r'^\\\\\?\\'), '');
+  static String displayTitle(String value) {
+    final name = value
+        .split(RegExp(r'[/\\]'))
+        .last
+        .replaceAll(RegExp(r'[\x00-\x1f\x7f]'), '');
+    if (name.toLowerCase() == 'pwsh.exe' ||
+        name.toLowerCase() == 'powershell.exe') {
+      return 'PowerShell';
+    }
+    if (name.toLowerCase() == 'cmd.exe') return 'Command Prompt';
+    return name.length > 120 ? name.substring(0, 120) : name;
+  }
+
   String selectedText() => controller.selection == null
       ? ''
       : terminal.buffer.getText(controller.selection);
@@ -275,7 +289,7 @@ class TerminalHost extends ChangeNotifier {
       s.terminal.onResize = (width, height, _, _) =>
           unawaited(resize(s, height, width));
       s.terminal.onTitleChange = (title) {
-        s.title = title.length > 120 ? title.substring(0, 120) : title;
+        s.title = TerminalSession.displayTitle(title);
         if (!disposed) notifyListeners();
       };
       _schedule();

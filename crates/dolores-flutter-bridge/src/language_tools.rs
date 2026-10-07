@@ -133,11 +133,23 @@ fn unpack_tar(bytes: &[u8], dest: &Path, cancel: &CancellationToken) -> Result<(
 fn unpack_rust(bytes: &[u8], dest: &Path, cancel: &CancellationToken) -> Result<(), String> {
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|_| "Rust language archive is invalid.")?;
-    if archive.len() != 1 {
+    if !(1..=2).contains(&archive.len()) {
         return Err("Rust language archive has unexpected entries.".into());
     }
+    for index in 0..archive.len() {
+        let member = archive
+            .by_index(index)
+            .map_err(|_| "Rust archive entry unavailable.")?;
+        match member.name() {
+            "rust-analyzer.exe" if member.size() <= 128 * 1024 * 1024 => {}
+            // The pinned upstream Windows archive also ships optional debug
+            // symbols. Validate their name/bound but do not install them.
+            "rust_analyzer.pdb" if member.size() <= 32 * 1024 * 1024 => {}
+            _ => return Err("Rust archive has an unexpected member.".into()),
+        }
+    }
     let mut entry = archive
-        .by_index(0)
+        .by_name("rust-analyzer.exe")
         .map_err(|_| "Rust archive entry unavailable.")?;
     if entry.name() != "rust-analyzer.exe" || entry.size() > 128 * 1024 * 1024 {
         return Err("Rust archive has an unexpected executable.".into());
@@ -269,6 +281,39 @@ pub(super) async fn install(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rust_archive_accepts_optional_symbols_and_refuses_other_members() {
+        fn archive(extra: &str) -> Vec<u8> {
+            use std::io::Write;
+            let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+            zip.start_file(
+                "rust-analyzer.exe",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+            zip.write_all(b"fixture executable").unwrap();
+            zip.start_file(extra, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(b"fixture symbols").unwrap();
+            zip.finish().unwrap().into_inner()
+        }
+        let good = tempfile::tempdir().unwrap();
+        unpack_rust(
+            &archive("rust_analyzer.pdb"),
+            good.path(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert_eq!(std::fs::read_dir(good.path()).unwrap().count(), 1);
+        let bad = tempfile::tempdir().unwrap();
+        assert!(unpack_rust(
+            &archive("../outside.exe"),
+            bad.path(),
+            &CancellationToken::new()
+        )
+        .is_err());
+        assert_eq!(std::fs::read_dir(bad.path()).unwrap().count(), 0);
+    }
     #[tokio::test]
     async fn canceled_install_and_offline_download_never_replace_prior_setup() {
         let dir = tempfile::tempdir().unwrap();

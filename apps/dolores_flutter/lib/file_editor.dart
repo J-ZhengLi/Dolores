@@ -395,20 +395,33 @@ class _FileEditorState extends State<FileEditor> {
             content: SizedBox(
               width: 600,
               height: 350,
-              child: items.isEmpty
-                  ? const Center(child: Text('No current diagnostics.'))
-                  : ListView(
-                      children: [
-                        for (final item in items)
-                          ListTile(
-                            title: Text(item['message']?.toString() ?? ''),
-                            subtitle: Text(
-                              'Line ${(item['range']['start']['line'] as int) + 1}',
-                            ),
-                            onTap: () => Navigator.pop(context, item),
-                          ),
-                      ],
+              child: Column(
+                children: [
+                  if (result is Map && result['notice'] is String)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(result['notice']),
                     ),
+                  Expanded(
+                    child: items.isEmpty
+                        ? const Center(child: Text('No diagnostics returned.'))
+                        : ListView(
+                            children: [
+                              for (final item in items)
+                                ListTile(
+                                  title: Text(
+                                    item['message']?.toString() ?? '',
+                                  ),
+                                  subtitle: Text(
+                                    'Line ${(item['range']['start']['line'] as int) + 1}',
+                                  ),
+                                  onTap: () => Navigator.pop(context, item),
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(

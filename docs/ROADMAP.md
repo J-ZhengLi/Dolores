@@ -872,6 +872,11 @@ useful Git UI with exact fixture/live limits; no hosted review/full graph claims
 
 ## Milestone 18 — Terminal tabs/splits and language support
 
+**Status: 18.1–18.6 implemented and bounded Windows qualification delivered.**
+See [qualification](qualification/terminal-language.md) for real terminal,
+upstream language-server and configured DeepSeek evidence. Sustained idle,
+physical input/IME, accessibility and other-host gaps remain separate.
+
 Terminal is its own page. New terminal plus uses the selected project root, or OS
 user home without a project; existing shells never retarget. Language services
 remain a distinct first-language enhancement. Expanded 18.1–18.6 isolates UI/lifecycle.

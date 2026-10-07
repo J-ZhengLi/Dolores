@@ -50,7 +50,7 @@ class TerminalPanel extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    '${s.state} · ${s.cwd}',
+                    '${s.state} · ${s.displayCwd}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -171,7 +171,7 @@ class TerminalPage extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Tooltip(
-                message: '${s.shell}\n${s.cwd}\n${s.state}',
+                message: '${s.shell}\n${s.displayCwd}\n${s.state}',
                 child: SizedBox(
                   width: 128,
                   child: Text(
@@ -357,7 +357,7 @@ class TerminalPage extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '${s.cwd} · ${s.state}',
+                  '${s.state} · ${s.displayCwd}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,

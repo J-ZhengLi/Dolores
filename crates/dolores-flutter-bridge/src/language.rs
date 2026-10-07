@@ -378,6 +378,23 @@ fn uri(path: &Path) -> Result<String, String> {
         .map(|u| u.into())
         .map_err(|_| "File URI is unavailable.".into())
 }
+fn diagnostic_matches(published: Option<u64>, current: u64, requested: bool) -> bool {
+    published.map_or(requested, |version| version == current)
+}
+fn same_document_uri(left: &str, right: &str) -> bool {
+    if left == right {
+        return true;
+    }
+    let path = |value: &str| {
+        url::Url::parse(value)
+            .ok()?
+            .to_file_path()
+            .ok()?
+            .canonicalize()
+            .ok()
+    };
+    path(left).is_some_and(|left| path(right).is_some_and(|right| left == right))
+}
 fn run(
     exe: &Path,
     args: &[String],
@@ -411,7 +428,7 @@ fn run(
         let mut pending = HashMap::<u64, (Work, Instant, String)>::new();
         let mut next = 1u64;
         let mut opened = HashMap::<String, u64>::new();
-        let mut diagnostics = HashMap::<String, Value>::new();
+        let mut diagnostics = HashMap::<String, (u64, Value)>::new();
         let mut bytes = [0u8; 65536];
         loop {
             if stop.load(Ordering::Acquire) {
@@ -523,38 +540,54 @@ fn run(
                             )?;
                         } else if value["method"] == "textDocument/publishDiagnostics" {
                             let p = &value["params"];
-                            if let Some(uri) = p["uri"].as_str() {
-                                if opened
-                                    .get(uri)
-                                    .is_some_and(|v| p["version"].as_u64() == Some(*v))
-                                {
-                                    let items = p["diagnostics"]
-                                        .as_array()
-                                        .map(|a| a.iter().take(200).cloned().collect::<Vec<_>>())
-                                        .unwrap_or_default();
-                                    let shown = json!(items);
-                                    if serde_json::to_vec(&shown).unwrap_or_default().len()
-                                        <= 256 * 1024
-                                    {
-                                        diagnostics.insert(uri.into(), shown.clone());
-                                        for id in pending
-                                            .iter()
-                                            .filter(|(_, (w, _, u))| {
-                                                w.feature == "diagnostics"
-                                                    && u == uri
-                                                    && w.snapshot["version"] == p["version"]
+                            if let Some(published_uri) = p["uri"].as_str() {
+                                // Servers normalize Windows drives and percent-encode
+                                // colons differently. Match the same existing file,
+                                // never a raw URI spelling or an external document.
+                                let matched = opened
+                                    .keys()
+                                    .find(|known| same_document_uri(known, published_uri))
+                                    .cloned();
+                                if let Some(uri) = matched {
+                                    let current = opened.get(&uri).copied();
+                                    let requested = current.is_some_and(|version| {
+                                        pending.values().any(|(w, _, u)| {
+                                            w.feature == "diagnostics"
+                                                && u == &uri
+                                                && w.snapshot["version"].as_u64() == Some(version)
+                                        })
+                                    });
+                                    if current.is_some_and(|v| {
+                                        diagnostic_matches(p["version"].as_u64(), v, requested)
+                                    }) {
+                                        let items = p["diagnostics"]
+                                            .as_array()
+                                            .map(|a| {
+                                                a.iter().take(200).cloned().collect::<Vec<_>>()
                                             })
-                                            .map(|(id, _)| *id)
-                                            .collect::<Vec<_>>()
+                                            .unwrap_or_default();
+                                        let shown = json!(items);
+                                        if serde_json::to_vec(&shown).unwrap_or_default().len()
+                                            <= 256 * 1024
                                         {
-                                            if let Some((w, _, _)) = pending.remove(&id) {
-                                                finish(
-                                                    &jobs,
-                                                    &w.id,
-                                                    Ok(
-                                                        json!({"items":shown,"notice":"Diagnostics match this editor version."}),
-                                                    ),
-                                                );
+                                            let result = json!({"items":shown,"versioned":p["version"].is_u64(),"notice":if p["version"].is_u64(){"Diagnostics match this editor version."}else{"The server omits diagnostic versions. Results may lag edits; refresh diagnostics after typing."}});
+                                            diagnostics.insert(
+                                                uri.clone(),
+                                                (current.unwrap(), result.clone()),
+                                            );
+                                            for id in pending
+                                                .iter()
+                                                .filter(|(_, (w, _, u))| {
+                                                    w.feature == "diagnostics"
+                                                        && u == &uri
+                                                        && w.snapshot["version"].as_u64() == current
+                                                })
+                                                .map(|(id, _)| *id)
+                                                .collect::<Vec<_>>()
+                                            {
+                                                if let Some((w, _, _)) = pending.remove(&id) {
+                                                    finish(&jobs, &w.id, Ok(result.clone()));
+                                                }
                                             }
                                         }
                                     }
@@ -580,7 +613,9 @@ fn run(
                         } else if let Some(id) = value["id"].as_u64() {
                             if let Some((w, _, file_uri)) = pending.remove(&id) {
                                 if w.feature == "diagnostics"
-                                    && !diagnostics.contains_key(&file_uri)
+                                    && !diagnostics.get(&file_uri).is_some_and(|(version, _)| {
+                                        Some(*version) == w.snapshot["version"].as_u64()
+                                    })
                                     && value.get("error").is_none()
                                 {
                                     pending.insert(id, (w, Instant::now(), file_uri));
@@ -589,9 +624,7 @@ fn run(
                                 let result = if value.get("error").is_some() {
                                     Err("Language server could not provide this feature. Check project setup and retry; buffers remain.".into())
                                 } else if w.feature == "diagnostics" {
-                                    Ok(
-                                        json!({"items":diagnostics.remove(&file_uri).unwrap_or(json!([])),"notice":"Only diagnostics carrying the current editor version are displayed."}),
-                                    )
+                                    Ok(diagnostics.remove(&file_uri).map(|(_, result)|result).unwrap_or(json!({"items":[],"notice":"Refresh diagnostics after typing."})))
                                 } else {
                                     Ok(value["result"].clone())
                                 };
@@ -787,7 +820,8 @@ process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){con
  if(v.method==='initialize')send({id:v.id,result:{capabilities:{positionEncoding:'utf-16'}}});
  if(v.method==='textDocument/didOpen'){document=v.params.textDocument;send({method:'textDocument/publishDiagnostics',params:{uri:document.uri,version:document.version,diagnostics:[{message:'fixture',range:{start:{line:0,character:0},end:{line:0,character:1}}}]}});}
  if(v.method==='textDocument/completion')send({id:v.id,result:[{label:document.text}]});
- if(v.method==='textDocument/documentSymbol')send({id:v.id,result:[]});
+ if(v.method==='textDocument/documentSymbol'){send({id:v.id,result:[]});send({method:'textDocument/publishDiagnostics',params:{uri:document.uri,diagnostics:[{message:'unversioned fixture',range:{start:{line:0,character:0},end:{line:0,character:1}}}]}});}
+ if(v.method==='textDocument/didChange')document={...document,...v.params.textDocument};
  if(v.method==='textDocument/hover')process.stdout.write('Content-Length: 1\r\n\r\nx');
 }});
 "#).unwrap();
@@ -819,6 +853,8 @@ process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){con
             wait(&r, job["id"].as_str().unwrap()).unwrap()[0]["label"],
             snap["text"]
         );
+        let mut snap = snap;
+        snap["version"] = json!(1);
         let job = r
             .submit(
                 folder.clone(),
@@ -829,10 +865,10 @@ process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){con
                 root.path(),
             )
             .unwrap();
-        assert_eq!(
-            wait(&r, job["id"].as_str().unwrap()).unwrap()["items"][0]["message"],
-            "fixture"
-        );
+        let result = wait(&r, job["id"].as_str().unwrap()).unwrap();
+        assert_eq!(result["items"][0]["message"], "unversioned fixture");
+        assert_eq!(result["versioned"], false);
+        assert!(result["notice"].as_str().unwrap().contains("may lag"));
         let job = r
             .submit(
                 folder,
@@ -851,6 +887,17 @@ process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){con
     }
     #[test]
     fn framing_and_utf16_positions_reject_malformed_or_split_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("uri 世界.ts");
+        std::fs::write(&file, "fixture").unwrap();
+        let ordinary = uri(&file).unwrap();
+        let server = ordinary.replace("C:/", "c%3A/").replace("D:/", "d%3A/");
+        assert!(same_document_uri(&ordinary, &server));
+        assert!(!same_document_uri(&ordinary, "file:///unknown/other.ts"));
+        assert!(diagnostic_matches(Some(4), 4, false));
+        assert!(!diagnostic_matches(Some(3), 4, true));
+        assert!(!diagnostic_matches(None, 4, false));
+        assert!(diagnostic_matches(None, 4, true));
         let mut f = Frames::default();
         assert!(f.push(b"Content-Length: 2\r\n\r\n{").unwrap().is_empty());
         assert_eq!(f.push(b"}").unwrap(), vec![json!({})]);

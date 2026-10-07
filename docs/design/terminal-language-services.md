@@ -77,3 +77,19 @@ Managed downloads pin typescript-language-server 6.0.1, TypeScript 6.0.3 and rus
 Language edits review one to four regular project files and at most 1,000 replacements per file. UTF-16 ranges, saved-byte revisions and open-buffer versions must match. Apply is an atomic private checkpoint plus buffer publication; Save is separate. Undo language edit restores all reviewed buffers if none changed afterward. Native preview JSON has a dedicated 5 MiB request envelope for its 4 MiB edit bound; ordinary commands retain their existing limit. Preview tokens expire after five minutes and advance once. Resource operations and external project paths are refused.
 
 Pinned source metadata: [TypeScript server](https://registry.npmjs.org/typescript-language-server/6.0.1), [TypeScript](https://registry.npmjs.org/typescript/6.0.3), [Rust release](https://github.com/rust-lang/rust-analyzer/releases/tag/2026-10-05).
+
+## Qualification correction 18.6 — optional protocol fields
+
+The pinned TypeScript server omits the optional diagnostic version and normalizes
+Windows drive URIs (including percent-encoded colons). Match only the same existing
+opened file after URI decoding and canonicalization. Explicit wrong versions remain
+refused. Unversioned diagnostics are accepted only for an explicitly pending
+diagnostic request against the current synchronized buffer, with native/UI version
+and selected-project checks before presentation. Show a freshness notice: server
+results may lag typing, and refresh is explicit. Do not describe unversioned results
+as proven current-version analysis; that stronger server guarantee remains a gap.
+Cache entries retain the synchronized version and cannot serve a newer buffer.
+
+The verified Rust Windows archive includes optional `rust_analyzer.pdb` symbols.
+Validate that exact member name with a 32 MiB bound, then omit it from installation.
+The executable/hash pin and other archive/path bounds stay unchanged.

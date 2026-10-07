@@ -14,7 +14,7 @@ class PtyBridge implements ChatBridge {
   int next = 0;
   dynamic saved;
   bool failSave = false;
-  final states = <String,String>{};
+  final states = <String, String>{};
   @override
   Future<void> open() async {}
   @override
@@ -25,12 +25,16 @@ class PtyBridge implements ChatBridge {
     calls.add(r);
     if (fail) throw 'Folder or terminal unavailable. Retry.';
     switch (r['action']) {
-      case 'restore': return saved;
+      case 'restore':
+        return saved;
       case 'checkpoint':
-        if (failSave) throw StateError('Disk full; previous checkpoint remains.');
-        saved = r['value']; return null;
+        if (failSave) {
+          throw StateError('Disk full; previous checkpoint remains.');
+        }
+        saved = r['value'];
+        return null;
       case 'create':
-        states['pty-${next+1}'] = 'running';
+        states['pty-${next + 1}'] = 'running';
         return {
           'id': 'pty-${++next}',
           'cwd': r['home'] == true ? 'HOME' : r['session'] ?? 'HOME',
@@ -53,36 +57,67 @@ class PtyBridge implements ChatBridge {
 }
 
 void main() {
+  test('shell labels hide native path prefixes and retain useful names', () {
+    final session = TerminalSession({
+      'id': 'label',
+      'cwd': r'\\?\D:\Project',
+      'shell': r'\\?\C:\Tools\pwsh.exe',
+      'state': 'running',
+    });
+    expect(session.title, 'PowerShell');
+    expect(session.displayCwd, r'D:\Project');
+    expect(TerminalSession.displayTitle('a' * 200), hasLength(120));
+    session.dispose();
+  });
   test('cold recovery retains split output without creating shells; failed checkpoint keeps owners', () async {
-    final b = PtyBridge(); final first = TerminalHost(b);
+    final b = PtyBridge();
+    final first = TerminalHost(b);
     final a = (await first.create('A'))!, other = (await first.create('B'))!;
-    a.terminal.write('kept 世界'); other.terminal.write('second result');
+    a.terminal.write('kept 世界');
+    other.terminal.write('second result');
     final g = first.layout.activeGroup;
-    first.layout.split(g,a.id,Axis.horizontal,source:g);
-    await first.checkpoint(); first.dispose();
+    first.layout.split(g, a.id, Axis.horizontal, source: g);
+    await first.checkpoint();
+    first.dispose();
     final calls = b.next;
-    final second = TerminalHost(b); await second.enter('C');
-    expect(b.next,calls); expect(second.live,isEmpty);
-    expect(second.layout.groups.length,2);
-    expect(second.sessions[a.id]!.terminal.buffer.getText(),contains('kept 世界'));
+    final second = TerminalHost(b);
+    await second.enter('C');
+    expect(b.next, calls);
+    expect(second.live, isEmpty);
+    expect(second.layout.groups.length, 2);
+    expect(
+      second.sessions[a.id]!.terminal.buffer.getText(),
+      contains('kept 世界'),
+    );
     b.failSave = true;
-    expect(second.checkpoint(),throwsStateError);
-    expect(second.sessions.length,2);
+    expect(second.checkpoint(), throwsStateError);
+    expect(second.sessions.length, 2);
     await Future<void>.delayed(Duration.zero);
-    expect(second.checkpointFailed,true);
-    b.failSave = false; await second.checkpoint();
-    expect(second.checkpointFailed,false);
-    expect(await second.close(second.sessions[a.id]!),true);
+    expect(second.checkpointFailed, true);
+    b.failSave = false;
+    await second.checkpoint();
+    expect(second.checkpointFailed, false);
+    expect(await second.close(second.sessions[a.id]!), true);
     second.dispose();
-    expect(utf8.encode(TerminalHost.tail('😀'*5000)).length,lessThanOrEqualTo(8192));
+    expect(
+      utf8.encode(TerminalHost.tail('😀' * 5000)).length,
+      lessThanOrEqualTo(8192),
+    );
   });
-  test('malformed recovery preserves checkpoint and offers a fresh shell', () async {
-    final b = PtyBridge()..saved = {'version':999};
-    final h = TerminalHost(b); await h.enter('A');
-    expect(h.sessions,isEmpty); expect(h.error,contains('previous checkpoint remains'));
-    expect(b.saved,{'version':999});
-    await h.create('A'); expect(h.live.length,1); h.dispose();
-  });
+  test(
+    'malformed recovery preserves checkpoint and offers a fresh shell',
+    () async {
+      final b = PtyBridge()..saved = {'version': 999};
+      final h = TerminalHost(b);
+      await h.enter('A');
+      expect(h.sessions, isEmpty);
+      expect(h.error, contains('previous checkpoint remains'));
+      expect(b.saved, {'version': 999});
+      await h.create('A');
+      expect(h.live.length, 1);
+      h.dispose();
+    },
+  );
   test(
     'plus snapshots folder; moves retain one shell; failed plus retains tabs',
     () async {
@@ -202,6 +237,7 @@ void main() {
       await h.stop(s);
       await tester.pump();
       expect(s.terminal.buffer.getText(), contains('retained work'));
+      expect(find.text('stopped · HOME'), findsOneWidget);
       b.fail = true;
       await h.poll(s);
       expect(s.suspended, true);

@@ -2857,3 +2857,25 @@ Implemented lazy TypeScript/JavaScript and Rust server discovery, bounded backgr
 ## Brick 18.5 — Managed language setup and reviewed edits (2026-10-07)
 
 Implemented explicit pinned/hash-verified downloads into immutable private folders, cancellable progress, verified startup members and no package scripts. Added exact Before/After previews, scoped atomic multi-file buffer Apply and Undo language edit. Native language tests pass (5): stdio/malformed output, UTF-16 framing, canceled full install plus refused offline connection, checksum/archive failure, and a two-file rename with stale-disk/outside/resource-operation refusal before partial mutation. Flutter language/editor/recovery tests pass (10), including no download on setup open and cancellation leaving the dialog usable. Analyzer and strict Clippy pass. Real upstream downloads/server behavior and normal packaging remain qualification work in 18.6; managed Rust downloads are Windows x64 only.
+
+## Brick 18.6 — Real terminal and language qualification (2026-10-07)
+
+146 bridge library tests and 302 Flutter tests PASS; analysis and strict Clippy PASS.
+Actual PowerShell project A/B/HOME, Unicode, resize, Ctrl+C, flood/backpressure,
+six-process descendant cleanup and stopped recovery PASS. Real pinned TypeScript
+diagnostics/completion/navigation/two-file rename/Undo and Rust hover/isolation PASS.
+Qualification corrected PATHEXT, optional Rust debug archive membership and
+TypeScript unversioned diagnostics/Windows URI matching, with regression coverage.
+Unversioned diagnostics show a lag notice rather than a current-version guarantee.
+
+Production Flutter programmatic two-PTY split/move/compact/light/dark/Stop corpus
+PASS; saved renders inspected. Configured DeepSeek V4.1 Flash completed one saved
+fixture read and one approved command (6.53 seconds, 633 output tokens), returning
+the correct marker/42 while unsaved editor text remained private. Original 42-table
+profile hashes unchanged. Normal main-entry Windows release built and launched
+visibly with that same profile. See [qualification](qualification/terminal-language.md)
+for measured incremental samples and reproduction scripts.
+
+Sustained idle cost remains OPEN: absolute Flutter samples were high and variable
+even where incremental terminal envelopes passed. Physical keyboard/IME,
+accessibility, exhaustive native focus and other hosts remain unqualified.

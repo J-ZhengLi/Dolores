@@ -6,9 +6,13 @@
 implement **one milestone per batch**, retaining separate commits for its bricks.
 Milestones 16 and 17 implementation and batch qualification are delivered.
 The latest user authorization starts 18 then 19, one milestone batch at a time,
-with unattended implementation and individual brick commits. 18.1 now adds the
-real lazy PTY/emulator and initial-folder recovery; 18.2–18.6 remain current work.
-Then perform 19's bounded backend trial; do not start later milestones.
+with unattended implementation and individual brick commits. 18.1–18.6 now deliver
+real PTYs, terminal tabs/splits, stopped recovery and lazy language services.
+146 bridge tests, 302 Flutter tests, upstream TypeScript/Rust, descendant cleanup
+and the harder configured DeepSeek saved-file/approved-command case pass.
+See [terminal qualification](qualification/terminal-language.md) for resource and
+physical-input gaps. The normal Windows release preserves all 42 profile tables.
+Current work is 19's bounded backend trial; do not start later milestones.
 The previous normal-app receipt is recorded in the newest acceptance.
 Memory, scheduling and companionship remain future work.
 The delivered follow-up refines milestone 17 to match the user's VS Code workflow:

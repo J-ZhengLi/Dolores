@@ -30,7 +30,34 @@ Settings → Advanced → Experimental contains Multiple Window (On by default;
 detach awaits milestone 19) and Prevent Windows From Locked (Off by default).
 The Windows option requests display/system wakefulness while Dolores runs; it
 does not override manual locks, screen-saver security or enforced policy.
-Scheduled and Terminal remain future pages.
+Scheduled remains a future page.
+
+## Terminal and language tools
+
+Terminal opens a real local shell directly. Its initial folder is the selected
+Home conversation's project, or your home folder without a project. Plus uses the
+current selection; existing shells retain their own folder. Drag tabs to reorder,
+move or split; tab menus provide alternatives. Hiding the page keeps shells alive.
+Ctrl+C copies a selection, otherwise interrupts the foreground command. Stop keeps
+displayed output and closes owned processes. Closing live shells asks first.
+
+After restart, retained tabs show stopped output; Start opens a new shell rather
+than replaying commands. A failed recovery save keeps the app open for Retry.
+Attach selection explicitly chooses a conversation and adds text to its draft;
+it does not send the draft or share the entire scrollback.
+
+Folders' language actions support TypeScript/JavaScript and Rust: diagnostics,
+completion, hover, definition and references. Ctrl+Space opens completion, F12
+goes to definition and Shift+F12 shows references. Servers start only when needed.
+Missing tools have explicit setup/install; merely opening a file downloads nothing.
+Node is required for TypeScript. Diagnostics may lag when a server omits versions;
+the result shows that notice, and Refresh requests another result.
+
+Formatting and Rename symbol first show Before/After across affected files. Apply
+changes private editor buffers; saving source files remains explicit. Undo language
+edit works while those buffers remain unchanged. A stale or out-of-project edit is
+refused before partial application. Model file reads continue to see saved bytes,
+unless you deliberately attach an unsaved selection.
 
 ## Source Control
 

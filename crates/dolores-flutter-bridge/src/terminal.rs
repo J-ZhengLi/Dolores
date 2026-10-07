@@ -195,6 +195,10 @@ impl Registry {
             }
         }
         command.env("TERM", "xterm-256color");
+        // Interactive Windows shells need extension lookup for commands such as
+        // `node`; the separately reviewed command tool resolves executables itself.
+        #[cfg(windows)]
+        command.env("PATHEXT", ".COM;.EXE;.BAT;.CMD");
         #[cfg(windows)]
         if !shell
             .file_name()
@@ -458,6 +462,45 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn powershell_resolves_bare_executable_with_standard_extensions() {
+        if executable(&["node.exe"]).is_none() {
+            return;
+        }
+        use base64::Engine as _;
+        let folder = tempfile::tempdir().unwrap();
+        let mut registry = Registry::default();
+        let value = registry.create(folder.path(), Some("powershell")).unwrap();
+        let id = value["id"].as_str().unwrap().to_owned();
+        registry
+            .request(Request::Input {
+                id: id.clone(),
+                text: "node -e \"console.log('BARE'+'NODE_18')\"\r".into(),
+            })
+            .unwrap();
+        let started = Instant::now();
+        let mut seen = Vec::new();
+        while started.elapsed() < Duration::from_secs(15) {
+            let value = registry.request(Request::Poll { id: id.clone() }).unwrap();
+            let chunk = STANDARD.decode(value["bytes"].as_str().unwrap()).unwrap();
+            if chunk.windows(4).any(|v| v == b"\x1b[6n") {
+                registry
+                    .request(Request::Input {
+                        id: id.clone(),
+                        text: "\x1b[1;1R".into(),
+                    })
+                    .unwrap();
+            }
+            seen.extend(chunk);
+            if String::from_utf8_lossy(&seen).contains("BARENODE_18") {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        registry.request(Request::Stop { id }).unwrap();
+        assert!(String::from_utf8_lossy(&seen).contains("BARENODE_18"));
+    }
     #[test]
     fn display_checkpoint_and_explicit_selection_share_survive_restart() {
         use dolores_core::SessionStore;
@@ -466,7 +509,11 @@ mod tests {
             Arc::new(dolores_store_sqlite::SqliteStore::open(&dir.path().join("test.db")).unwrap());
         store.create("chosen").unwrap();
         store.create("other").unwrap();
-        let e = Engine::new(store.clone(), Arc::new(crate::connection::testing::MemoryCredentials::default())).unwrap();
+        let e = Engine::new(
+            store.clone(),
+            Arc::new(crate::connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
         let v = json!({"version":1,"sessions":[{"id":"old","cwd":"C:/","shell":"cmd","title":"Shell","output":"kept 世界"}],"groups":[{"id":"g","tabs":["old"],"active":"old"}],"activeGroup":"g","tree":{"group":"g"}});
         e.terminal_call(Request::Checkpoint { value: v.clone() })
             .unwrap();
@@ -495,7 +542,11 @@ mod tests {
             })
             .is_err());
         drop(e);
-        let e = Engine::new(store, Arc::new(crate::connection::testing::MemoryCredentials::default())).unwrap();
+        let e = Engine::new(
+            store,
+            Arc::new(crate::connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
         assert_eq!(
             e.terminal_call(Request::Restore).unwrap()["sessions"][0]["state"],
             "stopped"

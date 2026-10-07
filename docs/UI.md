@@ -41,7 +41,12 @@ The implemented Experimental page contains Multiple Window (default On, backend
 availability explicit) and Windows keep-awake (default Off, actual power/security
 limits disclosed). Home, the compact rail and Folders editor are implemented in
 milestone 16. Milestone 17 adds Source Control status, saved diff tabs/history and
-reviewed Git actions. Terminal and detached views remain later milestones.
+reviewed Git actions. Milestone 18 adds real local terminal tabs/splits, retained
+stopped output and lazy first-language actions. Detached views remain milestone 19.
+Terminal headers show short shell names and state before CWD. Language diagnostics
+disclose unversioned server results; formatting/rename uses Before/After with Apply
+and separate Save. Keep lazy setup, explicit selected-output sharing and recovery
+actions visible without permanent control bars.
 The final Source Control refinement follows the user's VS Code references:
 Changes owns the three-dot repository action menu, with familiar Commit/Fetch/
 Pull/Push names and grouped Changes/Branch/Stash actions. Commit messages support
