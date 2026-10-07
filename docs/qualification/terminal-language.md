@@ -72,3 +72,8 @@ Disposable public evidence is retained under `output/terminal-language-qualifica
 the normal release launch. Reproduction helpers are
 [native corpus](../../scripts/test-terminal-language.py) and
 [desktop corpus](../../scripts/test-terminal-desktop.py).
+
+Follow-up: [Windows keyboard repair](terminal-keyboard.md) reproduces the Enter-only
+input failure and qualifies ordinary/shifted letters through native event injection.
+It corrects the missing text-input view ID; physical IME and the wider gaps above
+remain open.

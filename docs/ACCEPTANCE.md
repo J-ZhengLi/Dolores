@@ -2915,3 +2915,24 @@ remain; 41 hashes and the two pre-existing editor recovery rows match the earlie
 baseline. One new terminal recovery row is preserved. Configuration/model/history
 are unchanged; no recovery was erased to force a matching hash. Receipt:
 `output/m18-m19-normal-handoff.json`.
+
+## Terminal keyboard repair (2026-10-07)
+
+Reproduced the exact Windows failure in a release, non-executing diagnostic using
+the production terminal page: focused `a` key event yielded no input, while Enter
+yielded `\r`. xterm 4.0.0 omitted the Flutter view ID from its text-input client;
+Flutter 3.47.5 Windows rejects that client. A failing view-ID regression now catches
+the attachment error. A pinned local xterm snapshot adds the containing view ID,
+with its MIT license and only one upstream source-line change.
+
+Native event injection after the repair received/rendered ordinary and shifted
+letters, with Enter and Backspace unchanged. Nine terminal tests and all 305
+Flutter tests PASS; analyzer PASS. Tests cover Home return, split focus/owner
+isolation, composition committing once, Unicode, stopped-shell input refusal and
+retained output followed by usable live-pane recovery. The fixture executed no
+commands and made no model requests. See [keyboard qualification](qualification/terminal-keyboard.md)
+for reproduction and before/after receipts. Physical IME, accessibility, exhaustive
+native focus and other platforms remain open; programmatic Unicode tests are not
+physical-IME acceptance. The normal Windows main release built and launched
+visibly with the original profile; all 42 table hashes remained unchanged across
+that launch. Only the recorded owned diagnostic processes were stopped.

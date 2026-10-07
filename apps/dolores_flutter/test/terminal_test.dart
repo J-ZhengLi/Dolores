@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:xterm/xterm.dart';
 
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/terminal_host.dart';
@@ -57,6 +59,160 @@ class PtyBridge implements ChatBridge {
 }
 
 void main() {
+  testWidgets(
+    'terminal typing reaches its shell before and after returning to the page',
+    (t) async {
+      final bridge = PtyBridge();
+      final host = TerminalHost(bridge);
+      final shell = (await host.create('A'))!;
+      Widget page() => MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.windows),
+        home: Scaffold(
+          body: TerminalPage(host: host, session: 'A', chooseFolder: () {}),
+        ),
+      );
+      try {
+        await t.pumpWidget(page());
+        await t.pump();
+        await t.tap(find.byType(TerminalView));
+        await t.pump();
+        expect(shell.focus.hasFocus, true);
+        expect(
+          t.testTextInput.hasAnyClients,
+          true,
+          reason: 'Letters need an attached text input client',
+        );
+        expect(
+          t.testTextInput.setClientArgs!['viewId'],
+          t.view.viewId,
+          reason: 'Windows rejects text clients without their Flutter view ID',
+        );
+        t.testTextInput.enterText('echo typed');
+        await t.pump();
+        expect(
+          bridge.calls
+              .where((c) => c['action'] == 'input')
+              .map((c) => c['text']),
+          contains('echo typed'),
+        );
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pump();
+        expect(
+          bridge.calls
+              .where((c) => c['action'] == 'input')
+              .map((c) => c['text']),
+          contains('\r'),
+        );
+        await t.pumpWidget(const MaterialApp(home: Text('Home')));
+        await t.pump();
+        await t.pumpWidget(page());
+        await t.pump();
+        await t.tap(find.byType(TerminalView));
+        await t.pump();
+        expect(t.testTextInput.hasAnyClients, true);
+        expect(t.testTextInput.setClientArgs!['viewId'], t.view.viewId);
+        t.testTextInput.enterText('after return');
+        await t.pump();
+        expect(
+          bridge.calls
+              .where((c) => c['action'] == 'input')
+              .map((c) => c['text']),
+          contains('after return'),
+        );
+      } finally {
+        await t.pumpWidget(const SizedBox());
+        host.dispose();
+        await t.pump(const Duration(milliseconds: 400));
+      }
+    },
+  );
+  testWidgets(
+    'split focus routes text and IME commits once; stopped output refuses input',
+    (t) async {
+      t.view.physicalSize = const Size(1100, 700);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      final bridge = PtyBridge();
+      final owner = TerminalHost(bridge);
+      final first = (await owner.create('A'))!;
+      final second = (await owner.create('B'))!;
+      final group = owner.layout.activeGroup;
+      owner.layout.split(group, first.id, Axis.horizontal, source: group);
+      List<String> inputs(TerminalSession shell) => bridge.calls
+          .where((c) => c['action'] == 'input' && c['id'] == shell.id)
+          .map((c) => c['text'] as String)
+          .toList();
+      try {
+        await t.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.windows),
+            home: Scaffold(
+              body: TerminalPage(
+                host: owner,
+                session: 'A',
+                chooseFolder: () {},
+              ),
+            ),
+          ),
+        );
+        await t.pump();
+        await t.tap(find.byKey(ValueKey(first.id)));
+        await t.pump();
+        expect(t.testTextInput.setClientArgs!['viewId'], t.view.viewId);
+        t.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'ni',
+            selection: TextSelection.collapsed(offset: 2),
+            composing: TextRange(start: 0, end: 2),
+          ),
+        );
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pump();
+        expect(
+          inputs(first),
+          isEmpty,
+          reason: 'IME composition is not shell input',
+        );
+        t.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '你',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await t.pump();
+        expect(inputs(first), ['你']);
+        await t.tap(find.byKey(ValueKey(second.id)));
+        await t.pump();
+        expect(t.testTextInput.setClientArgs!['viewId'], t.view.viewId);
+        t.testTextInput.enterText('second 😀');
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await t.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await t.pump();
+        expect(inputs(first), ['你']);
+        expect(inputs(second), ['second 😀', '\r', '\x7f', '\x1b[D']);
+        second.terminal.write('retained result');
+        await owner.stop(second);
+        await t.pump();
+        expect(t.testTextInput.hasAnyClients, false);
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pump();
+        expect(inputs(second), hasLength(4));
+        expect(second.terminal.buffer.getText(), contains('retained result'));
+        await t.tap(find.byKey(ValueKey(first.id)));
+        await t.pump();
+        expect(t.testTextInput.setClientArgs!['viewId'], t.view.viewId);
+        t.testTextInput.enterText('still usable');
+        await t.pump();
+        expect(inputs(first), ['你', 'still usable']);
+      } finally {
+        await t.pumpWidget(const SizedBox());
+        owner.dispose();
+        await t.pump(const Duration(milliseconds: 400));
+      }
+    },
+  );
   test('shell labels hide native path prefixes and retain useful names', () {
     final session = TerminalSession({
       'id': 'label',

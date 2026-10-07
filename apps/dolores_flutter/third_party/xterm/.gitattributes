@@ -1,0 +1,2 @@
+# Preserve upstream whitespace inside the multiline key table literal.
+lib/src/core/input/keytab/keytab_default.dart whitespace=-blank-at-eol
