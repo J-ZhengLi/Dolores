@@ -3083,3 +3083,12 @@ runs were inactive and its database was backed up first. Normal main-entry launc
 reports a visible window after restoration. All 45 original table hashes remain
 unchanged at schema 36, with only two scheduling tables added; no original task was
 created. Milestone 23 is next; closed-UI execution stays deferred to 24.
+
+## Milestone 23.0 — Companion contract (2026-10-07)
+
+The user authorized continued implementation through the current roadmap, with
+one milestone per batch and separate brick commits. [Companion contract](design/companionship.md)
+freezes Off, chosen model/hours/cap, presence/quiet gates, random opportunities,
+single unread message, source revalidation and bounded generation before runtime
+changes. Defaults never activate companionship in the user's original profile.
+Document/link checks pass; subjective welcome needs later user feedback.

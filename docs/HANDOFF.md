@@ -19,8 +19,10 @@ task was created. Tasks run while Dolores is open; no closed-UI worker was added
 Milestone 21 memory remains delivered; its prior bounded evidence and gaps are
 in [memory qualification](qualification/automatic-memory.md).
 
-Milestone 23 is next, then 24. Continue one milestone per requested batch; keep
-the model misses separate from the passing host mechanics.
+The user now authorizes continued implementation through the current roadmap
+while AFK: complete milestone 23, then 24, in separate milestone batches and brick
+commits without another start confirmation. Keep model misses separate from host
+mechanics; do not silently relax held performance or deferred platform-CI gates.
 
 Earlier workspace milestones 16–18 are delivered. Source Control preserves the
 VS Code-inspired Changes menu, expandable commit files and real aligned diffs.
