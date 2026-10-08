@@ -645,11 +645,7 @@ class ChatController extends ChangeNotifier {
     durableDrafts = state['durableDrafts'] == true;
     attachmentsAvailable = state['attachments'] == true;
     imageModels = ((state['imageModels'] as List?) ?? []).cast<String>();
-    sessions = (state['sessions'] as List).cast<Map<String, dynamic>>();
-    projects = ((state['projects'] as List?) ?? [])
-        .cast<Map<String, dynamic>>();
-    sessionsOlder = state['sessionPage']?['hasOlder'] == true;
-    sessionsNewer = state['sessionPage']?['hasNewer'] == true;
+    _setConversationList(state);
     baseUrl = state['preferences']['baseUrl'] as String;
     model = state['preferences']['model'] as String;
     enabledModels =
@@ -669,6 +665,29 @@ class ChatController extends ChangeNotifier {
         Map.of(requestSettings);
     modelRequestSettings =
         (state['modelRequestSettings'] as Map?)?.cast<String, dynamic>() ?? {};
+  }
+
+  Future<void> refreshConversationList() async {
+    final state = await bridge.call({'command': 'bootstrap'});
+    // A retained chat owns its draft, model and active run. Navigation refreshes
+    // only the shared catalog, without reloading those conversation settings.
+    _setConversationList(state);
+    _notify();
+  }
+
+  void _setConversationList(dynamic state) {
+    final nextSessions = (state['sessions'] as List)
+        .cast<Map<String, dynamic>>()
+        .toList();
+    final nextProjects = ((state['projects'] as List?) ?? [])
+        .cast<Map<String, dynamic>>()
+        .toList();
+    final hasOlder = state['sessionPage']?['hasOlder'] == true;
+    final hasNewer = state['sessionPage']?['hasNewer'] == true;
+    sessions = nextSessions;
+    projects = nextProjects;
+    sessionsOlder = hasOlder;
+    sessionsNewer = hasNewer;
   }
 
   Future<void> saveModelRequestSettings(

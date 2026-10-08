@@ -3409,3 +3409,23 @@ Four calls reported 5,131, 5,298, 5,422 and 5,856 total tokens; no total is infe
 by the UI. No file edits or commands were performed. The report was still longer
 than desirable for a short report. Creation reliability, physical recurrence and
 live pinned-skill execution remain separate gaps in the ongoing checklist.
+
+## First-user audit — retained conversation catalog (2026-10-08)
+
+Native navigation from a newly created Side chat back to a retained project chat
+made the Side chat disappear from Recents. Each controller retained its own old
+conversation catalog; the stored chat and its messages remained intact. Two
+AppHost regressions failed before the fix, including unavailable-storage recovery.
+Returning to a retained controller now refreshes only sessions, projects and
+catalog paging flags. Drafts, model settings, context, partial responses and
+pending reviews remain owned by their original conversation.
+
+All 16 focused conversation/workspace/scheduling checks passed, including retry
+after an unavailable catalog and retained busy-chat state. Changed-source analysis,
+document/link checks, publication pattern checks and diff checks passed. Normal
+Windows main-entry build/launch passed. Native retest created another Qwen Side
+chat after loading the earlier project report. Returning to the cached report
+kept both side chats visible, restored the exact public draft and retained its
+DeepSeek selection despite the other chat's Qwen selection. The new bounded reply
+used one call with 2,353 reported total tokens. All 49 original-profile table
+hashes remain unchanged. Older/newer paging remains a separate pending audit case.

@@ -30,12 +30,12 @@ tracks the audit; product design stays in the feature specifications.
 - [ ] C01 Discover Home, Scheduled, Folders, Source Control, Terminal and bottom Settings from the compact rail.
 - [x] C02 Create a temporary chat; first send creates a working folder and a visible real-model reply.
 - [x] C03 Open a project folder, create a project chat and discover its working-folder identity.
-- [ ] C04 Create a side chat; converse without project/file tools.
-- [ ] C05 Select Qwen, change to DeepSeek and back; retain history and an unsent draft.
+- [x] C04 Create a side chat; converse without project/file tools.
+- [x] C05 Select Qwen, change to DeepSeek and back; retain history and an unsent draft.
 - [ ] C06 Compose multiline text and fenced code; Enter/Shift+Enter/Ctrl+Enter behave as presented.
 - [ ] C07 Read streaming progress/Thinking and final Markdown/code; copy a message and code block accurately.
 - [ ] C08 Stop a real response; retained progress and subsequent new request remain usable.
-- [ ] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
+- [x] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
 - [ ] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
 - [ ] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
 - [ ] C12 Browse older/newer/latest messages and conversations without losing selection/draft.
@@ -62,7 +62,7 @@ tracks the audit; product design stays in the feature specifications.
 
 ## 3. Files and editor
 
-- [ ] F01 Discover file tree, expand folders and preview a file; no selected project offers Open folder.
+- [x] F01 Discover file tree, expand folders and preview a file; no selected project offers Open folder.
 - [ ] F02 Preview versus pinned tabs: click, double-click and first edit preserve the expected file.
 - [ ] F03 Edit text, undo/redo and Ctrl+S; UTF-8/BOM/CRLF content survives correctly.
 - [ ] F04 Ctrl+P, Ctrl+F/H and Ctrl+G work with relative paths, find/replace and line navigation.
@@ -208,6 +208,9 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | S06 identity regression | The actual result session uses the pinned project, but `scheduledStart` omitted workspace metadata and its chat controller retained default identity/model. The bridge now returns the authoritative workspace; the controller loads it and the pinned model. The AppHost test failed on the original project identity, then 17 focused Flutter and five scheduling Rust checks passed, including temporary-folder binding and retained Home draft/model. The packaged C ABI check failed on the old build's missing workspace field; rebuilt save/reopen corpus passed with 11 local requests and no live requests. Native DeepSeek Run now correctly labels the project in the running strip and operation reviews. | Report completion remains under test. All 49 original-profile table hashes remain unchanged. |
 | S06 result (failure) | Scheduled history reported Succeeded and Open result opened the separate completed conversation. DeepSeek used actual Harbor/celsius/ready notes and produced report content, but also claimed it could not create the schedule and asked which scheduler to use. The original creation request was being reused as its execution goal. It additionally called a manually read, unpinned skill “pinned.” | Scheduled execution handoff must distinguish already-completed setup from today's work. Do not accept semantic task success from the Succeeded transport state alone. |
 | S06 handoff regression and live pass | The host now explicitly marks setup already saved and dispatches today's work, with the actual nullable skill pin. The old packaged provider handoff failed the regression; rebuilt save/reopen passed with 14 local requests, including an unpinned occurrence in a project with an enabled skill. Native Run now of the same paused DeepSeek task completed a report grounded in README, notes, to-do and check source, accurately recognized the saved schedule and made no pinned-skill claim. Scheduled showed approval progress and Succeeded; Open result and Run details worked. Four calls reported 5,131 / 5,298 / 5,422 / 5,856 total tokens. No files were edited and the check was not executed. | Report remains longer than desirable for “short”; this is a model-quality observation. Physical recurring dispatch, pinned-skill live use and model creation reliability remain separate pending checks. |
+| C05, C09; F01 partial | On the rebuilt normal app for `e4eaffb`, Qwen → DeepSeek → Qwen retained the completed report and a public unsent draft. Files navigation retained that draft; `.agents` expanded to its child folder and the notes preview remained readable. Idle title-bar Close followed by normal launch restored the same project, report history, Qwen selection and exact settled draft. | IME composition and abrupt-interruption recovery remain distinct pending cases. Files with no selected project is still pending. |
+| C04, F01; model limitation | New chat options → Side chat created a visibly file-free chat. Qwen answered the small-commit question but falsely claimed project read/write access (one call, 2,392 reported total tokens). DeepSeek accurately corrected the claim, listed only the two actual scheduling tools and declined the project-file read (one call, 2,612 reported total tokens). A diagnostic packaged-provider check agreed that no file/command tools were supplied; it is not a real-model pass. Folders with this side chat selected showed Open folder and the no-project explanation. | Qwen capability-answer reliability remains a failed model case. No file read or grant occurred, and stronger-model fallback was effective. |
+| C12 (failure, fixed navigation) | Returning from the new Side chat to a retained project chat removed the new chat from Recents. The cached controller kept an old conversation catalog; the stored chat remained intact. Two AppHost checks reproduced the missing row and failure-to-refresh recovery. Navigation now refreshes only the shared catalog. All 16 focused checks passed, including unavailable-storage retry and preservation of a retained model, draft, partial response and pending review. Normal build/launch passed. Native retest loaded the earlier report, created another Qwen Side chat, then returned to the cached report: both side chats remained visible, the exact project draft returned, and the retained DeepSeek selection was preserved. | Older/newer paging remains pending. New Qwen code reply used one call, 2,353 reported total tokens. |
 
 ### Open observations
 

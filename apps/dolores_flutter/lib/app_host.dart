@@ -390,6 +390,8 @@ class AppHost extends ChangeNotifier {
         if (next.session != id) {
           throw StateError(next.error ?? 'Conversation could not be opened.');
         }
+      } else {
+        await next.refreshConversationList();
       }
       visible = next;
       final note = companion.unread;
