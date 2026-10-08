@@ -3706,3 +3706,69 @@ requests produced explanations with no tool calls (one call each, 6,095 and
 6,112 tokens). All three complete stored task records stayed byte-identical
 across both controls. S02/S03 are checked for these DeepSeek flows; arbitrary
 languages, Qwen competence and execution of the new task are not inferred.
+
+### First-user audit — editor search panel covers the document (2026-10-08)
+
+Native Editor actions → Find/Replace hid the entire disposable catalog document.
+The panel's Column expanded to the available editor height inside the editor's
+overlay Stack; PreferredSize only advertised padding and did not constrain it.
+Four wide/compact light/dark regressions reproduced an actual 608-pixel overlay
+advertised as 56 pixels. The panel now shrinks to its controls, with enough
+advertised space to keep the first document line below both search rows.
+
+All 18 focused editor, layout, file-host and workspace tests passed, along with
+changed-source analysis. The new regressions select document text below each
+panel and apply a Unicode replacement, checking dirty retention and Close Find.
+Real search-isolate work runs in the test's bounded real async scope; fake-clock
+completion alone does not establish replacement.
+
+The normal Windows rebuild and native retest passed. The visible Garden match
+remained readable below Replace; replacement with 海风 pinned the preview and
+marked it dirty. Opening the README preview retained that tab (F02). The source
+stayed byte-identical until an explicit save. A settled owned-process
+interruption/relaunch restored both tabs and the exact unsaved Unicode buffer
+without source writes (F10). Dirty Close → Keep editing retained the buffer;
+fresh Dirty Close → Save saved and closed it. Actual saved bytes were exactly
+`Shelf: 海风\r\nBooks: 3\r\n`; the README stayed unchanged. Reopen showed the
+clean saved content. Pointer dragging reordered tabs, split at the right edge,
+and moved between groups; Move tab to next group and Split down also worked
+through the menu with both contents preserved (F05).
+
+F02/F05/F10 are checked. F03/F04/F07 remain partial for their additional physical
+shortcut, undo/redo, BOM, quick-open/line-navigation and Discard cases. No model
+call or Git mutation was needed for this file-editing check. The original
+profile's 49 table hashes stayed unchanged.
+
+### First-user audit — file boundaries and disk conflict recovery (2026-10-08)
+
+The normal `8abca4b` build passed F11/F12/F13 through native interaction.
+Three disposable edge cases (3-byte binary, 100 KiB line, 5 MiB text) showed
+read-only previews, explained their applicable bounds and disabled Save. Their
+original bytes remained identical, and normal editable tabs stayed usable.
+
+An unsaved `catalog-copy.txt` contained `Books: 7`, with saved source still 4.
+Qwen declined without requesting a read (one call, 6,306 tokens). DeepSeek's
+fallback requested and completed the exact single-file review, then reported 4
+(two calls, 6,258/6,295 tokens). Native selection attachment disclosed its unsaved
+version/range, offered the chosen idle project chat, and populated only its
+draft. Preview contained just the selected line and provenance. No generation
+started until explicit Send; DeepSeek then reported 7 without a tool call
+(one call, 6,446 tokens). Saved bytes stayed at 4. This qualifies the sharing
+boundary through fallback, not Qwen competence.
+
+F06/F08/F09 remain partial. Both split views shared replacements and dirty/clean
+state. Stale Save retained editor 4 and disk 5. Compare showed both; changing
+disk to 6 while the review was open invalidated Keep my edits with a fresh-
+comparison recovery message. Fresh Compare → Keep my edits left disk at 6;
+explicit Save then wrote editor 4 with exact Unicode/CRLF preservation.
+Create produced an empty file. Save as copied exact bytes and retargeted both
+views while retaining the original. Create at the existing copy path opened
+the retained file without overwriting it. Shared undo, independent long
+scrolling/compact selection, distinct rename, Save-as collision and Reload disk
+are pending. No destructive native UI action or terminal command was used.
+
+Native DeepSeek denial recovery also passed A04. Deny on the README read left
+a denied receipt; the final response acknowledged the denial, claimed no file
+contents and offered a user-requested retry or alternate sharing. No tool
+executed and no automatic retry occurred (two calls, 6,728/6,804 tokens). The
+earlier Qwen limitation remains recorded separately.

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:dolores_flutter/app_host.dart';
 import 'package:dolores_flutter/chat.dart';
+import 'package:dolores_flutter/file_editor.dart';
 import 'package:dolores_flutter/file_workspace.dart';
 import 'package:dolores_flutter/theme.dart';
 
@@ -37,6 +38,88 @@ void main() {
       fontFamily: 'MaterialIcons',
     );
   });
+  for (final dark in [false, true]) {
+    for (final width in [900.0, 360.0]) {
+      testWidgets(
+        'find and replace leave document reachable at $width ${dark ? 'dark' : 'light'}',
+        (t) async {
+          t.view.physicalSize = Size(width, 640);
+          t.view.devicePixelRatio = 1;
+          addTearDown(t.view.resetPhysicalSize);
+          addTearDown(t.view.resetDevicePixelRatio);
+          final host = AppHost(
+            ChatController(EditingBridge())..loading = false,
+          );
+          await host.files.bind('A', 'C:/A');
+          final w = host.files.selected!;
+          final d = (await host.files.open(w, 'a.txt'))!;
+          await t.pumpWidget(
+            MaterialApp(
+              theme: doloresTheme(dark),
+              home: Scaffold(
+                body: FileEditor(host: host, workspace: w, document: d),
+              ),
+            ),
+          );
+          await t.pumpAndSettle();
+          final editor = t.widget<CodeEditor>(find.byType(CodeEditor));
+          final search = editor.findController!;
+          Future<void> checkPanel() async {
+            await t.pumpAndSettle();
+            final panel = find
+                .ancestor(
+                  of: find.byKey(const Key('editor-find')),
+                  matching: find.byType(PreferredSize),
+                )
+                .first;
+            final expected = t
+                .widget<PreferredSize>(panel)
+                .preferredSize
+                .height;
+            expect(t.getSize(panel).height, lessThanOrEqualTo(expected));
+            expect(t.getSize(panel).height, lessThan(160));
+            // The area below the bar must accept document selection.
+            final area = t.getRect(find.byType(CodeEditor));
+            editor.controller!.selection = const CodeLineSelection.collapsed(
+              index: 0,
+              offset: 0,
+            );
+            await t.tapAt(Offset(area.right - 24, area.top + expected + 18));
+            await t.pump();
+            expect(editor.controller!.selection.extentOffset, 5);
+            expect(t.takeException(), isNull);
+          }
+
+          search.findMode();
+          await checkPanel();
+          search.replaceMode();
+          await checkPanel();
+          await t.runAsync(() async {
+            await t.enterText(find.byKey(const Key('editor-find')), 'saved');
+            await t.enterText(find.byKey(const Key('editor-replace')), '海风');
+            final deadline = DateTime.now().add(const Duration(seconds: 2));
+            while ((search.allMatchSelections?.length ?? 0) != 1 &&
+                DateTime.now().isBefore(deadline)) {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          });
+          expect(search.allMatchSelections, hasLength(1));
+          await t.pumpAndSettle();
+          await t.tap(find.widgetWithText(TextButton, 'All'));
+          await t.pumpAndSettle();
+          expect(d.text, '海风');
+          expect(d.dirty, true);
+          expect(t.takeException(), isNull);
+          await t.tap(find.byTooltip('Close Find'));
+          await t.pumpAndSettle();
+          expect(find.byKey(const Key('editor-find')), findsNothing);
+          expect(d.text, '海风');
+          await t.pumpWidget(const SizedBox());
+          host.dispose();
+        },
+      );
+    }
+  }
   testWidgets(
     'drag reorder, cancelled drag and edge split retain the shared buffer; dirty close can be cancelled',
     (t) async {

@@ -744,12 +744,13 @@ class _FileEditorState extends State<FileEditor> {
       ? const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink())
       : PreferredSize(
           preferredSize: Size.fromHeight(
-            c.value?.replaceMode == true ? 104 : 56,
+            c.value?.replaceMode == true ? 128 : 72,
           ),
           child: Material(
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [

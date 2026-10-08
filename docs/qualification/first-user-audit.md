@@ -49,7 +49,7 @@ tracks the audit; product design stays in the feature specifications.
 - [x] A01 Ask the model to list/read a small project and explain actual contents.
 - [x] A02 Request a new file; exact creation review is understandable and the saved file matches the receipt.
 - [x] A03 Request an existing-file edit; inspect/apply the diff and verify only the intended saved bytes changed.
-- [ ] A04 Deny an operation; model receives the denial and explains a useful next step without claiming success.
+- [x] A04 Deny an operation; model receives the denial and explains a useful next step without claiming success.
 - [x] A05 Change a file after an edit proposal; stale apply refuses without overwriting newer work, then fresh review succeeds.
 - [x] A06 Run a harmless project check through its exact command review; inspect output and return code.
 - [x] A07 Cause a real check failure; Repair and verify fixes it and reruns the same check with truthful evidence.
@@ -63,18 +63,18 @@ tracks the audit; product design stays in the feature specifications.
 ## 3. Files and editor
 
 - [x] F01 Discover file tree, expand folders and preview a file; no selected project offers Open folder.
-- [ ] F02 Preview versus pinned tabs: click, double-click and first edit preserve the expected file.
+- [x] F02 Preview versus pinned tabs: click, double-click and first edit preserve the expected file.
 - [ ] F03 Edit text, undo/redo and Ctrl+S; UTF-8/BOM/CRLF content survives correctly.
 - [ ] F04 Ctrl+P, Ctrl+F/H and Ctrl+G work with relative paths, find/replace and line navigation.
-- [ ] F05 Drag tabs to reorder, split and move between groups; keyboard/menu alternatives work.
+- [x] F05 Drag tabs to reorder, split and move between groups; keyboard/menu alternatives work.
 - [ ] F06 Shared file text/undo and independent cursor/scroll survive two split views and compact layout.
 - [ ] F07 Close a dirty file: Save/Discard/Keep editing preserve the chosen outcome.
 - [ ] F08 Create/Save as/rename a disposable file; an existing target is not silently overwritten.
 - [ ] F09 External disk edit produces Compare/Reload disk/Keep my edits; stale save preserves both versions.
-- [ ] F10 Restart with settled dirty buffers; private recovery preserves edits without writing source files.
-- [ ] F11 Binary/oversize/long-line files offer clear readable recovery instead of broken editing.
-- [ ] F12 Attach an unsaved editor selection to a chosen chat draft; no send until requested.
-- [ ] F13 Model file reads see saved bytes while unsaved editor changes remain private unless attached.
+- [x] F10 Restart with settled dirty buffers; private recovery preserves edits without writing source files.
+- [x] F11 Binary/oversize/long-line files offer clear readable recovery instead of broken editing.
+- [x] F12 Attach an unsaved editor selection to a chosen chat draft; no send until requested.
+- [x] F13 Model file reads see saved bytes while unsaved editor changes remain private unless attached.
 
 ## 4. Source Control
 
@@ -221,6 +221,70 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- A04 passed through the native DeepSeek fallback. Denying its requested
+  `README.md` read produced a denied receipt and a truthful final response:
+  it had no README contents, could not summarize them, and offered an explicit
+  user-requested retry or another way to share the text. No read/edit/command
+  ran and no automatic retry occurred (two calls, 6,728/6,804 tokens).
+  The earlier Qwen denial explanation remains a model limitation.
+
+- F11/F12/F13 passed on the normal `8abca4b` Windows build. Binary (3 bytes),
+  long-line (100 KiB) and oversized (5 MiB) disposable files each opened as a
+  labeled read-only preview with Save disabled. The text previews disclosed
+  their editing and preview limits. All three original files stayed byte-identical;
+  existing editable tabs remained usable.
+  An unsaved catalog-copy buffer contained `Books: 7`, while its saved CRLF
+  source still contained `Books: 4`. Qwen declined without calling a tool,
+  incorrectly asking for permission to attempt the already-requested read
+  (one call, 6,306 tokens). DeepSeek requested the ordinary single-file review
+  and correctly read 4 (two calls, 6,258/6,295 tokens). Native text selection →
+  Editor actions → Attach selection to conversation showed the unsaved version
+  and selected range, then attached only that snapshot to the chosen chat draft.
+  No send or new generation occurred on attachment. Preview showed `Books: 7`;
+  after explicit Send, DeepSeek answered 7 without any tool call (one call,
+  6,446 tokens). The saved source stayed at 4 throughout. Qwen competence for
+  this flow remains unaccepted; the boundary passed through DeepSeek fallback.
+
+- F06/F08/F09 gained partial native coverage on the same build. Replace updated
+  both split catalog panes and both dirty indicators. Saving after an external
+  disk change refused and retained editor value 4 and disk value 5. Compare
+  displayed both values. A further disk change to 6 invalidated Keep my edits
+  from that comparison, with an actionable Compare again message and both
+  versions preserved. Fresh Compare → Keep my edits adopted the reviewed disk
+  revision without writing; a subsequent explicit Save wrote the retained 4
+  with exact Unicode/CRLF bytes and cleared both dirty indicators.
+  Create produced an empty disposable file; Save as created an exact copy,
+  retained the original and updated both shared views to the new path. Create
+  at that existing copy path opened it without overwriting any bytes.
+  Shared undo/independent long scrolling/compact selection, a distinct file
+  rename, Save-as collision and Reload disk remain pending. Reload disk and
+  Discard require action-time confirmation under the computer-use skill; no
+  destructive UI action was performed or counted as a pass.
+
+- F04 failed through the visible Editor actions → Find/Replace route: opening
+  either panel covered the entire catalog document, hiding its search matches.
+  Four wide/compact light/dark regressions reproduced the full-height overlay.
+  The panel now sizes to its rows and reserves space above the first line; tests
+  also select the document below the panel and replace a match with Unicode text.
+  All 18 focused file/editor checks and changed-source analysis passed. The normal
+  Windows rebuild and native retest passed: Replace kept Garden highlighted in
+  the visible catalog, then replaced only that word with 海风. The tab changed
+  from italic preview to a kept dirty tab. Opening a README preview retained the
+  exact unsaved catalog (F02), and later double-click kept both clean tabs.
+  The source file stayed at its original 25 CRLF bytes. After a settled owned-
+  process interruption/relaunch, Files restored both tabs and the exact unsaved
+  Unicode buffer without writing the source (F10). Dirty Close → Keep editing
+  retained it; a fresh Dirty Close → Save saved and closed it. Independent bytes
+  matched `Shelf: 海风\r\nBooks: 3\r\n`, and the README remained unchanged.
+  Reopen showed that clean content. F03/F07 remain partial for undo/redo/BOM,
+  keyboard Save and Discard; F04's pointer search/replacement recovery passed,
+  but quick-open, line navigation and physical shortcuts remain unqualified.
+  Native dragging reordered tabs, split at the right edge, and moved the catalog
+  between existing groups. Move tab to next group and Split down worked through
+  the overflow menu, retaining both file contents (F05). Keyboard entry
+  remains unqualified: helper paste/chords did not enter text in the code view;
+  native context-menu paste works in the separate Find/Replace fields.
 
 - S02/S03 initially failed on the Chinese workday/default-time case. DeepSeek correctly
   interpreted the request but the actual save failed after a reviewed public
@@ -397,6 +461,11 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
   clocks/storage/UI checks cover high-cap pacing, zero suppression, restart and
   failed saves. Eligible native real-model delivery still needs a separate case;
   this UI save check does not establish proactive delivery reliability.
+  A retained Qwen note in the isolated profile opened into its existing side
+  chat and cleared the unread banner without starting another generation or
+  exposing project tools (E02 partial). Its stored generation usage was 122
+  tokens. Fresh native eligibility/delivery, quiet-during-work and the remaining
+  Not now/Dismiss/Fewer messages/Turn off actions are still pending.
 
 - A08 and C15 passed on the normal rebuilt repair build. Changes listed saved
   edits across chats in the selected working folder. The forecast edit displayed
