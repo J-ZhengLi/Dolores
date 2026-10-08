@@ -221,11 +221,17 @@ mod tests {
                 "test_harness_repair",
                 "build_harness_repair",
                 "request_desktop_access",
+                "schedule_task",
+                "manage_scheduled_task",
             ]
             .into_iter()
             .map(str::to_string)
             .collect(),
         };
+        assert!(run.tools.len() <= dolores_core::MAX_REGISTERED_TOOLS);
+        while run.tools.len() < dolores_core::MAX_REGISTERED_TOOLS {
+            run.tools.push(format!("external_{}", run.tools.len()));
+        }
         store.begin_run(&run).unwrap();
         run.id = "22222222-2222-4222-8222-222222222222".into();
         run.tools.push("external_extra".into());

@@ -28,14 +28,17 @@ fn path(root: &str, uri: &str) -> Result<String, String> {
     let uri = url::Url::parse(uri).map_err(|_| "Language edit has an invalid file URI.")?;
     let full = uri
         .to_file_path()
-        .map_err(|_| "Language edit must target a project file.")?;
-    let base = std::path::PathBuf::from(root.trim_start_matches(r"\\?\"));
-    if !crate::source_control::within(&full, &base) {
-        return Err("Language edit is outside the selected project. Nothing changed.".into());
-    }
+        .map_err(|_| "Language edit must target a project file.")?
+        .canonicalize()
+        .map_err(|_| "Language edit file is unavailable. Restore it and request a fresh preview; nothing changed.")?;
+    // Resolve both identities before checking containment: Windows temp folders
+    // and language-server URIs can use junctions, short names or different casing.
+    let base = std::path::Path::new(root)
+        .canonicalize()
+        .map_err(|_| "Project folder is unavailable. Restore it and request a fresh preview.")?;
     let relative = full
         .strip_prefix(&base)
-        .map_err(|_| "Language edit path has a different project identity.")?;
+        .map_err(|_| "Language edit is outside the selected project. Nothing changed.")?;
     relative
         .to_str()
         .map(|s| s.replace('\\', "/"))

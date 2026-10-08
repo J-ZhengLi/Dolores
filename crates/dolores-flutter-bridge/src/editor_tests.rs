@@ -65,6 +65,79 @@ fn language_workspace_preview_apply_undo_is_atomic_and_refuses_stale_outside_pat
     assert!(language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"changes":{outside_uri:[]}}})).is_err());
     assert!(language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"documentChanges":[{"kind":"delete","uri":uri("a.ts")}]}})).is_err());
 }
+
+#[cfg(windows)]
+#[test]
+fn language_workspace_windows_uri_aliases_preserve_project_boundary_and_buffers() {
+    let fixture = tempfile::tempdir().unwrap();
+    let project = fixture.path().join("Project With Spaces 文件");
+    let alias = fixture.path().join("Project Alias");
+    let outside = fixture.path().join("Project With Spaces 文件 sibling");
+    std::fs::create_dir(&project).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    let junction = |link: &std::path::Path, target: &std::path::Path| {
+        let result = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+    };
+    junction(&alias, &project);
+    let name = "source 文件.ts";
+    std::fs::write(project.join(name), "old();\n").unwrap();
+    std::fs::write(outside.join(name), "outside();\n").unwrap();
+    let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+    let e = setup(store, &project);
+    let p = call(&e, "A", json!({"action":"workspace"})).unwrap()["project"].clone();
+    let uri = |folder: &std::path::Path| {
+        url::Url::from_file_path(folder.join(name))
+            .unwrap()
+            .to_string()
+    };
+    let language = |request: Value| {
+        e.call(
+            serde_json::from_value(
+                json!({"command":"languageEdits","session":"A","request":request}),
+            )
+            .unwrap(),
+        )
+    };
+    let edit = json!([{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"newText":"updated"}]);
+    for target in [uri(&alias), uri(&project).to_ascii_lowercase()] {
+        let source = doc(&e, &p, name);
+        let preview = language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"changes":{target:edit.clone()}}})).unwrap();
+        assert_eq!(preview["files"][0]["path"], name);
+        assert_eq!(doc(&e, &p, name)["text"], "old();\n");
+        let applied = language(json!({"action":"apply","token":preview["token"]})).unwrap();
+        assert_eq!(applied["documents"][0]["text"], "updated();\n");
+        assert_eq!(
+            std::fs::read_to_string(project.join(name)).unwrap(),
+            "old();\n"
+        );
+        language(json!({"action":"undo","token":preview["token"]})).unwrap();
+        assert_eq!(doc(&e, &p, name)["text"], "old();\n");
+    }
+    let source = doc(&e, &p, name);
+    let duplicate = language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"changes":{uri(&alias):edit.clone(),uri(&project):edit.clone()}}})).unwrap_err();
+    assert!(duplicate.contains("Duplicate language paths"));
+    let escape = project.join("escape");
+    junction(&escape, &outside);
+    for target in [uri(&outside), uri(&escape)] {
+        let error = language(json!({"action":"preview","document":source["document"],"version":source["version"],"edit":{"changes":{target:edit.clone()}}})).unwrap_err();
+        assert!(error.contains("outside the selected project"));
+    }
+    assert_eq!(doc(&e, &p, name)["text"], "old();\n");
+    assert_eq!(
+        std::fs::read_to_string(outside.join(name)).unwrap(),
+        "outside();\n"
+    );
+}
 fn call(e: &Engine, session: &str, request: Value) -> Result<Value, String> {
     e.call(
         serde_json::from_value::<Command>(

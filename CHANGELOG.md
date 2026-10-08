@@ -16,6 +16,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Language edits accept equivalent Windows file paths instead of incorrectly reporting that project files are outside the selected project.
 - Source Control has quick stage/unstage buttons for each file and all changes. Commit includes working changes when nothing is staged, while preserving an existing staged selection.
 - Chat scheduling interprets ordinary requests across languages, uses a disclosed 09:00 local default when time is omitted, and reports scheduling errors accurately.
 

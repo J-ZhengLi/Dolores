@@ -1,5 +1,35 @@
 # Dolores acceptance — 2026-10-08
 
+## CI regression — Windows language paths and catalog fixture
+
+The reported editor panic was reproduced at the same line by running the original
+test with an owned Windows temporary-folder junction. A normal temporary folder
+passed, showing the path-dependent failure. Language edit URIs and project roots
+now resolve to canonical filesystem paths before deriving the relative target.
+The original aliased-folder reproduction passes after the fix. A new Windows
+regression covers folder aliases, letter casing, encoded Unicode/spaces, duplicate
+aliases, outside sibling files and an escaping junction, with atomic Apply/Undo
+and unchanged disk/buffer contents after refusal.
+
+The full normal `cargo test --workspace --locked` run exposed an additional stale
+storage fixture: it expected overflow at 16 tools after scheduling raised the
+shared limit to 17. The fixture now includes both scheduling tools, accepts the
+current boundary and rejects one extra tool while retaining the draft and prior
+run. No runtime allowance changed in this correction. The final full command
+passes **442 tests**, with **two existing optional ignores** (native credential
+store and configured-provider companionship). Strict bridge/store Clippy, Rust
+formatting, documentation/local-link and publication-pattern checks pass.
+
+The broader workspace-wide junction injection remained red in three unrelated
+fixtures: private install/compiler storage intentionally refuses linked paths,
+and the no-repository fixture was placed inside this checkout. Those guards were
+retained; this diagnostic environment is not claimed as a supported private
+storage setup. Logs remain under ignored `output/language-ci-*.log`.
+
+Normal Windows main-entry build/reopen passes; all **49 original profile table
+hashes** remain unchanged. This is local verification of the reported Rust CI
+command, not a completed hosted GitHub workflow or other-platform qualification.
+
 ## Source Control — quick staging and empty-index commit
 
 Section +/− controls and file +/− controls stage/unstage saved changes with one

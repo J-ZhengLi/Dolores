@@ -90,6 +90,14 @@ results may lag typing, and refresh is explicit. Do not describe unversioned res
 as proven current-version analysis; that stronger server guarantee remains a gap.
 Cache entries retain the synchronized version and cannot serve a newer buffer.
 
+Workspace edit targets also resolve both the decoded file URI and the selected
+project to their canonical filesystem paths before deriving a relative path.
+Equivalent Windows folder aliases and letter casing must not cause a false
+outside-project refusal. Actual outside targets, including links escaping the
+project, remain refused; aliases naming the same edit target count as duplicates.
+Missing targets report restoration and a fresh preview. The editor's regular-file,
+saved-revision and atomic buffer transaction checks remain in effect.
+
 The verified Rust Windows archive includes optional `rust_analyzer.pdb` symbols.
 Validate that exact member name with a 32 MiB bound, then omit it from installation.
 The executable/hash pin and other archive/path bounds stay unchanged.
