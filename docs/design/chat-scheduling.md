@@ -10,7 +10,7 @@ Support one-time local dates, daily, and selected weekdays at a local hour/minut
 Resolve the system's IANA zone unless the user names another supported zone. A
 typed creation tool is bound to the current human input and source chat; quotes,
 examples, informational questions, hypothetical discussion and tool/assistant text cannot create
-or edit tasks. Unresolved intent, time or skill asks for the missing detail.
+or edit tasks. Ambiguous intent/time, missing recurrence/date or an unresolved skill asks for the missing detail. An omitted creation time uses 09:00 local time, disclosed in the confirmation.
 The host resolves an enabled reviewed skill by name and pins its current version.
 An absent or disabled skill is an error, never an invented default. A request can
 omit a skill for ordinary tasks. Otherwise pin the current enabled provider/model.
@@ -22,9 +22,31 @@ result destination. Repeated calls in the same source exchange reconcile to one
 task. Conversational changes resolve a task and its revision; ambiguous references
 ask which task. In-flight work keeps its original snapshot.
 
-Creation/edit turns use only scheduling metadata tools and omit future skill
-instructions. They retain the existing 14-tool catalog limit; project work tools
-and the single pinned skill version are prepared when an occurrence executes.
+Natural-language interpretation belongs to the configured model, in the user's
+language. Creation and management tools are available in every ordinary human
+turn alongside project tools; there is no keyword or language gate and no separate
+classification request. The model distinguishes direct requests from negation,
+quotes, examples, questions and ordinary work. Instructions, skills, memories and
+tool results cannot authorize scheduling. This semantic distinction relies on the
+model; host validation alone does not prove perfect intent interpretation.
+
+The host binds the operation to the current human input/source chat, validates
+the structured rule, named timezone, recurrence bounds, enabled model/skill,
+task identity and revision, and reconciles duplicate calls. It does not attempt
+to reparse natural language with word lists. Null creation time becomes 09:00;
+the receipt includes `usedDefaultTime`, and the agent must disclose that default.
+Workdays mean Monday–Friday, without inferred holidays. Ordinary project guidance
+needs no named skill. Successful creation needs no second confirmation or setup;
+show a short receipt-based confirmation. Invalid creation/edit fields retain their
+actual explanation instead of a generic file-policy denial.
+
+The catalog ceiling increases explicitly from 15 to 17 for the two metadata
+tools. Existing project tools are retained. This adds two tool definitions to
+ordinary human requests, without an extra model call, process or timer. Context,
+output and task budgets still apply. Scheduled occurrences never receive these
+metadata tools, preventing recursive creation; they apply the pinned skill to
+the actual work. A creation request saves metadata rather than executing the
+future work, even when relevant project guidance is present in the human turn.
 Conversational edits initially cover time, enabled skill/model, Pause/Resume/Skip
 and Cancel. A different project or recurrence rule needs a new task. No inferred
 project move or arbitrary cron syntax is implemented.
@@ -76,8 +98,8 @@ history and cannot be pruned to admit another task or overlapping run.
    Pause/Resume/Skip next/Run now/Stop/Delete/results; no New task control.
 
 Deterministic fixtures verify host mechanics separately from model interpretation.
-Use one bounded configured Qwen report and a harder configured DeepSeek intent
-case; preserve the real profile/model. Report successes and misses separately.
+For an optional live check, select an available suitable model explicitly and
+bound the corpus; preserve the real profile/model. Report successes and misses separately.
 Measure added idle process/state/token costs. Primary API references:
 [Chrono local-time mapping](https://docs.rs/chrono/latest/chrono/trait.TimeZone.html)
 and [system IANA timezone](https://docs.rs/iana-time-zone/latest/iana_time_zone/fn.get_timezone.html).

@@ -33,7 +33,7 @@ class Fixture(BaseHTTPRequestHandler):
         first=messages[-1]['role']=='user'
         if scheduled and mode=='approval' and first:
             calls=[{'index':0,'id':'read','type':'function','function':{'name':'read_text_file','arguments':json.dumps({'path':'public-note.txt'})}}]
-        elif not scheduled and first and 'schedule_task' in names:
+        elif not scheduled and first and mode!='changeSkill' and 'schedule_task' in names:
             call={'rule':{'kind':'weekdays','time':'21:00','date':None,'weekdays':[0,1,2,3,4],'zone':'Asia/Shanghai'},'skill':'daily-report','model':None}
             calls=[{'index':i,'id':f'create-{i}','type':'function','function':{'name':'schedule_task','arguments':json.dumps(call)}} for i in range(2)]
         elif not scheduled and first and mode=='changeSkill' and 'manage_scheduled_task' in names:
@@ -43,10 +43,10 @@ class Fixture(BaseHTTPRequestHandler):
             assert 'DAILY-REPORT-PINNED-V1' in system
             assert 'schedule_task' not in names and 'manage_scheduled_task' not in names
         elif first and 'schedule_task' in names:
-            # The project already fills its 14-tool catalog. Creation must use
-            # only local task metadata and never execute future work now.
-            assert names==['schedule_task'],names
-            assert 'DAILY-REPORT-PINNED-V1' not in system
+            # Scheduling and ordinary work tools coexist; future occurrences
+            # still exclude scheduling tools and use their pinned skill snapshot.
+            assert 'manage_scheduled_task' in names and 'read_text_file' in names,names
+            assert len(names)<=17,names
         delta={'tool_calls':calls} if calls else {'content':'DAILY-REPORT-PINNED-V1\nDone: public fixture report.\nNext: review tomorrow.' if scheduled else 'Task saved. Results appear in Scheduled.'}
         events=[{'choices':[{'delta':delta,'finish_reason':None}]},{'choices':[{'delta':{},'finish_reason':'tool_calls' if calls else 'stop'}]},{'choices':[],'usage':{'prompt_tokens':120,'completion_tokens':30,'total_tokens':150}}]
         self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()

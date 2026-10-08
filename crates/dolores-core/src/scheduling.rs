@@ -138,238 +138,19 @@ pub fn now_seconds() -> i64 {
     Utc::now().timestamp()
 }
 
-/// Intentionally conservative: discussion is recoverable; unauthorized creation is not.
-pub fn direct_request(input: &str) -> bool {
-    let s = input.trim().to_lowercase();
-    if s.len() > 4096
-        || s.contains(['"', '“', '”', '`', '\n'])
-        || [
-            "don't",
-            "do not",
-            "example",
-            "for instance",
-            "hypothetical",
-            "what if",
-            "how do",
-            "discuss",
-            "explain",
-            "quoted",
-            "someone said",
-            "举例",
-            "例如",
-            "假设",
-            "讨论",
-            "解释",
-            "不要",
-        ]
-        .iter()
-        .any(|v| s.contains(v))
-    {
-        return false;
-    }
-    let prefix =
-        regex::Regex::new(r"^(?:(?:hey|hi|hello)\s+)?(?:dolores[, :]+)?(?:please\s+)?").unwrap();
-    let body = prefix.replace(&s, "");
-    if body.contains(['?', '？'])
-        && !["can you ", "could you ", "would you "]
-            .iter()
-            .any(|v| body.starts_with(v))
-    {
-        return false;
-    }
-    [
-        "schedule ",
-        "remind me ",
-        "write ",
-        "generate ",
-        "prepare ",
-        "run ",
-        "summarize ",
-        "at ",
-        "every ",
-        "daily ",
-        "on ",
-        "for ",
-        "change ",
-        "move ",
-        "update ",
-        "switch ",
-        "pause ",
-        "resume ",
-        "skip ",
-        "cancel ",
-        "delete ",
-        "can you ",
-        "could you ",
-        "would you ",
-        "i want you to ",
-        "i'd like you to ",
-        "请",
-        "帮我",
-        "每天",
-        "每周",
-        "在",
-        "晚上",
-        "早上",
-        "定时",
-        "提醒",
-        "写",
-        "生成",
-        "改成",
-        "改为",
-        "把",
-        "暂停",
-        "恢复",
-        "跳过",
-        "取消",
-    ]
-    .iter()
-    .any(|v| body.starts_with(v))
-}
-pub fn explicit_schedule_intent(input: &str) -> bool {
-    let s = input.to_lowercase();
-    if !direct_request(input)
-        || [
-            "don't",
-            "do not",
-            "not create",
-            "not schedule",
-            "example",
-            "for instance",
-            "hypothetical",
-            "what if",
-            "could you explain",
-            "how do",
-            "discuss",
-            "quoted",
-            "someone said",
-            "不",
-            "举例",
-            "例如",
-            "假设",
-            "讨论",
-            "解释",
-        ]
-        .iter()
-        .any(|v| s.contains(v))
-    {
-        return false;
-    }
-    let action = [
-        "schedule",
-        "remind me",
-        "write",
-        "generate",
-        "prepare",
-        "run",
-        "summarize",
-        "定时",
-        "提醒",
-        "生成",
-        "写",
-    ]
-    .iter()
-    .any(|v| s.contains(v));
-    let clock = regex::Regex::new(r"(?i)(\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*[ap]m\b|\d{1,2}点)")
-        .unwrap()
-        .is_match(&s);
-    action && clock
-}
+/// Source provenance and size are host checks. Meaning is interpreted by the
+/// configured model in any language; lexical allowlists cannot establish intent.
 pub fn validate_source_rule(
     input: &str,
     rule: &ScheduleRule,
-    system_zone: &str,
+    _system_zone: &str,
 ) -> Result<(), String> {
-    rule.validate()?;
-    if !explicit_schedule_intent(input) {
-        return Err("Ask directly to schedule a task, with a clear time. Quoted examples don't create tasks.".into());
-    }
-    let s = input.to_lowercase();
-    let compact = s.replace(' ', "");
-    validate_source_time(input, &rule.time)?;
-    if rule.zone != system_zone && !s.contains(&rule.zone.to_lowercase()) {
-        return Err("Name the timezone in your request before scheduling there.".into());
-    }
-    match rule.kind.as_str() {
-        "once" if compact.contains(rule.date.as_ref().unwrap()) => {}
-        "daily"
-            if ["everyday", "daily", "每天"]
-                .iter()
-                .any(|v| compact.contains(v)) => {}
-        "weekdays" => {
-            let expected = if ["everyweekday", "weekdays", "工作日"]
-                .iter()
-                .any(|v| compact.contains(v))
-            {
-                vec![0, 1, 2, 3, 4]
-            } else {
-                [
-                    "monday",
-                    "tuesday",
-                    "wednesday",
-                    "thursday",
-                    "friday",
-                    "saturday",
-                    "sunday",
-                ]
-                .iter()
-                .enumerate()
-                .filter_map(|(i, v)| s.contains(v).then_some(i as u32))
-                .collect()
-            };
-            let mut actual = rule.weekdays.clone();
-            actual.sort_unstable();
-            if expected.is_empty() || actual != expected {
-                return Err("Specify which weekdays this task should run.".into());
-            }
-        }
-        _ => return Err("Specify a date, every day, or the weekdays.".into()),
-    }
-    Ok(())
+    validate_source_input(input)?;
+    rule.validate()
 }
-pub fn validate_source_time(input: &str, time: &str) -> Result<(), String> {
-    NaiveTime::parse_from_str(time, "%H:%M").map_err(|_| "Specify HH:MM.")?;
-    if time.len() != 5 {
-        return Err("Specify HH:MM.".into());
-    }
-    let s = input.to_lowercase();
-    let hour = time[..2].parse::<u32>().map_err(|_| "Invalid hour.")?;
-    let minute = time[3..].parse::<u32>().map_err(|_| "Invalid minute.")?;
-    let suffix = if hour < 12 { "am" } else { "pm" };
-    let twelve = if hour.is_multiple_of(12) {
-        12
-    } else {
-        hour % 12
-    };
-    let mut spellings = vec![
-        time.to_string(),
-        format!("{hour}:{minute:02}"),
-        format!("{twelve}:{minute:02}{suffix}"),
-    ];
-    if minute == 0 {
-        spellings.push(format!("{twelve}{suffix}"));
-        if hour >= 13
-            || hour == 0
-            || ["早上", "上午", "凌晨", "中午", "下午", "晚上"]
-                .iter()
-                .any(|v| s.contains(v))
-        {
-            if !["下午", "晚上"].iter().any(|v| s.contains(v)) || hour >= 12 {
-                spellings.push(format!("{hour}点"));
-            }
-            if hour >= 12 && ["下午", "晚上"].iter().any(|v| s.contains(v)) {
-                spellings.push(format!("{twelve}点"));
-            }
-        }
-    }
-    let source_times =
-        regex::Regex::new(r"(?i)(\b\d{1,2}:\d{2}(?:\s*[ap]m)?\b|\b\d{1,2}\s*[ap]m\b|\d{1,2}点)")
-            .unwrap()
-            .find_iter(&s)
-            .map(|v| v.as_str().replace(' ', ""))
-            .collect::<Vec<_>>();
-    if source_times.len() != 1 || !spellings.contains(&source_times[0]) {
-        return Err("Clarify one exact time with AM/PM or HH:MM.".into());
+pub fn validate_source_input(input: &str) -> Result<(), String> {
+    if input.trim().is_empty() || input.len() > 4096 {
+        return Err("Task requests need a nonempty message of at most 4 KiB.".into());
     }
     Ok(())
 }
@@ -474,20 +255,37 @@ mod tests {
         );
     }
     #[test]
-    fn source_intent_refuses_quotes_and_invented_rule() {
-        let r = rule("Asia/Shanghai", "21:00");
-        assert!(
-            validate_source_rule("Write my report every day at 9pm", &r, "Asia/Shanghai").is_ok()
-        );
-        for s in [
-            "Example: write my report daily at 9pm",
-            "Do not schedule a report daily at 9pm",
-            "What if we schedule daily at 9pm?",
-            "\"write daily at 9pm\"",
-            "Write my report daily at 8pm",
-            "Write daily at 9am and 9pm",
+    fn invalid_source_and_structured_rules_do_not_create_tasks() {
+        let mut r = rule("Asia/Shanghai", "21:00");
+        for input in ["".to_owned(), " ".to_owned(), "x".repeat(4097)] {
+            assert!(validate_source_rule(&input, &r, "Asia/Shanghai").is_err());
+        }
+        r.time = "29:00".into();
+        assert!(validate_source_rule("Redacta un informe cada día", &r, "Asia/Shanghai").is_err());
+        r.time = "09:00".into();
+        r.kind = "weekdays".into();
+        r.weekdays = vec![0, 0];
+        assert!(validate_source_rule("平日にレポートを書いて", &r, "Asia/Shanghai").is_err());
+        r.weekdays = vec![0, 1, 2, 3, 4];
+        r.zone = "unknown".into();
+        assert!(validate_source_rule("Write a report each workday", &r, "Asia/Shanghai").is_err());
+    }
+    #[test]
+    fn source_validation_does_not_require_a_language_or_a_stated_time() {
+        let mut r = rule("Asia/Shanghai", "09:00");
+        r.kind = "weekdays".into();
+        r.weekdays = vec![0, 1, 2, 3, 4];
+        for input in [
+            "Write a report each workday",
+            "Redacta un informe cada día laborable a las nueve de la mañana",
+            "平日の朝九時にレポートを書いてください",
+            "Rédige un rapport tous les jours ouvrables à neuf heures",
+            "اكتب تقريرًا كل يوم عمل في التاسعة صباحًا",
         ] {
-            assert!(validate_source_rule(s, &r, "Asia/Shanghai").is_err(), "{s}");
+            assert!(
+                validate_source_rule(input, &r, "Asia/Shanghai").is_ok(),
+                "{input}"
+            );
         }
     }
 }

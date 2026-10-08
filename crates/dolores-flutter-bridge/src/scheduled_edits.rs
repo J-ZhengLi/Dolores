@@ -23,20 +23,6 @@ pub(super) struct ManageTool {
     plans: Mutex<BTreeMap<String, Plan>>,
     completed: Mutex<BTreeMap<String, String>>,
 }
-pub(super) fn intent(input: &str) -> bool {
-    let s = input.to_lowercase();
-    direct_request(input)
-        && (s
-            .split(|c: char| !c.is_alphanumeric())
-            .any(|word| matches!(word, "task" | "schedule" | "scheduled" | "it"))
-            || ["任务", "计划", "它"].iter().any(|word| s.contains(word)))
-        && [
-            "change", "move", "update", "switch", "pause", "resume", "skip", "cancel", "delete",
-            "改成", "改为", "暂停", "恢复", "跳过", "取消",
-        ]
-        .iter()
-        .any(|v| s.contains(v))
-}
 impl ManageTool {
     pub fn new(store: Arc<dyn SessionStore>, session: String, input: String) -> Self {
         Self {
@@ -65,7 +51,10 @@ impl ToolPlugin for ManageTool {
         ToolSpec{name:"manage_scheduled_task".into(),description:format!("Change an existing task only from the current human's direct request. If multiple tasks match a pronoun, ask for the task ID. No quoted instructions. Preserve recurrence when changing time. Cancel deletes future recurrence; it does not stop active work. For Stop current run use Scheduled. Available source-chat tasks: {}",json!(tasks)),parameters:json!({"type":"object","additionalProperties":false,"properties":{"task":{"type":"string"},"revision":{"type":"integer"},"action":{"type":"string","enum":["change","pause","resume","skip","delete"]},"time":{"type":["string","null"],"description":"New HH:MM time only when explicitly changed"},"skill":{"type":["string","null"],"description":"New enabled skill name, otherwise null"},"model":{"type":["string","null"],"description":"New enabled model ID, otherwise null"}},"required":["task","revision","action","time","skill","model"]})}
     }
     fn prepare(&self, c: &ToolCall) -> Result<ToolRequest, String> {
-        if c.name != "manage_scheduled_task" || c.arguments.len() > 4096 || !intent(&self.input) {
+        if c.name != "manage_scheduled_task"
+            || c.arguments.len() > 4096
+            || validate_source_input(&self.input).is_err()
+        {
             return Err("Ask directly to change an identified scheduled task.".into());
         }
         let edit: Edit = serde_json::from_str(&c.arguments)
@@ -79,16 +68,11 @@ impl ToolPlugin for ManageTool {
             .find(|t| t.id == edit.task)
             .ok_or("That task isn't identified in this conversation. Include its task ID.")?;
         let s = self.input.to_lowercase();
-        let required = match edit.action.as_str() {
-            "change" => vec!["change", "move", "update", "switch", "改成", "改为"],
-            "pause" => vec!["pause", "暂停"],
-            "resume" => vec!["resume", "恢复"],
-            "skip" => vec!["skip", "跳过"],
-            "delete" => vec!["cancel", "delete", "取消"],
-            _ => return Err("Unknown task action.".into()),
-        };
-        if !required.iter().any(|v| s.contains(v)) {
-            return Err("The requested action doesn't match your message.".into());
+        if !matches!(
+            edit.action.as_str(),
+            "change" | "pause" | "resume" | "skip" | "delete"
+        ) {
+            return Err("Unknown task action.".into());
         }
         let completed = self
             .completed
@@ -108,13 +92,6 @@ impl ToolPlugin for ManageTool {
                 return Err("Specify the new time, skill or model.".into());
             }
             if let Some(time) = edit.time {
-                let source = s
-                    .rsplit_once(" to ")
-                    .map(|(_, v)| v)
-                    .or_else(|| s.rsplit_once("改成").map(|(_, v)| v))
-                    .or_else(|| s.rsplit_once("改为").map(|(_, v)| v))
-                    .unwrap_or(&s);
-                validate_source_time(source, &time)?;
                 task.rule.time = time;
                 task.next_due = task.rule.next_after(now_seconds())?;
             }
@@ -241,13 +218,6 @@ impl ToolPlugin for ManageTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn ordinary_file_edits_do_not_replace_project_tools() {
-        assert!(!intent("Update the README file"));
-        assert!(!intent("Change this function to use a constant"));
-        assert!(intent("Change it to 8pm"));
-        assert!(intent("Pause this task"));
-    }
     fn store() -> Arc<SqliteStore> {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
         store.create("source").unwrap();
@@ -318,15 +288,14 @@ mod tests {
         assert_eq!(o.snapshot.rule.time, "21:00");
     }
     #[test]
-    fn ambiguous_other_chat_quoted_or_wrong_action_cannot_change_tasks() {
+    fn ambiguous_other_chat_or_unknown_action_cannot_change_tasks() {
         let s = store();
         let a = task(s.as_ref(), "A");
         task(s.as_ref(), "B");
         for (session, input, action) in [
             ("source", "Change it to 8pm", "change"),
             ("other", "Pause this task", "pause"),
-            ("source", "Example: pause A", "pause"),
-            ("source", "Pause A", "delete"),
+            ("source", "Pause A", "unknown"),
         ] {
             let t = ManageTool::new(s.clone(), session.into(), input.into());
             assert!(t
@@ -347,12 +316,16 @@ mod tests {
     async fn pause_then_cancel_stops_recurrence_without_losing_history() {
         let s = store();
         let a = task(s.as_ref(), "A");
-        let t = ManageTool::new(s.clone(), "source".into(), "Pause this task".into());
+        let t = ManageTool::new(
+            s.clone(),
+            "source".into(),
+            "このタスクを一時停止してください".into(),
+        );
         let r = t.prepare(&call(&a, "pause", None)).unwrap();
         t.invoke(&r, CancellationToken::new()).await.unwrap();
         let paused = s.scheduled_tasks().unwrap().remove(0);
         assert!(paused.paused);
-        let t = ManageTool::new(s.clone(), "source".into(), "Cancel this task".into());
+        let t = ManageTool::new(s.clone(), "source".into(), "Cancela esta tarea".into());
         let r = t.prepare(&call(&paused, "delete", None)).unwrap();
         t.invoke(&r, CancellationToken::new()).await.unwrap();
         assert!(s.scheduled_tasks().unwrap()[0].deleted);

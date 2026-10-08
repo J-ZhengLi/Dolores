@@ -737,6 +737,60 @@ async fn invalid_browser_arguments_explain_correction_without_access_denial_or_d
     assert_eq!(reply.answer, "Final answer");
 }
 
+#[tokio::test]
+async fn scheduling_validation_reports_the_actual_missing_detail_without_dispatch() {
+    struct InvalidSchedule(&'static str);
+    #[async_trait]
+    impl ToolPlugin for InvalidSchedule {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: self.0.into(),
+                description: "Scheduling metadata".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
+            Err("Specify which weekdays this task should run.".into())
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            panic!("Invalid scheduling fields must never dispatch")
+        }
+    }
+    for name in ["schedule_task", "manage_scheduled_task"] {
+        let provider = Scripted {
+            calls: Mutex::new(vec![ToolCall {
+                id: "invalid".into(),
+                name: name.into(),
+                arguments: "{}".into(),
+            }]),
+            loop_forever: false,
+        };
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let reply = run_small_agent(
+            &provider,
+            context(),
+            &[Arc::new(InvalidSchedule(name))],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let result = &reply.summary.tools[0];
+        assert_eq!(result.target, "Invalid scheduled task request");
+        assert_eq!(
+            result.content,
+            "Specify which weekdays this task should run."
+        );
+        assert_eq!(result.status, "blocked");
+        assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    }
+}
+
 struct Scripted {
     calls: Mutex<Vec<ToolCall>>,
     loop_forever: bool,

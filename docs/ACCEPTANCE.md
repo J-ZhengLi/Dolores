@@ -1,5 +1,27 @@
 # Dolores acceptance — 2026-10-08
 
+## Chat scheduling — ordinary language and automatic defaults
+
+The recurrence allowlist and English/Chinese request/edit keyword gates are
+removed. Both scheduling tools coexist with ordinary project tools on human
+turns. The model interprets intent; the host validates structured metadata,
+source chat, task identity/revision, enabled model/skill and duplicate calls.
+An omitted creation time uses a disclosed 09:00 local default. Creation pins
+the current model without asking for its ID and grants no future tool authority.
+Scheduling validation errors retain their actual explanation.
+
+Rust validation passes **235 tests**, with one intentional bridge ignore;
+formatting and strict Clippy pass. The native creation corpus covers nine
+requests in six languages, duplicate calls, default-time receipts, malformed
+fields and preserved ordinary file tools. Save/reopen scheduling recovery also
+passes, including interruption, offline behavior, stale revisions and skill
+recovery. The final bounded DeepSeek corpus passes **9/9**, including English,
+Spanish, Japanese and Arabic creation, disclosed default time, quote/negation
+refusal and ordinary work. Confirmations are short and match saved receipts.
+The normal Windows build/reopen passes and all 49 original profile table hashes
+remain unchanged. Earlier model misses and limits are retained in
+[scheduling creation qualification](qualification/scheduling-creation.md).
+
 ## Root tooling cleanup
 
 The dependency-free root `package.json` command aliases and empty `pnpm-lock.yaml`

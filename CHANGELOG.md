@@ -14,6 +14,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 - Optional Windows tray scheduling with reopen and interruption recovery.
 - Windows GitHub Actions packaging with reviewed changelog notes and draft releases.
 
+### Fixed
+
+- Chat scheduling interprets ordinary requests across languages, uses a disclosed 09:00 local default when time is omitted, and reports scheduling errors accurately.
+
 ### Known limitations
 
 - Windows x64 is the release target. Packages are unsigned; other platforms are unqualified.

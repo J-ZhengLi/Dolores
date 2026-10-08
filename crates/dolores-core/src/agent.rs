@@ -14,7 +14,8 @@ pub const MAX_TOOL_CALLS: usize = 4;
 pub const MAX_TOOL_BYTES: usize = 16 * 1024;
 // Five file tools, command/inspection/delegation, two MCP, two web and browser.
 // The packaged Windows catalog includes browser and desktop-access adapters.
-pub const MAX_REGISTERED_TOOLS: usize = 15;
+// Two scheduling metadata tools remain available in every ordinary human turn.
+pub const MAX_REGISTERED_TOOLS: usize = 17;
 pub const MAX_FILE_ARGUMENT_BYTES: usize = 64 * 1024;
 pub fn tool_argument_limit(name: &str) -> usize {
     match name {
@@ -853,6 +854,8 @@ pub async fn run_agent_with_shared_budget(
                         "Invalid desktop operation".into()
                     } else if call.name == "browser" {
                         "Invalid browser operation".into()
+                    } else if matches!(call.name.as_str(), "schedule_task" | "manage_scheduled_task") {
+                        "Invalid scheduled task request".into()
                     } else {
                         "Invalid or unavailable path".into()
                     },
@@ -879,7 +882,7 @@ pub async fn run_agent_with_shared_budget(
                         format!(
                             "{error} Use empty arguments for inventory, action=list/search for navigation, or source with startLine and lineCount (1–2048) for a bounded read. No inspection ran."
                         )
-                    } else if matches!(call.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control") {
+                    } else if matches!(call.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control" | "schedule_task" | "manage_scheduled_task") {
                         error
                     } else if call.name == "browser" {
                         "Invalid browser arguments; no operation ran. Use only fields needed by the operation: open requires url; state/close require only operation. fill requires ref, state and text; click requires ref and state; press also requires key; scroll requires state and direction; screenshot requires state. Copy the full state token and eN ref from the latest receipt. Omit irrelevant fields instead of empty strings. Use HTTPS or literal loopback HTTP; text is at most 512 UTF-8 bytes. This is an argument error, not an access denial; do not bypass it with another tool.".into()
