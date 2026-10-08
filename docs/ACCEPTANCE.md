@@ -3607,3 +3607,29 @@ remains partial until Discard is exercised; native hover-help remains separate
 under P01. Original appearance/style were restored in the isolated audit profile.
 No live model request was needed for these settings checks. The original profile's
 49 table hashes remained unchanged before rebuilding.
+
+### First-user audit — visible Git repository identity (2026-10-08)
+
+Native navigation to a second public project showed its own Files hierarchy but
+the enclosing Git worktree in Source Control. Enclosing discovery is intentional;
+the defect was a branch-only header with the actual action target hidden in a
+hint. No Git mutation was executed against that enclosing repository. The header
+now names the repository, shows its selectable canonical path and identifies an
+enclosing repository. The name stays readable when a long path fills the narrow
+panel; the complete path remains available in its hint.
+
+Two light/dark regression cases failed before the root-display fix. All 26
+focused Git checks and changed-source analysis passed, including failed reads
+retaining the identity, changed selection clearing the previous error/root,
+equivalent Windows paths and a long canonical path. Saved narrow light/dark
+renders were inspected and the normal Windows build passed. Native retest named
+both the enclosing repository and the original project correctly, retaining
+their distinct branch/status and readable names with long paths.
+
+Files restored the selected project's hierarchy and retained tabs. Terminal Plus
+opened a shell at each selected public project; switching conversations retained
+the existing shell's own CWD. No terminal commands or text were entered. The
+compact rail exposed all six pages with Settings at the bottom. C01/C11/T03 are
+checked; Terminal input, HOME fallback and splits remain pending. This change
+preserves enclosing-worktree discovery and the existing operation reviews. The
+original profile's 49 table hashes remained unchanged.

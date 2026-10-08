@@ -354,6 +354,12 @@ class SourceControlPanel extends StatelessWidget {
     builder: (context, _) {
       final w = git.selected;
       final status = w?.status;
+      final repositoryRoot = status?['root'] as String? ?? w?.root;
+      final repositoryName = repositoryRoot
+          ?.replaceAll('\\', '/')
+          .split('/')
+          .where((part) => part.isNotEmpty)
+          .lastOrNull;
       final entries = (status?['entries'] as List? ?? []).cast<Map>();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -371,12 +377,39 @@ class SourceControlPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Tooltip(
-                message: status?['root'] as String? ?? w.root,
-                child: Text(
-                  status?['branch'] as String? ?? 'No commit / detached HEAD',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12),
+                message: repositoryRoot!,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      repositoryName ?? repositoryRoot,
+                      key: const Key('git-repository-name'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    SelectableText(
+                      repositoryRoot,
+                      key: const Key('git-repository-root'),
+                      maxLines: 2,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    if (status != null &&
+                        GitHost.rootKey(repositoryRoot) !=
+                            GitHost.rootKey(w.root))
+                      const Text(
+                        'Enclosing repository',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      status?['branch'] as String? ??
+                          'No commit / detached HEAD',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
             ),

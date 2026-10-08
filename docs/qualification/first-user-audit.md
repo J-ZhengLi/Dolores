@@ -27,7 +27,7 @@ tracks the audit; product design stays in the feature specifications.
 
 ## 1. Everyday chat and navigation
 
-- [ ] C01 Discover Home, Scheduled, Folders, Source Control, Terminal and bottom Settings from the compact rail.
+- [x] C01 Discover Home, Scheduled, Folders, Source Control, Terminal and bottom Settings from the compact rail.
 - [x] C02 Create a temporary chat; first send creates a working folder and a visible real-model reply.
 - [x] C03 Open a project folder, create a project chat and discover its working-folder identity.
 - [x] C04 Create a side chat; converse without project/file tools.
@@ -37,7 +37,7 @@ tracks the audit; product design stays in the feature specifications.
 - [x] C08 Stop a real response; retained progress and subsequent new request remain usable.
 - [x] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
 - [ ] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
-- [ ] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
+- [x] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
 - [ ] C12 Browse older/newer/latest messages and conversations without losing selection/draft.
 - [x] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
 - [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
@@ -103,7 +103,7 @@ tracks the audit; product design stays in the feature specifications.
 
 - [ ] T01 Terminal opens a real shell immediately at selected project CWD or HOME when no project is selected.
 - [ ] T02 Physical keyboard letters/punctuation, Enter, arrows, Backspace and Unicode/IME reach the shell correctly.
-- [ ] T03 Plus opens another shell at current project; existing shell retains its own CWD after navigation.
+- [x] T03 Plus opens another shell at current project; existing shell retains its own CWD after navigation.
 - [ ] T04 Tabs reorder/move/split; menu alternatives and compact group selection work.
 - [ ] T05 Select/copy text; Ctrl+C copies selection or interrupts foreground work when no selection exists.
 - [ ] T06 Stop/close live shell gives the expected review and keeps readable output.
@@ -221,6 +221,27 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- C01/C11/T03 passed. The compact rail exposed all six pages, with Settings at
+  the bottom. Home opened a second disposable public
+  folder and created its project chat. Files showed that folder's two files;
+  returning to the original repair conversation restored its own hierarchy and
+  retained notes/forecast tabs. Source Control correctly discovered the second
+  folder's enclosing Git worktree, as specified, but hid its actual root in a
+  branch hint. No Git action was performed against that enclosing repository.
+  The panel now names the repository and shows its selectable canonical path,
+  with an Enclosing repository label when different from the selected project.
+  Two light/dark regressions failed before the root-display fix; all 26 focused
+  Git checks and source analysis passed, including failed reads, project changes,
+  equivalent Windows paths and long canonical paths. Native root switching
+  passed on the normal rebuilt app, including readable names for the long
+  canonical paths. Terminal's existing stopped session retained the original
+  folder; Plus opened PowerShell immediately at the second project. Returning
+  to the original repair chat kept that live terminal at its own CWD, while
+  another Plus opened a separate shell at the now-selected original project.
+  No terminal commands or keyboard text were entered. Terminal input, HOME
+  fallback and split interactions remain separate pending checks. Screenshots
+  and native observations remain in the ignored audit directory.
 
 - P01 search failure repaired: the native search term `frequency` returned No
   matching settings despite the visible slider. The search catalog omitted the

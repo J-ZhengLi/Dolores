@@ -6,6 +6,13 @@ views per repository. There is no project dropdown or automatic repository setup
 Git is a discovered direct executable outside the project. Human Git actions do
 not grant model access. Home receipts link to repository views as separate evidence.
 
+Keep the repository name and canonical path visible above the branch. The name
+stays readable in a narrow panel; the path is selectable within two lines with
+the complete path in its hint. Show “Enclosing repository” when
+this root differs from the selected project folder. Equivalent Windows path
+spelling is the same root. This identity remains visible with retained status
+after a failed read and changes with the selected conversation; it is not a picker.
+
 Status uses porcelain v1 NUL records, including rename pairs; filenames must be
 valid UTF-8 to be actionable. Diff bases are saved working tree/index, index/HEAD
 or an exact commit/parent. Binary files show Git's change summary; non-UTF-8
