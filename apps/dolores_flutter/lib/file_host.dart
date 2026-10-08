@@ -267,8 +267,11 @@ class FileHost extends ChangeNotifier {
     FileWorkspace w,
     String path, {
     String action = 'open',
+    bool preview = true,
   }) {
-    final result = _opening.then((_) => _open(w, path, action: action));
+    final result = _opening.then(
+      (_) => _open(w, path, action: action, preview: preview),
+    );
     _opening = result.then<void>((_) {});
     return result;
   }
@@ -277,6 +280,7 @@ class FileHost extends ChangeNotifier {
     FileWorkspace w,
     String path, {
     required String action,
+    required bool preview,
   }) async {
     if (_disposed) return null;
     try {
@@ -333,13 +337,15 @@ class FileHost extends ChangeNotifier {
       w.paths[d.id] = d.path;
       if (!w.restoring) {
         final group = w.layoutOwner.active;
+        final alreadyOpen = group.tabs.contains(d.id);
         final previous = group.preview;
-        final preview = documents[previous];
-        if (previous != null &&
+        final previousDocument = documents[previous];
+        if (!alreadyOpen &&
+            previous != null &&
             previous != d.id &&
-            (preview == null || !preview.dirty) &&
-            preview?.pending != true &&
-            preview?.blocked != true) {
+            (previousDocument == null || !previousDocument.dirty) &&
+            previousDocument?.pending != true &&
+            previousDocument?.blocked != true) {
           w.layoutOwner.remove(group.id, previous);
           if (!w.layoutOwner.groups.values.any(
             (g) => g.tabs.contains(previous),
@@ -347,7 +353,8 @@ class FileHost extends ChangeNotifier {
             w.paths.remove(previous);
           }
         }
-        w.layoutOwner.open(d.id);
+        w.layoutOwner.open(d.id, preview: preview && !alreadyOpen);
+        if (!preview) w.layoutOwner.pin(group.id, d.id);
       }
       w.active = d.id;
       w.recovery.remove(path);

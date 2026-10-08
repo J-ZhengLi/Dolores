@@ -103,7 +103,39 @@ class FolderTree extends StatelessWidget {
                 if(index<w.recovery.length){final path=w.recovery[index];return ListTile(title:Text('Recover $path'),leading:const Icon(Icons.restore),onTap:()=>files.open(w,path,action:'recover'));}
                 final (entry,path,depth)=items[index-w.recovery.length];
                 if(entry==null){final page=w.tree[path]!;return Column(children:[if(page.error!=null)Text(page.error!),if(page.pending)const LinearProgressIndicator(),if(page.cursor!=null)TextButton(onPressed:page.pending?null:()=>files.load(w,path),child:Text(page.error==null?'Load more':'Retry'))]);}
-                return ListTile(dense:true,contentPadding:EdgeInsets.only(left:8+depth.clamp(0,12)*12,right:4),leading:Icon(entry['directory']==true?(w.expanded.contains(entry['path'])?Icons.folder_open_outlined:Icons.folder_outlined):Icons.description_outlined,size:16),title:Text(entry['name'] as String,maxLines:1,overflow:TextOverflow.ellipsis),onTap:()=>entry['directory']==true?files.expand(w,entry['path'] as String):files.open(w,entry['path'] as String));
+                final directory = entry['directory'] == true;
+                final entryPath = entry['path'] as String;
+                return Semantics(
+                  button: true,
+                  child: InkWell(
+                    onTap: () => directory
+                        ? files.expand(w, entryPath)
+                        : files.open(w, entryPath),
+                    onDoubleTap: directory
+                        ? null
+                        : () => files.open(w, entryPath, preview: false),
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.only(
+                        left: 8 + depth.clamp(0, 12) * 12,
+                        right: 4,
+                      ),
+                      leading: Icon(
+                        directory
+                            ? (w.expanded.contains(entryPath)
+                                  ? Icons.folder_open_outlined
+                                  : Icons.folder_outlined)
+                            : Icons.description_outlined,
+                        size: 16,
+                      ),
+                      title: Text(
+                        entry['name'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                );
               }),
             ),
         ],

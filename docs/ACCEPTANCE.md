@@ -3429,3 +3429,19 @@ kept both side chats visible, restored the exact public draft and retained its
 DeepSeek selection despite the other chat's Qwen selection. The new bounded reply
 used one call with 2,353 reported total tokens. All 49 original-profile table
 hashes remain unchanged. Older/newer paging remains a separate pending audit case.
+
+## First-user audit — file preview retention (2026-10-08)
+
+Native double-click in Folders did not keep a file, contrary to the user guide.
+Tree rows handled only single-click. The widget regression failed on the original
+preview state. A separate host regression found that reopening a kept file removed
+another preview and converted the kept tab back into a preview. The tree now has
+double-click opening with an explicit kept-tab option. Reopening a tab already in
+the group selects it without replacing or reclassifying another preview.
+
+Failed opens leave the previous tabs intact; retry keeps only the requested file.
+Accessible rows retain their button, focus and tap actions. Fourteen focused
+editor/layout/host checks passed. Native normal-build retest kept notes beside the
+README preview and retained both on reopening notes. The final normal build passed;
+native rows expose named buttons and reopening notes retained both tabs. First-edit pinning, physical editing and
+save shortcuts remain pending; helper input alone has not established an app defect.
