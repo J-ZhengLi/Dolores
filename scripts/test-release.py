@@ -1,6 +1,5 @@
 """Release notes, version mismatch and duplicate-release recovery fixtures."""
 import importlib.util
-import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,7 +13,6 @@ class ReleaseTests(unittest.TestCase):
     def fixture(self, root):
         (root / 'apps/dolores_flutter').mkdir(parents=True)
         (root / 'Cargo.toml').write_text('[workspace.package]\nversion="0.1.0"\n')
-        (root / 'package.json').write_text(json.dumps({'version': '0.1.0'}))
         (root / 'apps/dolores_flutter/pubspec.yaml').write_text('version: 0.1.0+1\n')
         (root / 'CHANGELOG.md').write_text('# Changelog\n\n## [Unreleased]\n\n### Fixed\n\n- Preserve drafts.\n')
 
@@ -35,10 +33,10 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             self.fixture(root)
-            (root / 'package.json').write_text('{"version":"0.2.0"}')
+            (root / 'apps/dolores_flutter/pubspec.yaml').write_text('version: 0.2.0+1\n')
             with self.assertRaisesRegex(ValueError, 'must match'):
                 release.prepare(root, '0.1.0', '2026-10-08')
-            (root / 'package.json').write_text('{"version":"0.1.0"}')
+            (root / 'apps/dolores_flutter/pubspec.yaml').write_text('version: 0.1.0+1\n')
             with self.assertRaisesRegex(ValueError, 'dated'):
                 release.check(root, 'v0.1.0')
             release.prepare(root, '0.1.0', '2026-10-08')

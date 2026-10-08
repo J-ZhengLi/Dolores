@@ -14,7 +14,7 @@ Documentation-only edits and internal refactors need an entry only when they aff
 
 ## Prepare a version
 
-1. Choose the version. Keep `Cargo.toml` workspace version, `package.json` and the
+1. Choose the version. Keep `Cargo.toml` workspace version and the
    Flutter version in `apps/dolores_flutter/pubspec.yaml` aligned. Flutter also has
    an incrementing build number. Refresh workspace package versions in `Cargo.lock`
    when changing them; review the lock diff so dependency upgrades stay deliberate.

@@ -1,5 +1,15 @@
 # Dolores acceptance — 2026-10-08
 
+## Root tooling cleanup
+
+The dependency-free root `package.json` command aliases and empty `pnpm-lock.yaml`
+are removed. Release validation now aligns Cargo and Flutter versions directly;
+its two fixtures cover promotion, mismatched versions/tags and recovery without a
+root Node manifest. Documentation/local-link and publication-pattern checks pass.
+The maintained build remains `python scripts/desktop.py build`; browser fixtures
+and the optional adapter keep their separate npm manifest/lockfile. No desktop
+runtime change or rebuild is needed.
+
 ## Open-source preparation — portable guidance, releases and Windows CI
 
 Windows x64 is the release target. Brick 8.4 now provides credential-free GitHub

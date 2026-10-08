@@ -35,11 +35,10 @@ def sections(text):
 
 def app_version(root=ROOT):
     cargo = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']['package']['version']
-    node = json.loads((root / 'package.json').read_text())['version']
     flutter = re.search(r'^version: (' + VERSION + r')\+([1-9][0-9]*)$',
                         (root / 'apps/dolores_flutter/pubspec.yaml').read_text(), re.M)
-    if not flutter or cargo != node or cargo != flutter.group(1):
-        raise ValueError('Cargo, package.json and Flutter versions must match; Flutter needs a positive build number.')
+    if not flutter or cargo != flutter.group(1):
+        raise ValueError('Cargo and Flutter versions must match; Flutter needs a positive build number.')
     return cargo
 
 

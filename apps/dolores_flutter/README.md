@@ -13,4 +13,4 @@ This is the selected desktop UI. Widgets call the Rust host through a bundled C 
 
 See [user instructions](../../docs/USER_GUIDE.md) for controls and [contributor guide](../../CONTRIBUTING.md) for builds/tests/packaging. The [UI contract](../../docs/UI.md) governs UI changes. The [bridge contract](../../docs/flutter/flutter-api.md) describes JSON ownership and coordination.
 
-Build from the root with `scripts/build-flutter.ps1` on Windows or `pnpm desktop:build` for the host. The complete bundle contains Flutter, the Rust bridge, plugins and assets. No model, Node service or webview is bundled. macOS/Linux definitions exist; acceptance remains open in [ACCEPTANCE](../../docs/ACCEPTANCE.md).
+Build from the root with `python scripts/desktop.py build`. The complete bundle contains Flutter, the Rust bridge, plugins and assets. No model, Node service or webview is bundled. macOS/Linux definitions exist; acceptance remains open in [ACCEPTANCE](../../docs/ACCEPTANCE.md).

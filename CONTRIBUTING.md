@@ -9,7 +9,7 @@ The default desktop app is Flutter with a bundled Rust bridge. Start with [archi
 - Visual Studio C++ desktop tools, Windows SDK and CMake; see [Windows setup](https://docs.flutter.dev/platform-integration/windows/setup).
 - Python **3.11+** for verification/packaging scripts.
 
-Node is optional development tooling, absent from the Flutter app. Browser fixtures and the optional browser adapter need Node ≥22.12 (24 recommended). Build and launch use Python directly.
+Node is optional development tooling, absent from the Flutter app. Browser fixtures and the optional browser adapter need Node ≥22.12 (24 recommended). Build and launch use Python directly; no root npm/pnpm install is needed. Browser dependencies and their npm lockfile belong under `adapters/browser/`.
 
 From the repository root:
 
