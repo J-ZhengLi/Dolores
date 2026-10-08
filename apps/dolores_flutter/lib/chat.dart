@@ -1181,6 +1181,8 @@ class ChatController extends ChangeNotifier {
       if (scheduledOccurrence != null && started is Map) {
         session = started['session'] as String;
         _requestModel = started['model'] as String;
+        model = started['model'] as String;
+        _setWorkspace(started['workspace']);
       }
       // Remember a Stop pressed before the native reservation was acknowledged.
       if (stopping) await bridge.call({'command': 'cancel', 'id': id});

@@ -3368,3 +3368,20 @@ regression test; that exact live timing still needs retesting. Model scheduling
 reliability remains unaccepted. Run now exposed a separate misleading “Temporary
 workspace” review label for a pinned project; the audit stopped before approval
 and tracks that defect separately.
+
+## First-user audit — scheduled run identity (2026-10-08)
+
+Run now creates its result session in the pinned project, but the start response
+omitted workspace metadata and the UI retained a new controller's default folder
+and current model. The bridge now returns the pinned workspace, and the controller
+loads that workspace and model before presenting operation reviews. Home's chosen
+project, model and draft remain separate. The AppHost regression failed on the old
+project identity; the native corpus failed on its absent workspace field. After
+the fix, 17 focused Flutter and five Rust scheduling tests passed, including a
+temporary task's retained working folder; changed-source analysis is clean.
+Normal Windows main-entry build/launch passed. The packaged C ABI corpus passed
+its new identity checks and 11 local-provider requests, then a separate reopen
+preserved completed results and interrupted claims without replay. Live DeepSeek
+Run now displays the correct project in its running strip and every reviewed
+file operation; report completion remains under test. All 49 original-profile
+table hashes remain unchanged.

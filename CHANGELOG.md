@@ -16,6 +16,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Scheduled runs show their pinned project and model in chat and operation reviews, while preserving the current Home conversation.
 - Chat shows a readable schedule as soon as a task is saved, even if the model's reply stalls. Opening Scheduled refreshes newly created tasks.
 - Language edits accept equivalent Windows file paths instead of incorrectly reporting that project files are outside the selected project.
 - Source Control has quick stage/unstage buttons for each file and all changes. Commit includes working changes when nothing is staged, while preserving an existing staged selection.

@@ -421,7 +421,7 @@ impl Engine {
             o.state = "queued".into();
             self.store.update_scheduled_occurrence(&o, "claimed")?;
             Ok(
-                json!({"session":session,"id":id,"model":o.snapshot.preferences.model,"occurrence":o.id}),
+                json!({"session":session,"id":id,"model":o.snapshot.preferences.model,"workspace":o.snapshot.workspace,"occurrence":o.id}),
             )
         })();
         if let Err(error) = &result {

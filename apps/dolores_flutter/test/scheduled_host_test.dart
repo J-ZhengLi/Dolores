@@ -9,6 +9,7 @@ import 'workspace_test.dart' show WorkspaceBridge;
 
 class ScheduleBridge extends WorkspaceBridge {
   bool paused = false, fail = false, claimed = false;
+  Map workspace = {'kind': 'project', 'root': 'C:/scheduled-project'};
   Map get listing => {
     'items': [
       {
@@ -41,7 +42,11 @@ class ScheduleBridge extends WorkspaceBridge {
       };
     }
     if (name == 'scheduledStart') {
-      return {'session': 'result', 'model': 'pinned-model'};
+      return {
+        'session': 'result',
+        'model': 'pinned-model',
+        'workspace': workspace,
+      };
     }
     if (name == 'scheduledAbandon') return null;
     if (name == 'poll') return <Map>[];
@@ -103,6 +108,10 @@ void main() {
     final owner = host.owners.last;
     expect(owner.session, 'result');
     expect(owner.busy, true);
+    expect(owner.workspaceKind, 'project');
+    expect(owner.workspaceRoot, 'C:/scheduled-project');
+    expect(owner.workspaceLabel, 'Project');
+    expect(owner.model, 'pinned-model');
     expect(host.visible, same(chat));
     expect(chat.draft, 'my draft');
     expect(chat.model, 'home-model');
@@ -115,6 +124,33 @@ void main() {
     );
     host.dispose();
   });
+  test(
+    'temporary scheduled results retain their actual working folder',
+    () async {
+      final bridge = ScheduleBridge()
+        ..workspace = {'kind': 'temporary', 'root': 'C:/temporary-task'};
+      final chat = ChatController(bridge)
+        ..loading = false
+        ..session = 'home'
+        ..workspaceKind = 'project'
+        ..workspaceRoot = 'C:/home-project'
+        ..model = 'home-model'
+        ..draft = 'Retain Home draft';
+      final host = AppHost(chat);
+      await Future<void>.delayed(Duration.zero);
+      await host.scheduled.tick();
+      final owner = host.owners.last;
+      expect(owner.workspaceKind, 'temporary');
+      expect(owner.workspaceRoot, 'C:/temporary-task');
+      expect(owner.model, 'pinned-model');
+      expect(host.visible, same(chat));
+      expect(chat.workspaceRoot, 'C:/home-project');
+      expect(chat.model, 'home-model');
+      expect(chat.draft, 'Retain Home draft');
+      await owner.stop();
+      host.dispose();
+    },
+  );
   test(
     'paused schedules have no idle clock; failed refresh keeps prior list',
     () async {

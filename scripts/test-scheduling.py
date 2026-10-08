@@ -55,9 +55,13 @@ class Fixture(BaseHTTPRequestHandler):
 def listing():return host.call('scheduledTasks')['items'][0]
 def manage(action):
     task=listing()['task'];return host.call('scheduledManage',task=task['id'],revision=task['revision'],action=action)
+def assert_start_identity(start):
+    assert start['workspace']==host.call('workspace',session=start['session'])
+    assert start['model']==listing()['receipt']['model']
 def run_now(number,callback=None):
     o=manage('runNow')['claimed'][0]
     start=host.call('scheduledStart',occurrence=o['id'],id=number)
+    assert_start_identity(start)
     done,events=host.finish(number,callback=callback,seconds=15)
     host.call('scheduledTick')
     return done,events,start
@@ -92,6 +96,7 @@ try:
         tick=host.call('scheduledTick');assert len(tick['claimed'])==1
         assert host.call('scheduledTick')['claimed']==[]
         first=tick['claimed'][0];start=host.call('scheduledStart',occurrence=first['id'],id=2)
+        assert_start_identity(start)
         done,_=host.finish(2);assert not done.get('error'),done
         host.call('scheduledTick');assert listing()['occurrences'][0]['state']=='succeeded'
         assert 'DAILY-REPORT-PINNED-V1' in host.call('messagesPage',session=start['session'])['items'][-1]['content']
