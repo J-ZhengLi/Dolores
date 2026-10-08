@@ -104,8 +104,13 @@ if __name__ == '__main__':
     parser.add_argument('command', choices=['check', 'package'])
     parser.add_argument('--generator', default='Visual Studio 17 2022', help='Installed CMake generator; CI uses Visual Studio 2022.')
     parser.add_argument('--cmake', help='Optional local CMake executable; hosted CI uses the runner toolchain.')
+    parser.add_argument('--directory', type=Path, default=OUTPUT,
+                        help='Absolute output location under output/; use a fresh location when recovering a local run.')
     args = parser.parse_args()
     try:
+        OUTPUT = args.directory.resolve()
+        if not args.directory.is_absolute() or OUTPUT == (ROOT / 'output').resolve() or not OUTPUT.is_relative_to((ROOT / 'output').resolve()):
+            raise ValueError('Use an absolute output directory strictly beneath output/.')
         if os.name != 'nt':
             raise ValueError('The release workflow supports Windows x64 only.')
         if args.command == 'check':

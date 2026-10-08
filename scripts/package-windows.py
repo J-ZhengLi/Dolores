@@ -16,7 +16,7 @@ RUNTIME = {
     'dolores_flutter.exe', 'dolores_flutter_bridge.dll', 'flutter_windows.dll',
     'file_selector_windows_plugin.dll', 'screen_retriever_windows_plugin.dll',
     'pasteboard_plugin.dll',
-    'window_manager_plugin.dll', 'native_assets.json', 'data/app.so', 'data/icudtl.dat',
+    'window_manager_plugin.dll', 'data/app.so', 'data/icudtl.dat',
     'data/flutter_assets/AssetManifest.bin', 'data/flutter_assets/FontManifest.json',
     'data/flutter_assets/NativeAssetsManifest.json', 'data/flutter_assets/NOTICES.Z',
     'data/flutter_assets/fonts/MaterialIcons-Regular.otf',

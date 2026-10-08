@@ -65,7 +65,9 @@ CI pins Flutter 3.47.5, Rust 1.95.0 and its actions. Its deterministic checks us
 model keys or private profiles. To run the same entry points locally, set
 `FLUTTER_SDK`, install `.github/requirements-ci.txt`, then use
 `python scripts/ci-windows.py check --generator "<installed CMake generator>"` and
-`python scripts/ci-windows.py package`. Fresh output is required. Node 24 is needed
+`python scripts/ci-windows.py package`. Fresh output is required. For a local retry,
+pass the same `--directory <absolute-path-under-output>` to both commands, choosing
+a new directory so the failed run's evidence is retained. Node 24 is needed
 for fixtures; the optional browser adapter is installed separately and excluded
 from the portable ZIP. The complete ZIP includes the native update launcher,
 changelog and dependency notices. Signing and clean-machine acceptance remain open.

@@ -59,7 +59,9 @@ class Fixture(BaseHTTPRequestHandler):
         elif user not in ['basic']:
             assert payload['thinking'] == {'type':'disabled'} and payload['max_tokens'] == 8192
         else:
-            assert 'thinking' not in payload and 'reasoning_effort' not in payload and payload['max_tokens'] == 2048
+            # Clearing a model override restores provider-default output allowance.
+            assert 'thinking' not in payload and 'reasoning_effort' not in payload
+            assert 'max_tokens' not in payload and 'max_completion_tokens' not in payload
         if user == 'unsupported':
             body = json.dumps({'error':{'param':'thinking','message':'unsupported thinking and stream_options PRIVATE_FIXTURE'}}).encode()
             self.send_response(400)
@@ -102,6 +104,7 @@ try:
     state_file = directory / 'state.json'
     initial = call('bootstrap')
     if args.stage == 'save':
+        assert initial['requestSettings']['maxOutputTokens'] is None
         policy = call('memories')['automaticPolicy']
         call('setAutomaticMemory',enabled=False,revision=policy['revision'])
         preferences = {'baseUrl':f'http://127.0.0.1:{server.server_port}/v1','model':'fast'}

@@ -27,7 +27,7 @@ def anchors(path):
     return result
 
 def main():
-    paths=sorted([ROOT/'README.md',ROOT/'CONTRIBUTING.md',ROOT/'apps/dolores_flutter/README.md',*(ROOT/'docs').rglob('*.md')])
+    paths=sorted([ROOT/'README.md',*ROOT.glob('README_*.md'),ROOT/'CONTRIBUTING.md',ROOT/'apps/dolores_flutter/README.md',*(ROOT/'docs').rglob('*.md')])
     failures=[];checked=0;external=0
     for path in paths:
         for number,line in plain_lines(path):
