@@ -150,7 +150,11 @@ void main() {
             await f.writeAsBytes(bytes!.buffer.asUint8List());
           });
         }
-        await t.ensureVisible(find.byKey(const Key('companion-enabled')));
+        await t.scrollUntilVisible(
+          find.byKey(const Key('companion-enabled')),
+          -80,
+          scrollable: scroll,
+        );
         await t.pumpAndSettle();
         await t.tap(find.byKey(const Key('companion-enabled')));
         await t.pump();

@@ -215,7 +215,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       'Companionship',
       SettingsCategory.companionship,
       ModelsPage.connection,
-      'occasional notes hours daily limit quiet',
+      'occasional notes hours daily limit frequency quiet chatty',
     ),
     (
       'Tools overview',

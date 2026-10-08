@@ -128,7 +128,7 @@ tracks the audit; product design stays in the feature specifications.
 ## 7. Settings, attachments and context
 
 - [ ] P01 Find settings by category/search; short labels/help hints and bottom placement remain clear.
-- [ ] P02 Light/Dark/System apply consistently; pending form drafts survive navigation.
+- [x] P02 Light/Dark/System apply consistently; pending form drafts survive navigation.
 - [ ] P03 Model context/output/stall/reasoning settings save for the selected model and survive restart.
 - [ ] P04 Scoped user/project/chat overrides and inheritance show correct effective values on new runs.
 - [ ] P05 Close/Escape with unsaved settings gives Save/Discard/Keep editing; cancel preserves values.
@@ -221,6 +221,24 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- P01 search failure repaired: the native search term `frequency` returned No
+  matching settings despite the visible slider. The search catalog omitted the
+  new Frequency/Chatty labels. Two wide/compact regressions failed first; the
+  corrected keywords passed with unknown-search recovery, cached unsaved slider
+  retention and no implicit save. All 16 focused settings/companionship checks,
+  changed-source analysis and the normal Windows build passed. Native retest found
+  Companionship from General and opened the actual 0–100 slider. Saved before/after
+  screenshots and native observations remain in the ignored audit directory.
+  P01 remains partial: native hover-help behavior is not yet qualified.
+- P02 passed: native Light applied across Settings and Home, reopening retained
+  Light, and Dark applied while an unsaved explanation-style draft remained
+  cached across category navigation. Dark and the explicitly saved preference
+  survived the normal rebuild/restart. Selecting System restored the device's
+  dark appearance. P05 is partial: Close and Escape each offered Save/Discard/Keep
+  editing; Keep editing retained the draft, and Save closed Settings and retained
+  the value after restart. Discard is still pending. The audit profile's original
+  System appearance and explanation style were restored through the controls.
 
 - C08 initially failed on the normal frequency build: a bounded real Qwen side
   reply streamed text, but Stop removed that text from chat and Earlier tasks,

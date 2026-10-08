@@ -3586,3 +3586,24 @@ confirmed only the new completed exchange was saved. C08 is checked. This recove
 is transient until another chat/run; persistence of interrupted text across restart
 remains unqualified. Reported live usage and advice-quality limits are recorded in
 the checklist. The original profile's 49 table hashes remained unchanged.
+
+### First-user audit — settings search and retained drafts (2026-10-08)
+
+Native Settings search for Frequency produced No matching settings even though
+Companionship showed that control. Two wide/compact tests reproduced the exact
+failure before the fix. The search catalog now includes Frequency and Chatty;
+all 16 focused settings/companionship checks and changed-source analysis passed.
+Tests cover case-insensitive cross-category discovery, unknown-search recovery,
+retained unsaved slider value, no implicit save and failed-save recovery. The
+compact companionship fixture now scrolls to a lazily built toggle rather than
+assuming it remains mounted after scrolling down; it passes without render fonts.
+The normal Windows build and native Frequency search/open retest passed.
+
+Native Light/Dark/System selection, immediate application across Settings/Home,
+reopening, Dark restart persistence and unsaved form retention across category
+and theme changes passed (P02). Close and Escape both offered the unsaved review;
+Keep editing retained the draft and Save retained its value after restart. P05
+remains partial until Discard is exercised; native hover-help remains separate
+under P01. Original appearance/style were restored in the isolated audit profile.
+No live model request was needed for these settings checks. The original profile's
+49 table hashes remained unchanged before rebuilding.
