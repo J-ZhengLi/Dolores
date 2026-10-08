@@ -2,3 +2,6 @@
 *.png binary
 *.ico binary
 *.icns binary
+assets/notices/** -text
+# Preserve the exact upstream license, including its final blank line.
+assets/notices/wasmparser-0.228.0/LICENSE-Apache-2.0_WITH_LLVM-exception whitespace=-blank-at-eof

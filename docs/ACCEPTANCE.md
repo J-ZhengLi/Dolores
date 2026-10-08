@@ -24,10 +24,22 @@ and recovery. Package tests pass four cases and launcher preflight passes its
 missing-file/recovery case. The two real-browser synthetic-page tests and three
 browser-installer tests pass. Workflow syntax passes actionlint 1.7.12.
 
-The normal build/package integration and final publication-history audit are being
-completed separately. No new live-model request was made. The existing 45-table
-profile is unchanged. Hosted GitHub execution, signing, clean-machine installation,
-physical input/accessibility and other-platform qualification remain open.
+The normal Windows main-entry build, all **16 save/restart fixture stages**, portable
+ZIP creation/verification, extracted launcher preflight and extracted native bridge
+bootstrap pass in an isolated checkout. A separate empty-profile normal launch
+opens a window and its owned process is stopped afterward. The ZIP includes 18
+runtime files, 8 guidance/notice files, a manifest and 352 dependency components.
+Missing Wasm license texts are frozen from the crates' exact upstream revisions.
+Earlier fixture/package failures and recoveries are recorded in the
+[release qualification](qualification/open-source-release.md).
+
+The cleaned-history trial passes across all five branches, preserving commit count
+and author/committer attribution while removing historical handoffs and known
+personal text. Final-copy receipts remain local under `output/github-publication/`;
+use that copy for publication, as the original retains private recovery history.
+No new live-model request was made. The existing 45-table profile is unchanged.
+Hosted GitHub execution, signing, clean-machine installation, physical
+input/accessibility and other-platform qualification remain open. Nothing is pushed.
 
 ## Background scheduling 24.3 — qualification and roadmap batch exit
 
