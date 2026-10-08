@@ -17,6 +17,28 @@ fn author_identity(value: &str) -> String {
         .to_string()
 }
 
+fn pathspec_arguments(
+    mut args: Vec<String>,
+    paths: &[String],
+) -> Result<(tempfile::NamedTempFile, Vec<String>), String> {
+    // NUL-delimited literals avoid shell quoting and Windows command-line limits.
+    let mut file = tempfile::NamedTempFile::new()
+        .map_err(|_| "Could not prepare Git paths. No action was started.")?;
+    for path in paths {
+        file.write_all(path.as_bytes())
+            .and_then(|_| file.write_all(&[0]))
+            .map_err(|_| "Could not write Git paths. No action was started.")?;
+    }
+    file.flush()
+        .map_err(|_| "Could not flush Git paths. No action was started.")?;
+    args.push(format!(
+        "--pathspec-from-file={}",
+        file.path().to_string_lossy()
+    ));
+    args.push("--pathspec-file-nul".into());
+    Ok((file, args))
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Mutation {
@@ -26,7 +48,12 @@ pub(crate) enum Mutation {
     Unstage {
         paths: Vec<String>,
     },
+    StageAll,
+    UnstageAll,
     Commit {
+        message: String,
+    },
+    CommitAll {
         message: String,
     },
     Hunks {
@@ -77,8 +104,89 @@ pub(super) struct Review {
     author: Option<String>,
     patch: String,
     remote_basis: Option<remote::Basis>,
+    auto_stage: bool,
 }
 impl Repo {
+    fn index_paths(
+        &self,
+        entries: &[Value],
+        paths: Vec<String>,
+        unstaging: bool,
+    ) -> Result<Vec<String>, String> {
+        let mut expanded = paths.clone();
+        for path in &paths {
+            self.path(path)?;
+            let entry = entries
+                .iter()
+                .find(|e| e["path"] == path.as_str())
+                .ok_or("Path is no longer in Changes/Staged. Refresh.")?;
+            if let Some(old) = entry["oldPath"].as_str() {
+                self.path(old)?;
+                // A rename already in the index has no old indexed path to add.
+                // Unstage must restore both names from HEAD.
+                if (unstaging || entry["index"] == " ") && !expanded.iter().any(|p| p == old) {
+                    expanded.push(old.into());
+                }
+            }
+        }
+        if expanded.is_empty() {
+            return Err("No changes to stage or unstage. Refresh.".into());
+        }
+        Ok(expanded)
+    }
+
+    fn commit_patch(
+        &self,
+        paths: Option<&[String]>,
+        cancel: &CancellationToken,
+    ) -> Result<String, String> {
+        // Prepare the exact prospective commit without changing the real index.
+        let scratch = tempfile::tempdir().map_err(|_| "Could not prepare the commit review.")?;
+        let index = scratch.path().join("index");
+        if paths.is_some() && self.git.join("index").exists() {
+            std::fs::copy(self.git.join("index"), &index)
+                .map_err(|_| "Could not copy the Git index for review.")?;
+        }
+        let run = |args: Vec<String>| -> Result<Vec<u8>, String> {
+            let result = git_process::run_with_index(
+                &self.executable,
+                &self.root,
+                &args,
+                cancel,
+                false,
+                paths.map(|_| index.as_path()),
+            )?;
+            if result.code != 0 {
+                return Err(format!(
+                    "Git could not prepare the commit: {}",
+                    String::from_utf8_lossy(&result.stderr)
+                ));
+            }
+            Ok(result.stdout)
+        };
+        if let Some(paths) = paths {
+            let (_pathspec, args) = pathspec_arguments(vec!["add".into()], paths)?;
+            run(args)?;
+        }
+        let patch = run([
+            "diff",
+            "--cached",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            "--full-index",
+            "--binary",
+            "--",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect())?;
+        if patch.len() > 256 * 1024 {
+            return Err("Commit review exceeds 256 KiB. Stage a smaller selection and commit again; all changes remain viewable in Source Control.".into());
+        }
+        Ok(text(&patch)?.to_string())
+    }
+
     pub(super) fn review(
         &self,
         revision: &str,
@@ -89,56 +197,40 @@ impl Repo {
         let status = self.revision(revision, cancel)?;
         let entries = status["entries"].as_array().unwrap();
         let mut remote_basis = None;
+        let mut auto_stage = false;
         let (paths, author, patch) = match &operation {
-            Mutation::Stage { paths } | Mutation::Unstage { paths } => {
-                if paths.is_empty() || paths.len() > 16 {
-                    return Err("Choose one to sixteen saved paths.".into());
-                }
-                let mut expanded = paths.clone();
-                for path in paths {
-                    self.path(path)?;
-                    let entry = entries
-                        .iter()
-                        .find(|e| e["path"] == path.as_str())
-                        .ok_or("Path is no longer in Changes/Staged. Refresh.")?;
-                    if let Some(old) = entry["oldPath"].as_str() {
-                        self.path(old)?;
-                        if !expanded.iter().any(|p| p == old) {
-                            expanded.push(old.into());
+            Mutation::Stage { .. }
+            | Mutation::Unstage { .. }
+            | Mutation::StageAll
+            | Mutation::UnstageAll => {
+                let staging = matches!(&operation, Mutation::Stage { .. } | Mutation::StageAll);
+                let paths = match &operation {
+                    Mutation::Stage { paths } | Mutation::Unstage { paths } => {
+                        if paths.is_empty() || paths.len() > 16 {
+                            return Err("Choose one to sixteen saved paths.".into());
                         }
+                        paths.clone()
                     }
-                }
-                let mut preview = String::new();
-                for path in paths {
-                    let diff = self.diff(
-                        revision,
-                        path,
-                        if matches!(&operation, Mutation::Stage { .. }) {
-                            "working"
-                        } else {
-                            "staged"
-                        },
-                        None,
-                        cancel,
-                    )?;
-                    preview.push_str(&format!("\n{path}\n"));
-                    if let Some(reason) = diff["reason"].as_str() {
-                        preview.push_str(reason);
-                    } else if diff["patch"].as_str().unwrap().is_empty() {
-                        preview.push_str(diff["right"].as_str().unwrap());
-                    } else {
-                        preview.push_str(diff["patch"].as_str().unwrap());
-                    }
-                    if preview.len() > 256 * 1024 {
-                        return Err(
-                            "Review diff exceeds 256 KiB. Review fewer paths or use external Git."
-                                .into(),
-                        );
-                    }
-                }
-                (expanded, None, preview)
+                    _ => entries
+                        .iter()
+                        .filter(|e| {
+                            if staging {
+                                e["worktree"] != " "
+                            } else {
+                                e["index"] != " " && e["index"] != "?"
+                            }
+                        })
+                        .map(|e| e["path"].as_str().unwrap().to_string())
+                        .collect(),
+                };
+                // Index-only actions are reversible and do not need a full patch payload.
+                (
+                    self.index_paths(entries, paths, !staging)?,
+                    None,
+                    String::new(),
+                )
             }
-            Mutation::Commit { message } => {
+            Mutation::Commit { message } | Mutation::CommitAll { message } => {
                 if message.trim().is_empty() || message.len() > 8192 || message.contains('\0') {
                     return Err("Write a nonempty commit message within 8 KiB.".into());
                 }
@@ -148,45 +240,36 @@ impl Repo {
                             .into(),
                     );
                 }
-                let paths = entries
+                let mut paths = entries
                     .iter()
                     .filter(|e| e["index"] != " " && e["index"] != "?")
                     .map(|e| e["path"].as_str().unwrap().to_string())
                     .collect::<Vec<_>>();
                 if paths.is_empty() {
-                    return Err(
-                        "There are no staged changes. Stage selected saved files first.".into(),
-                    );
+                    if matches!(&operation, Mutation::CommitAll { .. }) {
+                        paths = self.index_paths(
+                            entries,
+                            entries
+                                .iter()
+                                .filter(|e| e["worktree"] != " ")
+                                .map(|e| e["path"].as_str().unwrap().to_string())
+                                .collect(),
+                            false,
+                        )?;
+                        auto_stage = true;
+                    } else {
+                        return Err(
+                            "There are no staged changes. Stage selected saved files first.".into(),
+                        );
+                    }
                 }
                 for path in &paths {
                     self.path(path)?;
                 }
                 let author = String::from_utf8(self.command(&["var", "GIT_AUTHOR_IDENT"], cancel)?)
                     .map_err(|_| "Git author is not UTF-8.")?;
-                let patch = self.command(
-                    &[
-                        "diff",
-                        "--cached",
-                        "--no-ext-diff",
-                        "--no-textconv",
-                        "--no-color",
-                        "--full-index",
-                        "--binary",
-                        "--",
-                    ],
-                    cancel,
-                )?;
-                if patch.len() > 256 * 1024 {
-                    return Err(
-                        "Staged review exceeds 256 KiB. Use smaller commits or external Git."
-                            .into(),
-                    );
-                }
-                (
-                    paths,
-                    Some(author_identity(&author)),
-                    text(&patch)?.to_string(),
-                )
+                let patch = self.commit_patch(auto_stage.then_some(paths.as_slice()), cancel)?;
+                (paths, Some(author_identity(&author)), patch)
             }
             Mutation::Fetch { .. } | Mutation::Pull { .. } | Mutation::Push { .. } => {
                 let (preview, basis) = self.review_remote(&status, &operation, registry, cancel)?;
@@ -198,7 +281,12 @@ impl Repo {
         self.revision(revision, cancel)?;
         let token = uuid::Uuid::new_v4().to_string();
         let id = self.id();
-        let view = json!({"token":token,"repo":id,"root":self.root,"revision":revision,"operation":operation,"paths":paths,"author":author,"patch":patch,"notice":"Uses saved files and the Git index. Configured Git hooks remain enabled and run with your OS permissions."});
+        let notice = if auto_stage {
+            "No staged changes. These saved working changes will be staged and committed. Configured Git hooks remain enabled."
+        } else {
+            "Uses saved files and the Git index. Configured Git hooks remain enabled and run with your OS permissions."
+        };
+        let view = json!({"token":token,"repo":id,"root":self.root,"revision":revision,"operation":operation,"paths":paths,"author":author,"patch":patch,"notice":notice,"autoStage":auto_stage});
         let mut state = registry
             .lock()
             .map_err(|_| "Git reviews are unavailable.")?;
@@ -222,6 +310,7 @@ impl Repo {
                 author,
                 patch,
                 remote_basis,
+                auto_stage,
             },
         );
         Ok(view)
@@ -259,29 +348,22 @@ impl Repo {
             }
         }
         let mut args: Vec<String> = match &review.operation {
-            Mutation::Stage { .. } => vec!["add".into(), "--".into()],
-            Mutation::Unstage { .. } => {
+            Mutation::Stage { .. } | Mutation::StageAll => vec!["add".into()],
+            Mutation::Unstage { .. } | Mutation::UnstageAll => {
                 if before["head"].is_null() {
-                    vec![
-                        "rm".into(),
-                        "--cached".into(),
-                        "--ignore-unmatch".into(),
-                        "--".into(),
-                    ]
+                    vec!["rm".into(), "--cached".into(), "--ignore-unmatch".into()]
                 } else {
-                    vec![
-                        "restore".into(),
-                        "--staged".into(),
-                        "--source=HEAD".into(),
-                        "--".into(),
-                    ]
+                    vec!["restore".into(), "--staged".into(), "--source=HEAD".into()]
                 }
             }
             Mutation::Commit { .. } => vec![],
             _ => vec![],
         };
         let mut message = None;
-        if let Mutation::Commit { message: text } = &review.operation {
+        let mut pathspec = None;
+        if let Mutation::Commit { message: text } | Mutation::CommitAll { message: text } =
+            &review.operation
+        {
             let mut file = tempfile::NamedTempFile::new()
                 .map_err(|_| "Commit message could not be prepared. Draft remains.")?;
             file.write_all(text.as_bytes())
@@ -295,11 +377,26 @@ impl Repo {
                 "--cleanup=verbatim".into(),
             ];
             message = Some(file);
+            if review.auto_stage {
+                let (_paths, stage) = pathspec_arguments(vec!["add".into()], &review.paths)?;
+                let result = git_process::run(&self.executable, &self.root, &stage, cancel, false)?;
+                if result.code != 0 {
+                    return Err(format!(
+                        "Git could not stage changes: {}. Draft remains; Refresh before retrying.",
+                        String::from_utf8_lossy(&result.stderr)
+                    ));
+                }
+            }
         } else if matches!(
             &review.operation,
-            Mutation::Stage { .. } | Mutation::Unstage { .. }
+            Mutation::Stage { .. }
+                | Mutation::Unstage { .. }
+                | Mutation::StageAll
+                | Mutation::UnstageAll
         ) {
-            args.extend(review.paths.clone());
+            let (file, next_args) = pathspec_arguments(args, &review.paths)?;
+            pathspec = Some(file);
+            args = next_args;
         }
         let outcome = if review.remote_basis.is_some() {
             self.apply_remote(&review, registry, cancel)
@@ -309,10 +406,11 @@ impl Repo {
             git_process::run(&self.executable, &self.root, &args, cancel, false)
         };
         drop(message);
+        drop(pathspec);
         let after = self.status(&CancellationToken::new());
         let committed = matches!(
             &review.operation,
-            Mutation::Commit { .. } | Mutation::Revert { .. }
+            Mutation::Commit { .. } | Mutation::CommitAll { .. } | Mutation::Revert { .. }
         ) && after.as_ref().is_ok_and(|s| s["head"] != before["head"]);
         let warning=match outcome {
             Ok(output) if output.code==0=>if output.stderr.is_empty(){None}else{Some(String::from_utf8_lossy(&output.stderr).to_string())},

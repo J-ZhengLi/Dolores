@@ -328,6 +328,16 @@ class GitHost extends ChangeNotifier {
     }
   }
 
+  /// A deliberate index button is sufficient consent for this reversible action.
+  Future<void> changeIndex(
+    GitWorkspace w,
+    Map<String, dynamic> operation,
+  ) async {
+    if (w.busy || w.reviewOpen != null) return;
+    final preview = await review(w, operation);
+    if (preview != null) await resolveReview(w, preview, apply: true);
+  }
+
   Future<void> resolveReview(
     GitWorkspace w,
     Map<String, dynamic> preview, {
@@ -343,9 +353,19 @@ class GitHost extends ChangeNotifier {
         'token': preview['token'],
       });
       if (apply) {
-        w.notice = value['warning'] as String? ?? 'Git action completed.';
+        final kind = (value['operation'] as Map)['kind'];
+        w.notice =
+            value['warning'] as String? ??
+            switch (kind) {
+              'stage' || 'stageAll' => 'Changes staged.',
+              'unstage' || 'unstageAll' => 'Changes unstaged.',
+              _ => 'Git action completed.',
+            };
         if (value['completed'] == true &&
-            (value['operation'] as Map)['kind'] == 'commit') {
+            [
+              'commit',
+              'commitAll',
+            ].contains((value['operation'] as Map)['kind'])) {
           w.commitDraft = '';
         }
         if (value['status'] != null) {

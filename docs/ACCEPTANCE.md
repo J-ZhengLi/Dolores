@@ -1,5 +1,36 @@
 # Dolores acceptance — 2026-10-08
 
+## Source Control — quick staging and empty-index commit
+
+Section +/− controls and file +/− controls stage/unstage saved changes with one
+click; their menu equivalents match. Bulk actions use the complete bounded status,
+without the selected-path or full-diff staging limits. Commit keeps a nonempty
+staged selection; otherwise its single review prepares working changes in a
+temporary index and stages them only after confirmation. Cancel changes no index.
+
+The missing-button regression failed before the fix. **20 Source Control Flutter
+tests** pass, covering all four controls, busy disabling, failure/retry, retained
+drafts, history recovery and light/dark 252/320 px layouts. Final saved widget
+renders were inspected; they are appearance evidence, not physical input checks.
+**Five focused native mutation tests** pass, covering bulk new/modified/deleted/
+renamed/large files, initial commits, preserved partial staging, stale-review
+refusal and hook-failure recovery. A discovered staged-rename old-path failure
+was corrected and its test passes. Scoped Flutter analysis (`lib`/`test`), Rust
+formatting and strict bridge Clippy pass. Whole-directory analysis reported an
+unrelated unused import in an ignored README screenshot helper.
+
+The normal Windows main-entry build and isolated release C ABI corpus pass all
+**13 checks**. New checks exercise 22 bulk files, a literal Unicode/bracket/space
+filename, unstage all, cancel-safe automatic commit and dirty-editor refusal.
+Existing hook/Stop recovery, two-repository ownership, local bare remotes and
+large/stale diff paging also pass; no idle Git process remains. Evidence is local
+under `output/source-control-17-6045a60858864f67a263d92bb06bad65/`. The owned normal
+preview reopened with window presence confirmed, and all **49 profile table
+hashes** are unchanged. No live model or user's external repository was needed.
+Commit/destructive review bounds (256 KiB), status/index bounds and Windows-only
+qualification remain; this change does not qualify arbitrary-size commits or
+physical accessibility/input behavior.
+
 ## Chat scheduling — ordinary language and automatic defaults
 
 The recurrence allowlist and English/Chinese request/edit keyword gates are

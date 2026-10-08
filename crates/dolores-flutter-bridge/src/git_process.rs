@@ -36,9 +36,21 @@ pub(super) fn run(
     cancel: &CancellationToken,
     remote: bool,
 ) -> Result<Output, String> {
+    run_with_index(executable, root, args, cancel, remote, None)
+}
+
+/// Only the host supplies this temporary index; never accept it from a caller.
+pub(super) fn run_with_index(
+    executable: &Path,
+    root: &Path,
+    args: &[String],
+    cancel: &CancellationToken,
+    remote: bool,
+    index: Option<&Path>,
+) -> Result<Output, String> {
     let mut stdout = vec![];
     let mut stderr = vec![];
-    let code = run_stream(executable, root, args, cancel, remote, |i, bytes| {
+    let code = stream_with_index(executable, root, args, cancel, remote, index, |i, bytes| {
         if stdout.len() + stderr.len() + bytes.len() > 512 * 1024 {
             return Err("Git output exceeds 512 KiB. Partial results were refused; Refresh before retrying.".into());
         }
@@ -63,9 +75,27 @@ pub(super) fn run_stream(
     args: &[String],
     cancel: &CancellationToken,
     remote: bool,
+    consume: impl FnMut(usize, &[u8]) -> Result<(), String>,
+) -> Result<i32, String> {
+    stream_with_index(executable, root, args, cancel, remote, None, consume)
+}
+
+fn stream_with_index(
+    executable: &Path,
+    root: &Path,
+    args: &[String],
+    cancel: &CancellationToken,
+    remote: bool,
+    index: Option<&Path>,
     mut consume: impl FnMut(usize, &[u8]) -> Result<(), String>,
 ) -> Result<i32, String> {
     let mut env = process::environment();
+    if let Some(index) = index {
+        env.push((
+            "GIT_INDEX_FILE".into(),
+            index.to_string_lossy().into_owned(),
+        ));
+    }
     if remote {
         for name in [
             "SSH_AUTH_SOCK",

@@ -174,13 +174,13 @@ class GitLocalControls extends StatelessWidget {
           menuChildren: [
             MenuItemButton(
               onPressed: enabled && working.isNotEmpty
-                  ? () => review({'kind': 'stage', 'paths': working})
+                  ? () => review({'kind': 'stageAll'})
                   : null,
               child: const Text('Stage all changes'),
             ),
             MenuItemButton(
               onPressed: enabled && staged.isNotEmpty
-                  ? () => review({'kind': 'unstage', 'paths': staged})
+                  ? () => review({'kind': 'unstageAll'})
                   : null,
               child: const Text('Unstage all changes'),
             ),

@@ -38,12 +38,25 @@ def main():
             sessions[name]=host.call('createSession',kind='project',path=str(folder))['session']['id']
         a,b=sessions['A'],sessions['B'];before=memory(os.getpid());jobs={n:start(s,'status')for n,s in sessions.items()};statuses={n:finish(sessions[n],j)for n,j in jobs.items()};assert statuses['A']['repo']!=statuses['B']['repo'];report['checks']['twoRepositoryOwnership']=True
         for i in range(35):shell(roots['A'],'commit','--allow-empty','-m',f'page-{i}')
+        for i in range(21):(roots['B']/f'bulk-{i}.txt').write_text(f'public bulk {i}\n',encoding='utf-8',newline='')
+        literal='[literal] public 文件.txt';(roots['B']/literal).write_text('literal filename\n',encoding='utf-8',newline='')
+        apply(b,review(b,{'kind':'stageAll'}));assert len(shell(roots['B'],'diff','--cached','--name-only').splitlines())==22
+        apply(b,review(b,{'kind':'unstageAll'}));assert shell(roots['B'],'diff','--cached','--name-only')==b''
+        r=review(b,{'kind':'commitAll','message':'public automatic staging'});assert r['autoStage'] is True and len(r['paths'])==22
+        assert shell(roots['B'],'diff','--cached','--name-only')==b''
+        git(b,'discardReview',repo=r['repo'],token=r['token']);assert shell(roots['B'],'diff','--cached','--name-only')==b''
+        apply(b,review(b,{'kind':'commitAll','message':'public automatic staging'}));assert shell(roots['B'],'show','HEAD:bulk-20.txt')==b'public bulk 20\n'
+        assert shell(roots['B'],'show',f'HEAD:{literal}')==b'literal filename\n'
+        report['checks']['bulkIndexActionsAndCancelSafeAutomaticCommit']=True
         s=git(a,'status');page=git(a,'history',repo=s['repo'],head=s['head'],cursor=0);assert len(page['items'])==30 and page['next']==30;page2=git(a,'history',repo=s['repo'],head=s['head'],cursor=30);assert len(page2['items'])==6;report['checks']['pinnedHistoryPaging']=True
         (roots['A']/'same.txt').write_text('working A\n',encoding='utf-8',newline='');s=git(a,'status');d=git(a,'diff',repo=s['repo'],revision=s['revision'],path='same.txt',basis='working');assert d['left']=='base A\n' and d['right']=='working A\n'
-        (roots['A']/'new.txt').write_text('reviewed new content\n',encoding='utf-8',newline='');r=review(a,{'kind':'stage','paths':['new.txt']});assert 'reviewed new content' in r['patch'];apply(a,r);report['checks']['newFileContentReview']=True
+        (roots['A']/'new.txt').write_text('saved new content\n',encoding='utf-8',newline='');r=review(a,{'kind':'stage','paths':['new.txt']});assert r['paths']==['new.txt'];apply(a,r);assert shell(roots['A'],'show',':new.txt')==b'saved new content\n';report['checks']['newFileSavedIndexAction']=True
         project=host.call('editor',session=a,request={'action':'workspace'})['project'];ed=host.call('editor',session=a,request={'action':'open','project':project,'path':'same.txt'});host.call('editor',session=a,request={'action':'edit','project':project,'document':ed['document'],'version':ed['version'],'edits':[{'start':0,'end':0,'text':'unsaved '}]})
         r=review(a,{'kind':'discard','path':'same.txt'})
         try:apply(a,r);raise AssertionError('Dirty editor was overwritten')
+        except AssertionError as e:assert 'unsaved' in str(e).lower() or 'save' in str(e).lower()
+        r=review(a,{'kind':'stageAll'})
+        try:apply(a,r);raise AssertionError('Dirty editor was silently staged')
         except AssertionError as e:assert 'unsaved' in str(e).lower() or 'save' in str(e).lower()
         ed=host.call('editor',session=a,request={'action':'open','project':project,'path':'same.txt'});host.call('editor',session=a,request={'action':'close','project':project,'document':ed['document'],'version':ed['version'],'discard':True});report['checks']['nativeDirtyBufferGuard']=True
         apply(a,review(a,{'kind':'stage','paths':['same.txt']}))

@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/git_host.dart';
 import 'package:dolores_flutter/source_control.dart';
 import 'package:dolores_flutter/git_diff_view.dart';
 import 'package:dolores_flutter/git_local_controls.dart';
+import 'package:dolores_flutter/theme.dart';
 
 class DiffBridge implements ChatBridge {
   bool fail = false;
@@ -128,6 +132,7 @@ class PagedDiffBridge extends DiffBridge {
 
 class MutationBridge implements ChatBridge {
   Map<String, dynamic>? pending;
+  final requests = <Map<String, dynamic>>[];
   bool reject = false;
   @override
   Future<void> open() async {}
@@ -137,6 +142,7 @@ class MutationBridge implements ChatBridge {
   Future<dynamic> call(Map<String, dynamic> command) async {
     final r = Map<String, dynamic>.from(command['request'] as Map);
     if (r['action'] != 'poll') {
+      requests.add(r);
       pending = r;
       return {'job': 'mutation'};
     }
@@ -160,7 +166,9 @@ class MutationBridge implements ChatBridge {
       'done': true,
       'value': {
         'completed': true,
-        'operation': {'kind': 'commit'},
+        'operation': requests.lastWhere(
+          (r) => r['action'] == 'review',
+        )['operation'],
         'warning': null,
         'status': {'repo': 'A', 'revision': 'v2'},
       },
@@ -202,6 +210,209 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  final renderDirectory = Platform.environment['DOLORES_GIT_RENDER_DIRECTORY'];
+  setUpAll(() async {
+    if (renderDirectory == null) return;
+    final font = ByteData.sublistView(
+      await File('C:/Windows/Fonts/segoeui.ttf').readAsBytes(),
+    );
+    for (final family in ['Segoe UI', 'Roboto']) {
+      await (FontLoader(family)..addFont(Future.value(font))).load();
+    }
+    final icons = await File(
+      '../../output/toolchains/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    ).readAsBytes();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(Future.value(ByteData.sublistView(icons)))).load();
+  });
+  for (final dark in [false, true]) {
+    for (final width in [252.0, 320.0]) {
+      testWidgets('staging panel compact layout ($dark, $width)', (t) async {
+        t.view.physicalSize = Size(width, 680);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
+        final host = GitHost(MutationBridge());
+        host.selected = GitWorkspace('C:/public-fixture', 'A')
+          ..status = {
+            'repo': 'A',
+            'revision': 'v1',
+            'branch': 'main',
+            'entries': [
+              {
+                'path': 'src/very-long-file-name.dart',
+                'index': 'M',
+                'worktree': 'M',
+              },
+              {'path': 'docs/guide.md', 'index': '?', 'worktree': '?'},
+            ],
+          }
+          ..commitDraft = 'Improve workspace';
+        final boundaryKey = GlobalKey();
+        await t.pumpWidget(
+          RepaintBoundary(
+            key: boundaryKey,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: doloresTheme(dark).copyWith(
+                textButtonTheme: TextButtonThemeData(
+                  style: TextButton.styleFrom(
+                    textStyle: const TextStyle(fontFamily: 'Segoe UI'),
+                  ),
+                ),
+              ),
+              home: Scaffold(
+                body: SourceControlPanel(git: host, openFolder: () {}),
+              ),
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.byTooltip('Stage all changes'), findsOneWidget);
+        expect(find.byTooltip('Unstage all changes'), findsOneWidget);
+        expect(find.byTooltip('Stage changes'), findsNWidgets(2));
+        expect(find.byTooltip('Unstage changes'), findsOneWidget);
+        expect(t.takeException(), isNull);
+        if (renderDirectory != null) {
+          await t.runAsync(() async {
+            final image =
+                await (boundaryKey.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await Directory(renderDirectory).create(recursive: true);
+            await File(
+              '$renderDirectory/staging-${dark ? 'dark' : 'light'}-${width.toInt()}.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        await t.pumpWidget(const SizedBox());
+        host.dispose();
+      });
+    }
+  }
+  testWidgets(
+    'section and file buttons stage or unstage without another dialog',
+    (t) async {
+      final bridge = MutationBridge();
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {
+          'repo': 'A',
+          'revision': 'v1',
+          'entries': [
+            {'path': 'working.txt', 'index': ' ', 'worktree': 'M'},
+            {'path': 'staged.txt', 'index': 'M', 'worktree': ' '},
+          ],
+        };
+      host.selected = w;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 252,
+              child: SourceControlPanel(git: host, openFolder: () {}),
+            ),
+          ),
+        ),
+      );
+      for (final key in [
+        'git-stage-all',
+        'git-unstage-all',
+        'git-stage-working.txt',
+        'git-unstage-staged.txt',
+      ]) {
+        expect(find.byKey(ValueKey(key)), findsOneWidget);
+      }
+      final status = w.status;
+      w.commitDraft = 'Retained draft';
+      for (final item in [
+        ('git-stage-working.txt', 'stage', ['working.txt']),
+        ('git-unstage-staged.txt', 'unstage', ['staged.txt']),
+        ('git-stage-all', 'stageAll', null),
+        ('git-unstage-all', 'unstageAll', null),
+      ]) {
+        w.status = status;
+        host.changed();
+        await t.pumpAndSettle();
+        await t.tap(find.byKey(ValueKey(item.$1)));
+        await t.pumpAndSettle();
+        final op =
+            bridge.requests[bridge.requests.length - 2]['operation'] as Map;
+        expect(op['kind'], item.$2);
+        expect(op['paths'], item.$3);
+        expect(bridge.pending!['action'], 'apply');
+        expect(find.byKey(const Key('git-apply-review')), findsNothing);
+        expect(w.commitDraft, 'Retained draft');
+        expect(w.status!['revision'], 'v2');
+      }
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
+  testWidgets(
+    'failed index action retains state and draft; buttons disable while busy and retry',
+    (t) async {
+      final bridge = MutationBridge()..reject = true;
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {
+          'repo': 'A',
+          'revision': 'v1',
+          'entries': [
+            {'path': 'working.txt', 'index': ' ', 'worktree': 'M'},
+          ],
+        }
+        ..commitDraft = 'Keep draft';
+      final status = w.status;
+      host.selected = w;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 252,
+              child: SourceControlPanel(git: host, openFolder: () {}),
+            ),
+          ),
+        ),
+      );
+      w.busy = true;
+      host.changed();
+      await t.pump();
+      expect(
+        t.widget<IconButton>(find.byKey(const Key('git-stage-all'))).onPressed,
+        isNull,
+      );
+      expect(
+        t
+            .widget<IconButton>(find.byKey(const Key('git-stage-working.txt')))
+            .onPressed,
+        isNull,
+      );
+      w.busy = false;
+      host.changed();
+      await t.pump();
+      await t.tap(find.byKey(const Key('git-stage-working.txt')));
+      await t.pumpAndSettle();
+      expect(w.status, same(status));
+      expect(w.commitDraft, 'Keep draft');
+      expect(w.error, contains('refused'));
+      expect(w.reviewOpen, isNull);
+      bridge.reject = false;
+      await t.tap(find.byKey(const Key('git-stage-working.txt')));
+      await t.pumpAndSettle();
+      expect(w.error, isNull);
+      expect(w.notice, 'Changes staged.');
+      expect(w.commitDraft, 'Keep draft');
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   testWidgets(
     'side diff aligns and colors changes; stale paging retains the readable page and explicit retry works',
     (t) async {
@@ -354,7 +565,11 @@ void main() {
         findsOneWidget,
       );
       bridge.failCommit = 'bbbbbbbb';
+      await t.ensureVisible(find.byKey(const ValueKey('git-commit-bbbbbbbb')));
+      await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey('git-commit-bbbbbbbb')));
+      await t.pumpAndSettle();
+      await t.drag(find.byType(ListView).first, const Offset(0, -160));
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('git-retry-bbbbbbbb')), findsOneWidget);
       expect(

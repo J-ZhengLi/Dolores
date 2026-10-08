@@ -6,6 +6,7 @@ import 'git_diff_view.dart';
 import 'git_local_controls.dart';
 
 String gitActionName(Map<String, dynamic> op) => switch (op['kind']) {
+  'commitAll' => 'commit',
   'stashCreate' => 'stash selected files',
   'stashApply' => op['pop'] == true ? 'apply and drop stash' : 'apply stash',
   'branchCreate' => 'create branch',
@@ -23,6 +24,17 @@ Future<void> reviewGitAction(
   GitWorkspace w,
   Map<String, dynamic> operation,
 ) async {
+  if (w.busy || w.reviewOpen != null) return;
+  if (operation['kind'] == 'stage' ||
+      operation['kind'] == 'unstage' ||
+      operation['kind'] == 'stageAll' ||
+      operation['kind'] == 'unstageAll') {
+    await git.changeIndex(w, operation);
+    return;
+  }
+  if (operation['kind'] == 'commit') {
+    operation = {...operation, 'kind': 'commitAll'};
+  }
   final preview = await git.review(w, operation);
   if (preview == null) return;
   if (!context.mounted) {
@@ -162,6 +174,8 @@ class SourceControlPanel extends StatelessWidget {
     dense: true,
     visualDensity: VisualDensity.compact,
     contentPadding: const EdgeInsets.only(left: 20, right: 4),
+    minLeadingWidth: 16,
+    horizontalTitleGap: 8,
     leading: const Icon(Icons.insert_drive_file_outlined, size: 16),
     title: Tooltip(
       message: entry['path'] as String,
@@ -189,8 +203,24 @@ class SourceControlPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text((staged ? entry['index'] : entry['worktree']) as String),
+        IconButton(
+          key: ValueKey('git-${staged ? 'unstage' : 'stage'}-${entry['path']}'),
+          tooltip: staged ? 'Unstage changes' : 'Stage changes',
+          icon: Icon(staged ? Icons.remove : Icons.add, size: 18),
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          onPressed: w.busy || w.reviewOpen != null
+              ? null
+              : () => git.changeIndex(w, {
+                  'kind': staged ? 'unstage' : 'stage',
+                  'paths': [entry['path']],
+                }),
+        ),
         PopupMenuButton<String>(
           tooltip: 'File Git actions',
+          iconSize: 18,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
           enabled: !w.busy && w.reviewOpen == null,
           onSelected: (kind) => reviewGitAction(context, git, w, {
             'kind': kind,
@@ -387,9 +417,15 @@ class SourceControlPanel extends StatelessWidget {
                                       : Icons.chevron_right,
                                   size: 20,
                                 ),
-                                const Text(
-                                  'Changes',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                const Flexible(
+                                  child: Text(
+                                    'Changes',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
@@ -427,13 +463,47 @@ class SourceControlPanel extends StatelessWidget {
                     GitCommitBox(key: ValueKey(w.root), git: git, workspace: w),
                     for (final staged in [true, false]) ...[
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
-                        child: Text(
-                          staged ? 'Staged Changes' : 'Working Changes',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 4, 0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                staged ? 'Staged Changes' : 'Working Changes',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              key: Key(
+                                staged ? 'git-unstage-all' : 'git-stage-all',
+                              ),
+                              tooltip: staged
+                                  ? 'Unstage all changes'
+                                  : 'Stage all changes',
+                              icon: Icon(
+                                staged ? Icons.remove : Icons.add,
+                                size: 18,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              onPressed:
+                                  w.busy ||
+                                      w.reviewOpen != null ||
+                                      !entries.any(
+                                        (e) => staged
+                                            ? e['index'] != ' ' &&
+                                                  e['index'] != '?'
+                                            : e['worktree'] != ' ',
+                                      )
+                                  ? null
+                                  : () => git.changeIndex(w, {
+                                      'kind': staged
+                                          ? 'unstageAll'
+                                          : 'stageAll',
+                                    }),
+                            ),
+                          ],
                         ),
                       ),
                       for (final entry in entries.where(
@@ -476,9 +546,15 @@ class SourceControlPanel extends StatelessWidget {
                                       : Icons.chevron_right,
                                   size: 20,
                                 ),
-                                const Text(
-                                  'History',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                const Flexible(
+                                  child: Text(
+                                    'History',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

@@ -25,12 +25,33 @@ usable cached files and the commit message, and never relabel another commit's f
 
 Place repository actions in the three-dot menu beside Changes: Commit, Pull,
 Push, Fetch, and grouped Changes, Branch and Stash actions. Use familiar names
-at entry points; show the exact existing host review before applying. Ctrl+Enter
+at entry points; show the exact existing host review for commits and destructive
+or remote actions before applying. Ctrl+Enter
 in the message field also opens the commit review. File and commit overflow menus
 contain their contextual actions, including Revert commit. Branch/stash/remote
 selection uses a temporary picker; opening the menu performs no network request.
 Keep the compact rail, Home project ownership, diff bases and editor guards.
 This refines milestone 17; it does not add a full branch graph or new Git commands.
+
+## Quick staging — 2026-10-08
+
+Show + beside Working Changes and each working file, and − beside Staged Changes
+and each staged file. These deliberate index-only actions apply immediately;
+their menu equivalents do the same. Disable them while busy or reviewing. Keep
+the native single-use revision token and dirty-editor guards, but do not generate
+a full patch for reversible index actions. Section actions select the complete
+bounded status (up to 2,000 entries), rather than the 16-path selection limit.
+Use literal NUL-delimited pathspec files so filenames and bulk actions do not
+depend on shell quoting or Windows command-line length. Stage a changed renamed
+file by its current index name; unstage a rename with both its old and new names.
+
+Commit uses the existing staged selection when nonempty. Otherwise its single
+review shows all saved working changes, including untracked files, with an explicit
+stage-and-commit notice. Prepare that exact patch using a temporary index; opening
+or cancelling the review must not stage anything. Apply checks the saved revision,
+author and editor state before staging, then runs the normal commit with hooks.
+Failed hooks retain the draft and staged work; Refresh reconciles the state before
+a fresh review. No automatic staging occurs on page entry, refresh or typing.
 
 ## Large-diff correction — 2026-10-07
 
@@ -51,7 +72,7 @@ metadata remains viewable; there is no fabricated textual binary comparison.
 
 Saved-file revision hashing streams through a 64 KiB buffer with Stop and a
 30-second read deadline, replacing the 16 MiB/file and 32 MiB aggregate gates.
-Git process supervision and metadata/index bounds remain. Mutation reviews keep
+Git process supervision and metadata/index bounds remain. Commit/destructive reviews keep
 their independent complete-patch bounds: a displayed partial page cannot become
 a complete approval or hunk patch. This change qualifies viewing, not unbounded
 mutation reviews or remote operations.
@@ -68,8 +89,8 @@ mutation reviews or remote operations.
 | Diff display | 256 rows / 256 KiB raw patch per page; approximately 4 KiB text segments; explicit Previous/Next changes |
 | History | 30 commits per page, cursor at most 10,000; pinned HEAD, explicit Load more |
 | Retained views | Eight repository owners, eight diff tabs each; inactive clean tabs can be closed |
-| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; complete patch within existing 256 KiB review bounds |
-| Selected paths/hunks | At most 16 literal paths / 32 hunks, 64 KiB patch; stale basis refuses before apply |
+| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; commit/destructive patch within existing 256 KiB review bounds; index-only actions retain metadata without a patch |
+| Selected paths/hunks | At most 16 literal selected paths / 32 hunks, 64 KiB hunk patch; section index actions use all bounded status entries; stale basis refuses before apply |
 | Commit draft | 8 KiB UTF-8; retained on hook failure; configured author and hooks remain enabled |
 
 App mutations are serialized per repository and never hold the global chat lock
@@ -79,7 +100,7 @@ Dirty/pending editor buffers refuse conflicting operations; Save remains explici
 Revision checks cannot prevent an unrelated writer racing the final Git operation;
 Git index locks and patch checks remain additional defenses, not an OS transaction.
 
-Stage/unstage affect selected saved paths only. Commit reviews all staged paths and
+Stage/unstage affect the explicitly selected saved paths or section only. Commit reviews all staged paths and
 the configured author. Hunk actions use host-derived patch fragments, never a
 caller-supplied patch. Discard affects one tracked saved file; it cannot delete an
 untracked file. Stash creation selects tracked saved paths, without blanket stash

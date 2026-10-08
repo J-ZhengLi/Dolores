@@ -97,11 +97,14 @@ its exact non-merge commit comparison. Click the commit again to collapse it.
 Eight commit file sets can stay expanded; collapse one to inspect another.
 An unavailable commit shows Retry files underneath it and retains other views.
 
-File menus review stage/unstage, selected tracked-file stash and discard from the
-index. Choose hunks in a text diff for partial stage/unstage. The three-dot menu
+Use + beside Working Changes to stage all saved changes, or − beside Staged
+Changes to unstage them. Each file has the same quick action. File menus also offer
+stash and discard. Choose hunks in a text diff for partial stage/unstage. The three-dot menu
 beside Changes contains Commit, Pull, Push, Fetch and grouped Changes, Branch and
 Stash actions. The message field also accepts Ctrl+Enter. Commit confirmation shows
-all staged files and your configured author, and keeps Git hooks enabled. Failed
+all staged files and your configured author, and keeps Git hooks enabled. When
+nothing is staged, Commit reviews the saved working changes and stages them only
+after confirmation; Cancel keeps the index unchanged. Failed
 hooks retain the message and index. Save or close affected unsaved editors first.
 Stash conflicts retain the stash; a conflicted revert offers reviewed Abort.
 Branch switching requires clean tracked files. These actions use your OS account;
