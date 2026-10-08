@@ -50,7 +50,9 @@ Dolores does not start with Windows or wake it. After interruption, inspect the
 retained result before **Run now**; uncertain actions are never replayed.
 
 **Settings → Personalization → Companionship** is optional and Off by default.
-Choose an enabled model, hours and daily cap for occasional in-app notes. Home
+Choose an enabled model and hours. The **Frequency** slider runs from Quiet (0)
+to Chatty (100 attempts a day); the saved default is 2. Higher settings shorten
+the spacing, while zero keeps Dolores quiet. Home
 offers Open, Not now, Dismiss, Fewer messages and Turn off. Notes stay quiet during
 work or while the window is hidden; they do not send messages or run tasks for you.
 

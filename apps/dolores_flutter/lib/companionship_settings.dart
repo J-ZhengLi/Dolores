@@ -169,19 +169,33 @@ class _CompanionshipSettingsState extends State<CompanionshipSettings> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    initialValue: policy!['dailyCap'] as int,
-                    decoration: const InputDecoration(labelText: 'Daily limit'),
-                    items: [
-                      for (final n in [0, 1, 2])
-                        DropdownMenuItem(
-                          value: n,
-                          child: Text(n == 0 ? 'Quiet' : 'Up to $n'),
-                        ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const SettingsHelpLabel(
+                        label: 'Frequency',
+                        help: 'Maximum attempts per day. Zero keeps Dolores quiet. Notes are spaced through your chosen hours; you may receive fewer while busy or with an unread note. Failed attempts also count.',
+                      ),
+                      Text('${policy!['dailyCap']} / day'),
                     ],
+                  ),
+                  Slider(
+                    key: const Key('companion-frequency'),
+                    value: (policy!['dailyCap'] as int).toDouble(),
+                    min: 0,
+                    max: 100,
+                    divisions: 100,
+                    label: '${policy!['dailyCap']} / day',
+                    semanticFormatterCallback: (v) =>
+                        '${v.round()} messages per day',
                     onChanged: pending
                         ? null
-                        : (v) => setState(() => policy!['dailyCap'] = v),
+                        : (v) =>
+                              setState(() => policy!['dailyCap'] = v.round()),
+                  ),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [Text('Quiet · 0'), Text('Chatty · 100')],
                   ),
                   SettingsDetails(
                     title: 'Details',
@@ -196,7 +210,7 @@ class _CompanionshipSettingsState extends State<CompanionshipSettings> {
                       const SizedBox(height: 12),
                       const SettingsHelpLabel(
                         label: 'Timing',
-                        help: 'At least three hours between attempts. Dolores waits while you work or are away. Only one unread note is kept; failures are not retried.',
+                        help: 'Higher frequency shortens the time between notes. Dolores waits while you work or are away. Only one unread note is kept; failures are not retried.',
                       ),
                       const SizedBox(height: 12),
                       for (final a

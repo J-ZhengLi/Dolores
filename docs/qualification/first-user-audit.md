@@ -39,8 +39,8 @@ tracks the audit; product design stays in the feature specifications.
 - [ ] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
 - [ ] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
 - [ ] C12 Browse older/newer/latest messages and conversations without losing selection/draft.
-- [ ] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
-- [ ] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
+- [x] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
+- [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
 - [x] C15 Record Worked/Needs work feedback and inspect the retained note.
 - [ ] C16 Delete only a disposable conversation; verify its working files are retained.
 
@@ -82,8 +82,8 @@ tracks the audit; product design stays in the feature specifications.
 - [x] G02 Stage/unstage one file with +/-; saved Git index agrees immediately.
 - [x] G03 Stage/unstage all with section +/-; include untracked, renamed and Unicode/space filenames.
 - [x] G04 Open working/staged inline diffs; additions/deletions and old/new line numbers are correct.
-- [ ] G05 Side-by-side diff is visibly different, aligned and scrolls both sides together.
-- [ ] G06 Stage/unstage selected hunks; unrelated hunks remain unchanged.
+- [x] G05 Side-by-side diff is visibly different, aligned and scrolls both sides together.
+- [x] G06 Stage/unstage selected hunks; unrelated hunks remain unchanged.
 - [ ] G07 Commit message/Ctrl+Enter and Changes menu produce a clear review and a real commit.
 - [x] G08 Empty-index Commit reviews working changes; Cancel leaves index unchanged and confirm commits them.
 - [x] G09 Existing staged selection takes priority over other working changes.
@@ -170,7 +170,7 @@ tracks the audit; product design stays in the feature specifications.
 
 ## 10. Occasional and experimental workflows
 
-- [ ] E01 Opt-in companionship model/hours/cap produce a bounded in-app note when eligible, quiet during active work.
+- [ ] E01 Opt-in companionship model/hours and Quiet–Chatty frequency (0–100/day) produce a bounded in-app note when eligible, quiet during active work.
 - [ ] E02 Open/Not now/Dismiss/Fewer messages/Turn off behave clearly without triggering external actions.
 - [ ] E03 Compare instructions retains exact cases/usage and never activates a tie or incomplete result.
 - [ ] E04 Skill testing has fixed disposable cases and truthful candidate/baseline results with Stop recovery.
@@ -221,6 +221,50 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- C14 passed with a DeepSeek fallback on the normal rebuilt frequency app.
+  Chat actions → Branch chat offered completed turns and disclosed the shared
+  working folder and separate permissions/drafts. Selecting the completed repair
+  created a distinct fork with the exact four original messages and same project
+  root; the original chat retained those messages. Qwen was asked to read notes
+  and report its Units line, but answered Fahrenheit without a tool call despite
+  the saved file containing Celsius (one call; 6,568 reported tokens). An explicit
+  fresh-read request with DeepSeek opened a new Allow a file read review. Allow
+  once returned the actual current four lines; its expanded receipt and final
+  Celsius answer agreed (two calls; last reported 6,558 tokens). Independent
+  storage/root and exact file-byte checks agreed, with no edits. This qualifies
+  branch context and fresh review, not Qwen's stale-history answer reliability.
+
+- C13 passed on the normal rebuilt frequency app. Chat actions → Export offered
+  Markdown, JSON with run details and Attachments. Markdown and JSON each used
+  the native Save As dialog to save a fresh ignored file, then showed Exported
+  4 messages while retaining the selected chat/model. JSON parsed successfully;
+  all four IDs/roles/content matched stored messages exactly. Markdown contained
+  every complete message. The exported actual command receipts retained the
+  earlier exit 1 and later exit 0 for the same literal Python check, separate
+  four-call runs, and the saved Worked feedback/public note. No model request,
+  project-file change or remote transmission was involved. Attachment export
+  remains under its separate pending check.
+
+- G05/G06 passed in native Source Control. A historical notes comparison displayed
+  distinct old/new contents with the added row aligned. A disposable 200-line
+  public file had five separated changes; side-by-side showed red old/green new
+  rows and remained aligned when scrolling from either side through the last hunk.
+  Choose hunks selected only line 10; the exact stage review omitted the other four.
+  After Apply, independent Git inspection confirmed only line 10 in the index,
+  with all five edits still saved and the separate forecast file untracked.
+  On the normal rebuilt frequency app, the staged comparison retained that exact
+  hunk. Review unstage selected hunks and Apply returned the index to empty while
+  preserving all five saved edits, all 200 lines and the exact untracked forecast.
+  These existing flows needed no model call or Git runtime change. Observations
+  remain in the ignored native audit log; further Git flows remain unchecked.
+
+- E01 remains partial after the requested frequency refinement. Native Settings
+  loaded the previous 2; the Quiet–Chatty slider saved both 100 and 0, with the
+  stored policy agreeing and the model, hours and Off state retained. Focused
+  clocks/storage/UI checks cover high-cap pacing, zero suppression, restart and
+  failed saves. Eligible native real-model delivery still needs a separate case;
+  this UI save check does not establish proactive delivery reliability.
 
 - A08 and C15 passed on the normal rebuilt repair build. Changes listed saved
   edits across chats in the selected working folder. The forecast edit displayed

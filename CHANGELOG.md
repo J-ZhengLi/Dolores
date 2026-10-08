@@ -14,6 +14,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 - Optional Windows tray scheduling with reopen and interruption recovery.
 - Windows GitHub Actions packaging with reviewed changelog notes and draft releases.
 
+### Changed
+
+- Companionship frequency uses a Quiet–Chatty slider from 0 to 100 per day, with pacing that follows the selected frequency and hours.
+
 ### Fixed
 
 - Repair and verify requests a reviewed repair and reruns the failed check, including when the original request was read-only.

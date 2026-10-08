@@ -160,9 +160,10 @@ OS wake/security bypass or always-running worker is silently installed.
 
 Settings → Companionship has an opt-in switch, allowed hours, daily cap and an enabled
 configured weaker model. The design adopts **in-app messages**, not desktop notifications.
-Proposed defaults: Off initially; after opt-in, 09:00–21:00 local time, at most 2
-messages/day with a 3-hour minimum gap. Chosen hours/cap always override defaults;
-freeze these proposed limits before 23.0. No silent model fallback or foreground
+Defaults: Off initially; after opt-in, 09:00–21:00 local time, at most 2 attempts/day.
+The [frequency policy](companionship.md#frequency-policy-revised-2026-10-08) now
+uses a Quiet–Chatty slider from 0 to 100, with pacing based on the chosen hours
+and cap. Default low-frequency pacing retains the 3-hour gap. No silent model fallback or foreground
 model change. A short generated message uses a separately recorded bounded request.
 
 Candidates include light chat, a checked fun fact, a relevant remembered conversation

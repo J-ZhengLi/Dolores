@@ -423,10 +423,15 @@ mod tests {
         assert!(!state.policy.enabled);
         state.policy.enabled = true;
         state.policy.model = "weak".into();
-        state.attempts = 2;
+        state.policy.daily_cap = 100;
+        state.attempts = 100;
         state.day = "2026-10-07".into();
         let saved = s.save_companion_state(&state, 0).unwrap();
         assert!(s.save_companion_state(&state, 0).is_err());
+        state.policy.daily_cap = 101;
+        assert!(s.save_companion_state(&state, saved.revision).is_err());
+        assert_eq!(s.companion_state().unwrap(), saved);
+        state.policy.daily_cap = 100;
         s.lock().unwrap().execute_batch("CREATE TRIGGER deny_companion BEFORE UPDATE ON companion_state BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
         state.policy.enabled = false;
         assert!(s.save_companion_state(&state, saved.revision).is_err());

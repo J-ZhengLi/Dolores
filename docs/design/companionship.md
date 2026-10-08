@@ -5,16 +5,25 @@ conversations without switching the selected chat/model or touching its draft.
 Settings show short controls; longer guidance uses the shared hover help icon.
 No desktop notifications, tools, scheduled task creation or publication is granted.
 
-## Frozen initial policy
+## Frequency policy (revised 2026-10-08)
 
 - Enabled model chosen separately from Home; suggest configured Qwen3.5-2B only
   when it is enabled. No configured choice means quiet, never model fallback.
-- System IANA timezone initially; allowed hours 09:00–21:00, 2 attempts per local
-  day, a minimum 3-hour gap. Zero cap means quiet. Hours/cap/model are adjustable.
+- System IANA timezone initially; allowed hours 09:00–21:00, default 2 attempts
+  per local day. Frequency is an integer slider from Quiet (0) to Chatty (100),
+  with the selected daily limit visible. Zero stays quiet without disabling the
+  saved opt-in. Existing settings retain their value.
+- Space attempts by allowed-window duration divided by the daily cap, clamped
+  between 1 minute and 3 hours. The default window at cap 2 retains 3-hour spacing;
+  cap 100 uses 7 minutes 12 seconds. This is a maximum, not a delivery promise.
+  Busy/absent/unread suppression and failed attempts can reduce delivered notes.
 - At most one candidate and one unread initiated conversation. A candidate expires
   after 15 minutes; restart drops unfinished generation without replay.
-- Random first opportunity 5–30 minutes after enabling/returning; later opportunity
-  after the minimum gap plus 0–60 minutes of jitter. Persist the opportunity,
+- Random first opportunity after enabling/returning: from one quarter of the gap
+  (clamped to 1–5 minutes) to the gap (clamped to 1–30 minutes). Later opportunity
+  follows the gap plus up to one third of it, capped at 60 minutes, of jitter.
+  Thus lower frequencies retain the original 5–30 minute initial timing.
+  Persist the opportunity,
   attempt day/count and last attempt; no catch-up flood after absence or clock jumps.
 - Generate only while Dolores is foreground, the user was active within 5 minutes
   but has not interacted for 90 seconds, and ordinary work is not running/queued.
@@ -22,6 +31,8 @@ No desktop notifications, tools, scheduled task creation or publication is grant
 - One no-tool request, 256 output tokens, 20-second total generation deadline,
   16 KiB input, 2 KiB returned text. Attempt admission counts before the request;
   failures consume the same daily/cooldown budget and stay quiet.
+- Raising/lowering the cap does not reset consumed attempts. State accepts counts
+  through 100 even after lowering the cap; the next local day resets the count.
 - Retain 16 activity records and at most one pending generation. Separate usage
   stays in those records; unknown token totals remain unknown. No new idle process;
   a conditional 60-second eligibility timer performs no model polling.

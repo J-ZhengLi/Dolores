@@ -4,6 +4,7 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 
 pub const MIN_GAP: i64 = 3 * 3600;
+pub const MAX_DAILY_CAP: u8 = 100;
 pub const EXPIRY: i64 = 15 * 60;
 pub const MAX_ACTIVITY: usize = 16;
 
@@ -39,15 +40,22 @@ impl CompanionPolicy {
             || self.start >= 1440
             || self.end >= 1440
             || self.start == self.end
-            || self.daily_cap > 2
+            || self.daily_cap > MAX_DAILY_CAP
         {
-            return Err("Choose valid hours and a daily limit from 0 to 2.".into());
+            return Err("Choose valid hours and a daily limit from 0 to 100.".into());
         }
         self.zone
             .parse::<Tz>()
             .map_err(|_| "Choose a named timezone.")?;
         Ok(())
     }
+    /// Spread higher frequencies across the allowed window, retaining the
+    /// original three-hour spacing at low frequencies. Never queue catch-up.
+    pub fn gap(&self) -> i64 {
+        let minutes = (i64::from(self.end) - i64::from(self.start)).rem_euclid(1440);
+        (minutes * 60 / i64::from(self.daily_cap.max(1))).clamp(60, MIN_GAP)
+    }
+
     pub fn local(&self, now: i64) -> Result<(String, bool), String> {
         let zone = self
             .zone
@@ -119,7 +127,7 @@ pub struct CompanionState {
 impl CompanionState {
     pub fn validate(&self) -> Result<(), String> {
         self.policy.validate()?;
-        if self.activity.len() > MAX_ACTIVITY || self.attempts > 2 {
+        if self.activity.len() > MAX_ACTIVITY || self.attempts > MAX_DAILY_CAP {
             return Err("Companion state is invalid.".into());
         }
         if let Some(c) = &self.pending {
@@ -163,7 +171,7 @@ impl CompanionState {
             || (!self.day.is_empty() && day < self.day)
             || self
                 .last_attempt
-                .is_some_and(|last| now.saturating_sub(last) < MIN_GAP)
+                .is_some_and(|last| now.saturating_sub(last) < self.policy.gap())
         {
             return Ok(false);
         }
@@ -179,7 +187,11 @@ impl CompanionState {
                 .next_opportunity
                 .is_some_and(|due| now.saturating_sub(due) > EXPIRY)
         {
-            self.next_opportunity = Some(now.saturating_add(300 + i64::from(jitter % 1501)));
+            let gap = self.policy.gap();
+            let earliest = (gap / 4).clamp(60, 300);
+            let latest = gap.clamp(60, 1800);
+            self.next_opportunity =
+                Some(now.saturating_add(earliest + i64::from(jitter) % (latest - earliest + 1)));
             return Ok(false);
         }
         if self.next_opportunity.is_some_and(|due| due > now) {
@@ -193,7 +205,9 @@ impl CompanionState {
         }
         self.attempts += 1;
         self.last_attempt = Some(now);
-        self.next_opportunity = Some(now.saturating_add(MIN_GAP + i64::from(jitter % 3601)));
+        let gap = self.policy.gap();
+        let spread = (gap / 3).min(3600);
+        self.next_opportunity = Some(now.saturating_add(gap + i64::from(jitter) % (spread + 1)));
         self.activity.push(CompanionActivity {
             id: candidate.id.clone(),
             at: now,
@@ -284,6 +298,69 @@ mod tests {
             source: None,
         }
     }
+    #[test]
+    fn frequency_range_and_quiet_do_not_reset_consumed_attempts() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-10-07T10:00:00+08:00")
+            .unwrap()
+            .timestamp();
+        let mut s = state();
+        s.attempts = 100;
+        s.policy.daily_cap = 100;
+        assert!(s.validate().is_ok());
+        s.policy.daily_cap = 101;
+        assert!(s.validate().is_err());
+        s.policy.daily_cap = 0;
+        let quiet = s.clone();
+        assert!(!s.reserve(now, true, false, 0, candidate(now)).unwrap());
+        assert_eq!(s, quiet);
+        s.policy.daily_cap = 2;
+        s.day = s.policy.local(now).unwrap().0;
+        s.next_opportunity = Some(now);
+        assert!(!s.reserve(now, true, false, 0, candidate(now)).unwrap());
+        assert_eq!(s.attempts, 100);
+        let restored: CompanionState =
+            serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
+        assert_eq!(restored, s);
+        assert!(restored.validate().is_ok());
+    }
+
+    #[test]
+    fn chatty_frequency_admits_100_spaced_attempts_and_stops_at_daily_cap() {
+        let start = chrono::DateTime::parse_from_rfc3339("2026-10-07T09:00:00+08:00")
+            .unwrap()
+            .timestamp();
+        let mut s = state();
+        s.policy.daily_cap = 100;
+        let gap = s.policy.gap();
+        assert_eq!(gap, 432);
+        s.next_opportunity = Some(start);
+        for n in 0..100 {
+            let now = start + n * gap;
+            assert!(s.reserve(now, true, false, 0, candidate(now)).unwrap());
+            // Failed generation consumes an attempt just like delivery.
+            s.pending = None;
+            s.activity.last_mut().unwrap().status = "failed".into();
+            assert!(!s
+                .reserve(now + 1, true, false, 0, candidate(now + 1))
+                .unwrap());
+        }
+        assert_eq!(s.attempts, 100);
+        assert_eq!(s.activity.len(), MAX_ACTIVITY);
+        s.last_attempt = None;
+        let now = start + 99 * gap + 1;
+        s.next_opportunity = Some(now);
+        assert!(!s.reserve(now, true, false, 0, candidate(now)).unwrap());
+        let tomorrow = start + 86400;
+        s.next_opportunity = Some(tomorrow);
+        assert!(s
+            .reserve(tomorrow, true, false, 0, candidate(tomorrow))
+            .unwrap());
+        assert_eq!(s.attempts, 1);
+        s.policy.start = 1260;
+        s.policy.end = 540;
+        assert_eq!(s.policy.gap(), gap);
+    }
+
     #[test]
     fn absence_busy_and_cooldown_do_not_accumulate_messages() {
         let now = chrono::DateTime::parse_from_rfc3339("2026-10-07T10:00:00+08:00")

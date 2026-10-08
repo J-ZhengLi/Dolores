@@ -3517,3 +3517,52 @@ the same public note, then restored Worked for the verified repair. No new model
 request was sent. Activity, Earlier tasks, expanded receipts and per-call usage
 were inspected; settings origins and remaining checkpoint cases are still open
 in the checklist. These existing flows required no runtime change.
+
+## Companionship frequency refinement (2026-10-08)
+
+The daily limit is now an integer Quiet–Chatty slider from 0 to 100, showing the
+selected count with longer guidance behind hover help. Default 2 and existing
+opt-in/model/hours remain unchanged. Pacing scales with the allowed window and
+cap, retaining the former three-hour gap at the default; high settings no longer
+remain bound to that gap. Attempts, including failures, count before generation.
+Lowering the cap preserves consumed attempts rather than refilling the budget.
+
+Five core, four storage and one bridge companionship checks passed (the optional
+live bridge check remained ignored). Coverage includes zero silence, rejection
+of 101, 100 spaced attempts and the cap, next-day reset, overnight hours, restart
+with 100 consumed attempts, stale/failed saves, absence/busy/unread suppression
+and no catch-up. Six Flutter checks passed, including real slider gestures at
+both ends, failed-save retention/retry, refresh and narrow/wide light/dark layouts.
+Saved renders were inspected; changed-source analysis and the normal Windows
+build passed. In the isolated native profile, the previous 2 loaded correctly;
+100 and 0 saved through the visible controls, and independent stored policy reads
+agreed while model/hours/Off were retained. This cap is an upper bound, not a
+promise of 100 daily notes. Native eligible real-model delivery remains pending
+under E01 in the first-user checklist.
+
+### First-user audit — aligned Git diffs and selected hunks (2026-10-08)
+
+Historical and five-hunk working comparisons displayed distinct aligned old/new
+contents; scrolling from either side retained shared vertical position through
+the final hunk. A selected-hunk stage review included only line 10 of a disposable
+200-line file. Apply changed only that hunk in the index, leaving all five edits
+saved and a separate file untracked. The staged comparison and selected-hunk
+unstage review then returned the index to empty while retaining those exact saved
+edits and unrelated file. Native UI and independent Git/file checks agreed.
+G05/G06 are checked in the audit; remaining Git interactions retain their own gaps.
+
+Native chat export passed for Markdown and JSON with run details, saving fresh
+ignored files through Save As and showing the correct four-message count.
+Every exported JSON message ID/role/content matched storage exactly; Markdown
+contained all complete messages. Actual earlier failed and later successful
+command receipts, literal arguments, separate call counts and saved feedback
+were retained. The selected chat/model stayed usable, with no new model call.
+C13 is checked; attachment export remains separate and pending.
+
+Native branching from the completed repair retained the exact four original
+messages and shared working folder in a distinct fork, leaving the original chat
+unchanged. Qwen answered from stale history without reading. A DeepSeek fallback
+with an explicit fresh-read request required a new one-use file review; the actual
+receipt and Celsius answer matched exact current bytes. C14 is checked for branch
+context and fresh permissions; Qwen's unsupported stale answer remains a live
+reliability failure in the checklist.

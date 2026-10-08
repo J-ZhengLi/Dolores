@@ -117,6 +117,25 @@ void main() {
         expect(t.takeException(), isNull);
         expect(find.text('Occasional notes from Dolores'), findsOneWidget);
         expect(find.textContaining('At least three hours'), findsNothing);
+        final frequency = find.byKey(const Key('companion-frequency'));
+        final slider = t.widget<Slider>(frequency);
+        expect(slider.value, 2);
+        expect(slider.min, 0);
+        expect(slider.max, 100);
+        final scroll = find
+            .descendant(
+              of: find.byKey(const Key('companion-form')),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        await t.scrollUntilVisible(
+          find.text('Chatty · 100'),
+          80,
+          scrollable: scroll,
+        );
+        await t.pumpAndSettle();
+        expect(find.text('Quiet · 0'), findsOneWidget);
+        expect(find.text('Chatty · 100'), findsOneWidget);
         if (output != null) {
           final boundary =
               key.currentContext!.findRenderObject() as RenderRepaintBoundary;
@@ -131,15 +150,17 @@ void main() {
             await f.writeAsBytes(bytes!.buffer.asUint8List());
           });
         }
+        await t.ensureVisible(find.byKey(const Key('companion-enabled')));
+        await t.pumpAndSettle();
         await t.tap(find.byKey(const Key('companion-enabled')));
         await t.pump();
+        await t.ensureVisible(frequency);
+        await t.pumpAndSettle();
+        await t.drag(frequency, const Offset(1200, 0));
+        await t.pumpAndSettle();
+        expect(t.widget<Slider>(frequency).value, 100);
+        expect(find.text('100 / day'), findsOneWidget);
         b.fail = true;
-        final scroll = find
-            .descendant(
-              of: find.byKey(const Key('companion-form')),
-              matching: find.byType(Scrollable),
-            )
-            .first;
         await t.scrollUntilVisible(
           find.byKey(const Key('save-companion')),
           250,
@@ -148,6 +169,10 @@ void main() {
         await t.tap(find.byKey(const Key('save-companion')));
         await t.pumpAndSettle();
         expect(b.enabled, false);
+        expect(b.cap, 2);
+        await t.ensureVisible(frequency);
+        await t.pumpAndSettle();
+        expect(t.widget<Slider>(frequency).value, 100);
         await t.scrollUntilVisible(
           find.byKey(const Key('companion-enabled')),
           -250,
@@ -169,6 +194,21 @@ void main() {
         await t.tap(find.byKey(const Key('save-companion')));
         await t.pumpAndSettle();
         expect(b.enabled, true);
+        expect(b.cap, 100);
+        await t.ensureVisible(frequency);
+        await t.pumpAndSettle();
+        await t.drag(frequency, const Offset(-1200, 0));
+        await t.pumpAndSettle();
+        expect(t.widget<Slider>(frequency).value, 0);
+        await t.ensureVisible(find.byKey(const Key('save-companion')));
+        await t.pumpAndSettle();
+        await t.tap(find.byKey(const Key('save-companion')));
+        await t.pumpAndSettle();
+        expect(b.cap, 0);
+        await t.tap(find.text('Refresh'));
+        await t.pumpAndSettle();
+        await t.ensureVisible(frequency);
+        expect(t.widget<Slider>(frequency).value, 0);
         await t.pumpWidget(const SizedBox());
         chat.dispose();
       });
