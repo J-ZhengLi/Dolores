@@ -1429,6 +1429,12 @@ class ChatController extends ChangeNotifier {
 
   void _failed(String failure, {Map<String, dynamic>? advice}) {
     toolApproval = null;
+    // Keep already delivered public text available to inspect/copy. It is not
+    // a saved exchange and must never become the next request's history.
+    if (!_terminal && partial.isNotEmpty) {
+      if (modelTexts.length >= 3) modelTexts.removeAt(0);
+      modelTexts.add({'number': modelStep, 'text': partial, 'partial': true});
+    }
     recovery = _terminal ? null : advice;
     _recoveryError = failure;
     _record(

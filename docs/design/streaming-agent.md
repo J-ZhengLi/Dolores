@@ -10,7 +10,9 @@ Streaming limits: 2 MiB of wire traffic without decoded progress and 256 KiB per
 
 Each call keeps its last valid usage snapshot, including empty-choices chunks, without summing duplicates. Only explicit pre-stream unsupported-usage-option rejection permits one retry without `stream_options`. Generic rejection, interruption and unsupported format never fall back to plain chat. Side chat remains an explicit user choice.
 
-Final text, commentary, tools and usage commit atomically in schema-6 metadata JSON. Old summaries without `steps` decode to an empty list; no migration/history rewrite occurs. Failure/Stop/exhaustion saves no partial turn and restores the draft. Completed earlier commentary may remain transiently inspectable as Not saved until another chat/run; incomplete current text is discarded. Public commentary returns to the provider with its corresponding calls.
+Final text, commentary, tools and usage commit atomically in schema-6 metadata JSON. Old summaries without `steps` decode to an empty list; no migration/history rewrite occurs. Failure/Stop/exhaustion saves no partial turn and restores the draft. Public commentary returns to the provider with its corresponding calls.
+
+Recovery refinement (2026-10-08): already delivered public text, including an incomplete current response, remains selectable in the existing Not saved progress panel until another chat/run. Incomplete text is labeled Partial; it is never inserted into saved history or sent in a new request. The latest response replaces the oldest transient step when the three-step display bound is full; the existing public-text budget bounds retained bytes. This does not persist interrupted text across restart or claim task completion.
 
 Live model compatibility, OS input/folder-picker UAT, other platforms, accessibility and resource targets remain separate acceptance work.
 

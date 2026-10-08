@@ -3566,3 +3566,23 @@ with an explicit fresh-read request required a new one-use file review; the actu
 receipt and Celsius answer matched exact current bytes. C14 is checked for branch
 context and fresh permissions; Qwen's unsupported stale answer remains a live
 reliability failure in the checklist.
+
+### First-user audit — Stop retains partial output (2026-10-08)
+
+Real Qwen streaming exposed loss of already delivered public text at Stop: only
+the draft survived, with no text in Earlier tasks. Two regression cases failed
+before the fix, covering a side reply and the latest agent reply with three
+earlier steps. The terminal UI handler now transfers incomplete text into the
+existing Not saved panel, labels it Partial and retains the latest step within
+the existing three-step/public-text bounds. It creates no saved partial turn and
+does not include unsaved text in the next request.
+
+Twenty-two focused Flutter checks and source analysis passed, including compact
+light/dark display, restored draft, independent new request, approval/Stop and
+run ownership. The normal Windows build passed. Native real-Qwen retest showed
+actual streaming, a restored draft and selectable unfinished text labeled Partial;
+a separate short request then completed accurately. Independent storage inspection
+confirmed only the new completed exchange was saved. C08 is checked. This recovery
+is transient until another chat/run; persistence of interrupted text across restart
+remains unqualified. Reported live usage and advice-quality limits are recorded in
+the checklist. The original profile's 49 table hashes remained unchanged.

@@ -20,6 +20,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Stopping a response retains already streamed text in the Not saved panel, marked partial, while restoring the draft.
 - Repair and verify requests a reviewed repair and reruns the failed check, including when the original request was read-only.
 - Source Control history updates after a commit or another Git action changes the current commit, while retaining readable diffs.
 - Double-clicking a file in Folders keeps its tab; reopening a kept file preserves other preview tabs.

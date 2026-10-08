@@ -34,7 +34,7 @@ tracks the audit; product design stays in the feature specifications.
 - [x] C05 Select Qwen, change to DeepSeek and back; retain history and an unsent draft.
 - [ ] C06 Compose multiline text and fenced code; Enter/Shift+Enter/Ctrl+Enter behave as presented.
 - [ ] C07 Read streaming progress/Thinking and final Markdown/code; copy a message and code block accurately.
-- [ ] C08 Stop a real response; retained progress and subsequent new request remain usable.
+- [x] C08 Stop a real response; retained progress and subsequent new request remain usable.
 - [x] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
 - [ ] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
 - [ ] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
@@ -221,6 +221,28 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- C08 initially failed on the normal frequency build: a bounded real Qwen side
+  reply streamed text, but Stop removed that text from chat and Earlier tasks,
+  restoring only the input draft. Two deterministic regressions reproduced the
+  side-chat loss and loss of the latest agent text when three earlier steps filled
+  the display bound. The terminal UI handler discarded the current public text.
+  A scoped fix retains it in the existing Not saved panel with a Partial label,
+  replacing the oldest transient step if needed; saved history stays unchanged.
+  Twenty-two focused Flutter checks and source analysis passed, with light/dark
+  compact coverage, latest-step retention, fresh-request isolation and existing
+  Stop/approval behavior. The normal Windows rebuild passed. Native Qwen retest
+  streamed the same bounded 80-item request; Stop restored its draft and expanding
+  Not saved displayed the actual unfinished text and Step 1 · Partial. Replacing
+  the draft with a separate short request returned exactly Ready for the next
+  task (one call; 2,320 reported tokens). Storage contained only that new exchange,
+  with no stopped text saved or replayed. The cancelled call had no final reported
+  usage; its initial input estimate was 2,455 tokens with a 2,048 output allowance.
+  Some generated review tips were incoherent; this check qualifies interruption
+  recovery, not advice quality. Retained partial text is transient until another
+  chat/run and does not survive restart; durable interrupted-output recovery
+  remains a separate gap. Original profile hashes remained unchanged across all
+  49 tables.
 
 - C14 passed with a DeepSeek fallback on the normal rebuilt frequency app.
   Chat actions → Branch chat offered completed turns and disclosed the shared

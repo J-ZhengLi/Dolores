@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'theme.dart';
 
-/// Public assistant text produced before a tool call. Never model reasoning.
+/// Public assistant text and unsaved partial responses. Never model reasoning.
 class ModelSteps extends StatelessWidget {
   final List steps;
   final bool saved;
@@ -30,7 +30,11 @@ class ModelSteps extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Step ${step['number']}',
+                    step['partial'] == true
+                        ? (step['number'] == 0
+                              ? 'Partial response'
+                              : 'Step ${step['number']} · Partial')
+                        : 'Step ${step['number']}',
                     style: TextStyle(color: p.muted, fontSize: 11),
                   ),
                   ConstrainedBox(
