@@ -21,13 +21,13 @@ Image paste adds the pinned `pasteboard` 0.5.0 native clipboard plugin
 Windows requires `pasteboard_plugin.dll` beside the app. Its Apache-2.0 notice is
 included in Flutter's generated notices; regenerate the separate inventory
 after rebuilding. The reviewed payload allowlist includes this plugin and
-still refuses unrelated files. A complete inventory collection currently
-refuses a missing local `wasmi` notice; do not treat this change as portable
-release qualification until that separate dependency-notice gap is resolved.
+still refuses unrelated files. The missing Wasm dependency notices are retained
+from the exact upstream revisions recorded in their published crate metadata.
 
 | Component | Notice handling |
 | --- | --- |
 | Rust crates | Full local LICENSE/COPYING/COPYRIGHT/NOTICE texts, including nested/vendor notices; declared SPDX expression and versioned crate/source-archive links. Missing declarations/text refuse. |
+| `wasmi` family 0.46.0 and `wasmparser` 0.228.0 | Their published crates omit license files. Frozen full texts and provenance under `assets/notices/` come from each crate's exact upstream revision; version/license changes require review. These files participate in the package input hashes. |
 | `ring` and Rust TLS dependencies | BoringSSL, ISC/MIT/Apache and fiat notices are retained separately rather than assuming all native code has the wrapper's license. |
 | `libsqlite3-sys` / SQLite | Wrapper/vendor licenses plus the actual bundled SQLite 3.46.0 copyright-disclaimer header. Unused SQLCipher notice is retained conservatively. |
 | `option-ext` 0.2.0 (MPL-2.0) | Full MPL license, versioned upstream source URL and corresponding source files included in the text collection. Cached crate hash must match Cargo.lock; extracted source must match that archive. Altered sources refuse pending a new review. This can be an unused target dependency in the conservative graph. See [Mozilla's distribution guidance](https://www.mozilla.org/en-US/MPL/2.0/FAQ/#q8-i-want-to-distribute-outside-my-organization-executable-programs-or-libraries-that-i-have-compiled-from-someone-elses-unchanged-mpl-licensed-source-code-either-standalone-or-part-of-a-larger-work-what-do-i-have-to-do). |

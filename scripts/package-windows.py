@@ -31,7 +31,11 @@ AUDIT_INPUTS = ('Cargo.lock', 'apps/dolores_flutter/pubspec.lock',
                 'assets/notices/fxhash-0.2.1/LICENSE-MIT',
                 'assets/notices/mac-0.1.1/NOTICE.txt', 'assets/notices/mac-0.1.1/LICENSE-APACHE',
                 'assets/notices/match_token-0.35.0/NOTICE.txt', 'assets/notices/match_token-0.35.0/LICENSE-APACHE',
-                'assets/notices/selectors-0.31.0/NOTICE.txt', 'assets/notices/selectors-0.31.0/LICENSE-MPL-2.0')
+                'assets/notices/selectors-0.31.0/NOTICE.txt', 'assets/notices/selectors-0.31.0/LICENSE-MPL-2.0',
+                'assets/notices/wasmi-0.46.0/NOTICE.txt', 'assets/notices/wasmi-0.46.0/LICENSE-APACHE',
+                'assets/notices/wasmi-0.46.0/LICENSE-MIT', 'assets/notices/wasmparser-0.228.0/NOTICE.txt',
+                'assets/notices/wasmparser-0.228.0/LICENSE-APACHE', 'assets/notices/wasmparser-0.228.0/LICENSE-MIT',
+                'assets/notices/wasmparser-0.228.0/LICENSE-Apache-2.0_WITH_LLVM-exception')
 PREFIX = 'Dolores/'
 MAX_BYTES = 256*1024*1024
 

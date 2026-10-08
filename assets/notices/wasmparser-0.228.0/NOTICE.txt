@@ -1,0 +1,12 @@
+wasmparser 0.228.0
+Declared license: Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT
+Repository: https://github.com/bytecodealliance/wasm-tools
+Revision: e66235859a6ec0502bf6f9dcc358953eda4cafcc
+
+The published crate omits separate license files. Its .cargo_vcs_info.json
+identifies this upstream revision. Its source retains Copyright 2017 Mozilla
+Foundation and Apache-2.0 headers. The full repository license texts are retained
+unchanged alongside this notice:
+https://raw.githubusercontent.com/bytecodealliance/wasm-tools/e66235859a6ec0502bf6f9dcc358953eda4cafcc/LICENSE-APACHE
+https://raw.githubusercontent.com/bytecodealliance/wasm-tools/e66235859a6ec0502bf6f9dcc358953eda4cafcc/LICENSE-MIT
+https://raw.githubusercontent.com/bytecodealliance/wasm-tools/e66235859a6ec0502bf6f9dcc358953eda4cafcc/LICENSE-Apache-2.0_WITH_LLVM-exception

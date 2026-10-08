@@ -19,7 +19,11 @@ INPUTS = ('Cargo.lock', 'apps/dolores_flutter/pubspec.lock',
           'assets/notices/fxhash-0.2.1/LICENSE-MIT',
           'assets/notices/mac-0.1.1/NOTICE.txt', 'assets/notices/mac-0.1.1/LICENSE-APACHE',
           'assets/notices/match_token-0.35.0/NOTICE.txt', 'assets/notices/match_token-0.35.0/LICENSE-APACHE',
-          'assets/notices/selectors-0.31.0/NOTICE.txt', 'assets/notices/selectors-0.31.0/LICENSE-MPL-2.0')
+          'assets/notices/selectors-0.31.0/NOTICE.txt', 'assets/notices/selectors-0.31.0/LICENSE-MPL-2.0',
+          'assets/notices/wasmi-0.46.0/NOTICE.txt', 'assets/notices/wasmi-0.46.0/LICENSE-APACHE',
+          'assets/notices/wasmi-0.46.0/LICENSE-MIT', 'assets/notices/wasmparser-0.228.0/NOTICE.txt',
+          'assets/notices/wasmparser-0.228.0/LICENSE-APACHE', 'assets/notices/wasmparser-0.228.0/LICENSE-MIT',
+          'assets/notices/wasmparser-0.228.0/LICENSE-Apache-2.0_WITH_LLVM-exception')
 NOTICE_NAME = re.compile(r'^(licen[cs]e|copying|copyright|notice)([._-]|$)', re.I)
 MAX_NOTICE = 4 * 1024 * 1024
 
@@ -108,9 +112,13 @@ def collect(sdk, directory, bundle):
         files = license_files(base)
         notice_base = base
         missing = {('fxhash','0.2.1'):'Apache-2.0/MIT', ('mac','0.1.1'):'MIT/Apache-2.0',
-                   ('match_token','0.35.0'):'MIT OR Apache-2.0', ('selectors','0.31.0'):'MPL-2.0'}
+                   ('match_token','0.35.0'):'MIT OR Apache-2.0', ('selectors','0.31.0'):'MPL-2.0',
+                   **{(name, '0.46.0'): 'MIT/Apache-2.0'
+                      for name in ('wasmi', 'wasmi_collections', 'wasmi_core', 'wasmi_ir')},
+                   ('wasmparser', '0.228.0'): 'Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT'}
         if not files and missing.get((p['name'],p['version'])) == p['license']:
-            notice_base = ROOT/'assets/notices'/(p['name']+'-'+p['version'])
+            notice_name = 'wasmi' if p['name'] in ('wasmi_collections', 'wasmi_core', 'wasmi_ir') else p['name']
+            notice_base = ROOT/'assets/notices'/(notice_name+'-'+p['version'])
             files = license_files(notice_base)
         if p.get('license_file') and base/p['license_file'] not in files: files.append(base/p['license_file'])
         add(p['name'], p['version'], 'Rust', 'https://crates.io/crates/'+p['name']+'/'+p['version'],
