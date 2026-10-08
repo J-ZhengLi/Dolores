@@ -162,6 +162,9 @@ try:
         project = directory / 'project'
         project.mkdir()
         session = call('createSession', kind='project', path=str(project))['session']['id']
+        # This fixture exercises a bounded repair, independent of Automatic defaults.
+        call('saveScopedSettings', session=session, scope='thread', revision=0,
+             patch={'task': {'modelCalls': 4, 'toolCalls': 4, 'segments': 4, 'elapsedSeconds': None}})
         assert not run(1, session).get('error')
         last = messages(session)[-1]
         assert last['content'] == 'Everything passed.'
