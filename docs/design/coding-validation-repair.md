@@ -21,6 +21,10 @@ budget and use the actual command evidence to retain unfinished work.
   pauses retain their reason and the same receipts. Process errors also need
   review; denied/blocked proposals do not imply executed commands.
 - Repair and verify uses the existing latest-message-bound Continue protocol.
+  Its visible request and saved prompt identify repair as the user's new intent,
+  including after a read-only check request. This permits proposing a repair;
+  every read, edit and rerun still requires its own fresh operation review.
+  Ordinary resource/output continuation does not imply a repair request.
   It starts a separate run with current model settings, exact saved output and
   fresh per-operation approvals. Completed files and earlier segments remain.
   The repair prompt asks for current-file inspection, implementation repair and

@@ -1098,7 +1098,9 @@ class ChatController extends ChangeNotifier {
       _notify();
       return;
     }
-    draft = 'Continue working on the previous task.';
+    draft = messages.last['metadata']?['paused']?['reason'] == 'commandReview'
+        ? 'Repair the failed check and verify it by rerunning the same command. Propose any needed changes for fresh review.'
+        : 'Continue working on the previous task.';
     await send(continuation: sourceId);
   }
 

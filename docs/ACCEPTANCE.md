@@ -3468,3 +3468,52 @@ Git widget/host checks and changed-source analysis passed. The normal Windows
 build/launch passed. Native confirmation created a new rename/addition commit:
 its history row appeared without Refresh, while the older expanded commit's files
 and exact diff remained readable. Broader Git qualification remains on the checklist.
+
+## First-user audit — reviewed file work and check repair (2026-10-08)
+
+Native Qwen creation proposed a file without its requested final newline. The
+review exposed the mismatch; Deny left it absent. Qwen wrongly explained denial
+as directory restrictions. DeepSeek's fresh creation review saved the exact
+29-byte LF text, and its receipt/final answer agreed. Only that new file changed.
+A subsequent edit became stale after an external disposable-file change. Apply
+refused without overwriting it; DeepSeek read the newer content, explained the
+conflict, and after explicit chat confirmation proposed a fresh diff. Applying
+that diff preserved the external change and both LF newlines. The separately
+reviewed Python check completed with actual exit 0 and CHECK OK evidence.
+
+After deliberately changing the fixture units, the same literal check failed
+with exit 1. Repair and verify sent generic Continue, and DeepSeek obeyed the
+original no-edit request instead of repairing. Widget and core prompt regressions
+failed before the fix. Repair now conveys a new request to diagnose, propose
+reviewed changes and rerun the same check, including after a read-only request.
+Ordinary Continue remains unchanged. The bridge binds the repair input to a
+latest command-review pause, rejects altered inputs and accepts legacy Continue.
+Two core, one bridge and three Flutter checks passed, with clean source analysis.
+Normal build and native repair retest passed in a clean conversation stating the
+Celsius requirement up front. The same check failed with actual AssertionError,
+then Repair and verify performed fresh reviewed reads, the single-line repair
+and the unchanged literal check without further chat instructions. Expanded
+evidence showed exit 0, CHECK OK and empty stderr, matching the final answer.
+Independent comparison confirmed only notes changed, preserving its exact CRLF
+bytes and all other lines; the check and other seven public files stayed intact.
+The earlier conversation still failed after clarification: the model disowned
+real reads, requested approval in prose, then promised an edit without submitting
+one. That case remains open rather than being counted as a successful recovery.
+
+DeepSeek also incorrectly called an earlier real successful check fabricated.
+That historical-evidence/model-quality issue remains separate and unresolved;
+a later failing check does not disprove an earlier successful invocation. Details
+and exact live usage are in the first-user checklist. Original-profile checks
+confirmed all 49 table hashes unchanged; no real project files/hooks were modified.
+
+### First-user audit — reverse edit and feedback (2026-10-08)
+
+On the same normal rebuilt app, Changes displayed the saved forecast diff and a
+reviewed reverse diff retaining the externally changed city. Cancel preserved the
+file; a fresh Revert once restored the exact earlier LF text, marked the old edit
+Reverted and saved a separate record. The repaired CRLF notes and all other files
+stayed intact. Task feedback saved and reopened both Worked and Needs work with
+the same public note, then restored Worked for the verified repair. No new model
+request was sent. Activity, Earlier tasks, expanded receipts and per-call usage
+were inspected; settings origins and remaining checkpoint cases are still open
+in the checklist. These existing flows required no runtime change.

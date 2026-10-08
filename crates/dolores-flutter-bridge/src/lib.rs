@@ -1707,12 +1707,10 @@ impl Engine {
                     return Err("Configure a model connection before sending a message.".into());
                 }
                 if let Some(source_id) = continuation {
-                    if input != continuation::INPUT {
-                        return Err("Use Continue with its unchanged recovery request.".into());
-                    }
                     let saved_session = session.as_deref().ok_or("Continue needs a saved chat.")?;
                     let (source, partial) =
                         continuation::source(self.store.as_ref(), saved_session, source_id)?;
+                    continuation::validate_input(&input, &source)?;
                     source.prompt(&partial)?;
                 }
                 let session = match session {

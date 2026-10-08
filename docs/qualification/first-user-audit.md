@@ -41,19 +41,19 @@ tracks the audit; product design stays in the feature specifications.
 - [ ] C12 Browse older/newer/latest messages and conversations without losing selection/draft.
 - [ ] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
 - [ ] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
-- [ ] C15 Record Worked/Needs work feedback and inspect the retained note.
+- [x] C15 Record Worked/Needs work feedback and inspect the retained note.
 - [ ] C16 Delete only a disposable conversation; verify its working files are retained.
 
 ## 2. Everyday agent work and recovery
 
 - [x] A01 Ask the model to list/read a small project and explain actual contents.
-- [ ] A02 Request a new file; exact creation review is understandable and the saved file matches the receipt.
-- [ ] A03 Request an existing-file edit; inspect/apply the diff and verify only the intended saved bytes changed.
+- [x] A02 Request a new file; exact creation review is understandable and the saved file matches the receipt.
+- [x] A03 Request an existing-file edit; inspect/apply the diff and verify only the intended saved bytes changed.
 - [ ] A04 Deny an operation; model receives the denial and explains a useful next step without claiming success.
-- [ ] A05 Change a file after an edit proposal; stale apply refuses without overwriting newer work, then fresh review succeeds.
-- [ ] A06 Run a harmless project check through its exact command review; inspect output and return code.
-- [ ] A07 Cause a real check failure; Repair and verify fixes it and reruns the same check with truthful evidence.
-- [ ] A08 Inspect Changes and revert a disposable edit with the reviewed reverse diff.
+- [x] A05 Change a file after an edit proposal; stale apply refuses without overwriting newer work, then fresh review succeeds.
+- [x] A06 Run a harmless project check through its exact command review; inspect output and return code.
+- [x] A07 Cause a real check failure; Repair and verify fixes it and reruns the same check with truthful evidence.
+- [x] A08 Inspect Changes and revert a disposable edit with the reviewed reverse diff.
 - [ ] A09 Inspect Activity/Earlier tasks, settings origins, tool receipts, checkpoints and reported usage.
 - [ ] A10 Hit a small explicit task/output limit; Continue resumes useful work with fresh approval.
 - [ ] A11 Interrupt a task with completed effects; recovery draft explains uncertainty and does not replay earlier operations.
@@ -221,6 +221,86 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- A08 and C15 passed on the normal rebuilt repair build. Changes listed saved
+  edits across chats in the selected working folder. The forecast edit displayed
+  its exact forward diff; Review revert showed only cloudy-to-clear with Bay
+  retained. Cancel preserved all bytes. Fresh review and Revert once restored
+  exactly `City: Bay\nForecast: clear\n`, marked the earlier edit Reverted and
+  saved a separate reverse-change record. Notes retained the verified Celsius
+  CRLF text; every other public file remained unchanged. No model call was needed.
+  Task feedback saved Worked with a public note and reopened with both retained.
+  Switching to Needs work, saving and reopening kept the same note; Worked was
+  restored to accurately describe the completed repair. No new request was sent.
+  Activity listed the saved exchanges, Earlier tasks retained separate paused
+  and completed runs, and expanded command receipts/per-call usage were readable.
+  A09 remains partial: settings-origin and additional checkpoint inspection are
+  still pending. All observations are in the ignored native audit log.
+
+- A07 failed in native UX after deliberately changing the public notes' units
+  to fahrenheit. The identical reviewed `python check.py` failed with exit 1 and
+  retained AssertionError output. Repair and verify submitted the generic
+  continuation, and DeepSeek refused a repair because the original task said not
+  to edit files. It also falsely disowned the previous real exit-0 receipt;
+  that separate historical-evidence issue remains unresolved. Inspection found
+  both normal and summary-aware history select conversation text and attachment
+  parts without the saved agent tool receipts, leaving the next request without
+  the earlier command's actual receipt. Missing evidence does not justify the
+  model's claim that the earlier result was fabricated. Qualify a bounded retained
+  evidence projection in a separate repair before closing this gap.
+  The failure and generic continuation used two and one calls respectively;
+  last calls reported 6,839 and 7,434 tokens. Regression tests reproduced the
+  missing repair intent at the visible button and saved recovery prompt.
+  A scoped fix explicitly conveys the selected repair request while retaining
+  fresh operation reviews, exact-check evidence and ordinary Continue behavior.
+  The rebuilt native retry now submitted the explicit repair request and made
+  fresh reviewed reads of the check and notes. DeepSeek correctly identified the
+  mismatch and asked which units were required (two calls; last reported 8,135
+  tokens). After a Celsius clarification, it again falsely disowned the actual
+  prior reads and asked for approval only in prose (one call; 7,634 tokens).
+  An explicit instruction to use the review UI produced a real fresh read, but
+  the final answer promised an edit without calling the edit tool (two calls;
+  7,889 tokens). No file changed. This retry does not qualify A07.
+  A separate clean conversation stated the Celsius requirement up front and
+  requested the same check without edits. Fresh reviewed reads and command
+  execution retained the real exit-1 AssertionError (four calls; last reported
+  6,699 tokens). Repair and verify then required no further chat instructions:
+  reviewed fresh reads, the one-line Fahrenheit-to-Celsius diff, and the same
+  literal command all completed. The expanded receipt showed exit 0, CHECK OK
+  and empty stderr, agreeing with the final answer (four calls; 7,760 tokens).
+  Independent comparison of all eight public files confirmed only notes changed;
+  its exact CRLF bytes, other lines, check.py and forecast stayed intact.
+  This rebuilt normal-app flow qualifies A07; the earlier conversation's missing
+  historical evidence and prose-only approval behavior remain unresolved.
+
+- A06 passed with DeepSeek on the same normal build: native review showed the
+  actual Python executable, the project CWD and one literal `check.py` argument.
+  Run once completed with exit 0. The expanded receipt retained `CHECK OK`, empty
+  stderr and the exact argument; the brief final answer agreed. Two calls; last
+  call reported 6,579 tokens. The fixture check only reads notes; no file edits.
+
+- A03/A05 passed on the normal `a8a2ab4` build with DeepSeek. While the
+  clear-to-cloudy edit review waited, the disposable file was externally changed
+  from Harbor to Bay. Apply once refused with “File changed since preview. No
+  edit was applied.” Independent byte inspection confirmed the newer content
+  remained. A separately reviewed fresh read exposed Bay; DeepSeek accurately
+  explained the stale edit and asked whether to retain the external change
+  (three calls; last call reported 6,498 tokens). After explicit chat confirmation,
+  a fresh diff retained Bay and changed only the forecast. Apply once saved exactly
+  `City: Bay\nForecast: cloudy\n`; tracked files remained unchanged. The final
+  answer and edited receipt agreed (two calls; last call reported 6,527 tokens).
+  Native observations remain in the ignored audit directory. No app fix was needed.
+
+- A02 passed with DeepSeek after Qwen proposed content without the requested final
+  newline. Native review exposed the missing newline before any write; Deny
+  left the file absent. Qwen's final response incorrectly called this a directory
+  access restriction (two calls; last call reported 6,360 tokens), so A04 remains
+  open. DeepSeek's fresh review contained both LF newlines; Create once saved
+  exactly `City: Harbor\nForecast: clear\n` (29 bytes), matching the concise
+  created receipt. Independent Git inspection showed only the new file. Two
+  calls; last call reported 6,308 tokens. Normal build at `a8a2ab4`; evidence is
+  in the same ignored native observation log. This is a successful fallback,
+  not evidence that Qwen's formatting or denial explanation is reliable.
 
 - Input calibration: helper text injection works in a blank native Notepad but
   does not enter text in the Flutter composer. Physical letter injection entered

@@ -132,7 +132,9 @@ void main() {
         await tester.pump();
         final start = bridge.commands.lastWhere((c) => c['command'] == 'start');
         expect(start['continuation'], 1);
-        expect(start['input'], 'Continue working on the previous task.');
+        expect(start['input'], contains('Repair the failed check'));
+        expect(start['input'], contains('same command'));
+        expect(start['input'], contains('fresh review'));
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         chat.dispose();

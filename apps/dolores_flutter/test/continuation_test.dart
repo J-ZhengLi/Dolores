@@ -109,6 +109,10 @@ void main() {
         await tester.pump();
         expect(chat.busy, isTrue);
         expect(
+          bridge.commands.lastWhere((c) => c['command'] == 'start')['input'],
+          'Continue working on the previous task.',
+        );
+        expect(
           bridge.commands.lastWhere(
             (c) => c['command'] == 'start',
           )['continuation'],
