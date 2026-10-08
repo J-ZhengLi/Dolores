@@ -19,7 +19,7 @@ args=parser.parse_args();directory=args.directory.resolve()
 assert directory.is_relative_to(ROOT/'output')
 if args.stage=='save':directory.mkdir(parents=True,exist_ok=False)
 host=NativeHost(directory);state_file=directory/'state.json'
-mode='normal';requests=[]
+mode='normal';requests=[];handoff_errors=[];primary_task_id=None
 class Fixture(BaseHTTPRequestHandler):
     def log_message(self,*_):pass
     def do_POST(self):
@@ -34,25 +34,45 @@ class Fixture(BaseHTTPRequestHandler):
         if scheduled and mode=='approval' and first:
             calls=[{'index':0,'id':'read','type':'function','function':{'name':'read_text_file','arguments':json.dumps({'path':'public-note.txt'})}}]
         elif not scheduled and first and mode!='changeSkill' and 'schedule_task' in names:
-            call={'rule':{'kind':'weekdays','time':'21:00','date':None,'weekdays':[0,1,2,3,4],'zone':'Asia/Shanghai'},'skill':'daily-report','model':None}
+            call={'rule':{'kind':'weekdays','time':'21:00','date':None,'weekdays':[0,1,2,3,4],'zone':'Asia/Shanghai'},'skill':None if mode=='unpinned' else 'daily-report','model':None}
             calls=[{'index':i,'id':f'create-{i}','type':'function','function':{'name':'schedule_task','arguments':json.dumps(call)}} for i in range(2)]
         elif not scheduled and first and mode=='changeSkill' and 'manage_scheduled_task' in names:
             calls=[{'index':0,'id':'update-skill','type':'function','function':{'name':'manage_scheduled_task','arguments':json.dumps({'task':changed_task['id'],'revision':changed_task['revision'],'action':'change','time':None,'model':None,'skill':'daily-report'})}}]
         else:calls=[]
         if scheduled:
-            assert 'DAILY-REPORT-PINNED-V1' in system
+            # Inspect the actual host-to-provider handoff, not a helper's output.
+            # The stored user prompt still includes creation language, so the
+            # execution phase must explicitly establish that setup is complete.
+            metadata_line=next((line for line in system.splitlines() if line.startswith('Scheduled execution metadata: ')),None)
+            if metadata_line is None:
+                handoff_errors.append('Scheduled execution never establishes that the task is already saved')
+            else:
+                metadata=json.loads(metadata_line.removeprefix('Scheduled execution metadata: '))
+                if metadata.get('scheduleAlreadySaved') is not True:
+                    handoff_errors.append('Scheduled execution treats setup as unfinished')
+                expected_skill=None if mode=='unpinned' else 'daily-report'
+                if metadata.get('pinnedSkill')!=expected_skill:
+                    handoff_errors.append('Scheduled execution invents or loses the pinned skill')
+            if mode=='unpinned':
+                if 'DAILY-REPORT-PINNED-V1' in system or 'using the pinned skill' in system:
+                    handoff_errors.append('An unpinned occurrence inherits or claims a pinned skill')
+            else:assert 'DAILY-REPORT-PINNED-V1' in system
             assert 'schedule_task' not in names and 'manage_scheduled_task' not in names
         elif first and 'schedule_task' in names:
             # Scheduling and ordinary work tools coexist; future occurrences
             # still exclude scheduling tools and use their pinned skill snapshot.
             assert 'manage_scheduled_task' in names and 'read_text_file' in names,names
             assert len(names)<=17,names
-        delta={'tool_calls':calls} if calls else {'content':'DAILY-REPORT-PINNED-V1\nDone: public fixture report.\nNext: review tomorrow.' if scheduled else 'Task saved. Results appear in Scheduled.'}
+        report='Done: public fixture report.\nNext: review tomorrow.'
+        if mode!='unpinned':report='DAILY-REPORT-PINNED-V1\n'+report
+        delta={'tool_calls':calls} if calls else {'content':report if scheduled else 'Task saved. Results appear in Scheduled.'}
         events=[{'choices':[{'delta':delta,'finish_reason':None}]},{'choices':[{'delta':{},'finish_reason':'tool_calls' if calls else 'stop'}]},{'choices':[],'usage':{'prompt_tokens':120,'completion_tokens':30,'total_tokens':150}}]
         self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
         self.wfile.write((''.join('data: '+json.dumps(e)+'\n\n' for e in events)+'data: [DONE]\n\n').encode())
 
-def listing():return host.call('scheduledTasks')['items'][0]
+def listing():
+    items=host.call('scheduledTasks')['items']
+    return next(item for item in items if item['task']['id']==primary_task_id) if primary_task_id else items[0]
 def manage(action):
     task=listing()['task'];return host.call('scheduledManage',task=task['id'],revision=task['revision'],action=action)
 def assert_start_identity(start):
@@ -70,6 +90,7 @@ try:
     host.call('bootstrap')
     if args.stage=='reopen':
         state=json.loads(state_file.read_text())
+        primary_task_id=state.get('task')
         item=listing()
         assert any(o['id']==state['unfinished'] and o['state']=='interrupted' for o in item['occurrences'])
         assert any(o['state']=='succeeded' and o['session']==state['result'] for o in item['occurrences'])
@@ -90,6 +111,7 @@ try:
         done,_=host.finish(1);assert not done.get('error'),done
         assert len(host.call('scheduledTasks')['items'])==1
         task=listing()['task']
+        primary_task_id=task['id']
         with sqlite3.connect(directory/'data/dolores.db') as db:
             row=json.loads(db.execute('SELECT data FROM scheduled_tasks WHERE id=?',(task['id'],)).fetchone()[0]);row['nextDue']=int(time.time())
             db.execute('UPDATE scheduled_tasks SET data=? WHERE id=?',(json.dumps(row),task['id']))
@@ -98,6 +120,7 @@ try:
         first=tick['claimed'][0];start=host.call('scheduledStart',occurrence=first['id'],id=2)
         assert_start_identity(start)
         done,_=host.finish(2);assert not done.get('error'),done
+        assert not handoff_errors,handoff_errors
         host.call('scheduledTick');assert listing()['occurrences'][0]['state']=='succeeded'
         assert 'DAILY-REPORT-PINNED-V1' in host.call('messagesPage',session=start['session'])['items'][-1]['content']
         mode='approval'
@@ -126,14 +149,29 @@ try:
         host.call('start',session=source,id=8,input='Update this scheduled task to use skill daily-report')
         done,_=host.finish(8);assert not done.get('error'),done
         mode='normal';done,_,_=run_now(9);assert not done.get('error'),done
+        # A second conversation can schedule without naming a skill even when
+        # the same project has an enabled skill. It must not inherit that skill.
+        mode='unpinned'
+        unpinned_source=host.call('createSession',kind='project',path=str(project))['session']['id']
+        host.call('start',id=10,session=unpinned_source,input='Every weekday at 9pm, write a report. Please set up this task now.')
+        done,_=host.finish(10);assert not done.get('error'),done
+        unpinned_item=next(item for item in host.call('scheduledTasks')['items'] if item['task']['sourceSession']==unpinned_source)
+        unpinned_task=unpinned_item['task'];assert unpinned_item['receipt']['skill'] is None
+        occurrence=host.call('scheduledManage',task=unpinned_task['id'],revision=unpinned_task['revision'],action='runNow')['claimed'][0]
+        host.call('scheduledStart',occurrence=occurrence['id'],id=11)
+        done,_=host.finish(11);assert not done.get('error'),done
+        host.call('scheduledTick');assert not handoff_errors,handoff_errors
+        unpinned_task=next(item['task'] for item in host.call('scheduledTasks')['items'] if item['task']['id']==unpinned_task['id'])
+        host.call('scheduledManage',task=unpinned_task['id'],revision=unpinned_task['revision'],action='pause')
+        mode='normal'
         task=listing()['task'];assert not host.envelope('scheduledManage',task=task['id'],revision=1,action='resume')['ok']
         orphan=manage('runNow')['claimed'][0]
         samples=[]
         for _ in range(10):
             before=time.perf_counter();host.call('scheduledTick');samples.append((time.perf_counter()-before)*1000)
         summary=host.call('scheduledTasks');assert 'snapshot' not in json.dumps(summary) and 'SKILL.md' not in json.dumps(summary)
-        state_file.write_text(json.dumps({'unfinished':orphan['id'],'result':start['session']}))
-        report={'ok':True,'evidence':'normal packaged native C ABI with public provider and injected due clock','cases':['creation duplicate guard','due claim/report/result','reviewed file read','Stop while waiting','overlap refusal','offline recovery','pause/skip/run now/stale revision','disabled skill refusal and conversational version recovery','restart claim prepared'], 'requests':len(requests),'tickMaxMs':round(max(samples),3),'summaryBytes':len(json.dumps(summary).encode())}
+        state_file.write_text(json.dumps({'task':primary_task_id,'unfinished':orphan['id'],'result':start['session']}))
+        report={'ok':True,'evidence':'normal packaged native C ABI with public provider and injected due clock','cases':['creation duplicate guard','due claim/report/result','already-saved execution handoff with pinned and unpinned skills','reviewed file read','Stop while waiting','overlap refusal','offline recovery','pause/skip/run now/stale revision','disabled skill refusal and conversational version recovery','restart claim prepared'], 'requests':len(requests),'tickMaxMs':round(max(samples),3),'summaryBytes':len(json.dumps(summary).encode())}
         (directory/'save.json').write_text(json.dumps(report,indent=2));print(json.dumps(report))
         server.shutdown()
 finally:host.close()

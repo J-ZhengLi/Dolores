@@ -3385,3 +3385,27 @@ preserved completed results and interrupted claims without replay. Live DeepSeek
 Run now displays the correct project in its running strip and every reviewed
 file operation; report completion remains under test. All 49 original-profile
 table hashes remain unchanged.
+
+## First-user audit — scheduled execution handoff (2026-10-08)
+
+The completed DeepSeek occurrence incorrectly said it could not create the schedule
+and asked which scheduler to use, despite running an already-saved task. It also
+called an unselected skill pinned. The host reused the original creation request
+and unconditionally instructed execution with a pinned skill. Execution now
+explicitly establishes completed setup, preserves the request as provenance, and
+uses the actual nullable pin. Ordinary guidance applies when no skill is selected.
+
+The real packaged host-to-provider regression failed on the old handoff. Five
+focused Rust scheduling checks, formatting and the normal Windows build passed.
+The rebuilt native save/reopen corpus passed with 14 local-provider requests,
+including pinned and unpinned contexts, enabled-skill noninheritance, Stop/offline
+recovery, stale revisions and restart without replay. These are deterministic
+checks, not model reliability evidence.
+
+Native Run now reran the same paused DeepSeek task. It completed a report from
+actual project files, recognized the saved schedule and made no pinned-skill
+claim. Scheduled progress/approval/history, Open result and per-call usage worked.
+Four calls reported 5,131, 5,298, 5,422 and 5,856 total tokens; no total is inferred
+by the UI. No file edits or commands were performed. The report was still longer
+than desirable for a short report. Creation reliability, physical recurrence and
+live pinned-skill execution remain separate gaps in the ongoing checklist.

@@ -117,7 +117,7 @@ tracks the audit; product design stays in the feature specifications.
 - [ ] S03 Missing time uses disclosed 09:00 local default; quoted examples/negations create no task.
 - [ ] S04 Enabled project skill is pinned to the created task; project/model/skill receipt matches the request.
 - [ ] S05 Scheduled page shows next occurrence/timezone/status and original conversation; no manual creation form.
-- [ ] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
+- [x] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
 - [ ] S07 Change time/pause/resume in original chat; existing task changes without an accidental duplicate.
 - [ ] S08 Page Pause/Resume/Skip next/Stop operate correctly on a disposable schedule.
 - [ ] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
@@ -185,7 +185,8 @@ tracks the audit; product design stays in the feature specifications.
 
 ## Results and issues
 
-Build: normal Windows main entry at `a235b7d`. Isolated configuration-only profile;
+Initial build: normal Windows main entry at `a235b7d`; subsequent fixes and normal
+rebuilds are recorded below. Isolated configuration-only profile;
 no original chats/projects imported. Local evidence is retained under the ignored
 `output/first-user-audit-20261008-03/` directory, including native accessibility
 observations and original-profile preservation receipts. Live calls use Qwen with
@@ -205,6 +206,8 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | S01, S05 regression checks | A scoped fix renders a completed task receipt as “Task scheduled” plus its rule, discloses default time and retains optional details. Opening Scheduled refreshes its listing even while chat is busy. Tests reproduced both old failures before the fix; all 20 focused checks passed, including malformed/failed receipts and unavailable-storage recovery with draft retention. Normal Windows build/launch and native reopen passed: the retained receipt shows correct schedule/model/project and Scheduled immediately shows the paused task. | Fixture results establish the busy-chat timing regression, not model competence. That exact live creation timing remains pending. |
 | S06 (failure) | Run now started a separate DeepSeek occurrence and showed a folder-listing review in Scheduled. The review and running strip mislabeled the pinned project “Temporary workspace.” The stored occurrence still pins the correct public project. Stopped before approving the listing. | Diagnose actual folder binding versus displayed identity, fix and retest before accepting scheduled execution. |
 | S06 identity regression | The actual result session uses the pinned project, but `scheduledStart` omitted workspace metadata and its chat controller retained default identity/model. The bridge now returns the authoritative workspace; the controller loads it and the pinned model. The AppHost test failed on the original project identity, then 17 focused Flutter and five scheduling Rust checks passed, including temporary-folder binding and retained Home draft/model. The packaged C ABI check failed on the old build's missing workspace field; rebuilt save/reopen corpus passed with 11 local requests and no live requests. Native DeepSeek Run now correctly labels the project in the running strip and operation reviews. | Report completion remains under test. All 49 original-profile table hashes remain unchanged. |
+| S06 result (failure) | Scheduled history reported Succeeded and Open result opened the separate completed conversation. DeepSeek used actual Harbor/celsius/ready notes and produced report content, but also claimed it could not create the schedule and asked which scheduler to use. The original creation request was being reused as its execution goal. It additionally called a manually read, unpinned skill “pinned.” | Scheduled execution handoff must distinguish already-completed setup from today's work. Do not accept semantic task success from the Succeeded transport state alone. |
+| S06 handoff regression and live pass | The host now explicitly marks setup already saved and dispatches today's work, with the actual nullable skill pin. The old packaged provider handoff failed the regression; rebuilt save/reopen passed with 14 local requests, including an unpinned occurrence in a project with an enabled skill. Native Run now of the same paused DeepSeek task completed a report grounded in README, notes, to-do and check source, accurately recognized the saved schedule and made no pinned-skill claim. Scheduled showed approval progress and Succeeded; Open result and Run details worked. Four calls reported 5,131 / 5,298 / 5,422 / 5,856 total tokens. No files were edited and the check was not executed. | Report remains longer than desirable for “short”; this is a model-quality observation. Physical recurring dispatch, pinned-skill live use and model creation reliability remain separate pending checks. |
 
 ### Open observations
 

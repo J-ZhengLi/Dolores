@@ -16,6 +16,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Scheduled runs execute the saved task's work instead of asking to configure the schedule again, and use a pinned skill only when one was selected.
 - Scheduled runs show their pinned project and model in chat and operation reviews, while preserving the current Home conversation.
 - Chat shows a readable schedule as soon as a task is saved, even if the model's reply stalls. Opening Scheduled refreshes newly created tasks.
 - Language edits accept equivalent Windows file paths instead of incorrectly reporting that project files are outside the selected project.
