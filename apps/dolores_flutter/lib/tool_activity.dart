@@ -34,7 +34,8 @@ String toolLabel(dynamic name) => switch (name) {
 };
 
 Map? scheduledTaskReceipt(dynamic record) {
-  if (record['name'] != 'schedule_task' || record['status'] != 'completed') {
+  if (!['schedule_task', 'manage_scheduled_task'].contains(record['name']) ||
+      record['status'] != 'completed') {
     return null;
   }
   try {
@@ -44,7 +45,8 @@ Map? scheduledTaskReceipt(dynamic record) {
         (result['task'] as String).isNotEmpty &&
         result['schedule'] is String &&
         (result['schedule'] as String).isNotEmpty &&
-        result['deleted'] != true) {
+        (result['deleted'] != true ||
+            record['name'] == 'manage_scheduled_task')) {
       return result;
     }
   } catch (_) {
@@ -54,14 +56,29 @@ Map? scheduledTaskReceipt(dynamic record) {
 }
 
 String scheduledTaskSummary(Map receipt) =>
+    '${receipt['deleted'] == true
+        ? 'Deleted · '
+        : receipt['paused'] == true
+        ? 'Paused · '
+        : ''}'
     '${receipt['schedule']}${receipt['usedDefaultTime'] == true ? ' · Default time' : ''}';
+
+String scheduledTaskTitle(dynamic record) {
+  final receipt = scheduledTaskReceipt(record);
+  if (receipt == null) return '${record['target']}';
+  if (receipt['deleted'] == true) return 'Task deleted';
+  if (receipt['paused'] == true) return 'Task paused';
+  return record['name'] == 'schedule_task' ? 'Task scheduled' : 'Task updated';
+}
 
 String toolResultText(dynamic record) {
   final scheduled = scheduledTaskReceipt(record);
   if (scheduled != null) {
     return [
       scheduledTaskSummary(scheduled),
-      if (scheduled['nextRun'] is num)
+      if (scheduled['nextRun'] is num &&
+          scheduled['paused'] != true &&
+          scheduled['deleted'] != true)
         'Next: ${DateTime.fromMillisecondsSinceEpoch((scheduled['nextRun'] as num).toInt() * 1000).toLocal().toString().substring(0, 16)}',
       if (scheduled['model'] != null) 'Model: ${scheduled['model']}',
       'Skill: ${scheduled['skill'] ?? 'None'}',
@@ -618,9 +635,7 @@ class ToolRecords extends StatelessWidget {
                 color: p.muted,
               ),
               title: Text(
-                scheduledTaskReceipt(record) == null
-                    ? '${record['target']}'
-                    : 'Task scheduled',
+                scheduledTaskTitle(record),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12),

@@ -20,6 +20,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Scheduled task changes show readable updated/paused/deleted confirmations with their saved schedule.
 - Source Control shows the actual repository root and identifies an enclosing repository when the selected project is a subfolder.
 - Settings search finds companionship by Frequency, Quiet or Chatty.
 - Stopping a response retains already streamed text in the Not saved panel, marked partial, while restoring the draft.

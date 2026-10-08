@@ -112,13 +112,13 @@ tracks the audit; product design stays in the feature specifications.
 
 ## 6. Scheduled tasks
 
-- [ ] S01 Natural English weekday request creates a task without manual setup and visibly confirms exact schedule/model.
+- [x] S01 Natural English weekday request creates a task without manual setup and visibly confirms exact schedule/model.
 - [ ] S02 Natural Chinese weekday request does the same; paraphrases such as each workday are supported by interpretation.
 - [ ] S03 Missing time uses disclosed 09:00 local default; quoted examples/negations create no task.
 - [ ] S04 Enabled project skill is pinned to the created task; project/model/skill receipt matches the request.
-- [ ] S05 Scheduled page shows next occurrence/timezone/status and original conversation; no manual creation form.
+- [x] S05 Scheduled page shows next occurrence/timezone/status and original conversation; no manual creation form.
 - [x] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
-- [ ] S07 Change time/pause/resume in original chat; existing task changes without an accidental duplicate.
+- [x] S07 Change time/pause/resume in original chat; existing task changes without an accidental duplicate.
 - [ ] S08 Page Pause/Resume/Skip next/Stop operate correctly on a disposable schedule.
 - [ ] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
 - [ ] S10 Interrupted/failed occurrence keeps evidence; explicit retry does not replay uncertain effects.
@@ -221,6 +221,45 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- S01/S05 passed with the DeepSeek fallback on the normal repository-identity
+  build. A fresh project chat requested a short README summary every weekday at
+  9pm. DeepSeek corrected one rejected schedule call and saved the weekdays
+  21:00 Asia/Shanghai rule without additional user setup. The final confirmation
+  and Task scheduled receipt matched the saved project/model; three calls
+  reported 6,166 / 6,305 / 6,525 tokens. Scheduled listed the new task immediately
+  without Refresh, with today's 21:00 next occurrence, correct timezone, model,
+  project, no pinned skill and No runs yet. Open source chat returned to the
+  exact originating conversation. The isolated database confirmed one new task
+  with the matching rule and source. Execution remains under its separate checks.
+  Qwen's first attempt failed: two approved public reads, repeated malformed
+  scheduling calls, an invalid browser call, then a truthful bounded pause after
+  eight calls. No task was created by Qwen; per-call reported totals were 6,283 /
+  6,393 / 6,529 / 6,704 / 6,849 / 7,013 / 7,114 / 7,384 tokens. Its progress falsely
+  claimed recurring tasks require a date and ignored the supplied time. This is
+  a fallback pass, not Qwen scheduling reliability. All native observations
+  remain in the ignored audit directory.
+
+- S07 passed with DeepSeek in the original source chat. A single request changed
+  the existing task to weekday 20:30 and paused it; a later request resumed it
+  with that exact rule. Each confirmation matched the independent saved state,
+  keeping the same task ID, advancing revisions 1 → 3 → 4 and retaining exactly
+  two total tasks (the prior paused weather task and this new summary task).
+  Update/pause used three calls (6,415 / 6,712 / 6,900 reported tokens); resume
+  used two (6,474 / 6,664). No extra setup, file edit or command execution occurred.
+  S08 is partial: native page Pause/Resume immediately changed status and next
+  date; Skip next advanced October 8 to October 9 at 20:30 and saved a Skipped by
+  you occurrence. Stop current run was disabled with no active occurrence.
+  The task was paused again after the case; fresh active Stop remains pending.
+  Native change receipts exposed opaque plan IDs. Six narrow light/dark
+  regressions reproduced this before the fix. Successful changes now show their
+  saved updated/paused/deleted outcome and schedule; paused/deleted details omit
+  an active Next time. Failed/malformed receipts retain their actual evidence.
+  All 28 focused Flutter checks and changed-source analysis passed. The normal
+  Windows build and native restart retest passed: saved updated/paused/resumed
+  cards retained their distinct outcomes; the expanded paused card showed the
+  exact task ID/model/project and no active Next time. Deletion labeling is
+  fixture-qualified only; native deletion remains pending under S12.
 
 - C01/C11/T03 passed. The compact rail exposed all six pages, with Settings at
   the bottom. Home opened a second disposable public

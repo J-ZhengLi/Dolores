@@ -40,6 +40,11 @@ needs no named skill. Successful creation needs no second confirmation or setup;
 show a short receipt-based confirmation. Invalid creation/edit fields retain their
 actual explanation instead of a generic file-policy denial.
 
+Saved change receipts show Task updated, Task paused or Task deleted with their
+schedule, rather than an internal plan ID. Paused/deleted receipts do not present
+an active next run. Expanded details retain the exact task ID and saved metadata;
+failed or malformed results keep their actual evidence and never claim success.
+
 The catalog ceiling increases explicitly from 15 to 17 for the two metadata
 tools. Existing project tools are retained. This adds two tool definitions to
 ordinary human requests, without an extra model call, process or timer. Context,

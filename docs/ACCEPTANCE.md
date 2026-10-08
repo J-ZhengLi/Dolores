@@ -3633,3 +3633,39 @@ compact rail exposed all six pages with Settings at the bottom. C01/C11/T03 are
 checked; Terminal input, HOME fallback and splits remain pending. This change
 preserves enclosing-worktree discovery and the existing operation reviews. The
 original profile's 49 table hashes remained unchanged.
+
+### First-user audit — live scheduling creation and page discovery (2026-10-08)
+
+Qwen failed the explicit public-project weekday 9pm request after eight bounded
+calls, retaining actual read receipts and repeated blocked-call errors without
+creating a task. Its progress misstated the date/time requirements. A clean
+DeepSeek fallback corrected one rejected call and created the exact weekdays
+21:00 Asia/Shanghai task, with no further setup instructions. Three calls,
+reported totals 6,166 / 6,305 / 6,525 tokens. The visible final confirmation and
+Task scheduled receipt matched the independently saved project/model/rule.
+
+Scheduled immediately listed the new task without Refresh, with the correct
+next occurrence, timezone, model, public folder, null skill and No runs yet.
+Open source chat returned to its exact origin. S01/S05 are checked for this
+fallback; Qwen reliability, Chinese/default-time cases and timed execution
+remain pending. Task management is being qualified separately.
+
+The original source chat changed the same task to weekday 20:30 and paused it,
+then resumed it without creating a duplicate. Visible confirmations and stored
+rule/paused/revision values agreed (S07). Update/pause used three DeepSeek calls,
+reported totals 6,415 / 6,712 / 6,900; resume used two, 6,474 / 6,664. Native page
+Pause/Resume/Skip next also passed; the skip recorded today's 20:30 occurrence
+and advanced to tomorrow's 20:30. S08 remains partial until a fresh active Stop
+case. Both disposable tasks were left paused.
+
+Successful change cards displayed opaque plan IDs. Six compact light/dark
+regressions failed before the fix. Cards now name the saved updated/paused/deleted
+outcome with its schedule, retaining the exact ID and metadata in expanded
+details. Paused/deleted receipts do not show an active Next time. Failed or
+malformed results retain their error/evidence and never claim a saved change.
+All 28 focused Flutter checks and changed-source analysis passed. The normal
+Windows build and native restart retest passed: saved update/pause/resume cards
+kept their own historical outcomes, with the exact ID/model/project readable
+and no active Next time in the paused receipt. Deletion labeling passed only
+fixtures; native deletion remains pending under S12. The original profile's 49
+table hashes stayed unchanged.

@@ -114,6 +114,90 @@ void main() {
     expect(find.textContaining('Default time'), findsOneWidget);
   });
 
+  for (final dark in [false, true]) {
+    for (final state in ['updated', 'paused', 'deleted']) {
+      testWidgets('task $state names its saved outcome dark=$dark', (t) async {
+        t.view.physicalSize = const Size(390, 560);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
+        final content = jsonDecode(receipt()['content'] as String) as Map;
+        final record = {
+          ...receipt(),
+          'callId': state,
+          'name': 'manage_scheduled_task',
+          'content': jsonEncode({
+            ...content,
+            'paused': state == 'paused',
+            'deleted': state == 'deleted',
+            'nextRun': 1791464400,
+          }),
+        };
+        await t.pumpWidget(
+          MaterialApp(
+            theme: doloresTheme(dark),
+            home: Scaffold(body: ToolRecords(records: [record])),
+          ),
+        );
+        await t.pumpAndSettle();
+        final title = 'Task $state';
+        expect(find.text(title), findsOneWidget);
+        expect(find.text('internal-plan-id'), findsNothing);
+        expect(find.text('Task scheduled'), findsNothing);
+        if (state != 'updated') {
+          expect(
+            find.textContaining(
+              '${state == 'paused' ? 'Paused' : 'Deleted'} ·',
+            ),
+            findsOneWidget,
+          );
+        }
+        await t.tap(find.text(title));
+        await t.pumpAndSettle();
+        expect(find.textContaining('Task ID: saved-task'), findsOneWidget);
+        expect(
+          find.textContaining('Next:'),
+          state == 'updated' ? findsOneWidget : findsNothing,
+        );
+        expect(t.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets(
+    'failed task changes retain the actual error without claiming success',
+    (t) async {
+      for (final record in [
+        {
+          ...receipt(),
+          'name': 'manage_scheduled_task',
+          'status': 'blocked',
+          'content': 'Task changed. Ask again.',
+        },
+        {...receipt(), 'name': 'manage_scheduled_task', 'content': '{broken'},
+        {
+          ...receipt(),
+          'name': 'manage_scheduled_task',
+          'content': jsonEncode({'schedule': 'daily'}),
+        },
+      ]) {
+        await t.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: ToolRecords(records: [record])),
+          ),
+        );
+        expect(find.text('Task updated'), findsNothing);
+        expect(find.text('Task paused'), findsNothing);
+        expect(find.text('Task deleted'), findsNothing);
+        expect(find.text('internal-plan-id'), findsOneWidget);
+        await t.tap(find.text('internal-plan-id'));
+        await t.pumpAndSettle();
+        expect(find.text(record['content'] as String), findsOneWidget);
+        await t.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
   testWidgets('failed and malformed results never claim a saved task', (
     t,
   ) async {
