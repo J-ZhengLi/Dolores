@@ -22,6 +22,11 @@ binding a committed repository; Refresh history and Load more remain explicit.
 Retain at most eight commit file sets per repository, evicting only collapsed
 sets; if all eight are expanded, ask the user to collapse one. Failed reads retain
 usable cached files and the commit message, and never relabel another commit's files.
+After an applied Git action changes HEAD, reload the first history page so the
+new commit is visible immediately. Retain existing exact-commit diff tabs and
+expanded files still present on that page. An unavailable history read preserves
+the last readable list and the completed action's outcome; Refresh history retries
+only the read. Actions that leave HEAD unchanged retain the current history page.
 
 Place repository actions in the three-dot menu beside Changes: Commit, Pull,
 Push, Fetch, and grouped Changes, Branch and Stash actions. Use familiar names

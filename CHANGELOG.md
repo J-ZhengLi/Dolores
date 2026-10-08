@@ -16,6 +16,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Source Control history updates after a commit or another Git action changes the current commit, while retaining readable diffs.
 - Double-clicking a file in Folders keeps its tab; reopening a kept file preserves other preview tabs.
 - Switching back to an earlier chat keeps newly created conversations visible, while preserving drafts, selected models and active reviews.
 - Scheduled runs execute the saved task's work instead of asking to configure the schedule again, and use a pinned skill only when one was selected.

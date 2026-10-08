@@ -3445,3 +3445,26 @@ editor/layout/host checks passed. Native normal-build retest kept notes beside t
 README preview and retained both on reopening notes. The final normal build passed;
 native rows expose named buttons and reopening notes retained both tabs. First-edit pinning, physical editing and
 save shortcuts remain pending; helper input alone has not established an app defect.
+
+## First-user audit — Git commit recovery and history (2026-10-08)
+
+Native Source Control passed initial-commit file expansion, exact historical diff
+and collapse. Empty-index commit review included tracked and untracked saved
+changes; Cancel left the index untouched, and a fresh confirmation created the
+exact commit. Existing staged selection took priority over other working changes.
+A deliberately failing disposable hook retained the message/index and explained
+Refresh; after correction, fresh review committed only the staged file. Section
+stage/unstage passed with spaces, Chinese filenames and a detected rename, with
+independent saved Git checks. Physical Ctrl+Enter remains unqualified: helper input
+inserted a newline, while the deterministic shortcut test passes.
+
+Successful commits did not refresh the displayed History. Two host regressions
+failed before the fix. Applied actions now reload history only when the loaded
+head differs from saved HEAD; unchanged-head staging retains paged history.
+Existing exact-commit tabs and expanded files still on the first page remain.
+An unavailable history read retains the completed commit outcome and readable
+list; explicit retry reads history without repeating the commit. All 24 focused
+Git widget/host checks and changed-source analysis passed. The normal Windows
+build/launch passed. Native confirmation created a new rename/addition commit:
+its history row appeared without Refresh, while the older expanded commit's files
+and exact diff remained readable. Broader Git qualification remains on the checklist.

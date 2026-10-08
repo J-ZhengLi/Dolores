@@ -379,6 +379,9 @@ class GitHost extends ChangeNotifier {
         }
         w.localState = null;
         w.remoteState = null;
+        if (w.status?['head'] != null && w.status?['head'] != w.historyHead) {
+          await loadHistory(w);
+        }
       }
     } catch (e) {
       w.error = '$e';
