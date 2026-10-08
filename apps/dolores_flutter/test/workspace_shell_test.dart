@@ -7,6 +7,42 @@ import 'package:dolores_flutter/settings.dart';
 
 import 'app_host_test.dart' show HostBridge;
 
+class FreshScheduleBridge extends HostBridge {
+  bool saved = false;
+  bool unavailable = false;
+  int reads = 0;
+  @override
+  Future<dynamic> call(Map<String, dynamic> request) async {
+    if (request['command'] == 'scheduledTasks') {
+      reads++;
+      if (unavailable) {
+        throw StateError('Task storage unavailable. Try Refresh.');
+      }
+      return {
+        'items': [
+          if (saved)
+            {
+              'task': {
+                'id': 'saved',
+                'revision': 1,
+                'title': 'Weather report',
+                'paused': true,
+                'nextDue': null,
+              },
+              'receipt': {
+                'schedule': 'Weekdays at 21:00',
+                'model': 'test-model',
+                'timezone': 'Asia/Shanghai',
+              },
+              'occurrences': <Map>[],
+            },
+        ],
+      };
+    }
+    return super.call(request);
+  }
+}
+
 class ExperimentalBridge extends HostBridge {
   bool fail = false;
   Map<String, dynamic> preferences = {
@@ -41,6 +77,49 @@ class ExperimentalBridge extends HostBridge {
 }
 
 void main() {
+  testWidgets(
+    'entering Scheduled sees tasks saved during a busy chat and recovers failed refresh',
+    (t) async {
+      t.view.physicalSize = const Size(1200, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      final bridge = FreshScheduleBridge();
+      final chat = ChatController(bridge)
+        ..loading = false
+        ..draft = 'Keep this draft';
+      final host = AppHost(chat);
+      await t.pumpWidget(MaterialApp(home: WorkspaceShell(host: host)));
+      await t.pumpAndSettle();
+      expect(host.scheduled.items, isEmpty);
+      final initialReads = bridge.reads;
+      bridge.saved = true;
+      chat.busy = true;
+      await t.tap(find.byKey(const Key('page-scheduled')));
+      await t.pumpAndSettle();
+      expect(find.text('Weather report'), findsWidgets);
+      expect(bridge.reads, greaterThan(initialReads));
+      expect(chat.busy, isTrue);
+      expect(chat.draft, 'Keep this draft');
+      await t.tap(find.byKey(const Key('page-home')));
+      await t.pumpAndSettle();
+      bridge.unavailable = true;
+      await t.tap(find.byKey(const Key('page-scheduled')));
+      await t.pumpAndSettle();
+      expect(find.text('Weather report'), findsWidgets);
+      expect(host.scheduled.error, contains('Task storage unavailable'));
+      bridge.unavailable = false;
+      await t.tap(find.byKey(const Key('page-home')));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('page-scheduled')));
+      await t.pumpAndSettle();
+      expect(host.scheduled.error, isNull);
+      expect(chat.draft, 'Keep this draft');
+      chat.busy = false;
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   testWidgets(
     'rail, title toggle and drag hide preserve Home draft and root; later pages are truthful',
     (t) async {

@@ -33,7 +33,44 @@ String toolLabel(dynamic name) => switch (name) {
   _ => 'File read',
 };
 
+Map? scheduledTaskReceipt(dynamic record) {
+  if (record['name'] != 'schedule_task' || record['status'] != 'completed') {
+    return null;
+  }
+  try {
+    final result = jsonDecode('${record['content']}');
+    if (result is Map &&
+        result['task'] is String &&
+        (result['task'] as String).isNotEmpty &&
+        result['schedule'] is String &&
+        (result['schedule'] as String).isNotEmpty &&
+        result['deleted'] != true) {
+      return result;
+    }
+  } catch (_) {
+    // Malformed receipts keep their original evidence and status.
+  }
+  return null;
+}
+
+String scheduledTaskSummary(Map receipt) =>
+    '${receipt['schedule']}${receipt['usedDefaultTime'] == true ? ' · Default time' : ''}';
+
 String toolResultText(dynamic record) {
+  final scheduled = scheduledTaskReceipt(record);
+  if (scheduled != null) {
+    return [
+      scheduledTaskSummary(scheduled),
+      if (scheduled['nextRun'] is num)
+        'Next: ${DateTime.fromMillisecondsSinceEpoch((scheduled['nextRun'] as num).toInt() * 1000).toLocal().toString().substring(0, 16)}',
+      if (scheduled['model'] != null) 'Model: ${scheduled['model']}',
+      'Skill: ${scheduled['skill'] ?? 'None'}',
+      'Project: ${scheduled['project'] ?? 'No project'}',
+      'Results: ${scheduled['destination'] ?? 'Scheduled → Results'}',
+      if (scheduled['availability'] != null) '${scheduled['availability']}',
+      'Task ID: ${scheduled['task']}',
+    ].join('\n');
+  }
   final content = '${record['content']}';
   if (![
     'completed',
@@ -581,15 +618,17 @@ class ToolRecords extends StatelessWidget {
                 color: p.muted,
               ),
               title: Text(
-                '${record['target']}',
+                scheduledTaskReceipt(record) == null
+                    ? '${record['target']}'
+                    : 'Task scheduled',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12),
               ),
-              subtitle: Text(
-                '${toolLabel(record['name'])} · ${toolStatus(record)}',
-                style: TextStyle(fontSize: 11, color: p.muted),
-              ),
+              subtitle: Text(switch (scheduledTaskReceipt(record)) {
+                final Map receipt => scheduledTaskSummary(receipt),
+                _ => '${toolLabel(record['name'])} · ${toolStatus(record)}',
+              }, style: TextStyle(fontSize: 11, color: p.muted)),
               childrenPadding: const EdgeInsets.all(12),
               children: [
                 if (record['name'] == 'inspect_desktop_capture' &&

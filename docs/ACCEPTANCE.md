@@ -3344,3 +3344,27 @@ freezes Off, chosen model/hours/cap, presence/quiet gates, random opportunities,
 single unread message, source revalidation and bounded generation before runtime
 changes. Defaults never activate companionship in the user's original profile.
 Document/link checks pass; subjective welcome needs later user feedback.
+
+## First-user audit — scheduling feedback (2026-10-08)
+
+The [ranked feature checklist](qualification/first-user-audit.md) is an ongoing
+normal-app audit, not acceptance of all features. An isolated profile and public
+disposable project preserve original configuration/history. Qwen failed a clear
+weekday 21:00 request after malformed tool calls; its unrelated command was denied.
+DeepSeek saved the correct task automatically, then its confirmation stalled after
+60 seconds. The completed task survived, but chat displayed an internal plan ID
+and Scheduled needed manual Refresh to show it.
+
+The scoped UI fix displays the saved schedule immediately and refreshes the task
+listing on page entry, without waiting for the model's final reply. Regression
+tests failed on the old behavior, then all 20 focused checks passed, including
+malformed/failed receipts, default-time disclosure and failed-refresh recovery
+without losing the draft or retained listing. Source/test analysis is clean;
+saved compact/wide light/dark receipt renders were inspected. Normal Windows
+main-entry build/launch passed. Native reopen showed the retained readable receipt
+and its exact schedule/model/project details; Scheduled displayed the saved paused
+task immediately. Page entry during a newly saved busy chat is covered by the
+regression test; that exact live timing still needs retesting. Model scheduling
+reliability remains unaccepted. Run now exposed a separate misleading “Temporary
+workspace” review label for a pinned project; the audit stopped before approval
+and tracks that defect separately.

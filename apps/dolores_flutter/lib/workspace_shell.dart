@@ -59,6 +59,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   void initState() {
     super.initState();
     page = widget.initialPage;
+    if (page == WorkspacePage.scheduled) {
+      unawaited(host.scheduled.refresh());
+    }
     if (page == WorkspacePage.terminal) {
       unawaited(host.terminals.enter(host.visible.session));
     }
@@ -201,6 +204,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                         ),
                         onPressed: () {
                           setState(() => page = value);
+                          if (value == WorkspacePage.scheduled) {
+                            unawaited(host.scheduled.refresh());
+                          }
                           if (value == WorkspacePage.terminal) {
                             unawaited(
                               host.terminals.enter(host.visible.session),
