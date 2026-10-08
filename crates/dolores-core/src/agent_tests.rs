@@ -738,6 +738,80 @@ async fn invalid_browser_arguments_explain_correction_without_access_denial_or_d
 }
 
 #[tokio::test]
+async fn scheduling_invocation_errors_preserve_recovery_without_file_policy_or_private_details() {
+    struct FailedSchedule {
+        name: &'static str,
+        error: &'static str,
+    }
+    #[async_trait]
+    impl ToolPlugin for FailedSchedule {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: self.name.into(),
+                description: "Scheduling metadata".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            Ok(ToolRequest {
+                call_id: call.id.clone(),
+                name: self.name.into(),
+                target: "plan".into(),
+                query: None,
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            Err(self.error.into())
+        }
+    }
+    for name in ["schedule_task", "manage_scheduled_task"] {
+        for error in [
+            "Scheduled task limit reached. Remove an unused task first.",
+            "Task changed. Refresh before trying again.",
+            "private scheduling backend diagnostic must not be shared",
+        ] {
+            let provider = Scripted {
+                calls: Mutex::new(vec![ToolCall {
+                    id: "save".into(),
+                    name: name.into(),
+                    arguments: "{}".into(),
+                }]),
+                loop_forever: false,
+            };
+            let approval = Approval {
+                allow: true,
+                count: AtomicUsize::new(0),
+            };
+            let (events, _receiver) = mpsc::channel(32);
+            let reply = run_small_agent(
+                &provider,
+                context(),
+                &[Arc::new(FailedSchedule { name, error })],
+                &approval,
+                events,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+            assert_eq!(reply.summary.tools.len(), 1);
+            assert_eq!(reply.summary.tools[0].status, "error");
+            let content = &reply.summary.tools[0].content;
+            assert!(!content.contains("Folder tool"));
+            assert!(!content.contains("private scheduling"));
+            if error.starts_with("private") {
+                assert!(content.contains("Inspect Scheduled"));
+                assert!(content.contains("may already be saved"));
+            } else {
+                assert_eq!(content, error);
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn scheduling_validation_reports_the_actual_missing_detail_without_dispatch() {
     struct InvalidSchedule(&'static str);
     #[async_trait]

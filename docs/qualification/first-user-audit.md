@@ -113,8 +113,8 @@ tracks the audit; product design stays in the feature specifications.
 ## 6. Scheduled tasks
 
 - [x] S01 Natural English weekday request creates a task without manual setup and visibly confirms exact schedule/model.
-- [ ] S02 Natural Chinese weekday request does the same; paraphrases such as each workday are supported by interpretation.
-- [ ] S03 Missing time uses disclosed 09:00 local default; quoted examples/negations create no task.
+- [x] S02 Natural Chinese weekday request does the same; paraphrases such as each workday are supported by interpretation.
+- [x] S03 Missing time uses disclosed 09:00 local default; quoted examples/negations create no task.
 - [ ] S04 Enabled project skill is pinned to the created task; project/model/skill receipt matches the request.
 - [x] S05 Scheduled page shows next occurrence/timezone/status and original conversation; no manual creation form.
 - [x] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
@@ -221,6 +221,38 @@ a 2,048-token output bound and 60-second stall timeout unless stated otherwise.
 | G13 (failure, fixed refresh) | After two successful native commits, History still showed only the initial commit even after Changes Refresh; saved Git HEAD had advanced. The host updated status without reloading history. Two focused regressions failed before the fix. Applied actions now reload the first history page only when the current commit differs from the loaded history head, preserving exact-commit diff tabs and retained expanded files. All 24 focused checks and changed-source analysis passed, including unavailable-history retry without replaying commit and unchanged-HEAD staging retaining loaded pages. Normal build/launch passed. Native confirmation created a new rename/addition commit: its row appeared without Refresh, while the older expanded commit's files and exact diff stayed readable. | Older-page and multiple-tab navigation remain pending. |
 
 ### Open observations
+
+- S02/S03 initially failed on the Chinese workday/default-time case. DeepSeek correctly
+  interpreted the request but the actual save failed after a reviewed public
+  folder listing. It reported no task was created and disclosed the intended
+  09:00 default; independent storage agreed. Three calls reported 6,134 / 6,302 /
+  6,479 tokens. The invocation receipt misleadingly said Folder tool could not
+  complete within its text and access limits. The 247-byte prompt generated an
+  80-character title containing 208 UTF-8 bytes, exceeding the frozen 160-byte
+  storage limit. A regression with the exact prompt reproduced Invalid scheduled
+  task; the title now respects both the existing character/byte ceilings without
+  splitting a character or changing the full prompt/rule. A separate agent-flow
+  regression reproduced the unrelated folder error. Scheduling invocation errors
+  now retain known limit/stale/expired recovery or give a bounded scheduling
+  message requiring inspection before retry, without backend diagnostics.
+  Chinese/Japanese/emoji/English fixtures cover default-time receipts and duplicate
+  reconciliation. The normal Windows rebuild passed. A fresh native project chat
+  repeated the exact Chinese request; DeepSeek corrected its first invalid call
+  and saved the weekday 09:00 Asia/Shanghai task without further setup or file
+  access. Its visible Task scheduled receipt explicitly said Default time, and
+  the final Chinese answer agreed. Three calls reported 6,200 / 6,336 / 6,538
+  tokens. Scheduled immediately showed the task, exact model/project/source,
+  weekdays and next day at 09:00. Independent storage confirmed a complete
+  160-byte title prefix and the unchanged full 247-byte prompt. The task was
+  paused after inspection. Two fresh Chinese controls asked for an explanation
+  of an explicitly negated example and, separately, a quoted sentence from a
+  document without an explicit prohibition. Neither dispatched any tool or
+  altered any saved task; before/after hashes of all three complete task records
+  matched. They used one call each, 6,095 and 6,112 tokens. The quoted answer
+  exceeded the requested one sentence but accurately distinguished explanation
+  from creation. S02/S03 are checked for these real DeepSeek cases; this does not
+  establish Qwen reliability or arbitrary-language competence. Timed execution
+  of the new task remains outside this creation check.
 
 - S01/S05 passed with the DeepSeek fallback on the normal repository-identity
   build. A fresh project chat requested a short README summary every weekday at

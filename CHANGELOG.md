@@ -20,6 +20,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Long Chinese, Japanese and emoji scheduling requests keep a valid title and their full prompt; save failures report scheduling recovery instead of a folder error.
 - Scheduled task changes show readable updated/paused/deleted confirmations with their saved schedule.
 - Source Control shows the actual repository root and identifies an enclosing repository when the selected project is a subfolder.
 - Settings search finds companionship by Frequency, Quiet or Chatty.

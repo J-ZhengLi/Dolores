@@ -138,7 +138,15 @@ impl ScheduleTool {
             revision: 1,
             source_session: self.session.clone(),
             source_key,
-            title: self.input.chars().take(80).collect(),
+            title: self
+                .input
+                .chars()
+                .take(80)
+                .scan(0, |bytes, character| {
+                    *bytes += character.len_utf8();
+                    (*bytes <= 160).then_some(character)
+                })
+                .collect(),
             prompt: self.input.clone(),
             workspace: self.store.workspace(&self.session)?,
             rule,
@@ -559,6 +567,39 @@ mod tests {
         assert!(t.store.scheduled_tasks().unwrap().is_empty());
         assert!(t.invoke(&r, CancellationToken::new()).await.is_err());
     }
+    #[tokio::test]
+    async fn multilingual_titles_fit_storage_without_changing_the_prompt_or_rule() {
+        for input in [
+            "请帮我设定一个定时任务：每个工作日，用一句话总结这个项目的 README，在 Dolores 的任务结果里给我看。时间没指定就用应用默认时间，并告诉我采用了几点。不修改文件，不运行命令。".to_string(),
+            "日本語の毎日の報告".repeat(12),
+            "🙂".repeat(81),
+            "Write my report each workday. ".repeat(5),
+        ] {
+            let t = tool(&input);
+            let mut creation = call(None);
+            let mut fields: Value = serde_json::from_str(&creation.arguments).unwrap();
+            fields["rule"]["time"] = Value::Null;
+            creation.arguments = fields.to_string();
+            for _ in 0..2 {
+                let request = t.prepare(&creation).unwrap();
+                let result: Value = serde_json::from_str(
+                    &t.invoke(&request, CancellationToken::new()).await.unwrap(),
+                ).unwrap();
+                assert_eq!(result["usedDefaultTime"], true);
+            }
+            let saved = t.store.scheduled_tasks().unwrap();
+            assert_eq!(saved.len(), 1);
+            let task = &saved[0];
+            assert!(task.title.len() <= 160);
+            assert!(task.title.chars().count() <= 80);
+            assert!(input.starts_with(&task.title));
+            assert_eq!(task.prompt, input);
+            assert_eq!(task.rule.time, "09:00");
+            assert_eq!(task.rule.weekdays, vec![0, 1, 2, 3, 4]);
+            task.validate().unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn omitted_time_uses_disclosed_local_default_in_any_language() {
         for input in [

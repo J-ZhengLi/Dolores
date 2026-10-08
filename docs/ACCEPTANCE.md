@@ -3669,3 +3669,40 @@ kept their own historical outcomes, with the exact ID/model/project readable
 and no active Next time in the paused receipt. Deletion labeling passed only
 fixtures; native deletion remains pending under S12. The original profile's 49
 table hashes stayed unchanged.
+
+### First-user audit — multibyte scheduling title failure (2026-10-08)
+
+The native Chinese workday/default-time request failed to save with DeepSeek,
+after an exact approved public listing. Its 247-byte prompt generated an
+80-character, 208-byte title, exceeding the existing 160-byte storage ceiling.
+The actual receipt mislabeled that metadata failure as a folder-tool access
+failure. No new task or file change occurred; DeepSeek truthfully reported the
+failed creation and intended 09:00 default (three calls, reported totals 6,134 /
+6,302 / 6,479). S02/S03 initially remained pending until native recovery.
+
+The exact prompt failed a deterministic save regression before the fix.
+Title generation now retains a complete character prefix within the unchanged
+80-character/160-byte bounds; the full source prompt and rule remain intact.
+Chinese/Japanese/emoji/English cases verify default-time disclosure and duplicate
+reconciliation. A separate real agent-flow fixture reproduced the misleading
+error. Scheduling invocation errors now preserve known limit/stale/expired
+messages, with a bounded inspect-before-retry fallback for unknown failures;
+private backend diagnostics stay excluded.
+
+All six scheduling bridge tests and 87 core unit/integration checks passed;
+the new failure fixtures require no provider credentials.
+
+The normal Windows rebuild and native retry passed. A fresh public-project chat
+sent the same Chinese request to DeepSeek. It corrected one invalid scheduling
+call and saved the weekday 09:00 Asia/Shanghai task, with a Default time receipt
+and an accurate Chinese final confirmation (three calls, totals 6,200 / 6,336 /
+6,538). Scheduled immediately displayed its actual model, project, source,
+weekday rule and next due time. The stored title is a complete 160-byte prefix;
+the full 247-byte prompt is unchanged. No file operation was requested in this
+retry. The disposable task was paused after inspection.
+
+Separate native Chinese negated-example and quoted-document interpretation
+requests produced explanations with no tool calls (one call each, 6,095 and
+6,112 tokens). All three complete stored task records stayed byte-identical
+across both controls. S02/S03 are checked for these DeepSeek flows; arbitrary
+languages, Qwen competence and execution of the new task are not inferred.

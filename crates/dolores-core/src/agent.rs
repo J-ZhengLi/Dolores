@@ -1053,6 +1053,16 @@ pub async fn run_agent_with_shared_budget(
                                         "Browser evidence exceeds 16 KiB. Browser stopped; earlier effects may remain." => error,
                                         _ => "Browser operation unavailable. Check Settings → Browser, explicitly open/state again, and inspect before repeating an action. Earlier external effects may remain; nothing was retried.".into(),
                                     }
+                                } else if matches!(request.name.as_str(), "schedule_task" | "manage_scheduled_task") {
+                                    match error.as_str() {
+                                        "Scheduled task limit reached. Remove an unused task first." |
+                                        "Scheduled task limit reached. Finish or stop a deleted task before creating another." |
+                                        "Task changed. Refresh before trying again." |
+                                        "Task changed. Refresh Scheduled." |
+                                        "Task request expired. Ask again." |
+                                        "Task change expired. Ask again." => error,
+                                        _ => "Scheduled task could not complete. Inspect Scheduled before requesting a fresh change; a task may already be saved.".into(),
+                                    }
                                 } else if request.name == "run_command" {
                                     "Command could not complete. Check the executable and permissions, then review a fresh request. Command file changes may remain.".into()
                                 } else if request.name == "edit_text_file" {
