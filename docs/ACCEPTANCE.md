@@ -3900,3 +3900,113 @@ Candidate handoff and the original task's native retry remain pending while UI
 work is paused at the user's request. Background model/widget checks do not
 establish that the currently running binary has the fix or that Qwen reliably
 completes cross-project work.
+
+### Background audit — developer workflows and context preview (2026-10-09)
+
+The next batch uses disposable projects and an isolated normal-entry Windows
+candidate without desktop input. Editor integration passed BOM/CRLF preservation,
+project isolation, stale save/compare/rebase, binary/long-line recovery, successful
+file operations despite checkpoint-write failures, and fresh-process dirty-buffer
+recovery without writing the recovered source. Git integration passed staging,
+hunk/index ownership, commit/hook recovery, selected stash/discard and local
+bare-remote push/fetch,
+owned-job cancellation and in-app large-diff paging with stale-page refresh.
+The viewer cases include a 17 MiB file with a small change and over 60,000 patch
+rows. Attachment fixtures passed snapshot/export/restart, image-wire handling,
+scope, rejection recovery and tamper refusal. Scoped-setting precedence, stale
+saves, frozen run values and changed model-capacity recovery also passed.
+Thirty-five related frontend tests passed. These results qualify the exercised
+background seams; physical input, native dialogs and pointer behavior remain open.
+
+The instruction/summary fixtures exposed an actual context-preview mismatch:
+human requests advertised scheduling tools and response-limit guidance that the
+preview omitted. Some external guidance was appended again at agent entry, so
+saved initial accounting also differed from the first sent request. Preview now
+includes the ordinary human tool catalog, including available project integrations,
+and shares scheduling/response preparation with sending. Response and external
+guidance are included before memory selection and token accounting and are
+idempotent at agent entry. The new no-request side-chat preview regression failed
+before repair. History trimming and its saved initial token snapshot are checked
+against a captured first request. All 255 core/bridge checks passed (one optional
+live test ignored); two focused recall checks passed after the final ordering
+adjustment.
+
+The skill fixture now explicitly requests its named skill and separately verifies
+that an irrelevant greeting includes the catalogue without its full instructions.
+Side chats allow only the two scheduling tools, preserving the absence of project
+tools. Old fixed schema-number assertions in these lifecycle fixtures are replaced
+by database integrity checks; retained data/source and mutation checks remain.
+
+A public text attachment also passed a configured `qwen3.7-flash` check: after
+attaching the note, its disk source was changed. The model returned the exact
+captured identifier rather than the newer disk value (one call, 2,711 reported
+tokens; 2,471 input and 240 output including 229 reasoning). A separate process
+reopened the original snapshot and reply without another request. The first
+probe's preflight compared LF text with a Windows CRLF snapshot and stopped before
+any model call; a fresh fixture fixes its own newline setup. This was not an app
+snapshot failure. No credentials, private transcripts or original-profile writes
+were involved. This does not establish native attachment-picker behavior.
+
+The final isolated normal-entry Windows build passed; runtime source matches the
+working tree (bridge SHA-256
+`fbb27ec627a310ce8ea4b79716c6a4c87736173e4c2f50e4c81ac13d7e7c85f9`).
+All eight fresh save/reopen stages passed for summary, workspace instructions,
+project/global skills and automatic memory. Exact captured message/tool definitions
+and saved initial token accounting remain checked, rather than relaxing the
+preview equality assertions. Recovery covers changed/missing sources, stale
+review tokens, failed saves, Stop/deadline, tiny-context refusal with no request,
+and explicit retry. Failed first-batch logs remain alongside the successful fresh
+rerun under ignored `output/background-audit-20261009-01/`.
+
+The audit stops before the next native keyboard/IME, copy, permission-selector and
+Scheduled Stop checks. No computer-use input, normal-app replacement/restart or
+original-profile write was performed. Native checklist items remain unchecked.
+
+### Native first-user audit — input, context and scheduling recovery (2026-10-09)
+
+After the user made the computer available, the isolated normal-entry candidate
+at `32fdbe6` passed five more checklist flows: C06, C07, P10, P11 and S08.
+The checklist now has 50/128 checked; the other items remain open or partial.
+No new runtime change or rebuild was needed for this batch.
+
+Native input verified multiline prose, fenced code, Shift+Enter newline, Enter
+newline inside code, Right-Control+Enter submission from code and Enter submission
+from prose. Chinese IME selection committed `啊`; IME confirmation did not send
+prematurely. Literal text injection and Left-Control shortcuts were inconsistent
+in Flutter, including a regular summary text field. Menu paste and Right-Control
+worked after explicitly clicking to refocus the editing surface. Physical
+Left-Control behavior remains unqualified; this automation discrepancy does not
+establish a product defect. Copy code and Copy message were pasted into a scratch
+editor and matched the public response, including its Markdown fences.
+
+The context inspector distinguished reported usage from its 2,561 / 131,072
+next-message estimate. Opening it left existing messages/runs unchanged. Summary
+review showed the exact complete turn; Qwen generated a draft that was edited
+before saving. A later Qwen reply returned the saved reference `AUDIT-93`, while
+the original history remained visible. This newly saved native summary has not
+been reopened in a fresh process; the earlier background reopen evidence is
+separate. Inspector dismissal with Escape remains unqualified.
+
+Scheduled Run now retained the existing task's pinned DeepSeek model. Stop at the
+public README read approval cancelled without authorizing the read, showed
+Stopped and retained the correct result message: “Scheduled task stopped. Open
+Scheduled to run it again.” The composer stayed empty; the occurrence is saved
+as cancelled with no error. Earlier native Pause/Resume/Skip-next coverage plus
+this Stop retest completes S08 and closes its false draft-restored message gap.
+
+Four bounded Qwen foreground calls reported 9,586 input and 473 output tokens
+(10,059 total, reasoning included in output). One additional Qwen summary request
+and the cancelled pinned DeepSeek run have unavailable usage in retained metadata;
+their usage is not treated as zero. Two submission probes returned `OK.` plus
+their supplied text fence, so exact `OK.`-only compliance was not established.
+Request bounds were 512 output tokens and 30 seconds. Automatic memory remained
+Off in the disposable profile. No original-profile write, public push or private
+transcript export was performed.
+
+Sidebar toggle/drag resize/drag hide passed, but keyboard resize remains pending
+(C10). The immediate access menu was inspected; native mode changes were excluded
+by the computer-use skill's security-setting restriction (P13). Host/widget
+permission checks remain separate evidence. Saved native screenshots, accessibility
+text, observations and usage receipt are in ignored
+`output/native-audit-20261009-02/`. Pending physical editor, terminal and attachment
+flows are the next audit batch.

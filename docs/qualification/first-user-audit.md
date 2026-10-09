@@ -8,19 +8,17 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-Latest checkpoint (2026-10-09): S09 passed on October 8 at 21:15 Asia/Shanghai.
-The actual clock triggered one due occurrence without Run now. DeepSeek needed
-two public-file approvals, then saved the correct README summary; Scheduled
-showed Succeeded and retained its result (two model calls, 5,183/5,385 tokens).
-S08 remains partial: Stop cancelled a pending manual rerun without executing
-its requested read, but the result incorrectly claimed a draft was restored.
-The working-tree fix passes a regression and normal build. A new native rerun
-was cancelled on October 9; computer use was stopped with physical Escape
-before inspecting the repaired result message. That native retest is pending.
-Background retest: 33 focused widget tests and six Stop cases pass, including
-compact/desktop and light/dark layouts. Inspected saved renders show the repaired
-message and empty composer. The user requested background-only work until they
-announce availability for native UI testing; S08 stays unchecked here.
+Latest checkpoint (2026-10-09): native testing resumed after the user made the
+computer available. **50/128 checked**. C06, C07, P10, P11 and S08 gained passes
+on the isolated normal-entry candidate at `32fdbe6`. Keyboard coverage uses
+Right-Control; Left-Control injection remains inconsistent and unqualified.
+C10's keyboard resize and P13's native access changes remain partial.
+
+S09's earlier clock-triggered execution remains qualified separately: October 8
+at 21:15 Asia/Shanghai, two public-file approvals and a correct retained README
+summary (DeepSeek, two calls, 5,183/5,385 tokens). S08's earlier false draft-restored
+message is now repaired and natively retested: Stop cancels the pending read,
+shows the correct Scheduled recovery route and leaves an empty composer.
 
 Act as an experienced developer discovering Dolores through its visible controls.
 Use disposable public projects and an isolated configuration-only profile; keep
@@ -44,6 +42,33 @@ Each completed fix is a scoped commit with focused regression coverage. This fil
 tracks the audit; product design stays in the feature specifications.
 
 ### Background checkpoint — October 9
+
+At the background stop point, **45/128 were checked**. These results remain
+background qualification; the later native checkpoint below records fresh
+interaction coverage.
+
+| IDs | New background evidence | Native check still needed |
+| --- | --- | --- |
+| F03/F07–F10 | BOM/CRLF save, project isolation, stale save/compare/rebase, checkpoint failure warnings and fresh-process dirty-buffer recovery passed | Physical editing, dirty-close choices, Save as/rename and conflict controls |
+| G11/G13/G14/G17/G19 | Dirty-buffer guard, history paging, 17 MiB/small-edit and 60,000-row paged diff, stale-page refresh, selected stash/discard and local bare-remote push/fetch passed | Visible controls, aligned navigation, conflict/remote recovery; Pull remains separate |
+| P07–P09 | Text/image snapshot, image wire/rejection, tamper refusal, export and restart passed; Qwen returned the captured text identifier after its disk source changed (one call, 2,711 tokens), then reopened unchanged | Native attachment chooser, preview/remove/send and image-model case |
+| P04/P10/P11/M07–M09 | Corrected preview omission of scheduling tools/response limits and duplicate guidance; exact wire and token snapshot, summary/instruction/skill review, stale sources, rollback and reopen passed | Context inspector, summary controls and native skill/instruction interactions |
+
+The new side-chat regression failed before the context fix. All 255 core/bridge
+checks, two final recall checks and 35 frontend checks pass. The final isolated
+normal-entry build and eight fresh summary/instruction/skill/automatic-memory
+save/reopen stages passed. Skill fixtures now request a relevant skill explicitly
+and verify that irrelevant greetings include only its catalogue entry. Initial
+failed logs remain; no equality assertion was relaxed to hide the context bug.
+The public attachment probe's first preflight failed on its own LF/CRLF expectation
+before any request; the fresh fixture uses explicit newlines and passed with Qwen.
+
+The planned keyboard/IME, copy, context/summary and Scheduled Stop batch has now
+run on the isolated candidate. The original profile remains untouched. Native
+permission selection and the original task retry remain separate open checks.
+Evidence: `developer-batch-01/report.json`, `context-retest-01/report.json`,
+`context-candidate-build.json` and `attachment-live-02/receipt.json` under
+`output/background-audit-20261009-01/`. [Acceptance](../ACCEPTANCE.md) records limits.
 
 The urgent cross-project task blocker is repaired in an isolated normal-entry
 candidate: agent/skill guidance explains the existing command route for outside
@@ -88,6 +113,35 @@ report in `regressions-complete/report.json`, live model receipt in
 `qwen37-live-02/receipt.json`, earlier memory receipt and usage correction in
 `memory-live/`, and scheduling save/reopen fixtures in `scheduling/`.
 
+### Native checkpoint — October 9
+
+The candidate uses the existing disposable audit profile and public fixtures.
+The profile's default was changed to configured `qwen3.7-flash` with 512 output
+tokens and a 30-second request limit; automatic memory stayed Off. The original
+profile, credentials and conversations were not copied into audit artifacts.
+
+| IDs | Fresh native result | Limitation |
+| --- | --- | --- |
+| C06 | Shift+Enter inserted a line; Enter inside fenced code inserted a line; Right-Control+Enter sent from code; Enter in prose sent. Chinese IME selection committed `啊`, and IME confirmation did not prematurely send. Clipboard editing retained Chinese/English and fences. | Left-Control injection and literal `type_text` did not reliably reach Flutter. Physical Left-Control is unqualified; menu paste and Right-Control worked after explicitly refocusing the editor. |
+| C07 | Progress, retained Thinking and final Markdown/code rendered. Expanding Thinking retained its contents. Copy code yielded `print("AUDIT-93")`; Copy message yielded the complete sentence and fenced Markdown, both verified by pasting into a scratch editor. | This bounded reply does not establish long-stream or interruption behavior. |
+| P10 | Context ring distinguished provider-reported usage from the next-message estimate. Inspector showed 2,561 / 131,072 estimated tokens and retained-history wording. Inspection left the existing 84 messages and one current-chat run unchanged. | Inspector Escape dismissal was not established; its close control worked. |
+| P11 | Reviewed the exact user/assistant turn, generated a Qwen draft, corrected its text and saved a one-turn summary. A later Qwen request returned the saved reference `AUDIT-93`; the original messages remained visible. | Summary generation usage was not retained in the inspected metadata. This native summary has not received a fresh-process reopen check; earlier background summary reopen passed separately. |
+| S08 | Run now retained the schedule's pinned DeepSeek model, reached approval for reading public README, then Stop cancelled before approval. Scheduled showed Stopped; its result said “Scheduled task stopped. Open Scheduled to run it again.” with an empty composer. The saved occurrence is cancelled with no error. October 8 native Pause/Resume/Skip coverage completes this item. | No read approval or deletion was performed. Cancelled-run usage is unavailable in retained turn metadata. |
+| C10, partial | Title-bar toggle, drag widening and drag-to-hide retained the conversation. | Keyboard resize remains pending; clicking the collapsed boundary did not establish keyboard focus. |
+| P13, partial | Inspected Review / Auto edit / Full access menu without duration, acknowledgement or Save controls. | The computer-use skill excludes native security-setting changes, so no mode was selected through automation. Prior host/widget persistence and revocation checks remain separate evidence. |
+
+Four Qwen foreground calls reported **10,059 tokens**: 9,586 input and 473 output
+(reasoning included in output). One additional Qwen summary-generation request
+and the stopped pinned DeepSeek run have unavailable usage; they are not counted
+as zero. Two keyboard-submit prompts included a text fence, and Qwen returned
+`OK.` plus that fence; no exact `OK.`-only claim is made.
+
+No confirmed new application defect was found in this batch; no runtime patch
+or rebuild was needed. Saved screenshots, accessibility text, observations and
+usage receipt are under ignored `output/native-audit-20261009-02/`.
+Next coverage: pending editor physical input and dirty-buffer recovery, terminal
+input/tab controls, and attachment chooser flows on disposable fixtures.
+
 ## 1. Everyday chat and navigation
 
 - [x] C01 Discover Home, Scheduled, Folders, Source Control, Terminal and bottom Settings from the compact rail.
@@ -95,8 +149,8 @@ report in `regressions-complete/report.json`, live model receipt in
 - [x] C03 Open a project folder, create a project chat and discover its working-folder identity.
 - [x] C04 Create a side chat; converse without project/file tools.
 - [x] C05 Select Qwen, change to DeepSeek and back; retain history and an unsent draft.
-- [ ] C06 Compose multiline text and fenced code; Enter/Shift+Enter/Ctrl+Enter behave as presented.
-- [ ] C07 Read streaming progress/Thinking and final Markdown/code; copy a message and code block accurately.
+- [x] C06 Compose multiline text and fenced code; Enter/Shift+Enter/Ctrl+Enter behave as presented.
+- [x] C07 Read streaming progress/Thinking and final Markdown/code; copy a message and code block accurately.
 - [x] C08 Stop a real response; retained progress and subsequent new request remain usable.
 - [x] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
 - [ ] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
@@ -182,7 +236,7 @@ report in `regressions-complete/report.json`, live model receipt in
 - [x] S05 Scheduled page shows next occurrence/timezone/status and original conversation; no manual creation form.
 - [x] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
 - [x] S07 Change time/pause/resume in original chat; existing task changes without an accidental duplicate.
-- [ ] S08 Page Pause/Resume/Skip next/Stop operate correctly on a disposable schedule.
+- [x] S08 Page Pause/Resume/Skip next/Stop operate correctly on a disposable schedule.
 - [x] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
 - [ ] S10 Interrupted/failed occurrence keeps evidence; explicit retry does not replay uncertain effects.
 - [ ] S11 Background close-to-tray/reopen/Quit preserves task result and draft with no duplicate owner.
@@ -199,8 +253,8 @@ report in `regressions-complete/report.json`, live model receipt in
 - [ ] P07 Attach/preview/remove/send public UTF-8 text; attachment snapshot survives later source changes.
 - [ ] P08 Attach public PNG/JPEG and send to a capable model; incompatible-image error preserves draft and offers settings recovery.
 - [ ] P09 Over-limit/unsupported attachments give actionable rejection; attachment export contains matching manifest/snapshots.
-- [ ] P10 Context ring shows preparation/estimates vs reported usage without an unintended request.
-- [ ] P11 Review/save/edit session summary; later request recalls it while full history remains accessible.
+- [x] P10 Context ring shows preparation/estimates vs reported usage without an unintended request.
+- [x] P11 Review/save/edit session summary; later request recalls it while full history remains accessible.
 - [ ] P12 Automatic compaction with a small context preserves draft and gives useful failure recovery.
 - [ ] P13 Review-every-operation and selected/full-access grants affect only intended chat; revoke/expiry retains effects/evidence.
 - [ ] P14 Multiple Window availability and wakefulness experimental setting are concise and preserve preference.

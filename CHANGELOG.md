@@ -21,6 +21,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Context previews include the scheduling tools and response limits sent on ordinary chat requests, without duplicate tool guidance.
 - Agent guidance explains how available commands can read cross-project evidence instead of incorrectly treating every external path as inaccessible.
 - Stopped scheduled tasks point back to Scheduled instead of claiming an empty chat draft was restored.
 

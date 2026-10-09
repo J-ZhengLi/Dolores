@@ -8,4 +8,6 @@ The ring and inspector compare tokens with the configured raw context window. Pr
 
 The independent input, context, tool-result and output byte guards remain memory/resource limits. They no longer represent the model's context window in the UI. Successful metadata snapshots the capacity, output reservation, headroom and component estimates; legacy metadata without this snapshot remains unavailable rather than being reconstructed. Changing model, request settings, endpoint or draft invalidates stale preview accounting.
 
+For an existing chat's next ordinary human request, preview includes the advertised scheduling tools, enabled project integrations, response-limit guidance and the same preparation used before the first model call. Preparation does not execute a tool or contact a model. External guidance is included once so agent entry cannot change the estimate by appending duplicates. Changed state, scheduled occurrences, continuations and screenshot-control requests require their own fresh preparation; a prior preview is not a guarantee of an identical later request.
+
 See [pinned upstream comparison](../research/token-context-accounting.md). No compaction, summarization, tokenizer downloads or new tool permissions are introduced.

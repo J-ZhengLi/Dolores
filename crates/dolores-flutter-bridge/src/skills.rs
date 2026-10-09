@@ -651,7 +651,15 @@ mod tests {
             .unwrap();
         assert_eq!(context["skills"][0]["scope"], "global");
         assert_eq!(context["skillEntries"][0]["scope"], "global");
-        assert!(context["tools"].as_array().unwrap().is_empty());
+        assert_eq!(
+            context["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|tool| tool["name"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["schedule_task", "manage_scheduled_task"]
+        );
         assert!(!context["messages"][0]["content"]
             .as_str()
             .unwrap()

@@ -589,6 +589,38 @@ async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_mode
 }
 
 #[test]
+fn first_call_response_and_external_guidance_are_not_duplicated_at_agent_entry() {
+    let context = crate::preview_context(vec![], "Inspect current capabilities.").unwrap();
+    let specs = ["browser", "inspect_harness", "inspect_desktop_capture"]
+        .into_iter()
+        .map(|name| ToolSpec {
+            name: name.into(),
+            description: String::new(),
+            parameters: json!({}),
+        })
+        .collect::<Vec<_>>();
+    let settings = crate::RequestSettings {
+        max_output_tokens: Some(512),
+        timeout_seconds: 20,
+        ..Default::default()
+    };
+    let once = crate::prepare_response_context(
+        prepare_external_tool_context(context, &specs).unwrap(),
+        settings,
+    )
+    .unwrap();
+    let twice = crate::prepare_response_context(
+        prepare_external_tool_context(once.clone(), &specs).unwrap(),
+        settings,
+    )
+    .unwrap();
+    assert_eq!(once, twice);
+    assert_eq!(once[0].content.matches("Each response:").count(), 1);
+    assert!(once[0].content.contains("512 output tokens"));
+    assert!(crate::prepare_response_context(vec![], settings).is_err());
+}
+
+#[test]
 fn advertised_commands_explain_cross_folder_access_without_claiming_denial() {
     let context = crate::preview_context(vec![], "Read the sibling project report.").unwrap();
     let prepared = prepare_external_tool_context(

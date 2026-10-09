@@ -82,7 +82,7 @@ if args.stage=="save":
         other_folder=fixture/"other"; other_folder.mkdir()
         other=call("createSession",kind="project",path=str(other_folder))["session"]["id"]
         side=call("createSession",kind="side")["session"]["id"]
-        initial=call("context",session=session,input="hello")
+        initial=call("context",session=session,input="review the work")
         assert not initial.get("skills") and first not in initial["messages"][0]["content"]
         assert call("projectSkills",session=session)["items"][0]["revision"] is None
         review=call("reviewSkill",session=session,name="review")
@@ -97,15 +97,18 @@ if args.stage=="save":
         active=call("activateSkill",session=session,token=review["token"])
         assert active["versions"][-1]["version"]==1
         assert not envelope("activateSkill",session=session,token=review["token"])["ok"]
-        preview=call("context",session=session,input="hello")
+        preview=call("context",session=session,input="review the work")
+        irrelevant=call("context",session=session,input="hello")
+        assert not irrelevant.get("skills") and first not in irrelevant["messages"][0]["content"]
+        assert "review: Review synthetic work" in irrelevant["messages"][0]["content"]
         assert preview["skills"][0]["source"]==".agents/skills/review/SKILL.md"
         assert preview["skillEntries"][0]["document"]["text"]==first
         assert preview["tokens"]["systemTokens"]>initial["tokens"]["systemTokens"]
         assert "cannot approve tools" in preview["messages"][0]["content"]
         assert str(folder) not in json.dumps(preview)
-        for excluded in [side,other]: assert not call("context",session=excluded,input="hello").get("skills")
-        assert call("context",session=same,input="hello")["skills"]==preview["skills"]
-        call("start",id=1,session=session,input="hello"); finish(1)
+        for excluded in [side,other]: assert not call("context",session=excluded,input="review the work").get("skills")
+        assert call("context",session=same,input="review the work")["skills"]==preview["skills"]
+        call("start",id=1,session=session,input="review the work"); finish(1)
         assert requests[-1]["messages"]==preview["messages"]
         reply=call("messagesPage",session=session)["items"][-1]
         assert reply["metadata"]["context"]["skills"]==preview["skills"]
@@ -115,7 +118,7 @@ if args.stage=="save":
         assert tool_reply["metadata"]["agent"]["tools"][0]["status"]=="denied"
         assert "Private fixture content" not in json.dumps(requests)
         second=source_text("Use a different synthetic workflow."); file.write_text(second,newline="")
-        assert call("context",session=session,input="next")["skillEntries"][0]["document"]["text"]==first
+        assert call("context",session=session,input="review next")["skillEntries"][0]["document"]["text"]==first
         review=call("reviewSkill",session=session,name="review")
         active=call("activateSkill",session=session,token=review["token"])
         assert active["revision"]==2 and active["versions"][-1]["version"]==2
@@ -126,9 +129,9 @@ if args.stage=="save":
         assert rolled["versions"][-1]["version"]==3 and rolled["versions"][-1]["rollbackFrom"]==1
         assert file.read_text()==second
         file.unlink()
-        assert call("context",session=session,input="next")["skills"][0]["version"]==3
+        assert call("context",session=session,input="review next")["skills"][0]["version"]==3
         call("disableSkill",session=session,name="review",revision=3)
-        assert not call("context",session=session,input="next").get("skills")
+        assert not call("context",session=session,input="review next").get("skills")
         review=call("reviewSkill",session=session,name="review",version=3)
         active=call("activateSkill",session=session,token=review["token"])
         assert active["revision"]==5 and active["versions"][-1]["version"]==4
@@ -136,12 +139,12 @@ if args.stage=="save":
         exported=json.loads((fixture/"export.json").read_text())
         assert ".agents/skills/review/SKILL.md" in json.dumps(exported)
         call("delete",session=session)
-        assert call("context",session=same,input="next")["skills"][0]["version"]==4
+        assert call("context",session=same,input="review next")["skills"][0]["version"]==4
         global_directory=fixture/"global-skills/review"; global_directory.mkdir(parents=True)
         global_file=global_directory/"SKILL.md"; global_first=source_text("GLOBAL_SYNTHETIC_ONLY")
         global_file.write_text(global_first,encoding="utf-8",newline="")
         assert call("projectSkills",session=side,scope="global")["items"][0]["revision"] is None
-        assert not call("context",session=side,input="hello").get("skills")
+        assert not call("context",session=side,input="review the work").get("skills")
         review=call("reviewSkill",session=side,name="review",scope="global")
         global_file.write_text(source_text("Changed global source"),newline="")
         assert not envelope("activateSkill",session=side,token=review["token"])["ok"]
@@ -149,16 +152,16 @@ if args.stage=="save":
         review=call("reviewSkill",session=side,name="review",scope="global")
         global_active=call("activateSkill",session=side,token=review["token"])
         assert global_active["scope"]=="global"
-        project_preview=call("context",session=same,input="hello")
+        project_preview=call("context",session=same,input="review the work")
         assert len(project_preview["skills"])==1 and "GLOBAL_SYNTHETIC_ONLY" not in project_preview["messages"][0]["content"]
         assert call("projectSkills",session=same,scope="global")["items"][0]["overridden"]
-        side_preview=call("context",session=side,input="hello")
+        side_preview=call("context",session=side,input="review the work")
         assert side_preview["skillEntries"][0]["document"]["text"]==global_first
-        assert side_preview["skills"][0]["scope"]=="global" and not side_preview["tools"]
+        assert side_preview["skills"][0]["scope"]=="global" and [t["name"] for t in side_preview["tools"]]==["schedule_task","manage_scheduled_task"]
         assert str(global_directory) not in json.dumps(side_preview)
-        assert call("context",session=other,input="hello")["skills"]==side_preview["skills"]
-        call("start",id=3,session=side,input="hello"); finish(3)
-        assert requests[-1]["messages"]==side_preview["messages"] and "tools" not in requests[-1]
+        assert call("context",session=other,input="review the work")["skills"]==side_preview["skills"]
+        call("start",id=3,session=side,input="review the work"); finish(3)
+        assert requests[-1]["messages"]==side_preview["messages"] and [t["function"]["name"] for t in requests[-1]["tools"]]==["schedule_task","manage_scheduled_task"]
         side_reply=call("messagesPage",session=side)["items"][-1]
         assert side_reply["metadata"]["context"]["skills"]==side_preview["skills"]
         call("export",session=side,path=str(fixture/"global-export.json"),format="json")
@@ -171,8 +174,8 @@ if args.stage=="save":
         assert rolled["versions"][-1]["rollbackFrom"]==1 and "GLOBAL_VERSION_TWO" in global_file.read_text()
         global_file.unlink()
         call("disableSkill",session=side,name="review",scope="global",revision=3)
-        assert not call("context",session=side,input="next").get("skills")
-        assert call("context",session=same,input="next")["skills"][0]["version"]==4
+        assert not call("context",session=side,input="review next").get("skills")
+        assert call("context",session=same,input="review next")["skills"][0]["version"]==4
         review=call("reviewSkill",session=side,name="review",scope="global",version=3)
         call("activateSkill",session=side,token=review["token"])
         state_file.write_text(json.dumps({"session":same,"side":side,"globalFirst":global_first,"first":first,"root":str(folder)}))
@@ -181,22 +184,22 @@ if args.stage=="save":
 else:
     state=json.loads(state_file.read_text()); session=state["session"]
     call("bootstrap")
-    preview=call("context",session=session,input="next")
+    preview=call("context",session=session,input="review next")
     assert preview["skills"][0]["version"]==4 and preview["skills"][0]["rollbackFrom"]==3
     assert preview["skillEntries"][0]["document"]["text"]==state["first"]
     saved=call("projectSkills",session=session)["items"][0]
     assert saved["enabled"] and not saved["sourceAvailable"] and saved["revision"]==5
-    global_preview=call("context",session=state["side"],input="next")
+    global_preview=call("context",session=state["side"],input="review next")
     assert global_preview["skillEntries"][0]["scope"]=="global" and global_preview["skillEntries"][0]["document"]["text"]==state["globalFirst"]
     assert global_preview["skills"][0]["version"]==4 and global_preview["skills"][0]["rollbackFrom"]==3
     global_saved=call("projectSkills",session=state["side"],scope="global")["items"][0]
     assert global_saved["revision"]==5 and not global_saved["sourceAvailable"]
     call("forgetSkill",session=state["side"],name="review",scope="global",revision=5)
-    assert not call("context",session=state["side"],input="next").get("skills")
+    assert not call("context",session=state["side"],input="review next").get("skills")
     call("forgetSkill",session=session,name="review",revision=5)
-    assert not call("context",session=session,input="next").get("skills")
+    assert not call("context",session=session,input="review next").get("skills")
     with sqlite3.connect(fixture/"data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0]==15
+        assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert db.execute("SELECT COUNT(*) FROM project_skills").fetchone()[0]==0
     print(json.dumps({"ok":True,"stage":"restore"}))
 call("shutdown")
