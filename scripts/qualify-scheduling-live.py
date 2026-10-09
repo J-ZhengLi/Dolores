@@ -56,7 +56,7 @@ def run(session,prompt,occurrence=None):
     metadata=answer.get('metadata') or {}
     reported=metadata.get('usage')
     if reported:usage.append(reported)
-    else:usage.extend(v for v in (metadata.get('agent') or {}).get('usage_by_call',[]) if v)
+    else:usage.extend(v for v in (metadata.get('agent') or {}).get('usageByCall',[]) if v)
     return {'error':done.get('error'),'answer':answer.get('content','')[:1200]}
 def select(model):
     host.call('selectModel',model=model)

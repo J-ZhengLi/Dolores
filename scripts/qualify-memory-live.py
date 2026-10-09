@@ -66,6 +66,7 @@ def run(session,prompt):
     message=host.call('messagesPage',session=session)['items'][-1]
     metadata=message.get('metadata') or {}
     if metadata.get('usage'):usage.append(metadata['usage'])
+    else:usage.extend(v for v in (metadata.get('agent') or {}).get('usageByCall',[]) if v)
     activity=None
     if (done.get('memoryUpdate') or {}).get('status')=='queued':
         deadline=time.monotonic()+22

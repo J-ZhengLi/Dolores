@@ -1,7 +1,11 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class InterruptedBridge implements ChatBridge {
@@ -20,6 +24,13 @@ class InterruptedBridge implements ChatBridge {
     commands.add(command);
     final id = command['id'];
     switch (command['command']) {
+      case 'scheduledStart':
+        starts++;
+        return {
+          'session': 'audit',
+          'model': 'fixture',
+          'workspace': {'kind': 'project', 'root': 'C:/public'},
+        };
       case 'start':
         starts++;
         if (starts == 1) {
@@ -61,6 +72,11 @@ class InterruptedBridge implements ChatBridge {
           'type': 'done',
           'id': id,
           'error': 'Response stopped. Your message was not saved.',
+          'recovery': {
+            'kind': 'stopped',
+            'retryable': false,
+            'guidance': 'Your draft is restored. Send it when you are ready.',
+          },
         });
       case 'bootstrap':
         return {
@@ -76,6 +92,116 @@ class InterruptedBridge implements ChatBridge {
 }
 
 void main() {
+  const renderDirectory = String.fromEnvironment('AUDIT_RENDER_DIR');
+  setUpAll(() async {
+    if (renderDirectory.isEmpty) return;
+    final fonts = '${Platform.environment['WINDIR'] ?? 'C:/Windows'}/Fonts';
+    for (final family in ['Ahem', 'Segoe UI', 'Georgia']) {
+      await ui.loadFontFromList(
+        await File('$fonts/${family == 'Georgia' ? 'georgia' : 'segoeui'}.ttf')
+            .readAsBytes(),
+        fontFamily: family,
+      );
+    }
+    await ui.loadFontFromList(
+      await File(
+        '../../output/toolchains/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+      ).readAsBytes(),
+      fontFamily: 'MaterialIcons',
+    );
+  });
+  for (final width in [390.0, 1127.0]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'Stopped scheduled run points to Scheduled without inventing a draft width=$width dark=$dark',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 813);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final bridge = InterruptedBridge(true);
+          final chat = ChatController(bridge)..loading = false;
+          final renderKey = GlobalKey();
+          await tester.pumpWidget(
+            RepaintBoundary(
+              key: renderKey,
+              child: DoloresApp(
+                chat: chat,
+                themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+              ),
+            ),
+          );
+          await chat.send(
+            scheduledOccurrence: 'due-fixture',
+            taskInput: 'Read README.md',
+          );
+          await chat.stop();
+          await tester.pump(const Duration(milliseconds: 100));
+          await tester.pumpAndSettle();
+          expect(chat.busy, false);
+          expect(chat.draft, isEmpty);
+          expect(chat.error, 'Scheduled task stopped.');
+          expect(
+            chat.activeRecovery?['guidance'],
+            'Open Scheduled to run it again.',
+          );
+          expect(
+            find.text('Your draft is restored. Send it when you are ready.'),
+            findsNothing,
+          );
+          expect(find.text('Open Scheduled to run it again.'), findsOneWidget);
+          expect(bridge.starts, 1);
+          expect(
+            bridge.commands.where((c) => c['command'] == 'start'),
+            isEmpty,
+          );
+          expect(tester.takeException(), isNull);
+          if (renderDirectory.isNotEmpty) {
+            final boundary =
+                renderKey.currentContext!.findRenderObject()
+                    as RenderRepaintBoundary;
+            await tester.runAsync(() async {
+              final rendered = await boundary.toImage(pixelRatio: 1);
+              try {
+                final bytes = await rendered.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                await Directory(renderDirectory).create(recursive: true);
+                await File(
+                  '$renderDirectory/scheduled-stop-${width.toInt()}-${dark ? 'dark' : 'light'}.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+              } finally {
+                rendered.dispose();
+              }
+            });
+          }
+          // A later ordinary send on the same owner must regain draft recovery.
+          chat.configured = true;
+          chat.draft = 'New ordinary request';
+          bridge.starts = 0;
+          await chat.send();
+          await tester.pump(const Duration(milliseconds: 100));
+          await chat.stop();
+          await tester.pump(const Duration(milliseconds: 100));
+          await tester.pumpAndSettle();
+          expect(chat.error, 'Response stopped. Your message was not saved.');
+          expect(chat.draft, 'New ordinary request');
+          expect(
+            chat.activeRecovery?['guidance'],
+            contains('Your draft is restored'),
+          );
+          expect(
+            bridge.commands
+                .where((c) => c['command'] == 'start')
+                .single['input'],
+            'New ordinary request',
+          );
+          await tester.pumpWidget(const SizedBox());
+          chat.dispose();
+        },
+      );
+    }
+  }
   for (final agent in [false, true]) {
     testWidgets(
       'Stop retains unsaved ${agent ? 'agent' : 'side-chat'} output and a new request stays independent',
@@ -106,6 +232,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(chat.busy, false);
         expect(chat.draft, 'Original request');
+        expect(
+          chat.activeRecovery?['guidance'],
+          contains('Your draft is restored'),
+        );
         expect(chat.messages, isEmpty);
         expect(chat.modelTexts.last['text'], 'Useful unfinished reply 世界');
         expect(chat.modelTexts.length, lessThanOrEqualTo(3));

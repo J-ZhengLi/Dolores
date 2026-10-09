@@ -1074,6 +1074,7 @@ class ChatController extends ChangeNotifier {
   }
 
   bool _continuing = false;
+  bool _scheduledRun = false;
   String? _desktopDraft;
   bool _desktopKeepsAttachments = false;
   int? get latestPausedId =>
@@ -1148,6 +1149,7 @@ class ChatController extends ChangeNotifier {
     busy = true;
     activeDesktopTarget = desktopGrant == null ? null : desktopTarget;
     _continuing = continuation != null;
+    _scheduledRun = scheduledOccurrence != null;
     stopping = false;
     if (taskInput != null) _desktopDraft = draft;
     _desktopKeepsAttachments = desktopHandoff;
@@ -1428,6 +1430,17 @@ class ChatController extends ChangeNotifier {
   }
 
   void _failed(String failure, {Map<String, dynamic>? advice}) {
+    if (_scheduledRun &&
+        (advice?['kind'] == 'stopped' ||
+            failure == 'Response stopped.' ||
+            failure == 'Response stopped. Your message was not saved.')) {
+      failure = 'Scheduled task stopped.';
+      advice = {
+        'kind': 'stopped',
+        'retryable': false,
+        'guidance': 'Open Scheduled to run it again.',
+      };
+    }
     toolApproval = null;
     // Keep already delivered public text available to inspect/copy. It is not
     // a saved exchange and must never become the next request's history.

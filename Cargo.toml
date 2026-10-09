@@ -20,3 +20,9 @@ uuid = { version = "1", features = ["v4"] }
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# MCP tests fingerprint real runtimes before and after inspection. Keep SHA-256
+# compression optimized so debug hashing does not consume the operation deadline
+# on shared Windows runners; application code and timeout checks remain debug.
+[profile.test.package.sha2]
+opt-level = 3

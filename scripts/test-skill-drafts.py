@@ -49,7 +49,13 @@ class Fixture(BaseHTTPRequestHandler):
         if mode == 'slow': time.sleep(2)
         if mode == 'long': time.sleep(31)
         assert request['model'] == 'fixture'
-        assert 'tools' not in request and 'tool_choice' not in request
+        if request['messages'][-1]['content'] == 'Review synthetic work':
+            # Human turns expose scheduling; drafting/evaluation below must
+            # still be tool-free and cannot execute the proposed instructions.
+            assert len(request['tools']) == 2 and request['tool_choice'] == 'auto'
+            assert {t['function']['name'] for t in request['tools']} == {'schedule_task', 'manage_scheduled_task'}
+        else:
+            assert 'tools' not in request and 'tool_choice' not in request
         assert len(request['messages']) == 2
         if request['messages'][0]['content'].startswith('You draft reusable instructions for Dolores'):
             assert request['max_tokens'] in (2048, 4096)

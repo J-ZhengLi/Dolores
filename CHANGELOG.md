@@ -20,6 +20,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Stopped scheduled tasks point back to Scheduled instead of claiming an empty chat draft was restored.
+
 - Find and Replace leave the document visible and selectable below the search bar.
 - Long Chinese, Japanese and emoji scheduling requests keep a valid title and their full prompt; save failures report scheduling recovery instead of a folder error.
 - Scheduled task changes show readable updated/paused/deleted confirmations with their saved schedule.

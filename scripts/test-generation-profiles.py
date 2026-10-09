@@ -121,7 +121,12 @@ try:
         assert not run(2,side,'paused').get('error')
         before = call('messagesPage',session=side)['items']
         metadata = before[-1]['metadata']
-        assert metadata['paused']['reason'] == 'outputLimit' and metadata['usage']['reasoningTokens'] == 8192
+        assert metadata['paused']['reason'] == 'outputLimit'
+        assert metadata['agent']['modelCalls'] == 1
+        reported = metadata['agent']['usageByCall']
+        assert len(reported) == 1
+        assert reported[0]['outputTokens'] == reported[0]['reasoningTokens'] == 8192
+        assert reported[0]['totalTokens'] is None
         assert metadata['requestSettings'] == hard
         result = run(3,side,'unsupported')
         assert result['recovery']['kind'] == 'generationSettings' and not result['recovery']['retryable']

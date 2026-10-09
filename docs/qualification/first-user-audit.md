@@ -1,22 +1,40 @@
 # First-user feature audit
 
-Started 2026-10-08. This is an ongoing audit of the normal Windows app, using
-native user interaction and real configured models. Existing acceptance reports
-and unit tests do not count as passes here. Order follows likely everyday use.
+Started 2026-10-08. This is an ongoing audit using native user interaction,
+background integration with real configured models, and generated UI renders.
+Order follows likely everyday use. Existing reports are references, not fresh
+passes. Record the verification mode; background evidence does not establish
+physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
+
+Latest checkpoint (2026-10-09): S09 passed on October 8 at 21:15 Asia/Shanghai.
+The actual clock triggered one due occurrence without Run now. DeepSeek needed
+two public-file approvals, then saved the correct README summary; Scheduled
+showed Succeeded and retained its result (two model calls, 5,183/5,385 tokens).
+S08 remains partial: Stop cancelled a pending manual rerun without executing
+its requested read, but the result incorrectly claimed a draft was restored.
+The working-tree fix passes a regression and normal build. A new native rerun
+was cancelled on October 9; computer use was stopped with physical Escape
+before inspecting the repaired result message. That native retest is pending.
+Background retest: 33 focused widget tests and six Stop cases pass, including
+compact/desktop and light/dark layouts. Inspected saved renders show the repaired
+message and empty composer. The user requested background-only work until they
+announce availability for native UI testing; S08 stays unchecked here.
 
 Act as an experienced developer discovering Dolores through its visible controls.
 Use disposable public projects and an isolated configuration-only profile; keep
 personal conversations, working projects and provider settings unchanged. Use
-Qwen3.5-2B first, then DeepSeek V4.1 Flash when a task demonstrates a model limitation.
+Use the configured `qwen3.7-flash` first, then DeepSeek V4.1 Flash when a task
+demonstrates a model limitation (updated October 9 at the user's request).
+Earlier results retain the model actually used; this change does not retest them.
 Bound each request and record reported usage where available. Do not publish keys,
 private transcripts, endpoints or personal paths. Never claim an untested feature works.
 
 `[ ]` means pending; `[x]` means the listed user flow passed. A failure remains
 unchecked until repaired and retested. Record app defects separately from model
 limitations, unavailable prerequisites and automation restrictions. Backend probes
-can diagnose a problem but cannot replace an actual UX pass. Destructive tests use
+can diagnose a problem but cannot establish a native UX pass. Destructive tests use
 disposable data; remote Git tests use a local bare repository. No public push,
 publication or unrelated system change belongs to this audit.
 
@@ -24,6 +42,37 @@ Each result records: checklist ID, model/build, visible route, action, expected 
 observed result, recovery, evidence, fix/retest if needed, and remaining limitation.
 Each completed fix is a scoped commit with focused regression coverage. This file
 tracks the audit; product design stays in the feature specifications.
+
+### Background checkpoint — October 9
+
+No native input or window switching was used. The existing normal Windows bundle
+passed all eight regression pairs (16 save/restore stages). Four fixtures needed
+updates for current behavior: explicit versus automatic continuation, per-call
+usage metadata, foreground context refusal before memory extraction, and
+scheduling tools on human turns while skill maintenance remains tool-free.
+The context refusal retains the draft, makes no HTTP request and saves no turn;
+an explicit retry after increasing capacity saves the reply and its memory.
+
+| Area | Background result | Remaining native check |
+| --- | --- | --- |
+| Scheduling recovery, S08/S10 | Synthetic save/reopen passed: denied/offline execution, explicit retry, overlap refusal, changed/disabled skill, interruption without automatic replay; 14 fixture requests | Final Stop message and offline/retry controls |
+| Memory, M02/M06 | Earlier Qwen3.5-2B/DeepSeek probe passed fresh-chat recall, explicit correction and project isolation; shared synthetic image captured and recalled | Settings, source inspection, correction/forget controls and stale-source UX |
+| New routine model | `qwen3.7-flash`: Memory Off reports no known codename; automatic capture saves one supplied fact; fresh chat recalls it exactly; three settled replies | Native model-picker/input interaction |
+
+The new-model check used 7,478 provider-reported tokens across three calls
+(7,163 input, 315 output; reported reasoning is included in output). The earlier
+ten-turn memory probe used 42,610 foreground tokens, plus 421 image-maintenance
+tokens. Its initial report missed agent usage; totals were recovered from the
+retained public fixture metadata without new requests. Some earlier DeepSeek
+answers hit the probe's 512-token cap or misleadingly asked for manual memory
+updates even though automatic capture succeeded. These are bounded case results,
+not general reliability claims. The existing checklist boxes stay unchanged
+where a native UX check remains pending.
+
+Local evidence: `output/background-audit-20261009-01/`, with the completed runner
+report in `regressions-complete/report.json`, live model receipt in
+`qwen37-live-02/receipt.json`, earlier memory receipt and usage correction in
+`memory-live/`, and scheduling save/reopen fixtures in `scheduling/`.
 
 ## 1. Everyday chat and navigation
 
@@ -120,7 +169,7 @@ tracks the audit; product design stays in the feature specifications.
 - [x] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
 - [x] S07 Change time/pause/resume in original chat; existing task changes without an accidental duplicate.
 - [ ] S08 Page Pause/Resume/Skip next/Stop operate correctly on a disposable schedule.
-- [ ] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
+- [x] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
 - [ ] S10 Interrupted/failed occurrence keeps evidence; explicit retry does not replay uncertain effects.
 - [ ] S11 Background close-to-tray/reopen/Quit preserves task result and draft with no duplicate owner.
 - [ ] S12 Delete only a disposable schedule; original conversation/results and files remain inspectable as specified.

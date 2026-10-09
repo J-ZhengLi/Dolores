@@ -124,6 +124,9 @@ try:
     call('configure', preferences={'baseUrl': f'http://127.0.0.1:{server.server_port}/v1', 'model': 'fixture'}, apiKey='', rememberConnection=False)
     state_file = directory / 'state.json'
     if args.stage == 'save':
+        # A deliberate output cap exercises manual continuation; the default
+        # now performs bounded automatic recovery from a truncated response.
+        call('setRequestSettings', settings={'maxOutputTokens': 64, 'timeoutSeconds': 30})
         session = call('createSession', kind='side')['session']['id']
         start(1, session, 'output')
         assert 'error' not in done(1)
@@ -131,7 +134,7 @@ try:
         assert saved['content'] == 'Saved partial 世界'
         assert saved['metadata']['paused']['reason'] == 'outputLimit'
         first = saved['id']
-        assert len(requests) == 1
+        assert len(requests) == 1 and requests[0]['max_tokens'] == 64
         call('setRequestSettings', settings={'maxOutputTokens': 128, 'timeoutSeconds': 30})
         start(2, session, 'Continue working on the previous task.', first)
         assert 'error' not in done(2)
@@ -169,6 +172,17 @@ try:
         assert complete['metadata']['agent']['tools'][0]['name'] == 'read_text_file'
         assert before == [(folder / f'part-{i}.txt').read_bytes() for i in range(3)] and (not (folder / 'part-3.txt').exists())
         state_file.write_text(json.dumps({'session': session, 'latest': latest, 'saved': saved, 'work': work}))
+        call('setRequestSettings', settings={'maxOutputTokens': None, 'timeoutSeconds': 30})
+        automatic = call('createSession', kind='side')['session']['id']
+        previous_requests = len(requests)
+        start(90, automatic, 'output')
+        assert 'error' not in done(90)
+        recovered = messages(automatic)[-1]
+        assert recovered['content'] == 'Complete synthetic result.'
+        assert 'paused' not in recovered['metadata']
+        assert recovered['metadata']['agent']['modelCalls'] == 2
+        assert any(step['text'] == 'Saved partial 世界' for step in recovered['metadata']['agent']['steps'])
+        assert len(requests) == previous_requests + 2
     else:
         state = json.loads(state_file.read_text())
         session = state['session']

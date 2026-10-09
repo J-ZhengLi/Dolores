@@ -3772,3 +3772,76 @@ a denied receipt; the final response acknowledged the denial, claimed no file
 contents and offered a user-requested retry or alternate sharing. No tool
 executed and no automatic retry occurred (two calls, 6,728/6,804 tokens). The
 earlier Qwen limitation remains recorded separately.
+
+### Windows CI — MCP inspection timeouts under CPU contention (2026-10-09)
+
+Both reported bridge MCP tests passed in isolation (3 tests, 7.62 seconds),
+but twelve copies restricted to the same single CPU reproduced both exact
+30-second inspection failures in every copy. Inspection fingerprints the real
+91,694,408-byte Node executable before and after contacting the fixture server;
+unoptimized SHA-256 made this CPU work sensitive to concurrent tests.
+
+The test profile now optimizes only the `sha2` dependency. Application code
+retains debug checks, and the production 30-second deadline, cancellation,
+fingerprint comparisons and fixture subprocesses are unchanged. The same twelve
+copies passed after the change (36 tests; 24.79 seconds overall, with another
+build running concurrently). The isolated group passed in 0.76 seconds.
+This reproduces and resolves the failure locally; a hosted Actions rerun is
+still needed to establish the result on GitHub's runner.
+`cargo test --workspace --locked` passed, including all 165 enabled bridge tests
+and 11 MCP adapter tests (cancellation/deadline and malformed-server recovery
+included). The optional live companionship bridge test remains ignored.
+
+### Background first-user audit — scheduled Stop recovery (2026-10-09)
+
+The scheduled owner restored its prior empty draft correctly, but used ordinary
+chat recovery text claiming a draft had been restored. The frontend now reports
+“Scheduled task stopped” and directs an explicit rerun through Scheduled. A
+subsequent ordinary request on the same controller still restores its own draft;
+no automatic retry or scheduler prompt is inserted into the composer.
+
+The new regression failed on the original wording. The repaired flow passes
+33 focused scheduling/owner/recovery widget tests, analysis of `lib` and `test`,
+and the normal desktop build performed before the interrupted native retest.
+Six Stop tests cover 390/1127 px, both themes, and ordinary agent/side-chat
+recovery. Saved fixture renders were inspected with readable Windows fonts;
+the affected message wraps without clipping and the empty composer remains
+usable. These are widget renders, not normal-window screenshots. S08's final
+native message inspection remains pending until the user makes the computer
+available. No computer-use input was issued during this background audit.
+
+### Background first-user audit — regression fixtures and live memory (2026-10-09)
+
+The existing normal Windows bundle passed all eight regression save/restore
+pairs (16 stages, no provider credentials or live requests). This does not claim
+a new build, native input qualification or completion of pending checklist items.
+Four stale fixtures were repaired: manual continuation now sets an explicit
+output cap and separately verifies two-call default recovery with retained
+partial text; generation profiles read `agent.usageByCall` and preserve an
+unreported total; tiny-context memory testing checks foreground refusal with no
+HTTP request/turn, a retained draft and successful explicit retry after capacity
+is increased; skill tests allow exactly the two scheduling tools on the human
+turn while drafting/evaluation requests must remain tool-free. Existing timeout,
+denial, cancellation, malformed evidence and frozen-promotion checks still pass.
+
+Live qualification scripts now read current per-call usage when legacy turn
+usage is absent, without double-counting or inventing missing fields.
+Eight offline checks of both scripts' actual reporting functions passed for
+legacy, per-call, mixed and absent usage (including unknown totals).
+Ten earlier public memory turns reported 41,284 input and 1,326 output tokens (42,610 total);
+their saved metadata supplied the missing initial report totals without further
+requests. Image maintenance reported 421 tokens separately. Automatic capture,
+fresh-chat recall, project correction/isolation and synthetic image recall passed
+in those bounded cases. DeepSeek sometimes requested manual memory changes
+despite successful automatic capture, and some replies reached the deliberately
+small output cap. These model limitations remain recorded, not product passes.
+
+At the user's request, the audit now selects configured `qwen3.7-flash` first,
+with DeepSeek available when a demonstrated limitation warrants fallback. A
+three-turn background check on a configuration-only isolated profile passed:
+Memory Off did not invent the codename, enabling memory captured the supplied
+fact without an extraction model call, and a new chat returned it exactly.
+All three replies completed within the 512-token/20-second request bounds;
+reported totals were 7,478 tokens. Only public synthetic prompts were sent.
+No native UI action, app restart, original-profile write or credential-vault
+change was performed. Native settings/inspection/forgetting checks remain pending.

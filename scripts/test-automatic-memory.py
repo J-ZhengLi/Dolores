@@ -73,11 +73,14 @@ class Fixture(BaseHTTPRequestHandler):
         try: self.wfile.write(("".join("data: "+json.dumps(v)+"\n\n" for v in events)+"data: [DONE]\n\n").encode())
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError): pass
 
-def done(number, stop_learning=False):
+def done(number, stop_learning=False, expected_recovery=None):
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         for event in call("poll", id=number):
             if event["type"] == "done":
+                if expected_recovery:
+                    assert event.get("error") and event["recovery"]["kind"] == expected_recovery, event
+                    return event
                 assert not event.get("error"), event
                 if (event.get("memoryUpdate") or {}).get("status") == "queued":
                     if stop_learning:
@@ -164,15 +167,23 @@ if args.stage == "save":
         assert run(18,side,"I prefer clear examples with assumptions labeled.")["memoryUpdate"]["status"]=="failed"
         assert items(side)==[]
         mode="valid"
-        # Lower context capacity refuses extraction without making the extra request.
+        # Human turns now include scheduling schemas. A tiny context refuses the
+        # foreground request first; retain its draft and recover explicitly.
         call("configure",preferences={"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"},apiKey="",rememberConnection=True,modelContexts={"fixture":1024})
         bounded=call("createSession",kind="side")["session"]["id"]
         capacity=call("saveMemory",scope="all",title="Capacity fixture",text="x"*1024,enabled=False)
         before=len(requests)
-        assert run(19,bounded,"I prefer concise replies with assumptions labeled.")["memoryUpdate"]["status"]=="failed"
-        assert len(requests)==before+1
+        prompt="I prefer concise replies with assumptions labeled."
+        call("start",id=19,session=bounded,input=prompt)
+        done(19,expected_recovery="contextLimit")
+        assert len(requests)==before and call("messagesPage",session=bounded)["items"]==[]
+        assert call("savedDraft",session=bounded)==prompt
         call("deleteMemory",scope="all",id=capacity["id"],revision=1)
         call("configure",preferences={"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"},apiKey="",rememberConnection=True,modelContexts={"fixture":131072})
+        assert run(191,bounded,prompt)["memoryUpdate"]["saved"]==1
+        assert len(requests)==before+2 and len(call("messagesPage",session=bounded)["items"])==2
+        recovered=items(bounded)[0]
+        call("deleteMemory",scope="all",id=recovered["id"],revision=recovered["revision"])
         for number,bad in enumerate(["oversized","denied"],20):
             mode=bad; result=run(number,side,"I prefer clear examples with assumptions labeled.")
             assert result["memoryUpdate"]["status"]=="failed" and items(side)==[]
