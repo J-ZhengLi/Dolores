@@ -24,7 +24,7 @@ announce availability for native UI testing; S08 stays unchecked here.
 
 Act as an experienced developer discovering Dolores through its visible controls.
 Use disposable public projects and an isolated configuration-only profile; keep
-personal conversations, working projects and provider settings unchanged. Use
+personal conversations, working projects and provider settings unchanged.
 Use the configured `qwen3.7-flash` first, then DeepSeek V4.1 Flash when a task
 demonstrates a model limitation (updated October 9 at the user's request).
 Earlier results retain the model actually used; this change does not retest them.
@@ -44,6 +44,20 @@ Each completed fix is a scoped commit with focused regression coverage. This fil
 tracks the audit; product design stays in the feature specifications.
 
 ### Background checkpoint — October 9
+
+The urgent cross-project task blocker is repaired in an isolated normal-entry
+candidate: agent/skill guidance explains the existing command route for outside
+evidence. Chat access now saves Review / Auto edit / Full access immediately,
+without a duration or acknowledgement form. Seven widget checks and the native
+host permission fixture pass, including stale-save recovery, revocation and
+other-chat isolation; saved renders were inspected. No desktop input was used.
+A public report task failed with `qwen3.7-flash` after repeated invalid command
+arguments (eight calls, 53,284 tokens). DeepSeek completed the same case and
+verified its output (five calls, 36,118 tokens); source evidence was unchanged.
+Full access survived process reopen without expiry on both isolated profiles.
+The current running app remains untouched. Native mode selection and the
+original task retry are pending; these results do not add native checkmarks.
+Details and limitations are recorded in [Acceptance](../ACCEPTANCE.md).
 
 No native input or window switching was used. The existing normal Windows bundle
 passed all eight regression pairs (16 save/restore stages). Four fixtures needed

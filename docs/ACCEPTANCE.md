@@ -3845,3 +3845,58 @@ All three replies completed within the 512-token/20-second request bounds;
 reported totals were 7,478 tokens. Only public synthetic prompts were sent.
 No native UI action, app restart, original-profile write or credential-vault
 change was performed. Native settings/inspection/forgetting checks remain pending.
+
+### Cross-project task blocker and immediate access modes (2026-10-09)
+
+The supplied exported conversation shows local discovery/read receipts followed
+by a claimed outside-folder restriction, with no attempted command and no
+access-denied receipt. The actual command adapter already permits literal
+absolute arguments with account-level access. New command-specific context
+describes that route only when `run_command` is advertised, and skill guidance
+no longer declares all outside resources unavailable. Missing locations, genuine
+OS denials, host reviews and ambiguous task intervals remain distinct concerns.
+The private transcript was inspected locally and is not included in fixtures.
+
+The composer now offers an immediate Review / Auto edit / Full access menu;
+Settings uses the same presets. Choices persist for the current chat with no
+expiry. Existing custom grants remain unchanged until an explicit replacement,
+and are identified as custom. Review remains available during work to revoke
+automatic access; expanding access is disabled while busy. Stale saves retain
+the saved mode and require explicit refresh/reselection. No global grant
+inheritance or change to OS/file/tool boundaries was added.
+
+The new direct-selection widget and command-guidance tests failed before the
+fix. Seven permission widgets pass, including reopening, compact/light/dark,
+custom-grant preservation, busy revocation and stale-save recovery. Eight shared
+settings-help checks and four saved-render cases also pass; inspected renders
+show concise mode rows with hover hints and no duration/acknowledgement/Save
+controls. Static analysis is clean. All 81 core unit tests, seven core memory
+integration tests and 13 command tests pass, including an actual sibling-file
+read through Node with Unicode paths and unchanged source bytes.
+
+An isolated normal-entry Windows build passed through the standard desktop
+build entry point. Its runtime source matches the working tree; the running
+app and original profile were left intact. The candidate's native-host fixture
+passes per-operation Review, automatic covered access, budget preservation,
+revocation before dispatch, stale-save refusal and other-chat isolation. That
+fixture now explicitly sets its three-tool budget rather than assuming an old
+product default; the previous implicit-default check requested 63 reads.
+
+Two bounded public cross-project report cases used configuration-only isolated
+profiles, with Memory Off and an eight-model-call limit. `qwen3.7-flash` attempted
+commands but repeatedly supplied invalid arguments; it retained a helper script
+and paused without creating a report (eight calls, 53,284 reported tokens).
+Blocked arguments were not retained in run events, so their precise malformed
+shape is not established. This is a failed model case, not a successful report.
+DeepSeek V4.1 Flash completed the same task in five calls (36,118 tokens): a
+successful command read sibling evidence, a file creation wrote all three
+expected identifiers, and a fresh read verified the report. Evidence bytes
+remained unchanged and Full access needed no approval prompts. Its final prose
+loosely described host review despite automatic access; the actual receipts
+establish what ran. Both profiles retained Full access without expiry across a
+separate process reopen, with no extra model request.
+
+Candidate handoff and the original task's native retry remain pending while UI
+work is paused at the user's request. Background model/widget checks do not
+establish that the currently running binary has the fix or that Qwen reliably
+completes cross-project work.

@@ -589,6 +589,26 @@ async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_mode
 }
 
 #[test]
+fn advertised_commands_explain_cross_folder_access_without_claiming_denial() {
+    let context = crate::preview_context(vec![], "Read the sibling project report.").unwrap();
+    let prepared = prepare_external_tool_context(
+        context.clone(),
+        &[ToolSpec {
+            name: "run_command".into(),
+            description: String::new(),
+            parameters: json!({}),
+        }],
+    )
+    .unwrap();
+    assert!(prepared[0].content.contains("literal absolute paths"));
+    assert!(prepared[0]
+        .content
+        .contains("Do not claim an outside path is inaccessible"));
+    let without = prepare_external_tool_context(context, &[]).unwrap();
+    assert!(!without[0].content.contains("literal absolute paths"));
+}
+
+#[test]
 fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     let context = vec![
         Message {

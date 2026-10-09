@@ -16,10 +16,12 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Chat access uses an immediate Review / Auto edit / Full access selector, remembered for the chat without a duration or extra confirmation steps.
 - Companionship frequency uses a Quiet–Chatty slider from 0 to 100 per day, with pacing that follows the selected frequency and hours.
 
 ### Fixed
 
+- Agent guidance explains how available commands can read cross-project evidence instead of incorrectly treating every external path as inaccessible.
 - Stopped scheduled tasks point back to Scheduled instead of claiming an empty chat draft was restored.
 
 - Find and Replace leave the document visible and selectable below the search bar.

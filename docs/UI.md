@@ -55,6 +55,9 @@ implementation notes, milestone summaries, test results or copies of feature spe
   the effect and next action; put supporting evidence in optional details.
 - Use progressive disclosure for sources, history, usage and technical details.
   Show the controls and current outcome before the explanation.
+- Prefer one direct choice for a setting and remember it after a successful save.
+  Avoid stacking a selector, duration, acknowledgement and Save button for one
+  preference. Keep the last saved value visible if saving fails.
 
 ## Interaction and recovery
 

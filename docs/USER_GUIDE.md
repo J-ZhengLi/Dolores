@@ -192,9 +192,9 @@ Desktop control is currently Windows-only and limited to the selected window. Th
 ## Choose tool access
 
 
-In a saved project or temporary chat, open **Settings → Tools → Chat access**. **Review every operation** is the default. **Approve within selected grants** lets you choose file/discovery actions in a relative folder prefix, an exact command, or individual reviewed external tools. **Full access for this chat** skips prompts for advertised tools, except browser clicks/input, which always need fresh review. Choose a duration and acknowledge the displayed scope before saving.
+Use the access selector beside the composer, or **Settings → Tools → Chat access**. Choose **Review**, **Auto edit** or **Full access**; the choice saves immediately and is remembered for this chat. Review asks before operations. Auto edit allows project-file changes and asks before commands or external tools. Full access skips routine tool prompts; browser input, desktop control and self-updates keep their own reviews. New chats start in Review.
 
-Grants apply to this chat. They do not enable new plugins or self-updates. File restrictions, task budgets and Stop remain active. Commands and MCP use your account's OS permissions and can affect files outside the working folder. **Revoke grants** is available during work: it stops that chat's run and invalidates pending decisions. Effects already started can remain; inspect progress before resuming. Expired grants need renewal or revocation. Other chats keep their own access settings.
+File restrictions, budgets and Stop remain active. Commands can use literal paths to access other folders with your account's permissions, so cross-project work can proceed through the selected access mode or a command review. Choose **Review** during work to revoke automatic access and stop that chat's run. Started effects can remain; inspect progress before resuming. Existing custom policies stay intact until you choose a replacement mode. Other chats keep their own settings.
 
 ## Task limits and continuing work
 

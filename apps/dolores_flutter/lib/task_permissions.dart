@@ -1,11 +1,88 @@
-import 'dart:convert';
-
-import 'settings_frame.dart';
-
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+
+const accessModes = {
+  'review': 'Review',
+  'auto': 'Auto edit',
+  'fullAccess': 'Full access',
+};
+const accessHints = {
+  'review': 'Ask before each operation.',
+  'auto': 'Edit project files; ask before commands and external tools.',
+  'fullAccess': 'Run available tools without routine approval prompts. Commands can access other folders. Browser input, desktop control and self-updates keep their own reviews.',
+};
+Map<String, dynamic> accessPolicy(String mode) => {
+  'mode': mode,
+  'expiresAt': null,
+  'grants': mode == 'auto'
+      ? [
+          for (final tool in [
+            'list_folder',
+            'search_text',
+            'read_text_file',
+            'edit_text_file',
+            'create_text_file',
+          ])
+            {
+              'tool': tool,
+              'pathPrefix': '.',
+              'command': null,
+              'mcpConnection': null,
+              'mcpRevision': null,
+            },
+        ]
+      : <Map<String, dynamic>>[],
+};
+bool customAccess(Map report) {
+  if (report['expired'] == true || report['policy']['mode'] != 'auto') {
+    return false;
+  }
+  final policy = report['policy'] as Map;
+  final grants = (policy['grants'] as List).cast<Map>();
+  final expected = (accessPolicy('auto')['grants'] as List).cast<Map>();
+  return policy['expiresAt'] != null ||
+      grants.length != expected.length ||
+      expected.any(
+        (e) =>
+            grants
+                .where(
+                  (g) =>
+                      g['tool'] == e['tool'] &&
+                      g['pathPrefix'] == '.' &&
+                      g['command'] == null &&
+                      g['mcpConnection'] == null &&
+                      g['mcpRevision'] == null,
+                )
+                .length !=
+            1,
+      );
+}
+
+Future<Map<String, dynamic>> saveAccessMode(
+  ChatController chat,
+  String session,
+  int revision,
+  String mode,
+) async {
+  if (!accessModes.containsKey(mode)) {
+    throw StateError('Choose an access mode.');
+  }
+  if (chat.busy && mode != 'review') {
+    throw StateError('Stop the task before changing access.');
+  }
+  final result = Map<String, dynamic>.from(
+    await chat.bridge.call({
+      'command': 'setTaskPermissions',
+      'session': session,
+      'revision': revision,
+      'policy': accessPolicy(mode),
+    }) as Map,
+  );
+  chat.invalidateContext();
+  return result;
+}
 
 Future<void> showTaskPermissions(BuildContext context, ChatController chat) =>
     showDialog<void>(
@@ -22,42 +99,16 @@ class TaskPermissionsInspector extends StatefulWidget {
 
 class _TaskPermissionsState extends State<TaskPermissionsInspector> {
   late final String session = widget.chat.session!;
-  final prefix = TextEditingController(text: '.'),
-      program = TextEditingController(),
-      args = TextEditingController();
-  String? baseline;
-  String get draft => jsonEncode([
-    mode,
-    expiry,
-    selected.toList()..sort(),
-    prefix.text,
-    program.text,
-    args.text,
-    command,
-  ]);
   Map<String, dynamic>? report;
-  String mode = 'review', expiry = '24';
-  final selected = <String>{};
-  final scroll = ScrollController();
-  bool pending = false, understood = false, command = false;
-  bool complexGrants = false;
-  String? error, notice;
+  bool pending = false;
+  String? error;
   @override
   void initState() {
     super.initState();
     load();
   }
 
-  @override
-  void dispose() {
-    scroll.dispose();
-    prefix.dispose();
-    program.dispose();
-    args.dispose();
-    super.dispose();
-  }
-
-  Future<void> load({bool keepDraft = false}) async {
+  Future<void> load() async {
     setState(() => pending = true);
     try {
       final value = Map<String, dynamic>.from(
@@ -66,118 +117,35 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
           'session': session,
         }) as Map,
       );
-      if (!mounted) return;
-      setState(() {
-        report = value;
-        final savedGrants = (value['policy']['grants'] as List).cast<Map>();
-        complexGrants =
-            savedGrants.where((g) => g['tool'] == 'run_command').length > 1 ||
-            savedGrants
-                    .where((g) => g['pathPrefix'] != null)
-                    .map((g) => g['pathPrefix'])
-                    .toSet()
-                    .length >
-                1 ||
-            savedGrants.map((g) => g['tool']).toSet().length !=
-                savedGrants.length;
-        understood = false;
-        error = null;
-        if (!keepDraft) {
-          final policy = value['policy'] as Map;
-          mode = policy['mode'] as String;
-          selected.clear();
-          command = false;
-          for (final raw in policy['grants'] as List) {
-            final grant = raw as Map;
-            if (grant['tool'] == 'run_command') {
-              command = true;
-              program.text = grant['command']['program'] as String;
-              args.text = (grant['command']['args'] as List).join('\n');
-            } else {
-              selected.add(grant['tool'] as String);
-              if (grant['pathPrefix'] != null) {
-                prefix.text = grant['pathPrefix'] as String;
-              }
-            }
-          }
-        }
-      });
-      if (!keepDraft) baseline = draft;
+      if (mounted) {
+        setState(() {
+          report = value;
+          error = null;
+        });
+      }
     } catch (failure) {
-      if (mounted) setState(() => error = failure.toString());
-      if (scroll.hasClients) scroll.jumpTo(0);
+      if (mounted) setState(() => error = '$failure');
     } finally {
       if (mounted) setState(() => pending = false);
     }
   }
 
-  Future<void> save({bool revoke = false}) async {
-    if (!revoke && mode == 'auto' && complexGrants) return;
-    final grants = <Map<String, dynamic>>[];
-    if (!revoke && mode == 'auto') {
-      for (final tool in selected) {
-        final matches = (report?['mcpTools'] as List? ?? []).where(
-          (m) => m['alias'] == tool,
-        );
-        final mcp = matches.isEmpty ? null : matches.first;
-        grants.add({
-          'tool': tool,
-          'pathPrefix': tool == 'inspect_harness' || mcp != null
-              ? null
-              : prefix.text.trim(),
-          'command': null,
-          'mcpConnection': mcp?['connectionId'],
-          'mcpRevision': mcp?['revision'],
-        });
-      }
-      if (command) {
-        grants.add({
-          'tool': 'run_command',
-          'pathPrefix': null,
-          'command': {
-            'program': program.text.trim(),
-            'args': args.text.isEmpty ? <String>[] : args.text.split('\n'),
-          },
-          'mcpConnection': null,
-          'mcpRevision': null,
-        });
-      }
-    }
+  Future<void> select(String mode) async {
+    if (pending || report == null) return;
     setState(() {
       pending = true;
       error = null;
-      notice = null;
     });
     try {
-      final result = await widget.chat.bridge.call({
-        'command': 'setTaskPermissions',
-        'session': session,
-        'revision': report!['revision'],
-        'policy': {
-          'mode': revoke ? 'review' : mode,
-          'grants': grants,
-          'expiresAt': revoke || mode == 'review' || expiry == 'none'
-              ? null
-              : DateTime.now().millisecondsSinceEpoch ~/ 1000 +
-                    int.parse(expiry) * 3600,
-        },
-      });
-      if (mounted) {
-        setState(() {
-          report = Map<String, dynamic>.from(result as Map);
-          mode = revoke ? 'review' : mode;
-          if (revoke) complexGrants = false;
-          understood = false;
-          notice = revoke
-              ? 'Grants revoked. Active work is stopping; inspect effects already started.'
-              : 'Task access saved for this chat.';
-        });
-      }
-      baseline = draft;
-      widget.chat.invalidateContext();
-      if (scroll.hasClients) scroll.jumpTo(0);
+      final value = await saveAccessMode(
+        widget.chat,
+        session,
+        report!['revision'] as int,
+        mode,
+      );
+      if (mounted) setState(() => report = value);
     } catch (failure) {
-      if (mounted) setState(() => error = failure.toString());
+      if (mounted) setState(() => error = '$failure');
     } finally {
       if (mounted) setState(() => pending = false);
     }
@@ -187,249 +155,75 @@ class _TaskPermissionsState extends State<TaskPermissionsInspector> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.chat,
     builder: (context, _) {
-      final busy = widget.chat.busy, locked = pending || busy;
-      reportSettingsDraft(
-        context,
-        dirty: () => baseline != null && baseline != draft,
-        save: () async {
-          if (locked || report == null || (mode != 'review' && !understood)) {
-            return false;
-          }
-          await save();
-          return baseline == draft;
-        },
-      );
+      final mode = report?['expired'] == true
+          ? 'review'
+          : report?['policy']['mode'];
+      final custom = report != null && customAccess(report!);
       return PopScope(
         canPop: !pending,
         child: InspectorFrame(
           title: 'Chat access',
-          subtitle: 'This chat · its saved working folder',
+          subtitle: 'Remembered for this chat',
           canClose: !pending,
           child: SizedBox(
-            width: 680,
-            height: 600,
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: scroll,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (error != null) SelectableText(error!),
-                          if (notice != null) SelectableText(notice!),
-                          if (complexGrants)
-                            const Text(
-                              'These saved grants contain multiple scopes or commands. Revoke them before replacing them with this simple form; their existing boundaries remain unchanged.',
-                            ),
-                          if (report != null) ...[
-                            Text(
-                              'Saved: ${report!['expired'] == true ? 'Review (expired)' : report!['policy']['mode']} · this chat',
-                            ),
-                            const SizedBox(height: 8),
-                            if (report!['expired'] == true)
-                              const Text(
-                                'The saved grant expired. Renew it or revoke it before tool use.',
-                              ),
-                            DropdownButtonFormField<String>(
-                              key: ValueKey('mode-$mode'),
-                              initialValue: mode,
-                              decoration: const InputDecoration(
-                                labelText: 'Tool access',
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'review',
-                                  child: Text('Review every operation'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'auto',
-                                  child: Text('Approve within selected grants'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'fullAccess',
-                                  child: Text('Full access for this chat'),
-                                ),
-                              ],
-                              onChanged: locked
-                                  ? null
-                                  : (v) => setState(() {
-                                      mode = v!;
-                                      understood = false;
-                                    }),
-                            ),
-                            if (mode != 'review')
-                              DropdownButtonFormField<String>(
-                                initialValue: expiry,
-                                decoration: const InputDecoration(
-                                  labelText: 'Duration renewed on Save',
-                                ),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: '1',
-                                    child: Text('One hour'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: '24',
-                                    child: Text('24 hours'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'none',
-                                    child: Text('Until revoked'),
-                                  ),
-                                ],
-                                onChanged: locked
-                                    ? null
-                                    : (v) => setState(() => expiry = v!),
-                              ),
-                            if (mode == 'auto') ...[
-                              TextField(
-                                controller: prefix,
-                                enabled: !locked,
-                                decoration: const InputDecoration(
-                                  labelText: 'Relative folder/file prefix',
-                                  helperText: '. covers permitted file paths in this folder.',
-                                ),
-                              ),
-                              for (final tool in {
-                                'list_folder': 'List folders',
-                                'search_text': 'Search text',
-                                'read_text_file': 'Read text files',
-                                'edit_text_file': 'Edit existing files',
-                                'create_text_file': 'Create files',
-                                'inspect_harness':
-                                    'Inspect Dolores source and capabilities',
-                              }.entries)
-                                CheckboxListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(tool.value),
-                                  value: selected.contains(tool.key),
-                                  onChanged: locked
-                                      ? null
-                                      : (v) => setState(
-                                          () => v!
-                                              ? selected.add(tool.key)
-                                              : selected.remove(tool.key),
-                                        ),
-                                ),
-                              CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Run this exact command'),
-                                value: command,
-                                onChanged: locked
-                                    ? null
-                                    : (v) => setState(() => command = v!),
-                              ),
-                              if (command) ...[
-                                TextField(
-                                  controller: program,
-                                  enabled: !locked,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Executable',
-                                  ),
-                                ),
-                                TextField(
-                                  controller: args,
-                                  enabled: !locked,
-                                  maxLines: 3,
-                                  decoration: const InputDecoration(
-                                    labelText:
-                                        'Literal arguments (one per line)',
-                                  ),
-                                ),
-                              ],
-                              for (final mcp
-                                  in report!['mcpTools'] as List? ?? [])
-                                CheckboxListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(
-                                    '${mcp['label']} · ${mcp['tool']}',
-                                  ),
-                                  subtitle: Text(
-                                    'Reviewed revision ${mcp['revision']}',
-                                  ),
-                                  value: selected.contains(mcp['alias']),
-                                  onChanged: locked
-                                      ? null
-                                      : (v) => setState(
-                                          () => v!
-                                              ? selected.add(
-                                                  mcp['alias'] as String,
-                                                )
-                                              : selected.remove(mcp['alias']),
-                                        ),
-                                ),
-                            ],
-                            if (mode == 'fullAccess')
-                              const Text(
-                                'Advertised file, command and reviewed external tools will run without per-operation prompts. External effects may persist after Stop; this does not enable new tools or self-updates.',
-                              ),
-                            if (mode != 'review')
-                              CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  'I understand this scope and the access described above',
-                                ),
-                                value: understood,
-                                onChanged: locked
-                                    ? null
-                                    : (v) => setState(() => understood = v!),
-                              ),
-                            ExpansionTile(
-                              title: const Text('Access details'),
-                              children: [
-                                SelectableText(
-                                  '${report!['containment']}\n${report!['adaptation']}',
-                                ),
-                                SelectableText(
-                                  'Revision: ${report!['revision']} · Expires: ${report!['policy']['expiresAt'] ?? 'until revoked'}',
-                                ),
-                              ],
-                            ),
-                            if (busy)
-                              const Text(
-                                'Revoke is available during a run. Stop first to expand access.',
-                              ),
-                          ],
-                          if (pending) const LinearProgressIndicator(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
+            width: 500,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (error != null) ...[
+                      SelectableText(error!),
                       TextButton(
-                        onPressed: pending
-                            ? null
-                            : () => load(keepDraft: report != null),
+                        onPressed: pending ? null : load,
                         child: const Text('Refresh'),
                       ),
-                      TextButton(
-                        onPressed: pending || report == null
-                            ? null
-                            : () => save(revoke: true),
-                        child: const Text('Revoke grants'),
-                      ),
-                      FilledButton(
-                        onPressed:
-                            locked ||
-                                report == null ||
-                                (mode == 'auto' && complexGrants) ||
-                                (mode != 'review' && !understood)
-                            ? null
-                            : () => save(),
-                        child: const Text('Save access'),
-                      ),
                     ],
-                  ),
+                    if (report?['expired'] == true)
+                      const Text('Previous access expired. Choose a mode.'),
+                    if (custom)
+                      const Text(
+                        'Custom access is saved. Choose a mode to replace it.',
+                      ),
+                    for (final entry in accessModes.entries)
+                      ListTile(
+                        key: Key('access-mode-${entry.key}'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          !custom && mode == entry.key
+                              ? Icons.check_circle_outline
+                              : Icons.circle_outlined,
+                        ),
+                        title: Row(
+                          children: [
+                            Text(entry.value),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: accessHints[entry.key]!,
+                              triggerMode: TooltipTriggerMode.manual,
+                              child: Icon(
+                                Icons.help_outline,
+                                size: 16,
+                                semanticLabel: accessHints[entry.key],
+                              ),
+                            ),
+                          ],
+                        ),
+                        selected: !custom && mode == entry.key,
+                        enabled:
+                            !pending &&
+                            report != null &&
+                            (!widget.chat.busy || entry.key == 'review'),
+                        onTap: () => select(entry.key),
+                      ),
+                    if (widget.chat.busy)
+                      const Text('Choose Review to stop automatic access.'),
+                    if (pending) const LinearProgressIndicator(),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

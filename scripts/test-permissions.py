@@ -58,6 +58,9 @@ def worker(directory):
         session=call('createSession',kind='project',path=str(folder))['session']['id']
         other=call('createSession',kind='project',path=str(folder))['session']['id']
         side=call('createSession',kind='side')['session']['id']
+        # Exercise exactly three reads without depending on product budget defaults.
+        call('saveScopedSettings',session=session,scope='user',revision=0,
+             patch={'task':{'modelCalls':4,'toolCalls':3,'segments':4,'elapsedSeconds':120}})
         full={'mode':'fullAccess','grants':[],'expiresAt':None}
         assert not envelope('setTaskPermissions',session=side,revision=0,policy=full)['ok']
         call('start',id=1,session=session,input='review each read');done,count=finish(1)

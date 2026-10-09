@@ -12,9 +12,10 @@ class AccessSelector extends StatefulWidget {
 
 class _AccessSelectorState extends State<AccessSelector> {
   String? session;
-  String label = 'Access';
-  int generation = 0;
-  int revision = -1;
+  String mode = 'review';
+  int generation = 0, revision = -1;
+  bool pending = false;
+  bool custom = false;
   @override
   void initState() {
     super.initState();
@@ -35,7 +36,12 @@ class _AccessSelectorState extends State<AccessSelector> {
     revision = widget.chat.settingsRevision;
     session = widget.chat.session;
     if (session == null) {
-      if (mounted) setState(() => label = 'Review');
+      if (mounted) {
+        setState(() {
+          mode = 'review';
+          custom = false;
+        });
+      }
       return;
     }
     try {
@@ -43,46 +49,81 @@ class _AccessSelectorState extends State<AccessSelector> {
         'command': 'taskPermissions',
         'session': session,
       }) as Map;
-      if (!mounted || serial != generation) return;
-      final mode = report['expired'] == true
-          ? 'review'
-          : report['policy']['mode'];
-      setState(
-        () => label = switch (mode) {
-          'review' => 'Review',
-          'auto' => 'Custom',
-          'fullAccess' => 'Full access',
-          _ => 'Access',
-        },
-      );
+      if (mounted && serial == generation) {
+        setState(() {
+          mode = report['expired'] == true
+              ? 'review'
+              : report['policy']['mode'] as String;
+          custom = customAccess(report);
+        });
+      }
     } catch (_) {
-      if (mounted && serial == generation) setState(() => label = 'Access');
+      /* Keep the last confirmed mode when a refresh fails. */
+    }
+  }
+
+  Future<void> select(String choice) async {
+    if (pending) return;
+    final chat = widget.chat;
+    final selectedSession = chat.session;
+    setState(() => pending = true);
+    try {
+      await chat.prepareWindowSharing();
+      if (selectedSession != null && chat.session != selectedSession) {
+        throw StateError('Chat changed. Choose access again.');
+      }
+      final target = chat.session;
+      if (target == null) throw StateError('Choose a working chat first.');
+      final report = await chat.bridge.call({
+        'command': 'taskPermissions',
+        'session': target,
+      }) as Map;
+      await saveAccessMode(chat, target, report['revision'] as int, choice);
+      await load();
+    } catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$failure')));
+      }
+    } finally {
+      if (mounted) setState(() => pending = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
+  Widget build(BuildContext context) => PopupMenuButton<String>(
     key: const Key('chat-access'),
-    onPressed: widget.chat.busy || widget.chat.changing || widget.chat.loading
-        ? null
-        : () async {
-            try {
-              await widget.chat.prepareWindowSharing();
-              if (!context.mounted) return;
-              await showTaskPermissions(context, widget.chat);
-              await load();
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text('$e')));
-              }
-            }
-          },
-    style: TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      minimumSize: const Size(0, 36),
+    enabled: !pending && !widget.chat.changing && !widget.chat.loading,
+    tooltip: 'Chat access',
+    onSelected: select,
+    itemBuilder: (_) => [
+      for (final entry in accessModes.entries)
+        PopupMenuItem(
+          value: entry.key,
+          enabled: !widget.chat.busy || entry.key == 'review',
+          child: Row(
+            children: [
+              Icon(!custom && mode == entry.key ? Icons.check : null, size: 16),
+              const SizedBox(width: 8),
+              Text(entry.value),
+            ],
+          ),
+        ),
+    ],
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.shield_outlined, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            custom ? 'Custom access' : accessModes[mode] ?? 'Access',
+            style: const TextStyle(fontSize: 12),
+          ),
+          const Icon(Icons.expand_more, size: 14),
+        ],
+      ),
     ),
-    icon: const Icon(Icons.shield_outlined, size: 14),
-    label: Text(label, style: const TextStyle(fontSize: 12)),
   );
 }

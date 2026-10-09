@@ -17,6 +17,33 @@ async fn invoke(tool: &RunCommand, script: &str) -> serde_json::Value {
     .unwrap()
 }
 #[tokio::test]
+async fn literal_absolute_argument_reads_sibling_evidence_without_changing_cwd() {
+    let root = tempfile::tempdir().unwrap();
+    let sibling = tempfile::tempdir().unwrap();
+    let file = sibling.path().join("evidence 世界.txt");
+    std::fs::write(&file, "PUBLIC-CROSS-PROJECT-73").unwrap();
+    let tool = RunCommand::new(root.path()).unwrap();
+    let request = tool.prepare(&ToolCall {
+        arguments: json!({"program":"node","args":["-e","process.stdout.write(require('node:fs').readFileSync(process.argv[1],'utf8'));",file.to_str().unwrap()]}).to_string(),
+        ..call("")
+    }).unwrap();
+    let result: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["exitCode"], 0);
+    assert_eq!(result["stdout"], "PUBLIC-CROSS-PROJECT-73");
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "PUBLIC-CROSS-PROJECT-73"
+    );
+    assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+}
+
+#[tokio::test]
 async fn node_runs_relative_script_from_a_unicode_folder_with_spaces() {
     let dir = tempfile::tempdir().unwrap();
     let folder = dir.path().join("project 世界 with spaces");
