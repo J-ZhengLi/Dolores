@@ -365,6 +365,9 @@ impl Engine {
         } else {
             vec![]
         };
+        if session.is_some() {
+            tools.push(crate::questions::spec());
+        }
         if working {
             tools.push(dolores_tools_command::command_spec());
             tools.push(spec());
@@ -388,7 +391,7 @@ impl Engine {
                 tools.extend(c.specs());
             }
         }
-        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if tool.name == "inspect_harness" { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if matches!(tool.name.as_str(), "web_search" | "read_web_page") { "web adapter; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
+        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if matches!(tool.name.as_str(), "inspect_harness" | "request_user_input") { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if matches!(tool.name.as_str(), "web_search" | "read_web_page") { "web adapter; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
         let sources: Vec<_> = ALIASES
             .iter()
             .map(|(key, path)| {
@@ -403,7 +406,7 @@ impl Engine {
                 .image_models(&preferences.base_url)?
                 .contains(&preferences.model);
         let recent = self.recent_harness_failures(session)?;
-        let mut inventory = json!({"version":env!("CARGO_PKG_VERSION"),"revision":env!("DOLORES_BUILD_REVISION"),"sourceIdentity":"bundled file identities; revision may include local source changes","workspace":workspace.map(|w| w.kind),"configured":configured,"model":preferences.model,"modelCapabilities":{"input":if images {vec!["text","image"]} else {vec!["text"]},"tools":"adapter supports function calls; selected model support not established","images":if images {"image input configured; comprehension not established"} else {"disabled; enable a capable model in Model connection"}},"attachments":{"formats":["text/plain","image/png","image/jpeg"],"draftFiles":dolores_core::MAX_DRAFT_ATTACHMENTS,"textBytes":dolores_core::MAX_TEXT_ATTACHMENT_BYTES,"imageBytes":dolores_core::MAX_IMAGE_ATTACHMENT_BYTES,"storeBytes":dolores_core::MAX_ATTACHMENT_STORE_BYTES},"approval":format!("{:?}",effective.permissions.mode),"containment":"file tools use folder capabilities; commands/MCP have user-account permissions","selfUpdate":"not available","contextWindowTokens":capacity.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),"contextOrigin":if capacity.is_some(){"model override"}else{"128K default"},"effectiveSettings":effective,"requestSettings":effective.request,"automaticCheckpoints":{"modelCalls":effective.task.model_limit(),"toolOperations":effective.task.tool_limit(),"repeatedFailures":2,"consecutiveFailures":6},"limits":{"modelCalls":effective.task.model_calls,"toolOperations":effective.task.tool_calls,"taskSegments":effective.task.segments,"taskDeadlineSeconds":effective.task.elapsed_seconds,"inputBytes":dolores_core::MAX_INPUT_BYTES,"contextBytes":dolores_core::MAX_CONTEXT_BYTES,"maxSourceLines":2048},"extensionApi":dolores_core::HOST_EXTENSION_API,"extensions":registry.entries,"hookOrder":registry.order,"adapters":[self.store.descriptor(),connection.descriptor(),self.mcp_credentials.descriptor()],"tools":catalog,"unavailableReason":if working {""}else{"No working folder. Start a project or temporary working session for tool use."},"sources":sources});
+        let mut inventory = json!({"version":env!("CARGO_PKG_VERSION"),"revision":env!("DOLORES_BUILD_REVISION"),"sourceIdentity":"bundled file identities; revision may include local source changes","workspace":workspace.map(|w| w.kind),"configured":configured,"model":preferences.model,"modelCapabilities":{"input":if images {vec!["text","image"]} else {vec!["text"]},"tools":"adapter supports function calls; selected model support not established","images":if images {"image input configured; comprehension not established"} else {"disabled; enable a capable model in Model connection"}},"attachments":{"formats":["text/plain","image/png","image/jpeg"],"draftFiles":dolores_core::MAX_DRAFT_ATTACHMENTS,"textBytes":dolores_core::MAX_TEXT_ATTACHMENT_BYTES,"imageBytes":dolores_core::MAX_IMAGE_ATTACHMENT_BYTES,"storeBytes":dolores_core::MAX_ATTACHMENT_STORE_BYTES},"approval":format!("{:?}",effective.permissions.mode),"containment":"file tools use folder capabilities; commands/MCP have user-account permissions","selfUpdate":"not available","contextWindowTokens":capacity.unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),"contextOrigin":if capacity.is_some(){"model override"}else{"128K default"},"effectiveSettings":effective,"requestSettings":effective.request,"automaticCheckpoints":{"modelCalls":effective.task.model_limit(),"toolOperations":effective.task.tool_limit(),"repeatedFailures":2,"consecutiveFailures":6},"limits":{"modelCalls":effective.task.model_calls,"toolOperations":effective.task.tool_calls,"taskSegments":effective.task.segments,"taskDeadlineSeconds":effective.task.elapsed_seconds,"inputBytes":dolores_core::MAX_INPUT_BYTES,"contextBytes":dolores_core::MAX_CONTEXT_BYTES,"maxSourceLines":2048},"extensionApi":dolores_core::HOST_EXTENSION_API,"extensions":registry.entries,"hookOrder":registry.order,"adapters":[self.store.descriptor(),connection.descriptor(),self.mcp_credentials.descriptor()],"tools":catalog,"unavailableReason":if working {""}else{"File tools need a project or temporary working folder."},"sources":sources});
         inventory["sourceBundle"] = bundle::summary();
         #[cfg(windows)]
         {
@@ -648,7 +651,8 @@ mod tests {
             })
             .unwrap();
         assert_eq!(value["configured"], false);
-        assert!(value["tools"].as_array().unwrap().is_empty());
+        assert_eq!(value["tools"].as_array().unwrap().len(), 1);
+        assert_eq!(value["tools"][0]["id"], "request_user_input");
         assert_eq!(value["contextWindowTokens"], 131072);
         assert!(!value.to_string().contains("apiKey"));
     }

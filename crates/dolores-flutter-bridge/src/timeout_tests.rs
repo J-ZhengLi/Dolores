@@ -141,7 +141,7 @@ async fn slow_review_outlives_response_timeout_without_losing_the_file_or_turn()
         .take()
         .unwrap()
         .reply
-        .send(true)
+        .approve(true)
         .unwrap();
     assert_eq!(run.await.unwrap().unwrap(), "File created.");
     assert_eq!(

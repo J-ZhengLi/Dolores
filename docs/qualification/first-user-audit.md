@@ -10,11 +10,11 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 Computer-use audit is paused again from October 10 at the user's request until
 further notice. User-message Markdown was verified separately with deterministic
-widget tests and saved renders; it adds no native checklist pass. The existing
-50/128 status and remaining native gaps below are unchanged.
+widget tests and saved renders; it adds no native checklist pass. **50/129 checked**;
+the new structured-question check remains pending native UX testing.
 
 Latest checkpoint (2026-10-09): native testing resumed after the user made the
-computer available. **50/128 checked**. C06, C07, P10, P11 and S08 gained passes
+computer available. **50/128 checked at that checkpoint**. C06, C07, P10, P11 and S08 gained passes
 on the isolated normal-entry candidate at `32fdbe6`. Keyboard coverage uses
 Right-Control; Left-Control injection remains inconsistent and unqualified.
 C10's keyboard resize and P13's native access changes remain partial.
@@ -165,6 +165,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
 - [x] C15 Record Worked/Needs work feedback and inspect the retained note.
 - [ ] C16 Delete only a disposable conversation; verify its working files are retained.
+- [ ] C17 Answer agent questions through clickable choices or custom text; Back retains answers, failed send allows retry, and the agent continues after submission. Background fixtures, Qwen English/Chinese custom-date round trips and saved renders pass; native UX remains paused.
 
 ## 2. Everyday agent work and recovery
 

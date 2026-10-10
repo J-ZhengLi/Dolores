@@ -200,6 +200,56 @@ class ChatController extends ChangeNotifier {
   }
 
   Map<String, dynamic>? toolApproval;
+  Map<String, dynamic>? userQuestion;
+  List<String> questionAnswers = [];
+  int questionIndex = 0;
+  String? questionError;
+  bool answeringQuestion = false;
+  void setQuestionAnswer(int index, String value) {
+    if (userQuestion == null || answeringQuestion || stopping) return;
+    questionAnswers[index] = value;
+    questionError = null;
+    _notify();
+  }
+
+  void showQuestion(int index) {
+    questionIndex = index;
+    _notify();
+  }
+
+  Future<void> answerQuestion() async {
+    final request = userQuestion;
+    if (!busy ||
+        stopping ||
+        answeringQuestion ||
+        request == null ||
+        questionAnswers.any((a) => a.trim().isEmpty)) {
+      return;
+    }
+    answeringQuestion = true;
+    questionError = null;
+    _notify();
+    try {
+      await bridge.call({
+        'command': 'answerQuestion',
+        'id': _run,
+        'callId': request['callId'],
+        'answers': List.of(questionAnswers),
+      });
+      if (!_disposed && identical(userQuestion, request)) {
+        userQuestion = null;
+        _record('Answer sent');
+      }
+    } catch (e) {
+      if (!_disposed && identical(userQuestion, request)) {
+        questionError = 'Could not send your answer. Try again. ($e)';
+      }
+    } finally {
+      answeringQuestion = false;
+      _notify();
+    }
+  }
+
   final toolRecords = <Map<String, dynamic>>[];
   final subagents = <Map<String, dynamic>>[];
   final modelTexts = <Map<String, dynamic>>[];
@@ -210,7 +260,9 @@ class ChatController extends ChangeNotifier {
   String modelPhase = 'waiting';
   int modelElapsedSeconds = 0;
   int modelTimeoutSeconds = 0;
-  String get modelActivityLabel => toolApproval != null
+  String get modelActivityLabel => userQuestion != null
+      ? 'Waiting for your answer'
+      : toolApproval != null
       ? 'Waiting for your review'
       : !modelActive && workspaceRoot != null
       ? 'Working…'
@@ -255,6 +307,7 @@ class ChatController extends ChangeNotifier {
       });
       if (!_disposed && identical(toolApproval, request)) {
         toolApproval = null;
+        userQuestion = null;
         _record(allow ? 'Tool allowed' : 'Tool denied');
       }
     } catch (_) {
@@ -850,6 +903,7 @@ class ChatController extends ChangeNotifier {
     subagents.clear();
     modelTexts.clear();
     toolApproval = null;
+    userQuestion = null;
     contextSummary = null;
     contextBasis = null;
     messages = [];
@@ -867,6 +921,7 @@ class ChatController extends ChangeNotifier {
       subagents.clear();
       modelTexts.clear();
       toolApproval = null;
+      userQuestion = null;
     }
     if (busy || changing) return;
     _rememberView();
@@ -938,6 +993,7 @@ class ChatController extends ChangeNotifier {
       subagents.clear();
       modelTexts.clear();
       toolApproval = null;
+      userQuestion = null;
       _setMessages(history);
       attachments = restoredAttachments;
       contextSummary = null;
@@ -1167,6 +1223,7 @@ class ChatController extends ChangeNotifier {
     subagents.clear();
     modelTexts.clear();
     toolApproval = null;
+    userQuestion = null;
     modelStep = 0;
     modelThinking.clear();
     modelActive = false;
@@ -1237,7 +1294,9 @@ class ChatController extends ChangeNotifier {
     if (!_disposed && busy && id == _run) {
       // Bounded active polling only; zero idle timers.
       _timer = Timer(
-        Duration(milliseconds: toolApproval == null ? 25 : 200),
+        Duration(
+          milliseconds: toolApproval == null && userQuestion == null ? 25 : 200,
+        ),
         () => _poll(id),
       );
     }
@@ -1344,8 +1403,23 @@ class ChatController extends ChangeNotifier {
               toolApproval = (event['request'] as Map).cast<String, dynamic>();
               _record('Tool requested');
             }
+          case 'userQuestion':
+            if (!stopping) {
+              final request = (event['request'] as Map).cast<String, dynamic>();
+              if (userQuestion?['callId'] != request['callId']) {
+                userQuestion = request;
+                questionAnswers = List.filled(
+                  (request['questions'] as List).length,
+                  '',
+                );
+                questionIndex = 0;
+                questionError = null;
+              }
+              _record('Waiting for your answer');
+            }
           case 'toolResult':
             toolApproval = null;
+            userQuestion = null;
             if (toolRecords.length < 4) {
               toolRecords.add((event['record'] as Map).cast<String, dynamic>());
             }
@@ -1366,6 +1440,7 @@ class ChatController extends ChangeNotifier {
               }
             }
             toolApproval = null;
+            userQuestion = null;
             changing = true;
             if (event['error'] != null) {
               _failed(
@@ -1442,6 +1517,7 @@ class ChatController extends ChangeNotifier {
       };
     }
     toolApproval = null;
+    userQuestion = null;
     // Keep already delivered public text available to inspect/copy. It is not
     // a saved exchange and must never become the next request's history.
     if (!_terminal && partial.isNotEmpty) {

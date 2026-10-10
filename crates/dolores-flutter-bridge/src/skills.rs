@@ -658,7 +658,11 @@ mod tests {
                 .iter()
                 .map(|tool| tool["name"].as_str().unwrap())
                 .collect::<Vec<_>>(),
-            ["schedule_task", "manage_scheduled_task"]
+            [
+                "request_user_input",
+                "schedule_task",
+                "manage_scheduled_task"
+            ]
         );
         assert!(!context["messages"][0]["content"]
             .as_str()

@@ -11,6 +11,7 @@ import 'bridge.dart';
 import 'browser_settings.dart';
 
 String toolLabel(dynamic name) => switch (name) {
+  'request_user_input' => 'Your answer',
   'schedule_task' => 'Scheduled task',
   'manage_scheduled_task' => 'Task change',
   String value when value.startsWith('mcp_tool_') => 'External tool',
@@ -100,6 +101,11 @@ String toolResultText(dynamic record) {
   }
   try {
     final result = jsonDecode(content) as Map;
+    if (record['name'] == 'request_user_input') {
+      return (result['answers'] as List)
+          .map((a) => '${a['question']}\n${a['answer']}')
+          .join('\n\n');
+    }
     if (record['name'] == 'test_harness_repair') {
       final trial = result['evaluation'] as Map? ?? result;
       String counts(String key) {

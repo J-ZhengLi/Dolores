@@ -17,6 +17,7 @@ import 'usage_details.dart';
 import 'task_feedback.dart';
 import 'inspector.dart';
 import 'tool_activity.dart';
+import 'user_question.dart';
 import 'subagents.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
@@ -646,6 +647,11 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
       if (chat.toolApproval != null) ToolApprovalCard(chat: chat),
+      if (chat.userQuestion != null)
+        UserQuestionCard(
+          key: ValueKey(chat.userQuestion!['callId']),
+          chat: chat,
+        ),
       if (chat.connectionWarning != null)
         Container(
           key: const Key('connection-warning'),

@@ -8,7 +8,24 @@ use tokio_util::sync::CancellationToken;
 
 pub struct PendingApproval {
     pub call_id: String,
-    pub reply: oneshot::Sender<bool>,
+    pub reply: PendingReply,
+}
+pub enum PendingReply {
+    Tool(oneshot::Sender<bool>),
+    Question {
+        questions: crate::questions::QuestionRequest,
+        reply: oneshot::Sender<Vec<String>>,
+    },
+}
+impl PendingReply {
+    pub fn approve(self, allow: bool) -> Result<(), String> {
+        match self {
+            Self::Tool(reply) => reply
+                .send(allow)
+                .map_err(|_| "Tool request is no longer waiting.".into()),
+            Self::Question { .. } => Err("Answer the question instead.".into()),
+        }
+    }
 }
 pub type ApprovalSlot = Arc<Mutex<Option<PendingApproval>>>;
 pub struct RunApproval {
@@ -50,7 +67,10 @@ impl ToolApproval for RunApproval {
         // is decided in the local chooser, never in a model tool invocation.
         if matches!(
             request.name.as_str(),
-            "request_desktop_access" | "schedule_task" | "manage_scheduled_task"
+            "request_desktop_access"
+                | "schedule_task"
+                | "manage_scheduled_task"
+                | "request_user_input"
         ) {
             return Ok(true);
         }
@@ -83,7 +103,7 @@ impl ToolApproval for RunApproval {
             }
             *pending = Some(PendingApproval {
                 call_id: approval_id.clone(),
-                reply,
+                reply: PendingReply::Tool(reply),
             });
         }
         let _clear = ClearPending(self.pending.clone());
@@ -159,7 +179,7 @@ mod tests {
                     .take()
                     .unwrap()
                     .reply
-                    .send(true)
+                    .approve(true)
                     .unwrap(),
                 1 => cancel.cancel(),
                 _ => {}

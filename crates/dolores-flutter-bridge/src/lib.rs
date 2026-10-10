@@ -64,6 +64,7 @@ mod timeout_tests;
 mod web;
 mod workspace;
 use approval::{ApprovalSlot, RunApproval};
+mod questions;
 use connection::ConnectionManager;
 use dolores_core::{
     prepare_context, preview_context, stream_chat_reply, ConnectionPreferences, ContextSummary,
@@ -779,6 +780,12 @@ enum Command {
         call_id: String,
         allow: bool,
     },
+    AnswerQuestion {
+        id: u64,
+        #[serde(rename = "callId")]
+        call_id: String,
+        answers: Vec<String>,
+    },
     Poll {
         id: u64,
     },
@@ -1005,7 +1012,7 @@ impl Engine {
                     .map_err(|_| "Tool approval is unavailable.")?;
                 if slot
                     .as_ref()
-                    .is_none_or(|pending| pending.call_id != call_id)
+                    .is_none_or(|pending| pending.call_id != call_id || !matches!(pending.reply, approval::PendingReply::Tool(_)))
                 {
                     return Err("Tool request is no longer waiting.".into());
                 }
@@ -1015,8 +1022,20 @@ impl Engine {
                 slot.take()
                     .unwrap()
                     .reply
-                    .send(allow)
-                    .map_err(|_| "Tool request is no longer waiting.")?;
+                    .approve(allow)?;
+                return Ok(Value::Null);
+            }
+            Command::AnswerQuestion { id, call_id, answers } => {
+                let run = active.get(id).ok_or("Question is no longer waiting.")?;
+                if run.cancel.is_cancelled() { return Err(stopped()); }
+                let mut slot = run.approvals.lock().map_err(|_| "Questions are unavailable.")?;
+                let pending = slot.as_ref().filter(|p| p.call_id == call_id).ok_or("Question is no longer waiting.")?;
+                if let approval::PendingReply::Question { questions, .. } = &pending.reply {
+                    questions.validate_answers(&answers)?;
+                } else { return Err("Question is no longer waiting.".into()); }
+                if let approval::PendingReply::Question { reply, .. } = slot.take().unwrap().reply {
+                    reply.send(answers).map_err(|_| "Question is no longer waiting.")?;
+                }
                 return Ok(Value::Null);
             }
             Command::Cancel { id } => {
@@ -1496,6 +1515,7 @@ impl Engine {
                     }
                 }
                 if let Some(id) = session.as_ref() {
+                    specs.push(questions::spec());
                     specs.push(dolores_core::ToolPlugin::spec(
                         &scheduling::ScheduleTool::new(
                             self.store.clone(),
@@ -2070,6 +2090,19 @@ impl Engine {
                         None
                     };
                 let run_id = uuid::Uuid::new_v4().to_string();
+                let log = run_journal::RunLog::new(self.store.clone(), run_id.clone());
+                let (output, events) = mpsc::channel(32);
+                let approvals = Arc::new(Mutex::new(None));
+                // Interactive questions belong to foreground human turns, including
+                // side chats. Background tasks and delegated children never wait here.
+                if scheduled.is_none() {
+                    tools.push(Arc::new(questions::QuestionTool {
+                        id,
+                        pending: approvals.clone(),
+                        output: output.clone(),
+                        log: Some(log.clone()),
+                    }));
+                }
                 let registry = self.extension_registry(session.as_deref())?;
                 tools = tools
                     .into_iter()
@@ -2116,7 +2149,6 @@ impl Engine {
                     extensions: registry.entries.clone(),
                     effective_settings: Some(effective.clone()),
                 })?;
-                let log = run_journal::RunLog::new(self.store.clone(), run_id);
                 let dispatch_guard = Arc::new(permissions::PermissionGuard {
                     store: self.store.clone(),
                     session: session.clone().unwrap(),
@@ -2140,8 +2172,6 @@ impl Engine {
                     })
                     .collect();
                 let cancel = CancellationToken::new();
-                let (output, events) = mpsc::channel(32);
-                let approvals = Arc::new(Mutex::new(None));
                 let guard = Arc::new(permissions::PermissionGuard {
                     store: self.store.clone(),
                     session: session.clone().unwrap(),
@@ -3094,6 +3124,12 @@ mod tests {
                     model: "budget".into(),
                     settings: provider.request_settings(),
                     tools: vec![
+                        Arc::new(questions::QuestionTool {
+                            id: 1,
+                            pending: Arc::new(Mutex::new(None)),
+                            output: output.clone(),
+                            log: None,
+                        }),
                         Arc::new(
                             scheduling::ScheduleTool::new(
                                 store.clone(),
@@ -3226,7 +3262,14 @@ mod tests {
             .iter()
             .map(|tool| tool["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names, ["schedule_task", "manage_scheduled_task"]);
+        assert_eq!(
+            names,
+            [
+                "request_user_input",
+                "schedule_task",
+                "manage_scheduled_task"
+            ]
+        );
         assert!(preview["messages"][0]["content"]
             .as_str()
             .unwrap()
@@ -3368,7 +3411,7 @@ mod tests {
         let (reply, mut decision) = tokio::sync::oneshot::channel();
         let pending = Arc::new(Mutex::new(Some(approval::PendingApproval {
             call_id: "one".into(),
-            reply,
+            reply: approval::PendingReply::Tool(reply),
         })));
         let (_output, events) = mpsc::channel(4);
         engine

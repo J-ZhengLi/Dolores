@@ -591,14 +591,19 @@ async fn token_budget_blocks_fixed_schema_and_later_tool_growth_before_next_mode
 #[test]
 fn first_call_response_and_external_guidance_are_not_duplicated_at_agent_entry() {
     let context = crate::preview_context(vec![], "Inspect current capabilities.").unwrap();
-    let specs = ["browser", "inspect_harness", "inspect_desktop_capture"]
-        .into_iter()
-        .map(|name| ToolSpec {
-            name: name.into(),
-            description: String::new(),
-            parameters: json!({}),
-        })
-        .collect::<Vec<_>>();
+    let specs = [
+        "browser",
+        "inspect_harness",
+        "inspect_desktop_capture",
+        "request_user_input",
+    ]
+    .into_iter()
+    .map(|name| ToolSpec {
+        name: name.into(),
+        description: String::new(),
+        parameters: json!({}),
+    })
+    .collect::<Vec<_>>();
     let settings = crate::RequestSettings {
         max_output_tokens: Some(512),
         timeout_seconds: 20,

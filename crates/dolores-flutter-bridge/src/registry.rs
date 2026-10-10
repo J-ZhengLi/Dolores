@@ -15,6 +15,7 @@ impl ToolProposalHook for ValidateProposal {
                     > if matches!(
                         request.name.as_str(),
                         "delegate_tasks"
+                            | "request_user_input"
                             | "browser"
                             | "desktop_control"
                             | "inspect_harness"
@@ -107,6 +108,13 @@ impl Engine {
             true,
             vec!["chat-task-creation".into()],
             vec!["schedule_task".into(), "manage_scheduled_task".into()],
+        )?;
+        add(
+            "conversation/questions",
+            true,
+            true,
+            vec!["interactive-questions".into()],
+            vec!["request_user_input".into()],
         )?;
         add(
             "credentials/os",

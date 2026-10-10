@@ -7,6 +7,11 @@ Settings stays at its bottom. Selecting a Home conversation also selects its
 project for developer pages. Side chats have no project. The top-left title-bar
 button hides or shows the adjacent panel; dragging its divider can hide it too.
 
+When Dolores needs a choice, an **Answer question** card offers clickable answers
+and a field for your own response. Choose an answer, use Next for additional
+questions, then Send answer to continue. Back keeps your choices. A failed send
+keeps your answers for retry; Stop ends the request. Answers do not change tool access.
+
 Folders shows that project's tree. Click a file for a preview tab, double-click
 or edit to keep it. Drag tabs to reorder, move to another group or split at an
 editor edge; tab menus and Ctrl+Backslash offer alternatives. Up to four groups

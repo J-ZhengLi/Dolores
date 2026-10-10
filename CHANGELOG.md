@@ -7,6 +7,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Clickable answers and a custom-answer field for agent clarification questions, with automatic continuation after submission.
 - Windows desktop preview with local or hosted OpenAI-compatible models.
 - Reviewed file operations, commands, web tools and optional browser/computer use.
 - Project editor with split tabs, Git changes and diffs, terminal and language tools.

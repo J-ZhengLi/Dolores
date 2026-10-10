@@ -4037,3 +4037,53 @@ At the user's request, computer-use auditing is paused until further notice.
 No native input or app launch was performed for this change. The feature audit
 remains 50/128 checked; physical Left-Control, panel keyboard resizing and other
 pending native checks are not promoted by these widget results.
+
+### Clickable questions and custom answers (2026-10-10)
+
+Foreground chats now advertise `request_user_input`. The model supplies short
+questions and choices; the chat shows an Answer question card with a custom text
+field. Back/Next retain answers and Send answer resumes the same run. No answer
+is preselected. Text replies are not parsed into buttons. Background scheduled
+work and delegated children do not receive the interactive tool.
+
+Three bridge tests cover multilingual/malformed requests, invalid and stale
+submissions retaining the pending card, single-use replies, separation from tool
+approval, and Stop while waiting beyond an explicit task deadline. Thirty-two
+focused Flutter tests pass, including the actual chat path, custom answers,
+Back/Next, failed-send retry, duplicate-submit prevention, Stop/draft recovery
+and existing tool/message rendering. Static analysis passes. Four saved widget
+renders cover 390/1200 px widths and light/dark themes; the question card is
+readable with explicitly loaded test fonts. Some unrelated sidebar glyphs remain
+test-font placeholders. These are layout checks, not native input evidence.
+
+The first packaged-bridge loopback round trip passed in English and Chinese,
+including stale/replayed replies and refusal to treat an answer as tool approval.
+An initial live Qwen probe opened cards and delivered the exact custom marker
+in completed tool receipts, but the model ignored that marker and asked again
+or gave a vague acknowledgement. This is retained as a failed probe. Tool and
+system guidance now explicitly describe `answers[].answer` as the submitted
+human answer, including custom text, while retaining host permission checks.
+The system guidance is included only when the question tool is advertised;
+other catalogs retain their previous context cost.
+
+After the final normal Windows build, both packaged-bridge loopback cases pass.
+Qwen3.7 Flash opens a card, receives a public custom date and acknowledges it in
+English and Chinese on the resumed model call. The exact answer remains in the
+completed tool receipt. An intermediate Chinese acknowledgement added spaces
+within the date; the probe initially classified that formatting difference as
+a failure. The final check allows whitespace in acknowledgement prose while
+still requiring the receipt to match byte-for-byte. Both cases then passed;
+this qualifies the public date/clarification flow, not arbitrary task completion
+or consistent model formatting. No DeepSeek fallback was needed for those cases.
+
+The final Rust suites pass 82 core tests and 169 bridge tests, with one unrelated
+vault test intentionally ignored. Clippy, Flutter static analysis, document/link
+and tracked-file publication checks pass. Three bounded live probes used twelve
+model calls, reporting 34,640 input and 2,695 output tokens (37,335 total;
+reasoning is included in output). Each response was bounded to 1,024 output
+tokens and a 20-second idle timeout. Each probe verified the original database
+unchanged. No native input, personal history copy or desktop launch was performed.
+Saved reports and renders stay in ignored `output/questions-*` directories.
+
+Computer-use remains paused. Checklist C17 stays unchecked until native UX
+testing resumes; the audit is now 50/129 checked.
