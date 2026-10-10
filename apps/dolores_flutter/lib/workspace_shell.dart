@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 
@@ -40,6 +41,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   WorkspacePage page = WorkspacePage.home;
   AppHost get host => widget.host;
   double dragWidth = 0;
+  final panelFocus = FocusNode();
   String? selectedTask;
   static const labels = [
     'Home',
@@ -164,6 +166,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   @override
   void dispose() {
+    panelFocus.dispose();
     host.closeReview = null;
     host.repositoryNavigation = null;
     host.removeListener(changed);
@@ -435,10 +438,12 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   Widget divider() => Semantics(
     label: 'Resize side panel',
+    hint: 'Drag or use Left and Right arrows. Home resets the width.',
     onIncrease: () =>
         host.resizePanel((host.panelHidden ? 80 : host.panelWidth) + 16),
     onDecrease: () => host.resizePanel(host.panelWidth - 16),
     child: Focus(
+      focusNode: panelFocus,
       onKeyEvent: (_, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
         if (event.logicalKey == LogicalKeyboardKey.home) {
@@ -460,8 +465,12 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         child: GestureDetector(
           key: const Key('page-panel-divider'),
           behavior: HitTestBehavior.opaque,
-          onHorizontalDragStart: (_) =>
-              dragWidth = host.panelHidden ? 0 : host.panelWidth,
+          dragStartBehavior: DragStartBehavior.down,
+          onTap: panelFocus.requestFocus,
+          onHorizontalDragStart: (_) {
+            panelFocus.requestFocus();
+            dragWidth = host.panelHidden ? 0 : host.panelWidth;
+          },
           onHorizontalDragUpdate: (e) {
             dragWidth += e.delta.dx;
             host.resizePanel(dragWidth);

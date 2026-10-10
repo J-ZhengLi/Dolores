@@ -8,10 +8,30 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-Computer-use audit is paused again from October 10 at the user's request until
-further notice. User-message Markdown was verified separately with deterministic
-widget tests and saved renders; it adds no native checklist pass. **50/129 checked**;
-the new structured-question check remains pending native UX testing.
+Native audit resumed October 10 after the user authorized continuing the full
+checklist while AFK, then paused again when the user needed the computer.
+Background tests and fixes continue; no further native input is authorized until
+the user makes it available again. User-message Markdown was verified with deterministic widget
+tests and saved renders; it adds no native checklist pass. **51/129 checked**.
+The isolated public-notebook profile exercises the normal desktop entry point
+without copying private chats or changing the original provider configuration.
+
+The new question card passed a real qwen3.7-flash desktop round trip: no initial
+selection, choice selection, Back/Next retention, custom date overriding a choice,
+and automatic continuation acknowledging the exact date and language. Failed-send
+recovery currently has widget/host coverage; that native failure remains open.
+The audit reproduced C10's keyboard failure and a dropped first drag movement.
+Both fixes passed focused regressions and the final normal Windows native retest:
+fast widening, drag-to-hide, title-bar restore, Left/Right and Home retained the
+conversation and unsent draft. Evidence stays under ignored
+`output/native-audit-20261010-01/`.
+
+While computer-use is paused, the rebuilt bundle passed all eight selected
+background regression pairs across the retained first run and a fresh skill-draft
+retest. The skill fixture's obsolete two-tool side-chat assertion was corrected to
+the exact three-tool catalogue; drafting/evaluation must still expose no tools.
+This adds no native checkmarks. Reports: `regressions/report.json` and
+`skill-drafts-retest/report.json` beneath the same ignored evidence directory.
 
 Latest checkpoint (2026-10-09): native testing resumed after the user made the
 computer available. **50/128 checked at that checkpoint**. C06, C07, P10, P11 and S08 gained passes
@@ -158,14 +178,14 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] C07 Read streaming progress/Thinking and final Markdown/code; copy a message and code block accurately.
 - [x] C08 Stop a real response; retained progress and subsequent new request remain usable.
 - [x] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
-- [ ] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
+- [x] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
 - [x] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
 - [ ] C12 Browse older/newer/latest messages and conversations without losing selection/draft.
 - [x] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
 - [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
 - [x] C15 Record Worked/Needs work feedback and inspect the retained note.
 - [ ] C16 Delete only a disposable conversation; verify its working files are retained.
-- [ ] C17 Answer agent questions through clickable choices or custom text; Back retains answers, failed send allows retry, and the agent continues after submission. Background fixtures, Qwen English/Chinese custom-date round trips and saved renders pass; native UX remains paused.
+- [ ] C17 Answer agent questions through clickable choices or custom text; Back retains answers, failed send allows retry, and the agent continues after submission. Native Qwen choice/custom/Back/Next/continuation passed October 10; native failed-send recovery remains open.
 
 ## 2. Everyday agent work and recovery
 

@@ -1,5 +1,43 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — question answers and panel focus (October 10)
+
+The normal desktop entry point used an isolated configuration-only profile and a
+public disposable project. qwen3.7-flash asked two clickable questions; no answer
+was initially selected. Choice selection, Back/Next retention and a custom date
+overriding the earlier choice all worked. Sending continued the same run and the
+model acknowledged `2026-10-11` and English exactly. Two model calls reported
+13,979 input and 371 output tokens (14,350 total). Native failed-send retry is still
+open; deterministic host/widget checks already cover rejected and duplicate
+answers, preserved input and retry. Evidence stays in ignored
+`output/native-audit-20261010-01/observations.jsonl` and the isolated run receipts.
+
+The audit reproduced the panel-divider keyboard failure before changing code:
+after a pointer click, Right moved focus to Home instead of resizing the panel.
+The new regression likewise kept the width at 252 instead of 268 before the fix.
+The divider now explicitly acquires focus on click and drag start. A first normal
+Windows rebuild verified Left/Right, Home reset and title-bar hide/show with the
+draft retained. A quick one-motion native drag still left the width unchanged;
+the matching mouse regression failed at 252 instead of 316. Counting drag movement
+from pointer-down fixes that lost initial movement. All seven workspace-shell
+widget checks now pass, including click/drag keyboard focus, fast dragging, retained
+draft and disposal. The final normal Windows build passes. Native fast widening,
+drag-to-hide, title-bar restore, Left/Right and Home now work while retaining the
+conversation and exact unsent draft. C10 is checked. Changed-file analysis,
+documentation/link and publication-pattern checks pass. All 49 original profile
+table digests remain unchanged.
+
+The rebuilt bundle also passed seven background regression save/reopen pairs
+(feedback, comparisons, continuation, generation profiles, coding repair, exact
+edits and automatic memory). The skill-draft save stage failed because its fixture
+still expected exactly two side-chat tools. Foreground side chats now also expose
+`request_user_input`; the fixture now checks the exact three-tool catalogue while
+continuing to require tool-free drafting/evaluation. A fresh skill-draft save and
+reopen pair passes, including output exhaustion, explicit larger retry, ties,
+regression refusal, interruption and one-use promotion. The original failed report
+is retained separately from this successful retest; all eight selected pairs now
+have completed passing evidence across the two reports.
+
 ## CI regression — Windows language paths and catalog fixture
 
 The reported editor panic was reproduced at the same line by running the original

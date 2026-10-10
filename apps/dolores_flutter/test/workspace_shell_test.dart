@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:dolores_flutter/app_host.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/workspace_shell.dart';
@@ -77,6 +79,79 @@ class ExperimentalBridge extends HostBridge {
 }
 
 void main() {
+  testWidgets('one-motion mouse drag resizes the panel', (t) async {
+    t.view.physicalSize = const Size(1200, 800);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final host = AppHost(ChatController(HostBridge())..loading = false);
+    await t.pumpWidget(MaterialApp(home: WorkspaceShell(host: host)));
+    await t.pumpAndSettle();
+    final start = t.getCenter(find.byKey(const Key('page-panel-divider')));
+    final gesture = await t.startGesture(start, kind: PointerDeviceKind.mouse);
+    await gesture.moveTo(start + const Offset(64, 0));
+    await gesture.up();
+    await t.pumpAndSettle();
+    expect(host.panelWidth, 316);
+    await t.pumpWidget(const SizedBox());
+    host.dispose();
+  });
+  testWidgets('dragged panel divider retains keyboard resize focus', (t) async {
+    t.view.physicalSize = const Size(1200, 800);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final chat = ChatController(HostBridge())..loading = false;
+    final host = AppHost(chat);
+    await t.pumpWidget(MaterialApp(home: WorkspaceShell(host: host)));
+    await t.pumpAndSettle();
+    await t.drag(
+      find.byKey(const Key('page-panel-divider')),
+      const Offset(60, 0),
+    );
+    await t.pumpAndSettle();
+    final draggedWidth = host.panelWidth;
+    expect(draggedWidth, greaterThan(252));
+    await t.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await t.pumpAndSettle();
+    expect(host.panelWidth, draggedWidth - 16);
+    await t.sendKeyEvent(LogicalKeyboardKey.home);
+    await t.pumpAndSettle();
+    expect(host.panelWidth, 252);
+    await t.pumpWidget(const SizedBox());
+    expect(t.takeException(), isNull);
+    host.dispose();
+  });
+  testWidgets(
+    'clicked panel divider accepts arrows and reset without losing draft',
+    (t) async {
+      t.view.physicalSize = const Size(1200, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      final chat = ChatController(HostBridge())
+        ..loading = false
+        ..draft = 'Retained draft';
+      final host = AppHost(chat);
+      await t.pumpWidget(MaterialApp(home: WorkspaceShell(host: host)));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('page-panel-divider')));
+      await t.pump();
+      final width = host.panelWidth;
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await t.pumpAndSettle();
+      expect(host.panelWidth, width + 16);
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await t.pumpAndSettle();
+      expect(host.panelWidth, width);
+      await t.sendKeyEvent(LogicalKeyboardKey.home);
+      await t.pumpAndSettle();
+      expect(host.panelWidth, 252);
+      expect(chat.draft, 'Retained draft');
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   testWidgets(
     'entering Scheduled sees tasks saved during a busy chat and recovers failed refresh',
     (t) async {
