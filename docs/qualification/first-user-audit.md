@@ -33,6 +33,35 @@ the exact three-tool catalogue; drafting/evaluation must still expose no tools.
 This adds no native checkmarks. Reports: `regressions/report.json` and
 `skill-drafts-retest/report.json` beneath the same ignored evidence directory.
 
+The fresh qwen3.7-flash memory probe saved and recalled a useful public fact,
+applied its correction and kept two projects' facts separate. Its Memory Off
+baseline instead failed with an unavailable-tool proposal; the supplied blue-square
+image was described correctly in the foreground but image indexing failed within
+its limits, so later recall failed. Ten foreground turns reported 44,260 tokens;
+maintenance usage was unavailable. The original 49 table digests stayed unchanged.
+These failures remain open in `memory-qwen/receipt.json`; they do not invalidate
+the separately retained earlier successful baseline.
+
+The companionship live helper now requires an explicit enabled model and exits
+unsuccessfully when either public case, child execution or profile preservation
+fails. Three credential-free runner tests cover those outcomes and refusal before
+credential access for an invalid model or existing receipt. Its fresh qwen3.7-flash
+run failed both bounded, tool-free invitation cases; `companion-qwen.json` now
+truthfully records that failure. Generation failure versus provider/output/time
+limits was investigated with a public-only forwarding diagnostic. One Qwen
+invitation then completed in 15.274 seconds, while the memory invitation was still
+reasoning at its 20-second cancellation with no answer. The successful request
+sent `max_tokens: 256` but reported 1,202 output tokens, including 1,183 reasoning
+tokens; that allowance did not bound this provider's total output. The direct
+DeepSeek fallback also failed both cases. Image-only tracing reproduced the
+10-second image-caption cancellation after 1,565 reasoning characters and no
+caption, with the foreground blue-square description retained. The app's limits
+were not changed. These timing/provider-contract gaps remain open; partial or
+diagnostic success does not qualify native delivery. Evidence:
+`companion-deepseek.json`, `companion-qwen-traced.json`,
+`companion-transport.json` and `image-qwen-caption-only/receipt.json`.
+No native companionship item is checked.
+
 Latest checkpoint (2026-10-09): native testing resumed after the user made the
 computer available. **50/128 checked at that checkpoint**. C06, C07, P10, P11 and S08 gained passes
 on the isolated normal-entry candidate at `32fdbe6`. Keyboard coverage uses

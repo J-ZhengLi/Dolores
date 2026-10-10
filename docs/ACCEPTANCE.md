@@ -38,6 +38,28 @@ regression refusal, interruption and one-use promotion. The original failed repo
 is retained separately from this successful retest; all eight selected pairs now
 have completed passing evidence across the two reports.
 
+The optional companionship runner no longer hardcodes a local model or treats
+collector completion as a successful live qualification. It requires an enabled
+`--model`, refuses an existing receipt before credential access, closes its
+read-only profile connection and returns failure for a rejected case, unsuccessful
+child or changed original profile. Three credential-free tests pass. A fresh
+qwen3.7-flash run attempted two tool-free invitations under the existing
+256-token/20-second limits; both failed and the receipt reports `passed: false`.
+All original table digests remain unchanged. This is an open real-model gap,
+not a native delivery qualification. Public evidence is retained under ignored
+`output/native-audit-20261010-01/companion-qwen.json`.
+
+Public-only transport diagnostics narrow the live gap: a fresh Qwen invitation
+completed in 15.274 seconds, but its next memory invitation still had no answer
+when cancelled at 20 seconds. The successful call sent `max_tokens: 256` and
+reported 1,202 output tokens, including 1,183 reasoning tokens; this provider's
+reported total output exceeded that submitted allowance. A direct DeepSeek
+fallback failed both cases. A separate image-only Qwen probe retained its correct
+foreground description but cancelled image indexing at 10 seconds after 1,565
+reasoning characters and no caption. Original profile digests remain unchanged.
+No default was raised, no partial caption was saved, and no native item gained a
+checkmark. These are retained, unresolved real-model timing/provider-contract gaps.
+
 ## CI regression — Windows language paths and catalog fixture
 
 The reported editor panic was reproduced at the same line by running the original
