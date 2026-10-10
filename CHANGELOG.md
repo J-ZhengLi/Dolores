@@ -16,6 +16,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- User messages render Markdown, including headings, lists, tables and code blocks; Copy message retains the original text.
 - Chat access uses an immediate Review / Auto edit / Full access selector, remembered for the chat without a duration or extra confirmation steps.
 - Companionship frequency uses a Quiet–Chatty slider from 0 to 100 per day, with pacing that follows the selected frequency and hours.
 

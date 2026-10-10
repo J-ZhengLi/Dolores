@@ -374,7 +374,7 @@ class _ChatPageState extends State<ChatPage> {
           if (!user && !streaming && metadata?['agent']?['steps'] is List)
             ModelSteps(steps: metadata!['agent']['steps'] as List),
           if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
-          if (user || text.isEmpty && !streaming)
+          if (text.isEmpty && !streaming)
             SelectableText(
               text,
               style: TextStyle(fontSize: 14, height: 1.65, color: p.text),

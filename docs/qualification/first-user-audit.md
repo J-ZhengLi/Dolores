@@ -8,6 +8,11 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
+Computer-use audit is paused again from October 10 at the user's request until
+further notice. User-message Markdown was verified separately with deterministic
+widget tests and saved renders; it adds no native checklist pass. The existing
+50/128 status and remaining native gaps below are unchanged.
+
 Latest checkpoint (2026-10-09): native testing resumed after the user made the
 computer available. **50/128 checked**. C06, C07, P10, P11 and S08 gained passes
 on the isolated normal-entry candidate at `32fdbe6`. Keyboard coverage uses

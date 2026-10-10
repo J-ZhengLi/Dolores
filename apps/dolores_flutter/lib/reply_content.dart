@@ -84,7 +84,7 @@ class _ReplyContentState extends State<ReplyContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Long reply shown as plain text.',
+            'Long message shown as plain text.',
             style: TextStyle(color: p.muted, fontSize: 12),
           ),
           const SizedBox(height: 8),

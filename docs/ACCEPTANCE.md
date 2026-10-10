@@ -4010,3 +4010,30 @@ permission checks remain separate evidence. Saved native screenshots, accessibil
 text, observations and usage receipt are in ignored
 `output/native-audit-20261009-02/`. Pending physical editor, terminal and attachment
 flows are the next audit batch.
+
+### User-message Markdown and native audit pause (2026-10-10)
+
+User messages now use the same selectable Markdown renderer as assistant replies.
+Headings, emphasis, lists, tables and fenced code render inside the existing
+right-aligned bubble. Copy message retains the complete original Markdown source;
+Copy code preserves its code bytes. Attachments and provider/history content are
+unchanged. The existing long-content fallback now says “Long message” for either
+role and keeps all source text selectable. Image sources remain inert and links
+retain the existing explicit destination inspection.
+
+The actual chat-path test failed before repair because the user prompt remained
+literal. Eighteen focused renderer/message-frame/idle checks pass after repair,
+including both-role source copying, incomplete user fences, oversized user text,
+unchanged assistant streaming/scroll behavior and horizontal code scrolling.
+Four saved user-bubble renders cover 390 px and 1200 px widths in light/dark.
+They are widget renders rather than normal-window/native-input evidence; the
+render fonts are loaded only when explicitly requesting local screenshots.
+Some test-font fallback glyphs remain placeholders, so these renders establish
+layout and contrast rather than native font/Chinese glyph qualification. Chinese
+source preservation is asserted separately. Static analysis and the normal
+Windows build passed. No provider requests or original-profile writes were needed.
+
+At the user's request, computer-use auditing is paused until further notice.
+No native input or app launch was performed for this change. The feature audit
+remains 50/128 checked; physical Left-Control, panel keyboard resizing and other
+pending native checks are not promoted by these widget results.

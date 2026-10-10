@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
@@ -6,6 +9,7 @@ import 'package:dolores_flutter/reply_content.dart';
 import 'package:dolores_flutter/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +41,34 @@ Widget host(
 );
 
 void main() {
+  const renderDirectory = String.fromEnvironment('MESSAGE_RENDER_DIR');
+  setUpAll(() async {
+    if (renderDirectory.isEmpty) return;
+    final fonts = '${Platform.environment['WINDIR'] ?? 'C:/Windows'}/Fonts';
+    for (final family in ['Ahem', 'Segoe UI', 'Roboto']) {
+      final loader = FontLoader(family);
+      for (final file in ['segoeui.ttf', 'segoeuib.ttf']) {
+        loader.addFont(
+          File('$fonts/$file').readAsBytes().then(ByteData.sublistView),
+        );
+      }
+      await loader.load();
+    }
+    await ui.loadFontFromList(
+      await File('$fonts/consola.ttf').readAsBytes(),
+      fontFamily: 'Consolas',
+    );
+    await ui.loadFontFromList(
+      await File('$fonts/msyh.ttc').readAsBytes(),
+      fontFamily: 'DejaVu Sans Mono',
+    );
+    await ui.loadFontFromList(
+      await File(
+        '../../output/toolchains/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+      ).readAsBytes(),
+      fontFamily: 'MaterialIcons',
+    );
+  });
   testWidgets('Rich content stays readable in both themes at compact width', (
     tester,
   ) async {
@@ -254,13 +286,13 @@ print('hello'); // a deliberately very long line that should scroll horizontally
       await tester.pumpWidget(host(long));
       expect(find.byType(MarkdownBody), findsNothing);
       expect(selectedText(tester), long);
-      expect(find.text('Long reply shown as plain text.'), findsOneWidget);
+      expect(find.text('Long message shown as plain text.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'Chat renders only assistant replies and whole-message copy keeps Markdown source',
+    'Chat renders both roles and whole-message copy keeps each Markdown source',
     (tester) async {
       String? copied;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -285,10 +317,16 @@ print('hello'); // a deliberately very long line that should scroll horizontally
       ];
       await tester.pumpWidget(DoloresApp(chat: chat));
       await tester.pumpAndSettle();
-      expect(find.text('**literal prompt**'), findsOneWidget);
-      expect(find.byType(ReplyContent), findsOneWidget);
+      expect(find.text('literal prompt'), findsOneWidget);
+      expect(find.text('**literal prompt**'), findsNothing);
+      expect(find.byType(ReplyContent), findsNWidgets(2));
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.byType(MessageFrame).first));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Copy message').hitTestable().first);
+      await tester.pump();
+      expect(copied, '**literal prompt**');
       await mouse.moveTo(tester.getCenter(find.byType(MessageFrame).last));
       await tester.pump();
       await tester.tap(find.byTooltip('Copy message').hitTestable().last);
@@ -299,6 +337,119 @@ print('hello'); // a deliberately very long line that should scroll horizontally
       chat.dispose();
     },
   );
+
+  for (final width in [390.0, 1200.0]) {
+    for (final dark in [false, true]) {
+      testWidgets('User Markdown fits its bubble ($width, $dark)', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 960);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final chat = ChatController(_NoBridge())..loading = false;
+        chat.messages = [
+          {
+            'id': 1,
+            'role': 'user',
+            'content':
+                '''## Daily report
+
+**Summary** with `inline code`.
+
+- Read the notes
+- Write the report
+
+| Task | Status |
+| --- | --- |
+| Notes | Ready |
+
+```text
+中文与 English ${'long_line_' * 18}
+```
+''',
+          },
+        ];
+        final capture = GlobalKey();
+        await tester.pumpWidget(
+          DoloresApp(
+            chat: chat,
+            captureKey: capture,
+            themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(MarkdownBody), findsOneWidget);
+        expect(find.byType(Table), findsOneWidget);
+        expect(find.byType(ReplyCodeBlock), findsOneWidget);
+        expect(selectedText(tester), contains('Daily report'));
+        expect(selectedText(tester), contains('中文与 English'));
+        final horizontal = tester
+            .widgetList<SingleChildScrollView>(
+              find.descendant(
+                of: find.byType(ReplyCodeBlock),
+                matching: find.byType(SingleChildScrollView),
+              ),
+            )
+            .where(
+              (w) =>
+                  w.scrollDirection == Axis.horizontal && w.controller != null,
+            );
+        expect(
+          horizontal.single.controller!.position.maxScrollExtent,
+          greaterThan(0),
+        );
+        expect(tester.takeException(), isNull);
+        const directory = renderDirectory;
+        if (directory.isNotEmpty) {
+          await tester.runAsync(() async {
+            final boundary =
+                capture.currentContext!.findRenderObject()
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage(pixelRatio: 1);
+            try {
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              await Directory(directory).create(recursive: true);
+              await File(
+                '$directory/user-markdown-${width.toInt()}-${dark ? 'dark' : 'light'}.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+      });
+    }
+  }
+
+  testWidgets('User incomplete fences and long text retain usable source', (
+    tester,
+  ) async {
+    final chat = ChatController(_NoBridge())..loading = false;
+    chat.messages = [
+      {'id': 1, 'role': 'user', 'content': '```unknown\n  中文\n\nlast line'},
+    ];
+    await tester.pumpWidget(DoloresApp(chat: chat));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReplyCodeBlock), findsOneWidget);
+    expect(selectedText(tester), contains('  中文\n\nlast line'));
+    final long = '${'long ' * 7000}END';
+    chat.messages = [
+      {'id': 1, 'role': 'user', 'content': long},
+    ];
+    chat.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.byType(MarkdownBody), findsNothing);
+    expect(selectedText(tester), contains(long));
+    expect(find.text('Long message shown as plain text.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    chat.dispose();
+  });
 
   testWidgets(
     'Coalesced layout follows the reply unless the reader scrolls away',
