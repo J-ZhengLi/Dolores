@@ -9,10 +9,11 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 ## Method and status
 
 Native audit resumed October 10 after the user authorized continuing the full
-checklist while AFK, then paused again when the user needed the computer.
-Background tests and fixes continue; no further native input is authorized until
-the user makes it available again. User-message Markdown was verified with deterministic widget
-tests and saved renders; it adds no native checklist pass. **51/129 checked**.
+checklist while AFK, then paused again when the user needed the computer. The user
+has now allowed computer-use again and requested one item at a time. A12 is
+complete; no further item was started in this pass. User-message Markdown was
+verified with deterministic widget tests and saved renders; it adds no native
+checklist pass. **52/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -25,6 +26,30 @@ Both fixes passed focused regressions and the final normal Windows native retest
 fast widening, drag-to-hide, title-bar restore, Left/Right and Home retained the
 conversation and unsent draft. Evidence stays under ignored
 `output/native-audit-20261010-01/`.
+
+A12 passed a real qwen3.7-flash native ranged-read/edit/verify cycle on a public
+92,848-byte file. The host rejected three incorrect exact matches and two missing
+snapshots without changing the file. Appending a public footer while the reviewed
+edit waited caused Apply to refuse the stale change. The model read again,
+prepared a fresh diff and completed the edit after approval. Byte checks proved
+only `audit_answer = 41` became `audit_answer = 42`, preserving the UTF-8 BOM,
+CRLF, Chinese text, concurrent footer and five other project files. The final
+ranged read verified the result. The run needed 13 model calls and 12 tool actions;
+reported usage sums to 112,930 input and 2,817 output tokens. This qualifies safe
+completion and recovery, not efficient first-attempt editing.
+
+The same audit found that chat silently displayed only its first four tool
+receipts, hiding recovery and success. It now shows the recent four with a control
+to reveal all actions. Failed preparation uses a neutral tool heading while
+retaining the actual reason. Three new widget checks cover compact light/dark,
+earlier failures, collapse and growing live lists; all 38 selected widget checks
+and changed-file analysis pass. The normal Windows build and native reopen retest
+passed: stale refusal, successful diff and verification remained inspectable, and
+Show all / Show recent revealed earlier rejected attempts without losing results.
+The two existing ranged-file Rust checks also pass. All 49 original profile table
+digests remain unchanged. Public receipts, byte proofs and native observations
+stay in the same ignored directory (`a12-run-receipt.json`,
+`a12-byte-verification.json`, `a12-public-events.json`, `observations.jsonl`).
 
 While computer-use is paused, the rebuilt bundle passed all eight selected
 background regression pairs across the retained first run and a fresh skill-draft
@@ -229,7 +254,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] A09 Inspect Activity/Earlier tasks, settings origins, tool receipts, checkpoints and reported usage.
 - [ ] A10 Hit a small explicit task/output limit; Continue resumes useful work with fresh approval.
 - [ ] A11 Interrupt a task with completed effects; recovery draft explains uncertainty and does not replay earlier operations.
-- [ ] A12 Read a large text file by ranges and edit a unique snapshot-bound match without truncation corruption.
+- [x] A12 Read a large text file by ranges and edit a unique snapshot-bound match without truncation corruption. Native qwen3.7-flash edit, stale-review refusal, fresh-read recovery and byte preservation verified; all saved action receipts remain accessible.
 - [ ] A13 Capture a larger command log; inspect its saved file and distinguish preview truncation from capture limits.
 
 ## 3. Files and editor

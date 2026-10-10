@@ -1,5 +1,35 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — large-file editing and visible recovery (October 10)
+
+A12 passed through the normal Windows desktop with qwen3.7-flash and a disposable
+public project. A ranged read covered lines 1601–1602 of a 92,848-byte BOM/CRLF
+UTF-8 file. Three mismatched exact-edit proposals and two missing-snapshot
+proposals were rejected without writes. A footer appended while a valid review
+was pending made Apply refuse the stale edit. The model read again and prepared
+a new review; applying it changed only `41` to `42`. A final ranged read verified
+the change. Exact byte comparison preserved Chinese text, BOM, CRLF, every other
+byte and the concurrent footer. Five other files and all 49 original profile table
+digests were unchanged. The run used 13 model calls and 12 tool actions, with
+112,930 reported input and 2,817 output tokens across those calls. Initial model
+mistakes are retained evidence; this does not qualify efficient editing.
+
+The audit reproduced a UI defect: only the first four action receipts appeared,
+hiding the stale refusal, applied edit and verification. Chat now shows the latest
+actions and offers Show all / Show recent. A failed preparation's placeholder no
+longer falsely labels every error an invalid path; its actual failure reason stays
+selectable. Three new regressions failed before the fix and pass afterward, covering
+compact light/dark, earlier failed attempts, collapse and receipt updates while
+running. All 38 selected widget tests and the two existing Rust ranged-file checks
+pass. Changed-file analysis is clean; whole-app analysis also reports one existing
+unnecessary import in ignored screenshot tooling. The normal Windows build passed.
+Native reopen confirmed the retained successful diff and final read, stale refusal,
+earlier exact-match rejection and Show all / Show recent. A12 is checked;
+the checklist now has 52/129 completed items. No other item was started in this pass.
+Evidence remains ignored under `output/native-audit-20261010-01/`:
+`a12-run-receipt.json`, `a12-byte-verification.json`, `a12-public-events.json`,
+`a12-saved-metadata.json` and `observations.jsonl`.
+
 ## First-user audit — question answers and panel focus (October 10)
 
 The normal desktop entry point used an isolated configuration-only profile and a

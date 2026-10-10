@@ -66,7 +66,14 @@ String scheduledTaskSummary(Map receipt) =>
 
 String scheduledTaskTitle(dynamic record) {
   final receipt = scheduledTaskReceipt(record);
-  if (receipt == null) return '${record['target']}';
+  if (receipt == null) {
+    // Failed preparation has no validated target. Keep the actual reason in
+    // the receipt instead of presenting this host placeholder as the cause.
+    if (record['target'] == 'Invalid or unavailable path') {
+      return toolLabel(record['name']);
+    }
+    return '${record['target']}';
+  }
   if (receipt['deleted'] == true) return 'Task deleted';
   if (receipt['paused'] == true) return 'Task paused';
   return record['name'] == 'schedule_task' ? 'Task scheduled' : 'Task updated';
@@ -610,7 +617,7 @@ class ToolApprovalCard extends StatelessWidget {
   }
 }
 
-class ToolRecords extends StatelessWidget {
+class ToolRecords extends StatefulWidget {
   final ChatBridge? bridge;
   final List<dynamic> records;
   final int maxRecords;
@@ -619,14 +626,28 @@ class ToolRecords extends StatelessWidget {
     required this.records,
     this.maxRecords = 4,
     this.bridge,
-  });
+  }) : assert(maxRecords > 0);
+  @override
+  State<ToolRecords> createState() => _ToolRecordsState();
+}
+
+class _ToolRecordsState extends State<ToolRecords> {
+  bool _showAll = false;
+
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
+    final records = widget.records;
+    final bridge = widget.bridge;
+    final hiddenCount = (records.length - widget.maxRecords).clamp(
+      0,
+      records.length,
+    );
+    final visible = _showAll ? records : records.skip(hiddenCount);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final record in records.take(maxRecords))
+        for (final record in visible)
           Card(
             elevation: 0,
             color: p.surface,
@@ -656,7 +677,7 @@ class ToolRecords extends StatelessWidget {
                     bridge != null &&
                     desktopCaptureReference(record) != null)
                   BrowserCapturePreview(
-                    bridge: bridge!,
+                    bridge: bridge,
                     capture: desktopCaptureReference(record)!['id'],
                     desktopSession: desktopCaptureReference(record)!['session'],
                   ),
@@ -664,7 +685,7 @@ class ToolRecords extends StatelessWidget {
                     bridge != null &&
                     browserCaptureId(record) != null)
                   BrowserCapturePreview(
-                    bridge: bridge!,
+                    bridge: bridge,
                     capture: browserCaptureId(record)!,
                   ),
                 if (record['name'] == 'delegate_tasks' &&
@@ -741,6 +762,18 @@ class ToolRecords extends StatelessWidget {
                   ),
                 ],
               ],
+            ),
+          ),
+        if (hiddenCount > 0)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _showAll = !_showAll),
+              child: Text(
+                _showAll
+                    ? 'Show recent actions'
+                    : 'Show all ${records.length} actions',
+              ),
             ),
           ),
       ],
