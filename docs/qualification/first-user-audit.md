@@ -11,7 +11,7 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **54/129 checked**.
+renders; it adds no native checklist pass. **55/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -277,7 +277,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 - [x] F01 Discover file tree, expand folders and preview a file; no selected project offers Open folder.
 - [x] F02 Preview versus pinned tabs: click, double-click and first edit preserve the expected file.
-- [ ] F03 Edit text, undo/redo and Ctrl+S; UTF-8/BOM/CRLF content survives correctly.
+- [x] F03 Edit text, undo/redo and Ctrl+S; UTF-8/BOM/CRLF content survives correctly. October 11 normal-build retest passes Right-Control undo, Ctrl+Y redo and Ctrl+S, including undo after saving. Exact BOM/CRLF/Chinese bytes are preserved. Both Control keys pass Windows widget regressions, including failed-save retry; native Left-Control remains separately unqualified.
 - [ ] F04 Ctrl+P, Ctrl+F/H and Ctrl+G work with relative paths, find/replace and line navigation.
 - [x] F05 Drag tabs to reorder, split and move between groups; keyboard/menu alternatives work.
 - [ ] F06 Shared file text/undo and independent cursor/scroll survive two split views and compact layout.

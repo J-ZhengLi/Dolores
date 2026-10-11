@@ -1,5 +1,39 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — editor shortcuts (October 11)
+
+F03 typed a public BOM/CRLF file through the Windows editor, changing `41` to
+`42`. Clicking Save preserved the exact expected bytes, including Chinese text;
+all six other project files remained unchanged. Native Control chords did not
+reliably reach their intended actions, including Find and app-level Quick open.
+A temporary key-event trace recorded modifier state and was removed; diagnostic
+observations do not establish normal keyboard acceptance.
+
+Windows-specific widget tests isolated two real editor defects: the inner
+editor shortcut consumed Ctrl+S without invoking Dolores's save, and Ctrl+Y
+had no redo binding. The original code fails both regressions. The fix handles
+the editor's Save intent and adds Ctrl+Y while retaining Ctrl+Shift+Z and shared
+document undo. Both Control keys now pass undo/redo/save tests; failed save
+retains the draft and shows the actual error, and retry saves the same content.
+Native undo failure is not treated as a confirmed code defect: Windows widget
+undo also works with the original implementation. Eighteen focused editor,
+file-host, split-workspace and recovery checks passed; changed-file analysis is
+clean. Seven editor checks passed again after adding keyboard save-failure retry.
+The final normal Windows build passed after removing the trace. Reopening its
+isolated editor retained `42`, the selected file and exact saved bytes. All 49
+original profile table digests remain unchanged.
+
+The later final normal-build retest resolved the native keyboard gap. In a newly
+created public file, Right-Control+Z returned `78` to the saved `7`, Ctrl+Y restored
+`78` and Ctrl+S saved exactly those two bytes. In the BOM/CRLF/Chinese fixture,
+typing `8` changed `42` to `428`; native undo restored `42`, redo restored `428`,
+and Ctrl+S saved its exact expected bytes. Undo after saving still worked, and
+Ctrl+S restored the exact expected `42` file. All six other baseline project files
+and all 49 original profile table digests remain unchanged. Native Left-Control
+delivery is not claimed. F03 is checked; the checklist is now 55/129. Public
+observations and byte receipts are under ignored
+`output/native-audit-20261010-01/`; no live model request was needed.
+
 ## First-user audit — task inspection (October 11)
 
 A09 inspected the saved qwen3.7-flash A12 task through the normal desktop entry:

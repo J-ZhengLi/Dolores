@@ -23,6 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- The file editor saves with Ctrl+S and supports Ctrl+Y alongside Ctrl+Shift+Z for redo.
 - Latest messages reaches the end of the final reply after the history layout settles; scrolling up still keeps your reading position.
 - Earlier tasks labels the configured output limit clearly; Activity points to the current Conversation view for saved exchanges.
 - Chat shows recent tool outcomes and lets you inspect all earlier actions, including failed attempts and recovery results.

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:dolores_flutter/app_host.dart';
@@ -48,6 +49,77 @@ class EditingBridge extends FileBridge {
 }
 
 void main() {
+  for (final control in [
+    LogicalKeyboardKey.controlLeft,
+    LogicalKeyboardKey.controlRight,
+  ]) {
+    testWidgets('editor keyboard undo/redo uses shared history with $control', (
+      t,
+    ) async {
+      final host = AppHost(ChatController(EditingBridge())..loading = false);
+      await host.files.bind('A', 'C:/A');
+      final workspace = host.files.selected!;
+      final document = (await host.files.open(workspace, 'a.txt'))!;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FileEditor(
+              host: host,
+              workspace: workspace,
+              document: document,
+            ),
+          ),
+        ),
+      );
+      await t.pump();
+      final editor = t.widget<CodeEditor>(find.byType(CodeEditor));
+      editor.focusNode!.requestFocus();
+      editor.controller!.replaceSelection('mine ');
+      await host.files.flush(document);
+      await t.pump();
+      expect(document.text, 'mine saved');
+      expect(editor.focusNode!.hasFocus, isTrue);
+      expect(document.pending, isFalse);
+      expect(t.widget<CodeEditor>(find.byType(CodeEditor)).readOnly, isFalse);
+      expect(editor.controller!.canUndo, isTrue);
+      await t.sendKeyDownEvent(control);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await t.sendKeyUpEvent(control);
+      await t.pump();
+      expect(document.text, 'saved');
+      await host.files.flush(document);
+      await t.pump();
+      await t.sendKeyDownEvent(control);
+      await t.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await t.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await t.sendKeyUpEvent(control);
+      await t.pump();
+      expect(document.text, 'mine saved');
+      await host.files.flush(document);
+      await t.pump();
+      await t.sendKeyDownEvent(control);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await t.sendKeyUpEvent(control);
+      await host.files.flush(document);
+      await t.pump();
+      await t.sendKeyDownEvent(control);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyY);
+      await t.sendKeyUpEvent(control);
+      await t.pump();
+      expect(document.text, 'mine saved');
+      await host.files.flush(document);
+      await t.pump();
+      await t.sendKeyDownEvent(control);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await t.sendKeyUpEvent(control);
+      await t.pumpAndSettle();
+      expect(document.dirty, isFalse);
+      expect(document.snapshot['text'], 'mine saved');
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    }, variant: const TargetPlatformVariant({TargetPlatform.windows}));
+  }
   test('UTF-8 byte accounting refuses a multibyte long line and refreshes cached bases', () async {
     final host = AppHost(ChatController(EditingBridge())..loading = false);
     await host.files.bind('A', 'C:/A');
@@ -218,12 +290,24 @@ void main() {
       );
       await host.files.flush(d);
       bridge.failSave = true;
-      await t.tap(find.text('Save'));
+      editor.focusNode!.requestFocus();
+      await t.pump();
+      await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await t.pump();
       await t.pump();
       expect(d.text, 'mine saved');
       expect(d.dirty, true);
       expect(find.textContaining('File changed on disk'), findsOneWidget);
+      bridge.failSave = false;
+      await t.sendKeyDownEvent(LogicalKeyboardKey.controlRight);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await t.sendKeyUpEvent(LogicalKeyboardKey.controlRight);
+      await t.pumpAndSettle();
+      expect(d.text, 'mine saved');
+      expect(d.dirty, false);
+      expect(d.error, isNull);
       await t.tap(find.byTooltip('Editor actions'));
       await t.pumpAndSettle();
       await t.tap(find.text('Find (Ctrl+F)'));
@@ -244,5 +328,6 @@ void main() {
       await t.pumpWidget(const SizedBox());
       host.dispose();
     },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 }

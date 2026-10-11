@@ -44,6 +44,17 @@ class FileEditor extends StatefulWidget {
   State<FileEditor> createState() => _FileEditorState();
 }
 
+class _EditorShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
+  const _EditorShortcuts();
+
+  @override
+  List<ShortcutActivator>? build(CodeShortcutType type) => [
+    ...?super.build(type),
+    if (type == CodeShortcutType.redo)
+      const SingleActivator(LogicalKeyboardKey.keyY, control: true),
+  ];
+}
+
 class _FileEditorState extends State<FileEditor> {
   late final memory = widget.memory ?? FileViewMemory();
   late final DocumentView view = createView();
@@ -859,6 +870,20 @@ class _FileEditorState extends State<FileEditor> {
             Expanded(
               child: CodeEditor(
                 controller: view,
+                shortcutsActivatorsBuilder: const _EditorShortcuts(),
+                // The editor's inner Shortcuts consumes Ctrl+S before the
+                // surrounding CallbackShortcuts can reach Dolores's save.
+                shortcutOverrideActions: {
+                  CodeShortcutSaveIntent:
+                      CallbackAction<CodeShortcutSaveIntent>(
+                        onInvoke: (_) {
+                          if (!d.readonly && !d.pending && !view.isComposing) {
+                            unawaited(save());
+                          }
+                          return null;
+                        },
+                      ),
+                },
                 scrollController: scroll,
                 findController: find,
                 findBuilder: findBar,
