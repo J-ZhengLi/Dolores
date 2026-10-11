@@ -1217,6 +1217,77 @@ impl ModelProvider for Scripted {
 struct Read {
     count: AtomicUsize,
 }
+
+#[tokio::test]
+async fn packaged_catalog_accepts_twenty_tools_and_refuses_excess_or_duplicates() {
+    struct Registered(usize);
+    #[async_trait]
+    impl ToolPlugin for Registered {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: format!("fixture_{}", self.0),
+                description: "public fixture".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
+            unreachable!()
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            unreachable!()
+        }
+    }
+    for count in [20, 21] {
+        let provider = Scripted {
+            calls: Mutex::new(vec![]),
+            loop_forever: false,
+        };
+        let plugins: Vec<Arc<dyn ToolPlugin>> = (0..count)
+            .map(|n| Arc::new(Registered(n)) as Arc<dyn ToolPlugin>)
+            .collect();
+        let approval = Approval {
+            allow: false,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let result = run_agent(
+            &provider,
+            context(),
+            &plugins,
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await;
+        if count == 20 {
+            assert_eq!(result.unwrap().answer, "Final answer");
+        } else {
+            assert_eq!(result.err().unwrap(), "Tool registration is invalid.");
+        }
+        assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    }
+    let plugins: Vec<Arc<dyn ToolPlugin>> = vec![Arc::new(Registered(0)), Arc::new(Registered(0))];
+    let provider = Scripted {
+        calls: Mutex::new(vec![]),
+        loop_forever: false,
+    };
+    let approval = Approval {
+        allow: false,
+        count: AtomicUsize::new(0),
+    };
+    let (events, _receiver) = mpsc::channel(32);
+    assert!(run_agent(
+        &provider,
+        context(),
+        &plugins,
+        &approval,
+        events,
+        CancellationToken::new()
+    )
+    .await
+    .is_err());
+    assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+}
 #[async_trait]
 impl ToolPlugin for Read {
     fn spec(&self) -> ToolSpec {

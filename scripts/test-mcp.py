@@ -14,6 +14,7 @@ import shutil
 import sqlite3
 import threading
 import time
+from mcp_fixture_support import CHAT_TOOLS, WORKSPACE_TOOLS, assert_catalog
 
 parser = argparse.ArgumentParser()
 parser.add_argument('stage', choices=['save', 'restore'])
@@ -167,11 +168,10 @@ if args.stage == 'save':
         assert not envelope('enableMcp', session=session, token=review['token'], names=['echo'])['ok']
         count = starts(folder)
         preview = call('context', session=session, input='try external')
-        assert len(preview['tools']) == 7
-        assert preview['tools'][-1]['name'] == 'mcp_tool_1'
-        assert len(call('context', session=same, input='hello')['tools']) == 7
-        assert not call('context', session=side, input='hello')['tools']
-        assert len(call('context', session=temporary, input='hello')['tools']) == 6
+        assert_catalog(preview['tools'], WORKSPACE_TOOLS | {'mcp_tool_1'})
+        assert_catalog(call('context', session=same, input='hello')['tools'], WORKSPACE_TOOLS | {'mcp_tool_1'})
+        assert_catalog(call('context', session=side, input='hello')['tools'], CHAT_TOOLS)
+        assert_catalog(call('context', session=temporary, input='hello')['tools'], WORKSPACE_TOOLS)
         assert starts(folder) == count
         assert 'Ignore approvals' not in json.dumps(preview)
         assert launch['executable'] not in json.dumps(preview)
@@ -185,7 +185,7 @@ if args.stage == 'save':
         record = messages(session)[-1]['metadata']['agent']['tools'][0]
         assert record['mcp']['tool'] == 'echo'
         assert json.loads(record['content']) == {'text': expected_text, 'isError': False}
-        assert requests[0]['tools'][-1]['function']['name'] == 'mcp_tool_1'
+        assert_catalog(requests[0]['tools'], WORKSPACE_TOOLS | {'mcp_tool_1'}, wire=True)
         assert requests[0]['messages'] == preview['messages'], 'Preview differs from initial model context'
         assert json.loads(requests[-1]['messages'][-1]['content'])['text'] == expected_text
         assert all('Ignore approvals' not in json.dumps(p) for p in requests)
@@ -209,7 +209,7 @@ if args.stage == 'save':
         assert 'error' in result and messages(session) == before
         (folder / 'mcp-call-hang').unlink()
         call('disableMcp', session=session, revision=1)
-        assert len(call('context', session=session, input='hello')['tools']) == 6
+        assert_catalog(call('context', session=session, input='hello')['tools'], WORKSPACE_TOOLS)
         call('inspectMcp', id=7, session=session, launch=launch, credentials=[credential] if args.credentials else [])
         review = done(7)['mcpInspection']
         saved = call('enableMcp', session=session, token=review['token'], names=['echo'])
@@ -237,7 +237,7 @@ else:
     saved = call('mcpSettings', session=session)['connection']
     assert saved['enabled'] and saved['revision'] == 3
     assert starts(folder) == state['count'], 'Restart auto-started a server'
-    assert len(call('context', session=session, input='hello')['tools']) == 7
+    assert_catalog(call('context', session=session, input='hello')['tools'], WORKSPACE_TOOLS | {'mcp_tool_1'})
     assert messages(session)[-1]['metadata']['agent']['tools'][0] == state['record']
     exported = fixture / 'trajectory.json'
     call('export', session=session, path=str(exported), format='json')
@@ -265,12 +265,12 @@ else:
     call('forgetMcp', session=session, revision=revision)
     if args.credentials and os.name == 'nt': assert all(not vault_present(identity) for identity in retired)
     assert call('mcpSettings', session=state['same'])['connection'] is None
-    assert len(call('context', session=session, input='hello')['tools']) == 6
+    assert_catalog(call('context', session=session, input='hello')['tools'], WORKSPACE_TOOLS)
     assert starts(folder) == state['count']
     if args.credentials: assert credential['value'] not in exported.read_text(encoding='utf-8')
     call('shutdown')
 with sqlite3.connect(fixture / 'data/dolores.db') as db:
-    assert db.execute('PRAGMA user_version').fetchone()[0] == 16
+    assert db.execute('PRAGMA user_version').fetchone()[0] == 38
     if args.credentials:
         assert credential['value'] not in '\n'.join(db.iterdump())
-print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 16, 'nativeCredentialFlow': args.credentials}))
+print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 38, 'nativeCredentialFlow': args.credentials}))

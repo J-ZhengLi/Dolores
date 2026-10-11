@@ -116,7 +116,7 @@ if args.stage == "save":
         done, approved = run(1, session, "hello")
         assert not done.get("error") and not approved
         assert requests[0]["messages"] == preview["messages"]
-        assert [tool["function"] for tool in requests[0]["tools"]] == preview["tools"]
+        assert {tool["function"]["name"]: tool["function"] for tool in requests[0]["tools"]} == {tool["name"]: tool for tool in preview["tools"]}
         assert "@../private.env" in requests[0]["messages"][0]["content"]
         assert "INCLUDE_MUST_NOT_BE_LOADED" not in json.dumps(requests)
         assert str(workspace) not in json.dumps(requests)

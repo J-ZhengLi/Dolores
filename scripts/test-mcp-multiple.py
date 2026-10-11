@@ -13,6 +13,7 @@ import shutil
 import sqlite3
 import threading
 import time
+from mcp_fixture_support import WORKSPACE_TOOLS, assert_catalog
 
 parser = argparse.ArgumentParser()
 parser.add_argument('stage', choices=['save', 'restore'])
@@ -137,7 +138,8 @@ try:
             ids[:] = [alpha['id'], beta['id']]
             context = call('context', session=session, input='try both')
             aliases[:] = [next(t['name'] for t in context['tools'] if identity.replace('-', '') in t['name']) for identity in ids]
-            assert len(context['tools']) == 8 and aliases[0] != aliases[1]
+            assert aliases[0] != aliases[1]
+            assert_catalog(context['tools'], WORKSPACE_TOOLS | set(aliases))
             before = starts()
             call('start', id=5, session=session, input='try both')
             assert 'error' not in finish(5, approve=True)
@@ -145,7 +147,7 @@ try:
             records = call('messagesPage', session=session)['items'][-1]['metadata']['agent']['tools']
             assert [r['mcp']['connectionId'] for r in records] == ids
             assert all(r['status'] == 'completed' for r in records)
-            assert {t['function']['name'] for t in requests[0]['tools']} >= set(aliases)
+            assert_catalog(requests[0]['tools'], WORKSPACE_TOOLS | set(aliases), wire=True)
             # One reviewed server crashes only at invocation; the other still runs.
             (folder / 'mcp-call-crash').write_text('')
             call('start', id=6, session=session, input='try both with one unavailable')
@@ -157,7 +159,7 @@ try:
             call('forgetMcp', session=session, connectionId=alpha['id'], revision=alpha['revision'])
             settings = call('mcpSettings', session=session)
             assert settings['connections'] == [beta] and settings['connection'] is None
-            assert call('context', session=session, input='hello')['tools'][-1]['name'] == aliases[1]
+            assert_catalog(call('context', session=session, input='hello')['tools'], WORKSPACE_TOOLS | {aliases[1]})
             state_file.write_text(json.dumps({'session': session, 'folder': str(folder), 'beta': beta, 'alias': aliases[1], 'starts': starts()}))
         finally:
             server.shutdown()
@@ -166,7 +168,7 @@ try:
         session, folder = state['session'], Path(state['folder'])
         beta = state['beta']
         assert call('mcpSettings', session=session)['connections'] == [beta]
-        assert call('context', session=session, input='hello')['tools'][-1]['name'] == state['alias']
+        assert_catalog(call('context', session=session, input='hello')['tools'], WORKSPACE_TOOLS | {state['alias']})
         assert starts() == state['starts'], 'Restart or preparation launched a server'
         exported = directory / 'trajectory.json'
         call('export', session=session, path=str(exported), format='json')
@@ -177,5 +179,5 @@ try:
 finally:
     call('shutdown')
 with sqlite3.connect(directory / 'data/dolores.db') as db:
-    assert db.execute('PRAGMA user_version').fetchone()[0] == 16
-print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 16}))
+    assert db.execute('PRAGMA user_version').fetchone()[0] == 38
+print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 38}))

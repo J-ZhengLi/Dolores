@@ -78,7 +78,12 @@ def main(directory, profile, reuse_tools=None, model=None):
         (a/'interrupt.cjs').write_text("process.on('SIGINT',()=>{console.log('INTERRUPTED_18');process.exit(0)});console.log('INTERRUPT_READY_18');setInterval(()=>{},1000);",encoding='utf-8')
         terminal('input',id=ids[0],text='node interrupt.cjs\r')
         output(shells[0],'INTERRUPT_READY_18'); terminal('input',id=ids[0],text='\x03')
-        output(shells[0],'INTERRUPTED_18')
+        interrupted = output(shells[0],'INTERRUPTED_18')
+        # The child's exit message precedes PowerShell regaining input ownership.
+        # Wait for the actual prompt rather than racing the shell's Ctrl+C cleanup.
+        prompt = 'PS ' + str(a) + '> '
+        if prompt not in interrupted:
+            output(shells[0], prompt)
         terminal('input',id=ids[0],text="Write-Output ('AFTER'+'_INTERRUPT_18')\r")
         output(shells[0],'AFTER_INTERRUPT_18'); record('foregroundInterrupt', {'passed':True,'shellStillUsable':True})
         # Do not drain output until the bounded native queue applies backpressure.

@@ -20,6 +20,13 @@ Latest background continuation: desktop control failed in the folder chooser
 focus recovery still targeted Search instead of Folder. Native input stopped.
 G15's public binary comparison passed; nonrepository navigation is pending.
 
+October 11 background MCP retest: two reviewed tools exposed a real start
+refusal at the old 18-registration limit. Capacity now matches the supported
+20-tool catalog (17 host, one browser, two external); execution budgets and
+external slots stay unchanged. All 91 core checks, Clippy, normal build and
+both MCP save/restore fixtures pass, including crash/Stop and sibling recovery.
+Exact catalog and duplicate checks remain. Native I05-I06 are still pending.
+
 October 11 background follow-up: explicit thinking off still produced a stray
 leading `</think>`, breaking otherwise valid image-caption JSON. A failing
 provider regression now passes for all three response paths, fragmented markers,

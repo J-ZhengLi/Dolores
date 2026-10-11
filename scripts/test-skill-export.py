@@ -106,7 +106,7 @@ if args.stage == "save":
     review = call("reviewSkill", session=other, name="review")
     assert review["document"]["text"] == first
     call("activateSkill", session=other, token=review["token"])
-    assert call("context", session=other, input="hello")["skillEntries"][0]["document"]["text"] == first
+    assert call("context", session=other, input="review the work")["skillEntries"][0]["document"]["text"] == first
     global_file = fixture / "global-skills/review/SKILL.md"
     global_file.parent.mkdir(parents=True)
     global_file.write_bytes(second.encode())
@@ -114,7 +114,7 @@ if args.stage == "save":
     call("activateSkill", session=side, token=review["token"])
     global_file.unlink()
     export_checked(side, "global", "review", 1, fixture / "global-portable/review/SKILL.md", second)
-    assert call("context", session=side, input="hello")["skills"][0]["scope"] == "global"
+    assert call("context", session=side, input="review the work")["skills"][0]["scope"] == "global"
     state_file.write_text(json.dumps({"session": session, "side": side, "first": first, "second": second}), encoding="utf-8")
 else:
     state = json.loads(state_file.read_text(encoding="utf-8"))
@@ -123,6 +123,6 @@ else:
     item = call("projectSkills", session=state["session"])["items"][0]
     assert not item["enabled"] and item["version"] == 2
     with sqlite3.connect(fixture / "data/dolores.db") as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 15
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 38
         assert db.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 0
-print(json.dumps({"ok": True, "stage": args.stage, "providerRequests": 0, "schema": 15}))
+print(json.dumps({"ok": True, "stage": args.stage, "providerRequests": 0, "schema": 38}))

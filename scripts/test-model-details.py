@@ -43,7 +43,8 @@ def main():
         host.call('start',id=1,session=sid,input='Reply with only READY.',tools=False)
         done,events=host.finish(1,seconds=40)
         assert not done.get('error'), 'Model chat did not complete; inspect the actual bounded failure separately'
-        assert 'READY' in ''.join(e.get('text','') for e in events if e['type']=='delta'), 'Model did not return the requested confirmation within its allowance'
+        messages = host.call('messagesPage', session=sid)['items']
+        assert messages[-1]['role'] == 'assistant' and messages[-1]['content'] == 'READY', 'Model did not save the requested confirmation within its allowance'
         host.call('setModelDetails',preferences=preferences,expected=details,details=expected)
         result={'provider':'live' if args.model else 'fixture','model':model,'discovered':True,'atomicDetails':True,'chat':True,'restoredProfile':True}
         (directory/'result.json').write_text(json.dumps(result),encoding='utf-8');print(json.dumps(result))

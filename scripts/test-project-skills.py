@@ -157,11 +157,11 @@ if args.stage=="save":
         assert call("projectSkills",session=same,scope="global")["items"][0]["overridden"]
         side_preview=call("context",session=side,input="review the work")
         assert side_preview["skillEntries"][0]["document"]["text"]==global_first
-        assert side_preview["skills"][0]["scope"]=="global" and [t["name"] for t in side_preview["tools"]]==["schedule_task","manage_scheduled_task"]
+        assert side_preview["skills"][0]["scope"]=="global" and {t["name"] for t in side_preview["tools"]}=={"schedule_task","manage_scheduled_task","request_user_input"}
         assert str(global_directory) not in json.dumps(side_preview)
         assert call("context",session=other,input="review the work")["skills"]==side_preview["skills"]
         call("start",id=3,session=side,input="review the work"); finish(3)
-        assert requests[-1]["messages"]==side_preview["messages"] and [t["function"]["name"] for t in requests[-1]["tools"]]==["schedule_task","manage_scheduled_task"]
+        assert requests[-1]["messages"]==side_preview["messages"] and {t["function"]["name"] for t in requests[-1]["tools"]}=={"schedule_task","manage_scheduled_task","request_user_input"}
         side_reply=call("messagesPage",session=side)["items"][-1]
         assert side_reply["metadata"]["context"]["skills"]==side_preview["skills"]
         call("export",session=side,path=str(fixture/"global-export.json"),format="json")

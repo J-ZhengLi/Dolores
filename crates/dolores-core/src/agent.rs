@@ -12,10 +12,9 @@ mod tests;
 pub const MAX_MODEL_CALLS: usize = 4;
 pub const MAX_TOOL_CALLS: usize = 4;
 pub const MAX_TOOL_BYTES: usize = 16 * 1024;
-// Five file tools, command/inspection/delegation, two MCP, two web and browser.
-// The packaged Windows catalog includes browser and desktop-access adapters.
-// Two scheduling metadata tools and interactive questions are available on human turns.
-pub const MAX_REGISTERED_TOOLS: usize = 18;
+// Seventeen Windows host tools, one optional browser and two reviewed MCP slots.
+// Registration capacity is separate from per-turn calls and task execution budgets.
+pub const MAX_REGISTERED_TOOLS: usize = 17 + 1 + 2;
 pub const MAX_FILE_ARGUMENT_BYTES: usize = 64 * 1024;
 pub fn tool_argument_limit(name: &str) -> usize {
     match name {

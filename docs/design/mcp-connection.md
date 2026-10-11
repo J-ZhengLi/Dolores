@@ -2,6 +2,13 @@
 
 Brick 6.1 introduced local stdio MCP tools; brick 6.3 supports up to four saved servers per working folder, sharing two active external tool slots through a compiled `ToolPlugin` adapter. Flutter remains the desktop shell; the Rust bridge coordinates reviews and storage, while `dolores-tools-mcp` owns the protocol and process lifetime. No server, runtime or package is bundled, installed or downloaded.
 
+The Windows run catalog allows at most 20 registrations: 17 current host tools,
+one optional browser tool and the existing two external slots. The former cap of
+18 prevented two reviewed MCP tools from running together after host features
+were added. This catalog bound does not increase per-turn calls, task budgets,
+external slots, argument sizes or process lifetime. Duplicate aliases and excess
+registrations are refused before model dispatch.
+
 ## Desktop flow
 
 In a saved Project or Temporary chat, open **Settings → External tools**. Select a saved server or choose **Add server**. Enter a short name, choose an installed direct executable and add its literal arguments individually. On Windows choose an `.exe`; for a JavaScript server, choose an installed Node executable and put the existing server script path in the first argument. A shell command or `npx.cmd` is not a direct executable. No variable expansion or shell fallback occurs.
