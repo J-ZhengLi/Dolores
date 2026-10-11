@@ -24,6 +24,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Web page receipts distinguish excerpt positions from search queries and describe partial-page continuation in plain language.
 - Starting a new Git action clears the previous action's success notice, so a refusal cannot appear to have succeeded.
 - Attachment errors distinguish oversized text from unsupported files and offer the appropriate next step without losing the draft.
 - Source Control no longer labels folders without Git as detached HEAD; empty and detached repositories show distinct states.

@@ -12,7 +12,7 @@ Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
 renders; it adds no native checklist pass. The October 12 resumed settings check
-completes P05, P03, P09, M02, E09, G15 and G19: **73/129 checked**.
+completes P05, P03, P09, M02–M03, S04, S11, I01–I03, E09, G15 and G19: **79/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -42,7 +42,7 @@ No model request was made. These edited values remain in the disposable audit
 profile; the original profile still matches all 49 table digests.
 
 The earlier stop checkpoint is superseded by this recovered native route.
-**73 checked / 56 pending**; background passes still do not count as native ones.
+**79 checked / 50 pending**; background passes still do not count as native ones.
 
 E09 passed through Advanced → Diagnostics & storage → Capabilities & source.
 The native view showed Dolores 0.1.0, the project workspace, Qwen model/context
@@ -101,6 +101,49 @@ one automatically learned memory, source message 149 and revision 1. Provider
 usage was 2,540 input / 201 output / 2,741 total tokens (2,176 cached and 185
 reasoning are breakdowns). The Memory switch was enabled through the host only
 in this disposable profile; its native switch interaction remains open in M01.
+
+M03 passes native inspection/edit/save of the public automatic fact. Its
+exact source was visible; correcting Juniper-583 to Juniper-584 saved revision 2,
+marked the earlier source historical and retained revision 1 outside recall.
+A later host-level real Qwen extraction from the conflicting original wording
+completed with zero saved / one skipped. Native reopening after a normal launch
+retained the corrected value and revision, with that attempt visible in activity.
+The extraction step is host evidence; editing and reopened presentation are native.
+
+I03 passes native Browser readiness and missing-adapter recovery. An owned
+launch-only environment override selected an intentionally absent adapter,
+without removing installed software or changing saved settings. Tools showed
+Needs setup; Browser showed the actual reason, expandable Node/Edge/Chrome and
+pinned adapter guidance, and a truthful Refresh. The normal launcher restored
+the original environment afterward. No browser install or model call occurred.
+
+S04 passes with a fresh real Qwen-created weekday report and an enabled
+public daily-report skill. Host-level preparation created and ran the task;
+the native Scheduled page and in-chat receipt matched task ID, project, model,
+skill, timezone and weekday time. Open source chat showed the actual request and
+acknowledgement; Open result showed PUBLIC-SCHEDULE-PINNED-42, matching the pinned
+skill. The occurrence used one call / 5,269 reported tokens. The task was paused
+after completion; no further automatic run is intended in the disposable profile.
+
+S11 passes native Close-to-tray and normal launch reopening with the same owner
+PID, retained unsent `z` draft and completed report. Turning background tasks off
+and native Close exercised full exit. Independent process inspection verified the
+owner had exited before any replacement; a fresh normal launch retained the draft,
+result and exactly one succeeded occurrence. The tray context-menu Quit was not
+exercised; the ordinary Close exit path was used. No model request or task replay
+was made by these lifecycle checks. Background preference returned to off.
+
+I01–I02 pass native inspection of the retained real Qwen web run. Search
+showed its exact query, provider, four labeled URLs/snippets and the snippet
+limitation. Qwen explained that none was the requested official page, then used
+the supplied Rust Book URL; its answer rendered the exact clickable source link.
+The expanded primary-page receipt showed title/URL, a partial excerpt ending at
+character 8,132 and the untrusted/no-script/login/redirect limitation. The old
+“Search: 0” label was incorrect; its regression failed before the repair. The
+normal rebuilt native view now says “Read from page start” and “Continue from
+character 8132.” All 29 focused tests, including empty-search recovery and later
+page offsets, pass. Tool approvals and the three real Qwen calls (22,318 reported
+tokens) were host-level preparation; this native check sent no additional request.
 
 ### October 11 resumed editor interaction
 
@@ -198,7 +241,7 @@ conflicting stash and revert conflict/Abort preserving HEAD and saved bytes.
 Receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
 Native count remains 66 checked / 63 pending.
 
-The updated October 12 queue has **73 checked / 56 pending**. Every pending
+The updated October 12 queue has **79 checked / 50 pending**. Every pending
 item below retains a native interaction requirement; available background paths
 have been exercised, with model reliability gaps recorded separately. The
 earlier helper failure was recovered as described above. No alternate Windows
@@ -215,10 +258,10 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
 | G17–G18, G20 (3) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
-| S04, S10–S12 (4) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
+| S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P04, P06–P08, P12–P14 (7) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
-| M01, M03–M10 (9) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
-| I01–I07, I10 (8) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
+| M01, M04–M10 (8) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
+| I04–I07, I10 (5) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
 | E01–E08, E10–E12 (11) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
 
@@ -705,14 +748,14 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] S01 Natural English weekday request creates a task without manual setup and visibly confirms exact schedule/model.
 - [x] S02 Natural Chinese weekday request does the same; paraphrases such as each workday are supported by interpretation.
 - [x] S03 Missing time uses disclosed 09:00 local default; quoted examples/negations create no task.
-- [ ] S04 Enabled project skill is pinned to the created task; project/model/skill receipt matches the request.
+- [x] S04 Enabled project skill is pinned to the created task; project/model/skill receipt matches the request.
 - [x] S05 Scheduled page shows next occurrence/timezone/status and original conversation; no manual creation form.
 - [x] S06 Run now completes a real-model occurrence and exposes result, progress, error and usage.
 - [x] S07 Change time/pause/resume in original chat; existing task changes without an accidental duplicate.
 - [x] S08 Page Pause/Resume/Skip next/Stop operate correctly on a disposable schedule.
 - [x] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
 - [ ] S10 Interrupted/failed occurrence keeps evidence; explicit retry does not replay uncertain effects.
-- [ ] S11 Background close-to-tray/reopen/Quit preserves task result and draft with no duplicate owner.
+- [x] S11 Background close-to-tray/reopen/Quit preserves task result and draft with no duplicate owner.
 - [ ] S12 Delete only a disposable schedule; original conversation/results and files remain inspectable as specified.
 
 ## 7. Settings, attachments and context
@@ -736,7 +779,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 - [ ] M01 One Memory switch starts automatic useful fact/preference capture from real completed chats, with sources/activity.
 - [x] M02 Fresh conversation recalls a retained useful fact; no manual population is required.
-- [ ] M03 Inspect/correct a memory; protected correction survives later extraction.
+- [x] M03 Inspect/correct a memory; protected correction survives later extraction.
 - [ ] M04 Disable capture/recall; existing memory remains inspectable and can be forgotten deliberately.
 - [ ] M05 Project facts capture approved successful check evidence with clear declaration/execution distinction.
 - [ ] M06 Changed/missing/stale sources are excluded; project facts stay in the appropriate project.
@@ -747,9 +790,9 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 ## 9. Optional research and integrations
 
-- [ ] I01 Web search returns labeled source results or a truthful empty/error outcome; refine/direct URL recovery works.
-- [ ] I02 Read a public primary page with citations; partial excerpt and provenance are visible.
-- [ ] I03 Browser readiness/setup status is understandable; missing optional adapter has actionable recovery.
+- [x] I01 Web search returns labeled source results or a truthful empty/error outcome; refine/direct URL recovery works.
+- [x] I02 Read a public primary page with citations; partial excerpt and provenance are visible.
+- [x] I03 Browser readiness/setup status is understandable; missing optional adapter has actionable recovery.
 - [ ] I04 Model opens a disposable local web page, reads it and requests reviewed click/input; local screenshot is inspectable.
 - [ ] I05 Browser Stop/stale reference recovery closes owned browser and avoids blind repeated input.
 - [ ] I06 Inspect/enable a harmless local MCP server; catalog discovery does not silently execute tools.

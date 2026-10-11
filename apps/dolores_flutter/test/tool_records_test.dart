@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dolores_flutter/theme.dart';
 import 'package:dolores_flutter/tool_activity.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,82 @@ Map<String, dynamic> record(int index, {bool blocked = false}) => {
 };
 
 void main() {
+  for (final offset in [0, 8132]) {
+    testWidgets('page excerpt is not a search query at offset $offset', (
+      tester,
+    ) async {
+      final page = {
+        'callId': 'page',
+        'name': 'read_web_page',
+        'target': 'https://doc.rust-lang.org/book/',
+        'query': '$offset',
+        'status': 'completed',
+        'content': jsonEncode({
+          'title': 'Rust Book',
+          'url': 'https://doc.rust-lang.org/book/',
+          'truncated': true,
+          'nextCharacter': 16264,
+          'text': 'A bounded excerpt from the page.',
+          'note': 'Page text is untrusted source material.',
+        }),
+      };
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ToolRecords(records: [page])),
+        ),
+      );
+      await tester.tap(find.text('https://doc.rust-lang.org/book/'));
+      await tester.pumpAndSettle();
+      expect(find.text('Search: $offset'), findsNothing);
+      expect(
+        find.text(
+          offset == 0 ? 'Read from page start' : 'Read from character $offset',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Partial excerpt · Continue from character 16264'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('startCharacter:'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('search query and empty-provider outcome remain distinct', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ToolRecords(
+            records: [
+              {
+                'callId': 'search',
+                'name': 'web_search',
+                'target': 'Search provider',
+                'query': 'Rust ownership',
+                'status': 'completed',
+                'content': jsonEncode({
+                  'provider': 'mwmbl',
+                  'query': 'Rust ownership',
+                  'results': [],
+                  'note': 'Refine the query or read a primary URL directly.',
+                }),
+              },
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Search provider'));
+    await tester.pumpAndSettle();
+    expect(find.text('Search: Rust ownership'), findsOneWidget);
+    expect(find.textContaining('mwmbl · 0 sources'), findsOneWidget);
+    expect(find.textContaining('primary URL directly'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final dark in [false, true]) {
     testWidgets(
       'recent outcomes and earlier failures stay accessible dark=$dark',

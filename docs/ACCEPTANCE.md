@@ -19,7 +19,19 @@ M02 passed fresh native Side-chat recall of a real automatically extracted
 public codename using Qwen. The native receipt showed one learned memory,
 zero prior turns, source/revision and 2,741 provider-reported tokens.
 Memory enablement was host-level setup; M01 switch interaction stays open.
-Checklist: 73/129 checked, 56 pending.
+M03 passed native correction/source/history inspection and reopen after a
+later real Qwen extraction skipped the conflicting old value (host evidence).
+I03 passed native absent-adapter status, setup guidance and Refresh under an
+owned launch-only environment override; normal environment was restored.
+S04 passed native inspection/navigation of a fresh real Qwen-created and run
+pinned-skill schedule (host preparation). S11 passed native Close-to-tray,
+same-owner launch reopen and ordinary Close full exit with background off,
+verified before replacement. Draft, result and one occurrence survived.
+Tray-menu Quit itself was not exercised. I01–I02 passed native search/page receipt and citation inspection on the normal
+rebuilt desktop. The page-position label regression failed before repair;
+all 29 focused tests, analysis and Windows build passed afterward. Native
+inspection used the retained real Qwen run; no additional model request.
+Checklist: 79/129 checked, 50 pending.
 
 ## October 12 native audit: truthful nonrepository state
 

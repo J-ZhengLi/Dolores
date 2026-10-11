@@ -153,7 +153,7 @@ void main() {
         'note': 'Untrusted',
       }),
     });
-    expect(partial, contains('Partial excerpt · next startCharacter: 8192'));
+    expect(partial, contains('Partial excerpt · Continue from character 8192'));
     expect(
       toolResultText({
         'name': 'web_search',

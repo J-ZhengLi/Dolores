@@ -160,7 +160,7 @@ String toolResultText(dynamic record) {
       return '${result['provider']} · ${sources.length} sources\nQuery: ${result['query']}\n\n${sources.map((s) => '${s['title']}\n${s['url']}\n${s['snippet']}').join('\n\n')}\n\n${result['note']}';
     }
     if (record['name'] == 'read_web_page') {
-      return '${result['title']}\n${result['url']}\n${result['truncated'] == true ? 'Partial excerpt · next startCharacter: ${result['nextCharacter']}\n' : ''}\n${result['text']}\n\n${result['note']}';
+      return '${result['title']}\n${result['url']}\n${result['truncated'] == true ? 'Partial excerpt · Continue from character ${result['nextCharacter']}\n' : ''}\n${result['text']}\n\n${result['note']}';
     }
     if (record['name'] == 'browser') {
       return '${result['outcome']} · ${result['title'] ?? ''}\n${result['url'] ?? ''}\n${result['partial'] == true ? 'Partial page state\n' : ''}${result['recovery'] ?? ''}\n${result['text'] ?? ''}\n\n${result['controls'] ?? ''}\n${result['note'] ?? ''}';
@@ -217,6 +217,22 @@ String toolResultText(dynamic record) {
     // Legacy/unknown tool payloads remain literal and selectable.
   }
   return content;
+}
+
+String toolQueryText(dynamic record) {
+  if (record['name'] == 'read_web_page') {
+    final offset = int.tryParse('${record['query']}');
+    if (offset == 0) return 'Read from page start';
+    if (offset != null && offset > 0) return 'Read from character $offset';
+    return 'Page request: ${record['query']}';
+  }
+  final label = switch (record['name']) {
+    'delegate_tasks' => 'Plan',
+    'inspect_harness' => 'Inspection',
+    'harness_repair' => 'Repair',
+    _ => 'Search',
+  };
+  return '$label: ${record['query']}';
 }
 
 String toolStatus(dynamic record) {
@@ -718,13 +734,7 @@ class _ToolRecordsState extends State<ToolRecords> {
                     key: PageStorageKey(
                       'tool-query-${record['callId']}-${record['name']}-${record['target']}',
                     ),
-                    '${record['name'] == 'delegate_tasks'
-                        ? 'Plan'
-                        : record['name'] == 'inspect_harness'
-                        ? 'Inspection'
-                        : record['name'] == 'harness_repair'
-                        ? 'Repair'
-                        : 'Search'}: ${record['query']}',
+                    toolQueryText(record),
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                 ConstrainedBox(
