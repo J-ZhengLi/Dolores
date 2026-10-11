@@ -1,5 +1,14 @@
 # Dolores acceptance — 2026-10-08
 
+## Audit static-check repair — scheduling module order (October 11)
+
+The all-target Clippy check failed on `items_after_test_module`: two existing
+scheduling context helpers followed the test module. Their bodies were moved
+unchanged above the tests. All-target Clippy for the store and bridge now passes
+with warnings denied; all six scheduling tests pass. This source-order-only
+cleanup changes no runtime behavior and needed no further desktop rebuild or
+native interaction. Hosted CI remains separate from these local results.
+
 ## First-user audit — history paging and revision tabs (October 11)
 
 G13 native interaction loaded all three pages of 62 public commits without
