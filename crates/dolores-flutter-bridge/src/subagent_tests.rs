@@ -71,6 +71,12 @@ impl ModelProvider for Fixture {
             p.name.as_str(),
             "read_text_file" | "list_folder" | "search_text"
         )));
+        for unavailable in ["create_text_file", "edit_text_file", "run_command"] {
+            assert!(
+                !messages[0].content.contains(unavailable),
+                "Read-only child received instructions for {unavailable}"
+            );
+        }
         if self.hang {
             std::future::pending::<()>().await;
         }

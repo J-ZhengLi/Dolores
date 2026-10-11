@@ -29,7 +29,17 @@ delegation fixture initially missed child approval because it relied on an
 obsolete ID prefix. Recognizing the two owned create operations and requiring an
 actual Stop/revocation corrected the fixture. All normal-bundle concurrency,
 shared-budget, Stop/revocation, scope refusal and restart cases pass without a
-cancellation change. I10 remains unchecked pending native and live coverage.
+cancellation change. I10 remains unchecked pending native coverage.
+
+I10's read-only provider-boundary check separately reproduced creation guidance
+without a create tool. The conditional guidance fix passes all five child checks,
+all-target Clippy and the normal Windows build. Qwen then completed two scoped
+read-only delegates; the parent independently read both public files and confirmed
+their exact markers. Five reviews, unchanged bytes and a fresh-process reopen
+agree. Eight provider calls including children reported 37,276 tokens, with no
+DeepSeek fallback or original-profile change. Public evidence:
+`output/delegation-live-20261011-01/`. This adds background qualification only;
+native progress/approval controls remain pending.
 
 Background follow-up repair (October 11): A07's missing historical receipt was
 reproduced at save/restart and corrected in next-request context loading. Recent

@@ -200,7 +200,10 @@ impl DelegateTasks {
             dolores_core::reset_agent_budget_note(&rt.context[0].content, rt.budget, budget);
         system.push_str(&format!("\nShared parent totals: {} model calls and {} tool operations INCLUDING parent and sibling attempts. One model call stays reserved for the parent report; concurrency can consume the shared allowance before your local cap.",rt.budget.model_limit(), rt.budget.tool_limit()));
         system.push_str(&format!("\n\nYou are a scoped child of a Dolores task, not its coordinator. Ownership: {}. Access: {}. Use only paths within that scope. No delegation, commands, external tools or permission changes. Your report is not independent verification. Summarize exact work, actual evidence and remaining gaps in at most 150 words. Do not claim tests you did not run.", task.scope, if task.read_only {"read-only"} else {"reviewed file writes"}));
-        system.push_str("\nA file scope does not allow listing or searching its parent directory, including '.'. Use the assigned direct file path. For a requested new file, propose create_text_file directly; its host preview checks occupancy and never replaces an existing file. If occupied, read that same file before editing. Do not spend steps locating a file whose exact path was supplied. The parent owns cross-file integration and command verification.");
+        system.push_str("\nA file scope does not allow listing or searching its parent directory, including '.'. Use the assigned direct file path. Do not spend steps locating a file whose exact path was supplied. The parent owns cross-file integration and command verification.");
+        if !task.read_only {
+            system.push_str("\nFor a requested new file, propose create_text_file directly; its host preview checks occupancy and never replaces an existing file. If occupied, read that same file before editing.");
+        }
         let original = rt.context.last().map(|m| m.content.as_str()).unwrap_or("");
         let context = vec![Message{role:Role::System, content:system,parts:vec![]},
             Message{role:Role::User, content:format!("Child goal:\n{}\n\nOriginal user request (background, scope still applies):\n{}", task.goal, short(original, 16*1024)),parts:vec![]}];

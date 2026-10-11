@@ -1,5 +1,32 @@
 # Dolores acceptance — 2026-10-08
 
+## Audit background repair — read-only delegated guidance (October 11)
+
+A provider-boundary regression found another contradictory instruction: a
+read-only child was told to propose `create_text_file`, which its catalogue
+excludes. File-creation guidance now belongs only to writable children. The
+original regression and all five scoped-child checks pass, including shared
+limits, one failed child beside a retained sibling, scope refusal and Stop.
+All-target Clippy and the normal Windows build pass. The normal-bundle synthetic
+delegation/restart fixture also passes after its opaque-approval correction.
+
+The bounded qwen3.7-flash case used two read-only children with independent
+direct-file scopes. Each read its assigned public file and returned its marker.
+The parent independently read both files, then reported the exact markers.
+Five exact operation reviews were approved; both source files stayed byte-for-
+byte unchanged. All child wire requests had only the three read tools and no
+file-write/command instructions. There were eight HTTP calls (four parent, four
+child), reporting 36,496 input and 780 output tokens, 37,276 total. The parent
+metadata's four-call count is not the combined usage. Output was configured at
+512 tokens per response, idle timeout 20 seconds and task limits 10 calls / eight
+tools / 80 seconds; no DeepSeek fallback was needed.
+
+A fresh process retained the child reports, separate child usage, parent
+verification receipts and final answer with no configured provider or replay.
+The original 49 table digests match. Public evidence is ignored under
+`output/delegation-live-20261011-01/`. This is background qualification of I10;
+native approval/progress controls remain pending and the checklist stays 58/129.
+
 ## Audit background repair — instructions follow available tools (October 11)
 
 The Memory Off failure reproduced in two of three fresh qwen3.7-flash side
