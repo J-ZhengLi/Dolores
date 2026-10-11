@@ -24,6 +24,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Activated skills match simple singular/plural keywords, so a request to review code can use a skill described for code reviews.
 - Large changes can be committed, discarded or reverted without an unused review diff blocking the action.
 - Stash and revert conflicts explain how to recover while preserving the stash and existing work.
 - Large saved changes can be stashed and restored without fitting their entire diff into a review.

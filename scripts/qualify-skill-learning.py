@@ -12,6 +12,17 @@ from pathlib import Path
 from desktop_test_support import NativeHost, ROOT
 
 
+def restored_baseline_matches(view, sources, active):
+    event = next((event for event in view['state']['events'] if event['id'] == active['id']), None)
+    baseline = active['baseline']
+    skill = next((skill for skill in sources['skills'] if skill['name'] == baseline['name']), None)
+    return bool(event and event['status'] == 'quarantined' and skill and len(skill['versions']) >= 2
+                and skill['enabled'] == baseline['enabled']
+                and skill['versions'][-1]['document'] == baseline['versions'][-1]['document']
+                and skill['versions'][-2]['document'] == active['candidate']
+                and skill['versions'][-1].get('rollbackFrom') == skill['versions'][-2]['version'])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path, required=True)
@@ -83,7 +94,8 @@ def main():
                                   'cases':[{'candidate':case['candidate'],'complete':case['complete'],'passed':case['passed']} for case in trial['results']]} for trial in view['trials']]})
         if active:
             restored = host.call('restoreLearning', session=session, revision=view['state']['revision'], event=active['id'])
-            result['manualRestore'] = restored['state']['events'][-1]['status']=='restored'
+            result['manualRestore'] = restored_baseline_matches(
+                restored, host.call('trialSources', session=session), active)
         result['passed'] = bool(active) and result.get('manualRestore',False) and result['preservedFiles'] and result['configCorrect']
         result['automaticRegressionRestoreQualified'] = False
     except Exception as error:

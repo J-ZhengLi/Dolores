@@ -11,9 +11,46 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **66/129 checked**.
+renders; it adds no native checklist pass. The October 12 resumed settings check
+completes P05, P03 and E09: **69/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
+
+### October 12 resumed settings interaction
+
+Resetting the computer-use JavaScript session recovered the current Dolores
+window instead of the closed reference returned by the old session. A freshly
+returned accessibility index still failed. Screenshot-based clicks and physical
+key presses worked in the owned public profile; bulk `type_text` did not change
+the selected numeric field, so no success was inferred from its return value.
+
+P05 passes end to end in Settings → Models → qwen3.7-flash. A physical edit
+changed the stall timeout from 30 to 31. Escape offered Keep editing / Discard /
+Save; Keep editing retained 31. The model-detail close button offered the same
+choices. Discard closed the editor, and reopening showed 30. A second edit to 31
+was saved through the Escape prompt; reopening showed 31. Context/output/reasoning
+values remained as before. No model request was made and the original profile
+was not changed.
+
+P03 subsequently passed in the same native UI. Qwen's context/output/stall
+values changed from 1,000,000 / 1,024 / 31 to 1,000,001 / 1,025 / 32 and were
+saved. DeepSeek retained its independent 1,000,000 / 1,024 / 30 values; its
+reasoning choice changed from DeepSeek thinking off to Provider default. After
+stopping and relaunching only the owned preview through the normal desktop
+launcher, both models retained their exact saved values and reasoning choices.
+No model request was made. These edited values remain in the disposable audit
+profile; the original profile still matches all 49 table digests.
+
+The earlier stop checkpoint is superseded by this recovered native route.
+**69 checked / 60 pending**; background passes still do not count as native ones.
+
+E09 passed through Advanced → Diagnostics & storage → Capabilities & source.
+The native view showed Dolores 0.1.0, the project workspace, Qwen model/context
+origin, run limits, review requirements, tool availability and unknown model
+reliability. Matching bundled file-tool source displayed its SHA-256 and lines
+1–60 / 342; Next source lines showed 61–120 and First lines restored 1–60.
+Cancelling Compare checkout retained the bundled source. Refresh retained the
+inventory and source. All inspection stayed local and made no model request.
 
 ### October 11 resumed editor interaction
 
@@ -53,6 +90,44 @@ from background tests. Checklist remains **66/129 checked**.
 
 ### October 11 background coverage and native queue
 
+October 12 drafted-skill continuation: real Qwen drafting/comparison/promotion
+passed the fixed format gate, but a fresh chat omitted the saved instructions
+because “review” did not match the description's “reviews.” The failing core
+regression now passes with simple singular/plural keyword matching; unrelated
+substrings remain excluded. All 94 core checks, Clippy, normal build and the same
+rebuilt-bridge fresh-chat request pass, including exact skill provenance.
+Content inspection separately found an incorrect Qwen source review; its format
+receipt was not semantic qualification and that disposable skill was disabled.
+DeepSeek also misread the terse source request, then completed the same workflow
+with explicit before/after Python source and unchanged comparison criteria.
+Separate-process reopen and a new empty-list review retained evaluation/provenance
+and correctly explained the change, without claiming tests ran. Brevity remained
+inconsistent. Eight Qwen calls / 10,791 tokens and eight DeepSeek calls / 10,917
+tokens; all original table digests match. Receipts: `skill-draft-qwen-20261012-01`,
+`skill-draft-deepseek-20261012-01` and `skill-draft-deepseek-20261012-02`.
+Native draft/edit/test/promotion controls remain pending (M10); count stays 66/129.
+
+October 12: a fresh real Qwen3.7 Flash comparison completed all four fixed
+`config-check-v1` cases: both baselines failed, both candidates passed, and
+automatic activation succeeded. Manual baseline restoration also succeeded;
+the audit helper's obsolete `restored` assertion incorrectly reported failure
+because the product records `quarantined`. The corrected helper checks the exact
+baseline, retained candidate and rollback reference. Fresh-process reopen,
+stale/duplicate restore refusal and unchanged saved state passed without another
+model request. Foreground: five calls / 34,216 tokens; trials: sixteen calls /
+16,585 tokens. Evidence: `learning-qwen-20261012-01` under the background audit
+directory. Native controls/manual-edit conflicts and real-model automatic
+regression restoration remain pending. Count stays **66/129 checked**.
+
+The October 12 native retry recovered the current isolated app window after the
+helper first returned a closed window reference. Settings → Models → Qwen
+details and response settings were readable. Editing then failed with
+`element 13476 is not available in cached app state for dolores_flutter.exe`.
+After refreshing the screenshot, a pointer retry did not establish focus in the
+intended output field. No text was entered or preference saved. Native input
+stopped; P03/P05 remain unchecked. This is a helper/observation failure, not a
+verified settings defect. No alternate Windows automation was used.
+
 The next resume again failed twice during desktop activation with `foreground
 window did not report a process id`. No UI input followed. A background probe
 found that large Commit still generated an unused full review patch and hit the
@@ -73,34 +148,38 @@ conflicting stash and revert conflict/Abort preserving HEAD and saved bytes.
 Receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
 Native count remains 66 checked / 63 pending.
 
-The background pass covers each remaining feature's available host/fixture path.
-Native input stopped after the helper failed twice in the folder chooser; no
-alternate automation was used to bypass that failure. At that checkpoint, 69 unchecked items
-retain their interaction requirements below; backend evidence adds no checkmarks.
+The updated October 12 queue has **69 checked / 60 pending**. Every pending
+item below retains a native interaction requirement; available background paths
+have been exercised, with model reliability gaps recorded separately. The
+earlier helper failure was recovered as described above. No alternate Windows
+automation was used. Continue with the pending native controls in the isolated profile; terminal
+input and restricted permission/install steps may require the user's direct
+interaction. Recheck the changed direct Git flow as well as the pending conflict
+and remote cases. Background evidence adds no native checkmarks.
 All evidence directories in this checkpoint are ignored under
 `output/background-audit-20261011-remaining/`. Original-profile verification
 still matches all 49 table digests. No public Git remote was changed or pushed.
 
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
-| C16–C17, A10–A11, A13 | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
-| F04, F06–F07 | Editor navigation/shared-buffer widgets and normal-bundle project isolation, stale save, checkpoint and language-edit recovery | Physical shortcuts/IME, shared undo and dirty-close choices |
-| G07, G11, G15–G20 | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, stash/discard, revert conflicts and local bare-remote operations | Commit/menu controls, nonrepository navigation, conflict/Abort and interrupted-remote reconciliation |
-| T01–T02, T04–T08 | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
-| S04, S10–S12 | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
-| P03–P09, P12–P14 | Model/scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Settings close/restart and attachment dialogs; native/manual privacy/access/experimental preference controls |
-| M01–M10 | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; strict comparison and draft gates | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
-| I01–I07, I10 | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
-| I08–I09 | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
-| E01–E12 | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
+| C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
+| G15, G17–G20 (5) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Nonrepository navigation, direct action controls, conflict/Abort and interrupted-remote reconciliation |
+| T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
+| S04, S10–S12 (4) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
+| P04, P06–P09, P12–P14 (8) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
+| M01–M10 (10) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
+| I01–I07, I10 (8) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
+| I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
+| E01–E08, E10–E12 (11) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
 
-Live safety outcomes remain distinct from positive reliability. Qwen's independent
+Live safety outcomes remain distinct from positive reliability. The earlier Qwen
 learning trial was incomplete; DeepSeek tied the baseline. Neither activated.
-This qualifies withholding activation, not automatic strict gain or regression
-restore. Qwen's malformed Wasm draft was retained without activation (621 reported
+The October 12 Qwen run above adds narrow automatic strict-gain activation and
+manual restore evidence; automatic regression restore remains unqualified.
+Qwen's malformed Wasm draft was retained without activation (621 reported
 tokens); explicit DeepSeek fallback passed six checks and activation/restore
-(214 tokens). Positive learning gain and a real native repair-to-install scenario
-remain additional qualification gaps. Do not force weaker baselines or relax gates
+(214 tokens). A fresh real native repair-to-install scenario remains an additional
+qualification gap. Do not force weaker baselines or relax gates
 to obtain checkmarks. Native installation/restoration needs its concrete review.
 
 Real Qwen MCP used 3 calls / 19,750 reported tokens and two exact approvals;
@@ -590,9 +669,9 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 - [x] P01 Find settings by category/search; short labels/help hints and bottom placement remain clear. October 11 native category selection, frequency search/result navigation, compact slider labels and hover-only help passed; settings closed without changing preferences.
 - [x] P02 Light/Dark/System apply consistently; pending form drafts survive navigation.
-- [ ] P03 Model context/output/stall/reasoning settings save for the selected model and survive restart.
+- [x] P03 Model context/output/stall/reasoning settings save for the selected model and survive restart.
 - [ ] P04 Scoped user/project/chat overrides and inheritance show correct effective values on new runs.
-- [ ] P05 Close/Escape with unsaved settings gives Save/Discard/Keep editing; cancel preserves values.
+- [x] P05 Close/Escape with unsaved settings gives Save/Discard/Keep editing; cancel preserves values. Native October 12: timeout 30→31; Keep editing retained 31, Discard restored 30 on reopen, Save retained 31 on reopen.
 - [ ] P06 Connection controls list/manual models, selected model and remembered restart work without exposing a key.
 - [ ] P07 Attach/preview/remove/send public UTF-8 text; attachment snapshot survives later source changes.
 - [ ] P08 Attach public PNG/JPEG and send to a capable model; incompatible-image error preserves draft and offers settings recovery.
@@ -639,7 +718,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] E06 Restore/quarantine learning baseline; manual edits conflict instead of silently overwriting work.
 - [ ] E07 Harness extensions test source, bounded model draft and strict-gain activation preserve incomplete candidate source.
 - [ ] E08 Recovery mod health rollback and restart reconciliation retain baseline and never replay an interrupted action.
-- [ ] E09 Dolores capabilities/local diagnostic views explain build/tools/limits without an unintended model request.
+- [x] E09 Dolores capabilities/local diagnostic views explain build/tools/limits without an unintended model request.
 - [ ] E10 Native repair proposal/reproduction/regressions/build reviews demonstrate a real failure-to-fix result in isolation.
 - [ ] E11 Isolated Install & restart/Restore & restart preserve newer draft/history and reject stale plans.
 - [ ] E12 Diagnostics/storage exports and cleanup operate only on selected disposable evidence and report real outcomes.

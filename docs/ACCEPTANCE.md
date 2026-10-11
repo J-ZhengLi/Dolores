@@ -1,5 +1,153 @@
 # Dolores acceptance — 2026-10-08
 
+## October 12 native audit: local capabilities and source inspection
+
+E09 passed through Advanced → Diagnostics & storage → Capabilities & source.
+The normal UI showed build version, workspace, selected model/context origin,
+run limits, tool availability, review requirements and unknown model reliability.
+Selecting the bundled file-tool component showed its source hash and 1–60 / 342
+lines. Next source lines displayed 61–120; First lines returned to 1–60.
+Compare checkout opened the native folder picker; Cancel retained the source.
+Refresh retained the inventory and source. These local controls sent no model
+request. Checklist: 69/129 checked, with all 60 pending IDs accounted for.
+
+## October 12 native audit: model settings survive restart
+
+P03 passed through the normal Settings → Models UI in the owned isolated
+profile. Qwen's context/output/stall changed to 1,000,001 / 1,025 / 32; DeepSeek
+retained 1,000,000 / 1,024 / 30 and separately saved Provider default reasoning
+instead of DeepSeek thinking off. Save succeeded for both models. Stopping and
+relaunching only the owned preview through the normal desktop launcher, then
+reopening both model editors, retained their exact saved values and reasoning
+choices. This exercises persistence and isolation between models.
+
+No model request was made. Edited settings remain in the disposable profile;
+the original profile matches all 49 table digests. The checklist advances to
+68/129 checked, with all 61 pending IDs accounted for in its current queue.
+
+## October 12 native audit resumed: unsaved settings recovery
+
+The user's renewed availability prompted a fresh computer-use retry. Resetting
+its JavaScript session replaced a closed cached window reference with the current
+owned preview. Accessibility-index input still failed, but screenshot-based
+clicks and physical key presses worked. Bulk `type_text` did not change a focused
+numeric field; this limitation was not treated as successful input or a verified
+product defect. No alternate Windows automation was used.
+
+P05 passed in the normal desktop UI using the isolated public-notebook profile.
+Changing Qwen's stall timeout from 30 to 31, then pressing Escape, offered Save /
+Discard / Keep editing. Keep editing retained 31. Closing model details offered
+the same choices. Discard retained the original saved 30 on reopening; a fresh
+edit saved through the Escape prompt retained 31 on reopening. Other model
+values were not changed. No model request was needed. Original-profile digests
+match all 49 tables. The checklist advances to 67/129, superseding the earlier
+stop boundary. P03 was still open at this checkpoint and subsequently passed
+as recorded above.
+
+## October 12 audit stop checkpoint
+
+The current checklist is 66/129 checked. Its current queue accounts for all 63
+pending IDs and the native interaction still required for each group; completed
+editor items were removed from the older queue. Available background paths have
+been exercised without converting them into native passes. Six focused learning
+checks pass on the current source, including confirmed regression/quarantine,
+incomplete monitoring without retry, Stop and manual-edit/policy conflicts.
+Real-model automatic regression restoration remains unqualified; a fixture pass
+does not close that gap. The original profile still matches all 49 table digests.
+
+The latest native attempt failed on cached accessibility controls and did not
+establish field focus after a fresh observation. No preference was saved, and
+the owned isolated preview was stopped. Under the user's stop condition, this
+audit run ends at the computer-use boundary. The feature audit remains incomplete.
+Resume with native P03/P05, then the current queue, including a fresh check of the
+changed direct Git actions. Native install/restore and restricted permission or
+terminal interactions retain their required human involvement.
+
+## October 12 background audit: drafted skill selection and model accuracy
+
+A public code-review exchange was drafted, edited and compared against two
+response cases frozen before generation: a negative-input regression and a
+zero-count regression. Required headings/risk words and forbidden false execution
+claims were identical for baseline and candidate. Qwen completed the draft and
+comparison (baseline 0/2, candidate 2/2), with untested activation, changed source
+quotation, stale promotion and duplicate promotion correctly refused. Reopening
+retained the exact evaluation. These checks establish the literal format gate,
+not correctness of every model-authored statement.
+
+The fresh-chat follow-up failed: no skill was selected, even though it was saved
+and enabled. The description used “code reviews”; the request said “Review this
+function” without another matching keyword. The exact-word selector omitted the
+instructions. A regression failed with zero selected snapshots before repair.
+Simple English singular/plural keyword pairs now match in either direction;
+exact names, unrelated substring exclusion, scope precedence and existing limits
+remain. All 94 core checks, Clippy and the normal Windows build pass. The identical
+fresh-chat request on the rebuilt bridge includes the exact saved skill version
+and returns the requested sections; original source chat/evaluation stay intact.
+
+Manual content inspection caught an additional model failure: Qwen's original
+source review incorrectly accepted the negative-input change, and its draft
+faithfully copied that bad example. The first script checked format before source
+accuracy; its original receipt is retained with a separate failed quality review.
+The disposable Qwen skill was disabled. DeepSeek also misjudged the original terse
+request. A fresh explicit before/after Python presentation of the same change
+then produced a correct DeepSeek source review without weakening the two frozen
+comparison cases. Draft/edit/test/strict-gain promotion and all four refusal checks
+passed. Separate-process reopening retained the exact evaluation; a new empty-list
+case used the saved skill with matching provenance and correctly explained the
+None-to-IndexError change without claiming execution. That reply was verbose;
+this does not establish consistent brevity or general review competence.
+
+Across these bounded probes: eight Qwen calls / 10,791 reported tokens, eight
+DeepSeek calls / 10,917 tokens. Drafting allowed 4,096 output tokens/60 seconds;
+comparison retained its 512-token/10-second per-response limits. Original-profile
+verification matches all 49 table digests. No desktop input or original skill
+collection changes were made. Receipts remain under ignored
+`output/background-audit-20261011-remaining/skill-draft-{qwen,deepseek}-20261012-*`.
+M10 remains pending for its native source-selection/edit/test/promotion controls;
+the checklist stays at 66/129. Model failures are preserved separately from the
+successful background workflow.
+
+## October 12 background audit: real automatic skill improvement
+
+A fresh bounded Qwen3.7 Flash run qualified the existing `config-check-v1`
+workflow on the normal release bridge. The approved public task changed only
+the enabled flag, preserved unrelated files and recorded the obsolete check's
+failure. Reflection retained the approved package declaration and exact skill
+version. Both baseline cases completed and failed the fixed check; both candidate
+cases completed and passed, including the independent Unicode/nested-value case.
+Dolores automatically activated the exact check-command update. The existing
+criteria, 1,024-output-token trial allowance, five-call/eight-operation limits and
+30-second case deadline were unchanged. This is one narrow workflow improvement,
+not general skill-learning reliability.
+
+The qualification helper initially reported failure after a successful manual
+restore: it expected `restored`, while the product records `quarantined` and
+appends the retained baseline as a rollback version. Its assertion now checks the
+specific event, exact baseline document/enabled state, retained candidate and
+rollback reference. A separate fresh-process check of the same live receipt
+passes without another provider request. Wrong-document and missing-rollback
+variants fail the assertion. Stale and duplicate restore requests are refused;
+the actual saved state and skill remain unchanged. The original failed receipt
+is retained alongside the corrected reopen evidence, rather than rewritten.
+
+The live foreground used five calls / 34,216 reported tokens; four trial phases
+used sixteen calls / 16,585 tokens. Original-profile verification matches all
+49 table digests. No desktop input, installation or original-project writes
+were performed. Evidence is under the ignored
+`output/background-audit-20261011-remaining/learning-qwen-20261012-01/`, including
+`public-result.json` and `restoration-reopen-result.json`.
+E05/E06 remain pending for native controls and manual-edit conflict interaction.
+Real-model automatic regression restoration and a fresh native repair-to-install
+scenario remain separate gaps. No additional checklist item is checked.
+
+The native retry recovered the isolated app's current window after an obsolete
+helper window reference and inspected the model settings. The helper then rejected
+a freshly observed editable-control index as unavailable in its cached state.
+A refreshed screenshot/pointer retry did not establish the intended field focus;
+no text was entered or settings saved. Native input stopped rather than assuming
+an edit succeeded. P03/P05 remain unqualified; this does not establish a product
+settings failure. No alternate native automation was used.
+
 ## October 11–12 background audit: large direct Git actions
 
 The desktop helper failed both activation attempts with `foreground window did
