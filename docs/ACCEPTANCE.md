@@ -1,5 +1,82 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — settings navigation and help (October 11)
+
+P01 completed its remaining native coverage in the compact normal desktop.
+Settings remains at the bottom of the activity rail. The category chooser
+listed General, Models, Personalization, Memory, Tools and Advanced; selecting
+Personalization displayed concise scope and explanation-style controls.
+Searching `frequency` through normal context-menu paste found Companionship;
+clicking the result opened the correct page and cleared the search. The
+Quiet–Chatty slider showed endpoints 0/100 and the current `2 / day` value.
+The Companionship question-mark hint appeared when the pointer rested over it,
+keeping its longer explanation out of the default page. Closing settings
+changed no preferences. No app change or model request was needed. P01 is
+checked, bringing the checklist to 58/129. Native observations remain ignored
+under `output/native-audit-20261010-01/`. Direct helper text injection and
+accessibility value setting remained unreliable in Flutter; those failures
+are not counted as settings search defects.
+
+## First-user audit — split-editor follow-up (October 11)
+
+F06 added native coverage with a 120-line public fixture. Both panes displayed
+the same first-line edit; the right pane scrolled to lines 21–56 while the left
+stayed at the start. Editing in the right pane used its separate cursor. After
+reopening, the dirty shared buffer and each pane's position remained available.
+Resizing the window below 600 editor pixels exposed compact Group 1/Group 2
+controls. Hiding the side panel and switching groups retained their separate
+scroll/cursor positions. Native Save retained the shared draft.
+
+Native Control undo did not produce a verifiable result in this run. A Windows
+widget test now exercises the real split workspace: edits in both panes, undo
+from the first pane and redo from the second. Both controllers and the document
+agree throughout. All 16 selected workspace/editor checks pass; changed-file
+analysis is clean. No runtime change or new build was needed. F06 remains
+unchecked pending native shared undo qualification; successful text, cursor,
+scroll and compact-layout coverage is recorded separately. Public observations
+remain ignored under `output/native-audit-20261010-01/`.
+
+## First-user audit — external file changes (October 11)
+
+F09 passed in the normal desktop with the public file created during F08.
+Native typing produced an unsaved `7890` draft; an explicitly labeled background
+fixture write simulated another editor saving `456`. Native Save refused with
+the actual changed-on-disk explanation, retained the draft and left disk bytes
+untouched. Compare displayed `456` and `7890` separately.
+
+A second external write to `4567` invalidated that comparison. Keep my edits
+refused with “Disk changed again after comparison. Compare again; edits are
+retained.” Both versions remained intact. A fresh comparison then adopted the
+reviewed revision without writing; native Save saved exactly `7890` and cleared
+dirty state. Another external change to `45678` was compared with the clean
+editor, and Reload disk displayed exactly `45678` without an unsaved draft.
+No app change was needed. All six baseline project files and all 49 original
+profile table digests remain unchanged. F09 is checked, bringing the checklist
+to 57/129. Native observations and `f09-native-recovery.json` remain ignored
+under `output/native-audit-20261010-01/`. No live model request was needed;
+discarding an unsaved draft via Reload disk was not exercised.
+
+## First-user audit — file creation and naming (October 11)
+
+F08 exercised native New file, saving typed content, Save as and rename in the
+isolated public project. Save as retained the source; rename retained the exact
+content and updated the tab and tree. Saving an unsaved `789` draft over an
+existing `78` file was refused, preserving the draft and both saved files.
+Retry through Save as saved the draft under a fresh name. The normal rebuilt
+desktop also refused rename to an existing file, then successfully renamed to
+a fresh target: its exact bytes were `789`, both other files remained `78`, and
+the old renamed path was absent. Error state cleared after recovery.
+
+The first refusal displayed the same error twice. The workspace now suppresses
+only the duplicate of the active document's error; distinct errors and errors
+on inactive documents remain visible. A widget regression failed before the
+fix and passes afterward, including both preservation cases. All 15 focused
+file-workspace/editor checks pass; changed-file analysis and the normal Windows
+build pass. Native retest shows one error row with recovery actions. All 49
+original profile table digests remain unchanged. F08 is checked, bringing the
+checklist to 56/129. Public observations and exact-byte receipts remain ignored
+under `output/native-audit-20261010-01/`; no live model call was needed.
+
 ## First-user audit — editor shortcuts (October 11)
 
 F03 typed a public BOM/CRLF file through the Windows editor, changing `41` to

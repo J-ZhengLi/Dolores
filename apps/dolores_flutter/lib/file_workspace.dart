@@ -560,6 +560,7 @@ class _FileWorkspaceViewState extends State<FileWorkspaceView> {
           ),
         );
       }
+      final activeError = files.documents[w.layoutOwner.active.active]?.error;
       return CallbackShortcuts(
         bindings: {
           const SingleActivator(
@@ -583,7 +584,7 @@ class _FileWorkspaceViewState extends State<FileWorkspaceView> {
         },
         child: Column(
           children: [
-            if (files.error != null)
+            if (files.error != null && files.error != activeError)
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: Text(files.error!),

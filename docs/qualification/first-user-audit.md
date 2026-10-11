@@ -11,7 +11,7 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **55/129 checked**.
+renders; it adds no native checklist pass. **58/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -280,10 +280,10 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] F03 Edit text, undo/redo and Ctrl+S; UTF-8/BOM/CRLF content survives correctly. October 11 normal-build retest passes Right-Control undo, Ctrl+Y redo and Ctrl+S, including undo after saving. Exact BOM/CRLF/Chinese bytes are preserved. Both Control keys pass Windows widget regressions, including failed-save retry; native Left-Control remains separately unqualified.
 - [ ] F04 Ctrl+P, Ctrl+F/H and Ctrl+G work with relative paths, find/replace and line navigation.
 - [x] F05 Drag tabs to reorder, split and move between groups; keyboard/menu alternatives work.
-- [ ] F06 Shared file text/undo and independent cursor/scroll survive two split views and compact layout.
+- [ ] F06 Shared file text/undo and independent cursor/scroll survive two split views and compact layout. October 11 native shared edits, independent cursor/scroll, reopened dirty draft and compact group switching passed. Windows split keyboard undo/redo regression passes; native shared undo remains unqualified.
 - [ ] F07 Close a dirty file: Save/Discard/Keep editing preserve the chosen outcome.
-- [ ] F08 Create/Save as/rename a disposable file; an existing target is not silently overwritten.
-- [ ] F09 External disk edit produces Compare/Reload disk/Keep my edits; stale save preserves both versions.
+- [x] F08 Create/Save as/rename a disposable file; an existing target is not silently overwritten. Native create/save, Save as, rename, both existing-target refusals and fresh-name recovery passed October 11; exact byte receipts confirm original and draft preservation. Duplicate error presentation was fixed and retested in the normal Windows build.
+- [x] F09 External disk edit produces Compare/Reload disk/Keep my edits; stale save preserves both versions. Native stale save and stale comparison refused with both versions retained; fresh comparison adopted without writing, save recovered the draft, and clean Reload disk showed the exact newer bytes (October 11).
 - [x] F10 Restart with settled dirty buffers; private recovery preserves edits without writing source files.
 - [x] F11 Binary/oversize/long-line files offer clear readable recovery instead of broken editing.
 - [x] F12 Attach an unsaved editor selection to a chosen chat draft; no send until requested.
@@ -340,7 +340,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 ## 7. Settings, attachments and context
 
-- [ ] P01 Find settings by category/search; short labels/help hints and bottom placement remain clear.
+- [x] P01 Find settings by category/search; short labels/help hints and bottom placement remain clear. October 11 native category selection, frequency search/result navigation, compact slider labels and hover-only help passed; settings closed without changing preferences.
 - [x] P02 Light/Dark/System apply consistently; pending form drafts survive navigation.
 - [ ] P03 Model context/output/stall/reasoning settings save for the selected model and survive restart.
 - [ ] P04 Scoped user/project/chat overrides and inheritance show correct effective values on new runs.

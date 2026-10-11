@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:dolores_flutter/app_host.dart';
@@ -15,6 +15,94 @@ import 'package:dolores_flutter/theme.dart';
 import 'editor_test.dart' show EditingBridge;
 
 void main() {
+  testWidgets('split editor keyboard undo shares history across panes', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(1400, 900);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final host = AppHost(ChatController(EditingBridge())..loading = false);
+    await host.files.bind('A', 'C:/A');
+    final w = host.files.selected!;
+    final d = (await host.files.open(w, 'a.txt'))!;
+    w.layoutOwner.split(w.layoutOwner.activeGroup, d.id, Axis.horizontal);
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: FileWorkspaceView(host: host)),
+      ),
+    );
+    await t.pumpAndSettle();
+    final editors = t.widgetList<CodeEditor>(find.byType(CodeEditor)).toList();
+    expect(editors, hasLength(2));
+    editors.first.focusNode!.requestFocus();
+    editors.first.controller!.replaceSelection('left ');
+    await host.files.flush(d);
+    await t.pump();
+    editors.last.focusNode!.requestFocus();
+    editors.last.controller!.selection = const CodeLineSelection.collapsed(
+      index: 0,
+      offset: 10,
+    );
+    editors.last.controller!.replaceSelection(' right');
+    await host.files.flush(d);
+    await t.pump();
+    expect(d.text, 'left saved right');
+    editors.first.focusNode!.requestFocus();
+    await t.pump();
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlRight);
+    await t.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlRight);
+    await host.files.flush(d);
+    await t.pump();
+    expect(d.text, 'left saved');
+    expect(editors.last.controller!.text, d.text);
+    editors.last.focusNode!.requestFocus();
+    await t.pump();
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlRight);
+    await t.sendKeyEvent(LogicalKeyboardKey.keyY);
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlRight);
+    await host.files.flush(d);
+    await t.pump();
+    expect(d.text, 'left saved right');
+    expect(editors.first.controller!.text, d.text);
+      await t.pumpAndSettle();
+    await t.pumpWidget(const SizedBox());
+    host.dispose();
+  }, variant: const TargetPlatformVariant({TargetPlatform.windows}));
+  testWidgets(
+    'file failures show once without hiding other or inactive errors',
+    (t) async {
+      final host = AppHost(ChatController(EditingBridge())..loading = false);
+      await host.files.bind('A', 'C:/A');
+      final w = host.files.selected!;
+      final d = (await host.files.open(w, 'a.txt'))!;
+      w.layoutOwner.pin(w.layoutOwner.activeGroup, d.id);
+      const failure = 'Target exists. Choose another name.';
+      d.error = failure;
+      host.files.error = failure;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: FileWorkspaceView(host: host)),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.text(failure), findsOneWidget);
+      expect(find.text('Save as'), findsOneWidget);
+      host.files.error = 'Could not open another file.';
+      host.files.changed();
+      await t.pump();
+      expect(find.text(failure), findsOneWidget);
+      expect(find.text('Could not open another file.'), findsOneWidget);
+      await host.files.open(w, 'b.txt');
+      host.files.error = failure;
+      host.files.changed();
+      await t.pumpAndSettle();
+      expect(find.text(failure), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
   setUpAll(() async {
     if (Platform.environment['DOLORES_UI_RENDERS'] == null) return;
     final directory =
