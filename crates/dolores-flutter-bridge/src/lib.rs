@@ -2384,6 +2384,7 @@ async fn execute(
         scheduling::prepare_human_context(&mut context);
     }
     if let Some(occurrence) = scheduling::for_run(store.as_ref(), Some(&session), id)? {
+        scheduling::prepare_occurrence_request(&mut context, &occurrence.snapshot.prompt);
         let pinned_skill = occurrence.snapshot.skill.as_ref().map(|skill| &skill.name);
         let metadata = json!({"scheduleAlreadySaved": true, "pinnedSkill": pinned_skill});
         context[0].content.push_str(&format!("\nScheduled execution metadata: {metadata}\nThis is an occurrence of the user's scheduled task, due now. Dolores has ALREADY saved and dispatched the schedule. Setup is complete. Execute only the underlying work for this occurrence and deliver the actual result here, respecting the requested brevity. The original user request is retained below as provenance: its timing and any request to set up a schedule have already been fulfilled. Do not attempt scheduling, ask which scheduler to use, or claim the schedule cannot be created. Scheduling tools are intentionally absent during execution; their absence is not a setup failure. Tool effects still need the supplied host authorization."));

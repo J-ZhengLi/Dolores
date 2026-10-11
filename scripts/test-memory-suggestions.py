@@ -23,6 +23,7 @@ if not fixture.is_absolute() or not fixture.resolve().is_relative_to(root / "out
 if args.stage == "save":
     fixture.mkdir(parents=True, exist_ok=False)
 os.environ["DOLORES_DATA_DIR"] = str(fixture / "data")
+os.environ["DOLORES_GLOBAL_SKILLS_DIR"] = str(fixture / "global-skills")
 bundle = root / "apps/dolores_flutter/build/windows/x64/runner/Release"
 loader = os.add_dll_directory(str(bundle)) if os.name == "nt" else None
 native = ctypes.CDLL(str(bundle / ("dolores_flutter_bridge.dll" if os.name == "nt" else "lib/libdolores_flutter_bridge.so")))
@@ -157,6 +158,8 @@ if args.stage == "save":
         saved = saved["result"]
         assert saved["source"] == "conversation" and saved["origin"]["messageId"] == message_id
         assert not save(session, review)["ok"]
+        policy = call("memories")["automaticPolicy"]
+        call("setAutomaticMemory", enabled=True, revision=policy["revision"])
         preview = call("context", session=session, input="hello")
         assert preview["memory"]["used"][0]["origin"] == saved["origin"]
         assert "Prefer one short example." in preview["messages"][0]["content"]

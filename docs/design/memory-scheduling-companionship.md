@@ -208,3 +208,12 @@ planning-only work does not activate memory, schedules or proactive messages.
 ### Image caption display namespace (October 11 audit refinement)
 
 The host supplies the Image: title prefix when a valid caption title omits it. That prefix is display metadata, not evidence; a model formatting omission must not discard a useful source-linked description. Existing prefixed titles, description, uncertainty and asset identity remain unchanged. Empty or oversized titles, malformed JSON, truncated captions and existing description/uncertainty bounds still refuse before indexing. No second request or silent retry is added.
+
+### Scheduled occurrence handoff (October 11 audit refinement)
+
+At occurrence dispatch, the original setup request is historical provenance.
+The active provider request must explicitly execute the saved task now rather
+than repeat setup-only instructions. Preserve the exact original request in the
+task, source conversation and occurrence history; quote it in the provider handoff.
+Do not parse language keywords, change the saved work, modify later human input,
+add tools or bypass the pinned skill, permissions and existing budgets.

@@ -1,5 +1,90 @@
 # Dolores acceptance — 2026-10-08
 
+## October 11 audit: remaining background paths
+
+Manual memory suggestions pass extraction/correction/cancel/failure/save/export
+and separate-process restore. Its fixture now explicitly enables recall before
+expecting a saved suggestion in context, and isolates global skills. Skill-draft
+restore also passes the retained evaluation, disabled state and reviewed rollback.
+These changes correct test assumptions rather than runtime behavior.
+
+The live learning runner now accepts an explicit reasoning mode. With thinking
+Off and the bounded 4,096-output / 30-second foreground setting, Qwen and
+DeepSeek both completed the public config edit while preserving check scripts
+and unrelated files. Qwen's independent trial was incomplete; DeepSeek's complete
+trial tied the baseline. Neither activated. This qualifies strict withholding
+and retained results, not positive automatic gain or regression restoration.
+The runner correctly returns failure for its unachieved positive-activation goal;
+reported total live usage is unavailable, not zero. Receipts: `learning-qwen-live`
+and `learning-deepseek-live` under the ignored background audit directory.
+
+Real Qwen invoked both reviewed MCP tools once, with exact arguments, two
+approvals and matching receipts/answer: three model calls, 19,750 reported
+tokens. It also searched the real default provider (four results), read the
+explicit Rust Book primary URL and cited that exact URL while distinguishing
+search snippets from the retrieved excerpt: three calls, 22,318 tokens. These
+checks qualify retrieval/receipt provenance, not exhaustive prose accuracy or
+native review/display. Public receipts: `mcp-qwen-live` and `web-qwen-live`.
+
+Qwen's real recovery-mod draft used invalid Wasm syntax. The source and failure
+were retained; no activation occurred (621 reported tokens). Explicit DeepSeek
+fallback generated a valid ABI 1 module, passed all six fixed checks, activated
+in the disposable profile and restored the baseline (214 tokens). No imports,
+capabilities, dependencies, permission changes or relaxed checks were introduced.
+Public receipts: `mod-qwen-live` and `mod-deepseek-live`.
+
+The actual app browser adapter opened a public local form, accepted reviewed
+input/click with fresh state tokens and captured the changed page. Qwen then
+proposed invalid close arguments and paused at the explicit six-call/five-tool
+limit; its four successful receipts and screenshot survived, and owned browser
+workers returned to zero (46,453 reported tokens). Explicit DeepSeek fallback
+completed the same operations and truthful final report in five calls / 37,100
+tokens, with no blind retry and zero remaining workers. Both local screenshots
+were inspected with view_image and show PUBLIC-BROWSER-42 in the field and page.
+The model accurately distinguished text verification from a local screenshot
+it had not received as vision. No Windows helper or alternate native automation
+was used. Receipts/screenshots: `browser-qwen-live` and `browser-deepseek-live`.
+Native app review/capture controls remain pending.
+
+Both disposable live schedules were deleted after report/restart verification.
+Their six source/result conversations and public project files remain unchanged;
+native Delete confirmation is still pending. All 49 original-profile table
+digests match. The checklist's coverage/native-queue matrix maps every remaining
+ID to its background evidence and missing interaction; the native count stays
+60/129. Advanced positive learning gain and native repair-to-install remain
+additional acceptance gaps. The broken Windows helper was not bypassed.
+
+## October 11 audit: scheduled occurrence execution
+
+Real Qwen correctly created a weekday 21:00 task from Chinese instructions, but
+its occurrence repeated setup confirmation instead of producing the pinned
+report. The original request said to create the task now without running it yet;
+the host reused that historical request as the active execution instruction.
+The occurrence finished successfully at the transport level without delivering
+the requested work. DeepSeek produced the report before the fix; that fallback
+does not excuse the contradictory handoff.
+
+For the provider handoff only, the exact original request is now quoted as
+historical provenance, preceded and followed by a current execution instruction.
+The task, source conversation and occurrence history retain the original bytes.
+Later human instructions are not replaced. Pinned skill, workspace, model,
+permissions, tools and budgets remain unchanged. No language keyword parsing,
+automatic retry, extra approval grant or migrated task data was introduced.
+
+The normal-bundle wire regression failed before the fix. All seven scheduling
+unit checks, all 469 workspace Rust checks (two ignored), all-target Clippy and
+the normal Windows build pass. The 14-request scheduling corpus and separate-
+process reopen pass, including pinned/unpinned source preservation, stale skill,
+Stop, overlap, offline and claim recovery. The existing saved Qwen task now
+produces the public pinned report (one execution call, 5,246 reported tokens,
+no tool reviews); a fresh process retains it without replay. Its original
+two-call creation used 13,495 tokens. The earlier pre-fix DeepSeek creation and
+report used 18,255 tokens and retained the report on separate-process restart.
+Manual Run now qualifies execution, not a physical timer or native controls.
+All 49 original-profile table digests still match. Evidence is ignored under
+`output/background-audit-20261011-remaining/` in `scheduling-handoff-red`,
+`scheduling-handoff-fixed`, `schedule-qwen-live` and `schedule-deepseek-live`.
+
 ## October 11 audit: image caption display titles
 
 The wider real-model probe reproduced valid caption JSON without the required
@@ -4597,7 +4682,7 @@ A real Qwen image caption was valid JSON prefixed by a stray closing thinking ma
 
 ## October 11 audit: full host catalog with two MCP tools
 
-The normal-bundle two-server fixture reproduced a start refusal at the old 18-registration bound. The supported Windows catalog is 17 host tools, one optional browser and two existing external slots; capacity now matches that bounded total of 20. A failing core regression now passes at 20 and refuses 21 and duplicate aliases before approval. All 91 core checks, Clippy and the normal Windows build pass. Single-server deny/approve/drift/Stop and separate-process restore pass; two-server shared-slot refusal, independent invocation, one-server crash with successful sibling, forget/export/reopen pass. Fixtures assert exact tool names and unique aliases instead of obsolete counts/last-item positions, and schema 38. No external capacity, per-turn/task budget or process lifetime changed. Native MCP settings/review interaction remains pending (I05-I06).
+The normal-bundle two-server fixture reproduced a start refusal at the old 18-registration bound. The supported Windows catalog is 17 host tools, one optional browser and two existing external slots; capacity now matches that bounded total of 20. A failing core regression now passes at 20 and refuses 21 and duplicate aliases before approval. All 91 core checks, Clippy and the normal Windows build pass. Single-server deny/approve/drift/Stop and separate-process restore pass; two-server shared-slot refusal, independent invocation, one-server crash with successful sibling, forget/export/reopen pass. Fixtures assert exact tool names and unique aliases instead of obsolete counts/last-item positions, and schema 38. No external capacity, per-turn/task budget or process lifetime changed. Native MCP settings/review interaction remains pending (I06-I07).
 
 ## October 11 audit: maintained background fixtures
 

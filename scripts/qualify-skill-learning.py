@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--model', required=True)
     parser.add_argument('--max-output-tokens', type=int, default=1024)
+    parser.add_argument('--reasoning', choices=['providerDefault', 'deepseekThinkingOff', 'openaiLow', 'openaiMedium', 'openaiHigh'], default='providerDefault')
     args = parser.parse_args()
     if not 512 <= args.max_output_tokens <= 4096:
         parser.error('Use an explicit bounded output allowance from 512 to 4096.')
@@ -40,7 +41,7 @@ def main():
         result['stage']='configure'
         host.call('configure', preferences={'baseUrl':os.environ['DOLORES_TEST_BASE_URL'], 'model':args.model},
                   apiKey=os.environ['DOLORES_TEST_API_KEY'], rememberConnection=False, enabledModels=[args.model])
-        host.call('setRequestSettings', settings={'maxOutputTokens':args.max_output_tokens, 'timeoutSeconds':30})
+        host.call('setRequestSettings', settings={'maxOutputTokens':args.max_output_tokens, 'timeoutSeconds':30, 'reasoning':args.reasoning})
         policy = host.call('memories')['automaticPolicy']; host.call('setAutomaticMemory', enabled=False, revision=policy['revision'])
         session = host.call('createSession', kind='project', path=str(folder))['session']['id']
         host.call('saveScopedSettings', session=session, scope='thread', revision=0,

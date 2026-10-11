@@ -20,6 +20,8 @@ assert directory.is_relative_to(ROOT/'output')
 if args.stage=='save':directory.mkdir(parents=True,exist_ok=False)
 host=NativeHost(directory);state_file=directory/'state.json'
 mode='normal';requests=[];handoff_errors=[];primary_task_id=None
+creation_prompt='Every weekday at 9pm, write my daily report using skill daily-report. Only create the task now; do not write the report yet.'
+unpinned_prompt='Every weekday at 9pm, write a report. Please set up this task now.'
 class Fixture(BaseHTTPRequestHandler):
     def log_message(self,*_):pass
     def do_POST(self):
@@ -57,6 +59,14 @@ class Fixture(BaseHTTPRequestHandler):
                 if 'DAILY-REPORT-PINNED-V1' in system or 'using the pinned skill' in system:
                     handoff_errors.append('An unpinned occurrence inherits or claims a pinned skill')
             else:assert 'DAILY-REPORT-PINNED-V1' in system
+            current_request=messages[-1]['content'] if first else next(m['content'] for m in reversed(messages) if m['role']=='user')
+            if not current_request.startswith('Run the saved task for this occurrence now.'):
+                handoff_errors.append('Historical setup request is still the active execution instruction')
+            if 'Original scheduling request (historical provenance): ' not in current_request:
+                handoff_errors.append('Execution lost the exact original scheduling request')
+            else:
+                quoted=current_request.split('Original scheduling request (historical provenance): ',1)[1].split('\n\nPerform',1)[0]
+                assert json.loads(quoted)==(unpinned_prompt if mode=='unpinned' else creation_prompt)
             assert 'schedule_task' not in names and 'manage_scheduled_task' not in names
         elif first and 'schedule_task' in names:
             # Scheduling and ordinary work tools coexist; future occurrences
@@ -107,7 +117,7 @@ try:
         (project/'public-note.txt').write_text('Public fixture note.',encoding='utf-8')
         source=host.call('createSession',kind='project',path=str(project))['session']['id']
         review=host.call('reviewSkill',session=source,name='daily-report');host.call('activateSkill',session=source,token=review['token'])
-        host.call('start',id=1,session=source,input='Every weekday at 9pm, write my daily report using skill daily-report')
+        host.call('start',id=1,session=source,input=creation_prompt)
         done,_=host.finish(1);assert not done.get('error'),done
         assert len(host.call('scheduledTasks')['items'])==1
         task=listing()['task']
@@ -123,6 +133,10 @@ try:
         assert not handoff_errors,handoff_errors
         host.call('scheduledTick');assert listing()['occurrences'][0]['state']=='succeeded'
         assert 'DAILY-REPORT-PINNED-V1' in host.call('messagesPage',session=start['session'])['items'][-1]['content']
+        assert host.call('messagesPage',session=source)['items'][0]['content']==creation_prompt
+        assert host.call('messagesPage',session=start['session'])['items'][0]['content']==creation_prompt
+        with sqlite3.connect(directory/'data/dolores.db') as db:
+            assert json.loads(db.execute('SELECT data FROM scheduled_tasks WHERE id=?',(task['id'],)).fetchone()[0])['prompt']==creation_prompt
         mode='approval'
         approved=[]
         def approve(e):
@@ -153,7 +167,7 @@ try:
         # the same project has an enabled skill. It must not inherit that skill.
         mode='unpinned'
         unpinned_source=host.call('createSession',kind='project',path=str(project))['session']['id']
-        host.call('start',id=10,session=unpinned_source,input='Every weekday at 9pm, write a report. Please set up this task now.')
+        host.call('start',id=10,session=unpinned_source,input=unpinned_prompt)
         done,_=host.finish(10);assert not done.get('error'),done
         unpinned_item=next(item for item in host.call('scheduledTasks')['items'] if item['task']['sourceSession']==unpinned_source)
         unpinned_task=unpinned_item['task'];assert unpinned_item['receipt']['skill'] is None

@@ -23,6 +23,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Scheduled occurrences execute the saved work instead of repeating setup-only instructions from the original request.
+
 - Image memories supply their display title prefix without discarding otherwise valid captions.
 
 - Two reviewed MCP tools can run together alongside the current built-in tools without exceeding an obsolete catalog limit.

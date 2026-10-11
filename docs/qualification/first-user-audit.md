@@ -15,6 +15,67 @@ renders; it adds no native checklist pass. **60/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
+### October 11 background coverage and native queue
+
+The background pass covers each remaining feature's available host/fixture path.
+Native input stopped after the helper failed twice in the folder chooser; no
+alternate automation was used to bypass that failure. The 69 unchecked items
+retain their interaction requirements below; backend evidence adds no checkmarks.
+All evidence directories in this checkpoint are ignored under
+`output/background-audit-20261011-remaining/`. Original-profile verification
+still matches all 49 table digests. No public Git remote was changed or pushed.
+
+| Open IDs | Background coverage completed | Remaining interaction |
+| --- | --- | --- |
+| C16–C17, A10–A11, A13 | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
+| F04, F06–F07 | Editor navigation/shared-buffer widgets and normal-bundle project isolation, stale save, checkpoint and language-edit recovery | Physical shortcuts/IME, shared undo and dirty-close choices |
+| G07, G11, G15–G20 | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, stash/discard, revert conflicts and local bare-remote operations | Commit/menu controls, nonrepository navigation, conflict/Abort and interrupted-remote reconciliation |
+| T01–T02, T04–T08 | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
+| S04, S10–S12 | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
+| P03–P09, P12–P14 | Model/scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Settings close/restart and attachment dialogs; native/manual privacy/access/experimental preference controls |
+| M01–M10 | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; strict comparison and draft gates | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
+| I01–I07, I10 | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
+| I08–I09 | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
+| E01–E12 | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
+
+Live safety outcomes remain distinct from positive reliability. Qwen's independent
+learning trial was incomplete; DeepSeek tied the baseline. Neither activated.
+This qualifies withholding activation, not automatic strict gain or regression
+restore. Qwen's malformed Wasm draft was retained without activation (621 reported
+tokens); explicit DeepSeek fallback passed six checks and activation/restore
+(214 tokens). Positive learning gain and a real native repair-to-install scenario
+remain additional qualification gaps. Do not force weaker baselines or relax gates
+to obtain checkmarks. Native installation/restoration needs its concrete review.
+
+Real Qwen MCP used 3 calls / 19,750 reported tokens and two exact approvals;
+both receipts and the final answer matched. Real web search plus primary-page
+retrieval used 3 calls / 22,318 tokens: four search results, then the supplied
+Rust Book URL, a bounded excerpt and an exact citation. Search snippets were
+distinguished from the retrieved primary page. Evidence: `mcp-qwen-live`,
+`web-qwen-live`, `mod-qwen-live`, `mod-deepseek-live`, `learning-qwen-live`
+and `learning-deepseek-live`. Native review/display remains pending.
+
+The real scheduling probe exposed a reused historical setup instruction. The host
+now explicitly executes the saved work in the provider handoff, while retaining
+the exact source request in task/conversation/history. The wire regression failed
+before repair; seven scheduling unit checks, all 469 workspace checks (two
+ignored), Clippy, normal build and the 14-request save/reopen corpus pass. The
+same existing Qwen task now returns its pinned report (5,246 execution tokens)
+without a new setup exchange or tool review. Separate-process restart retains it
+without replay. Both disposable live schedules were then deleted, retaining all
+six source/result conversations and project files. Evidence: `schedule-qwen-live`,
+`schedule-deepseek-live`, `scheduling-handoff-red` and `scheduling-handoff-fixed`.
+These are background checks; S04/S10–S12 still need their native routes.
+
+The app browser adapter also ran the real public local form without the Windows
+helper. Qwen filled/clicked with fresh states and captured the correct value, then
+an invalid close proposal reached its explicit step limit (46,453 tokens).
+Receipts/screenshot were retained and owned workers closed. DeepSeek fallback
+completed the form, capture and truthful answer within the same limits (five
+calls, 37,100 tokens), leaving zero workers. Both saved screenshots were inspected
+with view_image. Evidence: `browser-qwen-live` and `browser-deepseek-live`.
+Native app approval/capture controls remain pending; no checkmarks were added.
+
 Latest background continuation: desktop control failed in the folder chooser
 (`element 15888 is not available in cached app state`); refreshed selection and
 focus recovery still targeted Search instead of Folder. Native input stopped.
