@@ -172,6 +172,8 @@ impl OpenAiProvider {
                 Value::Null => String::new(),
                 _ => return Err("Model returned invalid tool response text.".into()),
             };
+            let mut prefix = crate::content_prefix::ContentPrefix::new(self.settings.reasoning);
+            let content = prefix.push(&content) + &prefix.finish();
             if choice["finish_reason"] == "length" {
                 return Ok(AgentTurn {
                     content,

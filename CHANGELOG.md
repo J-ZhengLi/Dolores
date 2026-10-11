@@ -23,6 +23,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Explicit thinking-off responses handle a stray leading closing marker, allowing valid image memories to be saved and recalled.
+
 - Companionship respects its chosen model's reasoning setting and tighter response limits.
 - Refresh diff reloads the current Git state after an external edit, while failed reads keep the previous comparison.
 - Large side-by-side Git diffs keep old and new lines together across pages; tabs retain their layout and failed reads preserve the current comparison.

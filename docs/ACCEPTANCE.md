@@ -4567,3 +4567,7 @@ Saved reports and renders stay in ignored `output/questions-*` directories.
 
 Computer-use remains paused. Checklist C17 stays unchecked until native UX
 testing resumes; the audit is now 50/129 checked.
+
+## October 11 audit: thinking-off image memory
+
+A real Qwen image caption was valid JSON prefixed by a stray closing thinking marker. The reproduced failing adapter test passes after one exact leading marker is normalized only for explicit thinking off. All 47 provider checks, 465 workspace checks (two ignored), Clippy and the normal Windows build pass. Fragmentation, Unicode, literal embedded/standalone/incomplete markers, default reasoning and usage remain covered; tool arguments are unchanged. A fresh normal-bundle Qwen check captured the public blue-square image and recalled it in a new chat (5,231 foreground plus 265 maintenance tokens, within existing bounds). Original profile table digests match. Public receipt: output/background-audit-20261011-remaining/image-qwen-thinking-off-fixed/. Native Memory-page interaction remains pending; this adds no native checklist pass.

@@ -16,6 +16,9 @@ mod attachment_tests;
 mod generation_tests;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
+mod content_prefix;
+#[cfg(test)]
+mod content_prefix_tests;
 pub const OUTPUT_LIMIT_ERROR: &str =
     "Response reached the model output limit. Try a shorter request.";
 const CONTEXT_LIMIT_ERROR: &str = "Model context limit reached. Check this model’s context window, shorten the message, or start a new chat.";
@@ -680,6 +683,7 @@ impl OpenAiProvider {
         }
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
+        let mut prefix = content_prefix::ContentPrefix::new(self.settings.reasoning);
         let mut finished = false;
         let mut output_limit = false;
         let mut usage = None;
@@ -754,12 +758,19 @@ impl OpenAiProvider {
                     }
                     finished = true;
                 }
-                if let Some(content) = choice.pointer("/delta/content").and_then(Value::as_str) {
-                    if !content.is_empty() {
-                        tokio::select! {
-                            _ = cancel.cancelled() => return Err("Response stopped.".into()),
-                            result = tokio::time::timeout(allowance, output.send(content.into())) => result.map_err(|_| "Conversation delivery stalled. Reopen the chat before continuing.".to_string())?.map_err(|_| "Conversation window closed.".to_string())?,
-                        }
+                let mut content = prefix.push(
+                    choice
+                        .pointer("/delta/content")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                );
+                if finished {
+                    content.push_str(&prefix.finish());
+                }
+                if !content.is_empty() {
+                    tokio::select! {
+                        _ = cancel.cancelled() => return Err("Response stopped.".into()),
+                        result = tokio::time::timeout(allowance, output.send(content)) => result.map_err(|_| "Conversation delivery stalled. Reopen the chat before continuing.".to_string())?.map_err(|_| "Conversation window closed.".to_string())?,
                     }
                 }
             }

@@ -35,6 +35,8 @@ struct PartialCall {
 }
 #[derive(Default)]
 struct Assembly {
+    prefix: crate::content_prefix::ContentPrefix,
+    raw_content_bytes: usize,
     reasoning: Option<String>,
     content: String,
     calls: BTreeMap<usize, PartialCall>,
@@ -54,7 +56,7 @@ fn append(target: &mut String, value: &Value, limit: usize) -> Result<(), String
 }
 impl Assembly {
     fn payload_bytes(&self) -> usize {
-        self.content.len()
+        self.raw_content_bytes
             + self.reasoning.as_ref().map_or(0, String::len)
             + self
                 .calls
@@ -118,10 +120,11 @@ impl Assembly {
         {
             return Err("Model sent response data after finishing.".into());
         }
-        if self.content.len() + text.len() > MAX_OUTPUT_BYTES {
+        if self.raw_content_bytes + text.len() > MAX_OUTPUT_BYTES {
             return Err("Response exceeds the 128 KiB limit.".into());
         }
-        self.content.push_str(text);
+        self.raw_content_bytes += text.len();
+        let mut text = self.prefix.push(text);
         if let Some(calls) = delta.get("tool_calls").filter(|v| !v.is_null()) {
             let calls = calls.as_array().ok_or(INVALID)?;
             if calls.len() > MAX_TOOL_CALLS {
@@ -160,10 +163,12 @@ impl Assembly {
                 return Err("Model finished without a complete tool response.".into());
             }
             self.finish = Some(reason.to_owned());
+            text.push_str(&self.prefix.finish());
         } else if !choice["finish_reason"].is_null() {
             return Err(INVALID.into());
         }
-        Ok(text.to_owned())
+        self.content.push_str(&text);
+        Ok(text)
     }
     fn complete(self) -> Result<AgentTurn, String> {
         if self.finish.as_deref() == Some("length") {
@@ -326,7 +331,10 @@ impl OpenAiProvider {
         measurements.data.connected = true;
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
-        let mut assembly = Assembly::default();
+        let mut assembly = Assembly {
+            prefix: crate::content_prefix::ContentPrefix::new(self.settings.reasoning),
+            ..Default::default()
+        };
         let mut idle_wire_bytes = 0usize;
         let allowance = Duration::from_secs(self.settings.timeout_seconds.into());
         let mut deadline = tokio::time::Instant::now() + allowance;

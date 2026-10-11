@@ -14,6 +14,8 @@ Named generation-parameter rejection gets a sanitized actionable error and a Req
 
 ## Persistence and consumers
 
+Explicit thinking off also removes one exact leading `</think>` envelope marker from response text when followed by content. Some compatible gateways emit this stray marker even with thinking disabled, breaking otherwise valid image-memory JSON. This applies consistently to plain streams, tool streams and non-streamed responses, including fragmented markers. Provider default, embedded markers, standalone or incomplete markers and tool arguments retain their exact text. Raw byte limits and reported usage remain unchanged; no retry or settings fallback is added.
+
 SQLite schema 17 adds model_request_settings without rewriting existing settings or transcripts. Default reasoning is omitted from serialized legacy settings and old metadata; unknown enum values are refused. Save is transactional and bound to the current endpoint/enabled model set. Disabling a model prunes its override in the same connection transaction. Other endpoint profiles stay isolated and can be reused if that endpoint is configured again. A profile change does not write or rotate credentials. Providers rebuild only after a successful save.
 
 Context preview, chat, working-agent requests and explicit Continue use the effective profile. Structured skill generation retains its separate per-draft output/timeout override while carrying the selected reasoning adapter. Summary, skill evaluation and preference generation inherit reasoning while retaining their smaller host-side output/time caps. Alternative shells retain their prior settings UX; provider plugins can keep using the existing default trait methods.

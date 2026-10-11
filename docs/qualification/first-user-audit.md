@@ -19,6 +19,21 @@ Latest background continuation: desktop control failed in the folder chooser
 (`element 15888 is not available in cached app state`); refreshed selection and
 focus recovery still targeted Search instead of Folder. Native input stopped.
 G15's public binary comparison passed; nonrepository navigation is pending.
+
+October 11 background follow-up: explicit thinking off still produced a stray
+leading `</think>`, breaking otherwise valid image-caption JSON. A failing
+provider regression now passes for all three response paths, fragmented markers,
+Unicode and preserved literal markers. All 465 workspace Rust checks (two ignored),
+Clippy and the normal build pass. Qwen then described the public image, saved one
+image memory and recalled it in a fresh chat within the existing bounds: 5,231
+foreground and 265 maintenance tokens. Original profile digests match. Native
+Memory-page interaction remains pending; no checkmark is added. Evidence:
+`output/background-audit-20261011-remaining/image-qwen-thinking-off-fixed/`.
+
+Earlier background continuation: desktop control failed in the folder chooser
+(`element 15888 is not available in cached app state`); refreshed selection and
+focus recovery still targeted Search instead of Folder. Native input stopped.
+G15's public binary comparison passed; nonrepository navigation is pending.
 All eight normal-bundle regression pairs, Source Control and scheduled-task
 save/reopen fixtures pass. Companionship now preserves its chosen model's saved
 reasoning and tighter limits. The failing regression, all 172 bridge checks,
