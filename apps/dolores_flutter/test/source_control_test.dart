@@ -132,6 +132,37 @@ class PagedDiffBridge extends DiffBridge {
   }
 }
 
+class RefreshDiffBridge extends PagedDiffBridge {
+  String revision = 'v1';
+  bool failStatus = false;
+  Completer<void>? holdStatus;
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    final request = command['request'] as Map;
+    if (request['action'] == 'poll') {
+      if (pending!['action'] == 'status') {
+        await holdStatus?.future;
+        if (failStatus) {
+          throw StateError('Cannot read current repository. Retry.');
+        }
+        return {
+          'done': true,
+          'value': {'repo': 'A', 'revision': revision},
+        };
+      }
+      if (pending!['revision'] != revision) {
+        throw StateError(
+          'Git basis changed. Refresh and review the new state.',
+        );
+      }
+      final result = await super.call(command);
+      result['value']['revision'] = revision;
+      return result;
+    }
+    return super.call(command);
+  }
+}
+
 class MutationBridge implements ChatBridge {
   Map<String, dynamic>? pending;
   final requests = <Map<String, dynamic>>[];
@@ -212,6 +243,86 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  test('a late diff refresh does not replace a newly selected tab', () async {
+    final bridge = RefreshDiffBridge();
+    final host = GitHost(bridge);
+    final w = GitWorkspace('C:/A', 'A')
+      ..status = {'repo': 'A', 'revision': 'v1'};
+    host.selected = w;
+    await host.openDiff(w, 'large.txt', 'working');
+    final firstKey = w.activeTab;
+    await host.openDiff(w, 'other.txt', 'working');
+    final otherKey = w.activeTab;
+    final other = w.tabs[otherKey];
+    w.activeTab = firstKey;
+    bridge.holdStatus = Completer<void>();
+    final refresh = host.refreshDiff(w);
+    w.activeTab = otherKey;
+    bridge.holdStatus!.complete();
+    await refresh;
+    expect(w.activeTab, otherKey);
+    expect(w.tabs[otherKey], same(other));
+    expect(bridge.requests.last['action'], 'status');
+    expect(w.busy, false);
+    host.dispose();
+  });
+  for (final failedRead in [false, true]) {
+    testWidgets(
+      'Refresh diff recovers an external change; failed state read=$failedRead',
+      (t) async {
+        final bridge = RefreshDiffBridge();
+        final host = GitHost(bridge);
+        final w = GitWorkspace('C:/A', 'A')
+          ..status = {'repo': 'A', 'revision': 'v1'}
+          ..sideBySide = true;
+        host.selected = w;
+        await host.openDiff(w, 'large.txt', 'working');
+        await host.loadDiffPage(w, 4);
+        final displayed = w.tabs[w.activeTab];
+        final priorStatus = w.status;
+        bridge.revision = 'v2';
+        await host.loadDiffPage(w, 0);
+        expect(w.error, contains('basis changed'));
+        expect(w.tabs[w.activeTab], same(displayed));
+        await t.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: SourceControlView(git: host)),
+          ),
+        );
+        bridge.failStatus = failedRead;
+        final diffs = bridge.requests
+            .where((r) => r['action'] == 'diff')
+            .length;
+        await t.tap(find.text('Refresh diff'));
+        await t.pumpAndSettle();
+        if (failedRead) {
+          expect(w.error, contains('Cannot read current repository'));
+          expect(w.status, same(priorStatus));
+          expect(w.tabs[w.activeTab], same(displayed));
+          expect(w.tabs[w.activeTab]!['pageTrail'], [0, 4]);
+          expect(
+            bridge.requests.where((r) => r['action'] == 'diff').length,
+            diffs,
+          );
+          bridge.failStatus = false;
+          await t.tap(find.text('Refresh diff'));
+          await t.pumpAndSettle();
+        }
+        expect(w.error, isNull);
+        expect(w.tabs[w.activeTab]!['revision'], 'v2');
+        expect(w.tabs[w.activeTab]!['sideBySide'], true);
+        expect(w.tabs[w.activeTab]!['pageTrail'], [0]);
+        expect(find.text('old value'), findsOneWidget);
+        expect(find.text('new value'), findsOneWidget);
+        expect(bridge.requests.last['cursor'], isNull);
+        expect(bridge.requests.last['digest'], isNull);
+        expect(bridge.requests.last['revision'], 'v2');
+        expect(t.takeException(), isNull);
+        await t.pumpWidget(const SizedBox());
+        host.dispose();
+      },
+    );
+  }
   testWidgets('a streamed side page renders both revisions without raw rows', (
     t,
   ) async {

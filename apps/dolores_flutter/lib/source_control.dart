@@ -698,14 +698,7 @@ class SourceControlView extends StatelessWidget {
                       : (v) => git.setDiffLayout(w, v.first),
                 ),
                 TextButton(
-                  onPressed: w.busy
-                      ? null
-                      : () => git.openDiff(
-                          w,
-                          diff['path'] as String,
-                          diff['basis'] as String,
-                          commit: diff['commit'] as String?,
-                        ),
+                  onPressed: w.busy ? null : () => git.refreshDiff(w),
                   child: const Text('Refresh diff'),
                 ),
               ],

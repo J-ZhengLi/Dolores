@@ -1,5 +1,27 @@
 # Dolores acceptance — 2026-10-08
 
+## Native audit repair — stale diff refresh (October 11)
+
+G14's native comparison displayed the 744 KB replacement as aligned old/new
+text. Next/Previous preserved the corresponding page. Appending an owned public
+footer invalidated the next read, retaining the readable comparison and showing
+the actual stale-state reason. Refresh diff then reproduced a defect: it reused
+the cached repository revision and repeated the refusal indefinitely.
+
+Refresh now reads current repository status before requesting the same file,
+basis, commit and layout. A failed status read retains the page without retrying
+with stale state; changing tabs while that read waits preserves the new selection.
+Both refresh-button regressions failed before the fix. All 26 Source Control
+tests, changed-source analysis, formatting and the normal Windows build pass.
+
+The rebuilt native app recovered to 6,006 logical rows with the new digest and
+no stale error, then Next displayed rows 257–512 beginning at old/new line 252.
+The owned fixture was restored to its exact original bytes; all 49 original
+profile table digests match. No model calls or Git mutations were required.
+Native observations remain ignored in
+`output/native-audit-20261010-01/observations-20261011-retry.jsonl`.
+G14 is checked; the count is 60/129. Remaining Git workflows follow separately.
+
 ## Native audit recovery — Git history tabs (October 11)
 
 The owned normal `72d98bd` desktop reopened and Windows automation recovered.

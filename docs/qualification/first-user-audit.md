@@ -11,9 +11,19 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **59/129 checked**.
+renders; it adds no native checklist pass. **60/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
+
+Latest October 11: G14 passes large-file Inline/Side by side, Next/Previous and
+stale-page recovery. A controlled public footer first invalidated the page while
+leaving its paired text readable. Refresh diff incorrectly retried the cached
+revision; it now reads current status before replacing the comparison. The native
+retest cleared the error, displayed 6,006 logical rows and continued to paired
+row 252. The public fixture was restored byte-for-byte; all 49 original-profile
+table digests match. All 26 Source Control checks, analysis and the normal Windows
+build pass. Failed status reads and a selection change during refresh preserve
+the previous tab. No model request was needed.
 
 Latest October 11 retry: the owned normal build reopened and native selection
 recovered. G13's pending retest now passes: history.txt tabs show distinct
@@ -381,7 +391,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] G11 Dirty editor blocks conflicting Git action without losing its text.
 - [x] G12 Click a history commit to expand files; click a file for exact commit diff and collapse again.
 - [x] G13 Browse older history and several diff tabs; selections and split views remain usable. October 11 final normal-build retest passes distinct commit labels, independent layouts, exact revision retention and text selection after earlier three-page coverage.
-- [ ] G14 Large text diff is rendered/pageable inside Dolores; stale page offers Refresh without losing the readable page.
+- [x] G14 Large text diff is rendered/pageable inside Dolores; stale page offers Refresh without losing the readable page. October 11 native paired paging, stale refusal and fresh-state recovery passed after repairing Refresh diff; all 6,000 pairs separately verified across 24 real pages.
 - [ ] G15 Binary diff and nonrepository folder show distinct understandable states.
 - [ ] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely.
 - [ ] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.

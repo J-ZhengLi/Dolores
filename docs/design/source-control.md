@@ -98,6 +98,13 @@ failure. Each tab retains its own layout and navigation trail. A genuinely
 unmatched insertion/deletion keeps its blank counterpart; page boundaries do
 not create blanks for matched replacement segments.
 
+Refresh diff reads the current repository state before requesting the first
+comparison page. It retains the exact path/basis/commit and that tab's layout.
+If the state read fails, stop there and retain the prior comparison and trail;
+do not submit a new diff with the stale revision. If the tab is closed or changed
+while state loads, retain the user's current selection. Refresh performs no
+mutation or automatic retry.
+
 Streaming retains only the selected slice of a change run, at most 256 pairs
 and 256 KiB of source text per side-by-side page. It never buffers a whole hunk
 or blob. The separate existing 256 KiB raw-patch buffer is retained only for

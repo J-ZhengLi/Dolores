@@ -177,6 +177,27 @@ class GitHost extends ChangeNotifier {
     changed();
   }
 
+  Future<void> refreshDiff(GitWorkspace w) async {
+    final key = w.activeTab;
+    final previous = w.tabs[key];
+    if (previous == null || w.busy) return;
+    try {
+      w.status = Map<String, dynamic>.from(await run(w, {'action': 'status'}));
+    } catch (_) {
+      // A failed state read must not retry a comparison with the stale basis.
+      return;
+    }
+    // A tab closed or selected during the read keeps the user's current view.
+    if (w.activeTab != key || !identical(w.tabs[key], previous)) return;
+    await openDiff(
+      w,
+      previous['path'] as String,
+      previous['basis'] as String,
+      commit: previous['commit'] as String?,
+      sideBySide: previous['sideBySide'] as bool? ?? w.sideBySide,
+    );
+  }
+
   Future<void> setDiffLayout(GitWorkspace w, bool sideBySide) async {
     final previous = w.tabs[w.activeTab];
     if (previous == null || w.busy) return;
