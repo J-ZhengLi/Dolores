@@ -3297,6 +3297,21 @@ mod tests {
                 "manage_scheduled_task"
             ]
         );
+        let system = preview["messages"][0]["content"].as_str().unwrap();
+        assert!(system.contains("Only call tools advertised"));
+        for unavailable in [
+            "list_folder",
+            "search_text",
+            "read_text_file",
+            "edit_text_file",
+            "create_text_file",
+            "run_command",
+        ] {
+            assert!(
+                !system.contains(unavailable),
+                "Side-chat preview advertises {unavailable}"
+            );
+        }
         assert!(preview["messages"][0]["content"]
             .as_str()
             .unwrap()

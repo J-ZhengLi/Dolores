@@ -15,6 +15,22 @@ renders; it adds no native checklist pass. **58/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
+October 11 retry: fresh desktop selection and the permitted retry both failed
+with `foreground window did not report a process id`. Native input remains
+pending. A background Memory Off probe reproduced Qwen's unavailable
+`list_folder` call in two of three fresh chats; DeepSeek answered without tools.
+Unconditional file/coding instructions caused a catalogue mismatch. Capability-
+specific preparation passes the core/bridge regressions (259 checks), all-target
+Clippy and the normal Windows build. Three fresh Qwen retests answered without
+tools or invented facts; wire guidance, Memory Off and all 49 original table
+digests agree (7,502 reported tokens). No additional native item is checked.
+Public evidence: `output/memory-off-20261011-01/` and `-02/`. The next normal-bundle
+delegation fixture initially missed child approval because it relied on an
+obsolete ID prefix. Recognizing the two owned create operations and requiring an
+actual Stop/revocation corrected the fixture. All normal-bundle concurrency,
+shared-budget, Stop/revocation, scope refusal and restart cases pass without a
+cancellation change. I10 remains unchecked pending native and live coverage.
+
 Background follow-up repair (October 11): A07's missing historical receipt was
 reproduced at save/restart and corrected in next-request context loading. Recent
 text receipts are bounded to eight / 16 KiB, labeled historical and untrusted,

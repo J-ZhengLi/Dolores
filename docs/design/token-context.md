@@ -10,6 +10,15 @@ The independent input, context, tool-result and output byte guards remain memory
 
 For an existing chat's next ordinary human request, preview includes the advertised scheduling tools, enabled project integrations, response-limit guidance and the same preparation used before the first model call. Preparation does not execute a tool or contact a model. External guidance is included once so agent entry cannot change the estimate by appending duplicates. Changed state, scheduled occurrences, continuations and screenshot-control requests require their own fresh preparation; a prior preview is not a guarantee of an identical later request.
 
+Tool instructions follow the advertised catalogue. General guidance applies to
+every agent run; file discovery requires the read catalogue, file-edit guidance
+requires the write catalogue, and coding/command guidance requires the matching
+capabilities. Side chats retain scheduling and questions without project-file
+instructions. A delegated run with fewer tools removes inherited file/command
+guidance that no longer applies. Preparation stays idempotent in preview and
+sending. This changes instructions, never permissions or the actual tool registry;
+unavailable calls still fail before execution, without automatic retries.
+
 See [pinned upstream comparison](../research/token-context-accounting.md). No compaction, summarization, tokenizer downloads or new tool permissions are introduced.
 
 ## Saved tool evidence — audit repair, October 11

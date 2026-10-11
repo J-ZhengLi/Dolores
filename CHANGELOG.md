@@ -23,6 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Side chats receive instructions for their available tools, avoiding requests for file tools they cannot use.
 - Follow-up chats retain recent saved tool evidence, including command output and exit codes, without repeating earlier actions.
 - Git history diff tabs show the short commit ID so revisions of the same file are easy to distinguish.
 - File failures appear once beside their recovery actions, while other file errors remain visible.

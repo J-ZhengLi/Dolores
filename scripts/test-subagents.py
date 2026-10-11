@@ -151,7 +151,11 @@ def worker(directory, restart=False):
                 if event['type'] == 'toolApproval':
                     request = event['request']
                     approvals.append(request)
-                    if action in ['stopApproval', 'revokeApproval'] and request['callId'].startswith('child.'):
+                    # UI approval IDs are opaque. These two creates belong only
+                    # to the fixture's children, never its parent verification.
+                    if (action in ['stopApproval', 'revokeApproval']
+                            and request['name'] == 'create_text_file'
+                            and request['target'] in ['alpha.txt', 'beta.txt']):
                         if action == 'stopApproval':
                             call('cancel', id=identity)
                         else:
@@ -163,6 +167,8 @@ def worker(directory, restart=False):
                     elif not stopped:
                         call('approveTool', id=identity, callId=request['callId'], allow=True)
                 if event['type'] == 'done':
+                    if action in ['stopApproval', 'revokeApproval', 'stopModels']:
+                        assert stopped, 'The fixture never issued its interruption/revocation.'
                     return event, approvals, all_events
             if action == 'stopModels' and children_started.is_set() and not stopped:
                 call('cancel', id=identity)

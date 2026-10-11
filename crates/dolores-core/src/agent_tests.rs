@@ -646,6 +646,99 @@ fn advertised_commands_explain_cross_folder_access_without_claiming_denial() {
 }
 
 #[test]
+fn non_file_and_read_only_catalogues_do_not_instruct_unavailable_file_actions() {
+    let prepare = |names: &[&str]| {
+        let specs = names
+            .iter()
+            .map(|name| ToolSpec {
+                name: (*name).into(),
+                description: String::new(),
+                parameters: json!({}),
+            })
+            .collect::<Vec<_>>();
+        let context = prepare_agent_context(
+            crate::preview_context(vec![], "What is our demo project codename?").unwrap(),
+        )
+        .unwrap();
+        let once = prepare_external_tool_context(context, &specs).unwrap();
+        let twice =
+            prepare_external_tool_context(prepare_agent_context(once.clone()).unwrap(), &specs)
+                .unwrap();
+        assert_eq!(once, twice);
+        once[0].content.clone()
+    };
+    let side = prepare(&[
+        "schedule_task",
+        "manage_scheduled_task",
+        "request_user_input",
+    ]);
+    for unavailable in [
+        "list_folder",
+        "search_text",
+        "read_text_file",
+        "edit_text_file",
+        "create_text_file",
+        "run_command",
+    ] {
+        assert!(
+            !side.contains(unavailable),
+            "Side chat was instructed to use {unavailable}"
+        );
+    }
+    assert!(side.contains("Only call tools advertised"));
+    let readonly = prepare(&["list_folder", "search_text", "read_text_file"]);
+    assert!(readonly.contains("Use list_folder and search_text"));
+    for unavailable in ["edit_text_file", "create_text_file", "run_command"] {
+        assert!(
+            !readonly.contains(unavailable),
+            "Read-only run was instructed to use {unavailable}"
+        );
+    }
+    let project = prepare(&[
+        "list_folder",
+        "search_text",
+        "read_text_file",
+        "edit_text_file",
+        "create_text_file",
+        "run_command",
+    ]);
+    assert!(project.contains("Use list_folder and search_text"));
+    assert!(project.contains("Use edit_text_file"));
+    assert!(project.contains("For coding tasks"));
+    assert!(project.contains("literal absolute paths"));
+    let project_specs = [
+        "list_folder",
+        "search_text",
+        "read_text_file",
+        "edit_text_file",
+        "create_text_file",
+        "run_command",
+    ]
+    .map(|name| ToolSpec {
+        name: name.into(),
+        description: String::new(),
+        parameters: json!({}),
+    });
+    let read_specs = project_specs[..3].to_vec();
+    let inherited = prepare_external_tool_context(
+        prepare_external_tool_context(
+            prepare_agent_context(crate::preview_context(vec![], "Inspect the project.").unwrap())
+                .unwrap(),
+            &project_specs,
+        )
+        .unwrap(),
+        &read_specs,
+    )
+    .unwrap();
+    for unavailable in ["edit_text_file", "create_text_file", "run_command"] {
+        assert!(
+            !inherited[0].content.contains(unavailable),
+            "Inherited instructions still advertise {unavailable}"
+        );
+    }
+}
+
+#[test]
 fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     let context = vec![
         Message {

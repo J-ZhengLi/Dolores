@@ -1,5 +1,43 @@
 # Dolores acceptance — 2026-10-08
 
+## Audit background repair — instructions follow available tools (October 11)
+
+The Memory Off failure reproduced in two of three fresh qwen3.7-flash side
+chats: the provider proposed `list_folder` although the advertised catalogue had
+only scheduling and questions. A DeepSeek fallback answered without tools.
+All four runs kept Memory Off, stored no automatic attempt and preserved the
+original 49 table digests. Their reported total was 11,330 tokens. Public wire
+observations are ignored under `output/memory-off-20261011-01/`.
+
+Preparation incorrectly added file/coding instructions to every agent run.
+The minimized regression failed on the side-chat instructions, then on inherited
+write guidance after switching to a read-only catalogue. General guidance now
+limits calls to advertised capabilities; file and command guidance follows the
+catalogue and removes inherited guidance that no longer applies. Tool dispatch,
+permissions and failed-call handling are unchanged; no automatic retry is added.
+The core and bridge suites pass 259 checks, with one unrelated vault check
+ignored. All-target Clippy passes with warnings denied and the normal Windows
+build passes. Three fresh qwen3.7-flash retests answered without a tool call or
+invented codename. Their wire observations contain no contradictory file guidance;
+Memory Off produced no automatic attempt. Reported usage was 6,981 input and 521
+output tokens, 7,502 total. All 49 original table digests still match. Evidence
+is ignored under `output/memory-off-20261011-02/`. This bounded improvement does
+not establish universal model compliance or native memory UX.
+
+The subsequent normal-bundle delegation fixture initially failed `stopApproval`:
+it expected a `child.` approval-ID prefix, but IDs are intentionally opaque. It
+approved both child writes without ever sending Stop. The fixture now recognizes
+only its two owned create operations and requires proof of interruption/revocation
+before accepting a terminal event. The original failure is green without an app
+cancellation change. Background concurrency, five exact reviews, shared-budget
+pause, Stop/revocation before writes, scope/ownership refusal and fresh-process
+restart all pass. No native delegation acceptance is claimed.
+
+Native audit remains blocked after the user's retry request. Fresh selection
+and one retry each returned `foreground window did not report a process id`.
+No alternate native automation was used. The checklist stays at 58/129;
+background evidence does not check off the pending native flows.
+
 ## Audit background repair — saved tool evidence in follow-ups (October 11)
 
 A minimized save/restart test reproduced the A07 historical-evidence gap: the
