@@ -192,24 +192,29 @@ impl SqliteStore {
         if !count.is_multiple_of(2) {
             return Err(STALE.into());
         }
-        let mut query=tx.prepare("SELECT id,role,content FROM (SELECT id,role,content FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id DESC LIMIT ?3) ORDER BY id").map_err(storage_error)?;
-        let messages = query
+        let mut query=tx.prepare("SELECT id,role,content,(SELECT json_extract(data,'$.agent.tools') FROM turn_metadata WHERE message_id=history.id) FROM (SELECT id,role,content FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id DESC LIMIT ?3) AS history ORDER BY id").map_err(storage_error)?;
+        let rows = query
             .query_map(params![session, through, HISTORY_LIMIT], |r| {
                 let role: String = r.get(1)?;
-                Ok(Message {
-                    parts: super::attachments::parts(&tx, r.get(0)?)
-                        .map_err(|_| rusqlite::Error::InvalidQuery)?,
-                    role: match role.as_str() {
-                        "user" => Role::User,
-                        "assistant" => Role::Assistant,
-                        _ => return Err(rusqlite::Error::InvalidQuery),
+                Ok((
+                    Message {
+                        parts: super::attachments::parts(&tx, r.get(0)?)
+                            .map_err(|_| rusqlite::Error::InvalidQuery)?,
+                        role: match role.as_str() {
+                            "user" => Role::User,
+                            "assistant" => Role::Assistant,
+                            _ => return Err(rusqlite::Error::InvalidQuery),
+                        },
+                        content: r.get(2)?,
                     },
-                    content: r.get(2)?,
-                })
+                    r.get::<_, Option<String>>(3)?,
+                ))
             })
-            .map_err(storage_error)?
+            .map_err(super::history_evidence::read_error)?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(storage_error)?;
+            .map_err(super::history_evidence::read_error)?;
+        let (mut messages, evidence): (Vec<_>, Vec<_>) = rows.into_iter().unzip();
+        super::history_evidence::append(&mut messages, evidence)?;
         Ok((messages, Some(count / 2), summary))
     }
 }
@@ -218,6 +223,158 @@ impl SqliteStore {
 mod tests {
     use super::*;
     use dolores_core::SessionStore;
+    fn command_metadata(content: &str) -> dolores_core::TurnMetadata {
+        dolores_core::TurnMetadata {
+            model: "fixture".into(),
+            usage: None,
+            context: dolores_core::ContextSummary::from_messages(&[], None),
+            request_settings: None,
+            paused: None,
+            agent: Some(dolores_core::AgentSummary {
+                model_calls: 2,
+                usage_by_call: vec![],
+                steps: vec![],
+                thinking: vec![],
+                tools: vec![dolores_core::ToolRecord {
+                    parts: vec![],
+                    call_id: "public-check".into(),
+                    name: "run_command".into(),
+                    target: "public-notebook".into(),
+                    status: "completed".into(),
+                    content: content.into(),
+                    query: None,
+                    diff: None,
+                    command: Some(dolores_core::CommandSpec {
+                        program: "python".into(),
+                        args: vec!["check.py".into()],
+                    }),
+                    mcp: None,
+                }],
+            }),
+        }
+    }
+    #[test]
+    fn saved_tool_evidence_survives_restart_in_next_context_without_changing_transcript() {
+        let temp = tempfile::tempdir().unwrap();
+        let db = temp.path().join("evidence.db");
+        let store = SqliteStore::open(&db).unwrap();
+        store.create("chat").unwrap();
+        store
+            .commit_turn_metadata(
+                "chat",
+                "Run the check",
+                "The check passed.",
+                &command_metadata(r#"{"reason":"completed","exitCode":0,"stdout":"CHECK OK\n","stderr":"","truncated":false}"#),
+            )
+            .unwrap();
+        drop(store);
+        let store = SqliteStore::open(&db).unwrap();
+        let (context, count, _) = store.summary_context_history("chat").unwrap();
+        assert_eq!(count, Some(1));
+        assert!(
+            context[1].content.contains("CHECK OK"),
+            "The next model request loses the actual tool receipt"
+        );
+        assert!(context[1].content.contains("check.py"));
+        assert!(context[1].content.contains("Historical"));
+        assert_eq!(
+            store.messages("chat").unwrap()[1].content,
+            "The check passed."
+        );
+        assert_eq!(
+            store.messages_page("chat", None, false, 4).unwrap().items[1].content,
+            "The check passed."
+        );
+    }
+    #[test]
+    fn historical_tool_context_is_bounded_utf8_and_excludes_other_and_summarized_turns() {
+        for content in ["Brief outcome".to_string(), "中文🙂".repeat(3000)] {
+            let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+            store.create("chat").unwrap();
+            store.create("other").unwrap();
+            store
+                .commit_turn_metadata(
+                    "other",
+                    "Other task",
+                    "Other reply",
+                    &command_metadata("OTHER PRIVATE MARKER"),
+                )
+                .unwrap();
+            for n in 0..14 {
+                let result = format!("Latest receipt {n}: {content}");
+                store
+                    .commit_turn_metadata("chat", "Task", "Saved reply", &command_metadata(&result))
+                    .unwrap();
+            }
+            let (context, _, _) = store.summary_context_history("chat").unwrap();
+            let added: usize = context
+                .iter()
+                .filter(|m| m.role == Role::Assistant)
+                .map(|m| m.content.len() - "Saved reply".len())
+                .sum();
+            assert!(added <= 16 * 1024, "Added evidence is {added} bytes");
+            let text = context
+                .iter()
+                .map(|m| m.content.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(text.contains("Latest receipt 13"));
+            assert!(!text.contains("OTHER PRIVATE MARKER"));
+            assert!(text.contains("receipts omitted"));
+            assert!(text.matches("\"callId\"").count() <= 8);
+            if content == "Brief outcome" {
+                assert_eq!(text.matches("\"callId\"").count(), 8);
+            } else {
+                assert!(text.contains("\"contentPreviewTruncated\":true"));
+            }
+            let batch = store.review_summary_batch("chat").unwrap();
+            assert!(batch
+                .messages
+                .iter()
+                .filter(|m| m.role == Role::Assistant)
+                .all(|m| m.content == "Saved reply"));
+            store
+                .save_session_summary("chat", &batch, "Earlier work summarized.", "fixture")
+                .unwrap();
+            store
+                .commit_turn_metadata(
+                    "chat",
+                    "New task",
+                    "New reply",
+                    &command_metadata("RECENT ONLY"),
+                )
+                .unwrap();
+            let (context, count, summary) = store.summary_context_history("chat").unwrap();
+            assert_eq!(count, Some(15));
+            assert_eq!(context.len(), 2);
+            assert!(summary.is_some());
+            assert!(context[1].content.contains("RECENT ONLY"));
+            assert!(!context[1].content.contains("Latest receipt"));
+        }
+    }
+    #[test]
+    fn malformed_saved_tool_evidence_refuses_context_without_altering_saved_work() {
+        let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        store.create("chat").unwrap();
+        store
+            .commit_turn_metadata(
+                "chat",
+                "Task",
+                "Saved reply",
+                &command_metadata("Original result"),
+            )
+            .unwrap();
+        for broken in [r#"{"agent":{"tools":"broken"}}"#, "not valid JSON"] {
+            store
+                .lock()
+                .unwrap()
+                .execute("UPDATE turn_metadata SET data=?1", [broken])
+                .unwrap();
+            let error = store.summary_context_history("chat").unwrap_err();
+            assert!(error.contains("Inspect Earlier tasks"), "{error}");
+            assert_eq!(store.messages("chat").unwrap()[1].content, "Saved reply");
+        }
+    }
     #[test]
     fn contiguous_summary_extension_correction_failure_restart_and_delete_preserve_history() {
         let temp = tempfile::tempdir().unwrap();

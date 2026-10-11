@@ -11,3 +11,22 @@ The independent input, context, tool-result and output byte guards remain memory
 For an existing chat's next ordinary human request, preview includes the advertised scheduling tools, enabled project integrations, response-limit guidance and the same preparation used before the first model call. Preparation does not execute a tool or contact a model. External guidance is included once so agent entry cannot change the estimate by appending duplicates. Changed state, scheduled occurrences, continuations and screenshot-control requests require their own fresh preparation; a prior preview is not a guarantee of an identical later request.
 
 See [pinned upstream comparison](../research/token-context-accounting.md). No compaction, summarization, tokenizer downloads or new tool permissions are introduced.
+
+## Saved tool evidence — audit repair, October 11
+
+Next-request history includes textual receipts from recent included turns beside
+the corresponding assistant message, in both preview and sending. Keep at most
+eight recent receipts and 16 KiB of added context per history snapshot. Each
+result preview uses at most 4 KiB of UTF-8 text, explicitly marking truncation.
+Name the tool, target, recorded status and literal command when present; exclude
+image assets, credential configuration and unrelated metadata. Older omitted evidence is
+identified as omitted rather than represented as a complete history.
+
+Label these receipts as historical, untrusted data: they show a past outcome,
+not current file contents, a new verification or permission to repeat an action.
+Context budgeting counts them before deciding which complete turns fit. A saved
+summary excludes its covered turns and their receipts. Stored chat text, paged
+conversation display, exports and summary-source provenance stay unchanged.
+Malformed saved tool metadata must fail preparation with an actionable error;
+it must not become invented evidence. This repair adds no tool execution,
+automatic permission, schema migration or new background service.

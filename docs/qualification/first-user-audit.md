@@ -15,6 +15,22 @@ renders; it adds no native checklist pass. **58/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
+Background follow-up repair (October 11): A07's missing historical receipt was
+reproduced at save/restart and corrected in next-request context loading. Recent
+text receipts are bounded to eight / 16 KiB, labeled historical and untrusted,
+counted in preview/send budgeting, and never replayed as commands or permissions.
+Transcript and summary provenance stay unchanged. Store/bridge suites pass 242
+checks with one vault check ignored; normal build and all-target Clippy pass.
+The normal bridge's two-process keyless fixture and qwen3.7-flash both recalled
+actual public exit-0/exit-7 receipts without repeating commands. Two live
+follow-up calls reported 13,010 tokens; the original 49 table digests match.
+The seed provider was a loopback fixture; the optional live checks exercised
+only the follow-up. Reports remain in ignored `output/history-evidence-20261011-*`.
+This repairs the missing-context finding but adds no native pass. The earlier
+historical conversation still needs a native retest once desktop automation
+recovers. A separate source-order cleanup corrected the pre-existing all-target
+Clippy failure in scheduling; all six scheduling checks pass.
+
 G13 native paging reached the final page of 62 public commits. Exact diffs for
 revisions 061, 030 and 001 opened as three tabs; returning to the first retained
 060 → 061. Side by side showed distinct red/green revisions and native drag

@@ -35,6 +35,7 @@ mod attachments;
 mod companionship;
 mod drafts;
 mod experience;
+mod history_evidence;
 mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;

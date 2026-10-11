@@ -82,6 +82,15 @@ requirements. RTK, CodeGraph and session handoffs are optional local tooling.
 
 Diagnostic entry points use `build --diagnostic smoke`, `restart` or `history`. Rebuild without that option before handing the app to a user or packaging it. Data/generated keys stay isolated. Diagnostics do not establish physical keyboard/IME acceptance. Native vault tests are opt-in and create/delete only their own entry.
 
+After a normal build, `python scripts/test-history-evidence.py --directory
+<fresh-absolute-path-under-output>` executes two reviewed public print commands
+with a loopback provider, then checks their saved success/failure receipts in a
+separate process. The follow-up must use history without repeating the command.
+For an optional live follow-up, add `--source <original-profile-dolores.db>
+--model <enabled-model-id>`. Only connection configuration is copied; credentials
+stay in memory and original-profile table digests must remain unchanged. This is
+background integration evidence, not native interaction qualification.
+
 After a normal Windows build, `python scripts/test-scoped-settings.py` verifies actual HTTP allowances, scope inheritance, frozen runs and changed-window recovery against an isolated local fixture. It needs no model key and releases the child host before removing its temporary data. This does not replace bounded real-model task checks.
 
 For executable recovery mods, run the following in separate processes after a

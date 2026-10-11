@@ -3085,13 +3085,38 @@ mod tests {
             .unwrap();
         store.create("side").unwrap();
         for n in 0..10 {
-            store
-                .commit_turn(
-                    "side",
-                    &format!("{n}{}", "x".repeat(4000)),
-                    &"a".repeat(4000),
-                )
-                .unwrap();
+            if n == 9 {
+                let metadata = TurnMetadata {
+                    model: "budget".into(),
+                    usage: None,
+                    context: ContextSummary::from_messages(&[], None),
+                    request_settings: None,
+                    paused: None,
+                    agent: Some(serde_json::from_value(json!({
+                        "modelCalls":2,"usageByCall":[],"steps":[],"thinking":[],
+                        "tools":[{"callId":"public-check","name":"run_command",
+                            "target":"public-notebook","status":"completed",
+                            "command":{"program":"python","args":["check.py"]},
+                            "content":"{\"reason\":\"completed\",\"exitCode\":0,\"stdout\":\"CHECK OK\"}"}]
+                    })).unwrap()),
+                };
+                store
+                    .commit_turn_metadata(
+                        "side",
+                        &format!("{n}{}", "x".repeat(4000)),
+                        &"a".repeat(4000),
+                        &metadata,
+                    )
+                    .unwrap();
+            } else {
+                store
+                    .commit_turn(
+                        "side",
+                        &format!("{n}{}", "x".repeat(4000)),
+                        &"a".repeat(4000),
+                    )
+                    .unwrap();
+            }
         }
         let preview = engine
             .call(Command::Context {
@@ -3101,6 +3126,8 @@ mod tests {
             })
             .unwrap();
         assert!(preview["includedTurns"].as_u64().unwrap() < 10);
+        assert!(preview["messages"].to_string().contains("CHECK OK"));
+        assert!(preview["messages"].to_string().contains("Historical"));
         let provider = Arc::new(CapturingBudgetFixture(Mutex::new(vec![])));
         let (output, _receiver) = mpsc::channel(32);
         engine

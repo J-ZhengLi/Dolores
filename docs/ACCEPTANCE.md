@@ -1,5 +1,43 @@
 # Dolores acceptance — 2026-10-08
 
+## Audit background repair — saved tool evidence in follow-ups (October 11)
+
+A minimized save/restart test reproduced the A07 historical-evidence gap: the
+command receipt remained in turn metadata but was absent from the next-request
+history. The model had only the saved acknowledgement. Summary-aware loading,
+used by both preview and sending even without a summary, now projects bounded
+text receipts beside their original assistant turn. At most eight receipts and
+16 KiB are added per snapshot; each result preview is at most 4 KiB, with explicit
+truncation/omission. They are labeled historical and untrusted, and grant no action
+or verification. Saved messages, exports, attachment assets and summary-source
+provenance stay unchanged; summarized/other-chat receipts are excluded.
+
+The original failure is green after repair. Three store regressions cover restart
+without transcript changes, UTF-8/count/byte bounds and summary/chat isolation,
+and malformed-metadata refusal preserving saved work. The bridge test verifies
+preview equals the sent messages and saved token estimate, including the receipt
+before complete-turn fitting. Store and bridge suites pass 242 checks, with one
+unrelated vault test ignored. Formatting, all-target Clippy with warnings denied
+and the normal Windows build pass. The separate scheduling source-order repair
+below additionally passes all six focused scheduling checks.
+
+The normal packaged bridge passed a keyless two-process check. A loopback seed
+provider requested two separately reviewed public print commands, yielding actual
+exit-0 and exit-7 receipts. Their stdout markers appeared only in those receipts,
+not saved acknowledgement prose. After restart, both fixture follow-ups and two
+qwen3.7-flash follow-ups returned the exact marker and exit code without tool use
+or command replay. The live follow-ups used two calls: 12,762 reported input and
+248 output tokens, 13,010 total; each response was bounded to 1,024 output tokens
+and a 20-second idle timeout. All 49 original-profile table digests remain
+unchanged; only connection configuration was copied and credentials stayed in
+memory. Reports are ignored under `output/history-evidence-20261011-*`.
+
+These are background storage/provider checks, not native UX or proof of arbitrary
+model reliability. A07's earlier native repair flow remains checked, but its
+historical conversation needs a fresh native retest. No additional checklist item
+is checked: 58/129 remains. Desktop activation is still unavailable as recorded
+under G13; no alternate native automation was used.
+
 ## Audit static-check repair — scheduling module order (October 11)
 
 The all-target Clippy check failed on `items_after_test_module`: two existing
