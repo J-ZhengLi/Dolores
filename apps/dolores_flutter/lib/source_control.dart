@@ -648,6 +648,7 @@ class SourceControlView extends StatelessWidget {
           ),
         );
       }
+      final sideBySide = diff['sideBySide'] as bool? ?? w.sideBySide;
       return Column(
         children: [
           SizedBox(
@@ -691,11 +692,10 @@ class SourceControlView extends StatelessWidget {
                     ButtonSegment(value: false, label: Text('Inline')),
                     ButtonSegment(value: true, label: Text('Side by side')),
                   ],
-                  selected: {w.sideBySide},
-                  onSelectionChanged: (v) {
-                    w.sideBySide = v.first;
-                    git.changed();
-                  },
+                  selected: {sideBySide},
+                  onSelectionChanged: w.busy
+                      ? null
+                      : (v) => git.setDiffLayout(w, v.first),
                 ),
                 TextButton(
                   onPressed: w.busy
@@ -743,7 +743,7 @@ class SourceControlView extends StatelessWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    'Change rows ${(diff['cursor'] as int? ?? 0) + 1}–${(diff['cursor'] as int? ?? 0) + (diff['rows'] as List).length} of ${diff['totalRows']}',
+                    'Change rows ${(diff['cursor'] as int? ?? 0) + 1}–${(diff['cursor'] as int? ?? 0) + ((sideBySide ? diff['sideRows'] : null) as List? ?? diff['rows'] as List).length} of ${diff['totalRows']}',
                   ),
                   TextButton(
                     key: const Key('git-previous-page'),
@@ -786,7 +786,7 @@ class SourceControlView extends StatelessWidget {
             child: GitDiffView(
               key: ValueKey('${w.root}:${w.activeTab}:${diff['revision']}'),
               diff: diff,
-              sideBySide: w.sideBySide,
+              sideBySide: sideBySide,
             ),
           ),
         ],

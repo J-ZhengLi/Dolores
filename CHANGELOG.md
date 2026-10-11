@@ -23,6 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Large side-by-side Git diffs keep old and new lines together across pages; tabs retain their layout and failed reads preserve the current comparison.
 - Side chats receive instructions for their available tools, avoiding requests for file tools they cannot use.
 - Read-only delegated agents receive file-reading guidance without instructions to create files.
 - Follow-up chats retain recent saved tool evidence, including command output and exit codes, without repeating earlier actions.

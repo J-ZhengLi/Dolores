@@ -11,9 +11,18 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **58/129 checked**.
+renders; it adds no native checklist pass. **59/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
+
+Latest October 11 retry: the owned normal build reopened and native selection
+recovered. G13's pending retest now passes: history.txt tabs show distinct
+1f5bca87 and 8f683959 labels with exact 060 → 061 and 059 → 060 contents.
+Changing the second to Inline leaves the first Side by side; returning retains
+its exact revision and native drag selection highlights the new text. Combined
+with the earlier three-page history coverage, this completes G13. No model call
+or repository mutation was needed. New native observations are ignored under
+`output/native-audit-20261010-01/observations-20261011-retry.jsonl`.
 
 October 11 retry: fresh desktop selection and the permitted retry both failed
 with `foreground window did not report a process id`. Native input remains
@@ -40,6 +49,18 @@ agree. Eight provider calls including children reported 37,276 tokens, with no
 DeepSeek fallback or original-profile change. Public evidence:
 `output/delegation-live-20261011-01/`. This adds background qualification only;
 native progress/approval controls remain pending.
+
+G14's background render found that a large replacement put removals and additions
+on separate raw pages, leaving one comparison side blank. The original real-page
+render failed, then passed after aligned side paging. All 171 bridge tests (one
+vault test ignored), 23 Source Control checks, analysis, Clippy and the normal
+Windows build pass. The packaged bridge returned all 6,000 replacement pairs in
+order over 24 pages, with at most 63,488 source-text bytes per page. Long UTF-8,
+stale reads, failed layout changes, per-tab navigation and complete-review guards
+also pass. The real-page render shows aligned red/green text; no native input or
+model request was used. Original data remains unchanged. Public evidence is in
+`output/git-large-render-20261011-01/` and `-02/`. G14 remains unchecked until its
+native navigation/recovery test; the count remains 58/129.
 
 Background follow-up repair (October 11): A07's missing historical receipt was
 reproduced at save/restart and corrected in next-request context loading. Recent
@@ -359,7 +380,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] G10 Failed Git hook retains message/index and gives usable retry after the hook is corrected.
 - [ ] G11 Dirty editor blocks conflicting Git action without losing its text.
 - [x] G12 Click a history commit to expand files; click a file for exact commit diff and collapse again.
-- [ ] G13 Browse older history and several diff tabs; selections and split views remain usable.
+- [x] G13 Browse older history and several diff tabs; selections and split views remain usable. October 11 final normal-build retest passes distinct commit labels, independent layouts, exact revision retention and text selection after earlier three-page coverage.
 - [ ] G14 Large text diff is rendered/pageable inside Dolores; stale page offers Refresh without losing the readable page.
 - [ ] G15 Binary diff and nonrepository folder show distinct understandable states.
 - [ ] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely.

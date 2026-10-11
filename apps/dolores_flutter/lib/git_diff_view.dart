@@ -124,10 +124,26 @@ class GitDiffView extends StatelessWidget {
       );
     }
     final source = rows;
-    if (source.isEmpty) {
+    final streamed = diff['sideRows'] as List?;
+    final pairs = !sideBySide
+        ? null
+        : streamed == null
+        ? align(source)
+        : streamed
+              .map(
+                (pair) => (
+                  pair['left'] == null
+                      ? null
+                      : Map<String, dynamic>.from(pair['left']),
+                  pair['right'] == null
+                      ? null
+                      : Map<String, dynamic>.from(pair['right']),
+                ),
+              )
+              .toList();
+    if (source.isEmpty && (pairs == null || pairs.isEmpty)) {
       return const Center(child: Text('No changes between these versions.'));
     }
-    final pairs = sideBySide ? align(source) : null;
     return LayoutBuilder(
       builder: (context, constraints) => Scrollbar(
         child: SingleChildScrollView(

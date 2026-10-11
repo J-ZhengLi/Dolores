@@ -144,10 +144,13 @@ class GitHost extends ChangeNotifier {
     String path,
     String basis, {
     String? commit,
+    bool? sideBySide,
   }) async {
     final status = w.status;
     if (status == null) return;
     final key = '$basis:$commit:$path';
+    final layout =
+        sideBySide ?? w.tabs[key]?['sideBySide'] as bool? ?? w.sideBySide;
     if (!w.tabs.containsKey(key) && w.tabs.length >= 8) {
       w.error = 'Eight diff tabs are open. Close one before opening another.';
       changed();
@@ -161,14 +164,29 @@ class GitHost extends ChangeNotifier {
         'path': path,
         'basis': basis,
         'commit': ?commit,
+        'sideBySide': layout,
       });
       w.tabs[key] = Map<String, dynamic>.from(value);
       w.tabs[key]!['pageTrail'] = [0];
+      w.tabs[key]!['sideBySide'] = layout;
+      w.sideBySide = layout;
       w.activeTab = key;
     } catch (_) {
       /* Preserve the prior tab on stale/bounded read failures. */
     }
     changed();
+  }
+
+  Future<void> setDiffLayout(GitWorkspace w, bool sideBySide) async {
+    final previous = w.tabs[w.activeTab];
+    if (previous == null || w.busy) return;
+    await openDiff(
+      w,
+      previous['path'] as String,
+      previous['basis'] as String,
+      commit: previous['commit'] as String?,
+      sideBySide: sideBySide,
+    );
   }
 
   Future<void> loadDiffPage(GitWorkspace w, int cursor) async {
@@ -185,10 +203,12 @@ class GitHost extends ChangeNotifier {
         'commit': ?previous['commit'],
         'cursor': cursor,
         'digest': previous['digest'],
+        'sideBySide': previous['sideBySide'] ?? w.sideBySide,
       });
       final trail = (previous['pageTrail'] as List? ?? [0]).cast<int>();
       final index = trail.indexOf(cursor);
       w.tabs[key!] = Map<String, dynamic>.from(value)
+        ..['sideBySide'] = previous['sideBySide'] ?? w.sideBySide
         ..['pageTrail'] = index < 0
             ? [...trail, cursor]
             : trail.take(index + 1).toList();

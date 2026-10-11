@@ -77,8 +77,7 @@ stale/failed reads preserve the displayed page and expose Refresh/retry.
 
 Side by side aligns deletion/addition runs within each page, keeps context lines
 on the same row, colours each changed cell and shows actual old/new file line
-numbers. Both columns share vertical and horizontal scrolling. A change run that
-crosses a page boundary can have blank counterpart cells at that boundary.
+numbers. Both columns share vertical and horizontal scrolling.
 Unchanged text outside Git's three-line hunk context is omitted. Binary change
 metadata remains viewable; there is no fabricated textual binary comparison.
 
@@ -89,6 +88,24 @@ their independent complete-patch bounds: a displayed partial page cannot become
 a complete approval or hunk patch. This change qualifies viewing, not unbounded
 mutation reviews or remote operations.
 
+### Cross-page alignment correction — 2026-10-11
+
+Side-by-side paging uses aligned display pairs, so a replacement run spanning
+many pages keeps its old/new counterparts together. Inline cursors still index
+unified rows; side-by-side cursors index pairs. Switching layout starts at its
+first page after a successful read, preserving the previous layout/page on
+failure. Each tab retains its own layout and navigation trail. A genuinely
+unmatched insertion/deletion keeps its blank counterpart; page boundaries do
+not create blanks for matched replacement segments.
+
+Streaming retains only the selected slice of a change run, at most 256 pairs
+and 256 KiB of source text per side-by-side page. It never buffers a whole hunk
+or blob. The separate existing 256 KiB raw-patch buffer is retained only for
+complete review/hunk eligibility; a partial aligned page is not a complete
+mutation review. Fingerprint, saved revision, UTF-8 segment and Stop/deadline
+guards still apply. This revises the previous permitted boundary-blank behavior
+for large replacements without adding a file-size gate or Git mutations.
+
 ## Frozen initial bounds
 
 | Item | Bound and recovery |
@@ -98,7 +115,7 @@ mutation reviews or remote operations.
 | Combined output | 512 KiB for ordinary commands; viewer stdout is streamed into bounded pages and a full fingerprint |
 | Status | 2,000 changed paths within output bound; more offers external Git/filtered cleanup then Refresh |
 | Revision checks | HEAD, index (16 MiB), status/config/stash refs, streamed saved-file hashes with 64 KiB buffer and 30-second read deadline |
-| Diff display | 256 rows / 256 KiB raw patch per page; approximately 4 KiB text segments; explicit Previous/Next changes |
+| Diff display | 256 inline rows or aligned pairs / 256 KiB source text per page; approximately 4 KiB text segments; explicit Previous/Next changes |
 | History | 30 commits per page, cursor at most 10,000; pinned HEAD, explicit Load more |
 | Retained views | Eight repository owners, eight diff tabs each; inactive clean tabs can be closed |
 | Mutation review | One host-generated, single-use token per repo, two-minute lifetime; commit/destructive patch within existing 256 KiB review bounds; index-only actions retain metadata without a patch |

@@ -1,5 +1,46 @@
 # Dolores acceptance — 2026-10-08
 
+## Native audit recovery — Git history tabs (October 11)
+
+The owned normal `72d98bd` desktop reopened and Windows automation recovered.
+The final G13 retest shows distinct history.txt tab labels 1f5bca87 and 8f683959
+with exact comparisons 060 → 061 and 059 → 060. The second tab was changed to
+Inline; returning to the first retained Side by side and its exact contents.
+Native drag selection visibly highlights the right-side revision. Earlier
+three-page history coverage completes this item. No repository changes or model
+requests were made. Native observations remain ignored under
+`output/native-audit-20261010-01/observations-20261011-retry.jsonl`.
+G13 is now checked; the running count is 59/129. G14's native retest follows.
+
+## Audit background repair — aligned large-diff pages (October 11)
+
+G14's actual 744,000-byte public replacement exposed a paging defect: the first
+raw page contained 251 removals and no additions, while the tail contained only
+additions. Its saved side-by-side render failed the new-text assertion and showed
+a blank right side. The named source-control contract now requires aligned pairs
+across page boundaries. Side paging streams only its selected slice; inline
+paging and complete mutation-review bounds remain separate. Successful layout
+changes reset paging; failed reads preserve the previous page/layout, and each
+tab retains its own layout and trail.
+
+The original render regression is green. The bridge suite passes 171 tests,
+with one unrelated vault test ignored; all 23 Source Control tests, changed-
+source analysis, formatting and all-target Clippy pass. Regressions cover a
+replacement spanning pages, long UTF-8 segments and unequal changes without
+loss, stale fingerprints/revisions, small-diff hunk eligibility, failed layout
+changes and independent tab navigation. The normal Windows build passes.
+
+The rebuilt packaged bridge rendered all 6,000 old/new pairs over 24 pages
+(6,005 logical rows), in order without missing or duplicate changes. Peak page
+source text was 63,488 bytes; the 23 continuation reads took 44.08 seconds in
+aggregate. The public source stayed unchanged and no model calls were made.
+A saved render of the real first page shows aligned red/green lines and readable
+base labels; this is a widget render, not native pointer or selection evidence.
+Public receipts, first/last pages and before/after renders remain ignored under
+`output/git-large-render-20261011-01/` and `-02/`. All 49 original-profile table
+digests still match. Native controls remain blocked by the documented desktop
+activation failure; G14 stays unchecked and the checklist remains 58/129.
+
 ## Audit background repair — read-only delegated guidance (October 11)
 
 A provider-boundary regression found another contradictory instruction: a

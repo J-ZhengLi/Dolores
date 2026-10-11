@@ -1,5 +1,7 @@
 //! Stream Git's changed sections into a bounded display page, never whole blobs.
 use super::*;
+#[path = "git_diff_pairs.rs"]
+mod pairs;
 
 pub(super) const PAGE_ROWS: usize = 256;
 const PAGE_BYTES: usize = 256 * 1024;
@@ -20,6 +22,7 @@ pub(super) struct Collector {
     in_hunk: bool,
     digest: Sha256,
     encoding_warning: bool,
+    pairs: Option<pairs::Collector>,
 }
 
 impl Collector {
@@ -39,7 +42,13 @@ impl Collector {
             in_hunk: false,
             digest: Sha256::new(),
             encoding_warning: false,
+            pairs: None,
         }
+    }
+    pub(super) fn side(cursor: usize, row_limit: usize) -> Self {
+        let mut collector = Self::new(0, row_limit);
+        collector.pairs = Some(pairs::Collector::new(cursor, row_limit));
+        collector
     }
     pub(super) fn push(&mut self, bytes: &[u8]) {
         self.digest.update(bytes);
@@ -101,9 +110,21 @@ impl Collector {
         let warning = std::str::from_utf8(raw).is_err();
         let old = (self.first && matches!(self.kind, "remove" | "context")).then_some(self.old);
         let new = (self.first && matches!(self.kind, "add" | "context")).then_some(self.new);
-        if self.total >= self.cursor && self.next.is_none() {
+        let row = || json!({"kind":self.kind,"text":text,"oldLine":old,"newLine":new,"continued":continued,"endLine":end_line});
+        if let Some(pairs) = &mut self.pairs {
+            pairs.push(row(), part.len(), warning);
+            // Complete small comparisons still need their exact unified patch
+            // for hunk reviews. Large ones retain only the existing byte bound.
+            if self.next.is_none() {
+                if self.patch.len() + part.len() <= PAGE_BYTES {
+                    self.patch.extend_from_slice(part);
+                } else {
+                    self.next = Some(self.total);
+                }
+            }
+        } else if self.total >= self.cursor && self.next.is_none() {
             if self.rows.len() < self.row_limit && self.patch.len() + part.len() <= PAGE_BYTES {
-                self.rows.push(json!({"kind":self.kind,"text":text,"oldLine":old,"newLine":new,"continued":continued,"endLine":end_line}));
+                self.rows.push(row());
                 self.patch.extend_from_slice(part);
                 self.encoding_warning |= warning;
             } else {
@@ -127,6 +148,30 @@ impl Collector {
         if !self.pending.is_empty() {
             let part = std::mem::take(&mut self.pending);
             self.emit(&part, true);
+        }
+        if let Some(pairs) = self.pairs.take() {
+            let mut value = pairs.finish()?;
+            value["digest"] = json!(format!("{:x}", self.digest.finalize()));
+            value["fullPatch"] = json!(self.next.is_none());
+            value["patch"] = json!(if self.next.is_none() {
+                String::from_utf8_lossy(&self.patch).into_owned()
+            } else {
+                String::new()
+            });
+            for (name, side) in [("left", "left"), ("right", "right")] {
+                value[name] = json!(value["sideRows"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|pair| pair[side].as_object())
+                    .map(|row| format!(
+                        "{}{}",
+                        row["text"].as_str().unwrap(),
+                        if row["endLine"] == true { "\n" } else { "" }
+                    ))
+                    .collect::<String>());
+            }
+            return Ok(value);
         }
         if self.cursor > self.total {
             return Err("Diff page is outside these changes. Refresh the comparison.".into());
@@ -153,6 +198,91 @@ impl Collector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn side_pages_pair_a_replacement_run_larger_than_a_page_without_loss() {
+        let raw = format!(
+            "@@ -1,600 +1,600 @@\n{}{} context\n",
+            (1..=600).map(|i| format!("-old {i}\n")).collect::<String>(),
+            (1..=600).map(|i| format!("+new {i}\n")).collect::<String>()
+        );
+        let mut cursor = 0;
+        let mut count = 0;
+        loop {
+            let mut collector = Collector::side(cursor, PAGE_ROWS);
+            for chunk in raw.as_bytes().chunks(97) {
+                collector.push(chunk);
+            }
+            let page = collector.finish().unwrap();
+            assert_eq!(page["totalRows"], 602);
+            assert_eq!(page["fullPatch"], true);
+            assert_eq!(page["patch"], raw);
+            assert!(page["sideRows"].as_array().unwrap().len() <= PAGE_ROWS);
+            for pair in page["sideRows"].as_array().unwrap() {
+                if pair["left"]["kind"] == "remove" {
+                    count += 1;
+                    assert_eq!(pair["left"]["oldLine"], count);
+                    assert_eq!(pair["right"]["newLine"], count);
+                    assert_eq!(pair["left"]["text"], format!("old {count}"));
+                    assert_eq!(pair["right"]["text"], format!("new {count}"));
+                }
+            }
+            if let Some(next) = page["next"].as_u64() {
+                assert!(next as usize > cursor);
+                cursor = next as usize;
+            } else {
+                break;
+            }
+        }
+        assert_eq!(count, 600);
+    }
+    #[test]
+    fn side_byte_pages_keep_utf8_segments_and_unmatched_changes() {
+        let before = "中".repeat(100000);
+        let after = "文".repeat(160000);
+        let raw = format!("@@ -20,2 +30,2 @@\n-{before}\n+{after}\n same\n-delete only\n@@ -40,0 +50 @@\n+add only\n");
+        let mut cursor = 0;
+        let (mut left, mut right) = (String::new(), String::new());
+        let mut fingerprint = None;
+        let mut pages = 0;
+        loop {
+            let mut collector = Collector::side(cursor, PAGE_ROWS);
+            for chunk in raw.as_bytes().chunks(97) {
+                collector.push(chunk);
+            }
+            let page = collector.finish().unwrap();
+            assert_eq!(page["encodingWarning"], false);
+            assert!(page["displayBytes"].as_u64().unwrap() <= PAGE_BYTES as u64);
+            assert_eq!(page["fullPatch"], false);
+            assert_eq!(page["patch"], "");
+            if let Some(digest) = &fingerprint {
+                assert_eq!(digest, &page["digest"]);
+            }
+            fingerprint = Some(page["digest"].clone());
+            for pair in page["sideRows"].as_array().unwrap() {
+                for (side, kind, text) in
+                    [("left", "remove", &mut left), ("right", "add", &mut right)]
+                {
+                    let row = &pair[side];
+                    if row["kind"] == kind {
+                        text.push_str(row["text"].as_str().unwrap());
+                        if row["endLine"] == true {
+                            text.push('\n');
+                        }
+                    }
+                }
+            }
+            pages += 1;
+            if let Some(next) = page["next"].as_u64() {
+                assert!(next as usize > cursor);
+                cursor = next as usize;
+            } else {
+                break;
+            }
+        }
+        assert!(pages > 2);
+        assert_eq!(left, format!("{before}\ndelete only\n"));
+        assert_eq!(right, format!("{after}\nadd only\n"));
+    }
     #[test]
     fn pages_keep_line_numbers_utf8_and_bounded_long_line_segments() {
         let raw = format!(

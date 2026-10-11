@@ -76,7 +76,32 @@ impl Repo {
         page: (usize, Option<&str>),
         cancel: &CancellationToken,
     ) -> Result<Value, String> {
-        self.collect_diff(revision, path, basis, commit, Some(page), cancel)
+        self.collect_diff(
+            revision,
+            path,
+            basis,
+            commit,
+            Some((page.0, page.1, false)),
+            cancel,
+        )
+    }
+    pub(super) fn diff_side_page(
+        &self,
+        revision: &str,
+        path: &str,
+        basis: &str,
+        commit: Option<&str>,
+        page: (usize, Option<&str>),
+        cancel: &CancellationToken,
+    ) -> Result<Value, String> {
+        self.collect_diff(
+            revision,
+            path,
+            basis,
+            commit,
+            Some((page.0, page.1, true)),
+            cancel,
+        )
     }
 
     fn collect_diff(
@@ -85,7 +110,7 @@ impl Repo {
         path: &str,
         basis: &str,
         commit: Option<&str>,
-        page: Option<(usize, Option<&str>)>,
+        page: Option<(usize, Option<&str>, bool)>,
         cancel: &CancellationToken,
     ) -> Result<Value, String> {
         self.path(path)?;
@@ -147,18 +172,22 @@ impl Repo {
         if old_path != path {
             args.push(old_path);
         }
-        let (cursor, expected) = page.unwrap_or((0, None));
+        let (cursor, expected, side) = page.unwrap_or((0, None, false));
         if cursor > 0 && expected.is_none() {
             return Err("Diff page needs its original fingerprint. Refresh the comparison.".into());
         }
-        let mut collector = diff_page::Collector::new(
-            cursor,
-            if page.is_some() {
-                diff_page::PAGE_ROWS
-            } else {
-                usize::MAX
-            },
-        );
+        let mut collector = if side {
+            diff_page::Collector::side(cursor, diff_page::PAGE_ROWS)
+        } else {
+            diff_page::Collector::new(
+                cursor,
+                if page.is_some() {
+                    diff_page::PAGE_ROWS
+                } else {
+                    usize::MAX
+                },
+            )
+        };
         let mut stderr = Vec::new();
         let code = git_process::run_stream(
             &self.executable,
@@ -191,7 +220,8 @@ impl Repo {
             return Err("These changes differ from the displayed page. Refresh this comparison before continuing.".into());
         }
         self.revision(revision, cancel)?;
-        let complete = cursor == 0 && value["next"].is_null();
+        let complete =
+            cursor == 0 && value["next"].is_null() && (!side || value["fullPatch"] == true);
         value["hunks"] = json!(if complete && basis != "commit" {
             mutation::local::hunks(value["patch"].as_str().unwrap(), revision, path, basis)
         } else {
@@ -328,6 +358,46 @@ mod tests {
         assert_eq!(first["rows"].as_array().unwrap().len(), 256);
         assert!(first["totalRows"].as_u64().unwrap() > 60000);
         let digest = first["digest"].as_str().unwrap();
+        let paired = repo
+            .diff_side_page(revision, "pages.txt", "working", None, (0, None), &cancel)
+            .unwrap();
+        assert_eq!(paired["sideRows"].as_array().unwrap().len(), 256);
+        assert_eq!(paired["digest"], first["digest"]);
+        assert!(paired["hunks"].as_array().unwrap().is_empty());
+        let changed = paired["sideRows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|pair| pair["left"]["kind"] == "remove")
+            .unwrap();
+        assert_eq!(changed["left"]["text"], "old content 0");
+        assert_eq!(changed["right"]["text"], "new content 0");
+        let paired_end = paired["totalRows"].as_u64().unwrap() as usize - 32;
+        let paired_last = repo
+            .diff_side_page(
+                revision,
+                "pages.txt",
+                "working",
+                None,
+                (paired_end, Some(digest)),
+                &cancel,
+            )
+            .unwrap();
+        assert!(paired_last["next"].is_null());
+        let pair = paired_last["sideRows"].as_array().unwrap().last().unwrap();
+        assert_eq!(pair["left"]["text"], "old content 29999");
+        assert_eq!(pair["right"]["text"], "new content 29999");
+        assert!(repo
+            .diff_side_page(
+                revision,
+                "pages.txt",
+                "working",
+                None,
+                (paired_end, Some("wrong fingerprint")),
+                &cancel
+            )
+            .unwrap_err()
+            .contains("differ from"));
         let end = first["totalRows"].as_u64().unwrap() as usize - 32;
         let last = repo
             .diff_page(
@@ -356,6 +426,17 @@ mod tests {
             .unwrap_err()
             .contains("differ from"));
         std::fs::write(dir.path().join("pages.txt"), "changed during viewing\n").unwrap();
+        assert!(repo
+            .diff_side_page(
+                revision,
+                "pages.txt",
+                "working",
+                None,
+                (paired_end, Some(digest)),
+                &cancel
+            )
+            .unwrap_err()
+            .contains("basis changed"));
         assert!(repo
             .diff_page(
                 revision,
@@ -418,6 +499,12 @@ mod tests {
             .unwrap();
         assert_eq!(diff["left"], "index\n");
         assert_eq!(diff["right"], "working\n");
+        let paired = repo
+            .diff_side_page(revision, "same.txt", "working", None, (0, None), &cancel)
+            .unwrap();
+        assert_eq!(paired["patch"], diff["patch"]);
+        assert_eq!(paired["hunks"], diff["hunks"]);
+        assert!(!paired["hunks"].as_array().unwrap().is_empty());
         let diff = repo
             .diff(revision, "same.txt", "staged", None, &cancel)
             .unwrap();

@@ -83,11 +83,13 @@ class HistoryBridge extends DiffBridge {
 }
 
 class PagedDiffBridge extends DiffBridge {
+  final requests = <Map<String, dynamic>>[];
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
     final request = command['request'] as Map;
     if (request['action'] != 'poll') {
       pending = Map<String, dynamic>.from(request);
+      requests.add(pending!);
       return {'job': 'paged'};
     }
     if (this.fail) {
@@ -97,7 +99,7 @@ class PagedDiffBridge extends DiffBridge {
     return {
       'done': true,
       'value': {
-        'path': 'large.txt',
+        'path': pending!['path'],
         'basis': 'working',
         'revision': 'v1',
         'leftLabel': 'Index',
@@ -210,6 +212,92 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  testWidgets('a streamed side page renders both revisions without raw rows', (
+    t,
+  ) async {
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GitDiffView(
+            sideBySide: true,
+            diff: {
+              'leftLabel': 'Index',
+              'rightLabel': 'Working tree',
+              'rows': [],
+              'sideRows': [
+                {
+                  'left': {
+                    'kind': 'remove',
+                    'text': 'old across page',
+                    'oldLine': 251,
+                  },
+                  'right': {
+                    'kind': 'add',
+                    'text': 'new across page',
+                    'newLine': 251,
+                  },
+                },
+                {
+                  'left': null,
+                  'right': {
+                    'kind': 'add',
+                    'text': 'extra addition',
+                    'newLine': 252,
+                  },
+                },
+              ],
+            },
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    final old = find.widgetWithText(SelectableText, 'old across page');
+    final next = find.widgetWithText(SelectableText, 'new across page');
+    expect(old, findsOneWidget);
+    expect(next, findsOneWidget);
+    expect(t.getTopLeft(old).dy, t.getTopLeft(next).dy);
+    expect(t.getTopLeft(old).dx, lessThan(t.getTopLeft(next).dx));
+    expect(find.text('extra addition'), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
+  test(
+    'layout changes reset paging only on success and tabs retain their layout',
+    () async {
+      final bridge = PagedDiffBridge();
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'};
+      host.selected = w;
+      await host.openDiff(w, 'large.txt', 'working');
+      final firstKey = w.activeTab;
+      await host.loadDiffPage(w, 4);
+      final displayed = w.tabs[firstKey];
+      bridge.fail = true;
+      await host.setDiffLayout(w, true);
+      expect(w.tabs[firstKey], same(displayed));
+      expect(w.tabs[firstKey]!['sideBySide'], false);
+      expect(w.tabs[firstKey]!['pageTrail'], [0, 4]);
+      expect(w.error, contains('basis changed'));
+      bridge.fail = false;
+      await host.setDiffLayout(w, true);
+      expect(w.tabs[firstKey]!['sideBySide'], true);
+      expect(w.tabs[firstKey]!['pageTrail'], [0]);
+      expect(bridge.requests.last['cursor'], isNull);
+      expect(bridge.requests.last['digest'], isNull);
+      await host.loadDiffPage(w, 4);
+      expect(bridge.requests.last['sideBySide'], true);
+      expect(bridge.requests.last['digest'], 'pinned-pages');
+      await host.openDiff(w, 'other.txt', 'working', sideBySide: false);
+      expect(w.tabs[w.activeTab]!['sideBySide'], false);
+      w.activeTab = firstKey;
+      await host.loadDiffPage(w, 0);
+      expect(bridge.requests.last['sideBySide'], true);
+      expect(w.tabs[firstKey]!['sideBySide'], true);
+      expect(w.tabs[firstKey]!['pageTrail'], [0]);
+      host.dispose();
+    },
+  );
   final renderDirectory = Platform.environment['DOLORES_GIT_RENDER_DIRECTORY'];
   setUpAll(() async {
     if (renderDirectory == null) return;

@@ -28,6 +28,8 @@ pub(crate) enum Request {
         #[serde(default)]
         cursor: usize,
         digest: Option<String>,
+        #[serde(default, rename = "sideBySide")]
+        side_by_side: bool,
     },
     History {
         repo: String,
@@ -454,9 +456,16 @@ impl Engine {
                                 commit,
                                 cursor,
                                 digest,
+                                side_by_side,
                             } => {
                                 repo.check(&id)?;
-                                repo.diff_page(
+                                let diff = if side_by_side {
+                                    Repo::diff_side_page
+                                } else {
+                                    Repo::diff_page
+                                };
+                                diff(
+                                    &repo,
                                     &revision,
                                     &path,
                                     &basis,
