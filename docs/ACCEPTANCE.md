@@ -1,5 +1,29 @@
 # Dolores acceptance — 2026-10-08
 
+## October 12 native audit: truthful nonrepository state
+
+G15 passed after fixing a misleading “No commit / detached HEAD” header for
+folders without Git. The failing widget regression now passes; all 42 Source
+Control tests and focused analysis pass. Repository status is required before
+rendering a HEAD label; empty and detached repositories have distinct labels.
+The normal Windows build passed. Native navigation to a public folder outside
+every Git ancestor and Refresh both retained the correct nonrepository error
+without a fabricated HEAD state. Earlier binary-diff interaction completes
+G15. Checklist: 70/129 checked, 59 pending. The original profile matches all
+49 table digests. No Git mutation or model request was made for this check.
+
+## October 12 native audit: text attachment snapshot retention
+
+P07 partially passed in a fresh isolated normal-app chat. The native picker
+attached a public 108-byte UTF-8 file; preview showed its original English/code
+and Chinese sentence. Changing the source afterwards did not change the preview.
+Sending the physical-key prompt `Repeat` to Qwen3.7 Flash produced the original
+P07-ORIGINAL-42 code and Chinese sentence in one model call. Read-only storage
+verification confirmed the snapshot's exact CRLF bytes and SHA-256, distinct from
+the modified source. The model paraphrased the heading; this is content retrieval
+evidence, not a byte-exact model reproduction claim. The native Remove control
+awaits action-time confirmation; P07 remains unchecked. Count remains 69/129.
+
 ## October 12 native audit: local capabilities and source inspection
 
 E09 passed through Advanced → Diagnostics & storage → Capabilities & source.

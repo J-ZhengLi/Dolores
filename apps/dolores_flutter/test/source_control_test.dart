@@ -246,6 +246,60 @@ class GitBridge implements ChatBridge {
 }
 
 void main() {
+  testWidgets('missing repository status never invents a HEAD state', (
+    t,
+  ) async {
+    final host = GitHost(MutationBridge());
+    final w = GitWorkspace('C:/public-nonrepository', 'A');
+    host.selected = w;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SourceControlPanel(git: host, openFolder: () {}),
+        ),
+      ),
+    );
+    expect(find.text('No commit / detached HEAD'), findsNothing);
+    w.error = 'This folder is not a Git worktree. Open a repository from Home.';
+    host.changed();
+    await t.pump();
+    expect(find.text(w.error!), findsOneWidget);
+    expect(find.text('No commit / detached HEAD'), findsNothing);
+    expect(find.text('Detached HEAD'), findsNothing);
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+    host.dispose();
+  });
+  for (final hasHead in [false, true]) {
+    testWidgets('repository without a branch distinguishes HEAD ($hasHead)', (
+      t,
+    ) async {
+      final host = GitHost(MutationBridge());
+      host.selected = GitWorkspace('C:/public-repository', 'A')
+        ..status = {
+          'repo': 'A',
+          'revision': 'v1',
+          'branch': null,
+          'head': hasHead ? 'commit' : null,
+          'entries': [],
+        };
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SourceControlPanel(git: host, openFolder: () {}),
+          ),
+        ),
+      );
+      expect(
+        find.text(hasHead ? 'Detached HEAD' : 'No commits yet'),
+        findsOneWidget,
+      );
+      expect(find.text('No commit / detached HEAD'), findsNothing);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    });
+  }
   test('a late diff refresh does not replace a newly selected tab', () async {
     final bridge = RefreshDiffBridge();
     final host = GitHost(bridge);

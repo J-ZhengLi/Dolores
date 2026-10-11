@@ -12,7 +12,7 @@ Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
 renders; it adds no native checklist pass. The October 12 resumed settings check
-completes P05, P03 and E09: **69/129 checked**.
+completes P05, P03, E09 and G15: **70/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -42,7 +42,7 @@ No model request was made. These edited values remain in the disposable audit
 profile; the original profile still matches all 49 table digests.
 
 The earlier stop checkpoint is superseded by this recovered native route.
-**69 checked / 60 pending**; background passes still do not count as native ones.
+**70 checked / 59 pending**; background passes still do not count as native ones.
 
 E09 passed through Advanced → Diagnostics & storage → Capabilities & source.
 The native view showed Dolores 0.1.0, the project workspace, Qwen model/context
@@ -51,6 +51,24 @@ reliability. Matching bundled file-tool source displayed its SHA-256 and lines
 1–60 / 342; Next source lines showed 61–120 and First lines restored 1–60.
 Cancelling Compare checkout retained the bundled source. Refresh retained the
 inventory and source. All inspection stayed local and made no model request.
+
+P07's attach/preview/send and snapshot-retention checks passed natively with a
+108-byte public UTF-8 fixture. After the source changed to a different code, the
+preview and Qwen's one-call reply retained P07-ORIGINAL-42 and the original Chinese
+sentence. Read-only storage inspection verified the exact CRLF bytes and digest.
+Bulk text input worked in the native file picker but not the Flutter composer;
+physical keys entered the bounded prompt. P07 stays unchecked: its native Remove
+control awaits the computer-use skill's action-time deletion confirmation.
+
+G15 now passes its remaining nonrepository navigation. A folder inside an
+enclosing Git repository correctly identified that enclosing root. A separate
+public folder outside every Git ancestor showed the actionable nonrepository
+error but incorrectly labeled it “No commit / detached HEAD.” A regression failed
+before the fix. The UI now renders HEAD states only when repository status exists,
+and distinguishes an empty repository from detached HEAD. All 42 Source Control
+tests and focused analysis passed. The normal Windows build and native retest
+passed, including Refresh with no invented HEAD state. Its earlier native binary
+comparison completes the item. No Git mutation or model request was needed.
 
 ### October 11 resumed editor interaction
 
@@ -148,7 +166,7 @@ conflicting stash and revert conflict/Abort preserving HEAD and saved bytes.
 Receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
 Native count remains 66 checked / 63 pending.
 
-The updated October 12 queue has **69 checked / 60 pending**. Every pending
+The updated October 12 queue has **70 checked / 59 pending**. Every pending
 item below retains a native interaction requirement; available background paths
 have been exercised, with model reliability gaps recorded separately. The
 earlier helper failure was recovered as described above. No alternate Windows
@@ -163,7 +181,7 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
 | C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
-| G15, G17–G20 (5) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Nonrepository navigation, direct action controls, conflict/Abort and interrupted-remote reconciliation |
+| G17–G20 (4) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S04, S10–S12 (4) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P04, P06–P09, P12–P14 (8) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
@@ -632,7 +650,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] G12 Click a history commit to expand files; click a file for exact commit diff and collapse again.
 - [x] G13 Browse older history and several diff tabs; selections and split views remain usable. October 11 final normal-build retest passes distinct commit labels, independent layouts, exact revision retention and text selection after earlier three-page coverage.
 - [x] G14 Large text diff is rendered/pageable inside Dolores; stale page offers Refresh without losing the readable page. October 11 native paired paging, stale refusal and fresh-state recovery passed after repairing Refresh diff; all 6,000 pairs separately verified across 24 real pages.
-- [ ] G15 Binary diff and nonrepository folder show distinct understandable states.
+- [x] G15 Binary diff and nonrepository folder show distinct understandable states.
 - [x] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely. Native create/refusal/switch and independent branch inspection pass October 11; direct action retest pending.
 - [ ] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.
 - [ ] G18 Revert a disposable commit; conflict/Abort recovery does not discard unrelated work.

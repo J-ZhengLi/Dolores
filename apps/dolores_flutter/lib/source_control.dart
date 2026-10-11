@@ -333,13 +333,16 @@ class SourceControlPanel extends StatelessWidget {
                         style: TextStyle(fontSize: 12),
                       ),
                     const SizedBox(height: 4),
-                    Text(
-                      status?['branch'] as String? ??
-                          'No commit / detached HEAD',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                    if (status != null)
+                      Text(
+                        status['branch'] as String? ??
+                            (status['head'] == null
+                                ? 'No commits yet'
+                                : 'Detached HEAD'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                   ],
                 ),
               ),
