@@ -105,9 +105,15 @@ pub fn parse_memory_image_caption(
     if parsed.truncated {
         return Err("Image caption was truncated; nothing was indexed.".into());
     }
+    crate::validate_preference(&parsed.title, &parsed.description)?;
     let caption = MemoryImageCaption {
         asset,
-        title: parsed.title,
+        // This display namespace is host metadata, not model evidence.
+        title: if parsed.title.starts_with("Image:") {
+            parsed.title
+        } else {
+            format!("Image: {}", parsed.title)
+        },
         description: parsed.description,
         uncertainty: parsed.uncertainty,
     };
@@ -549,6 +555,49 @@ fn topic_matches(title: &str, text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn public_image_ref() -> crate::AttachmentRef {
+        crate::AttachmentRef {
+            digest: "a".repeat(64),
+            name: "public.png".into(),
+            mime: "image/png".into(),
+            bytes: 100,
+        }
+    }
+
+    #[test]
+    fn image_caption_namespace_is_host_owned_and_does_not_change_description() {
+        for title in ["Blue square", "Image: Blue square", "蓝色方块"] {
+            let answer = serde_json::json!({"title":title,"description":"A blue square on white.","uncertainty":"Exact shade unknown."}).to_string();
+            let caption = parse_memory_image_caption(&answer, public_image_ref()).unwrap();
+            let expected = if title.starts_with("Image:") {
+                title.to_owned()
+            } else {
+                format!("Image: {title}")
+            };
+            assert_eq!(caption.title, expected);
+            assert_eq!(caption.description, "A blue square on white.");
+            assert_eq!(caption.uncertainty, "Exact shade unknown.");
+        }
+    }
+
+    #[test]
+    fn host_namespace_does_not_relax_caption_bounds_or_accept_truncation() {
+        let valid = serde_json::json!({"title":"Blue square","description":"A blue square.","uncertainty":"Exact shade unknown."});
+        for (key, value) in [
+            ("title", serde_json::json!("")),
+            ("title", serde_json::json!("x".repeat(80))),
+            ("description", serde_json::json!("x".repeat(513))),
+            ("uncertainty", serde_json::json!("x".repeat(129))),
+            ("uncertainty", serde_json::json!("")),
+            ("truncated", serde_json::json!(true)),
+        ] {
+            let mut invalid = valid.clone();
+            invalid[key] = value;
+            assert!(parse_memory_image_caption(&invalid.to_string(), public_image_ref()).is_err());
+        }
+        assert!(parse_memory_image_caption("not JSON", public_image_ref()).is_err());
+    }
     #[test]
     fn literal_response_preferences_keep_exact_words_without_temporary_requests() {
         for (text, expected) in [

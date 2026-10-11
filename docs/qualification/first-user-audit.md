@@ -25,7 +25,17 @@ refusal at the old 18-registration limit. Capacity now matches the supported
 20-tool catalog (17 host, one browser, two external); execution budgets and
 external slots stay unchanged. All 91 core checks, Clippy, normal build and
 both MCP save/restore fixtures pass, including crash/Stop and sibling recovery.
-Exact catalog and duplicate checks remain. Native I05-I06 are still pending.
+Exact catalog and duplicate checks remain. Native I06-I07 are still pending.
+
+October 11 wider memory probe: useful facts, corrections, Memory Off and project
+isolation passed with real Qwen. A caption missing the Image: display prefix
+exposed a second host formatting defect; the host now owns that prefix, retaining
+all evidence bounds. All 468 workspace Rust checks (two ignored), Clippy and
+normal build pass. One rebuilt Qwen image capture/recall passed; the independent
+second failed oversized uncertainty and retained chat/image. Explicit DeepSeek
+fallback captured and recalled successfully. Original data stayed unchanged.
+The runner now exits nonzero for a failed receipt. Native Memory controls remain
+pending; the count stays 60/129. Detailed usage and receipt paths are in ACCEPTANCE.
 
 October 11 background follow-up: explicit thinking off still produced a stray
 leading `</think>`, breaking otherwise valid image-caption JSON. A failing

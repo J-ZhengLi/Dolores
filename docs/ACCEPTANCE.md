@@ -1,5 +1,28 @@
 # Dolores acceptance — 2026-10-08
 
+## October 11 audit: image caption display titles
+
+The wider real-model probe reproduced valid caption JSON without the required
+Image: title prefix. This prefix is host display metadata; the host now adds it
+after validating the supplied title. Caption evidence and asset identity are
+unchanged. Empty/oversized titles, malformed or truncated JSON, and existing
+description/uncertainty bounds still refuse. The original failing regression,
+93 core tests, all 468 workspace tests (two ignored), Clippy and normal Windows
+build pass. The live runner now returns failure when its receipt fails.
+
+The ten-turn Qwen probe passed useful fact capture, correction, fresh-chat recall,
+Memory Off and project isolation, but failed image capture: 46,963 foreground
+and 280 maintenance tokens. After the fix, one Qwen image capture/recall passed
+(5,264 + 257 tokens); the independent second refused oversized uncertainty
+(4,830 + 278 tokens), retaining the reply and shared image. The explicit DeepSeek
+fallback passed (5,536 + 374 tokens). No runtime fallback/retry or relaxed bound
+was introduced. These public receipts remain ignored under
+`output/background-audit-20261011-remaining/` in `memory-qwen-thinking-off-full`,
+`image-title-qwen-fixed`, `image-title-qwen-fixed-02` and
+`image-title-deepseek-fixed`. All 49 original-profile table digests match.
+This bounded result does not establish general Qwen caption reliability or
+native Memory-page interaction; the corresponding UI checks remain open.
+
 ## Background audit fixture repair — compact command recovery (October 11)
 
 The full frontend suite reproduced an offscreen test tap in compact command

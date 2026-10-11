@@ -204,3 +204,7 @@ Visual work follows the revised AGENTS rules: saved renders inspected with
 `view_image` first; computer-use only for a relevant UX/native interaction. No
 per-task launch or visual ritual. Preserve real profile/settings and secrets;
 planning-only work does not activate memory, schedules or proactive messages.
+
+### Image caption display namespace (October 11 audit refinement)
+
+The host supplies the Image: title prefix when a valid caption title omits it. That prefix is display metadata, not evidence; a model formatting omission must not discard a useful source-linked description. Existing prefixed titles, description, uncertainty and asset identity remain unchanged. Empty or oversized titles, malformed JSON, truncated captions and existing description/uncertainty bounds still refuse before indexing. No second request or silent retry is added.

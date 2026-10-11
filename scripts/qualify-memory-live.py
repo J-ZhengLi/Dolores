@@ -155,6 +155,13 @@ assert before==after,'Original profile changed during isolated qualification'
 def totals(values):
     return {field:sum(v[field] for v in values) if values and all(v.get(field) is not None for v in values) else None for field in ('inputTokens','outputTokens','totalTokens')}
 receipt={'cases':cases,'foregroundReportedUsage':totals(usage),'maintenanceReportedUsage':totals(capture_usage),'foregroundTurns':number,'originalProfileUnchanged':True,'configurationOnlyCopy':True,'generalReliabilityClaim':False}
+receipt['passed']=all(
+    case.get('hit',False)==(case['case']!='Primary model Memory Off baseline')
+    and not case.get('scopeLeak',False)
+    and not any(result.get('error') for result in [case.get('capture'),case.get('result'),*case.get('captures',[]),*case.get('results',[])] if result)
+    for case in cases
+)
 if traces:receipt['publicExtractionDiagnostics']=traces
 (directory/'receipt.json').write_text(json.dumps(receipt,indent=2,ensure_ascii=False),encoding='utf-8')
 print(json.dumps(receipt,ensure_ascii=False))
+sys.exit(0 if receipt['passed'] else 1)

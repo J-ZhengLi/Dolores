@@ -23,6 +23,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Image memories supply their display title prefix without discarding otherwise valid captions.
+
 - Two reviewed MCP tools can run together alongside the current built-in tools without exceeding an obsolete catalog limit.
 
 - Explicit thinking-off responses handle a stray leading closing marker, allowing valid image memories to be saved and recalled.
