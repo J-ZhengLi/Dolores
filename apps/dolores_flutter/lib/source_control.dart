@@ -661,7 +661,7 @@ class SourceControlView extends StatelessWidget {
                     child: InputChip(
                       selected: w.activeTab == entry.key,
                       label: Text(
-                        '${entry.value['path']} · ${entry.value['basis']}',
+                        '${entry.value['path']} · ${entry.value['basis'] == 'commit' && entry.value['commit'] is String ? (entry.value['commit'] as String).characters.take(8) : entry.value['basis']}',
                       ),
                       onPressed: () {
                         w.activeTab = entry.key;

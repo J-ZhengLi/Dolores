@@ -23,6 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Git history diff tabs show the short commit ID so revisions of the same file are easy to distinguish.
 - File failures appear once beside their recovery actions, while other file errors remain visible.
 - The file editor saves with Ctrl+S and supports Ctrl+Y alongside Ctrl+Shift+Z for redo.
 - Latest messages reaches the end of the final reply after the history layout settles; scrolling up still keeps your reading position.

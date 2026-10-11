@@ -15,6 +15,20 @@ renders; it adds no native checklist pass. **58/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
+G13 native paging reached the final page of 62 public commits. Exact diffs for
+revisions 061, 030 and 001 opened as three tabs; returning to the first retained
+060 → 061. Side by side showed distinct red/green revisions and native drag
+selected the right-side text. The tabs initially all read `history.txt · commit`.
+They now show the short commit ID. A regression failed on the ambiguous labels,
+then all 21 Source Control tests, changed-file analysis and the normal Windows
+build passed. Native retesting of the new labels remains pending: after restart,
+desktop activation twice failed with `foreground window did not report a process
+id`, including a fresh window lookup. No alternate native automation was used.
+G13 remains unchecked until that retest. Background preparation of G14's 744 KB,
+6,000-line public diff adds no native pass. Original-profile verification still
+matches all 49 table digests; no model requests were needed. Evidence remains in
+the ignored native observation log and `g13-fixture.json` / `g14-fixture.json`.
+
 C12 passed native message and conversation paging with 61 public conversations,
 140 messages and an exact retained draft. A Latest jump initially hid the final
 reply; compact/wide regressions reproduced the changing scroll-height estimate.

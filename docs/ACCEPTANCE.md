@@ -1,5 +1,23 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — history paging and revision tabs (October 11)
+
+G13 native interaction loaded all three pages of 62 public commits without
+replacing the readable diff. Three tabs showed exact revisions 061, 030 and
+001; returning to the first retained 060 → 061. Side-by-side comparison showed
+different red/green text and native selection highlighted the changed new text.
+Identical tab labels made those revisions hard to distinguish. Labels now use
+the short commit ID. The new regression failed before the fix, then all 21
+Source Control tests and changed-source analysis passed. The normal Windows
+build passed and the owned isolated profile reopened. Native retesting of the
+new labels could not proceed: desktop activation reported `foreground window
+did not report a process id` twice, including a fresh returned-window lookup.
+Native automation stopped; G13 stays unchecked until retested. G14's 744 KB,
+6,000-line diff was prepared in the disposable repository only. It establishes
+no native paging pass. All 49 original-profile table digests still match; no
+model requests were needed. Raw evidence remains ignored under
+`output/native-audit-20261010-01/`.
+
 ## First-user audit — settings navigation and help (October 11)
 
 P01 completed its remaining native coverage in the compact normal desktop.

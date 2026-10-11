@@ -882,6 +882,45 @@ void main() {
     },
   );
   testWidgets(
+    'same file at different commits has distinct tabs that retain exact diffs',
+    (t) async {
+      final host = GitHost(DiffBridge());
+      final w = GitWorkspace('C:/A', 'A');
+      host.selected = w;
+      for (final letter in ['a', 'b']) {
+        w.tabs[letter] = {
+          'path': 'same.txt',
+          'basis': 'commit',
+          'commit': letter * 40,
+          'leftLabel': 'parent',
+          'rightLabel': letter * 8,
+          'patch': '@@ -1 +1 @@\n-old\n+revision $letter\n',
+        };
+      }
+      w.activeTab = 'a';
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: SourceControlView(git: host)),
+        ),
+      );
+      expect(find.text('same.txt · aaaaaaaa'), findsOneWidget);
+      expect(find.text('same.txt · bbbbbbbb'), findsOneWidget);
+      expect(find.text('revision a'), findsOneWidget);
+      await t.tap(find.text('same.txt · bbbbbbbb'));
+      await t.pumpAndSettle();
+      expect(w.activeTab, 'b');
+      expect(find.text('revision b'), findsOneWidget);
+      expect(find.text('revision a'), findsNothing);
+      await t.tap(find.text('same.txt · aaaaaaaa'));
+      await t.pumpAndSettle();
+      expect(find.text('revision a'), findsOneWidget);
+      expect(w.tabs.length, 2);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
+  testWidgets(
     'inline and side comparisons name bases and render compact read-only diffs',
     (t) async {
       t.view.physicalSize = const Size(420, 600);
