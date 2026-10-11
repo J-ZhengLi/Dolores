@@ -677,7 +677,7 @@ class _TrajectoryInspectorState extends State<TrajectoryInspector> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Text(
-                'Recent events from this app session · up to 200 events across conversations. Saved exchanges remain in Trajectory.',
+                'Recent events from this app session · up to 200 events across conversations. Saved exchanges remain under Conversation.',
                 style: TextStyle(fontSize: 12, color: p.muted),
               ),
             ),

@@ -128,7 +128,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     selected: selected == run['id'],
                     title: Text('${run['state']} · ${run['model']}'),
                     subtitle: Text(
-                      '${run['settings']['maxOutputTokens']} output tokens · ${run['sequence']} events',
+                      '${run['settings']['maxOutputTokens'] == null ? 'Provider output limit' : 'Output limit: ${run['settings']['maxOutputTokens']} tokens'} · ${run['sequence']} events',
                     ),
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),

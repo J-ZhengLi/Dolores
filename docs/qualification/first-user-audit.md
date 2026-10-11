@@ -9,9 +9,9 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 ## Method and status
 
 Native audit resumed October 11 with the user's authorization to continue
-through the checklist while the computer is free. A12 and C12 are complete.
+through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **53/129 checked**.
+renders; it adds no native checklist pass. **54/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -25,6 +25,13 @@ the scrolled reading position and selected conversation. Public storage and all
 49 original profile table digests remain unchanged. Evidence:
 `observations-20261011.jsonl` and `c12-storage-verification.json` under the same
 ignored audit directory.
+
+A09 passed saved Activity/Earlier tasks inspection, per-call provider usage,
+applied change diff and effective settings origins. Two labels now distinguish
+the configured output limit and use the current Conversation page name. All 14
+selected widget checks, changed-file analysis, normal Windows build and native
+wording retest passed; inspection sent no model request. Evidence stays in
+`observations-20261011.jsonl`. The original 49 table digests remain unchanged.
 
 The new question card passed a real qwen3.7-flash desktop round trip: no initial
 selection, choice selection, Back/Next retention, custom date overriding a choice,
@@ -260,7 +267,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] A06 Run a harmless project check through its exact command review; inspect output and return code.
 - [x] A07 Cause a real check failure; Repair and verify fixes it and reruns the same check with truthful evidence.
 - [x] A08 Inspect Changes and revert a disposable edit with the reviewed reverse diff.
-- [ ] A09 Inspect Activity/Earlier tasks, settings origins, tool receipts, checkpoints and reported usage.
+- [x] A09 Inspect Activity/Earlier tasks, settings origins, tool receipts, checkpoints and reported usage. October 11 native inspection/reopen and corrected labels passed on the retained real Qwen task.
 - [ ] A10 Hit a small explicit task/output limit; Continue resumes useful work with fresh approval.
 - [ ] A11 Interrupt a task with completed effects; recovery draft explains uncertainty and does not replay earlier operations.
 - [x] A12 Read a large text file by ranges and edit a unique snapshot-bound match without truncation corruption. Native qwen3.7-flash edit, stale-review refusal, fresh-read recovery and byte preservation verified; all saved action receipts remain accessible.

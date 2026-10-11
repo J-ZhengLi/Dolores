@@ -1,5 +1,28 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — task inspection (October 11)
+
+A09 inspected the saved qwen3.7-flash A12 task through the normal desktop entry:
+Activity → Conversation/Requests, Earlier tasks → Run details, reply usage,
+Changes → applied diff and Settings → Scope overrides → Effective settings.
+The saved goal, completed status, 44 execution events and bounded uncertainty
+remained visible. Changes showed the retained
+`41` → `42` diff and concurrent footer. Usage displayed all 13 provider-reported
+calls separately, with the 1,024-token output limit distinct from actual usage.
+Effective settings identified Model profile, Model configuration and Dolores
+default origins. Requests correctly reported no events in this new app session;
+the saved exchanges remained separately available. Inspection made no model call.
+
+Two wording corrections label Earlier tasks' configured output allowance as
+`Output limit` (or provider limit when unset) and direct Activity users to the
+current Conversation view instead of the retired Trajectory label. All 14 selected
+checkpoint, inspector, chat-details and continuation widget checks pass; changed
+file analysis is clean. The normal Windows build and native wording retest passed:
+Earlier tasks shows `Output limit: 1024 tokens`, and Requests points to Conversation.
+All 49 original profile table digests remain unchanged. A09 is checked, bringing
+the checklist to 54/129. Native evidence remains ignored in
+`output/native-audit-20261010-01/observations-20261011.jsonl`.
+
 ## First-user audit — history paging (October 10–11)
 
 C12 used the normal desktop's isolated public fixture: 61 conversations, 140
