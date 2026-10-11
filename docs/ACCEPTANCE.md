@@ -1,5 +1,25 @@
 # Dolores acceptance — 2026-10-08
 
+## October 11 direct Git actions
+
+The user's selected Git action now executes without a review dialog. Commit,
+discard, selected hunks, stash, branch, revert and remote actions use the same
+internal preparation and revision validation. Pickers only collect required input.
+Unsaved editors, stale changes and expired state still refuse; failed commits
+retain their draft. Duplicate clicks cannot prepare a second action, and leaving
+the initiating view discards its pending token without mutation. Recovery messages
+now say Refresh/retry instead of directing users to a removed review screen.
+
+The native selected-discard observation also exposed JSON-escaped patch lines.
+A regression failed before replacing the JSON value with its actual patch text,
+then passed with multiline content and literal Windows-path backslashes intact.
+All 48 focused Flutter checks (45 Source Control and three app-owner checks),
+22 Rust Git tests, bridge Clippy and product-source/test analysis pass. The normal
+Windows build passes. Documentation checks pass for 107 documents/413 local links;
+the tracked publication scan has no known-pattern findings across 791 files.
+Computer-use was stopped by physical Escape; the new direct flow has no fresh
+native acceptance claim. Original profile table digests remain unchanged.
+
 ## October 11 resumed native editor audit
 
 F04 and F06 pass on the normal Windows build in the isolated public notebook.
@@ -9,8 +29,14 @@ other pane restores the exact change and clears both dirty markers. Earlier
 independent cursor/scroll and compact-layout evidence completes F06. No runtime
 repair was needed: an input-settle delay corrected a misleading immediate capture.
 The helper still refuses accessibility-index clicks, so fresh screenshot pointer
-actions are used. F07 Keep editing and Save-close pass; Discard remains pending.
-No model calls or original-profile writes were made. Checklist: 64/129 checked.
+actions are used. F07 Keep editing and Save-close pass; Discard subsequently passed.
+No model calls or original-profile writes were made. Checklist: 66/129 checked.
+
+F07 now passes Discard-close and reopen, completing Save/Keep editing/Discard.
+The discarded disposable draft does not overwrite a newer saved file. G11 stage
+refusal preserves unsaved text and the empty index; closing the draft and freshly
+staging the saved version succeeds. Individual unstage then restores the working
+change without altering its contents. No original-profile writes or model calls.
 
 G07 passes physical Ctrl+Enter and Changes → Commit. Cancel preserves draft and
 index; Apply commits only fixture `8` (`d192973`), clears them and retains other
@@ -23,7 +49,8 @@ passes after it, including stale refusal and unrelated untracked retention.
 All 21 source-control tests, bridge Clippy and the normal Windows build pass.
 The original native case now stashes 6,000 changed lines and restores the exact
 saved-file SHA-256, retaining the stash and unrelated untracked files. G17 remains
-partial for conflict and selected-discard controls. Original 49 table digests match.
+partial for conflict recovery. Selected discard restored the saved public file;
+the patch formatting repair is covered above. Original 49 table digests match.
 
 ## October 11 audit: remaining background paths
 

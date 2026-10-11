@@ -5,20 +5,7 @@ import 'git_host.dart';
 import 'git_diff_view.dart';
 import 'git_local_controls.dart';
 
-String gitActionName(Map<String, dynamic> op) => switch (op['kind']) {
-  'commitAll' => 'commit',
-  'stashCreate' => 'stash selected files',
-  'stashApply' => op['pop'] == true ? 'apply and drop stash' : 'apply stash',
-  'branchCreate' => 'create branch',
-  'branchSwitch' => 'switch branch',
-  'revertAbort' => 'abort revert',
-  'hunks' =>
-    op['staged'] == true ? 'unstage selected hunks' : 'stage selected hunks',
-  'pull' => 'fast-forward pull',
-  _ => op['kind'] as String,
-};
-
-Future<void> reviewGitAction(
+Future<void> executeGitAction(
   BuildContext context,
   GitHost git,
   GitWorkspace w,
@@ -35,67 +22,11 @@ Future<void> reviewGitAction(
   if (operation['kind'] == 'commit') {
     operation = {...operation, 'kind': 'commitAll'};
   }
-  final preview = await git.review(w, operation);
-  if (preview == null) return;
-  if (!context.mounted) {
-    await git.resolveReview(w, preview, apply: false);
-    return;
-  }
-  final approved = await showDialog<bool>(
-    context: context,
-    builder: (context) => Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                'Review ${gitActionName(operation)}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              SelectableText('${preview['root']}'),
-              if (preview['author'] != null)
-                SelectableText('Author: ${preview['author']}'),
-              Text(preview['notice'] as String),
-              Expanded(
-                child: ListView(
-                  children: [
-                    for (final path in preview['paths'] as List)
-                      Text(path as String),
-                    if (operation['message'] != null)
-                      SelectableText(operation['message'] as String),
-                    SelectableText(
-                      preview['patch'] as String,
-                      style: const TextStyle(
-                        fontFamily: 'Consolas',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Wrap(
-                spacing: 12,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton(
-                    key: const Key('git-apply-review'),
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text('Apply ${gitActionName(operation)}'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  await git.resolveReview(w, preview, apply: approved == true);
+  // The selected action is the user's decision. Prepare and consume the
+  // host's revision token internally, preserving stale and editor guards.
+  final prepared = await git.review(w, operation);
+  if (prepared == null) return;
+  await git.resolveReview(w, prepared, apply: context.mounted);
 }
 
 class GitCommitBox extends StatefulWidget {
@@ -131,7 +62,7 @@ class _GitCommitBoxState extends State<GitCommitBox> {
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
           if (!widget.workspace.busy && widget.workspace.reviewOpen == null) {
-            reviewGitAction(context, widget.git, widget.workspace, {
+            executeGitAction(context, widget.git, widget.workspace, {
               'kind': 'commit',
               'message': controller.text,
             });
@@ -222,7 +153,7 @@ class SourceControlPanel extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           padding: EdgeInsets.zero,
           enabled: !w.busy && w.reviewOpen == null,
-          onSelected: (kind) => reviewGitAction(context, git, w, {
+          onSelected: (kind) => executeGitAction(context, git, w, {
             'kind': kind,
             if (kind == 'discard')
               'path': entry['path']
@@ -290,7 +221,7 @@ class SourceControlPanel extends StatelessWidget {
           trailing: PopupMenuButton<String>(
             tooltip: 'Commit actions',
             enabled: !w.busy && w.reviewOpen == null,
-            onSelected: (_) => reviewGitAction(context, git, w, {
+            onSelected: (_) => executeGitAction(context, git, w, {
               'kind': 'revert',
               'commit': id,
             }),
@@ -488,7 +419,7 @@ class SourceControlPanel extends StatelessWidget {
                         GitLocalControls(
                           git: git,
                           w: w,
-                          review: (op) => reviewGitAction(context, git, w, op),
+                          review: (op) => executeGitAction(context, git, w, op),
                         ),
                     ],
                   ),
@@ -773,7 +704,7 @@ class SourceControlView extends StatelessWidget {
               git: git,
               w: w,
               diff: diff,
-              review: (op) => reviewGitAction(context, git, w, op),
+              review: (op) => executeGitAction(context, git, w, op),
             ),
           Expanded(
             child: GitDiffView(

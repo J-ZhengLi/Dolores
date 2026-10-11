@@ -37,9 +37,8 @@ only the read. Actions that leave HEAD unchanged retain the current history page
 
 Place repository actions in the three-dot menu beside Changes: Commit, Pull,
 Push, Fetch, and grouped Changes, Branch and Stash actions. Use familiar names
-at entry points; show the exact existing host review for commits and destructive
-or remote actions before applying. Ctrl+Enter
-in the message field also opens the commit review. File and commit overflow menus
+at entry points; selecting an action runs it without a review dialog. Ctrl+Enter
+in the message field commits directly. File and commit overflow menus
 contain their contextual actions, including Revert commit. Branch/stash/remote
 selection uses a temporary picker; opening the menu performs no network request.
 Keep the compact rail, Home project ownership, diff bases and editor guards.
@@ -57,13 +56,25 @@ Use literal NUL-delimited pathspec files so filenames and bulk actions do not
 depend on shell quoting or Windows command-line length. Stage a changed renamed
 file by its current index name; unstage a rename with both its old and new names.
 
-Commit uses the existing staged selection when nonempty. Otherwise its single
-review shows all saved working changes, including untracked files, with an explicit
-stage-and-commit notice. Prepare that exact patch using a temporary index; opening
-or cancelling the review must not stage anything. Apply checks the saved revision,
+Commit uses the existing staged selection when nonempty. Otherwise selecting
+Commit stages and commits the saved working changes, including untracked files.
+Internally prepare that exact patch using a temporary index; preparing it must
+not stage anything. Apply checks the saved revision,
 author and editor state before staging, then runs the normal commit with hooks.
 Failed hooks retain the draft and staged work; Refresh reconciles the state before
-a fresh review. No automatic staging occurs on page entry, refresh or typing.
+a fresh action. No automatic staging occurs on page entry, refresh or typing.
+
+### Direct Git actions — 2026-10-11
+
+The user explicitly removed Git review dialogs. Selecting Commit, a hunk action,
+Discard, Stash, Revert/Abort or a remote action is the decision to execute it.
+Branch names and stash/remote choices still need their compact input/picker;
+there is no second approval screen. Keep preparation and single-use revision
+tokens internal, including dirty-editor, saved-state, author, remote-ref and
+conflict checks. Disable duplicate actions while pending. Cancel internal
+preparation if its initiating page closes before apply. Failed commits keep the
+message and index; stale or uncertain outcomes require Refresh and a deliberate
+retry. This does not change chat/tool approval behavior.
 
 ## Large-diff correction — 2026-10-07
 
@@ -121,7 +132,7 @@ Stash creation and application review the exact selected paths or stash object,
 staged/working change counts and preservation effect. They do not require copying
 the entire patch into the review: a large saved change must remain stashable.
 Creation pins the full saved-file/index revision; application pins the exact stash
-ID and current revision. The review explicitly identifies its file/count summary,
+ID and current revision. Internal preparation identifies its file/count summary,
 without presenting it as a full content diff. Saved change pages remain available
 in Source Control before stashing. Untracked inclusion, rename restrictions,
 dirty-editor guards, one-use tokens, expiry, conflict retention and explicit

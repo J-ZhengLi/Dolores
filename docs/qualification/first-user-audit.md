@@ -11,7 +11,7 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
-renders; it adds no native checklist pass. **64/129 checked**.
+renders; it adds no native checklist pass. **66/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -24,7 +24,7 @@ Undo from the other split pane restored the replacement and both clean markers.
 F06 now passes shared undo, complementing its earlier shared editing, independent
 cursor/scroll and compact-layout checks. A short input-settle delay was necessary
 before capture; the immediate screenshot had falsely suggested failed undo.
-F07 Keep editing and Save-close pass; Discard remains pending. These operations
+F07 Keep editing and Save-close pass; Discard-close subsequently passed. These operations
 used only the isolated public notebook, no model requests or original-profile edits.
 
 G07 now passes physical Ctrl+Enter and Changes → Commit. Cancel retained the
@@ -36,7 +36,20 @@ uses exact pinned file/count metadata, with full stash content retained. The new
 regression failed before the repair and passes afterwards. The normal build and
 native original-case retest pass: review shows 6,000 added/removed lines; stash
 preserves unrelated untracked files, and Apply restores the exact SHA-256 while
-retaining the stash. Conflict and selected-discard interaction remain pending.
+retaining the stash. Selected discard subsequently restored the saved fixture;
+its escaped patch display exposed a formatting bug. Conflict recovery remains pending.
+
+### October 11 direct Git actions
+
+At the user's request, Git actions now run when selected, without a second review
+dialog. Branch, stash and remote pickers still collect required values. Internal
+revision validation and unsaved-editor guards remain. Focused UI tests cover direct
+commit/discard/hunks/stash/branch/revert/remote actions, stale refusal and retry,
+retained commit drafts, duplicate clicks and leaving the initiating view.
+The native observations above exercised the earlier review UI; the changed direct
+flow has widget verification and still needs a fresh native interaction check.
+Computer-use stopped on physical Escape. No additional native items are checked
+from background tests. Checklist remains **66/129 checked**.
 
 ### October 11 background coverage and native queue
 
@@ -496,7 +509,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] F04 Ctrl+P, Ctrl+F/H and Ctrl+G work with relative paths, find/replace and line navigation. October 11 native keyboard navigation, single-match replacement and undo passed in the public notebook.
 - [x] F05 Drag tabs to reorder, split and move between groups; keyboard/menu alternatives work.
 - [x] F06 Shared file text/undo and independent cursor/scroll survive two split views and compact layout. October 11 native shared edits, independent cursor/scroll, reopened dirty draft and compact group switching passed. Resumed native undo restored an edit and a replacement from the other pane, clearing both dirty markers; Windows split keyboard undo/redo regression also passes.
-- [ ] F07 Close a dirty file: Save/Discard/Keep editing preserve the chosen outcome.
+- [x] F07 Close a dirty file: Save/Discard/Keep editing preserve the chosen outcome. Native Keep/Save and Discard/reopen pass; discarding the draft preserves a newer saved file.
 - [x] F08 Create/Save as/rename a disposable file; an existing target is not silently overwritten. Native create/save, Save as, rename, both existing-target refusals and fresh-name recovery passed October 11; exact byte receipts confirm original and draft preservation. Duplicate error presentation was fixed and retested in the normal Windows build.
 - [x] F09 External disk edit produces Compare/Reload disk/Keep my edits; stale save preserves both versions. Native stale save and stale comparison refused with both versions retained; fresh comparison adopted without writing, save recovered the draft, and clean Reload disk showed the exact newer bytes (October 11).
 - [x] F10 Restart with settled dirty buffers; private recovery preserves edits without writing source files.
@@ -512,19 +525,19 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] G04 Open working/staged inline diffs; additions/deletions and old/new line numbers are correct.
 - [x] G05 Side-by-side diff is visibly different, aligned and scrolls both sides together.
 - [x] G06 Stage/unstage selected hunks; unrelated hunks remain unchanged.
-- [x] G07 Commit message/Ctrl+Enter and Changes menu produce a clear review and a real commit. Native review/cancel/review/apply and independent Git inspection pass October 11.
-- [x] G08 Empty-index Commit reviews working changes; Cancel leaves index unchanged and confirm commits them.
+- [x] G07 Commit message/Ctrl+Enter and Changes menu create a real commit. Native commit and independent Git inspection pass October 11; removing the review dialog is widget-verified, with native retest pending.
+- [x] G08 Empty-index Commit automatically stages saved working changes. Native staging/commit passed; the new direct action has focused widget coverage and native retest pending.
 - [x] G09 Existing staged selection takes priority over other working changes.
 - [x] G10 Failed Git hook retains message/index and gives usable retry after the hook is corrected.
-- [ ] G11 Dirty editor blocks conflicting Git action without losing its text.
+- [x] G11 Dirty editor blocks conflicting Git action without losing its text. Native stage refusal leaves index empty and draft intact; close/reopen and fresh staging recover.
 - [x] G12 Click a history commit to expand files; click a file for exact commit diff and collapse again.
 - [x] G13 Browse older history and several diff tabs; selections and split views remain usable. October 11 final normal-build retest passes distinct commit labels, independent layouts, exact revision retention and text selection after earlier three-page coverage.
 - [x] G14 Large text diff is rendered/pageable inside Dolores; stale page offers Refresh without losing the readable page. October 11 native paired paging, stale refusal and fresh-state recovery passed after repairing Refresh diff; all 6,000 pairs separately verified across 24 real pages.
 - [ ] G15 Binary diff and nonrepository folder show distinct understandable states.
-- [x] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely. Native create/refusal/clean reviewed switch and independent branch inspection pass October 11.
+- [x] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely. Native create/refusal/switch and independent branch inspection pass October 11; direct action retest pending.
 - [ ] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.
 - [ ] G18 Revert a disposable commit; conflict/Abort recovery does not discard unrelated work.
-- [ ] G19 Fetch/Pull/Push against a local bare remote: explicit review, tracking and fast-forward behavior are correct.
+- [ ] G19 Fetch/Pull/Push against a local bare remote: selected actions, tracking and fast-forward behavior are correct.
 - [ ] G20 Divergent Pull, changed refs and interrupted remote action retain evidence and require reconciliation.
 
 ## 5. Terminal

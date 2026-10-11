@@ -119,7 +119,7 @@ class GitHost extends ChangeNotifier {
       }
       throw StateError('Source Control closed. Refresh before retrying.');
     } catch (e) {
-      w.error = '$e';
+      w.error = e is StateError ? e.message : '$e';
       rethrow;
     } finally {
       w.busy = false;
@@ -300,7 +300,7 @@ class GitHost extends ChangeNotifier {
         }),
       );
     } catch (e) {
-      w.commitFileErrors[commit] = '$e';
+      w.commitFileErrors[commit] = e is StateError ? e.message : '$e';
     } finally {
       w.loadingCommit = null;
     }
@@ -363,7 +363,7 @@ class GitHost extends ChangeNotifier {
       w.reviewOpen = preview;
       return preview;
     } catch (e) {
-      w.error = '$e';
+      w.error = e is StateError ? e.message : '$e';
       changed();
       return null;
     }
@@ -425,7 +425,7 @@ class GitHost extends ChangeNotifier {
         }
       }
     } catch (e) {
-      w.error = '$e';
+      w.error = e is StateError ? e.message : '$e';
     } finally {
       w.reviewOpen = null;
     }

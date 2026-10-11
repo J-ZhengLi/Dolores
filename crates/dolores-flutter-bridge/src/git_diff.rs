@@ -62,7 +62,7 @@ impl Repo {
     ) -> Result<Value, String> {
         let value = self.collect_diff(revision, path, basis, commit, None, cancel)?;
         if !value["next"].is_null() {
-            return Err("This action's full review exceeds 256 KiB. All change pages remain viewable in Source Control.".into());
+            return Err("Selected patch exceeds 256 KiB. All change pages remain viewable in Source Control.".into());
         }
         Ok(value)
     }

@@ -17,12 +17,14 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Git actions run directly from their controls without an extra review dialog; stale-state, unsaved-editor and conflict safeguards remain.
 - User messages render Markdown, including headings, lists, tables and code blocks; Copy message retains the original text.
 - Chat access uses an immediate Review / Auto edit / Full access selector, remembered for the chat without a duration or extra confirmation steps.
 - Companionship frequency uses a Quiet–Chatty slider from 0 to 100 per day, with pacing that follows the selected frequency and hours.
 
 ### Fixed
 
+- Large saved changes can be stashed and restored without fitting their entire diff into a review.
 - Scheduled occurrences execute the saved work instead of repeating setup-only instructions from the original request.
 
 - Image memories supply their display title prefix without discarding otherwise valid captions.

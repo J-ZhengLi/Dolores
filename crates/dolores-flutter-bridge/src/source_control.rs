@@ -299,8 +299,7 @@ impl Repo {
         let status = self.status(cancel)?;
         if status["revision"] != revision {
             return Err(
-                "Git basis changed. Refresh and review the new state; no action was performed."
-                    .into(),
+                "Git basis changed. Refresh before retrying; no action was performed.".into(),
             );
         }
         Ok(status)
@@ -417,7 +416,7 @@ impl Engine {
                     let review = state
                         .reviews
                         .get(repo)
-                        .ok_or("Git review expired. Review again.")?;
+                        .ok_or("Git action expired. Refresh and retry.")?;
                     let mutation_root = review.root.clone();
                     state.mutations.insert(id.clone(), mutation_root);
                 }
@@ -500,8 +499,9 @@ impl Engine {
                             }
                             Request::DiscardReview { repo: id, token } => {
                                 repo.check(&id)?;
-                                let mut state =
-                                    registry.lock().map_err(|_| "Git reviews unavailable.")?;
+                                let mut state = registry
+                                    .lock()
+                                    .map_err(|_| "Git action state unavailable.")?;
                                 if state.reviews.get(&id).is_some_and(|r| r.token == token) {
                                     state.reviews.remove(&id);
                                 }

@@ -93,7 +93,7 @@ impl Repo {
             true,
         )?;
         if output.code != 0 {
-            return Err("Remote Git refused or could not complete the request. Check authentication, network and branch divergence using external Git; Refresh and review again. Effects may remain.".into());
+            return Err("Remote Git refused or could not complete the request. Check authentication, network and branch divergence using external Git; Refresh and retry. Effects may remain.".into());
         }
         // Remote/helper diagnostics may contain credential-bearing URLs. Do not export them.
         Ok(git_process::Output {
@@ -159,12 +159,12 @@ impl Repo {
                 .uncertain
                 .remove(&self.id());
             if current.as_deref() == Some(&old.head) {
-                return Err("The earlier uncertain push reached its reviewed HEAD. Refresh to inspect it; it was not repeated.".into());
+                return Err("The earlier uncertain push reached its selected HEAD. Refresh to inspect it; it was not repeated.".into());
             }
         }
         let head = status["head"].as_str().unwrap_or("").to_string();
         if !matches!(op, Mutation::Fetch { .. }) && head.is_empty() {
-            return Err("Commit first, then review a remote branch action.".into());
+            return Err("Commit first, then retry the remote branch action.".into());
         }
         if matches!(op, Mutation::Pull { .. }) && !status["entries"].as_array().unwrap().is_empty()
         {
@@ -203,11 +203,11 @@ impl Repo {
         let b = review
             .remote_basis
             .as_ref()
-            .ok_or("Remote review missing.")?;
+            .ok_or("Prepared remote state is missing.")?;
         self.remote_target(&b.remote, &b.branch, cancel)?;
         if !b.branch.is_empty() && self.remote_head(&b.remote, &b.branch, cancel)? != b.remote_head
         {
-            return Err("Remote ref changed since review. Refresh and review its new state; no local mutation or push was performed.".into());
+            return Err("Remote ref changed. Refresh before retrying; no local mutation or push was performed.".into());
         }
         match &review.operation {
             Mutation::Fetch { .. } => self.remote_run(
@@ -230,9 +230,7 @@ impl Repo {
                         .trim()
                         .to_string();
                 if Some(&fetched) != b.remote_head.as_ref() {
-                    return Err(
-                        "Fetched ref differs from review. No merge was performed; Refresh.".into(),
-                    );
+                    return Err("Fetched ref changed. No merge was performed; Refresh.".into());
                 }
                 self.command(&["merge-base","--is-ancestor",&b.head,&fetched],cancel).map_err(|_|"Pull would diverge. No merge was performed. Inspect external Git or review your local commits.")?;
                 self.remote_run(&["merge", "--ff-only", "--", &fetched], cancel)

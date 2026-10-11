@@ -167,6 +167,8 @@ class MutationBridge implements ChatBridge {
   Map<String, dynamic>? pending;
   final requests = <Map<String, dynamic>>[];
   bool reject = false;
+  String refusal = 'Commit hook refused. Draft remains.';
+  Completer<void>? holdReview;
   @override
   Future<void> open() async {}
   @override
@@ -180,6 +182,7 @@ class MutationBridge implements ChatBridge {
       return {'job': 'mutation'};
     }
     if (pending!['action'] == 'review') {
+      await holdReview?.future;
       return {
         'done': true,
         'value': {
@@ -194,7 +197,7 @@ class MutationBridge implements ChatBridge {
         },
       };
     }
-    if (reject) throw StateError('Commit hook refused. Draft remains.');
+    if (reject) throw StateError(refusal);
     return {
       'done': true,
       'value': {
@@ -669,9 +672,10 @@ void main() {
     },
   );
   testWidgets(
-    'Ctrl+Enter reviews the retained message and stash menu excludes untracked files',
+    'Ctrl+Enter commits directly and stash menu excludes untracked files',
     (t) async {
-      final host = GitHost(MutationBridge());
+      final bridge = MutationBridge();
+      final host = GitHost(bridge);
       final w = GitWorkspace('C:/A', 'A')
         ..status = {
           'repo': 'A',
@@ -683,6 +687,7 @@ void main() {
         }
         ..commitDraft = 'Keyboard message';
       host.selected = w;
+      final originalStatus = w.status;
       await t.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -698,10 +703,16 @@ void main() {
       await t.sendKeyEvent(LogicalKeyboardKey.enter);
       await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await t.pumpAndSettle();
-      expect(find.byKey(const Key('git-apply-review')), findsOneWidget);
-      await t.tap(find.text('Cancel'));
-      await t.pumpAndSettle();
-      expect(w.commitDraft, 'Keyboard message');
+      expect(find.byType(Dialog), findsNothing);
+      expect(w.commitDraft, '');
+      expect(bridge.pending!['action'], 'apply');
+      final committed =
+          bridge.requests.firstWhere(
+                (r) => r['action'] == 'review',
+              )['operation']
+              as Map;
+      expect(committed, {'kind': 'commitAll', 'message': 'Keyboard message'});
+      w.status = originalStatus;
       Map<String, dynamic>? op;
       await t.pumpWidget(
         MaterialApp(
@@ -833,41 +844,41 @@ void main() {
     host.dispose();
   });
 
-  testWidgets(
-    'Changes menu commits through confirmation and Cancel preserves message',
-    (t) async {
-      final host = GitHost(MutationBridge());
-      final w = GitWorkspace('C:/A', 'A')
-        ..status = {'repo': 'A', 'revision': 'v1'}
-        ..commitDraft = 'Retained message';
-      host.selected = w;
-      await t.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 252,
-              child: SourceControlPanel(git: host, openFolder: () {}),
-            ),
+  testWidgets('Changes menu commits directly without a review dialog', (
+    t,
+  ) async {
+    final bridge = MutationBridge();
+    final host = GitHost(bridge);
+    final w = GitWorkspace('C:/A', 'A')
+      ..status = {'repo': 'A', 'revision': 'v1'}
+      ..commitDraft = 'Retained message';
+    host.selected = w;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 252,
+            child: SourceControlPanel(git: host, openFolder: () {}),
           ),
         ),
-      );
-      expect(find.text('Review commit'), findsNothing);
-      expect(find.text('New branch'), findsNothing);
-      await t.tap(find.byTooltip('Git actions'));
-      await t.pumpAndSettle();
-      expect(find.text('Branch'), findsOneWidget);
-      expect(find.text('Stash'), findsOneWidget);
-      await t.tap(find.text('Commit'));
-      await t.pumpAndSettle();
-      expect(find.byKey(const Key('git-apply-review')), findsOneWidget);
-      await t.tap(find.text('Cancel'));
-      await t.pumpAndSettle();
-      expect(w.commitDraft, 'Retained message');
-      expect(t.takeException(), isNull);
-      await t.pumpWidget(const SizedBox());
-      host.dispose();
-    },
-  );
+      ),
+    );
+    expect(find.text('Review commit'), findsNothing);
+    expect(find.text('New branch'), findsNothing);
+    await t.tap(find.byTooltip('Git actions'));
+    await t.pumpAndSettle();
+    expect(find.text('Branch'), findsOneWidget);
+    expect(find.text('Stash'), findsOneWidget);
+    await t.tap(find.text('Commit'));
+    await t.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect(w.commitDraft, '');
+    expect(bridge.pending!['action'], 'apply');
+    expect(w.status!['revision'], 'v2');
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+    host.dispose();
+  });
   test('equivalent Windows project paths retain diff owners', () async {
     final host = GitHost(DiffBridge());
     final w = GitWorkspace('C:/A', 'A')
@@ -937,7 +948,7 @@ void main() {
     },
   );
   testWidgets(
-    'hunk choices review selected host IDs and stale comparisons disable apply',
+    'hunk choices submit selected host IDs and stale comparisons disable actions',
     (t) async {
       final host = GitHost(DiffBridge());
       final w = GitWorkspace('C:/A', 'A')..status = {'revision': 'v1'};
@@ -969,7 +980,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.byType(CheckboxListTile).first);
       await t.pump();
-      await t.tap(find.text('Review stage selected hunks'));
+      await t.tap(find.text('Stage selected hunks'));
       await t.pump();
       expect(operation!['ids'], ['host-one']);
       expect(operation!.containsKey('patch'), false);
@@ -991,7 +1002,7 @@ void main() {
       expect(
         t
             .widget<TextButton>(
-              find.widgetWithText(TextButton, 'Review stage selected hunks'),
+              find.widgetWithText(TextButton, 'Stage selected hunks'),
             )
             .onPressed,
         isNull,
@@ -1027,35 +1038,148 @@ void main() {
     expect(w.status!['revision'], 'v2');
     host.dispose();
   });
-  testWidgets(
-    'Git action review requires a separate decision and Cancel retains draft',
-    (t) async {
-      final host = GitHost(MutationBridge());
+  for (final operation in <Map<String, dynamic>>[
+    {'kind': 'commit', 'message': 'direct commit'},
+    {'kind': 'discard', 'path': 'same.txt'},
+    {
+      'kind': 'hunks',
+      'path': 'same.txt',
+      'staged': false,
+      'ids': ['h1'],
+    },
+    {
+      'kind': 'stashCreate',
+      'paths': ['same.txt'],
+      'message': 'saved',
+    },
+    {'kind': 'stashApply', 'stash': 'exact-object', 'pop': true},
+    {'kind': 'branchCreate', 'name': 'feature'},
+    {'kind': 'branchSwitch', 'name': 'feature'},
+    {'kind': 'revert', 'commit': 'exact-commit'},
+    {'kind': 'revertAbort'},
+    {'kind': 'fetch', 'remote': 'origin'},
+    {'kind': 'pull', 'remote': 'origin', 'branch': 'refs/heads/main'},
+    {'kind': 'push', 'remote': 'origin', 'branch': 'refs/heads/main'},
+  ]) {
+    testWidgets('selected ${operation['kind']} runs without a review dialog', (
+      t,
+    ) async {
+      final bridge = MutationBridge();
+      final host = GitHost(bridge);
       final w = GitWorkspace('C:/A', 'A')
-        ..status = {'repo': 'A', 'revision': 'v1'}
-        ..commitDraft = 'draft';
-      host.selected = w;
+        ..status = {'repo': 'A', 'revision': 'v1'};
       await t.pumpWidget(
         MaterialApp(
           home: Builder(
             builder: (context) => TextButton(
-              onPressed: () => reviewGitAction(context, host, w, {
-                'kind': 'commit',
-                'message': w.commitDraft,
-              }),
-              child: const Text('Review'),
+              onPressed: () => executeGitAction(context, host, w, operation),
+              child: const Text('Run action'),
             ),
           ),
         ),
       );
-      await t.tap(find.text('Review'));
+      await t.tap(find.text('Run action'));
       await t.pumpAndSettle();
-      expect(find.byKey(const Key('git-apply-review')), findsOneWidget);
-      await t.tap(find.text('Cancel'));
-      await t.pumpAndSettle();
-      expect(w.commitDraft, 'draft');
+      expect(find.byType(Dialog), findsNothing);
+      expect(bridge.requests.map((r) => r['action']), ['review', 'apply']);
+      expect(bridge.requests.last['token'], 'once');
+      expect(bridge.requests.first['operation'], {
+        ...operation,
+        if (operation['kind'] == 'commit') 'kind': 'commitAll',
+      });
+      expect(w.reviewOpen, isNull);
+      expect(w.status!['revision'], 'v2');
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox());
+      host.dispose();
+    });
+  }
+  testWidgets(
+    'direct commit retains draft on dirty editor and stale failure; retry recovers',
+    (t) async {
+      final bridge = MutationBridge();
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'}
+        ..commitDraft = 'Retain this message';
+      final status = w.status;
+      host.beforeMutation = (_, _) =>
+          throw StateError('Save or close unsaved editors. Drafts remain.');
+      await t.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => executeGitAction(context, host, w, {
+                'kind': 'commit',
+                'message': w.commitDraft,
+              }),
+              child: const Text('Commit'),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.text('Commit'));
+      await t.pumpAndSettle();
+      expect(bridge.requests.map((r) => r['action']), ['review']);
+      expect(w.error, 'Save or close unsaved editors. Drafts remain.');
+      expect(w.status, same(status));
+      expect(w.commitDraft, 'Retain this message');
+      host.beforeMutation = null;
+      bridge.reject = true;
+      bridge.refusal = 'Git basis changed. Refresh before retrying.';
+      await t.tap(find.text('Commit'));
+      await t.pumpAndSettle();
+      expect(w.error, bridge.refusal);
+      expect(w.status, same(status));
+      expect(w.commitDraft, 'Retain this message');
+      expect(w.reviewOpen, isNull);
+      bridge.reject = false;
+      await t.tap(find.text('Commit'));
+      await t.pumpAndSettle();
+      expect(w.error, isNull);
+      expect(w.commitDraft, '');
+      expect(w.status!['revision'], 'v2');
+      expect(find.byType(Dialog), findsNothing);
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+    },
+  );
+  testWidgets(
+    'pending direct action refuses duplicate and cancels when its page closes',
+    (t) async {
+      final bridge = MutationBridge()..holdReview = Completer<void>();
+      final host = GitHost(bridge);
+      final w = GitWorkspace('C:/A', 'A')
+        ..status = {'repo': 'A', 'revision': 'v1'};
+      await t.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => executeGitAction(context, host, w, {
+                'kind': 'discard',
+                'path': 'same.txt',
+              }),
+              child: const Text('Discard'),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.text('Discard'));
+      await t.pump();
+      expect(w.busy, true);
+      await t.tap(find.text('Discard'));
+      await t.pump();
+      expect(bridge.requests, hasLength(1));
+      await t.pumpWidget(const SizedBox());
+      bridge.holdReview!.complete();
+      await t.pumpAndSettle();
+      expect(bridge.requests.map((r) => r['action']), [
+        'review',
+        'discardReview',
+      ]);
+      expect(w.status!['revision'], 'v1');
+      expect(w.reviewOpen, isNull);
+      expect(w.busy, false);
       host.dispose();
     },
   );

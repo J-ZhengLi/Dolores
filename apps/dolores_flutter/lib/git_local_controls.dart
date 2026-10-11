@@ -124,7 +124,7 @@ class GitLocalControls extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
+            child: const Text('Create branch'),
           ),
         ],
       ),
@@ -288,8 +288,8 @@ class _GitHunkControlsState extends State<GitHunkControls> {
               }),
         child: Text(
           widget.diff['basis'] == 'staged'
-              ? 'Review unstage selected hunks'
-              : 'Review stage selected hunks',
+              ? 'Unstage selected hunks'
+              : 'Stage selected hunks',
         ),
       ),
     ],

@@ -141,11 +141,11 @@ impl Repo {
         cancel: &CancellationToken,
     ) -> Result<String, String> {
         // Prepare the exact prospective commit without changing the real index.
-        let scratch = tempfile::tempdir().map_err(|_| "Could not prepare the commit review.")?;
+        let scratch = tempfile::tempdir().map_err(|_| "Could not prepare the commit.")?;
         let index = scratch.path().join("index");
         if paths.is_some() && self.git.join("index").exists() {
             std::fs::copy(self.git.join("index"), &index)
-                .map_err(|_| "Could not copy the Git index for review.")?;
+                .map_err(|_| "Could not prepare the Git index.")?;
         }
         let run = |args: Vec<String>| -> Result<Vec<u8>, String> {
             let result = git_process::run_with_index(
@@ -182,7 +182,7 @@ impl Repo {
         .map(str::to_string)
         .collect())?;
         if patch.len() > 256 * 1024 {
-            return Err("Commit review exceeds 256 KiB. Stage a smaller selection and commit again; all changes remain viewable in Source Control.".into());
+            return Err("Selected commit patch exceeds 256 KiB. Stage a smaller selection and commit again; all changes remain viewable in Source Control.".into());
         }
         Ok(text(&patch)?.to_string())
     }
@@ -289,13 +289,13 @@ impl Repo {
         let view = json!({"token":token,"repo":id,"root":self.root,"revision":revision,"operation":operation,"paths":paths,"author":author,"patch":patch,"notice":notice,"autoStage":auto_stage});
         let mut state = registry
             .lock()
-            .map_err(|_| "Git reviews are unavailable.")?;
+            .map_err(|_| "Git action state is unavailable.")?;
         state
             .reviews
             .retain(|_, r| r.created.elapsed() < Duration::from_secs(120));
         if !state.reviews.contains_key(&id) && state.reviews.len() >= 8 {
             return Err(
-                "Eight Git reviews are retained. Close a review before opening another.".into(),
+                "Eight Git actions are being prepared. Finish one before starting another.".into(),
             );
         }
         state.reviews.insert(
@@ -324,14 +324,16 @@ impl Repo {
     ) -> Result<Value, String> {
         let id = self.id();
         let review = {
-            let mut state = registry.lock().map_err(|_| "Git reviews unavailable.")?;
+            let mut state = registry
+                .lock()
+                .map_err(|_| "Git action state unavailable.")?;
             if state.reviews.get(&id).is_none_or(|r| r.token != token) {
-                return Err("Git review is no longer current. Review again.".into());
+                return Err("Git action is no longer current. Refresh and retry.".into());
             }
             state.reviews.remove(&id).unwrap()
         };
         if review.created.elapsed() > Duration::from_secs(120) || review.root != self.root {
-            return Err("Git review expired or worktree changed. Review again.".into());
+            return Err("Git action expired or worktree changed. Refresh and retry.".into());
         }
         editor
             .lock()
@@ -343,7 +345,8 @@ impl Repo {
                 != *author
             {
                 return Err(
-                    "Configured author changed. Review the commit again; draft remains.".into(),
+                    "Configured author changed. Refresh and retry the commit; draft remains."
+                        .into(),
                 );
             }
         }
@@ -415,7 +418,7 @@ impl Repo {
         let warning=match outcome {
             Ok(output) if output.code==0=>if output.stderr.is_empty(){None}else{Some(String::from_utf8_lossy(&output.stderr).to_string())},
             Ok(output) if committed=>Some(format!("HEAD changed despite Git exit {}. Inspect the new commit before repeating anything.",output.code)),
-            Ok(output)=>return Err(format!("Git refused the operation ({}): {}. Commit draft and any existing index changes remain; Refresh before reviewing again.",output.code,String::from_utf8_lossy(&output.stderr))),
+            Ok(output)=>return Err(format!("Git refused the operation ({}): {}. Commit draft and any existing index changes remain; Refresh before retrying.",output.code,String::from_utf8_lossy(&output.stderr))),
             Err(error) if committed=>Some(format!("{error} HEAD changed; inspect the completed commit before retrying.")),
             Err(error)=>return Err(error),
         };

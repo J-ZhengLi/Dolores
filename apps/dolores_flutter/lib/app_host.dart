@@ -140,7 +140,7 @@ class AppHost extends ChangeNotifier {
         (w) => w.reviewOpen != null || w.commitDraft.isNotEmpty,
       )) {
         throw StateError(
-          'Close the Git review and commit or clear its message before closing. The commit draft remains.',
+          'Finish the Git action and commit or clear its message before closing. The commit draft remains.',
         );
       }
       if (git.workspaces.values.any((w) => w.busy)) {
@@ -238,7 +238,7 @@ class AppHost extends ChangeNotifier {
                   )) &&
             (d.dirty || d.pending || d.blocked || d.text != d.acknowledged)) {
           throw StateError(
-            'Save or close unsaved editors for these Git paths, then review again. Drafts remain.',
+            'Save or close unsaved editors for these Git paths, then retry. Drafts remain.',
           );
         }
       }

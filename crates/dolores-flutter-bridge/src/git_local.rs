@@ -124,7 +124,7 @@ impl Repo {
                 let basis = if *staged { "staged" } else { "working" };
                 let diff = self.diff(revision, path, basis, None, cancel)?;
                 if diff["reason"].is_string() || diff["conflict"] == true {
-                    return Err("This comparison does not support hunk actions. Use reviewed whole-file staging after resolving conflicts.".into());
+                    return Err("This comparison does not support hunk actions. Stage the whole file after resolving conflicts.".into());
                 }
                 let sections = hunks(diff["patch"].as_str().unwrap(), revision, path, basis);
                 let mut patch = String::new();
@@ -132,7 +132,7 @@ impl Repo {
                     .iter()
                     .any(|id| !sections.iter().any(|s| s["id"] == id.as_str()))
                 {
-                    return Err("Hunk basis changed. Refresh this diff and review again.".into());
+                    return Err("Hunk basis changed. Refresh this diff and retry.".into());
                 }
                 for section in sections
                     .iter()
@@ -161,6 +161,8 @@ impl Repo {
                     format!(
                         "Restore saved working file from Index. Staged content remains.\n{}",
                         diff["patch"]
+                            .as_str()
+                            .ok_or("Git discard patch is unavailable. Refresh this comparison.")?
                     ),
                 )
             }
@@ -307,7 +309,7 @@ impl Repo {
             _ => return Err("Unsupported local Git action.".into()),
         };
         if result.2.len() > 256 * 1024 {
-            return Err("Git review exceeds 256 KiB. Use a smaller selection.".into());
+            return Err("Selected Git patch exceeds 256 KiB. Use a smaller selection.".into());
         }
         Ok(result)
     }

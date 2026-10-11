@@ -64,6 +64,32 @@ impl Fixture {
     }
 }
 #[test]
+fn discard_review_keeps_readable_patch_lines_and_literal_backslashes() {
+    let f = Fixture::new();
+    f.base();
+    f.write("a.txt", "public C:\\notes\\draft.txt\nsecond line\n");
+    let status = f.repo.status(&f.cancel).unwrap();
+    let preview = f
+        .repo
+        .review(
+            status["revision"].as_str().unwrap(),
+            Mutation::Discard {
+                path: "a.txt".into(),
+            },
+            &f.registry,
+            &f.cancel,
+        )
+        .unwrap();
+    let patch = preview["patch"].as_str().unwrap();
+    assert!(patch.contains("\ndiff --git a/a.txt b/a.txt\n"));
+    assert!(patch.contains("\n+public C:\\notes\\draft.txt\n+second line\n"));
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
+        "public C:\\notes\\draft.txt\nsecond line\n"
+    );
+}
+
+#[test]
 fn large_stash_review_preserves_index_working_bytes_and_refuses_stale_apply() {
     let f = Fixture::new();
     f.base();

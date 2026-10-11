@@ -108,20 +108,19 @@ Use + beside Working Changes to stage all saved changes, or − beside Staged
 Changes to unstage them. Each file has the same quick action. File menus also offer
 stash and discard. Choose hunks in a text diff for partial stage/unstage. The three-dot menu
 beside Changes contains Commit, Pull, Push, Fetch and grouped Changes, Branch and
-Stash actions. The message field also accepts Ctrl+Enter. Commit confirmation shows
-all staged files and your configured author, and keeps Git hooks enabled. When
-nothing is staged, Commit reviews the saved working changes and stages them only
-after confirmation; Cancel keeps the index unchanged. Failed
-hooks retain the message and index. Save or close affected unsaved editors first.
-Stash conflicts retain the stash; a conflicted revert offers reviewed Abort.
+Stash actions. Selecting an action runs it directly; Ctrl+Enter commits the message.
+Commit uses staged files, or stages the saved working changes if nothing is staged.
+Git hooks stay enabled; failed commits retain the message and index.
+Save or close affected unsaved editors first. Stash conflicts retain the stash;
+a conflicted revert offers Abort.
 Branch switching requires clean tracked files. These actions use your OS account;
 they grant the chat model no additional access.
 
-Fetch, Pull and Push first offer a configured remote picker, then review the
+Fetch, Pull and Push offer a configured remote picker, then run the chosen
 operation using existing credentials. Pull and Push require upstream tracking;
 Pull is fast-forward-only. Opening the action menu does not contact remotes.
 Changed refs require
-a fresh review; divergent Pull refuses the merge. Stop can leave effects, so
+a fresh action; divergent Pull refuses the merge. Stop can leave effects, so
 Refresh and reconcile before retrying. Uncertain push warnings last for this
 launch; every new Push still checks the current remote ref. No force push or
 automatic conflict resolution is offered. Commit messages are retained in the

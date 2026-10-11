@@ -69,6 +69,8 @@ implementation notes, milestone summaries, test results or copies of feature spe
   complete, and uncertain effects from verified success. Avoid invented progress.
 - Give failures a specific recovery action beside the affected content. Viewing
   evidence or pressing Refresh must not silently repeat an external action.
+- Treat a deliberate action as the decision when another review adds no useful
+  choice. Avoid duplicate approval screens; preserve validation and recovery.
 - Reviews show the concrete target, effect and sharing consequence before the
   decision. Keep full selectable evidence in a bounded scroll area and decision
   buttons reachable below it. Keep secrets masked.
