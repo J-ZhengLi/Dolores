@@ -29,7 +29,7 @@ class RunnerTests(unittest.TestCase):
         self.argv = ['--source', str(self.source), '--output', str(self.output), '--model', 'configured-model']
         self.support = SimpleNamespace(digest=Mock(return_value=('unchanged', 1)),
                                        connection=Mock(return_value=('http://public.invalid/v1', 'synthetic')))
-        self.data = {'model': 'configured-model', 'requests': 2, 'tools': 0,
+        self.data = {'model': 'configured-model', 'reasoning': 'providerDefault', 'requests': 2, 'tools': 0,
                      'cases': [{'kind': 'chat', 'pass': True}, {'kind': 'memory', 'pass': True}]}
 
     def run_receipt(self, data=None, returncode=0):
@@ -49,6 +49,17 @@ class RunnerTests(unittest.TestCase):
         status, receipt = self.run_receipt()
         self.assertEqual(status, 0)
         self.assertTrue(receipt['passed'] and receipt['originalProfileUnchanged'])
+
+    def test_reasoning_is_explicit_and_mismatched_receipt_is_not_success(self):
+        self.argv += ['--reasoning', 'deepseekThinkingOff']
+        status, receipt = self.run_receipt()
+        self.assertEqual(status, 1)
+        self.assertFalse(receipt['passed'])
+        self.output.unlink()
+        self.data['reasoning'] = 'deepseekThinkingOff'
+        status, receipt = self.run_receipt()
+        self.assertEqual(status, 0)
+        self.assertEqual(receipt['reasoning'], 'deepseekThinkingOff')
 
     def test_invalid_model_or_existing_receipt_never_reads_credentials_or_starts_child(self):
         for argv in [self.argv[:-1]+['missing-model'], self.argv]:

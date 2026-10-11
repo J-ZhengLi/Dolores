@@ -7,8 +7,8 @@ No desktop notifications, tools, scheduled task creation or publication is grant
 
 ## Frequency policy (revised 2026-10-08)
 
-- Enabled model chosen separately from Home; suggest configured Qwen3.5-2B only
-  when it is enabled. No configured choice means quiet, never model fallback.
+- Enabled model chosen separately from Home. No configured choice means quiet,
+  never model fallback.
 - System IANA timezone initially; allowed hours 09:00–21:00, default 2 attempts
   per local day. Frequency is an integer slider from Quiet (0) to Chatty (100),
   with the selected daily limit visible. Zero stays quiet without disabling the
@@ -31,6 +31,11 @@ No desktop notifications, tools, scheduled task creation or publication is grant
 - One no-tool request, 256 output tokens, 20-second total generation deadline,
   16 KiB input, 2 KiB returned text. Attempt admission counts before the request;
   failures consume the same daily/cooldown budget and stay quiet.
+  Revision October 11: preserve the selected companionship model's configured
+  reasoning mode, including an explicit thinking-off setting. Its smaller output
+  or timeout limit takes precedence over these ceilings. Home's selected model
+  and chat/project overrides do not affect that separate model choice. Provider
+  default remains provider default; no reasoning mode or model is substituted.
 - Raising/lowering the cap does not reset consumed attempts. State accepts counts
   through 100 even after lowering the cap; the next local day resets the count.
 - Retain 16 activity records and at most one pending generation. Separate usage

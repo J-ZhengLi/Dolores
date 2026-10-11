@@ -28,6 +28,8 @@ def main(argv=None):
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--model', required=True, help='Explicit enabled model ID.')
+    parser.add_argument('--reasoning', choices=['providerDefault', 'deepseekThinkingOff', 'openaiLow', 'openaiMedium', 'openaiHigh'],
+                        default='providerDefault', help='Explicit control for this isolated qualification only.')
     args = parser.parse_args(argv)
     original, output = args.source.resolve(), args.output.resolve()
     if output == ROOT/'output' or not output.is_relative_to(ROOT/'output') or output.exists():
@@ -40,7 +42,8 @@ def main(argv=None):
     before = support.digest(original.parent)
     base, key = support.connection(original.parent)
     env = dict(os.environ, DOLORES_COMPANION_LIVE_BASE=base,
-               DOLORES_COMPANION_LIVE_MODEL=args.model, DOLORES_COMPANION_LIVE_KEY=key)
+               DOLORES_COMPANION_LIVE_MODEL=args.model, DOLORES_COMPANION_LIVE_KEY=key,
+               DOLORES_COMPANION_LIVE_REASONING=json.dumps(args.reasoning))
     del key
     try:
         result = subprocess.run([
@@ -58,6 +61,7 @@ def main(argv=None):
     cases = data.get('cases', [])
     data['originalProfileUnchanged'] = support.digest(original.parent) == before
     data['passed'] = (result.returncode == 0 and data.get('model') == args.model
+                      and data.get('reasoning') == args.reasoning
                       and data.get('requests') == 2 and data.get('tools') == 0
                       and len(cases) == 2 and {c.get('kind') for c in cases} == {'chat', 'memory'}
                       and all(c.get('pass') is True for c in cases)

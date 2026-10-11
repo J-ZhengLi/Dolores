@@ -23,6 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Companionship respects its chosen model's reasoning setting and tighter response limits.
 - Refresh diff reloads the current Git state after an external edit, while failed reads keep the previous comparison.
 - Large side-by-side Git diffs keep old and new lines together across pages; tabs retain their layout and failed reads preserve the current comparison.
 - Side chats receive instructions for their available tools, avoiding requests for file tools they cannot use.

@@ -128,6 +128,7 @@ void main() {
         await tester.enterText(find.byKey(const Key('composer')), '');
         await tester.pump();
         await tester.ensureVisible(find.byKey(const Key('continue-task')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('continue-task')));
         await tester.pump();
         final start = bridge.commands.lastWhere((c) => c['command'] == 'start');

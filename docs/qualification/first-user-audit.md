@@ -15,6 +15,18 @@ renders; it adds no native checklist pass. **60/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
+Latest background continuation: desktop control failed in the folder chooser
+(`element 15888 is not available in cached app state`); refreshed selection and
+focus recovery still targeted Search instead of Folder. Native input stopped.
+G15's public binary comparison passed; nonrepository navigation is pending.
+All eight normal-bundle regression pairs, Source Control and scheduled-task
+save/reopen fixtures pass. Companionship now preserves its chosen model's saved
+reasoning and tighter limits. The failing regression, all 172 bridge checks,
+Clippy, four runner checks and normal build pass. Two live Qwen thinking-Off
+invitations pass with 258 reported tokens and no tools; no user setting changed.
+Native eligibility/delivery remains pending, so E01 gains no checkmark. Receipts
+are ignored under `output/background-audit-20261011-remaining/`.
+
 Latest October 11: G14 passes large-file Inline/Side by side, Next/Previous and
 stale-page recovery. A controlled public footer first invalidated the page while
 leaving its paired text readable. Refresh diff incorrectly retried the cached

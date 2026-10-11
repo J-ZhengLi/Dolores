@@ -1,5 +1,41 @@
 # Dolores acceptance — 2026-10-08
 
+## Background audit fixture repair — compact command recovery (October 11)
+
+The full frontend suite reproduced an offscreen test tap in compact command
+recovery: the fixture scrolled toward Repair and verify but clicked before the
+new layout settled. Waiting for that frame preserves the original failure,
+draft-protection and explicit-repair assertions. No runtime behavior changed.
+The focused two-check retest and all 420 frontend tests pass. The full log stays
+ignored under `output/background-audit-20261011-remaining/flutter-tests-retest.log`.
+Native recovery coverage is unchanged.
+
+## Background audit repair — companionship model settings (October 11)
+
+E01's earlier thinking/output failures exposed a settings mismatch: companionship
+constructed fresh Provider default requests instead of using the chosen model's
+saved reasoning control. The regression reproduces that mismatch. Requests now
+preserve that model's reasoning and tighter output/timeout settings, retaining
+the existing 256-token / 20-second ceilings. The foreground model remains selected;
+no automatic mode change, fallback, retry or added budget is introduced.
+
+All 172 bridge tests pass, with the configured-vault/live check ignored. All-target
+Clippy, four credential-free qualification-runner checks and the normal Windows
+build pass. Two bounded qwen3.7-flash invitations using explicitly chosen thinking
+Off both pass through the same model-profile/request constructor as runtime:
+230 input and 28 output tokens, 258 reported total, zero tools. Original data is
+unchanged. The receipt is ignored under
+`output/background-audit-20261011-remaining/companion-qwen-thinking-off-02.json`.
+This proves generation with that explicit mode, not native eligible delivery;
+E01 remains unchecked. Provider default failures remain recorded separately.
+
+Desktop control failed again in the native folder chooser: the returned field
+index was unavailable in cached app state. A refreshed window lookup/activation
+and coordinate focus attempt still reported the search field as focused. No text
+was submitted into the wrong field. The owned preview was stopped, preserving
+its profile. G15's binary comparison passed; nonrepository navigation remains
+pending. Background testing continues under the user's fallback instruction.
+
 ## Native audit repair — stale diff refresh (October 11)
 
 G14's native comparison displayed the 744 KB replacement as aligned old/new
