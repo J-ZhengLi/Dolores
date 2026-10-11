@@ -624,7 +624,8 @@ void main() {
             {'path': 'working.txt', 'index': ' ', 'worktree': 'M'},
           ],
         }
-        ..commitDraft = 'Keep draft';
+        ..commitDraft = 'Keep draft'
+        ..notice = 'Git action completed.';
       final status = w.status;
       host.selected = w;
       await t.pumpWidget(
@@ -658,6 +659,7 @@ void main() {
       expect(w.status, same(status));
       expect(w.commitDraft, 'Keep draft');
       expect(w.error, contains('refused'));
+      expect(w.notice, isNull);
       expect(w.reviewOpen, isNull);
       bridge.reject = false;
       await t.tap(find.byKey(const Key('git-stage-working.txt')));

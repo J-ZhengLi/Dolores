@@ -105,11 +105,16 @@ fn snapshot(path: &Path) -> Result<AttachmentData, String> {
         "text/plain"
     };
     if mime == "text/plain" {
-        if bytes.len() > dolores_core::MAX_TEXT_ATTACHMENT_BYTES
-            || bytes.contains(&0)
-            || std::str::from_utf8(&bytes).is_err()
-        {
-            return Err("Text attachments must be UTF-8 within 64 KiB. Use an explicit conversion/OCR adapter for other formats, or choose a smaller file.".into());
+        if bytes.len() > dolores_core::MAX_TEXT_ATTACHMENT_BYTES {
+            return Err(
+                "Text file exceeds 64 KiB. Choose a smaller file or split it; your draft remains."
+                    .into(),
+            );
+        }
+        if bytes.contains(&0) || std::str::from_utf8(&bytes).is_err() {
+            return Err(
+                "Unsupported file. Choose UTF-8 text, PNG or JPEG; your draft remains.".into(),
+            );
         }
     } else {
         image_dimensions(&bytes, mime)?;
@@ -307,9 +312,15 @@ mod tests {
         std::fs::write(&path, "Changed").unwrap();
         assert_eq!(saved.data, "Keep 世界\n".as_bytes());
         std::fs::write(&path, vec![b'x'; 65537]).unwrap();
-        assert!(snapshot(&path).unwrap_err().contains("64 KiB"));
+        let too_large = snapshot(&path).unwrap_err();
+        assert!(too_large.contains("64 KiB"));
+        assert!(too_large.contains("split"));
         std::fs::write(&path, [0, 1, 2]).unwrap();
-        assert!(snapshot(&path).is_err());
+        let unsupported = snapshot(&path).unwrap_err();
+        assert!(unsupported.contains("UTF-8 text, PNG or JPEG"));
+        assert!(!unsupported.contains("smaller"));
+        std::fs::write(&path, [0xff, 0xfe]).unwrap();
+        assert_eq!(snapshot(&path).unwrap_err(), unsupported);
         let mut png = vec![0; 24];
         png[..8].copy_from_slice(b"\x89PNG\r\n\x1a\n");
         png[12..16].copy_from_slice(b"IHDR");

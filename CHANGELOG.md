@@ -24,6 +24,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Starting a new Git action clears the previous action's success notice, so a refusal cannot appear to have succeeded.
+- Attachment errors distinguish oversized text from unsupported files and offer the appropriate next step without losing the draft.
 - Source Control no longer labels folders without Git as detached HEAD; empty and detached repositories show distinct states.
 - Activated skills match simple singular/plural keywords, so a request to review code can use a skill described for code reviews.
 - Large changes can be committed, discarded or reverted without an unused review diff blocking the action.

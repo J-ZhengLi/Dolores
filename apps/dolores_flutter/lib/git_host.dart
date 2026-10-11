@@ -350,6 +350,8 @@ class GitHost extends ChangeNotifier {
     GitWorkspace w,
     Map<String, dynamic> operation,
   ) async {
+    // A new attempt must not display the previous action's success as its result.
+    w.notice = null;
     try {
       final preview = Map<String, dynamic>.from(
         await run(w, {

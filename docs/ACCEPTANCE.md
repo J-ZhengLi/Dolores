@@ -1,5 +1,26 @@
 # Dolores acceptance — 2026-10-08
 
+## October 12 native audit: local Git remote cycle
+
+G19 passed native Fetch, dirty-Pull refusal, clean fast-forward Pull, file +,
+Commit and Push against a local bare origin. Independent Git inspection
+verified unchanged HEAD after Fetch, exact peer HEAD after Pull, the one-file
+native commit and matching origin/main after Push. The public untracked file
+was retained across recovery. No GitHub or user repository was modified.
+The injected right-Control shortcut did not dispatch; the Commit menu did.
+A stale success notice was reproduced alongside a later refusal; a failing
+regression now passes, with all 42 focused tests green. Rebuilt native Fetch
+then divergent Pull showed only the refusal, retained both HEADs/files and
+performed no merge. G20 still needs changed-ref/interruption recovery.
+P09 also passed native size/format refusals preserving the draft, and exact
+manifest/snapshot export after the source changed. The attachment regression,
+bridge clippy, Flutter analysis and normal Windows build passed.
+M02 passed fresh native Side-chat recall of a real automatically extracted
+public codename using Qwen. The native receipt showed one learned memory,
+zero prior turns, source/revision and 2,741 provider-reported tokens.
+Memory enablement was host-level setup; M01 switch interaction stays open.
+Checklist: 73/129 checked, 56 pending.
+
 ## October 12 native audit: truthful nonrepository state
 
 G15 passed after fixing a misleading “No commit / detached HEAD” header for

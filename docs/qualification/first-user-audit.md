@@ -12,7 +12,7 @@ Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
 renders; it adds no native checklist pass. The October 12 resumed settings check
-completes P05, P03, E09 and G15: **70/129 checked**.
+completes P05, P03, P09, M02, E09, G15 and G19: **73/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -42,7 +42,7 @@ No model request was made. These edited values remain in the disposable audit
 profile; the original profile still matches all 49 table digests.
 
 The earlier stop checkpoint is superseded by this recovered native route.
-**70 checked / 59 pending**; background passes still do not count as native ones.
+**73 checked / 56 pending**; background passes still do not count as native ones.
 
 E09 passed through Advanced → Diagnostics & storage → Capabilities & source.
 The native view showed Dolores 0.1.0, the project workspace, Qwen model/context
@@ -69,6 +69,38 @@ and distinguishes an empty repository from detached HEAD. All 42 Source Control
 tests and focused analysis passed. The normal Windows build and native retest
 passed, including Refresh with no invented HEAD state. Its earlier native binary
 comparison completes the item. No Git mutation or model request was needed.
+
+G19 passes against a disposable local bare origin and two public clones.
+Native Fetch advanced origin/main while retaining local HEAD and the untracked
+file. Pull correctly refused the dirty tree; moving that public file aside and
+Refresh allowed a fast-forward to the exact peer commit, with History updating.
+Returning the file, native + and Commit created a one-file commit; native Push
+advanced only the local bare origin to that exact commit. Tracking remained
+main → origin/main. No network service or original repository was involved.
+The injected right-Control shortcut did not dispatch; the visible Commit menu
+worked. An old Fetch success notice remained beside the dirty-Pull refusal; its
+widget regression failed before a fix and all 42 Source Control tests pass after
+clearing notices at the start of a new action. The rebuilt native retest passed: successful Fetch followed by divergent Pull
+showed only the truthful refusal, with both HEADs and public files retained.
+G20 remains open for changed-ref and interrupted-remote reconciliation.
+
+P09 passes native oversized and unsupported attachment rejection plus snapshot
+export. A 65,537-byte text file offers smaller-file/split recovery; a four-byte
+binary file offers UTF-8 text, PNG or JPEG instead of the old misleading size/OCR
+advice. Both preserve the existing draft and sent attachment. Native export
+produced one manifest entry and its exact original 108-byte snapshot, despite
+later source-file changes. The attachment regression failed before the fix and
+passes after it; bridge clippy, focused Flutter analysis, all 42 Source Control
+tests and the normal Windows build passed. No new model request was needed.
+
+M02 passes in a fresh native Side chat with qwen3.7-flash. A preceding real
+completed public chat automatically saved the fictional Juniper-583 codename;
+no memory entry was manually populated. Asking only “Codename?” returned the
+exact value in one model call. Reply usage showed zero recent/saved chat turns,
+one automatically learned memory, source message 149 and revision 1. Provider
+usage was 2,540 input / 201 output / 2,741 total tokens (2,176 cached and 185
+reasoning are breakdowns). The Memory switch was enabled through the host only
+in this disposable profile; its native switch interaction remains open in M01.
 
 ### October 11 resumed editor interaction
 
@@ -166,7 +198,7 @@ conflicting stash and revert conflict/Abort preserving HEAD and saved bytes.
 Receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
 Native count remains 66 checked / 63 pending.
 
-The updated October 12 queue has **70 checked / 59 pending**. Every pending
+The updated October 12 queue has **73 checked / 56 pending**. Every pending
 item below retains a native interaction requirement; available background paths
 have been exercised, with model reliability gaps recorded separately. The
 earlier helper failure was recovered as described above. No alternate Windows
@@ -181,11 +213,11 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
 | C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
-| G17–G20 (4) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
+| G17–G18, G20 (3) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S04, S10–S12 (4) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
-| P04, P06–P09, P12–P14 (8) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
-| M01–M10 (10) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
+| P04, P06–P08, P12–P14 (7) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
+| M01, M03–M10 (9) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
 | I01–I07, I10 (8) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
 | E01–E08, E10–E12 (11) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
@@ -654,7 +686,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely. Native create/refusal/switch and independent branch inspection pass October 11; direct action retest pending.
 - [ ] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.
 - [ ] G18 Revert a disposable commit; conflict/Abort recovery does not discard unrelated work.
-- [ ] G19 Fetch/Pull/Push against a local bare remote: selected actions, tracking and fast-forward behavior are correct.
+- [x] G19 Fetch/Pull/Push against a local bare remote: selected actions, tracking and fast-forward behavior are correct.
 - [ ] G20 Divergent Pull, changed refs and interrupted remote action retain evidence and require reconciliation.
 
 ## 5. Terminal
@@ -693,7 +725,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] P06 Connection controls list/manual models, selected model and remembered restart work without exposing a key.
 - [ ] P07 Attach/preview/remove/send public UTF-8 text; attachment snapshot survives later source changes.
 - [ ] P08 Attach public PNG/JPEG and send to a capable model; incompatible-image error preserves draft and offers settings recovery.
-- [ ] P09 Over-limit/unsupported attachments give actionable rejection; attachment export contains matching manifest/snapshots.
+- [x] P09 Over-limit/unsupported attachments give actionable rejection; attachment export contains matching manifest/snapshots.
 - [x] P10 Context ring shows preparation/estimates vs reported usage without an unintended request.
 - [x] P11 Review/save/edit session summary; later request recalls it while full history remains accessible.
 - [ ] P12 Automatic compaction with a small context preserves draft and gives useful failure recovery.
@@ -703,7 +735,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 ## 8. Memory, instructions and skills
 
 - [ ] M01 One Memory switch starts automatic useful fact/preference capture from real completed chats, with sources/activity.
-- [ ] M02 Fresh conversation recalls a retained useful fact; no manual population is required.
+- [x] M02 Fresh conversation recalls a retained useful fact; no manual population is required.
 - [ ] M03 Inspect/correct a memory; protected correction survives later extraction.
 - [ ] M04 Disable capture/recall; existing memory remains inspectable and can be forgotten deliberately.
 - [ ] M05 Project facts capture approved successful check evidence with clear declaration/execution distinction.
