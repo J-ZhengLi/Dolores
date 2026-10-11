@@ -115,6 +115,19 @@ for large replacements without adding a file-size gate or Git mutations.
 
 ## Frozen initial bounds
 
+### Stash review correction — 2026-10-11
+
+Stash creation and application review the exact selected paths or stash object,
+staged/working change counts and preservation effect. They do not require copying
+the entire patch into the review: a large saved change must remain stashable.
+Creation pins the full saved-file/index revision; application pins the exact stash
+ID and current revision. The review explicitly identifies its file/count summary,
+without presenting it as a full content diff. Saved change pages remain available
+in Source Control before stashing. Untracked inclusion, rename restrictions,
+dirty-editor guards, one-use tokens, expiry, conflict retention and explicit
+apply/drop semantics remain. Commit, discard and hunk complete-patch bounds
+remain separate. This is a bounded metadata review, not a raised output limit.
+
 | Item | Bound and recovery |
 | --- | --- |
 | Git jobs | Two executing globally, one per worktree; eight retained jobs; busy requests offer Retry |
@@ -125,7 +138,7 @@ for large replacements without adding a file-size gate or Git mutations.
 | Diff display | 256 inline rows or aligned pairs / 256 KiB source text per page; approximately 4 KiB text segments; explicit Previous/Next changes |
 | History | 30 commits per page, cursor at most 10,000; pinned HEAD, explicit Load more |
 | Retained views | Eight repository owners, eight diff tabs each; inactive clean tabs can be closed |
-| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; commit/destructive patch within existing 256 KiB review bounds; index-only actions retain metadata without a patch |
+| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; commit/discard/hunk patch within existing review bounds; index-only and stash actions retain bounded exact metadata without a full patch |
 | Selected paths/hunks | At most 16 literal selected paths / 32 hunks, 64 KiB hunk patch; section index actions use all bounded status entries; stale basis refuses before apply |
 | Commit draft | 8 KiB UTF-8; retained on hook failure; configured author and hooks remain enabled |
 

@@ -64,6 +64,78 @@ impl Fixture {
     }
 }
 #[test]
+fn large_stash_review_preserves_index_working_bytes_and_refuses_stale_apply() {
+    let f = Fixture::new();
+    f.base();
+    let indexed = "public indexed line\n".repeat(20_000);
+    let working = format!("{indexed}public saved footer\n");
+    f.write("a.txt", &indexed);
+    f.git(&["add", "a.txt"]);
+    f.write("a.txt", &working);
+    f.write("untracked.txt", "retain unrelated work\n");
+    let operation = Mutation::StashCreate {
+        paths: vec!["a.txt".into()],
+        message: "large public selection".into(),
+    };
+    let status = f.repo.status(&f.cancel).unwrap();
+    let review = f
+        .repo
+        .review(
+            status["revision"].as_str().unwrap(),
+            operation.clone(),
+            &f.registry,
+            &f.cancel,
+        )
+        .unwrap();
+    assert!(review["patch"].as_str().unwrap().len() < 256 * 1024);
+    assert_eq!(review["paths"], json!(["a.txt"]));
+    f.write("a.txt", "changed after review\n");
+    assert!(f
+        .repo
+        .apply(
+            review["token"].as_str().unwrap(),
+            &f.registry,
+            &f.editor,
+            &f.cancel
+        )
+        .unwrap_err()
+        .contains("basis changed"));
+    assert!(f.repo.local_state(&f.cancel).unwrap()["stashes"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    f.write("a.txt", &working);
+    f.act(operation).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
+        "base\n"
+    );
+    assert_eq!(f.git(&["show", ":a.txt"]), b"base\n");
+    let stash = f.repo.local_state(&f.cancel).unwrap()["stashes"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    f.act(Mutation::StashApply {
+        stash: stash.clone(),
+        pop: false,
+    })
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
+        working
+    );
+    assert_eq!(f.git(&["show", ":a.txt"]), indexed.as_bytes());
+    assert_eq!(
+        f.repo.local_state(&f.cancel).unwrap()["stashes"][0]["id"],
+        stash
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("untracked.txt")).unwrap(),
+        "retain unrelated work\n"
+    );
+}
+
+#[test]
 fn selected_hunks_are_host_derived_and_stale_ids_refuse() {
     let f = Fixture::new();
     let base = (0..30).map(|n| format!("line{n}\n")).collect::<String>();

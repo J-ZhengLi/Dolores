@@ -1,5 +1,30 @@
 # Dolores acceptance — 2026-10-08
 
+## October 11 resumed native editor audit
+
+F04 and F06 pass on the normal Windows build in the isolated public notebook.
+Physical Ctrl+P opens a relative file, Ctrl+G puts the caret at line 20,
+Ctrl+F finds repeated text and Ctrl+H replaces one match. Shared undo from the
+other pane restores the exact change and clears both dirty markers. Earlier
+independent cursor/scroll and compact-layout evidence completes F06. No runtime
+repair was needed: an input-settle delay corrected a misleading immediate capture.
+The helper still refuses accessibility-index clicks, so fresh screenshot pointer
+actions are used. F07 Keep editing and Save-close pass; Discard remains pending.
+No model calls or original-profile writes were made. Checklist: 64/129 checked.
+
+G07 passes physical Ctrl+Enter and Changes → Commit. Cancel preserves draft and
+index; Apply commits only fixture `8` (`d192973`), clears them and retains other
+working changes. G16 branch creation, dirty-switch refusal and clean reviewed
+switch to `codex/a` pass. A large tracked change exposed G17's 256 KiB stash-review
+failure. Exact file/count metadata now replaces whole-patch capture for stash
+create/apply, preserving revision, token, dirty-buffer and conflict checks.
+The new large staged/working round-trip regression fails before the repair and
+passes after it, including stale refusal and unrelated untracked retention.
+All 21 source-control tests, bridge Clippy and the normal Windows build pass.
+The original native case now stashes 6,000 changed lines and restores the exact
+saved-file SHA-256, retaining the stash and unrelated untracked files. G17 remains
+partial for conflict and selected-discard controls. Original 49 table digests match.
+
 ## October 11 audit: remaining background paths
 
 Manual memory suggestions pass extraction/correction/cancel/failure/save/export

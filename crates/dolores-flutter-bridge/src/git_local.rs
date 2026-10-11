@@ -173,7 +173,7 @@ impl Repo {
                 {
                     return Err("Stash needs an existing commit, one to sixteen tracked paths and a short one-line message.".into());
                 }
-                let mut patch=String::from("Stash only these tracked saved paths, including their staged changes. Untracked files remain.\n");
+                let mut patch=String::from("Stash these tracked saved files, including staged changes. Untracked files remain.\nFile and change-count summary; full saved contents are retained in the stash.\n");
                 for path in paths {
                     self.path(path)?;
                     let entry = entries
@@ -192,10 +192,22 @@ impl Repo {
                                 .into(),
                         );
                     }
-                    for basis in ["staged", "working"] {
-                        let diff = self.diff(revision, path, basis, None, cancel)?;
-                        patch.push_str(diff["patch"].as_str().unwrap());
+                }
+                // Stash preserves complete saved contents. Pin their revision, but
+                // review bounded metadata rather than requiring a whole patch.
+                for staged in [true, false] {
+                    let mut args = vec!["diff", "--numstat", "--no-ext-diff", "--no-textconv"];
+                    if staged {
+                        args.push("--cached");
                     }
+                    args.push("--");
+                    args.extend(paths.iter().map(String::as_str));
+                    patch.push_str(if staged {
+                        "\nStaged changes (added / removed / file):\n"
+                    } else {
+                        "\nWorking changes (added / removed / file):\n"
+                    });
+                    patch.push_str(text(&self.command(&args, cancel)?)?);
                 }
                 (paths.clone(), None, patch)
             }
@@ -224,14 +236,14 @@ impl Repo {
                         "stash",
                         "show",
                         "--include-untracked",
-                        "--binary",
+                        "--numstat",
                         "--no-ext-diff",
                         "--no-textconv",
                         stash,
                     ],
                     cancel,
                 )?;
-                (vec![],None,format!("{} exact stash {stash}, restoring its index and working changes. Conflicts retain the stash; inspect and resolve before any retry.\n{}\n{}",if *pop{"Apply then drop"}else{"Apply"},paths.join("\n"),text(&patch)?))
+                (vec![],None,format!("{} exact stash {stash}, restoring its index and working changes. Conflicts retain the stash; inspect and resolve before any retry.\nFile and change-count summary (added / removed / file).\n{}\n{}",if *pop{"Apply then drop"}else{"Apply"},paths.join("\n"),text(&patch)?))
             }
             Mutation::BranchCreate { name } | Mutation::BranchSwitch { name } => {
                 self.validate_branch(name, cancel)?;
