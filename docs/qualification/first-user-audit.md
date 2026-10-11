@@ -53,6 +53,26 @@ from background tests. Checklist remains **66/129 checked**.
 
 ### October 11 background coverage and native queue
 
+The next resume again failed twice during desktop activation with `foreground
+window did not report a process id`. No UI input followed. A background probe
+found that large Commit still generated an unused full review patch and hit the
+512 KiB process-output cap. The regression failed before the repair; pinning
+paths/state with a bounded summary removes this blocker without increasing
+limits. The rebuilt bridge then exposed the same Discard limit; a separate large
+Revert regression also failed. Both unused captures are removed while retaining
+their state and conflict checks. Normal-release integration and focused test
+results and remaining native checks are tracked in ACCEPTANCE. This adds
+background coverage, not native checkmarks.
+The normal-bridge conflict probe also exposed a missing recovery explanation:
+stash/conflict bytes were retained, but the error only said the index was not
+unstashed. Confirmed stash/revert conflicts now explain retention and
+Refresh/resolution or Abort; the strengthened regression failed before the change.
+Final verification passes all 25 Git tests, bridge Clippy, the normal Windows
+build and five rebuilt-bridge cases: large Commit/Discard/Revert, retained
+conflicting stash and revert conflict/Abort preserving HEAD and saved bytes.
+Receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
+Native count remains 66 checked / 63 pending.
+
 The background pass covers each remaining feature's available host/fixture path.
 Native input stopped after the helper failed twice in the folder chooser; no
 alternate automation was used to bypass that failure. At that checkpoint, 69 unchecked items

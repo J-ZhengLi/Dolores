@@ -58,8 +58,8 @@ file by its current index name; unstage a rename with both its old and new names
 
 Commit uses the existing staged selection when nonempty. Otherwise selecting
 Commit stages and commits the saved working changes, including untracked files.
-Internally prepare that exact patch using a temporary index; preparing it must
-not stage anything. Apply checks the saved revision,
+Internally pin the selected paths and saved state; preparation must not stage
+anything or capture an unused full commit diff. Apply checks the saved revision,
 author and editor state before staging, then runs the normal commit with hooks.
 Failed hooks retain the draft and staged work; Refresh reconciles the state before
 a fresh action. No automatic staging occurs on page entry, refresh or typing.
@@ -75,6 +75,18 @@ conflict checks. Disable duplicate actions while pending. Cancel internal
 preparation if its initiating page closes before apply. Failed commits keep the
 message and index; stale or uncertain outcomes require Refresh and a deliberate
 retry. This does not change chat/tool approval behavior.
+
+Commit, Discard and Revert preparation retains bounded metadata rather than
+generating full patches. Full patch capture had blocked large actions at
+the Git output/patch limits, despite no review being displayed. Saved-state, author,
+dirty-editor and hook checks remain; staged content still takes precedence over
+later working edits. Diff viewing retains its independent paging and byte bounds.
+
+On failed stash application or revert, inspect the resulting repository state.
+Confirmed stash conflicts explicitly report that the stash remains and require
+Refresh/resolution before another apply. Confirmed revert conflicts offer
+Refresh and Abort revert. Do not substitute a generic commit/index failure for
+these recovery directions or imply no saved-file effects occurred.
 
 ## Large-diff correction — 2026-10-07
 
@@ -94,10 +106,10 @@ metadata remains viewable; there is no fabricated textual binary comparison.
 
 Saved-file revision hashing streams through a 64 KiB buffer with Stop and a
 30-second read deadline, replacing the 16 MiB/file and 32 MiB aggregate gates.
-Git process supervision and metadata/index bounds remain. Commit/destructive reviews keep
-their independent complete-patch bounds: a displayed partial page cannot become
-a complete approval or hunk patch. This change qualifies viewing, not unbounded
-mutation reviews or remote operations.
+Git process supervision and metadata/index bounds remain. Selected hunk actions
+retain their complete-patch bounds: a displayed partial page cannot become a
+complete hunk patch. Whole-file actions pin state without capturing an unused
+full patch. Remote operations retain their separate checks and deadlines.
 
 ### Cross-page alignment correction — 2026-10-11
 
@@ -119,25 +131,25 @@ mutation or automatic retry.
 Streaming retains only the selected slice of a change run, at most 256 pairs
 and 256 KiB of source text per side-by-side page. It never buffers a whole hunk
 or blob. The separate existing 256 KiB raw-patch buffer is retained only for
-complete review/hunk eligibility; a partial aligned page is not a complete
-mutation review. Fingerprint, saved revision, UTF-8 segment and Stop/deadline
+complete hunk eligibility; a partial aligned page is not a complete hunk patch.
+Fingerprint, saved revision, UTF-8 segment and Stop/deadline
 guards still apply. This revises the previous permitted boundary-blank behavior
 for large replacements without adding a file-size gate or Git mutations.
 
 ## Frozen initial bounds
 
-### Stash review correction — 2026-10-11
+### Stash preparation correction — 2026-10-11
 
-Stash creation and application review the exact selected paths or stash object,
+Stash creation and application pin the exact selected paths or stash object,
 staged/working change counts and preservation effect. They do not require copying
-the entire patch into the review: a large saved change must remain stashable.
+the entire patch into preparation: a large saved change must remain stashable.
 Creation pins the full saved-file/index revision; application pins the exact stash
 ID and current revision. Internal preparation identifies its file/count summary,
 without presenting it as a full content diff. Saved change pages remain available
 in Source Control before stashing. Untracked inclusion, rename restrictions,
 dirty-editor guards, one-use tokens, expiry, conflict retention and explicit
-apply/drop semantics remain. Commit, discard and hunk complete-patch bounds
-remain separate. This is a bounded metadata review, not a raised output limit.
+apply/drop semantics remain. Commit, discard and revert also use bounded metadata;
+hunk patch bounds remain separate. No process-output limit is raised.
 
 | Item | Bound and recovery |
 | --- | --- |
@@ -149,7 +161,7 @@ remain separate. This is a bounded metadata review, not a raised output limit.
 | Diff display | 256 inline rows or aligned pairs / 256 KiB source text per page; approximately 4 KiB text segments; explicit Previous/Next changes |
 | History | 30 commits per page, cursor at most 10,000; pinned HEAD, explicit Load more |
 | Retained views | Eight repository owners, eight diff tabs each; inactive clean tabs can be closed |
-| Mutation review | One host-generated, single-use token per repo, two-minute lifetime; commit/discard/hunk patch within existing review bounds; index-only and stash actions retain bounded exact metadata without a full patch |
+| Mutation preparation | One host-generated, single-use token per repo, two-minute lifetime; bounded exact metadata for whole-file actions; only selected hunks capture a complete patch |
 | Selected paths/hunks | At most 16 literal selected paths / 32 hunks, 64 KiB hunk patch; section index actions use all bounded status entries; stale basis refuses before apply |
 | Commit draft | 8 KiB UTF-8; retained on hook failure; configured author and hooks remain enabled |
 
@@ -160,7 +172,7 @@ Dirty/pending editor buffers refuse conflicting operations; Save remains explici
 Revision checks cannot prevent an unrelated writer racing the final Git operation;
 Git index locks and patch checks remain additional defenses, not an OS transaction.
 
-Stage/unstage affect the explicitly selected saved paths or section only. Commit reviews all staged paths and
+Stage/unstage affect the explicitly selected saved paths or section only. Commit pins all staged paths and
 the configured author. Hunk actions use host-derived patch fragments, never a
 caller-supplied patch. Discard affects one tracked saved file; it cannot delete an
 untracked file. Stash creation selects tracked saved paths, without blanket stash
@@ -170,8 +182,8 @@ Hard reset, force push, identity changes and automatic conflict choices are excl
 
 Remote actions name the configured remote/branch/effect, use existing credential
 helpers and never copy credentials. Fetch is deliberate; Pull is fast-forward-only.
-Push reviews the remote ref and local HEAD. An interrupted/uncertain push compares
-the remote ref before offering another review. Qualification uses disposable local
+Push checks the remote ref and local HEAD. An interrupted/uncertain push compares
+the remote ref before allowing another action. Qualification uses disposable local
 bare remotes, never the user's real repository or hosted publication.
 
 Primary references: [status](https://git-scm.com/docs/git-status),

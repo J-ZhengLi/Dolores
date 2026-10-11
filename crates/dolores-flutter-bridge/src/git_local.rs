@@ -154,16 +154,10 @@ impl Repo {
             Mutation::Discard { path } => {
                 self.path(path)?;
                 self.command(&["ls-files", "--error-unmatch", "--", path], cancel)?;
-                let diff = self.diff(revision, path, "working", None, cancel)?;
                 (
                     vec![path.clone()],
                     None,
-                    format!(
-                        "Restore saved working file from Index. Staged content remains.\n{}",
-                        diff["patch"]
-                            .as_str()
-                            .ok_or("Git discard patch is unavailable. Refresh this comparison.")?
-                    ),
+                    "Restore saved working file from Index. Staged content remains.".into(),
                 )
             }
             Mutation::StashCreate { paths, message } => {
@@ -285,20 +279,7 @@ impl Repo {
                 for path in &paths {
                     self.path(path)?;
                 }
-                let patch = self.command(
-                    &[
-                        "show",
-                        "--format=",
-                        "--no-ext-diff",
-                        "--no-textconv",
-                        "--binary",
-                        "--reverse",
-                        commit,
-                        "--",
-                    ],
-                    cancel,
-                )?;
-                (paths,None,format!("Create a new commit reversing {commit}; keep its original commit and history. On conflict, resolve saved files then finish with external Git, or Abort here.\n{}",text(&patch)?))
+                (paths,None,format!("Create a new commit reversing {commit}; keep its original commit and history. On conflict, resolve saved files then finish with external Git, or Abort here."))
             }
             Mutation::RevertAbort => {
                 if status["reverting"] != true {

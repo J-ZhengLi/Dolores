@@ -64,7 +64,7 @@ impl Fixture {
     }
 }
 #[test]
-fn discard_review_keeps_readable_patch_lines_and_literal_backslashes() {
+fn discard_preparation_keeps_saved_contents_without_capturing_a_patch() {
     let f = Fixture::new();
     f.base();
     f.write("a.txt", "public C:\\notes\\draft.txt\nsecond line\n");
@@ -81,12 +81,94 @@ fn discard_review_keeps_readable_patch_lines_and_literal_backslashes() {
         )
         .unwrap();
     let patch = preview["patch"].as_str().unwrap();
-    assert!(patch.contains("\ndiff --git a/a.txt b/a.txt\n"));
-    assert!(patch.contains("\n+public C:\\notes\\draft.txt\n+second line\n"));
+    assert!(patch.contains("Restore saved working file from Index"));
     assert_eq!(
         std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
         "public C:\\notes\\draft.txt\nsecond line\n"
     );
+}
+
+#[test]
+fn large_discard_restores_index_and_preserves_unrelated_saved_work() {
+    let f = Fixture::new();
+    f.base();
+    let saved = format!("public {}\n", "x".repeat(100)).repeat(6000);
+    f.write("a.txt", &saved);
+    f.git(&["add", "a.txt"]);
+    f.git(&["commit", "-m", "large public base"]);
+    f.write("a.txt", "small replacement\n");
+    f.write("untracked.txt", "retain unrelated work\n");
+    f.act(Mutation::Discard {
+        path: "a.txt".into(),
+    })
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
+        saved
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("untracked.txt")).unwrap(),
+        "retain unrelated work\n"
+    );
+    assert!(f.git(&["diff", "--cached", "--name-only"]).is_empty());
+}
+
+#[test]
+fn large_revert_restores_previous_contents_without_a_reverse_patch_capture() {
+    let f = Fixture::new();
+    f.base();
+    let saved = format!("public {}\n", "x".repeat(100)).repeat(6000);
+    f.write("a.txt", &saved);
+    f.git(&["add", "a.txt"]);
+    f.git(&["commit", "-m", "large public change"]);
+    let commit = String::from_utf8(f.git(&["rev-parse", "HEAD"]))
+        .unwrap()
+        .trim()
+        .to_string();
+    f.act(Mutation::Revert {
+        commit: commit.clone(),
+    })
+    .unwrap();
+    assert_ne!(f.repo.status(&f.cancel).unwrap()["head"], commit);
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
+        "base\n"
+    );
+}
+
+#[test]
+fn large_commits_preserve_full_saved_and_staged_content_without_patch_capture() {
+    let f = Fixture::new();
+    f.base();
+    let saved = format!("public {}\n", "x".repeat(100)).repeat(6000);
+    f.write("a.txt", &saved);
+    let saved_hash = f.git(&["hash-object", "a.txt"]);
+    f.act(Mutation::CommitAll {
+        message: "large automatic commit".into(),
+    })
+    .unwrap();
+    assert_eq!(f.git(&["rev-parse", "HEAD:a.txt"]), saved_hash);
+    let indexed = saved.replace('x', "y");
+    f.write("a.txt", &indexed);
+    f.git(&["add", "a.txt"]);
+    let indexed_hash = f.git(&["rev-parse", ":a.txt"]);
+    let later = format!("{indexed}later saved working change\n");
+    f.write("a.txt", &later);
+    f.write("untracked.txt", "retain unrelated work\n");
+    f.act(Mutation::CommitAll {
+        message: "large staged selection".into(),
+    })
+    .unwrap();
+    assert_eq!(f.git(&["rev-parse", "HEAD:a.txt"]), indexed_hash);
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("a.txt")).unwrap(),
+        later
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.dir.path().join("untracked.txt")).unwrap(),
+        "retain unrelated work\n"
+    );
+    assert!(f.git(&["diff", "--cached", "--name-only"]).is_empty());
 }
 
 #[test]
@@ -303,12 +385,14 @@ fn conflicting_pop_retains_exact_stash_and_conflicting_revert_can_abort() {
     f.write("a.txt", "changed\n");
     f.git(&["add", "."]);
     f.git(&["commit", "-m", "changed"]);
-    assert!(f
+    let conflict = f
         .act(Mutation::StashApply {
             stash: stash.clone(),
-            pop: true
+            pop: true,
         })
-        .is_err());
+        .unwrap_err();
+    assert!(conflict.contains("conflicts"), "{conflict}");
+    assert!(conflict.contains("stash is retained"), "{conflict}");
     assert_eq!(
         f.repo.local_state(&f.cancel).unwrap()["stashes"][0]["id"],
         stash
@@ -328,7 +412,8 @@ fn conflicting_pop_retains_exact_stash_and_conflicting_revert_can_abort() {
     f.git(&["add", "."]);
     f.git(&["commit", "-m", "later"]);
     let before = f.repo.status(&f.cancel).unwrap()["head"].clone();
-    assert!(f.act(Mutation::Revert { commit: old }).is_err());
+    let conflict = f.act(Mutation::Revert { commit: old }).unwrap_err();
+    assert!(conflict.contains("Abort revert"), "{conflict}");
     assert_eq!(f.repo.status(&f.cancel).unwrap()["reverting"], true);
     f.act(Mutation::RevertAbort).unwrap();
     assert_eq!(f.repo.status(&f.cancel).unwrap()["head"], before);

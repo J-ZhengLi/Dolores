@@ -205,8 +205,7 @@ fn automatic_commit_review_does_not_stage_until_apply_and_preserves_staged_selec
         )
         .unwrap();
     assert_eq!(review["autoStage"], true);
-    assert!(review["patch"].as_str().unwrap().contains("+saved a"));
-    assert!(review["patch"].as_str().unwrap().contains("+saved b"));
+    assert_eq!(review["paths"], json!(["a.txt", "b.txt"]));
     assert_eq!(
         repo.status(&cancel).unwrap()["revision"],
         status["revision"]

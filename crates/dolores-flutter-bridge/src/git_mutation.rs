@@ -135,58 +135,6 @@ impl Repo {
         Ok(expanded)
     }
 
-    fn commit_patch(
-        &self,
-        paths: Option<&[String]>,
-        cancel: &CancellationToken,
-    ) -> Result<String, String> {
-        // Prepare the exact prospective commit without changing the real index.
-        let scratch = tempfile::tempdir().map_err(|_| "Could not prepare the commit.")?;
-        let index = scratch.path().join("index");
-        if paths.is_some() && self.git.join("index").exists() {
-            std::fs::copy(self.git.join("index"), &index)
-                .map_err(|_| "Could not prepare the Git index.")?;
-        }
-        let run = |args: Vec<String>| -> Result<Vec<u8>, String> {
-            let result = git_process::run_with_index(
-                &self.executable,
-                &self.root,
-                &args,
-                cancel,
-                false,
-                paths.map(|_| index.as_path()),
-            )?;
-            if result.code != 0 {
-                return Err(format!(
-                    "Git could not prepare the commit: {}",
-                    String::from_utf8_lossy(&result.stderr)
-                ));
-            }
-            Ok(result.stdout)
-        };
-        if let Some(paths) = paths {
-            let (_pathspec, args) = pathspec_arguments(vec!["add".into()], paths)?;
-            run(args)?;
-        }
-        let patch = run([
-            "diff",
-            "--cached",
-            "--no-ext-diff",
-            "--no-textconv",
-            "--no-color",
-            "--full-index",
-            "--binary",
-            "--",
-        ]
-        .into_iter()
-        .map(str::to_string)
-        .collect())?;
-        if patch.len() > 256 * 1024 {
-            return Err("Selected commit patch exceeds 256 KiB. Stage a smaller selection and commit again; all changes remain viewable in Source Control.".into());
-        }
-        Ok(text(&patch)?.to_string())
-    }
-
     pub(super) fn review(
         &self,
         revision: &str,
@@ -268,7 +216,12 @@ impl Repo {
                 }
                 let author = String::from_utf8(self.command(&["var", "GIT_AUTHOR_IDENT"], cancel)?)
                     .map_err(|_| "Git author is not UTF-8.")?;
-                let patch = self.commit_patch(auto_stage.then_some(paths.as_slice()), cancel)?;
+                // Direct commits need pinned paths and state, not an unused full
+                // diff. Keep large changes out of the bounded Git output buffer.
+                let patch = format!(
+                    "Commit {} saved files. Full contents remain in Git.",
+                    paths.len()
+                );
                 (paths, Some(author_identity(&author)), patch)
             }
             Mutation::Fetch { .. } | Mutation::Pull { .. } | Mutation::Push { .. } => {
@@ -415,9 +368,16 @@ impl Repo {
             &review.operation,
             Mutation::Commit { .. } | Mutation::CommitAll { .. } | Mutation::Revert { .. }
         ) && after.as_ref().is_ok_and(|s| s["head"] != before["head"]);
+        let conflicted = after.as_ref().is_ok_and(|s| {
+            s["entries"]
+                .as_array()
+                .is_some_and(|entries| entries.iter().any(|entry| entry["conflict"] == true))
+        });
         let warning=match outcome {
             Ok(output) if output.code==0=>if output.stderr.is_empty(){None}else{Some(String::from_utf8_lossy(&output.stderr).to_string())},
             Ok(output) if committed=>Some(format!("HEAD changed despite Git exit {}. Inspect the new commit before repeating anything.",output.code)),
+            Ok(_) if conflicted && matches!(&review.operation, Mutation::StashApply { .. })=>return Err("Stash has conflicts. The stash is retained. Refresh and resolve the conflicted files; do not apply the stash again while conflicts remain.".into()),
+            Ok(_) if conflicted && matches!(&review.operation, Mutation::Revert { .. })=>return Err("Revert has conflicts. Refresh, then resolve the files or choose Abort revert. Saved files may have changed.".into()),
             Ok(output)=>return Err(format!("Git refused the operation ({}): {}. Commit draft and any existing index changes remain; Refresh before retrying.",output.code,String::from_utf8_lossy(&output.stderr))),
             Err(error) if committed=>Some(format!("{error} HEAD changed; inspect the completed commit before retrying.")),
             Err(error)=>return Err(error),

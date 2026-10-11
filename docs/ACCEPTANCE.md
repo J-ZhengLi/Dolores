@@ -1,5 +1,54 @@
 # Dolores acceptance — 2026-10-08
 
+## October 11–12 background audit: large direct Git actions
+
+The desktop helper failed both activation attempts with `foreground window did
+not report a process id`. Selection was refreshed before retry; no subsequent
+UI input or alternate automation was used. Physical Git conflict/direct-action
+acceptance remains pending, and the checklist stays at 66/129.
+
+A public 678,000-byte change failed Commit on the normal release bridge:
+`Git output exceeds 512 KiB`. The internal commit preparation still captured a
+full prospective diff, unused after removal of the review UI. Its output cap
+blocked ordinary commits; the patch also had a separate 256 KiB limit. Both are
+avoided by retaining a bounded file-count summary and the existing exact paths,
+saved revision, author, dirty-editor and hook guards. No process/output bound
+was increased; no automatic retries were added. The first rebuilt bridge committed
+the full file, then exposed the same obsolete-capture problem in Discard at the
+256 KiB patch bound. An independent large Revert regression failed at 512 KiB.
+Discard and Revert now retain bounded operation metadata; only selected hunk
+actions need their actual patch. Their saved-state, tracked-path, dirty-editor,
+clean-repository and conflict/Abort checks remain.
+
+The subsequent stash-conflict probe retained both the exact stash and conflict
+markers, but exposed an unhelpful `Index was not unstashed` error. A strengthened
+regression failed on that wording. Confirmed stash conflicts now explain retention,
+Refresh and resolution before retry; confirmed revert conflicts explain Refresh
+and Abort revert. These messages use the post-action repository state and do not
+claim that failure left saved files unchanged.
+
+The new large-commit regression failed before this repair and passes afterwards.
+It verifies automatic commit by exact Git blob hash, staged-selection precedence,
+later saved working content and unrelated untracked retention. Separate large
+Discard and Revert tests also failed before their repairs. Final Git tests and
+rebuilt-bridge results follow below. The preceding normal-release integration
+probe passed all 13 checks:
+repository ownership, bulk index actions, commit preparation without staging,
+history, new files, dirty buffers, hook recovery, selected stash/discard, local
+bare remote, owned cancellation, no idle process, large diffs and stale refresh.
+Final verification passes all 25 Rust Git tests, bridge Clippy and the normal
+Windows build. The rebuilt release bridge passes five public cases: large Commit,
+Discard and Revert, conflicting pop retaining the exact stash and conflicted
+file, and conflicting revert followed by Abort preserving HEAD and saved bytes.
+The original 678,000-byte failure now completes without changing output limits.
+Final receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
+Documentation checks pass for 107 documents/413 local links; the tracked
+publication scan reports no known-pattern findings across 791 files.
+Public receipts remain under ignored `output/git-large-actions-*` and
+`output/source-control-17-7a29d9c22c3f426ba1629dc5e64c7f6d/`. Original profile
+verification matches all 49 table digests. No provider calls were needed for
+these Git operations; no original repository data or public remotes were changed.
+
 ## October 11 direct Git actions
 
 The user's selected Git action now executes without a review dialog. Commit,

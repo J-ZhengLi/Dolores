@@ -24,6 +24,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Large changes can be committed, discarded or reverted without an unused review diff blocking the action.
+- Stash and revert conflicts explain how to recover while preserving the stash and existing work.
 - Large saved changes can be stashed and restored without fitting their entire diff into a review.
 - Scheduled occurrences execute the saved work instead of repeating setup-only instructions from the original request.
 
