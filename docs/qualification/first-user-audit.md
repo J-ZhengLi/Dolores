@@ -8,14 +8,23 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-Native audit resumed October 10 after the user authorized continuing the full
-checklist while AFK, then paused again when the user needed the computer. The user
-has now allowed computer-use again and requested one item at a time. A12 is
-complete; no further item was started in this pass. User-message Markdown was
-verified with deterministic widget tests and saved renders; it adds no native
-checklist pass. **52/129 checked**.
+Native audit resumed October 11 with the user's authorization to continue
+through the checklist while the computer is free. A12 and C12 are complete.
+User-message Markdown was verified with deterministic widget tests and saved
+renders; it adds no native checklist pass. **53/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
+
+C12 passed native message and conversation paging with 61 public conversations,
+140 messages and an exact retained draft. A Latest jump initially hid the final
+reply; compact/wide regressions reproduced the changing scroll-height estimate.
+The correction preserves follow intent during app positioning and still lets
+readers scroll away. All 42 selected widget checks and the normal Windows build
+pass. The rebuilt native Latest view reaches turn 70; catalog Older/Newer retains
+the scrolled reading position and selected conversation. Public storage and all
+49 original profile table digests remain unchanged. Evidence:
+`observations-20261011.jsonl` and `c12-storage-verification.json` under the same
+ignored audit directory.
 
 The new question card passed a real qwen3.7-flash desktop round trip: no initial
 selection, choice selection, Back/Next retention, custom date overriding a choice,
@@ -234,7 +243,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] C09 Navigate away and back with an unsent draft; restart retains settled draft and history.
 - [x] C10 Hide/show and resize the side panel with the title-bar control, drag and keyboard alternatives.
 - [x] C11 Switch project conversations; developer pages follow the selected project with no dropdown.
-- [ ] C12 Browse older/newer/latest messages and conversations without losing selection/draft.
+- [x] C12 Browse older/newer/latest messages and conversations without losing selection/draft. October 11 native retest preserves the exact draft and reading position; Latest reaches the final reply after the scroll correction.
 - [x] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
 - [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
 - [x] C15 Record Worked/Needs work feedback and inspect the retained note.

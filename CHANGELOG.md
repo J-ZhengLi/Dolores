@@ -23,6 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Latest messages reaches the end of the final reply after the history layout settles; scrolling up still keeps your reading position.
 - Chat shows recent tool outcomes and lets you inspect all earlier actions, including failed attempts and recovery results.
 - Rejected file edits show their actual failure reason instead of a misleading invalid-path heading.
 - The side-panel divider responds to quick drags and acquires keyboard focus for Left/Right resizing and Home reset.

@@ -1,5 +1,32 @@
 # Dolores acceptance — 2026-10-08
 
+## First-user audit — history paging (October 10–11)
+
+C12 used the normal desktop's isolated public fixture: 61 conversations, 140
+messages and the exact unsent `Public paging draft`. Native Older showed the
+oldest message page; switching away and returning restored that page and draft.
+Newer returned to the newest page. Conversation-list Older/Newer kept the current
+conversation and draft even while its row was on another catalog page.
+
+Latest loaded the newest messages but initially left the final reply below the
+viewport. Two focused compact/wide regressions reproduced hidden content: 723 and
+1,176.57 pixels remained below the viewport after the latest-page jump. The list's
+estimated maximum changed after layout; the app's own correction stopped following.
+Programmatic positioning now retains follow intent, and scroll-metric changes
+finish the jump. Scrolling upward still stops following. All 42 selected history,
+AppHost, inspector, Markdown and tool widget tests pass, including streaming
+coalescing and scroll-away behavior, unavailable-storage recovery, draft retention
+and bounded page replacement. Changed-file analysis is clean. The normal Windows
+build passed. October 11's native retest showed the final answer (turn 70) after
+Older → Latest, with the exact draft retained. Scrolling upward then paging the
+conversation list Older/Newer kept the reading position and restored the selected
+row. C12 is checked; the checklist now has 53/129 completed items.
+Read-only storage checks preserve all public fixture conversations/messages and
+the exact draft, with no model run for the fixture. All 49 original profile table
+digests remain unchanged. Evidence stays ignored under
+`output/native-audit-20261010-01/observations-20261011.jsonl` and
+`c12-storage-verification.json` in that directory.
+
 ## First-user audit — large-file editing and visible recovery (October 10)
 
 A12 passed through the normal Windows desktop with qwen3.7-flash and a disposable

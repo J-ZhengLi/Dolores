@@ -5,6 +5,7 @@ import 'chat_details.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:file_selector/file_selector.dart';
 
 import 'bridge.dart';
@@ -110,6 +111,7 @@ class _ChatPageState extends State<ChatPage> {
   final shell = GlobalKey<ScaffoldState>();
   ChatController get chat => widget.chat;
   bool following = true;
+  bool _positioning = false;
   double sidebarWidth = UiTokens.sidebarWidth;
   int seenRevision = -1;
   @override
@@ -118,8 +120,12 @@ class _ChatPageState extends State<ChatPage> {
     chat.addListener(_changed);
     input.text = chat.draft;
     scroll.addListener(() {
-      if (scroll.hasClients) following = scroll.position.extentAfter < 80;
-      if (scroll.hasClients) chat.rememberScroll(scroll.offset);
+      if (!scroll.hasClients) return;
+      // Layout corrections after a jump are not a request to stop following.
+      if (!_positioning) {
+        following = scroll.position.extentAfter < 80;
+      }
+      chat.rememberScroll(scroll.offset);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _changed());
   }
@@ -139,8 +145,8 @@ class _ChatPageState extends State<ChatPage> {
       final offset = chat.scrollOffset;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && scroll.hasClients) {
-          scroll.jumpTo(offset.clamp(0, scroll.position.maxScrollExtent));
-          following = scroll.position.extentAfter < 80;
+          _jumpTo(offset.clamp(0, scroll.position.maxScrollExtent));
+          following = offset.isInfinite || scroll.position.extentAfter < 80;
         }
       });
       return;
@@ -152,11 +158,40 @@ class _ChatPageState extends State<ChatPage> {
     if (following) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && following && scroll.hasClients) {
-          scroll.jumpTo(scroll.position.maxScrollExtent);
+          _jumpTo(scroll.position.maxScrollExtent);
         }
       });
     }
   }
+
+  void _jumpTo(double offset) {
+    _positioning = true;
+    try {
+      scroll.jumpTo(offset);
+    } finally {
+      _positioning = false;
+    }
+  }
+
+  Widget _historyViewport({
+    required EdgeInsets padding,
+    required List<Widget> children,
+  }) => NotificationListener<ScrollMetricsNotification>(
+    onNotification: (notification) {
+      if (notification.depth == 0) _followReply();
+      return false;
+    },
+    child: NotificationListener<UserScrollNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0 &&
+            notification.direction == ScrollDirection.forward) {
+          following = false;
+        }
+        return false;
+      },
+      child: ListView(controller: scroll, padding: padding, children: children),
+    ),
+  );
 
   @override
   void dispose() {
@@ -1176,8 +1211,7 @@ class _ChatPageState extends State<ChatPage> {
                               constraints: const BoxConstraints(
                                 maxWidth: UiTokens.contentWidth,
                               ),
-                              child: ListView(
-                                controller: scroll,
+                              child: _historyViewport(
                                 padding: EdgeInsets.fromLTRB(
                                   narrow ? 24 : 40,
                                   36,

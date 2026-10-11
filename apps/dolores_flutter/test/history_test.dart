@@ -72,7 +72,58 @@ class HistoryBridge implements ChatBridge {
   }
 }
 
+class RenderedHistoryBridge extends HistoryBridge {
+  @override
+  List<Map<String, dynamic>> messageItems(int end) => super
+      .messageItems(end)
+      .map(
+        (message) => {
+          ...message,
+          'content': message['role'] == 'assistant'
+              ? 'Public answer ${message['id']}.\n\n'
+                    '${List.filled(message['id'] == 160 ? 20 : 2, 'A public paragraph for reading history.').join('\n\n')}'
+              : 'Public question ${message['id']}',
+        },
+      )
+      .toList();
+}
+
 void main() {
+  for (final width in [390.0, 1100.0]) {
+    testWidgets('Latest reaches the final rendered reply at width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 813);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final chat = ChatController(RenderedHistoryBridge());
+      await chat.initialize();
+      chat.draft = 'Preserve this unsent draft';
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      await tester.pumpAndSettle();
+      await chat.browseMessages(newer: false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('latest-messages')));
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widgetList<ListView>(find.byType(ListView))
+          .singleWhere((view) => view.controller != null)
+          .controller!;
+      expect(controller.position.extentAfter, lessThanOrEqualTo(1));
+      expect(chat.draft, 'Preserve this unsent draft');
+      // Reading earlier content must cancel following even after late renders.
+      await tester.drag(find.byType(ListView).last, const Offset(0, 400));
+      await tester.pumpAndSettle();
+      final earlier = controller.offset;
+      await tester.pump(const Duration(seconds: 1));
+      expect(controller.offset, earlier);
+      expect(controller.position.extentAfter, greaterThan(80));
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    });
+  }
+
   test(
     'Pages replace memory, view state restores, failures keep the current page',
     () async {
