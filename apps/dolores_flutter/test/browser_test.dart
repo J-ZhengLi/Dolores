@@ -8,6 +8,7 @@ import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/tool_activity.dart';
 
 class BrowserBridge implements ChatBridge {
+  final commands = <Map<String, dynamic>>[];
   @override
   Future<void> open() async {}
   @override
@@ -16,6 +17,7 @@ class BrowserBridge implements ChatBridge {
   bool fail = true;
   @override
   Future<dynamic> call(Map<String, dynamic> value) async {
+    commands.add(Map.of(value));
     if (value['command'] == 'browserSettings') {
       return {
         'available': false,
@@ -26,7 +28,8 @@ class BrowserBridge implements ChatBridge {
         'setup': 'Browser setup in the user guide',
       };
     }
-    if (value['command'] == 'browserCapture') {
+    if (value['command'] == 'browserCapture' ||
+        value['command'] == 'desktopPreview') {
       captures++;
       if (fail) {
         throw 'Local capture is missing.';
@@ -38,6 +41,89 @@ class BrowserBridge implements ChatBridge {
 }
 
 void main() {
+  for (final name in ['browser', 'inspect_desktop_capture']) {
+    testWidgets(
+      'missing $name capture stays readable inside its saved receipt',
+      (tester) async {
+        final bridge = BrowserBridge();
+        const capture = '00000000-0000-0000-0000-000000000001';
+        final content = name == 'browser'
+            ? {
+                'capture': capture,
+                'outcome': 'completed',
+                'text': 'Retained public page state.',
+                'note': 'Public browser receipt.',
+              }
+            : {
+                'capture': {
+                  'id': capture,
+                  'session': 'public-side-chat',
+                  'observation': {
+                    'target': {'title': 'Public fixture window'},
+                    'width': 1,
+                    'height': 1,
+                    'dpi': 96,
+                  },
+                },
+                'freshness': 'Historical screenshot.',
+              };
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: ToolRecords(
+                  bridge: bridge,
+                  records: [
+                    {
+                      'callId': 'public-capture',
+                      'name': name,
+                      'target': 'Public capture receipt',
+                      'status': 'completed',
+                      'content': jsonEncode(content),
+                    },
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Public capture receipt'));
+        await tester.pumpAndSettle();
+        expect(bridge.captures, 0);
+        await tester.tap(find.text('View local screenshot'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(
+          find.textContaining('Local capture is missing.'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('does not repeat the action'),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('View local screenshot'));
+        await tester.pumpAndSettle();
+        expect(bridge.captures, 2);
+        expect(
+          bridge.commands.map((command) => command['command']).toList(),
+          List.filled(
+            2,
+            name == 'browser' ? 'browserCapture' : 'desktopPreview',
+          ),
+        );
+        expect(
+          bridge.commands.every((command) => command['capture'] == capture),
+          isTrue,
+        );
+        expect(
+          find.textContaining('Local capture is missing.'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'missing adapter has setup/refresh and scrolls in compact themes',
     (tester) async {

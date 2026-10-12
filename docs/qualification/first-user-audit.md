@@ -8,6 +8,23 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
+### Current desktop pause — October 12
+
+Physical Escape stopped computer-use during G20's remote picker. The user then
+explicitly chose to keep desktop interaction paused. Native testing will resume
+only after the user makes the computer available again. The unobserved action
+adds no pass: its local delay marker was absent and the owned temporary transport
+override was removed. Original-profile verification still matches all 49 table
+digests. **82 checked / 47 pending** remains the current count.
+
+Background widget checks found and repaired two related receipt recovery defects:
+native-build details had both a scroll/expansion type collision and shared nested
+expansion state; missing browser/selected-window capture errors had the same type
+collision. Independent storage keys preserve readable evidence, separate expansion
+choices and view-only retries. Reproductions failed before the fixes; 37 focused
+checks, all 444 Flutter tests, analysis and a normal Windows build pass. No native item is checked from
+this background work. Audit notes accompany the code-change commit.
+
 Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved

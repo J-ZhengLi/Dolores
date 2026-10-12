@@ -1,5 +1,33 @@
 # Dolores acceptance — 2026-10-08
 
+## October 12 background audit: nested receipt recovery
+
+After physical Escape stopped computer-use, the user explicitly kept desktop
+interaction paused. No further native input was issued. The interrupted G20
+remote-picker action has no observed outcome: the owned transport-delay marker
+was absent, and the temporary local upload-pack override was removed. G20 remains
+unchecked; neither a stale refusal nor a canceled transfer is inferred.
+
+Widget interaction reproduced two further receipt failures using the real
+`ToolRecords` hierarchy and saved page state. Opening native-build details raised
+the same boolean/scroll-offset type error as MCP metadata. A separate text key
+removed the crash but exposed shared outer/inner expansion state: details opened
+without being selected. Independent keys for both text and nested expansion fix
+the two symptoms. Tests cover collapse, view restoration, two reordered receipts
+and a failed build retaining its actual result and reviewed commands.
+
+A missing browser capture inside its saved receipt also raised that type error.
+A separate error-text key fixes it for browser and selected-window captures.
+Repeated viewing attempts issue only the matching capture-read command for the
+same capture; they never repeat the original action. The recovery copy now refers
+to the action generally, correctly covering both screenshot types.
+
+Both reproductions failed before their fixes. All 37 focused Flutter checks,
+all 444 Flutter tests, analysis and the normal Windows build pass. These are deterministic widget and
+compilation checks; no model request or native checklist pass is added.
+Checklist remains **82/129 checked**, with 47 native interaction gaps. Notes are
+committed together with these code changes, as requested.
+
 ## October 12 native audit: local Git remote cycle
 
 G19 passed native Fetch, dirty-Pull refusal, clean fast-forward Pull, file +,

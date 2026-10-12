@@ -759,9 +759,15 @@ class _ToolRecordsState extends State<ToolRecords> {
                 if (record['name'] == 'build_harness_repair' &&
                     record['query'] is String)
                   ExpansionTile(
+                    key: PageStorageKey(
+                      'tool-build-review-${record['callId']}-${record['name']}-${record['target']}',
+                    ),
                     title: const Text('Build review details'),
                     children: [
                       SelectableText(
+                        key: PageStorageKey(
+                          'tool-build-review-text-${record['callId']}-${record['name']}-${record['target']}',
+                        ),
                         record['query'] as String,
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),

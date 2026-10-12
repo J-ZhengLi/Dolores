@@ -16,6 +16,119 @@ Map<String, dynamic> record(int index, {bool blocked = false}) => {
 };
 
 void main() {
+  testWidgets(
+    'separate ready and failed builds retain their own review details',
+    (tester) async {
+      final receipts = ValueNotifier<List<dynamic>>([
+        for (final index in [0, 1])
+          {
+            'callId': 'build-$index',
+            'name': 'build_harness_repair',
+            'target': 'Public build $index',
+            'query': 'Reviewed public commands $index',
+            'status': 'completed',
+            'content': jsonEncode({
+              'build': {
+                'id': 'build-$index',
+                'candidateSourceId': 'candidate-$index',
+                'status': index == 0 ? 'ready' : 'failed',
+                'note': index == 0
+                    ? 'Build ready.'
+                    : 'Compiler refused the build.',
+              },
+            }),
+          },
+      ]);
+      addTearDown(receipts.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ValueListenableBuilder<List<dynamic>>(
+                valueListenable: receipts,
+                builder: (_, value, child) => ToolRecords(records: value),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Public build 0'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Build review details'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Public build 1'));
+      await tester.tap(find.text('Public build 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reviewed public commands 0'), findsOneWidget);
+      expect(find.text('Reviewed public commands 1'), findsNothing);
+      expect(
+        find.textContaining('Compiler refused the build.'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Build incomplete · proposal retained'),
+        findsWidgets,
+      );
+      receipts.value = receipts.value.reversed.toList();
+      await tester.pumpAndSettle();
+      expect(find.text('Reviewed public commands 0'), findsOneWidget);
+      expect(find.text('Reviewed public commands 1'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'build review details have independent restored expansion state',
+    (tester) async {
+      final bucket = PageStorageBucket();
+      const review = '{"repairId":"public-repair","commands":["public check"]}';
+      final receipt = {
+        'callId': 'public-build',
+        'name': 'build_harness_repair',
+        'target': 'Public native build',
+        'query': review,
+        'status': 'completed',
+        'content': jsonEncode({
+          'build': {
+            'id': 'public-build-id',
+            'candidateSourceId': 'public-candidate',
+            'status': 'ready',
+            'note': 'Public build ready.',
+          },
+        }),
+      };
+      Widget view() => MaterialApp(
+        home: Scaffold(
+          body: PageStorage(
+            bucket: bucket,
+            child: SingleChildScrollView(
+              child: ToolRecords(records: [receipt]),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(view());
+      await tester.tap(find.text('Public native build'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Public build ready.'), findsOneWidget);
+      expect(find.text(review), findsNothing);
+      await tester.tap(find.text('Build review details'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(review), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(view());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(review), findsOneWidget);
+      await tester.tap(find.text('Build review details'));
+      await tester.pumpAndSettle();
+      expect(find.text(review), findsNothing);
+      expect(find.textContaining('Public build ready.'), findsOneWidget);
+    },
+  );
+
   testWidgets('MCP metadata survives expansion and a restored chat view', (
     tester,
   ) async {

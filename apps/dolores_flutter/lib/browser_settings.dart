@@ -173,7 +173,10 @@ class _BrowserCaptureState extends State<BrowserCapturePreview> {
         ),
       if (error != null)
         SelectableText(
-          '$error Retry viewing; this does not repeat the browser action.',
+          key: PageStorageKey(
+            'capture-error-${widget.desktopSession ?? 'browser'}-${widget.capture}',
+          ),
+          '$error Retry viewing; this does not repeat the action.',
         ),
       if (bytes != null)
         Image.memory(
