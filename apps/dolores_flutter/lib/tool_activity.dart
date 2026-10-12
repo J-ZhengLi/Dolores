@@ -227,6 +227,7 @@ String toolQueryText(dynamic record) {
     return 'Page request: ${record['query']}';
   }
   final label = switch (record['name']) {
+    'browser' => 'Operation',
     'delegate_tasks' => 'Plan',
     'inspect_harness' => 'Inspection',
     'harness_repair' => 'Repair',

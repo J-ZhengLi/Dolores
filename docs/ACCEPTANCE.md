@@ -1,5 +1,31 @@
 # Dolores acceptance — 2026-10-08
 
+## October 12 native audit: reviewed live browser form
+
+I04 passed with native Send and four explicit Allow once controls. DeepSeek opened
+an owned local form, filled `PUBLIC-BROWSER-42`, clicked Preview with the latest
+state and captured the resulting page. Five model calls completed. Exact DOM
+receipts and the final answer agreed; native View local screenshot showed the
+input/result value, and collapsing the capture caused no error. Read-only process
+inspection found no owned child after completion. Public receipt:
+`output/native-audit-20261010-01/i04-native-receipt.json`.
+
+The browser operation receipt incorrectly called its reviewed arguments “Search”.
+It now says “Operation”, retaining the full JSON and outcome. The reproducing
+widget check failed before the fix; all 15 focused tool-receipt/browser checks pass.
+Application/test analysis and a normal Windows build pass; the rebuilt native
+receipt shows “Operation” and keeps the reviewed JSON readable.
+
+I05 separately passed native interruption and stale-state recovery. Qwen's owned
+local navigation entered a deliberately delayed HTTP handler before Stop; the
+exact draft was restored and zero owned child processes remained. DeepSeek's
+local page changed while Fill waited for review. The stale action dispatched
+nothing; returned fresh state required a new review, then Fill/Click/Screenshot
+completed. Six model calls retained refusal and recovery. Receipts:
+`i05-native-stop.json` / `i05-native-stale.json` in the same evidence directory.
+Original-profile verification still matches all 49 table digests. Checklist:
+**86/129 checked, 43 pending**.
+
 ## October 12 native audit: skill test inputs and interruption
 
 E04 passed with explicit evidence boundaries. A native DeepSeek draft and two

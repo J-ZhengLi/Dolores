@@ -17,6 +17,48 @@ Map<String, dynamic> record(int index, {bool blocked = false}) => {
 
 void main() {
   testWidgets(
+    'browser action receipts name the operation and retain its result',
+    (tester) async {
+      final query = jsonEncode({
+        'operation': 'fill',
+        'ref': 'e1',
+        'state': 'public:2',
+        'text': 'PUBLIC-BROWSER-42',
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ToolRecords(
+              records: [
+                {
+                  'callId': 'public-browser-fill',
+                  'name': 'browser',
+                  'target': 'Public local form',
+                  'query': query,
+                  'status': 'completed',
+                  'content': jsonEncode({
+                    'operation': 'fill',
+                    'outcome': 'acted',
+                    'title': 'Public local form',
+                    'url': 'http://127.0.0.1:12345/',
+                    'text': 'PUBLIC-BROWSER-42',
+                    'controls': [],
+                  }),
+                },
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Public local form'));
+      await tester.pumpAndSettle();
+      expect(find.text('Operation: $query'), findsOneWidget);
+      expect(find.text('Search: $query'), findsNothing);
+      expect(find.textContaining('PUBLIC-BROWSER-42'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'separate ready and failed builds retain their own review details',
     (tester) async {
       final receipts = ValueNotifier<List<dynamic>>([

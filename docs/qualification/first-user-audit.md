@@ -8,6 +8,8 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
+**Current checkpoint: 86/129 checked, 43 pending.**
+
 ### Native audit resumed — October 12
 
 The user resumed UI auditing. G20 now passes all three cases: the earlier
@@ -38,6 +40,31 @@ Native verification passed after the normal build. A failing-first regression
 covers empty and whitespace-only inputs, no accidental evaluation and activation
 invalidation. All 22 focused skill tests and analysis of `lib`/`test` pass.
 **84 checked / 45 pending**. Original-profile verification matches all 49 tables.
+
+I04 then passed end to end through native Send and four Allow once controls with
+DeepSeek: open the owned local form, fill Name with `PUBLIC-BROWSER-42`, click
+Preview using the current state, and take a local screenshot. Five reported model
+calls completed. The DOM receipt and final response retained the exact value;
+native View local screenshot showed it in both the input and page result. The
+capture could be collapsed without an error, and no app-owned child process
+remained after completion. Public evidence is retained in
+`output/native-audit-20261010-01/i04-native-receipt.json`. I05's native Stop and
+stale-state recovery remain separate. **85 checked / 44 pending**.
+
+This check also found a browser operation mislabeled as “Search” in its receipt.
+The label is now “Operation”; the exact reviewed JSON and result remain visible.
+
+I05 also passed natively. Qwen requested the owned slow page, native Allow once
+started navigation, and the server's entry marker proved it was in flight before
+Stop. Dolores restored the exact draft and no owned child remained. In a separate
+DeepSeek run, the local page changed while Fill was waiting for review. The old
+state was refused with `actionDispatched: false`; the returned fresh state required
+a new Allow once review, then Fill, Click and Screenshot completed. Six model
+calls retained both the refusal and recovery. The rebuilt receipt used “Operation”
+and explained that no stale action ran. Public receipts are
+`i05-native-stop.json` and `i05-native-stale.json` under the same ignored evidence
+directory. Original-profile verification still matches all 49 tables.
+**86 checked / 43 pending**.
 
 ### Previous desktop pause — October 12
 
@@ -330,14 +357,13 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
 | C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
-| G20 (1) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P04, P06–P08, P12–P14 (7) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
 | M01, M04–M10 (8) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
-| I04–I06, I10 (4) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
+| I06, I10 (2) | Exact reviewed two-tool MCP invocation; real scoped delegation with retained reports | MCP activation controls and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
-| E01–E08, E10–E12 (11) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
+| E01–E03, E05–E08, E10–E12 (10) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
 
 Live safety outcomes remain distinct from positive reliability. The earlier Qwen
 learning trial was incomplete; DeepSeek tied the baseline. Neither activated.
@@ -867,8 +893,8 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] I01 Web search returns labeled source results or a truthful empty/error outcome; refine/direct URL recovery works.
 - [x] I02 Read a public primary page with citations; partial excerpt and provenance are visible.
 - [x] I03 Browser readiness/setup status is understandable; missing optional adapter has actionable recovery.
-- [ ] I04 Model opens a disposable local web page, reads it and requests reviewed click/input; local screenshot is inspectable.
-- [ ] I05 Browser Stop/stale reference recovery closes owned browser and avoids blind repeated input.
+- [x] I04 Model opens a disposable local web page, reads it and requests reviewed click/input; local screenshot is inspectable. Native October 12: DeepSeek, four Allow once actions, five calls, exact public form result and readable local screenshot; zero owned children after completion.
+- [x] I05 Browser Stop/stale reference recovery closes owned browser and avoids blind repeated input. Native October 12: entered Qwen navigation stopped/restored draft; DeepSeek's stale Fill dispatched nothing and recovered only with new state/review; zero owned children after each run.
 - [ ] I06 Inspect/enable a harmless local MCP server; catalog discovery does not silently execute tools.
 - [x] I07 Real-model invocation of enabled external tool shows exact review/receipt; missing/stale server recovers usefully.
 - [ ] I08 Attach a disposable Windows window for view-only inspection with a capable model; target/sharing are explicit.
