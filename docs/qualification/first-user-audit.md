@@ -8,7 +8,38 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-### Current desktop pause — October 12
+### Native audit resumed — October 12
+
+The user resumed UI auditing. G20 now passes all three cases: the earlier
+divergent Pull refusal, a changed HEAD while the remote picker was open, and Stop
+after an owned local Fetch transport actually started. The stale basis was refused
+before transfer. Stop explained that effects might remain; native Refresh recovered
+the controls and History refresh showed the new HEAD. Exact public file bytes,
+local/tracking/remote refs were unchanged after Stop, and no owned child process
+remained. The temporary local transport delay was removed. Evidence is retained
+in `output/native-audit-20261010-01/g20-native-resumed.json`.
+**83 checked / 46 pending**. These notes will accompany the next code-change commit.
+
+E04 subsequently passed native response testing. DeepSeek generated a draft from
+a completed public code review. One- and two-case arithmetic controls retained
+exact prompts/required snippets, baseline/candidate replies and reported usage.
+Both comparisons tied, so activation remained disabled. Stop arrived after these
+fast live runs completed; neither is counted as an interruption. A separately
+labeled local fixture delayed an entered evaluation request for 20 seconds. Native
+Stop reported “Skill evaluation stopped. Nothing was saved.” Draft and test inputs
+remained editable, and activation stayed disabled. This proves interruption UI,
+not live-model reliability. Earlier substantive real-model evaluation remains
+separate evidence; M10 still needs native editing and strict-gain promotion.
+
+The empty-test path exposed a usability defect: Evaluate was enabled before test
+inputs existed and showed a dense host validation error. The footer now explains
+the missing prompt/expected text and disables Evaluate until every case has both.
+Native verification passed after the normal build. A failing-first regression
+covers empty and whitespace-only inputs, no accidental evaluation and activation
+invalidation. All 22 focused skill tests and analysis of `lib`/`test` pass.
+**84 checked / 45 pending**. Original-profile verification matches all 49 tables.
+
+### Previous desktop pause — October 12
 
 Physical Escape stopped computer-use during G20's remote picker. The user then
 explicitly chose to keep desktop interaction paused. Native testing will resume
@@ -773,7 +804,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.
 - [x] G18 Revert a disposable commit; conflict/Abort recovery does not discard unrelated work.
 - [x] G19 Fetch/Pull/Push against a local bare remote: selected actions, tracking and fast-forward behavior are correct.
-- [ ] G20 Divergent Pull, changed refs and interrupted remote action retain evidence and require reconciliation.
+- [x] G20 Divergent Pull, changed refs and interrupted remote action retain evidence and require reconciliation. Native October 12: stale picker refused; entered local Fetch stopped; Refresh reconciled unchanged refs/bytes and zero owned children.
 
 ## 5. Terminal
 
@@ -849,7 +880,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] E01 Opt-in companionship model/hours and Quiet–Chatty frequency (0–100/day) produce a bounded in-app note when eligible, quiet during active work.
 - [ ] E02 Open/Not now/Dismiss/Fewer messages/Turn off behave clearly without triggering external actions.
 - [ ] E03 Compare instructions retains exact cases/usage and never activates a tie or incomplete result.
-- [ ] E04 Skill testing has fixed disposable cases and truthful candidate/baseline results with Stop recovery.
+- [x] E04 Skill testing has fixed disposable cases and truthful candidate/baseline results with Stop recovery. Native October 12: DeepSeek comparisons retained exact cases/replies/usage and refused ties; a labeled delayed local fixture verified entered-request Stop and retained editable inputs.
 - [ ] E05 Project reflection/automatic activation/pause retain source evidence and only activate complete independent gain.
 - [ ] E06 Restore/quarantine learning baseline; manual edits conflict instead of silently overwriting work.
 - [ ] E07 Harness extensions test source, bounded model draft and strict-gain activation preserve incomplete candidate source.

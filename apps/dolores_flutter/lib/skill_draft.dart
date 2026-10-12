@@ -130,12 +130,18 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
 
   void _edited(String _) {
     // Retain the host token for a new evaluation, but never offer the old result.
-    if (result != null) {
-      setState(
-        () => result = {...result!, 'promotable': false, 'edited': true},
-      );
-    }
+    setState(() {
+      if (result != null) {
+        result = {...result!, 'promotable': false, 'edited': true};
+      }
+    });
   }
+
+  bool get _testsReady => trials.every(
+    (trial) =>
+        trial.prompt.text.trim().isNotEmpty &&
+        trial.required.text.split('\n').any((text) => text.trim().isNotEmpty),
+  );
 
   Future<Map<String, dynamic>> _request(
     String command,
@@ -506,36 +512,50 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
             Divider(height: 1, color: p.border),
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (run != null)
-                    TextButton(
-                      key: const Key('stop-skill-draft'),
-                      onPressed: stopping ? null : _stop,
-                      child: Text(stopping ? 'Stopping…' : 'Stop'),
+                  if (draft != null && !_testsReady)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Add a prompt and expected text to evaluate.',
+                      ),
                     ),
-                  if (draft == null)
-                    FilledButton(
-                      key: const Key('generate-skill-draft'),
-                      onPressed: busy || selected.isEmpty ? null : _generate,
-                      child: const Text('Generate draft'),
-                    ),
-                  if (draft != null) ...[
-                    OutlinedButton(
-                      key: const Key('evaluate-skill-draft'),
-                      onPressed: busy ? null : _evaluate,
-                      child: const Text('Evaluate draft'),
-                    ),
-                    FilledButton(
-                      key: const Key('promote-skill-draft'),
-                      onPressed: busy || result?['promotable'] != true
-                          ? null
-                          : _activate,
-                      child: const Text('Activate tested skill'),
-                    ),
-                  ],
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (run != null)
+                        TextButton(
+                          key: const Key('stop-skill-draft'),
+                          onPressed: stopping ? null : _stop,
+                          child: Text(stopping ? 'Stopping…' : 'Stop'),
+                        ),
+                      if (draft == null)
+                        FilledButton(
+                          key: const Key('generate-skill-draft'),
+                          onPressed: busy || selected.isEmpty
+                              ? null
+                              : _generate,
+                          child: const Text('Generate draft'),
+                        ),
+                      if (draft != null) ...[
+                        OutlinedButton(
+                          key: const Key('evaluate-skill-draft'),
+                          onPressed: busy || !_testsReady ? null : _evaluate,
+                          child: const Text('Evaluate draft'),
+                        ),
+                        FilledButton(
+                          key: const Key('promote-skill-draft'),
+                          onPressed: busy || result?['promotable'] != true
+                              ? null
+                              : _activate,
+                          child: const Text('Activate tested skill'),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),

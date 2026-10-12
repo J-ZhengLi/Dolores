@@ -24,6 +24,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Skill drafts explain missing test inputs before evaluation, keeping incomplete tests from sending a model request.
 - Windows CI retains Flutter release tags so the pinned SDK resolves dependencies with its correct version.
 - Native-build details keep their own expanded state, and missing screenshot errors stay readable without repeating the original action.
 - External-tool receipts render their reviewed arguments correctly when expanded or reopened.

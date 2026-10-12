@@ -182,7 +182,94 @@ Future<void> generate(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> fillResponseTest(WidgetTester tester) async {
+  await reveal(tester, 'skill-test-prompt-0');
+  await tester.enterText(
+    find.byKey(const Key('skill-test-prompt-0')),
+    'Review a change',
+  );
+  await reveal(tester, 'skill-test-required-0');
+  await tester.enterText(
+    find.byKey(const Key('skill-test-required-0')),
+    'focused',
+  );
+  await tester.pump();
+}
+
 void main() {
+  testWidgets('empty response tests guide users before requesting evaluation', (
+    tester,
+  ) async {
+    final bridge = DraftBridge();
+    await open(tester, bridge, false);
+    await generate(tester);
+    expect(
+      find.text('Add a prompt and expected text to evaluate.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('evaluate-skill-draft')))
+          .onPressed,
+      isNull,
+    );
+    await reveal(tester, 'skill-test-prompt-0');
+    await tester.enterText(
+      find.byKey(const Key('skill-test-prompt-0')),
+      'Review a change',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('evaluate-skill-draft')))
+          .onPressed,
+      isNull,
+    );
+    await reveal(tester, 'skill-test-required-0');
+    await tester.enterText(
+      find.byKey(const Key('skill-test-required-0')),
+      'focused',
+    );
+    await tester.pump();
+    expect(
+      find.text('Add a prompt and expected text to evaluate.'),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('evaluate-skill-draft')))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const Key('evaluate-skill-draft')));
+    await tester.pumpAndSettle();
+    expect(
+      bridge.commands.where((c) => c['command'] == 'evaluateSkillDraft').length,
+      1,
+    );
+    await reveal(tester, 'skill-test-required-0');
+    await tester.enterText(
+      find.byKey(const Key('skill-test-required-0')),
+      ' \n ',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('evaluate-skill-draft')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('promote-skill-draft')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      bridge.commands.where((c) => c['command'] == 'evaluateSkillDraft').length,
+      1,
+    );
+  });
   testWidgets(
     'draft limits start from model settings and failure allows an explicit larger retry',
     (tester) async {
@@ -305,6 +392,8 @@ void main() {
       final bridge = DraftBridge()..repairable = true;
       await open(tester, bridge, true);
       await generate(tester);
+      await fillResponseTest(tester);
+      await reveal(tester, 'draft-skill-name');
       expect(
         find.text(
           'Correct the draft before evaluation: Use a valid skill name.',
@@ -384,6 +473,7 @@ void main() {
           find.byKey(const Key('skill-test-required-0')),
           'focused',
         );
+        await tester.pump();
         await tester.tap(find.byKey(const Key('evaluate-skill-draft')));
         await tester.pumpAndSettle();
         final submitted = bridge.commands.lastWhere(
@@ -439,6 +529,7 @@ void main() {
       final bridge = DraftBridge()..tied = true;
       await open(tester, bridge, true);
       await generate(tester);
+      await fillResponseTest(tester);
       await tester.tap(find.byKey(const Key('evaluate-skill-draft')));
       await tester.pumpAndSettle();
       expect(

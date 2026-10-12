@@ -1,5 +1,38 @@
 # Dolores acceptance — 2026-10-08
 
+## October 12 native audit: skill test inputs and interruption
+
+E04 passed with explicit evidence boundaries. A native DeepSeek draft and two
+completed comparisons retained exact cases, responses and usage; ties never
+enabled activation. Both live Stop attempts arrived after completion and are not
+interruption passes. A local deterministic fixture delayed an entered request;
+native Stop reported no saved skill, retained draft/test inputs and left activation
+disabled. This edge proves native recovery, not provider competence. M10 still
+needs native editing and strict-gain promotion.
+
+Empty tests previously left Evaluate enabled and produced a dense host constraint
+error. The footer now gives short input guidance and enables evaluation only when
+each test has a prompt and expected text. Blank/whitespace edits invalidate prior
+activation without sending a request. The new regression failed before the fix;
+22 focused skill tests, analysis of application `lib`/`test` and a normal Windows
+build pass. Native rebuilt verification confirmed missing-input guidance, dynamic
+enablement and Stop recovery. Whole-directory analysis additionally sees an
+unrelated unnecessary-import notice in an ignored old screenshot generator.
+Original-profile verification matches all 49 table digests. Checklist:
+**84/129 checked, 45 pending**.
+
+## October 12 native audit resumed: Git interruption reconciliation
+
+G20 passed natively in the isolated public local-remote fixture. Changed HEAD
+while the remote picker was open refused the stale basis before transfer. A
+deliberately delayed local Fetch entered its transport; native Stop reported
+possible retained effects, and Refresh recovered. Read-only reconciliation found
+unchanged HEAD/tracking/bare remote refs, exact public file bytes and no owned
+child processes. History refresh showed the new HEAD. The temporary transport
+override was removed. The prior Escape checkpoint remains historical evidence,
+not a pass. Checklist: **83/129 checked, 46 pending**. Notes await the next actual
+code-change commit.
+
 ## October 12 background audit: nested receipt recovery
 
 After physical Escape stopped computer-use, the user explicitly kept desktop
