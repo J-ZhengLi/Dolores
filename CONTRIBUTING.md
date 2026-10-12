@@ -62,7 +62,11 @@ The infinity logo source is `assets/dolores.svg`, the original rounded Material 
 GitHub Actions checks and packages **Windows x64 only** on branch pushes, pull requests and manual runs. Matching version tags also create a draft release after checks pass. See [releasing](docs/RELEASING.md) and [changelog](CHANGELOG.md). The first hosted run remains separate from local verification. Retired Iced and Tauri/Svelte shells are not maintained. macOS/Linux runner definitions remain for development; Windows verification does not qualify them. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service. macOS needs its desktop toolchain and signing after adding the Rust library.
 
 CI pins Flutter 3.47.5, Rust 1.95.0 and its actions. Its deterministic checks use no
-model keys or private profiles. To run the same entry points locally, set
+model keys or private profiles. The SDK checkout includes release tags: a shallow
+commit-only checkout can report `0.0.0-unknown` despite matching the pinned commit.
+CI checks the SDK revision and version before compiling. After fetching missing
+tags, use a fresh SDK checkout/cache and rerun rather than retaining unknown
+version metadata. To run the same entry points locally, set
 `FLUTTER_SDK`, install `.github/requirements-ci.txt`, then use
 `python scripts/ci-windows.py check --generator "<installed CMake generator>"` and
 `python scripts/ci-windows.py package`. Fresh output is required. For a local retry,

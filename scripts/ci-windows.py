@@ -38,10 +38,19 @@ def sdk():
 
 def check(generator='Visual Studio 17 2022', cmake=None):
     OUTPUT.mkdir(parents=True, exist_ok=True)
+    # Check both source identity and usable SDK version before expensive compilation.
+    flutter = desktop.flutter_path()
+    run([flutter, '--no-version-check', '--suppress-analytics', 'precache', '--windows'])
+    version = json.loads((sdk() / 'bin/cache/flutter.version.json').read_text())
+    if version.get('frameworkRevision') != FLUTTER_REVISION:
+        raise ValueError('Use the pinned Flutter 3.47.5 source revision for CI packages.')
+    if version.get('frameworkVersion') != '3.47.5':
+        raise ValueError('Flutter SDK version must be 3.47.5. Fetch the SDK release tags '
+                         '(checkout fetch-depth: 0), then use a fresh SDK checkout/cache and rerun CI.')
     release.check(tag=tag())
     run([sys.executable, ROOT / 'scripts/check-publication.py'])
     run([sys.executable, ROOT / 'scripts/check-docs.py'])
-    for name in ('test-publication.py', 'test-release.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
+    for name in ('test-ci-windows.py', 'test-publication.py', 'test-release.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
         run([sys.executable, ROOT / 'scripts' / name])
     run(['cargo', 'fmt', '--all', '--check'])
     run(['cargo', 'clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings'])
@@ -49,11 +58,6 @@ def check(generator='Visual Studio 17 2022', cmake=None):
     run([shutil.which('npm') or 'npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], ROOT / 'adapters/browser')
     run(['node', '--test', 'adapters/browser/worker.test.cjs'])
     run([sys.executable, ROOT / 'scripts/test-browser-installer.py'])
-    flutter = desktop.flutter_path()
-    run([flutter, '--no-version-check', '--suppress-analytics', 'precache', '--windows'])
-    version = json.loads((sdk() / 'bin/cache/flutter.version.json').read_text())
-    if version['frameworkRevision'] != FLUTTER_REVISION:
-        raise ValueError('Use the pinned Flutter 3.47.5 source revision for CI packages.')
     build = [sys.executable, ROOT / 'scripts/desktop.py', 'build', '--flutter-sdk', sdk(), '--generator', generator]
     if cmake:
         build += ['--cmake', cmake]

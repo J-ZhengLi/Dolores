@@ -5028,3 +5028,36 @@ The normal-bundle two-server fixture reproduced a start refusal at the old 18-re
 Normal-bundle terminal/LSP qualification passes three independent project/HOME shells, Unicode, resize, actual Ctrl+C return to the shell prompt, 64-KiB polling/backpressure, owned descendant cleanup, stopped-output restoration, scoped sharing, TypeScript diagnostics/completion/navigation/rename/atomic undo/stale refusal, Rust hover/project isolation and language-process cleanup. The initial fixture raced the child exit message and submitted before PowerShell returned its prompt; it now waits for that observable prompt. Physical Flutter keyboard/IME remains pending.
 
 Project/global skills, workspace instructions and skill export pass save and separate-process restore. Fixture assertions now include interactive questions, compare exact tool specifications without relying on registration order, and request the named skill instead of expecting an irrelevant hello to inline it. Model-details qualification checks the actual saved assistant reply rather than a legacy plain-chat event type. These fixture-only repairs change no runtime or UI behavior. Scoped settings, permissions, public attachments, clickable question continuation, summaries, comparison cancellation/reopen, task/output limits, journal checkpoints, source navigation and read-only learning-evidence retention also pass. Native dialogs/review controls remain separate checklist gaps.
+
+## October 12: Flutter SDK version recovery in Windows CI
+
+The failed hosted build reported `0.0.0-unknown` while its SDK revision passed
+the existing guard. The workflow checked out the pinned Flutter commit with the
+default single-commit/no-tag fetch. Flutter 3.47.5 derives its framework version
+from Git release tags; matching HEAD alone does not establish a usable SDK
+version. The SDK checkout now fetches history/tags while retaining the exact
+commit pin. CI checks both cached framework version and revision before Rust
+compilation. Unknown/stale version metadata refuses with release-tag and fresh
+SDK/cache recovery guidance; it does not rewrite the SDK version or relax app
+dependency constraints.
+
+Three deterministic regression tests failed before the fix and pass afterward:
+unknown metadata with the correct revision is refused before compilation and
+recovers with the correct version, a different revision is refused early, and
+the pinned workflow checkout retains release tags. These tests exercise the CI
+entry point using synthetic SDK metadata and mocked child commands, not a fresh
+hosted Flutter bootstrap. Release, package, launcher and regression-runner script
+tests pass, along with document/link and tracked-file publication checks.
+
+A fresh normal Windows x64 build resolved dependencies with the existing local
+Flutter 3.47.5 SDK and passed using the installed Visual Studio 2026 generator
+and the documented CMake path. CI retains its Visual Studio 2022 generator.
+Local packaging initially refused a leftover root `native_assets.json` dated
+October 11; its native-assets map was empty and matched the maintained asset
+manifest. That extra file was retained outside the runtime under ignored output,
+without broadening the package allowlist. The retry produced an unsigned preview
+ZIP under `output/releases/ci-flutter-fix-20261012/package/` with 18 runtime files,
+dependency notices, changelog, launcher and per-file hashes. Archive verification,
+ZIP SHA-256 comparison and the fully extracted `Start-Dolores.cmd --check` pass
+on this machine. No app launch, provider request or user-profile change was made.
+Hosted CI rerun, clean-machine launch and signing remain unverified.
