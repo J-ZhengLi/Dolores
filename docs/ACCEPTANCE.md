@@ -31,7 +31,12 @@ Tray-menu Quit itself was not exercised. I01–I02 passed native search/page rec
 rebuilt desktop. The page-position label regression failed before repair;
 all 29 focused tests, analysis and Windows build passed afterward. Native
 inspection used the retained real Qwen run; no additional model request.
-Checklist: 79/129 checked, 50 pending.
+I07 passed fresh native real-Qwen exact approval/result and missing-server
+reinspection recovery. Its blank-panel regression failed before repair;
+26 focused checks, analysis, normal build and native retest passed. G17–G18
+passed direct stash conflict retention and Revert/conflict/Abort/dirty refusal
+with independently verified public bytes and refs. Native MCP activation stays
+open. Checklist: 82/129 checked, 47 pending.
 
 ## October 12 native audit: truthful nonrepository state
 

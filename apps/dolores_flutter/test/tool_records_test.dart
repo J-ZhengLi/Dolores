@@ -16,6 +16,45 @@ Map<String, dynamic> record(int index, {bool blocked = false}) => {
 };
 
 void main() {
+  testWidgets('MCP metadata survives expansion and a restored chat view', (
+    tester,
+  ) async {
+    final bucket = PageStorageBucket();
+    final receipt = {
+      'callId': 'external-echo',
+      'name': 'mcp_tool_1',
+      'target': 'Public audit echo / echo',
+      'status': 'completed',
+      'mcp': {
+        'server': 'Public audit echo',
+        'tool': 'echo',
+        'revision': 7,
+        'arguments': '{"text":"PUBLIC-MCP-AUDIT-42"}',
+      },
+      'content': jsonEncode({'isError': false, 'text': 'PUBLIC-MCP-AUDIT-42'}),
+    };
+    Widget view() => MaterialApp(
+      home: Scaffold(
+        body: PageStorage(
+          bucket: bucket,
+          child: SingleChildScrollView(child: ToolRecords(records: [receipt])),
+        ),
+      ),
+    );
+    await tester.pumpWidget(view());
+    await tester.tap(find.text('Public audit echo / echo'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Reviewed revision: 7'), findsOneWidget);
+    expect(find.text('PUBLIC-MCP-AUDIT-42'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(view());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Arguments: {"text"'), findsOneWidget);
+    expect(find.text('PUBLIC-MCP-AUDIT-42'), findsOneWidget);
+  });
+
   for (final offset in [0, 8132]) {
     testWidgets('page excerpt is not a search query at offset $offset', (
       tester,

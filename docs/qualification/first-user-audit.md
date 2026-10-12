@@ -12,7 +12,7 @@ Native audit resumed October 11 with the user's authorization to continue
 through the checklist while the computer is free. A12, C12 and A09 are complete.
 User-message Markdown was verified with deterministic widget tests and saved
 renders; it adds no native checklist pass. The October 12 resumed settings check
-completes P05, P03, P09, M02–M03, S04, S11, I01–I03, E09, G15 and G19: **79/129 checked**.
+completes P05, P03, P09, M02–M03, S04, S11, I01–I03, E09, G15, G17–G19 and I07: **82/129 checked**.
 The isolated public-notebook profile exercises the normal desktop entry point
 without copying private chats or changing the original provider configuration.
 
@@ -42,7 +42,7 @@ No model request was made. These edited values remain in the disposable audit
 profile; the original profile still matches all 49 table digests.
 
 The earlier stop checkpoint is superseded by this recovered native route.
-**79 checked / 50 pending**; background passes still do not count as native ones.
+**82 checked / 47 pending**; background passes still do not count as native ones.
 
 E09 passed through Advanced → Diagnostics & storage → Capabilities & source.
 The native view showed Dolores 0.1.0, the project workspace, Qwen model/context
@@ -145,6 +145,32 @@ character 8132.” All 29 focused tests, including empty-search recovery and lat
 page offsets, pass. Tool approvals and the three real Qwen calls (22,318 reported
 tokens) were host-level preparation; this native check sent no additional request.
 
+I07 passes a fresh native qwen3.7-flash echo request: visible Send, exact
+server/tool/revision/JSON Run once review, one real execution and a matching final
+answer. Two calls / 14,217 reported tokens; the draft and harmless connection were
+host-prepared. A temporarily missing owned script then produced a retained error
+receipt with reinspection recovery, without calling the external tool. Two calls
+were used for that exact request; a preceding underspecified request correctly
+asked for the text to echo in one call. Native inspection failed truthfully while
+the script was missing, then recovered its two-tool catalog after exact restoration.
+The server log proves only the original echo executed across these checks.
+Expanding MCP metadata initially crashed into a blank panel: its selectable text
+shared the card's boolean expansion storage with a numeric scroll offset. A
+regression failed with the exact type error; a separate metadata storage key fixes
+it. All 26 focused tests, analysis, normal Windows build and both saved/fresh native
+receipt checks passed. Native connection activation remains open in I06.
+
+G17–G18 pass their remaining native conflict/recovery routes on two separate public
+single-file repositories. Direct Apply stash retained the exact stash object and
+both conflicting texts; the message instructed Refresh/resolution and warned against
+reapplying. Refresh exposed the unmerged file. Direct Revert of an older commit
+retained conflict evidence and HEAD; its in-app diff showed both versions and an
+actionable resolution hint. Abort restored the committed bytes; Refresh diff then
+showed no changes. A clean head Revert created the expected reverse commit. A later
+dirty Revert refused before changing files, retaining the unrelated CRLF file and
+HEAD exactly. Earlier successful large-stash/apply and selected-discard evidence
+completes G17. No model call or external remote was involved.
+
 ### October 11 resumed editor interaction
 
 Fresh native pointer selection works despite the helper's stale accessibility
@@ -241,7 +267,7 @@ conflicting stash and revert conflict/Abort preserving HEAD and saved bytes.
 Receipt: `output/git-large-actions-1a522142d7ee488bbc0c0a7b9406cc9e/result.json`.
 Native count remains 66 checked / 63 pending.
 
-The updated October 12 queue has **79 checked / 50 pending**. Every pending
+The updated October 12 queue has **82 checked / 47 pending**. Every pending
 item below retains a native interaction requirement; available background paths
 have been exercised, with model reliability gaps recorded separately. The
 earlier helper failure was recovered as described above. No alternate Windows
@@ -256,12 +282,12 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
 | C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
-| G17–G18, G20 (3) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
+| G20 (1) | Bulk/individual staging, auto-stage commit, hooks, dirty-buffer protection, branches, large stash/discard/commit/revert, retained conflicts and local bare-remote operations | Direct action controls, conflict/Abort and interrupted-remote reconciliation |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P04, P06–P08, P12–P14 (7) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
 | M01, M04–M10 (8) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
-| I04–I07, I10 (5) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
+| I04–I06, I10 (4) | Real Qwen web search plus primary page; exact reviewed two-tool MCP invocation; real local browser form with DeepSeek, plus stale/Stop/capture/cleanup fixtures; real scoped delegation with retained reports | Web citations/partial-view controls, browser setup/review, MCP setup/failure recovery and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
 | E01–E08, E10–E12 (11) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
 
@@ -727,8 +753,8 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] G14 Large text diff is rendered/pageable inside Dolores; stale page offers Refresh without losing the readable page. October 11 native paired paging, stale refusal and fresh-state recovery passed after repairing Refresh diff; all 6,000 pairs separately verified across 24 real pages.
 - [x] G15 Binary diff and nonrepository folder show distinct understandable states.
 - [x] G16 Changes menu branch creation/switching works; dirty branch switch refuses safely. Native create/refusal/switch and independent branch inspection pass October 11; direct action retest pending.
-- [ ] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.
-- [ ] G18 Revert a disposable commit; conflict/Abort recovery does not discard unrelated work.
+- [x] G17 Stash/apply and selected discard work on disposable changes; conflicts retain stash/work and explain recovery.
+- [x] G18 Revert a disposable commit; conflict/Abort recovery does not discard unrelated work.
 - [x] G19 Fetch/Pull/Push against a local bare remote: selected actions, tracking and fast-forward behavior are correct.
 - [ ] G20 Divergent Pull, changed refs and interrupted remote action retain evidence and require reconciliation.
 
@@ -796,7 +822,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] I04 Model opens a disposable local web page, reads it and requests reviewed click/input; local screenshot is inspectable.
 - [ ] I05 Browser Stop/stale reference recovery closes owned browser and avoids blind repeated input.
 - [ ] I06 Inspect/enable a harmless local MCP server; catalog discovery does not silently execute tools.
-- [ ] I07 Real-model invocation of enabled external tool shows exact review/receipt; missing/stale server recovers usefully.
+- [x] I07 Real-model invocation of enabled external tool shows exact review/receipt; missing/stale server recovers usefully.
 - [ ] I08 Attach a disposable Windows window for view-only inspection with a capable model; target/sharing are explicit.
 - [ ] I09 Selected-window control requires fresh state and verification; Stop/closed target never switches silently.
 - [ ] I10 Model-directed delegation shows child progress/results and consumes the shared budget correctly.

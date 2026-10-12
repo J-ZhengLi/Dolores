@@ -709,6 +709,9 @@ class _ToolRecordsState extends State<ToolRecords> {
                   SubagentCards(children: subagentReports(record)),
                 if (record['mcp'] is Map)
                   SelectableText(
+                    key: PageStorageKey(
+                      'tool-mcp-${record['callId']}-${record['name']}-${record['target']}',
+                    ),
                     'Server: ${record['mcp']['server']}\nTool: ${record['mcp']['tool']}\nReviewed revision: ${record['mcp']['revision']}\nArguments: ${record['mcp']['arguments']}',
                     style: TextStyle(
                       color: p.muted,
