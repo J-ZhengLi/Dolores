@@ -47,6 +47,16 @@ Documentation-only edits and internal refactors need an entry only when they aff
 exact version's notes; no notes are generated from commit messages or a model.
 Failed checks stop packaging/release creation; correct the inputs and use a new
 workflow run rather than reusing stale artifacts. Existing published tags are retained.
+
+Before pushing, run `python scripts/local-ci.py checks`, or
+`python scripts/local-ci.py release --generator "<installed CMake generator>"`
+to produce and exercise the installer locally. Logs and assets remain under a
+fresh `output/local-ci/` directory. No tag or GitHub write is involved. See
+[local prerequisites and limits](../CONTRIBUTING.md#run-windows-ci-locally).
+For hosted packaging without retagging, choose **Release installers → Run
+workflow** and select the branch containing the fix. A branch manual run retains
+the downloadable installer artifact and does not create a GitHub release.
+
 Tag CI extracts the reviewed dated section from that immutable commit; it does
 not edit `CHANGELOG.md` or push a new commit while releasing. If a release already
 exists, publication refuses rather than overwriting its assets. Review/recover

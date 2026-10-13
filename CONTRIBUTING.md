@@ -46,6 +46,50 @@ failure or missing cases, without retry. For stronger local contention, use
 `--repeat 100 --jobs 8`. This is a focused regression gate, not proof that all
 other timing tests are deterministic.
 
+Flutter controller tests should advance a controlled widget clock or await an
+explicit completion signal before asserting restored state. A short real sleep
+does not establish that Stop, polling or a save has completed. Verify pending
+action refusal as well as recovery after the terminal event.
+
+MCP inspection shares its real 30-second deadline across executable hashing,
+server startup and protocol discovery. Bridge review/credential tests begin at
+the reviewed-state boundary with small real files: changed-byte refusal, locked
+storage, failed saving and explicit recovery do not depend on Node starting
+within that deadline. The MCP crate retains real Node stdio coverage. Test
+profiles optimize both SHA-256 and the MCP caller that instantiates its generic
+digest code. Both CI workflows repeat the three bridge MCP cases eight times
+with four concurrent processes, plus four real Node protocol cases with two
+concurrent processes, using software SHA-256 so a developer CPU's acceleration
+cannot hide that path.
+Workspace tests use four threads on both hosted and local runs. No failed run is
+retried automatically and production deadlines are unchanged.
+
+## Run Windows CI locally
+
+Use Python 3.13, Node 24, Rust 1.95.0 with rustfmt/Clippy and the pinned Flutter
+checkout. These commands require no GitHub token, push or tag:
+
+```powershell
+python scripts/local-ci.py checks
+python scripts/local-ci.py release --generator "Visual Studio 18 2026"
+```
+
+`checks` runs the shared Checks entry point. `release` runs full checks, the
+normal build, native fixtures, verified payload, installer compilation and the
+isolated uninstall fixture. Select your installed generator (GitHub uses Visual
+Studio 17 2022); pass `--cmake` or `--flutter-sdk` when needed. Each run creates a
+fresh directory under `output/local-ci/` with step logs, `RESULT.json` and, for a
+successful release run, `pipeline/installer/` assets. It uses an isolated Python
+environment for the pinned history-audit dependency and stops on any failure.
+The tool restricts itself and children to four CPUs; use `--cpus 2` for stronger
+contention. This runs CI on your Windows host with existing compiler caches; it
+does not recreate the hosted Windows Server 2025 image or upload/publish assets.
+Changing CPU affinity does not affect other applications.
+
+For a focused MCP stress check, run
+`python scripts/check-rust-timing.py --suite mcp --software-hash --repeat 16 --jobs 16`.
+Use the shared pipeline for overall qualification; this filter checks only MCP.
+
 `scripts/check-docs.py` checks local Markdown file/heading links, including design/research docs; it does not verify external URLs or facts. Keep product controls in the [user guide](docs/USER_GUIDE.md), build details here, invariants in `docs/design/`, evidence in ACCEPTANCE and future scope in ROADMAP. README should help a first-time reader.
 
 ## Windows portable preview

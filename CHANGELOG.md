@@ -8,6 +8,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 ### Fixed
 
 - Windows build checks no longer intermittently fail when testing a stalled chat stream.
+- Windows checks cover MCP recovery under software hashing and constrained workloads; checks and installer qualification can run locally without pushing or tagging.
 
 ## [0.0.1-alpha] - 2026-10-13
 

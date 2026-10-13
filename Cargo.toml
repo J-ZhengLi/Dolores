@@ -23,6 +23,12 @@ strip = true
 
 # MCP tests fingerprint real runtimes before and after inspection. Keep SHA-256
 # compression optimized so debug hashing does not consume the operation deadline
-# on shared Windows runners; application code and timeout checks remain debug.
+# on shared Windows runners; production timeout limits remain unchanged.
 [profile.test.package.sha2]
+opt-level = 3
+
+# Digest::update and its block-buffer code are generic and instantiated in the
+# caller. Optimizing sha2 alone leaves MCP's runtime hashing unoptimized when
+# the CPU lacks SHA acceleration. Preserve the real 30-second operation limit.
+[profile.test.package.dolores-tools-mcp]
 opt-level = 3

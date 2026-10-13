@@ -1,5 +1,65 @@
 # Dolores acceptance — 2026-10-08
 
+## October 13 MCP CI recovery and local release qualification
+
+Both reported bridge failures occur in initial Node inspection, before the
+credential/review assertions. The original isolated tests passed locally in
+0.98 seconds (2.82 with software SHA-256). Restricting the harness to two CPUs,
+with 16 concurrent processes running both MCP cases and software hashing,
+reproduced the exact 30-second error repeatedly. Instrumented samples spent
+about 4 seconds on initial hashes, reached initialization after 16–25 seconds,
+and expired during final hashing. Optimizing the generic MCP digest caller
+helped but did not make the extreme workload reliable; that alone was rejected
+as the fix. The hosted runner's exact CPU/hash capabilities remain unverified.
+
+The bridge tests now begin at their existing reviewed-state boundary with small
+real files. They still exercise production launch fingerprint verification,
+review scope/expiry/replay, credential rotation, locked Forget, failed saving,
+retained review/credential state and explicit recovery. Changed-file refusal and
+restored-byte recovery are added. The original two-CPU/16-process/software-hash
+harness passes all 48 cases; individual processes finish within 0.48 seconds.
+Real Node stdio discovery, credential transport/redaction, malformed responses,
+cancellation and changed-launch refusal remain covered by the MCP crate.
+Production limits, fingerprint security and application behavior are unchanged.
+
+The previous repeat gate only exercised stream deadlines, which did not cover
+this failure. Both CI workflows now repeat bridge MCP recovery and real Node
+pagination/client-request protocol tests with software hashing. Workspace tests
+use four threads consistently. Failures/missing cases refuse without retries.
+Local runner tests verify failed-step evidence retention, no inferred tag,
+refusal of reused/outside output and recovery into a new directory.
+
+`scripts/local-ci.py` runs the shared Windows checks or full installer pipeline,
+requires matching Python/Node version families and Rust/Flutter pins, and
+installs the history-audit dependency in an isolated environment rather than
+skipping that fixture. It
+records host/tool versions, revision, dirty state and step logs. CPU affinity is
+limited only for the runner and its children. The first full local run in
+`output/local-ci/mcp-fix-20261013` passed the workspace Rust tests (180 bridge,
+11 MCP), all three repeat gates, browser fixtures, normal build and analysis,
+then refused packaging on a workspace-restoration Flutter test (445 passed,
+one failed). That test used two real 120 ms sleeps while approval polling waits
+200 ms. The same focused case failed locally under two CPUs and again with a
+controlled clock. It now verifies navigation refusal during pending Stop,
+advances the scheduled poll, checks restored draft/no approval, then verifies
+folder switching and restart; the focused controlled-clock check passes.
+No controller behavior or polling intervals changed. Final qualification passed
+in fresh `output/local-ci/mcp-fix-20261013-r2` under two CPUs: formatting/Clippy,
+the full Rust workspace, 60 stream cases, 24 MCP recovery cases and four real
+Node protocol repetitions (software hashing), browser fixtures, normal release
+build, Flutter analysis, all 446 Flutter tests and 16 native save/restart steps.
+The final installer fixture passes current-user installation, retained data,
+locked-data refusal, junction refusal and explicit synthetic purge recovery.
+The runner's `RESULT.json` records all seven passed stages and zero publication.
+The unsigned installer is
+`pipeline/installer/Dolores-0.0.1-alpha-windows-x64-setup.exe`, 19,420,976 bytes;
+its SHA-256 matches the generated sidecar:
+`6496204eab44306fb5d8e9ee824b1f912195d170b8a673eb112f471a5c96e6cb`.
+This is the local Windows host with compiler caches, not a recreated Windows
+Server 2025 hosted image. The opt-in native-vault tests remain ignored.
+No GitHub publication or tag rewrite is involved. Signing, clean-machine,
+elevated all-users and physical uninstall-checkbox acceptance remain separate.
+
 ## October 12 native audit: reviewed live browser form
 
 I04 passed with native Send and four explicit Allow once controls. DeepSeek opened

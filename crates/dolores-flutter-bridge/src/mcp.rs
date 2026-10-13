@@ -362,6 +362,34 @@ mod tests {
     use super::*;
     use dolores_core::{SessionStore, SessionWorkspace, WorkspaceKind};
     use dolores_store_sqlite::SqliteStore;
+
+    fn reviewed_inspection(root: &Path) -> Inspection {
+        use sha2::{Digest, Sha256};
+        // These tests start at the reviewed-state boundary. Real stdio discovery
+        // is exercised in dolores-tools-mcp; activation still verifies real bytes.
+        let executable = root.join("reviewed-server-fixture.exe");
+        let bytes = b"public reviewed bridge fixture";
+        std::fs::write(&executable, bytes).unwrap();
+        Inspection {
+            launch: McpLaunch {
+                label: "Fixture".into(),
+                executable: executable.to_str().unwrap().into(),
+                args: vec![],
+            },
+            fingerprints: vec![dolores_core::McpFingerprint {
+                path: executable.to_str().unwrap().into(),
+                sha256: format!("{:x}", Sha256::digest(bytes)),
+            }],
+            protocol_version: "2025-11-25".into(),
+            server_name: "Public fixture".into(),
+            server_version: "1".into(),
+            tools: vec![dolores_core::McpTool {
+                name: "echo".into(),
+                description: "Public fixture".into(),
+                input_schema: json!({"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}),
+            }],
+        }
+    }
     #[test]
     fn desktop_json_routes_named_connections_and_defaults_legacy_requests() {
         for name in ["inspectMcp", "disableMcp", "forgetMcp"] {
@@ -405,35 +433,12 @@ mod tests {
             .unwrap();
         let vault = Arc::new(crate::connection::testing::MemoryCredentials::default());
         let engine = Engine::new(store.clone(), vault.clone()).unwrap();
-        let filename = if cfg!(windows) { "node.exe" } else { "node" };
-        let exe = std::env::split_paths(&std::env::var_os("PATH").unwrap())
-            .map(|p| p.join(filename))
-            .find(|p| p.is_file())
-            .unwrap();
-        let launch = McpLaunch {
-            label: "Fixture".into(),
-            executable: exe.to_str().unwrap().into(),
-            args: vec![
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../scripts/mock-mcp.mjs")
-                    .to_str()
-                    .unwrap()
-                    .into(),
-                "--mode=credential-echo".into(),
-            ],
-        };
         let credentials = Credentials::new(vec![(
             "DOLORES_MCP_TEST_TOKEN".into(),
             "synthetic-bridge-credential".into(),
         )])
         .unwrap();
-        let inspection = dolores_tools_mcp::inspect_with_credentials(
-            Path::new(&root),
-            launch,
-            CancellationToken::new(),
-            credentials.clone(),
-        )
-        .unwrap();
+        let inspection = reviewed_inspection(Path::new(&root));
         let review = |previous| {
             *engine.mcp_review.lock().unwrap() = Some(McpReview {
                 token: "review".into(),
@@ -530,22 +535,7 @@ mod tests {
         )
         .unwrap();
         assert!(engine.mcp_settings("side").is_err());
-        let name = if cfg!(windows) { "node.exe" } else { "node" };
-        let exe = std::env::split_paths(&std::env::var_os("PATH").unwrap())
-            .map(|p| p.join(name))
-            .find(|p| p.is_file())
-            .unwrap();
-        let launch = McpLaunch {
-            label: "Fixture".into(),
-            executable: exe.to_str().unwrap().into(),
-            args: vec![Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../scripts/mock-mcp.mjs")
-                .to_str()
-                .unwrap()
-                .into()],
-        };
-        let inspection =
-            dolores_tools_mcp::inspect(Path::new(&root), launch, CancellationToken::new()).unwrap();
+        let inspection = reviewed_inspection(Path::new(&root));
         let reset = |created: Instant| {
             *engine.mcp_review.lock().unwrap() = Some(McpReview {
                 token: "one".into(),
@@ -576,6 +566,18 @@ mod tests {
             .enable_mcp("work", "one", vec!["echo".into()])
             .is_err());
         reset(Instant::now());
+        std::fs::write(&inspection.launch.executable, "changed public fixture").unwrap();
+        assert!(engine
+            .enable_mcp("work", "one", vec!["echo".into()])
+            .unwrap_err()
+            .contains("launch files changed"));
+        assert!(engine.mcp_review.lock().unwrap().is_some());
+        assert!(store.mcp_connection(&root).unwrap().is_none());
+        std::fs::write(
+            &inspection.launch.executable,
+            "public reviewed bridge fixture",
+        )
+        .unwrap();
         // Write failure keeps the reviewed token usable for an explicit retry.
         let db = rusqlite::Connection::open(d.path().join("fixture.db")).unwrap();
         db.execute_batch("CREATE TRIGGER refuse_mcp BEFORE INSERT ON mcp_connections BEGIN SELECT RAISE(ABORT,'fixture failure'); END;").unwrap();

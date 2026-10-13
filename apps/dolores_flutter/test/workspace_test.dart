@@ -199,38 +199,57 @@ void main() {
       }
     },
   );
-  test('Project and temporary roots restore per chat and across controller restart', () async {
-    final bridge = WorkspaceBridge();
-    final chat = ChatController(bridge);
-    await chat.initialize();
-    await chat.openProject('C:/chosen/project');
-    final project = chat.session!;
-    chat.draft = 'Keep project draft';
-    chat.newChat(kind: 'temporary');
-    chat.draft = 'Read readme';
-    await chat.send();
-    final temporary = chat.session!;
-    final temporaryRoot = chat.workspaceRoot;
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    await chat.stop();
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    await chat.select(project);
-    expect(chat.workspaceRoot, 'C:/chosen/project');
-    expect(chat.draft, 'Keep project draft');
-    chat.newChat();
-    expect(chat.workspaceKind, 'project');
-    expect(chat.workspaceRoot, 'C:/chosen/project');
-    await chat.select(temporary);
-    expect(chat.workspaceRoot, temporaryRoot);
-    expect(chat.workspaceKind, 'temporary');
-    chat.dispose();
-    final restarted = ChatController(bridge);
-    await restarted.initialize();
-    expect(restarted.session, temporary);
-    expect(restarted.workspaceRoot, temporaryRoot);
-    expect(restarted.projects.single['root'], 'C:/chosen/project');
-    restarted.dispose();
-  });
+  testWidgets(
+    'Project and temporary roots restore per chat and across controller restart',
+    (tester) async {
+      final bridge = WorkspaceBridge();
+      final chat = ChatController(bridge);
+      await chat.initialize();
+      await chat.openProject('C:/chosen/project');
+      final project = chat.session!;
+      chat.draft = 'Keep project draft';
+      chat.newChat(kind: 'temporary');
+      chat.draft = 'Read readme';
+      await chat.send();
+      final temporary = chat.session!;
+      final temporaryRoot = chat.workspaceRoot;
+      await tester.pump(const Duration(milliseconds: 25));
+      expect(chat.toolApproval, isNotNull);
+      await chat.stop();
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(chat.busy, isTrue);
+      expect(chat.stopping, isTrue);
+      await chat.select(project);
+      expect(chat.session, temporary);
+      expect(chat.workspaceRoot, temporaryRoot);
+      // Drain the already scheduled approval poll with a controlled clock.
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(chat.busy, isFalse);
+      expect(chat.stopping, isFalse);
+      expect(chat.draft, 'Read readme');
+      expect(chat.error, contains('stopped'));
+      expect(
+        bridge.commands.where((c) => c['command'] == 'approveTool'),
+        isEmpty,
+      );
+      await chat.select(project);
+      expect(chat.workspaceRoot, 'C:/chosen/project');
+      expect(chat.draft, 'Keep project draft');
+      chat.newChat();
+      expect(chat.workspaceKind, 'project');
+      expect(chat.workspaceRoot, 'C:/chosen/project');
+      await chat.select(temporary);
+      expect(chat.workspaceRoot, temporaryRoot);
+      expect(chat.workspaceKind, 'temporary');
+      chat.dispose();
+      final restarted = ChatController(bridge);
+      await restarted.initialize();
+      expect(restarted.session, temporary);
+      expect(restarted.workspaceRoot, temporaryRoot);
+      expect(restarted.projects.single['root'], 'C:/chosen/project');
+      restarted.dispose();
+    },
+  );
   test('Missing project and pending workspace creation preserve state and prevent a tool-free send', () async {
     final bridge = WorkspaceBridge();
     final chat = ChatController(bridge);
