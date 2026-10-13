@@ -96,6 +96,18 @@ contention. This runs CI on your Windows host with existing compiler caches; it
 does not recreate the hosted Windows Server 2025 image or upload/publish assets.
 Changing CPU affinity does not affect other applications.
 
+Installer verification waits until the entire owned installation directory is
+removed before reinstalling. Inno's first process can exit while its temporary
+process still removes the old uninstaller; app-file removal alone is not a
+completion signal. The fixture uses its unique current-user uninstall
+registration and validates that executable stays inside its owned directory.
+It requires the exact refusal exit code. Release verification also runs a
+diagnostic small-payload `--rapid-reinstall` case to expose cleanup overlap on
+fast hosts. That fixture installer is never a release asset. Native fixture
+logs/results are retained as `dolores-installer-verification` Actions artifacts
+even when verification fails; product installer upload/publication still requires
+success.
+
 For a focused MCP stress check, run
 `python scripts/check-rust-timing.py --suite mcp --software-hash --repeat 16 --jobs 16`.
 Use the shared pipeline for overall qualification; this filter checks only MCP.

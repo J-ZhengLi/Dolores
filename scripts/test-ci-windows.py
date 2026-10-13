@@ -77,6 +77,11 @@ class WindowsCiTests(unittest.TestCase):
         self.assertIn('upload-artifact@', workflow)
         self.assertIn('if: github.ref_type == \'tag\'', workflow)
         self.assertIn('--verify-tag', workflow)
+        self.assertIn('--rapid-reinstall', workflow)
+        evidence = workflow.split('- name: Retain installer verification evidence', 1)[1].split('- name: Retain installer and checksum', 1)[0]
+        self.assertIn('if: always()', evidence)
+        self.assertIn('installer-fixture/*.log', evidence)
+        self.assertIn('installer-fixture-rapid/*.log', evidence)
 
 
 if __name__ == '__main__':

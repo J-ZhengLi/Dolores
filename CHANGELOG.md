@@ -7,6 +7,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Installer checks wait for complete cleanup before reinstalling and retain logs when verification fails.
 - Windows language-server checks allow bounded slow startup and verify timeout recovery without losing unsaved text.
 - Windows build checks no longer intermittently fail when testing a stalled chat stream.
 - Windows checks cover MCP recovery under software hashing and constrained workloads; checks and installer qualification can run locally without pushing or tagging.

@@ -100,6 +100,7 @@ def execute(args):
             run([python, ROOT / 'scripts/installer.py', 'windows', '--archive', payloads[0], '--directory', directory / 'pipeline/installer'], directory, env, report['steps'])
             shutil.copyfile(directory / 'pipeline/package/RELEASE-NOTES.md', directory / 'pipeline/installer/RELEASE-NOTES.md')
             run([python, ROOT / 'scripts/test-installer-native.py', '--archive', payloads[0], '--directory', directory / 'pipeline/installer-fixture'], directory, env, report['steps'])
+            run([python, ROOT / 'scripts/test-installer-native.py', '--archive', payloads[0], '--directory', directory / 'pipeline/installer-fixture-rapid', '--rapid-reinstall'], directory, env, report['steps'])
         report['status'] = 'passed'
     except KeyboardInterrupt:
         report['status'] = 'interrupted'

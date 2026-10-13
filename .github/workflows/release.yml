@@ -93,6 +93,20 @@ jobs:
           if ($payload.Count -ne 1) { throw 'Expected one verified payload.' }
           python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer-fixture"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer-fixture-rapid" --rapid-reinstall
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain installer verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dolores-installer-verification
+          path: |
+            output/ci-windows/installer-fixture/*.log
+            output/ci-windows/installer-fixture/RESULT.json
+            output/ci-windows/installer-fixture-rapid/*.log
+            output/ci-windows/installer-fixture-rapid/RESULT.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Retain installer and checksum
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

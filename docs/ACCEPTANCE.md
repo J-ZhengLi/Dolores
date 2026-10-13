@@ -1,5 +1,49 @@
 # Dolores acceptance — 2026-10-08
 
+## October 13 installer fixture cleanup race
+
+The screenshot reports `WinError 2` launching `unins000.exe` in the locked-data
+case, after a successful retention uninstall and reinstall. The baseline
+full-payload lifecycle passes locally, but its logs show the next setup starts
+while the previous uninstall is still finishing. Inno 6.7.3 terminates its first
+process, waits for it, then delays deletion of the original uninstaller in its
+temporary second process. The fixture waited only for `dolores_flutter.exe` to
+disappear and assumed the next uninstaller name was always `unins000.exe`.
+
+An owned diagnostic small-payload fixture reproduces the exact Windows error:
+rapid reinstall creates both `unins000.exe` and `unins001.exe`; actual late
+cleanup removes the first, leaving the registered second executable. The old
+test then raises `FileNotFoundError` in the locked uninstall call. Evidence:
+`output/ci-installer-investigation-20261013/exact-before.log`. A deterministic
+regression also fails when app removal precedes uninstaller cleanup.
+
+The fixture now waits, bounded to ten seconds, for the entire owned install
+directory and requested data purge to disappear. It resolves the executable
+from its unique current-user uninstall registration, checks install-directory
+ownership/name/paired log, and requires the exact expected exit code instead of
+accepting any nonzero error as a safety refusal. No automatic install/uninstall
+retry is performed. Both local release and hosted release qualification add a
+rapid-reinstall fixture. Workflow logs/results are retained even on failure;
+unqualified product installers are not uploaded or published. Installer code,
+installation scopes, user-data options and production cleanup behavior are
+unchanged.
+
+Four lifecycle tests pass: late uninstaller cleanup blocks reinstallation;
+numbered registration works; external/incomplete registrations refuse; unrelated
+exit codes and incomplete cleanup refuse. Rapid native qualification passes
+retention, locked-data and junction refusal, and explicit synthetic purge recovery.
+The full-payload native lifecycle also passes. Three additional rapid native
+repetitions on two CPUs pass all five safety/recovery cases without retries.
+Results: `output/ci-installer-investigation-20261013/full-after/RESULT.json` and
+`output/ci-installer-investigation-20261013/rapid-repeat-result.json`. Installer,
+local-runner, CI-contract and lifecycle unit checks pass; both workflow files
+pass actionlint 1.7.7. This change affects the verification harness/workflow;
+unrelated Rust/Flutter suites and desktop builds were not rerun. These
+fixtures use their own random app ID/shortcut, ignored installation directory
+and public synthetic data. Signing, clean-machine, elevated all-users and
+physical production-checkbox qualification remain separate. No release/tag
+mutation is performed.
+
 ## October 13 language CI observer deadline
 
 The reported `fixture request hung` assertion belongs to the test's ten-second
