@@ -3003,6 +3003,30 @@ mod tests {
         hang: bool,
         fail: bool,
     }
+    // Separates provider startup from delivery; the old test raced two equal
+    // real-time deadlines because Fixture uses the legacy host fallback.
+    struct DeadlineFixture {
+        fixture: Fixture,
+        manages_inactivity: bool,
+    }
+    #[async_trait]
+    impl ModelProvider for DeadlineFixture {
+        fn descriptor(&self) -> PluginDescriptor {
+            self.fixture.descriptor()
+        }
+        fn manages_stream_inactivity(&self) -> bool {
+            self.manages_inactivity
+        }
+        async fn stream(
+            &self,
+            messages: Vec<Message>,
+            output: mpsc::Sender<String>,
+            cancel: CancellationToken,
+        ) -> Result<(), String> {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            self.fixture.stream(messages, output, cancel).await
+        }
+    }
     struct CapturingBudgetFixture(Mutex<Vec<Message>>);
     #[async_trait]
     impl ModelProvider for CapturingBudgetFixture {
@@ -3508,60 +3532,136 @@ mod tests {
             }
         }
     }
-    #[tokio::test]
-    async fn stream_deadline_still_expires_when_flutter_stops_draining_events() {
+    fn deadline_request(input: &str) -> TurnRequest {
+        TurnRequest {
+            delegation: None,
+            log: None,
+            compaction_provider: None,
+            compacted: false,
+            permissions: Default::default(),
+            task: Default::default(),
+            interaction: Default::default(),
+            resume_run: None,
+            continuation: None,
+            id: 1,
+            session: Some("paused-window".into()),
+            input: input.into(),
+            model: "fixture".into(),
+            settings: Some(RequestSettings {
+                max_output_tokens: Some(2048),
+                timeout_seconds: 1,
+                reasoning: Default::default(),
+            }),
+            tools: vec![],
+            approval: None,
+        }
+    }
+
+    async fn fill_deadline_queue(
+        manages_inactivity: bool,
+    ) -> (
+        Arc<SqliteStore>,
+        mpsc::Receiver<Value>,
+        CancellationToken,
+        tokio::task::JoinHandle<Result<String, String>>,
+    ) {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
         store.create("paused-window").unwrap();
         let saved = store.clone();
         let (output, mut events) = mpsc::channel(1);
+        let cancel = CancellationToken::new();
+        let work_cancel = cancel.clone();
         let task = tokio::spawn(async move {
             execute(
                 store,
-                Arc::new(Fixture {
-                    hang: false,
-                    fail: false,
+                Arc::new(DeadlineFixture {
+                    fixture: Fixture {
+                        hang: false,
+                        fail: false,
+                    },
+                    manages_inactivity,
                 }),
-                TurnRequest {
-                    delegation: None,
-                    log: None,
-                    compaction_provider: None,
-                    compacted: false,
-                    permissions: Default::default(),
-                    task: Default::default(),
-                    interaction: Default::default(),
-                    resume_run: None,
-                    continuation: None,
-                    id: 1,
-                    session: Some("paused-window".into()),
-                    input: "unsent".into(),
-                    model: "fixture".into(),
-                    settings: Some(RequestSettings {
-                        max_output_tokens: Some(2048),
-                        timeout_seconds: 1,
-                        reasoning: Default::default(),
-                    }),
-                    tools: vec![],
-                    approval: None,
-                },
-                CancellationToken::new(),
+                deadline_request("unsent"),
+                work_cancel,
                 &output,
             )
             .await
         });
         assert_eq!(events.recv().await.unwrap()["type"], "started");
-        tokio::time::sleep(std::time::Duration::from_millis(1300)).await;
-        let finished = task.is_finished();
-        if !finished {
-            task.abort();
-        }
+        assert_eq!(events.recv().await.unwrap()["text"], "你好!");
+        // Drive the producer until it awaits delivery to the now-full queue.
+        tokio::task::yield_now().await;
+        assert_eq!(events.len(), 1);
+        assert!(!task.is_finished());
+        (saved, events, cancel, task)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn stream_deadline_still_expires_when_flutter_stops_draining_events() {
+        let (saved, mut events, _, mut task) = fill_deadline_queue(true).await;
+        tokio::time::advance(std::time::Duration::from_millis(999)).await;
         assert!(
-            finished,
-            "A full Flutter event queue must not suspend the request deadline"
+            !task.is_finished(),
+            "Delivery must retain its full allowance"
         );
+        tokio::time::advance(std::time::Duration::from_millis(1)).await;
+        let result = tokio::time::timeout(std::time::Duration::from_secs(1), &mut task)
+            .await
+            .expect("A full Flutter event queue must not suspend delivery expiry");
         assert_eq!(
-            task.await.unwrap().unwrap_err(),
+            result.unwrap().unwrap_err(),
             "Conversation delivery stalled. Reopen the chat; completed changes remain. Nothing was retried."
         );
+        assert_eq!(events.recv().await.unwrap()["text"], "你好!");
+        assert!(saved.messages("paused-window").unwrap().is_empty());
+
+        // Explicit recovery completes one new turn, never replays the failed one.
+        let (output, _events) = mpsc::channel(128);
+        let answer = execute(
+            saved.clone(),
+            Arc::new(Fixture {
+                hang: false,
+                fail: false,
+            }),
+            deadline_request("explicit recovery"),
+            CancellationToken::new(),
+            &output,
+        )
+        .await
+        .unwrap();
+        assert_eq!(answer, "你好!".repeat(96));
+        let messages = saved.messages("paused-window").unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].content, "explicit recovery");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn legacy_stream_deadline_is_distinct_from_later_delivery_expiry() {
+        let (saved, _events, _, mut task) = fill_deadline_queue(false).await;
+        tokio::time::advance(std::time::Duration::from_millis(949)).await;
+        assert!(!task.is_finished());
+        tokio::time::advance(std::time::Duration::from_millis(1)).await;
+        let result = tokio::time::timeout(std::time::Duration::from_millis(10), &mut task)
+            .await
+            .expect("Legacy fallback must expire before the later delivery deadline");
+        assert_eq!(
+            result.unwrap().unwrap_err(),
+            "Model request timed out. Adjust the request timeout or try again."
+        );
+        assert!(saved.messages("paused-window").unwrap().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn stream_deadline_stop_is_prompt_while_delivery_is_blocked() {
+        let (saved, mut events, cancel, mut task) = fill_deadline_queue(true).await;
+        let stopped_at = tokio::time::Instant::now();
+        cancel.cancel();
+        let result = tokio::time::timeout(std::time::Duration::from_millis(1), &mut task)
+            .await
+            .expect("Stop must interrupt a full UI queue without waiting for expiry");
+        assert_eq!(result.unwrap().unwrap_err(), stopped());
+        assert_eq!(tokio::time::Instant::now(), stopped_at);
+        assert_eq!(events.recv().await.unwrap()["text"], "你好!");
         assert!(saved.messages("paused-window").unwrap().is_empty());
     }
     #[test]

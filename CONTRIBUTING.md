@@ -36,6 +36,16 @@ The Windows runner builds/checks the normal app and runs eight isolated save/res
 
 For focused changes, run relevant Rust/Flutter tests. After the normal build prepares dependencies, run `flutter analyze --no-pub` and `flutter test --no-pub` in the app directory. A fixture pass does not establish model competence. Authorized live probes use isolated data and bounded prompts, preserving user settings. Record real failures as failures.
 
+Async deadline tests should use a paused Tokio clock and establish the blocked
+queue/provider phase before advancing time. Keep provider inactivity, legacy
+fallback, delivery expiry and Stop assertions separate; do not race equal real
+timers or infer completion from a short sleep. Both CI entry points run
+`python scripts/check-rust-timing.py` after workspace tests: 20 repetitions of
+the three bridge deadline cases with two concurrent processes, failing on any
+failure or missing cases, without retry. For stronger local contention, use
+`--repeat 100 --jobs 8`. This is a focused regression gate, not proof that all
+other timing tests are deterministic.
+
 `scripts/check-docs.py` checks local Markdown file/heading links, including design/research docs; it does not verify external URLs or facts. Keep product controls in the [user guide](docs/USER_GUIDE.md), build details here, invariants in `docs/design/`, evidence in ACCEPTANCE and future scope in ROADMAP. README should help a first-time reader.
 
 ## Windows portable preview

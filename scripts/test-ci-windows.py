@@ -55,9 +55,11 @@ class WindowsCiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             self.check_sdk(Path(folder), '3.47.5', ci.FLUTTER_REVISION)
             self.assertFalse(any('build' in c or '--native-only' in c for c in self.commands))
+            self.assertTrue(any(c[1].endswith('check-rust-timing.py') for c in self.commands if len(c) > 1))
             self.check_sdk(Path(folder), '3.47.5', ci.FLUTTER_REVISION, full=True)
             self.assertTrue(any('build' in c for c in self.commands))
             self.assertTrue(any('--native-only' in c for c in self.commands))
+            self.assertTrue(any(c[1].endswith('check-rust-timing.py') for c in self.commands if len(c) > 1))
 
     def test_only_release_workflow_packages_and_uploads_installers(self):
         checks = (ci.ROOT / '.github/workflows/windows.yml').read_text(encoding='utf-8')

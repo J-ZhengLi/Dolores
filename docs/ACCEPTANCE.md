@@ -5183,3 +5183,41 @@ request, normal-profile write, app launch or physical native interaction was
 performed. Hosted workflows, global/UAC installation, production checkbox visual
 acceptance, clean-machine prerequisite recovery and signing remain unverified.
 The tag/release is prepared locally; public publication is a separate step.
+
+## October 13: deterministic streaming deadline regression
+
+Both hosted workflows failed the same bridge assertion after the earlier local
+workspace test pass. The original fixture inherited the legacy provider contract
+(`manages_stream_inactivity` false), enabling a one-second host request fallback
+while each UI delivery also had a one-second timeout starting later. It assumed
+the later delivery error would win and checked completion after a real 1300-ms
+sleep. Timer rounding and scheduler wake-up timing could make both ready in one
+poll, masking the competing request deadline locally. One successful full local
+run did not establish timing stability; no repeated timing gate existed.
+
+The exact hosted failure was reproduced locally by delaying fixture stream
+startup 50 ms: expected delivery-stalled recovery, received model-request timeout.
+Three tests now use a test-only paused Tokio clock, explicitly establish a full
+UI queue and distinguish modern inactivity-managed delivery expiry from legacy
+provider expiry. They check the boundary before expiry, retain queued public
+partial text, keep failed turns out of history, verify prompt Stop and complete
+one explicitly requested recovery without replaying the failed turn. Production
+timeouts, provider behavior, retry policy, recovery messages and user data are
+unchanged. The 50-ms synthetic startup separation remains part of the regressions.
+
+The three cases pass 100 repetitions with eight concurrent processes (300 cases,
+6.092 seconds, zero retries). Both shared CI paths now run 20 repetitions with
+two concurrent processes after workspace tests; any failure or missing cases
+fails the gate. Two synthetic gate tests verify that later passes cannot hide
+an earlier failure and that an empty filter refuses then recovers. CI dispatch
+tests confirm the timing gate runs for ordinary and full release checks. This
+guards the reproduced race; it does not qualify every timing-sensitive test.
+The full locked workspace suite passes, including 180 bridge tests with the
+existing native-vault test intentionally ignored. Formatting, workspace/all-target
+Clippy, CI/gate tests, document checks and tracked-file publication checks pass.
+The normal Windows build passes with the installed Visual Studio 2026/CMake
+path; hosted CI continues to use its existing Visual Studio 2022 path. These
+are local results; neither corrected hosted workflow has been rerun here.
+No model credentials, provider request, native interaction or profile mutation
+is needed. Existing published tags are retained: rerunning the old alpha tag
+still checks its old code; release the corrected commit under a new version tag.

@@ -50,11 +50,12 @@ def check(generator='Visual Studio 17 2022', cmake=None, full=False):
     release.check(tag=tag())
     run([sys.executable, ROOT / 'scripts/check-publication.py'])
     run([sys.executable, ROOT / 'scripts/check-docs.py'])
-    for name in ('test-ci-windows.py', 'test-publication.py', 'test-release.py', 'test-installer.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
+    for name in ('test-ci-windows.py', 'test-rust-timing.py', 'test-publication.py', 'test-release.py', 'test-installer.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
         run([sys.executable, ROOT / 'scripts' / name])
     run(['cargo', 'fmt', '--all', '--check'])
     run(['cargo', 'clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings'])
     run(['cargo', 'test', '--workspace', '--locked'])
+    run([sys.executable, ROOT / 'scripts/check-rust-timing.py'])
     run([shutil.which('npm') or 'npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], ROOT / 'adapters/browser')
     run(['node', '--test', 'adapters/browser/worker.test.cjs'])
     run([sys.executable, ROOT / 'scripts/test-browser-installer.py'])

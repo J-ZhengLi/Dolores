@@ -5,6 +5,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows build checks no longer intermittently fail when testing a stalled chat stream.
+
 ## [0.0.1-alpha] - 2026-10-13
 
 ### Added
