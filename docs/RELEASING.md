@@ -1,8 +1,10 @@
 # Releases
 
-Windows x64 is the only release target. Packages are unsigned portable ZIPs with
-checksums, dependency notices and the changelog. Build results do not establish
-model reliability or clean-machine acceptance.
+Windows x64 is the first supported release target. Releases provide an unsigned
+EXE installer, SHA-256 checksum and reviewed changelog. macOS PKG and Linux DEB
+packaging commands are experimental and excluded from tag releases until native
+qualification. Build results do not establish model reliability or clean-machine
+acceptance. See [installer contract](design/installers.md).
 
 ## Record changes
 
@@ -14,27 +16,41 @@ Documentation-only edits and internal refactors need an entry only when they aff
 
 ## Prepare a version
 
-1. Choose the version. Keep `Cargo.toml` workspace version and the
-   Flutter version in `apps/dolores_flutter/pubspec.yaml` aligned. Flutter also has
-   an incrementing build number. Refresh workspace package versions in `Cargo.lock`
-   when changing them; review the lock diff so dependency upgrades stay deliberate.
-2. Review Unreleased, including known limitations. Promote it with an explicit date:
-   `python scripts/release.py prepare --version 0.1.0 --date YYYY-MM-DD`.
-   This validates the existing versions, creates the dated section and leaves a new
-   Unreleased section. It refuses duplicate versions and empty release notes.
-3. Run `python scripts/release.py check --tag v0.1.0`, the contributor checks and
-   Windows build/package workflow. Inspect the ZIP, checksum and dependency inventory.
-   Verify extraction/launch on a clean Windows machine before calling that tested.
-4. Commit the version and changelog, then create and push the matching `v0.1.0` tag
-   when ready. Tag packaging uses only that commit and its dated changelog section.
-   The Windows workflow creates a **draft** GitHub release. Review it before publishing.
-   A GitHub release is not created for pull requests or ordinary branch pushes.
+1. Review the user-visible notes and limitations under Unreleased.
+2. Run one preparation command with an explicit date:
+   `python scripts/release.py prepare --version 0.0.1-alpha --date 2026-10-13`.
+   It aligns Cargo/Flutter/workspace lock versions, increments the Flutter build
+   number when the version changes, promotes the reviewed notes to a dated section
+   and leaves a new Unreleased section. Dependencies retain their versions.
+   Invalid versions, duplicate releases or inconsistent inputs refuse before
+   mutation; ordinary write failures restore the previous source bytes.
+3. Run `python scripts/release.py check --tag v0.0.1-alpha` and the relevant tests.
+   Commit the prepared files. The first alpha is already prepared; do not run
+   `prepare` again for the same version.
+4. Create and push the matching annotated tag at that reviewed commit:
 
-For branch/manual builds, CI uploads an unsigned Windows preview artifact without
-publishing a release. `python scripts/release.py notes --version 0.1.0` prints the
+   ```text
+   git tag -a v0.0.1-alpha -m "Dolores 0.0.1-alpha"
+   git push origin master
+   git push origin v0.0.1-alpha
+   ```
+
+   The tag workflow validates source versions and dated notes before building,
+   runs full checks/native fixtures, creates the installer and retains it both
+   as an Actions artifact and on a draft GitHub release. Alpha/RC tags are marked
+   prerelease and do not become Latest. Review the installer and publish the draft
+   from GitHub Releases when ready. Ordinary branch/PR checks never package or
+   create a release. Manual **Release installers** runs create downloadable Actions
+   artifacts; selecting a version tag also creates its draft release.
+
+`python scripts/release.py notes --version 0.0.1-alpha` prints the
 exact version's notes; no notes are generated from commit messages or a model.
 Failed checks stop packaging/release creation; correct the inputs and use a new
 workflow run rather than reusing stale artifacts. Existing published tags are retained.
+Tag CI extracts the reviewed dated section from that immutable commit; it does
+not edit `CHANGELOG.md` or push a new commit while releasing. If a release already
+exists, publication refuses rather than overwriting its assets. Review/recover
+the existing draft explicitly, or release a new version for changed source.
 
 ## Prepare the public history
 
@@ -66,10 +82,16 @@ content or secrets have been identified.
 
 ## Workflow maintenance
 
-The Windows workflow uses read-only permissions for checks/builds. Only its tag
-release job can create a draft release; it consumes the current run's verified
+The Checks and Release installers workflows use read-only permissions for
+checks/builds. Only the tag publication job can create a draft release; it consumes the current run's verified
 artifact. Fork pull requests use no secrets and no write permission. Actions and
 the Flutter source revision are pinned; update pins deliberately and rerun the
 checks. [GitHub permissions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)
 and [Flutter Windows prerequisites](https://docs.flutter.dev/platform-integration/windows/setup)
 describe the upstream requirements.
+
+Checks use pinned Rust/Flutter and shared dependency/compiler caches. They run
+formatting, Clippy, Rust/browser/script tests, Flutter analysis and widget tests
+without a native release build, notice collection or installer compilation.
+Only tag/manual release runs perform the normal Windows release build and native
+fixtures. Latest branch/PR runs cancel obsolete checks; release runs are retained.

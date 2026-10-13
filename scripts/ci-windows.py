@@ -36,11 +36,11 @@ def sdk():
     return Path(desktop.flutter_path()).parent.parent
 
 
-def check(generator='Visual Studio 17 2022', cmake=None):
+def check(generator='Visual Studio 17 2022', cmake=None, full=False):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     # Check both source identity and usable SDK version before expensive compilation.
     flutter = desktop.flutter_path()
-    run([flutter, '--no-version-check', '--suppress-analytics', 'precache', '--windows'])
+    run([flutter, '--no-version-check', '--suppress-analytics', '--version'])
     version = json.loads((sdk() / 'bin/cache/flutter.version.json').read_text())
     if version.get('frameworkRevision') != FLUTTER_REVISION:
         raise ValueError('Use the pinned Flutter 3.47.5 source revision for CI packages.')
@@ -50,7 +50,7 @@ def check(generator='Visual Studio 17 2022', cmake=None):
     release.check(tag=tag())
     run([sys.executable, ROOT / 'scripts/check-publication.py'])
     run([sys.executable, ROOT / 'scripts/check-docs.py'])
-    for name in ('test-ci-windows.py', 'test-publication.py', 'test-release.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
+    for name in ('test-ci-windows.py', 'test-publication.py', 'test-release.py', 'test-installer.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
         run([sys.executable, ROOT / 'scripts' / name])
     run(['cargo', 'fmt', '--all', '--check'])
     run(['cargo', 'clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings'])
@@ -58,14 +58,19 @@ def check(generator='Visual Studio 17 2022', cmake=None):
     run([shutil.which('npm') or 'npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], ROOT / 'adapters/browser')
     run(['node', '--test', 'adapters/browser/worker.test.cjs'])
     run([sys.executable, ROOT / 'scripts/test-browser-installer.py'])
-    build = [sys.executable, ROOT / 'scripts/desktop.py', 'build', '--flutter-sdk', sdk(), '--generator', generator]
-    if cmake:
-        build += ['--cmake', cmake]
-    run(build)
     app = ROOT / 'apps/dolores_flutter'
+    if full:
+        run([flutter, '--no-version-check', '--suppress-analytics', 'precache', '--windows'])
+        build = [sys.executable, ROOT / 'scripts/desktop.py', 'build', '--flutter-sdk', sdk(), '--generator', generator]
+        if cmake:
+            build += ['--cmake', cmake]
+        run(build)
+    else:
+        run([flutter, '--no-version-check', '--suppress-analytics', 'pub', 'get'], app)
     run([flutter, '--no-version-check', '--suppress-analytics', 'analyze', '--no-pub'], app)
     run([flutter, '--no-version-check', '--suppress-analytics', 'test', '--no-pub'], app)
-    run([sys.executable, ROOT / 'scripts/run-regressions.py', '--native-only', '--directory', OUTPUT / 'regressions', '--flutter-sdk', sdk()])
+    if full:
+        run([sys.executable, ROOT / 'scripts/run-regressions.py', '--native-only', '--directory', OUTPUT / 'regressions', '--flutter-sdk', sdk()])
 
 
 def package():
@@ -95,7 +100,8 @@ def package():
     collector.collect(sdk(), notices, runtime)
     archive = portable.package(runtime, destination, notices)
     portable.verify_archive(archive)
-    note_version = version if tag() else 'Unreleased'
+    entries = release.sections((ROOT / 'CHANGELOG.md').read_text(encoding='utf-8'))
+    note_version = version if tag() or (version in entries and not entries['Unreleased'][1]) else 'Unreleased'
     (destination / 'RELEASE-NOTES.md').write_text(release.notes(ROOT, note_version), encoding='utf-8')
     checksum = archive.with_suffix('.zip.sha256').read_text().split()[0]
     assert hashlib.sha256(archive.read_bytes()).hexdigest() == checksum
@@ -108,6 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('command', choices=['check', 'package'])
     parser.add_argument('--generator', default='Visual Studio 17 2022', help='Installed CMake generator; CI uses Visual Studio 2022.')
     parser.add_argument('--cmake', help='Optional local CMake executable; hosted CI uses the runner toolchain.')
+    parser.add_argument('--full', action='store_true', help='Build the normal app and run native fixtures; release/manual builds only.')
     parser.add_argument('--directory', type=Path, default=OUTPUT,
                         help='Absolute output location under output/; use a fresh location when recovering a local run.')
     args = parser.parse_args()
@@ -118,7 +125,7 @@ if __name__ == '__main__':
         if os.name != 'nt':
             raise ValueError('The release workflow supports Windows x64 only.')
         if args.command == 'check':
-            check(args.generator, args.cmake)
+            check(args.generator, args.cmake, args.full)
         else:
             package()
     except (OSError, ValueError, subprocess.CalledProcessError) as error:

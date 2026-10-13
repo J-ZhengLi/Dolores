@@ -5,8 +5,12 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ## [Unreleased]
 
+## [0.0.1-alpha] - 2026-10-13
+
 ### Added
 
+- Windows installer with current-user/all-users modes, shortcuts, upgrades and an uninstaller with optional local-data removal.
+- Experimental macOS PKG and Linux DEB packaging commands for later native qualification.
 - Clickable answers and a custom-answer field for agent clarification questions, with automatic continuation after submission.
 - Windows desktop preview with local or hosted OpenAI-compatible models.
 - Reviewed file operations, commands, web tools and optional browser/computer use.
@@ -17,6 +21,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Commit and pull-request CI runs checks without packaging; tag/manual release runs retain installers and checksums, with reviewed changelog notes on tag releases.
+- One release preparation command aligns Cargo/Flutter/lock versions and dated notes, including alpha prereleases.
 - Git actions run directly from their controls without an extra review dialog; stale-state, unsaved-editor and conflict safeguards remain.
 - User messages render Markdown, including headings, lists, tables and code blocks; Copy message retains the original text.
 - Chat access uses an immediate Review / Auto edit / Full access selector, remembered for the chat without a duration or extra confirmation steps.

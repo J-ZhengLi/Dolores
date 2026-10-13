@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-core"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "chrono",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-credentials"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "dolores-core",
  "keyring",
@@ -679,7 +679,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-desktop-helper"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -691,7 +691,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-flutter-bridge"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -730,7 +730,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-mod-runtime"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "rhai",
  "sha2",
@@ -741,7 +741,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-native-update"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "rusqlite",
  "serde",
@@ -754,7 +754,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-provider-openai"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -769,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-store-sqlite"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "dolores-core",
  "rusqlite",
@@ -782,7 +782,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-tools-browser"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "dolores-core",
@@ -798,7 +798,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-tools-command"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "dolores-core",
@@ -813,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-tools-fs"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "cap-std",
@@ -830,7 +830,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-tools-mcp"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "dolores-core",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "dolores-tools-web"
-version = "0.1.0"
+version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "dolores-core",

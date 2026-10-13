@@ -5120,3 +5120,66 @@ dependency notices, changelog, launcher and per-file hashes. Archive verificatio
 ZIP SHA-256 comparison and the fully extracted `Start-Dolores.cmd --check` pass
 on this machine. No app launch, provider request or user-profile change was made.
 Hosted CI rerun, clean-machine launch and signing remain unverified.
+
+## October 13: first-alpha installers and release flow
+
+Windows installer assembly reuses the verified portable runtime internally and
+publishes an EXE/checksum instead of a ZIP. The install-mode dialog supports
+current-user and all-users scopes, with scoped shortcuts and uninstall entries.
+Uninstall retains local data by default and offers an unchecked local-data
+removal checkbox. Its exact target is the current uninstaller account's normal
+RoamingAppData `dev.dolores.desktop` directory. Custom data locations, external
+projects, shared skills, other accounts and OS-vault credentials are retained.
+The dialog discloses those boundaries. Missing C++ runtime files explain the
+prerequisite before installation; nothing is downloaded by the application installer.
+
+Four deterministic installer checks cover verified staging, existing-output
+retention, missing compiler, tampered archive refusal before compilation,
+scope/default-retention contracts and wrong-host/foreign-notice refusal.
+The real Inno 6.7.3 compiler was downloaded from its official release and matched
+the pinned WinGet SHA-256. A diagnostic installer used its own random app ID,
+shortcut, ignored install directory and synthetic data; current-user install,
+silent data retention, locked-data refusal, junction refusal and explicit
+synthetic purge recovery pass. The first recovery assertion raced asynchronous
+uninstaller cleanup; waiting for the actual data-removal boundary resolved it.
+The external synthetic project survived removal. Production compilation contains
+no diagnostic data-directory/purge override. This fixture does not qualify
+interactive checkbox selection, all-users UAC or clean-machine installation.
+
+Five CI regressions confirm usable pinned SDK metadata, early SDK refusal,
+release-tag fetches, ordinary checks skipping native build/fixtures and release
+workflow installer/artifact routing. Both workflows pass actionlint 1.7.7.
+Commit/PR runs retain source/fixture checks and use dependency/compiler caches;
+only tag/manual release runs build/package and upload the installer. Tag releases
+validate dated reviewed notes, attach installer/checksum to a draft release and
+mark prerelease tags without making them Latest. Existing release assets are
+never overwritten. Four release-preparation checks cover alpha alignment,
+duplicate notes, invalid versions and rollback after a synthetic partial write.
+The `0.0.1-alpha` source, Flutter build number 2 and all 13 workspace lock entries
+are aligned; third-party lock versions are unchanged and locked offline Cargo
+metadata succeeds. Reviewed notes are dated 2026-10-13 with a new Unreleased
+section. Tag CI extracts those notes without modifying the tagged commit.
+
+macOS PKG/Linux DEB packaging and native notice-collection commands are implemented
+but excluded from tag releases. Native build/install/launch, dependency
+qualification, signing/notarization and uninstall remain unverified on those hosts.
+Windows release qualification passes Rust formatting, Clippy/workspace tests,
+browser/script fixtures, Flutter analysis, all 446 widget tests and all 16 native
+save/restart steps. The initial composite run stopped because analysis included
+an ignored local screenshot helper; excluding generated `output/**` preserves
+that helper and makes the maintained-source analysis pass. The remaining checks
+were then run separately, without repeating the completed Rust build/tests.
+One optional history-audit fixture remains skipped locally because its external
+history tool is absent; hosted CI installs that pinned tool. A separate broad
+history audit reports historical path/session-guidance patterns already reachable
+from master; no history rewrite was attempted. Current tracked-file audits pass.
+
+The fresh normal alpha bundle assembled an internal ZIP with matching dependency
+notices and release notes. The production Windows installer is 19,407,654 bytes
+under `output/releases/alpha-001-20261013/installer/`; its SHA-256 and local-path
+scan pass. The actual alpha payload also passes the isolated Inno install/uninstall
+fixture, including retention, busy/linked refusal and purge recovery. No provider
+request, normal-profile write, app launch or physical native interaction was
+performed. Hosted workflows, global/UAC installation, production checkbox visual
+acceptance, clean-machine prerequisite recovery and signing remain unverified.
+The tag/release is prepared locally; public publication is a separate step.

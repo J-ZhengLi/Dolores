@@ -9,7 +9,9 @@ import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+NUMBER = r'(?:0|[1-9][0-9]*)'
+IDENTIFIER = r'(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+VERSION = NUMBER + r'\.' + NUMBER + r'\.' + NUMBER + r'(?:-' + IDENTIFIER + r'(?:\.' + IDENTIFIER + r')*)?'
 HEADING = re.compile(r'^## \[([^\]]+)\](?: - ([0-9]{4}-[0-9]{2}-[0-9]{2}))?$', re.M)
 
 
@@ -22,7 +24,7 @@ def sections(text):
             raise ValueError('Duplicate changelog section: ' + version)
         if version != 'Unreleased':
             if not re.fullmatch(VERSION, version) or not released:
-                raise ValueError('Released versions require MAJOR.MINOR.PATCH and an ISO date.')
+                raise ValueError('Released versions require a SemVer version and an ISO date.')
             date.fromisoformat(released)
         elif released:
             raise ValueError('Unreleased must have no release date.')
@@ -54,8 +56,9 @@ def check(root=ROOT, tag=None):
 
 
 def prepare(root, version, released):
-    if app_version(root) != version:
-        raise ValueError('Set and align the source versions before preparing this release.')
+    previous = app_version(root)
+    if not re.fullmatch(VERSION, version):
+        raise ValueError('Use a SemVer version, such as 0.0.1-alpha or 0.0.1.')
     date.fromisoformat(released)
     p = root / 'CHANGELOG.md'
     text = p.read_text(encoding='utf-8')
@@ -67,11 +70,51 @@ def prepare(root, version, released):
         raise ValueError('Unreleased has no user-visible changes to release.')
     new = text[:heading.end()] + '\n\n## [' + version + '] - ' + released + '\n\n' + text[heading.end():].lstrip()
     sections(new)
-    fd, temporary = tempfile.mkstemp(dir=p.parent, prefix='.changelog-', suffix='.tmp')
+    cargo_path = root / 'Cargo.toml'
+    flutter_path = root / 'apps/dolores_flutter/pubspec.yaml'
+    cargo_text = cargo_path.read_text(encoding='utf-8')
+    cargo_new, count = re.subn(r'(\[workspace\.package\]\s*\nversion\s*=\s*")[^"]+(")',
+                               lambda m: m[1] + version + m[2], cargo_text, count=1)
+    if count != 1:
+        raise ValueError('Workspace version declaration is unavailable; align it before retrying.')
+    flutter_text = flutter_path.read_text(encoding='utf-8')
+    flutter_match = re.search(r'^version: (' + VERSION + r')\+([1-9][0-9]*)$', flutter_text, re.M)
+    build = int(flutter_match[2]) + (version != previous)
+    flutter_new = flutter_text[:flutter_match.start()] + f'version: {version}+{build}' + flutter_text[flutter_match.end():]
+    updates = {cargo_path: cargo_new, flutter_path: flutter_new, p: new}
+    lock_path = root / 'Cargo.lock'
+    if lock_path.exists():
+        members = tomllib.loads(cargo_text).get('workspace', {}).get('members', [])
+        names = {tomllib.loads((root / member / 'Cargo.toml').read_text())['package']['name'] for member in members}
+        def update_package(match):
+            block = match[0]
+            package = tomllib.loads(block)['package'][0]
+            if package['name'] in names and 'source' not in package:
+                if package['version'] != previous:
+                    raise ValueError('Workspace lock versions are stale; refresh Cargo.lock before retrying.')
+                block = re.sub(r'^version = "[^"]+"$', f'version = "{version}"', block, count=1, flags=re.M)
+            return block
+        lock_text = lock_path.read_text(encoding='utf-8')
+        lock_new = re.sub(r'\[\[package\]\][\s\S]*?(?=\[\[package\]\]|\Z)', update_package, lock_text)
+        if lock_new != lock_text:
+            updates[lock_path] = lock_new
+    originals = {path: path.read_bytes() for path in updates}
+    try:
+        for path, value in updates.items():
+            atomic_write(path, value)
+        check(root, 'v' + version)
+    except Exception:
+        for path, value in originals.items():
+            path.write_bytes(value)
+        raise
+
+
+def atomic_write(path, text):
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.release-', suffix='.tmp')
     try:
         with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as stream:
-            stream.write(new)
-        os.replace(temporary, p)
+            stream.write(text)
+        os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
 

@@ -36,7 +36,7 @@ The name comes from Dolores in *Westworld*: continuity, curiosity and learning f
 
 ## Get started
 
-Dolores is an **early preview for Windows x64**. Releases are portable ZIPs; signing and other platforms remain future work. See the [tested scope and remaining gaps](docs/ACCEPTANCE.md).
+Dolores is an **early alpha for Windows x64**. Windows releases provide an installer with “Only for me” and “For all users” modes. Uninstall keeps local data by default, with an optional removal checkbox. Installers are unsigned; macOS/Linux packaging is experimental and awaits native qualification. See the [tested scope and remaining gaps](docs/ACCEPTANCE.md).
 
 1. Extract the **entire** Windows ZIP and open `Start-Dolores.cmd`. The launcher checks for missing files and the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). Keep the DLLs and `data/` folder together.
 2. Open **Settings → Models**, add an OpenAI-compatible API URL and key, then fetch and enable models. Manual model IDs are supported when listing is unavailable.
@@ -54,7 +54,7 @@ File tools stay within the working folder. Commands and MCP servers run with you
 
 ## Development
 
-Dolores uses **Flutter** for the desktop interface and a **Rust** core with replaceable provider, storage, credential and tool interfaces. Windows GitHub Actions check the project and package an unsigned portable ZIP; matching version tags prepare a draft release.
+Dolores uses **Flutter** for the desktop interface and a **Rust** core with replaceable provider, storage, credential and tool interfaces. Commit/PR checks run tests without packaging. Version tags build Windows installers, retain an Actions artifact and prepare a GitHub release with the reviewed changelog and checksums.
 
 - [Contribute](CONTRIBUTING.md) — build, test and packaging instructions.
 - [Changelog](CHANGELOG.md) · [Release procedure](docs/RELEASING.md).

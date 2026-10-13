@@ -1,0 +1,131 @@
+name: Release installers
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      FLUTTER_SDK: ${{ github.workspace }}/.ci/flutter
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Validate release version and reviewed changelog
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          if ($env:RELEASE_REF_TYPE -eq 'tag') {
+            python scripts/release.py check --tag $env:RELEASE_TAG
+          } else {
+            python scripts/release.py check
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Set up Node for fixtures
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Install pinned history audit test tool
+        run: python -m pip install --require-hashes -r .github/requirements-ci.txt
+      - name: Check out pinned Flutter SDK
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: flutter/flutter
+          ref: 6a19cca56475dbfba1478ee68d7bd0c2ef891da1 # 3.47.5
+          fetch-depth: 0
+          path: .ci/flutter
+          persist-credentials: false
+      - name: Set up pinned Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy,rust-docs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default 1.95.0
+      - name: Restore dependency and compiler caches
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            .ci/flutter/bin/cache
+            ~/AppData/Local/Pub/Cache
+          key: windows-2025-rust-1.95.0-flutter-3.47.5-${{ hashFiles('Cargo.lock', 'apps/dolores_flutter/pubspec.lock') }}
+      - name: Check, build and exercise normal Windows app
+        run: python scripts/ci-windows.py check --full
+      - name: Assemble verified installer payload
+        run: python scripts/ci-windows.py package
+      - name: Prepare pinned installer compiler
+        run: python scripts/setup-inno.py
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $payload = @(Get-ChildItem -LiteralPath output/ci-windows/package -Filter '*.zip')
+          if ($payload.Count -ne 1) { throw 'Expected one verified payload.' }
+          python scripts/installer.py windows --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath output/ci-windows/package/RELEASE-NOTES.md -Destination output/ci-windows/installer/RELEASE-NOTES.md
+      - name: Verify isolated installer and uninstall recovery
+        shell: pwsh
+        run: |
+          $payload = @(Get-ChildItem -LiteralPath output/ci-windows/package -Filter '*.zip')
+          if ($payload.Count -ne 1) { throw 'Expected one verified payload.' }
+          python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer-fixture"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain installer and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dolores-windows-x64-installer
+          path: |
+            output/ci-windows/installer/*-setup.exe
+            output/ci-windows/installer/*.sha256
+            output/ci-windows/installer/RELEASE-NOTES.md
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: windows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download this run's installer
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dolores-windows-x64-installer
+          path: installer
+      - name: Create reviewed GitHub release
+        working-directory: installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          sha256sum --check *.sha256
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease --latest=false); fi
+          gh release create "$RELEASE_TAG" *-setup.exe *.sha256 --verify-tag --draft "${flags[@]}" --title "Dolores $RELEASE_TAG" --notes-file RELEASE-NOTES.md

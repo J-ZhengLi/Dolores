@@ -4,7 +4,7 @@ resolver = "2"
 default-members = ["crates/dolores-core", "crates/dolores-provider-openai", "crates/dolores-store-sqlite", "crates/dolores-credentials", "crates/dolores-flutter-bridge"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.0.1-alpha"
 edition = "2021"
 license = "MIT"
 

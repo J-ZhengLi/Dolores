@@ -59,7 +59,15 @@ The packager accepts reviewed runtime paths, checks required files/x64 binaries,
 
 The infinity logo source is `assets/dolores.svg`, the original rounded Material Icons outline used by Flutter. To regenerate platform assets, install development-only Pillow (`python -m pip install Pillow`), run `python -I -B scripts/generate-icons.py`, then `python -I -B scripts/generate-icons.py --check`. This updates maintained platform icons; Flutter keeps its original `Icons.all_inclusive_rounded`. Preserve the upstream icon license. Normal builds do not need Pillow.
 
-GitHub Actions checks and packages **Windows x64 only** on branch pushes, pull requests and manual runs. Matching version tags also create a draft release after checks pass. See [releasing](docs/RELEASING.md) and [changelog](CHANGELOG.md). The first hosted run remains separate from local verification. Retired Iced and Tauri/Svelte shells are not maintained. macOS/Linux runner definitions remain for development; Windows verification does not qualify them. Linux needs GTK/toolchain and D-Bus development packages, plus a running Secret Service. macOS needs its desktop toolchain and signing after adding the Rust library.
+GitHub Actions runs source/fixture checks on branch pushes and pull requests,
+without compiling or packaging the native release. Tag/manual release runs build
+and package **Windows x64** installers, retaining downloadable Actions artifacts;
+tags create a draft GitHub release with reviewed notes/checksums. See
+[releasing](docs/RELEASING.md), [installers](docs/design/installers.md) and
+[changelog](CHANGELOG.md). macOS PKG/Linux DEB commands are experimental and require
+native qualification before release CI. Linux needs GTK/toolchain, D-Bus and a
+running Secret Service; macOS needs its desktop toolchain and signing. Retired
+Iced and Tauri/Svelte shells are not maintained.
 
 CI pins Flutter 3.47.5, Rust 1.95.0 and its actions. Its deterministic checks use no
 model keys or private profiles. The SDK checkout includes release tags: a shallow
@@ -68,12 +76,16 @@ CI checks the SDK revision and version before compiling. After fetching missing
 tags, use a fresh SDK checkout/cache and rerun rather than retaining unknown
 version metadata. To run the same entry points locally, set
 `FLUTTER_SDK`, install `.github/requirements-ci.txt`, then use
-`python scripts/ci-windows.py check --generator "<installed CMake generator>"` and
-`python scripts/ci-windows.py package`. Fresh output is required. For a local retry,
+`python scripts/ci-windows.py check` for ordinary checks. For release qualification,
+use `python scripts/ci-windows.py check --full --generator "<installed CMake generator>"`,
+then `python scripts/ci-windows.py package`, `python scripts/setup-inno.py` and
+`python scripts/installer.py windows --archive <verified-payload.zip> --directory
+<fresh-absolute-output-directory>`. The ZIP is retained as an internal audited
+installer payload. Fresh output is required. For a local retry,
 pass the same `--directory <absolute-path-under-output>` to both commands, choosing
 a new directory so the failed run's evidence is retained. Node 24 is needed
 for fixtures; the optional browser adapter is installed separately and excluded
-from the portable ZIP. The complete ZIP includes the native update launcher,
+from the installer. The complete payload includes the native update launcher,
 changelog and dependency notices. Signing and clean-machine acceptance remain open.
 
 Optional live helpers require an explicitly chosen enabled `--model`; the tray

@@ -63,16 +63,21 @@ def package_directory(config, name):
     if os.name == 'nt' and re.match(r'^/[A-Za-z]:', path): path = path[1:]
     return Path(path).resolve()
 
-def collect(sdk, directory, bundle):
+def collect(sdk, directory, bundle, target='windows-x64'):
     directory = directory.resolve(); output = (ROOT/'output').resolve(); sdk = sdk.resolve()
     if directory == output or not directory.is_relative_to(output) or directory.is_relative_to(bundle.resolve()):
         raise ValueError('Use a fresh directory strictly beneath output/, outside the bundle.')
     if directory.exists(): raise ValueError('Directory exists; keep earlier evidence and choose a fresh directory.')
     spec = importlib.util.spec_from_file_location('portable', ROOT/'scripts/package-windows.py')
     portable = importlib.util.module_from_spec(spec); spec.loader.exec_module(portable)
-    runtime = portable.payload_files(bundle)
+    if target == 'windows-x64':
+        runtime = portable.payload_files(bundle)
+        runtime_hashes = {name: digest(path) for name, path in sorted(runtime.items())}
+    else:
+        import installer
+        runtime_hashes = installer.native_runtime(bundle)
     components = []; parts = ['Dolores third-party notices\n\n'
-        'Windows x64 Flutter/Rust portable preview. Full upstream notice texts follow.\n'
+        f'{target} Flutter/Rust desktop preview. Full upstream notice texts follow.\n'
         'The Rust normal/build dependency closure and Dart production closure are conservative: '
         'some build-only or unused platform packages may not contribute binary code. '
         'Other app shells and externally installed MCP/model software are outside this inventory.\n']
@@ -94,13 +99,16 @@ def collect(sdk, directory, bundle):
         components.append({'name': name, 'version': version, 'category': category,
                            'source': source, 'declaredLicense': declared, 'notices': records})
     sqlite = None
+    triples = {'windows-x64': 'x86_64-pc-windows-msvc', 'linux-x64': 'x86_64-unknown-linux-gnu',
+               'linux-arm64': 'aarch64-unknown-linux-gnu', 'macos-x64': 'x86_64-apple-darwin',
+               'macos-arm64': 'aarch64-apple-darwin'}
     metadata = json.loads(command(['cargo', 'metadata', '--format-version', '1', '--locked', '--offline',
-                                   '--filter-platform', 'x86_64-pc-windows-msvc']))
+                                   '--filter-platform', triples[target]]))
     packages = {p['id']: p for p in metadata['packages']}
     nodes = {p['id']: p for p in metadata['resolve']['nodes']}
     bridge = next(p['id'] for p in packages.values() if p['name'] == 'dolores-flutter-bridge')
     helper = next(p['id'] for p in packages.values() if p['name'] == 'dolores-desktop-helper')
-    selected = production_closure(nodes, [bridge, helper], lambda n:
+    selected = production_closure(nodes, [bridge, helper] if target == 'windows-x64' else [bridge], lambda n:
         [d['pkg'] for d in n['deps'] if any(k['kind'] != 'dev' for k in d['dep_kinds'])])
     locked = tomllib.loads((ROOT/'Cargo.lock').read_text(encoding='utf-8'))['package']
     for key in selected:
@@ -191,9 +199,9 @@ def collect(sdk, directory, bundle):
         [ROOT/'assets/LICENSE.material-icons'], ROOT/'assets')
     notices = '\n'.join(parts).encode('utf-8')
     if len(notices) > 64*1024*1024: raise ValueError('Notice collection exceeds 64 MiB.')
-    inventory = {'format': 1, 'platform': 'windows-x64', 'scope': 'conservative production/build dependency closure',
+    inventory = {'format': 1, 'platform': target, 'scope': 'conservative production/build dependency closure',
                  'components': components, 'inputs': {name: digest(ROOT/name) for name in INPUTS},
-                 'runtime': {name: digest(path) for name, path in sorted(runtime.items())},
+                 'runtime': runtime_hashes,
                  'noticesSha256': hashlib.sha256(notices).hexdigest()}
     directory.mkdir(parents=True)
     (directory/'THIRD-PARTY-NOTICES.txt').write_bytes(notices)

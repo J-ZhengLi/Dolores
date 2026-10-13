@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import struct
 import zipfile
+import release
 
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT/'apps/dolores_flutter/build/windows/x64/runner/Release'
@@ -167,11 +168,11 @@ def package(bundle, directory, notice_directory):
         'USER_GUIDE.md':(ROOT/'docs/USER_GUIDE.md').read_text(encoding='utf-8').replace(
             'See [privacy](PRIVACY.md) and [tested limitations](ACCEPTANCE.md).',
             'See [privacy](PRIVACY.md). Native accessibility, other platforms and low-end acceptance remain open.').encode(),
-        'START-HERE.md':b'# Dolores Windows portable preview\n\nExtract the whole ZIP, keep these files together, and open Start-Dolores.cmd. It explains missing app/C++ runtime files before launching Dolores.\n\nRead [User guide](USER_GUIDE.md) and [Privacy](PRIVACY.md). [Third-party notices](THIRD-PARTY-NOTICES.txt) and [versioned inventory](DEPENDENCIES.json) are included.\n\nRequires Microsoft Visual C++ x64 runtime: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist\n\nIf a loader error still appears, install/repair that runtime and extract a fresh complete ZIP. The launcher checks file presence, not version/loadability; it downloads nothing.\n\nThis unsigned preview does not install a model, dependencies or an updater. Conversations/settings use your account application-data folder, not this extracted folder. Signing, clean-machine tests and low-end/input acceptance remain open.\n',
+        'START-HERE.md':b'# Dolores Windows alpha\n\nAfter installation, open Dolores from the Start menu. If using a portable ZIP, extract the whole ZIP, keep these files together, and open Start-Dolores.cmd. It explains missing app/C++ runtime files before launching Dolores.\n\nRead [User guide](USER_GUIDE.md) and [Privacy](PRIVACY.md). [Third-party notices](THIRD-PARTY-NOTICES.txt) and [versioned inventory](DEPENDENCIES.json) are included.\n\nRequires Microsoft Visual C++ x64 runtime: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist\n\nIf a loader error still appears, install/repair that runtime and extract a fresh complete ZIP. The launcher checks file presence, not version/loadability; it downloads nothing.\n\nThis unsigned preview does not install a model, dependencies or an updater. Conversations/settings use your account application-data folder, not this extracted folder. Signing, clean-machine tests and low-end/input acceptance remain open.\n',
         'Start-Dolores.cmd':(ROOT/'scripts/Start-Dolores.cmd').read_bytes(),
         **notices,
     }
-    version=re.search(r'^version: ([0-9.]+\+[0-9]+)$',(ROOT/'apps/dolores_flutter/pubspec.yaml').read_text(),re.M)[1]
+    version=re.search(r'^version: ('+release.VERSION+r'\+[0-9]+)$',(ROOT/'apps/dolores_flutter/pubspec.yaml').read_text(),re.M)[1]
     manifest={'format':1,'version':version,'platform':'windows-x64','signed':False,
               'buildFreshness':'existing bundle; build the normal entry point before packaging',
               'prerequisite':'Microsoft Visual C++ x64 runtime installed separately','files':{}}

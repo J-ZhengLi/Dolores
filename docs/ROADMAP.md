@@ -1274,12 +1274,14 @@ service; no desktop companion notifications unless later separately requested.
 ## Brick 8.4 — Windows release CI
 
 The earlier CI deferral is superseded by Windows-only open-source release preparation.
-GitHub Actions checks portable guidance, changelog/version alignment, Rust formatting,
-Clippy/tests, Flutter analysis/widgets and credential-free native regressions, then
-builds the normal main entry and produces an allowlisted unsigned x64 ZIP with
-notices and checksums. Branch/PR/manual runs upload a preview artifact; a matching
-version tag with dated notes creates a draft release for review. Other OS packages,
-signing and automatic public publication remain outside this brick.
+Commit/PR checks verify changelog/version alignment, Rust formatting, Clippy/tests
+and Flutter analysis/widgets without packaging. Tag/manual release runs additionally
+build the normal main entry, exercise credential-free native regressions and assemble
+an unsigned Windows x64 installer with notices/checksums from the verified runtime.
+Tags with dated notes create a draft release; alpha tags are marked prerelease.
+The installer supports current/all-user scopes and opt-in local-data removal.
+Experimental macOS PKG/Linux DEB commands await native qualification and remain
+outside release CI. Signing remains separate. See the [installer contract](design/installers.md).
 
 **Recovery:** failed checks stop packaging; mismatched tags, missing notes, stale
 dependency notices and unexpected runtime files refuse publication. Fresh outputs
