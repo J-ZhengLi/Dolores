@@ -15,6 +15,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+const INITIALIZATION_LIMIT: Duration = Duration::from_secs(15);
+const REQUEST_LIMIT: Duration = Duration::from_secs(15);
+
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
@@ -441,7 +444,7 @@ fn run(
             {
                 return Err("Language server exited. Check installation, stop services and retry; buffers remain.".into());
             }
-            if !ready && start.elapsed() > Duration::from_secs(15) {
+            if !ready && start.elapsed() > INITIALIZATION_LIMIT {
                 return Err("Language server initialization timed out after 15 seconds. Stop services and retry.".into());
             }
             while let Ok(w) = rx.try_recv() {
@@ -640,7 +643,7 @@ fn run(
             let _ = read_available(&mut stderr, &mut bytes);
             for id in pending
                 .iter()
-                .filter(|(_, (_, t, _))| t.elapsed() > Duration::from_secs(15))
+                .filter(|(_, (_, t, _))| t.elapsed() > REQUEST_LIMIT)
                 .map(|(id, _)| *id)
                 .collect::<Vec<_>>()
             {
@@ -806,25 +809,42 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn background_server_sees_unsaved_unicode_and_malformed_output_is_recoverable() {
-        let root = tempfile::tempdir().unwrap();
-        let script = root
-            .path()
-            .join("node_modules/typescript-language-server/lib/cli.mjs");
+    fn fixture(root: &Path, initialization_ms: u64, completion_ms: u64) {
+        let script = root.join("node_modules/typescript-language-server/lib/cli.mjs");
         std::fs::create_dir_all(script.parent().unwrap()).unwrap();
-        std::fs::write(&script,r#"
+        let script_text = r#"
 let buffer=Buffer.alloc(0), document;
 function send(v){const b=Buffer.from(JSON.stringify({jsonrpc:'2.0',...v}));process.stdout.write(`Content-Length: ${b.length}\r\n\r\n`);process.stdout.write(b);}
 process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){const end=buffer.indexOf('\r\n\r\n');if(end<0)return;const n=Number(/Content-Length: (\d+)/i.exec(buffer.subarray(0,end).toString())[1]);if(buffer.length<end+4+n)return;const v=JSON.parse(buffer.subarray(end+4,end+4+n));buffer=buffer.subarray(end+4+n);
- if(v.method==='initialize')send({id:v.id,result:{capabilities:{positionEncoding:'utf-16'}}});
+ if(v.method==='initialize')setTimeout(()=>send({id:v.id,result:{capabilities:{positionEncoding:'utf-16'}}}),INITIALIZATION_DELAY);
  if(v.method==='textDocument/didOpen'){document=v.params.textDocument;send({method:'textDocument/publishDiagnostics',params:{uri:document.uri,version:document.version,diagnostics:[{message:'fixture',range:{start:{line:0,character:0},end:{line:0,character:1}}}]}});}
- if(v.method==='textDocument/completion')send({id:v.id,result:[{label:document.text}]});
- if(v.method==='textDocument/documentSymbol'){send({id:v.id,result:[]});send({method:'textDocument/publishDiagnostics',params:{uri:document.uri,diagnostics:[{message:'unversioned fixture',range:{start:{line:0,character:0},end:{line:0,character:1}}}]}});}
- if(v.method==='textDocument/didChange')document={...document,...v.params.textDocument};
+ if(v.method==='textDocument/completion')setTimeout(()=>send({id:v.id,result:[{label:document.text}]}),COMPLETION_DELAY);
+ if(v.method==='textDocument/documentSymbol'){send({id:v.id,result:[]});setTimeout(()=>send({method:'textDocument/publishDiagnostics',params:{uri:document.uri,diagnostics:[{message:'unversioned fixture',range:{start:{line:0,character:0},end:{line:0,character:1}}}]}}),100);}
+ if(v.method==='textDocument/didChange')document={...document,...v.params.textDocument,text:v.params.contentChanges[0].text};
  if(v.method==='textDocument/hover')process.stdout.write('Content-Length: 1\r\n\r\nx');
 }});
-"#).unwrap();
+"#
+            .replace("INITIALIZATION_DELAY", &initialization_ms.to_string())
+            .replace("COMPLETION_DELAY", &completion_ms.to_string());
+        std::fs::write(script, script_text).unwrap();
+    }
+
+    fn wait(r: &Registry, id: &str, feature: &str) -> Result<Value, String> {
+        // A first request can consume initialization and then its own allowance.
+        // Observe the service's result before the outer test watchdog fires.
+        let until = Instant::now() + INITIALIZATION_LIMIT + REQUEST_LIMIT + Duration::from_secs(5);
+        loop {
+            if let Some(v) = r.jobs.lock().unwrap().get(id).unwrap().result.clone() {
+                return v;
+            }
+            assert!(Instant::now() < until, "fixture {feature} produced no terminal result after initialization and request limits");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn check_background_server(initialization_ms: u64, completion_ms: u64) {
+        let root = tempfile::tempdir().unwrap();
+        fixture(root.path(), initialization_ms, completion_ms);
         let folder = root.path().to_string_lossy().into_owned();
         let snap =
             json!({"document":"d","version":0,"snapshot":{"path":"a.ts"},"text":"unsaved 😀 世界"});
@@ -839,22 +859,13 @@ process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){con
                 root.path(),
             )
             .unwrap();
-        let wait = |r: &Registry, id: &str| {
-            let until = Instant::now() + Duration::from_secs(10);
-            loop {
-                if let Some(v) = r.jobs.lock().unwrap().get(id).unwrap().result.clone() {
-                    return v;
-                }
-                assert!(Instant::now() < until, "fixture request hung");
-                std::thread::sleep(Duration::from_millis(20));
-            }
-        };
         assert_eq!(
-            wait(&r, job["id"].as_str().unwrap()).unwrap()[0]["label"],
+            wait(&r, job["id"].as_str().unwrap(), "completion").unwrap()[0]["label"],
             snap["text"]
         );
         let mut snap = snap;
         snap["version"] = json!(1);
+        snap["text"] = json!("changed unsaved 😀 世界");
         let job = r
             .submit(
                 folder.clone(),
@@ -865,25 +876,95 @@ process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);for(;;){con
                 root.path(),
             )
             .unwrap();
-        let result = wait(&r, job["id"].as_str().unwrap()).unwrap();
+        let result = wait(&r, job["id"].as_str().unwrap(), "diagnostics").unwrap();
         assert_eq!(result["items"][0]["message"], "unversioned fixture");
         assert_eq!(result["versioned"], false);
         assert!(result["notice"].as_str().unwrap().contains("may lag"));
         let job = r
             .submit(
-                folder,
-                snap,
+                folder.clone(),
+                snap.clone(),
                 "hover".into(),
                 json!({"line":0,"character":0}),
                 String::new(),
                 root.path(),
             )
             .unwrap();
-        assert!(wait(&r, job["id"].as_str().unwrap())
+        assert!(wait(&r, job["id"].as_str().unwrap(), "malformed hover")
             .unwrap_err()
             .contains("Malformed"));
         r.stop_all().unwrap();
         assert!(r.servers.is_empty());
+        assert!(r.jobs.lock().unwrap().is_empty());
+        // A malformed process can be explicitly stopped and restarted without
+        // saving the caller's unsaved buffer or discarding its Unicode text.
+        fixture(root.path(), 0, 0);
+        let job = r
+            .submit(
+                folder,
+                snap.clone(),
+                "completion".into(),
+                json!({"line":0,"character":0}),
+                String::new(),
+                root.path(),
+            )
+            .unwrap();
+        assert_eq!(
+            wait(&r, job["id"].as_str().unwrap(), "completion after restart").unwrap()[0]["label"],
+            snap["text"]
+        );
+        assert!(!root.path().join("a.ts").exists());
+        r.stop_all().unwrap();
+    }
+    #[test]
+    fn background_server_sees_unsaved_unicode_and_malformed_output_is_recoverable() {
+        check_background_server(0, 0);
+    }
+
+    #[test]
+    fn delayed_initialization_and_response_use_separate_allowances_and_preserve_recovery() {
+        // Each phase is valid but exceeds the previous ten-second test watchdog.
+        check_background_server(11_000, 11_000);
+    }
+
+    #[test]
+    fn response_timeout_is_terminal_and_explicit_retry_preserves_unsaved_text() {
+        let root = tempfile::tempdir().unwrap();
+        // No completion arrives during the real production request allowance.
+        fixture(root.path(), 0, 60_000);
+        let folder = root.path().to_string_lossy().into_owned();
+        let snap = json!({"document":"d","version":4,"snapshot":{"path":"a.ts"},"text":"retained 😀 世界"});
+        let mut r = Registry::default();
+        let submit = |r: &mut Registry| {
+            r.submit(
+                folder.clone(),
+                snap.clone(),
+                "completion".into(),
+                json!({"line":0,"character":0}),
+                String::new(),
+                root.path(),
+            )
+            .unwrap()
+        };
+        let job = submit(&mut r);
+        assert_eq!(
+            wait(&r, job["id"].as_str().unwrap(), "nonresponsive completion").unwrap_err(),
+            "Language request timed out after 15 seconds. Retry or stop services; edits remain."
+        );
+        assert_eq!(
+            r.jobs.lock().unwrap().len(),
+            1,
+            "Nothing was automatically retried"
+        );
+        r.stop_all().unwrap();
+        fixture(root.path(), 0, 0);
+        let retry = submit(&mut r);
+        assert_eq!(
+            wait(&r, retry["id"].as_str().unwrap(), "explicit retry").unwrap()[0]["label"],
+            snap["text"]
+        );
+        assert!(!root.path().join("a.ts").exists());
+        r.stop_all().unwrap();
     }
     #[test]
     fn framing_and_utf16_positions_reject_malformed_or_split_data() {

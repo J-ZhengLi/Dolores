@@ -58,6 +58,7 @@ def check(generator='Visual Studio 17 2022', cmake=None, full=False):
     run([sys.executable, ROOT / 'scripts/check-rust-timing.py'])
     run([sys.executable, ROOT / 'scripts/check-rust-timing.py', '--suite', 'mcp', '--software-hash', '--repeat', '8', '--jobs', '4'])
     run([sys.executable, ROOT / 'scripts/check-rust-timing.py', '--suite', 'mcp-protocol', '--software-hash', '--repeat', '4', '--jobs', '2'])
+    run([sys.executable, ROOT / 'scripts/check-rust-timing.py', '--suite', 'language', '--repeat', '2', '--jobs', '2'])
     run([shutil.which('npm') or 'npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], ROOT / 'adapters/browser')
     run(['node', '--test', 'adapters/browser/worker.test.cjs'])
     run([sys.executable, ROOT / 'scripts/test-browser-installer.py'])

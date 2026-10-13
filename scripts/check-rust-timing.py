@@ -1,4 +1,4 @@
-"""Repeat stream, MCP recovery and real protocol tests; any failure fails CI."""
+"""Repeat stream, MCP and language recovery tests; any failure fails CI."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
@@ -33,7 +33,8 @@ def binary(software_hash=False, suite='stream'):
 def repeat(executable, count, jobs, suite='stream'):
     started = time.monotonic()
     test_filter, cases = {'stream': ('stream_deadline', 3), 'mcp': ('mcp::tests::', 3),
-                         'mcp-protocol': ('tests::pages_and_unsupported_client_requests_follow_protocol', 1)}[suite]
+                         'mcp-protocol': ('tests::pages_and_unsupported_client_requests_follow_protocol', 1),
+                         'language': ('language::tests::', 4)}[suite]
     def sample(number):
         result = subprocess.run([str(executable), test_filter, '--nocapture', '--test-threads=2'],
                                 cwd=ROOT, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
@@ -52,7 +53,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repeat', type=int, default=20)
     parser.add_argument('--jobs', type=int, default=2)
-    parser.add_argument('--suite', choices=['stream', 'mcp', 'mcp-protocol'], default='stream')
+    parser.add_argument('--suite', choices=['stream', 'mcp', 'mcp-protocol', 'language'], default='stream')
     parser.add_argument('--software-hash', action='store_true', help='Exercise SHA-256 without hardware acceleration; test binaries only.')
     args = parser.parse_args()
     try:

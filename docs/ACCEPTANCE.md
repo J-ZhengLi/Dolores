@@ -1,5 +1,42 @@
 # Dolores acceptance — 2026-10-08
 
+## October 13 language CI observer deadline
+
+The reported `fixture request hung` assertion belongs to the test's ten-second
+observer, not the language service's timeout. The service permits 15 seconds
+for initialization, followed by 15 seconds for a feature request. The unchanged
+fixture passes in isolation in 0.30 seconds. An owned fixture delayed its
+initialize response by 11 seconds; the original test reproduced the exact panic
+twice after 10.04 seconds, before the service allowance expired. The hosted log
+does not say which of completion/diagnostics/hover was pending, so its exact
+phase and scheduling delay remain unobserved.
+
+The observer now derives its bound from the unchanged initialization/request
+limits plus a five-second test scheduling margin, returning the real terminal
+result first. A permanent regression delays both initialization and completion
+by 11 seconds, exercises unsaved Unicode text and diagnostics arriving after
+the document-symbol response, then injects malformed output. Stop clears retained
+jobs/process ownership, and a fresh server explicitly recovers the updated
+buffer without saving it to disk. A second edge leaves completion unanswered,
+asserts the exact 15-second timeout and actionable recovery, verifies no retry,
+then explicitly restarts and checks retained Unicode text. No production limit
+was increased. The previous local pass and stream/MCP repeat gates did not cover
+this slow LSP path; both CI entry points now repeat all four language cases.
+
+All four focused cases pass. Six repetitions in two concurrent processes on two
+CPUs pass all 24 cases in 70.99 seconds, with no retries. The complete shared
+local Checks pipeline also passes under two CPUs: formatting/Clippy, the Rust
+workspace (182 bridge tests), 60 stream cases, 24 MCP recovery cases, four real
+MCP protocol repetitions, eight language cases, script/history-audit/browser
+fixtures, Flutter analysis and all 446 Flutter tests. Evidence:
+`output/local-ci/language-fix-20261013/RESULT.json`. The opt-in native-vault tests
+remain ignored. The normal Windows build passes in 169.105 seconds through
+`scripts/desktop.py build`; its receipt is
+`output/ci-language-investigation-20261013/normal-build-result.json`.
+Diagnostic logs stay under `output/ci-language-investigation-20261013`; local-host checks do not
+establish the hosted Windows Server image, native UI interaction or real-model
+reliability. No push, tag rewrite or publication was performed.
+
 ## October 13 MCP CI recovery and local release qualification
 
 Both reported bridge failures occur in initial Node inspection, before the

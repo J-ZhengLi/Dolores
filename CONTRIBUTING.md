@@ -64,6 +64,16 @@ cannot hide that path.
 Workspace tests use four threads on both hosted and local runs. No failed run is
 retried automatically and production deadlines are unchanged.
 
+Language-server tests observe the initialization allowance plus the request
+allowance before their outer watchdog fires; a first request can validly exceed
+ten seconds. Both remain 15 seconds in production. The repeat gate also runs
+the four language cases twice in two concurrent processes, including delayed
+initialization/response, a real request timeout, malformed output and explicit
+restart recovery with unsaved Unicode text. Run
+`python scripts/check-rust-timing.py --suite language --repeat 6 --jobs 2`
+for focused local qualification. Missing cases and any failed repetition fail
+the gate without retry.
+
 ## Run Windows CI locally
 
 Use Python 3.13, Node 24, Rust 1.95.0 with rustfmt/Clippy and the pinned Flutter

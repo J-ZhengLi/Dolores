@@ -44,6 +44,17 @@ class TimingGateTests(unittest.TestCase):
         with patch.object(timing.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'test result: ok. 1 passed; 0 failed; 0 ignored;', '')):
             self.assertEqual(timing.repeat(Path('synthetic-test-binary'), 1, 1, 'mcp-protocol')['testCases'], 1)
 
+    def test_language_gate_requires_real_delay_timeout_and_recovery_cases(self):
+        for count in (0, 2, 3):
+            with patch.object(timing.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, f'test result: ok. {count} passed; 0 failed; 0 ignored;', '')):
+                with self.assertRaisesRegex(ValueError, 'failed; no retry'):
+                    timing.repeat(Path('synthetic-test-binary'), 1, 1, 'language')
+        with patch.object(timing.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'test result: ok. 4 passed; 0 failed; 0 ignored;', '')) as run:
+            result = timing.repeat(Path('synthetic-test-binary'), 2, 1, 'language')
+            self.assertEqual(result['testCases'], 8)
+            self.assertEqual(result['retries'], 0)
+            self.assertIn('language::tests::', run.call_args.args[0])
+
 
 if __name__ == '__main__':
     unittest.main()
