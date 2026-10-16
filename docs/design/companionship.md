@@ -42,7 +42,8 @@ No desktop notifications, tools, scheduled task creation or publication is grant
   stays in those records; unknown token totals remain unknown. No new idle process;
   a conditional 60-second eligibility timer performs no model polling.
 - Not now dismisses the unread message and snoozes for 24 hours. Dismiss marks it
-  seen. Fewer messages lowers the cap to 1; Mute turns Off and never re-enables it.
+  seen. Fewer messages lowers the cap to at most 1, preserving Quiet (0); Mute
+  turns Off and never re-enables it.
 
 ## Sources and tone
 

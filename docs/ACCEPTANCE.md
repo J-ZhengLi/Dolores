@@ -1,5 +1,32 @@
 # Dolores acceptance — 2026-10-08
 
+## October 17 companionship feedback and experimental preferences
+
+E02 passed compact light/dark rendered controls for Open and all feedback actions,
+including failed-save retention, no silent retry and explicit recovery. Ten
+public seeded-note cases against the normal native bridge verified seen state,
+24-hour snooze, mute, retained draft, unchanged consumed attempts and missing-note
+refusal. “Fewer messages” raised an existing Quiet (0) limit to 1. The regression
+failed in both Rust and the packaged host; the fix caps at 1 without raising 0.
+Feedback state/history/drafts survived database reopen. Evidence:
+`output/native-audit-20261010-01/companion-feedback-green-20261017/receipt.json`.
+
+P14 passed rendered concise availability/help and failed-save/reopen checks.
+The normal bridge saved both experimental choices in disposable data; a separate
+process restart retained them, restored a real Windows process-owned power
+request, refused stale writes and released the request on disable/shutdown.
+This does not claim bypass of manual locks or security policy. Native receipts:
+`output/native-audit-20261010-01/experimental-host-20261017/`.
+
+Four companionship Rust tests and three experimental Rust tests passed; the
+credential-dependent test stayed ignored in the deterministic run. Twenty-four
+relevant Flutter checks, changed-test analysis and the normal Windows build
+passed. Separately, fresh qwen3.7-flash probes with explicit thinking off passed
+chat and public-memory invitations: two requests, zero tools, 256 reported total
+tokens. Original profile table digests remain unchanged. Native idle eligibility
+and in-app delivery remain open under E01; collector success is not delivery.
+Checklist: **92/129 checked, 37 pending**.
+
 ## October 17 rendered comparison and answer-retry audit
 
 E03 passed seven public deterministic receipts reopened byte-for-byte through the

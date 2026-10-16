@@ -55,7 +55,7 @@ class CompanionBridge extends WorkspaceBridge {
       if (c['command'] == 'companionFeedback') {
         seen = true;
         if (c['action'] == 'mute') enabled = false;
-        if (c['action'] == 'fewer') cap = 1;
+        if (c['action'] == 'fewer') cap = cap.clamp(0, 1);
       }
       return data;
     }
@@ -262,4 +262,92 @@ void main() {
     expect(b.cap, 1);
     h.dispose();
   });
+  for (final dark in [false, true]) {
+    for (final action in [
+      ('notNow', 'Not now'),
+      ('dismiss', 'Dismiss'),
+      ('fewer', 'Fewer messages'),
+      ('mute', 'Turn off'),
+    ]) {
+      testWidgets(
+        'compact note ${action.$2} retains failed action for explicit retry ($dark)',
+        (t) async {
+          t.view.physicalSize = const Size(390, 740);
+          t.view.devicePixelRatio = 1;
+          addTearDown(t.view.resetPhysicalSize);
+          addTearDown(t.view.resetDevicePixelRatio);
+          final b = CompanionBridge()
+            ..enabled = true
+            ..cap = 100;
+          final h = CompanionHost(
+            b,
+            session: () => 'current-chat',
+            busy: () => false,
+          );
+          await h.refresh();
+          String? opened;
+          await t.pumpWidget(
+            MaterialApp(
+              theme: doloresTheme(dark),
+              home: Scaffold(
+                body: CompanionNote(
+                  host: h,
+                  open: (s) async {
+                    opened = s;
+                  },
+                ),
+              ),
+            ),
+          );
+          b.fail = true;
+          await t.tap(find.byTooltip('Note options'));
+          await t.pumpAndSettle();
+          await t.tap(find.text(action.$2));
+          await t.pumpAndSettle();
+          expect(h.unread, isNotNull);
+          expect(h.error, contains('Save failed'));
+          expect(find.byIcon(Icons.error_outline), findsOneWidget);
+          expect(b.enabled, isTrue);
+          expect(b.cap, 100);
+          final attempts = b.commands
+              .where((c) => c['command'] == 'companionFeedback')
+              .length;
+          await t.pump(const Duration(seconds: 2));
+          expect(
+            b.commands.where((c) => c['command'] == 'companionFeedback').length,
+            attempts,
+          );
+          b.fail = false;
+          await t.tap(find.byTooltip('Note options'));
+          await t.pumpAndSettle();
+          await t.tap(find.text(action.$2));
+          await t.pumpAndSettle();
+          expect(b.commands.last['action'], action.$1);
+          expect(h.unread, isNull);
+          expect(h.error, isNull);
+          expect(find.byType(CompanionNote), findsOneWidget);
+          expect(find.text('A note from Dolores'), findsNothing);
+          expect(
+            opened,
+            isNull,
+            reason: 'Feedback must not open or send a chat',
+          );
+          expect(b.enabled, action.$1 != 'mute');
+          expect(b.cap, action.$1 == 'fewer' ? 1 : 100);
+          expect(
+            b.commands.every(
+              (c) => [
+                'companionState',
+                'companionFeedback',
+              ].contains(c['command']),
+            ),
+            isTrue,
+          );
+          expect(t.takeException(), isNull);
+          await t.pumpWidget(const SizedBox());
+          h.dispose();
+        },
+      );
+    }
+  }
 }

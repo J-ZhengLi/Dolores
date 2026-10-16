@@ -278,6 +278,22 @@ void main() {
       await t.pumpAndSettle();
       expect(tile('experimental-multiple-window').value, false);
       expect(bridge.preferences['revision'], 1);
+      bridge.fail = true;
+      await t.tap(find.byKey(const Key('experimental-keep-awake')));
+      await t.pumpAndSettle();
+      expect(tile('experimental-keep-awake').value, false);
+      expect(find.textContaining('Your setting is unchanged'), findsOneWidget);
+      bridge.fail = false;
+      await t.tap(find.byKey(const Key('experimental-keep-awake')));
+      await t.pumpAndSettle();
+      expect(tile('experimental-keep-awake').value, true);
+      await t.tap(find.text('Refresh'));
+      await t.pumpAndSettle();
+      expect(tile('experimental-keep-awake').value, true);
+      expect(tile('experimental-multiple-window').value, false);
+      await t.tap(find.byKey(const Key('experimental-keep-awake')));
+      await t.pumpAndSettle();
+      expect(tile('experimental-keep-awake').value, false);
       expect(
         find.textContaining('performance checks did not pass'),
         findsNothing,

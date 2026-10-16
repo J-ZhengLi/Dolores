@@ -209,7 +209,7 @@ impl Engine {
             }
             "fewer" => {
                 a.seen = true;
-                s.policy.daily_cap = 1;
+                s.policy.daily_cap = s.policy.daily_cap.min(1);
                 s.policy.revision += 1;
             }
             "mute" => {
@@ -326,6 +326,109 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fewer_messages_never_increases_quiet_frequency_or_resets_attempts() {
+        use crate::connection::testing::MemoryCredentials;
+        for cap in [0, 1, 2, 100] {
+            for enabled in [false, true] {
+                let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+                store.create("public-note").unwrap();
+                store
+                    .commit_turn("public-note", "Public topic", "Would you like a break?")
+                    .unwrap();
+                let mut state = CompanionState::default();
+                state.policy.daily_cap = cap;
+                state.policy.enabled = enabled;
+                state.policy.model = "fixture".into();
+                state.attempts = 100;
+                state.activity.push(CompanionActivity {
+                    id: "public-note".into(),
+                    at: 1,
+                    status: "delivered".into(),
+                    kind: "chat".into(),
+                    session: Some("public-note".into()),
+                    seen: false,
+                    note: None,
+                    source: None,
+                    citation: None,
+                    usage: None,
+                });
+                store.save_companion_state(&state, 0).unwrap();
+                let engine =
+                    Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
+                engine.companion_feedback("public-note", "fewer").unwrap();
+                let saved = store.companion_state().unwrap();
+                assert_eq!(
+                    saved.policy.daily_cap,
+                    cap.min(1),
+                    "Fewer must not raise Quiet to 1"
+                );
+                assert_eq!(saved.policy.enabled, enabled);
+                assert_eq!(saved.attempts, 100);
+                assert!(saved.activity[0].seen);
+                assert_eq!(store.messages("public-note").unwrap().len(), 2);
+                assert!(engine.companion_feedback("missing-note", "fewer").is_err());
+                assert_eq!(store.companion_state().unwrap(), saved);
+            }
+        }
+    }
+    #[test]
+    fn companion_feedback_persists_snooze_mute_and_seen_without_replaying_work() {
+        use crate::connection::testing::MemoryCredentials;
+        for action in ["seen", "notNow", "dismiss", "mute"] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("public.db");
+            let store = Arc::new(SqliteStore::open(&path).unwrap());
+            store.create("note").unwrap();
+            store
+                .commit_turn("note", "Public topic", "Would you like a break?")
+                .unwrap();
+            store.save_draft("note", "Keep my next question").unwrap();
+            let mut state = CompanionState::default();
+            state.policy.enabled = true;
+            state.policy.model = "fixture".into();
+            state.policy.daily_cap = 100;
+            state.attempts = 3;
+            state.activity.push(CompanionActivity {
+                id: "note".into(),
+                at: 1,
+                status: "delivered".into(),
+                kind: "chat".into(),
+                session: Some("note".into()),
+                seen: false,
+                note: None,
+                source: None,
+                citation: None,
+                usage: None,
+            });
+            store.save_companion_state(&state, 0).unwrap();
+            let engine =
+                Engine::new(store.clone(), Arc::new(MemoryCredentials::default())).unwrap();
+            let before = store.companion_state().unwrap();
+            assert!(engine.companion_feedback("note", "invalid").is_err());
+            assert_eq!(store.companion_state().unwrap(), before);
+            let started = now();
+            engine.companion_feedback("note", action).unwrap();
+            let saved = store.companion_state().unwrap();
+            assert!(saved.activity[0].seen);
+            assert_eq!(saved.policy.enabled, action != "mute");
+            assert_eq!(saved.policy.daily_cap, 100);
+            assert_eq!(saved.attempts, 3);
+            if action == "notNow" {
+                assert!(saved.snooze_until >= started + 86400);
+            } else {
+                assert_eq!(saved.snooze_until, 0);
+            }
+            let draft = store.saved_draft("note").unwrap();
+            let messages = store.messages("note").unwrap();
+            drop(engine);
+            drop(store);
+            let reopened = SqliteStore::open(&path).unwrap();
+            assert_eq!(reopened.companion_state().unwrap(), saved);
+            assert_eq!(reopened.saved_draft("note").unwrap(), draft);
+            assert_eq!(reopened.messages("note").unwrap().len(), messages.len());
+        }
+    }
     #[test]
     fn companion_model_profile_preserves_reasoning_and_tighter_bounds() {
         use crate::connection::{testing::MemoryCredentials, ConnectionManager};
