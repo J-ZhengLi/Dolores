@@ -1,5 +1,27 @@
 # Dolores acceptance — 2026-10-08
 
+## October 17 rendered comparison and answer-retry audit
+
+E03 passed seven public deterministic receipts reopened byte-for-byte through the
+normal Rust bridge. Rendered Flutter controls in compact light/dark views expose
+exact frozen requests/checks, every retained result, elapsed time and unknown
+usage without inventing usage or activating instructions. Tie, failed, truncated,
+stopped and interrupted receipts remain non-improvements; viewing starts no run.
+Use as draft incorrectly kept the current defaults (1,024 tokens/20 seconds)
+instead of the saved 512/5. A failing-first regression reproduced this; copying
+the saved settings now preserves the comparison allowances as well as its cases.
+
+C17's remaining failed-send path passed rendered Flutter interactions in both
+compact themes: retained choice/custom text, Back/Next, explicit Send answer
+retry, no automatic retry, no tool grant and visible completion. This failure
+injection is deterministic; the October 10 native Qwen round trip remains the
+live evidence. Saved renders were inspected; the question render has test-font
+fallback gaps and is not evidence of native Chinese font rendering. No new
+desktop or live-model interaction is claimed. All 14 focused tests, analysis of
+the three changed Dart files and the normal Windows build passed. The build
+handle expired after completion; its normal main-entry identity and matching
+executable size/time were revalidated. Checklist: **90/129 checked, 39 pending**.
+
 ## October 16 native audit: scope inheritance and explicit continuation
 
 P04 passed native edits of all-chat/project/chat call limits, persistence and reset.

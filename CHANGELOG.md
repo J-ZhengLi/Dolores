@@ -7,6 +7,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Reusing a saved instruction comparison now retains its output and time limits.
 - Task-limit settings show supported ranges and explain invalid values before saving, while retaining your edits.
 - Installer checks wait for complete cleanup before reinstalling and retain logs when verification fails.
 - Windows language-server checks allow bounded slow startup and verify timeout recovery without losing unsaved text.

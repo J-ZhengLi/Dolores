@@ -1,0 +1,618 @@
+[
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725995952,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Memory \u00b7 Comparison \u00b7 r1",
+        "source": "memory:All:4e6f7384-3441-45a3-a83e-d7b8d92b8910:1",
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 1,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "ordinary",
+        "usage": null
+      },
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "PASS",
+        "usage": null
+      }
+    ],
+    "revision": 3,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 5
+    },
+    "status": "completed",
+    "summary": {
+      "baselinePassed": 0,
+      "candidatePassed": 1,
+      "createdAt": 1791725995952,
+      "id": 1,
+      "improved": true,
+      "model": "fixture",
+      "revision": 3,
+      "status": "completed",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  },
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725995965,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Manual frozen copy",
+        "source": null,
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 2,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "PASS",
+        "usage": null
+      },
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "PASS",
+        "usage": null
+      }
+    ],
+    "revision": 3,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 5
+    },
+    "status": "completed",
+    "summary": {
+      "baselinePassed": 1,
+      "candidatePassed": 1,
+      "createdAt": 1791725995965,
+      "id": 2,
+      "improved": false,
+      "model": "fixture",
+      "revision": 3,
+      "status": "completed",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  },
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725995976,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Manual frozen copy",
+        "source": null,
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 3,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "ordinary",
+        "usage": null
+      },
+      {
+        "detail": "Output limit: 512 tokens. Partial response is not a passing test. Adjust comparison output tokens and start a new run.",
+        "elapsedMs": 1,
+        "outcome": "outputLimit",
+        "output": "PASS",
+        "usage": null
+      }
+    ],
+    "revision": 3,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 5
+    },
+    "status": "failed",
+    "summary": {
+      "baselinePassed": 0,
+      "candidatePassed": 0,
+      "createdAt": 1791725995976,
+      "id": 3,
+      "improved": false,
+      "model": "fixture",
+      "revision": 3,
+      "status": "failed",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  },
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725995988,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Manual frozen copy",
+        "source": null,
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 4,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "ordinary",
+        "usage": null
+      },
+      {
+        "detail": "Response timed out at 1 seconds. Earlier evidence remains; change comparison timeout and start a new run.",
+        "elapsedMs": 1013,
+        "outcome": "failed",
+        "output": "",
+        "usage": null
+      }
+    ],
+    "revision": 3,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 1
+    },
+    "status": "failed",
+    "summary": {
+      "baselinePassed": 0,
+      "candidatePassed": 0,
+      "createdAt": 1791725995988,
+      "id": 4,
+      "improved": false,
+      "model": "fixture",
+      "revision": 3,
+      "status": "failed",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  },
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725997011,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Manual frozen copy",
+        "source": null,
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 5,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "ordinary",
+        "usage": null
+      },
+      {
+        "detail": "Stopped. Earlier completed responses remain; start a new comparison to test again.",
+        "elapsedMs": 8,
+        "outcome": "stopped",
+        "output": "",
+        "usage": null
+      }
+    ],
+    "revision": 3,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 5
+    },
+    "status": "stopped",
+    "summary": {
+      "baselinePassed": 0,
+      "candidatePassed": 0,
+      "createdAt": 1791725997011,
+      "id": 5,
+      "improved": false,
+      "model": "fixture",
+      "revision": 3,
+      "status": "stopped",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  },
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725997034,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Manual frozen copy",
+        "source": null,
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 6,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "ordinary",
+        "usage": null
+      }
+    ],
+    "revision": 2,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 5
+    },
+    "status": "running",
+    "summary": {
+      "baselinePassed": 0,
+      "candidatePassed": 0,
+      "createdAt": 1791725997034,
+      "id": 6,
+      "improved": false,
+      "model": "fixture",
+      "revision": 2,
+      "status": "running",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  },
+  {
+    "baselineMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "candidateMessages": [
+      [
+        {
+          "content": "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.\n\nInstructions under evaluation (text only; no tool access):\nInclude PASS",
+          "role": "system"
+        },
+        {
+          "content": "Respond briefly",
+          "role": "user"
+        }
+      ]
+    ],
+    "contextWindowTokens": 131072,
+    "createdAt": 1791725997047,
+    "draft": {
+      "baseline": {
+        "label": "Before",
+        "source": null,
+        "text": ""
+      },
+      "candidate": {
+        "label": "Manual frozen copy",
+        "source": null,
+        "text": "Include PASS"
+      },
+      "title": "Synthetic literal comparison",
+      "trials": [
+        {
+          "forbidden": [
+            "FAIL"
+          ],
+          "prompt": "Respond briefly",
+          "required": [
+            "PASS"
+          ]
+        }
+      ]
+    },
+    "id": 7,
+    "model": "fixture",
+    "results": [
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "ordinary",
+        "usage": null
+      },
+      {
+        "detail": null,
+        "elapsedMs": 1,
+        "outcome": "completed",
+        "output": "PASS",
+        "usage": null
+      }
+    ],
+    "revision": 3,
+    "session": "600f7ddb-bd0b-4aac-bf56-87df2d07fd60",
+    "settings": {
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 5
+    },
+    "status": "completed",
+    "summary": {
+      "baselinePassed": 0,
+      "candidatePassed": 1,
+      "createdAt": 1791725997047,
+      "id": 7,
+      "improved": true,
+      "model": "fixture",
+      "revision": 3,
+      "status": "completed",
+      "tests": 1,
+      "title": "Synthetic literal comparison"
+    }
+  }
+]

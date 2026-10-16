@@ -274,6 +274,9 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
 
   void useDraft() {
     final draft = selected!['draft'];
+    settings = (selected!['settings'] as Map).cast<String, dynamic>();
+    tokens.text = '${settings['maxOutputTokens']}';
+    timeout.text = '${settings['timeoutSeconds']}';
     title.text = draft['title'];
     baselineLabel.text = draft['baseline']['label'];
     baseline.text = draft['baseline']['text'];

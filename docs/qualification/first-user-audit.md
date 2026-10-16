@@ -8,12 +8,33 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-**Current checkpoint: 88/129 checked, 41 pending.**
+**Current checkpoint: 90/129 checked, 39 pending.**
 
 Browser checks now prefer headless Playwright with text snapshots. The current
 Flutter desktop entry uses a native FFI bridge and is not a browser target.
 Widget/integration checks and saved renders cover suitable desktop paths; native
 interaction gaps remain labeled and are not checked off from browser evidence.
+
+### October 17: saved comparisons and explicit answer retry
+
+E03 passed real host reopening of seven public deterministic receipts and
+rendered Flutter light/dark interaction through all result rows and exact frozen
+requests. Improvement, tie, output limit, failure, Stop and interruption remain
+distinct; missing usage remains unknown. Reading receipts invokes only read
+commands and cannot activate a memory/skill. Use as draft exposed a defect:
+saved 512-token/5-second allowances were replaced by current 1,024/20 defaults.
+The failing-first widget regression now passes after copying saved settings.
+Public receipts are retained as a regression fixture in
+`apps/dolores_flutter/test/fixtures/comparison_receipts.json`.
+
+C17's remaining failed-send path passed compact light/dark Flutter interaction:
+choice and custom text retained, Back/Next intact, no silent retry, explicit Send
+answer retry completes, and no approval grant is sent. This is injected fixture
+failure evidence, complementing the earlier native Qwen success. It is not a new
+native or live-model pass. Fourteen focused tests, analysis and normal Windows
+build passed. Inspected renders are under
+`output/native-audit-20261010-01/rendered-20261017/`; question test-font gaps do
+not establish native Chinese font behavior. The original profile was not opened.
 
 ### October 13–16: scoped limits and bounded continuation
 
@@ -387,14 +408,14 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
-| C16–C17, A11, A13 (4) | Disposable deletion retention, question/custom-answer continuation, retained receipts, interruption/log capture and restart checkpoints | Delete confirmation; failed-send Retry; interruption/log-capture controls |
+| C16, A11, A13 (3) | Disposable deletion retention, retained receipts, interruption/log capture and restart checkpoints | Delete confirmation; interruption/log-capture controls |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P06–P08, P12–P14 (6) | Permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Attachment dialogs; native/manual privacy/access/experimental preference controls |
 | M01, M04–M10 (8) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
 | I06, I10 (2) | Exact reviewed two-tool MCP invocation; real scoped delegation with retained reports | MCP activation controls and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
-| E01–E03, E05–E08, E10–E12 (10) | Real companion invitations and cooldown/cap fixtures; strict comparisons/drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
+| E01–E02, E05–E08, E10–E12 (9) | Real companion invitations and cooldown/cap fixtures; strict drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Message actions, learning/mod/diagnostic reviews and native repair/install/restore controls |
 
 Live safety outcomes remain distinct from positive reliability. The earlier Qwen
 learning trial was incomplete; DeepSeek tied the baseline. Neither activated.
@@ -806,7 +827,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
 - [x] C15 Record Worked/Needs work feedback and inspect the retained note.
 - [ ] C16 Delete only a disposable conversation; verify its working files are retained.
-- [ ] C17 Answer agent questions through clickable choices or custom text; Back retains answers, failed send allows retry, and the agent continues after submission. Native Qwen choice/custom/Back/Next/continuation passed October 10; native failed-send recovery remains open.
+- [x] C17 Answer agent questions through clickable choices or custom text; Back retains answers, failed send allows retry, and the agent continues after submission. Native Qwen choice/custom/Back/Next/continuation passed October 10; October 17 compact light/dark Flutter failure injection verified explicit UI retry and completion without granting tool permission.
 
 ## 2. Everyday agent work and recovery
 
@@ -936,7 +957,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 - [ ] E01 Opt-in companionship model/hours and Quiet–Chatty frequency (0–100/day) produce a bounded in-app note when eligible, quiet during active work.
 - [ ] E02 Open/Not now/Dismiss/Fewer messages/Turn off behave clearly without triggering external actions.
-- [ ] E03 Compare instructions retains exact cases/usage and never activates a tie or incomplete result.
+- [x] E03 Compare instructions retains exact cases/usage and never activates a tie or incomplete result. October 17: seven deterministic receipts reopened through the real host; compact light/dark Flutter interactions verified exact requests/results, unknown usage and no activation/request on viewing. Use as draft allowance loss fixed with a failing-first regression; no new live-model competence claim.
 - [x] E04 Skill testing has fixed disposable cases and truthful candidate/baseline results with Stop recovery. Native October 12: DeepSeek comparisons retained exact cases/replies/usage and refused ties; a labeled delayed local fixture verified entered-request Stop and retained editable inputs.
 - [ ] E05 Project reflection/automatic activation/pause retain source evidence and only activate complete independent gain.
 - [ ] E06 Restore/quarantine learning baseline; manual edits conflict instead of silently overwriting work.

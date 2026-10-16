@@ -135,6 +135,7 @@ void main() {
             .text,
         '简体中文，保留引用',
       );
+      await tester.pump();
       await tester.tap(find.text('Send answer'));
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pumpAndSettle();
@@ -195,6 +196,88 @@ void main() {
       chat.dispose();
     },
   );
+  for (final dark in [false, true]) {
+    testWidgets('failed answer can be retried from the compact UI ($dark)', (
+      tester,
+    ) async {
+      compact(tester);
+      final bridge = QuestionBridge()..fail = true;
+      final chat = ready(bridge);
+      final capture = GlobalKey();
+      await tester.pumpWidget(
+        DoloresApp(
+          chat: chat,
+          captureKey: capture,
+          themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+        ),
+      );
+      await chat.send();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('question-option-1')));
+      await tester.pump();
+      await tester.tap(find.text('Next'));
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('question-custom-answer')),
+        '简体中文，保留引用',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Send answer'));
+      await tester.pumpAndSettle();
+      final failure = find.textContaining('Could not send your answer');
+      expect(failure, findsOneWidget);
+      expect(failure.hitTestable(), findsOneWidget);
+      expect(chat.questionAnswers, ['Previous entry', '简体中文，保留引用']);
+      expect(bridge.answers.length, 1);
+      const directory = String.fromEnvironment('QUESTION_RENDER_DIR');
+      if (directory.isNotEmpty) {
+        await tester.runAsync(() async {
+          final image =
+              await (capture.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final file = File(
+            '$directory/question-retry-${dark ? 'dark' : 'light'}.png',
+          );
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+      await tester.pump(const Duration(seconds: 2));
+      expect(bridge.answers.length, 1, reason: 'No silent retry');
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(chat.questionAnswers.first, 'Previous entry');
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('question-custom-answer')))
+            .controller!
+            .text,
+        '简体中文，保留引用',
+      );
+      bridge.fail = false;
+      await tester.tap(find.text('Send answer'));
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+      expect(bridge.answers.length, 2);
+      expect(bridge.answers[1], bridge.answers[0]);
+      expect(find.byType(UserQuestionCard), findsNothing);
+      expect(find.text('Report prepared.'), findsOneWidget);
+      expect(chat.busy, isFalse);
+      expect(
+        bridge.commands.where((c) => c['command'] == 'approveTool'),
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    });
+  }
   for (final dark in [false, true]) {
     for (final width in [390.0, 1200.0]) {
       testWidgets(
