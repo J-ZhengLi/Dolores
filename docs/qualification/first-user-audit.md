@@ -8,12 +8,34 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-**Current checkpoint: 92/129 checked, 37 pending.**
+**Current checkpoint: 94/129 checked, 35 pending.**
 
 Browser checks now prefer headless Playwright with text snapshots. The current
 Flutter desktop entry uses a native FFI bridge and is not a browser target.
 Widget/integration checks and saved renders cover suitable desktop paths; native
 interaction gaps remain labeled and are not checked off from browser evidence.
+
+### October 17: rendered controls connected to the real host
+
+M07 passed instruction review/Enable, stale-review refusal, Refresh/re-enable,
+changed/missing-source context refusal and Disable recovery using the actual Dart
+NativeBridge and normal Rust DLL from rendered Flutter controls. Only the root
+literal AGENTS.md was loaded; its reference file was excluded. The draft remained.
+
+M04 passed connected Memory controls: Off retained an inspectable saved record
+while excluding recall. A completed loopback fixture chat made one request and
+did not trigger capture. Explicit Forget removed the record while retaining its
+two-message conversation and newer draft. The record was manually seeded;
+automatic live capture and native input remain separate requirements.
+
+The opt-in `python scripts/qualify-native-ui.py` runner passed on fresh data,
+retains a public receipt/log, rejects existing/outside-output destinations and
+uses no credentials or external model. The ordinary widget run skips it.
+Analysis passed. Initial test async-zone/error-capture failures were corrected
+before the passing run; no product defect was inferred from those failures.
+Receipt: `output/native-audit-20261010-01/local-ui-qualification-03-20261017/receipt.json`.
+This is real host + rendered control evidence, not native pointer/IME/dialog
+qualification. These notes accompany the regression runner/test code.
 
 ### October 17: saved comparisons and explicit answer retry
 
@@ -433,7 +455,7 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P06–P08, P12–P13 (5) | Permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Attachment dialogs; native/manual privacy/access preference controls |
-| M01, M04–M10 (8) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
+| M01, M05–M06, M08–M10 (6) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Automatic capture sources/activity, skill reviews, draft test/promotion and rollback controls |
 | I06, I10 (2) | Exact reviewed two-tool MCP invocation; real scoped delegation with retained reports | MCP activation controls and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
 | E01, E05–E08, E10–E12 (8) | Real companion invitations and cooldown/cap fixtures; strict drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Native idle delivery, learning/mod/diagnostic reviews and native repair/install/restore controls |
@@ -953,10 +975,10 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [ ] M01 One Memory switch starts automatic useful fact/preference capture from real completed chats, with sources/activity.
 - [x] M02 Fresh conversation recalls a retained useful fact; no manual population is required.
 - [x] M03 Inspect/correct a memory; protected correction survives later extraction.
-- [ ] M04 Disable capture/recall; existing memory remains inspectable and can be forgotten deliberately.
+- [x] M04 Disable capture/recall; existing memory remains inspectable and can be forgotten deliberately. October 17 real Rust bridge + rendered Flutter controls: Off excluded recall, one completed fixture task made no capture request, saved record remained inspectable, explicit Forget retained chat and newer draft. Manually seeded record; no automatic/live-model capture claim.
 - [ ] M05 Project facts capture approved successful check evidence with clear declaration/execution distinction.
 - [ ] M06 Changed/missing/stale sources are excluded; project facts stay in the appropriate project.
-- [ ] M07 Review/enable root AGENTS.md; changed/missing file blocks reuse and offers re-review/disable.
+- [x] M07 Review/enable root AGENTS.md; changed/missing file blocks reuse and offers re-review/disable. October 17 real bridge + rendered Flutter: stale Enable refused, Refresh/re-enable succeeded, changed/missing source blocked context, Disable recovered; literal reference not followed and draft retained. No native pointer claim.
 - [ ] M08 Review/activate project skill; use it in a real task and show selected skill provenance.
 - [ ] M09 Global/project precedence, changed-source re-review, disable/rollback/export operate on disposable skills.
 - [ ] M10 Draft skill from completed chat, edit/test it and activate only a complete strict improvement.

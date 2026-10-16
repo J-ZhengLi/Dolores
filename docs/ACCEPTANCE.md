@@ -1,5 +1,28 @@
 # Dolores acceptance — 2026-10-08
 
+## October 17 controls connected to the normal Rust bridge
+
+M07 passed rendered Flutter instruction controls using the actual `NativeBridge`
+and normal Rust DLL. A source changed between review and Enable was refused;
+Refresh and a new Enable succeeded. Changed/missing enabled sources blocked
+context preparation, offered review/disable, and Disable recovered without losing
+the draft. The literal reference in AGENTS.md did not load its referenced file.
+
+M04 passed the same connected UI: Memory Off retained an inspectable saved record
+but excluded it from context. One completed local fixture chat made exactly one
+request, without automatic capture. Explicit Forget removed only that memory;
+two saved messages and the newer draft remained identical. The memory was seeded
+manually for this test; automatic live capture is a separate requirement.
+
+`python scripts/qualify-native-ui.py` passed with fresh output data; receipt:
+`output/native-audit-20261010-01/local-ui-qualification-03-20261017/receipt.json`.
+The runner refuses an existing or outside-output directory, preserves evidence,
+uses no external provider/credentials and bounds its owned test process. Analysis
+passed; the ordinary widget invocation correctly skipped the opt-in case. Initial
+harness failures were isolated to test async-zone/error handling and were fixed
+before qualification. This is headless rendered interaction with the real host,
+not a native pointer/IME/dialog pass. Checklist: **94/129 checked, 35 pending**.
+
 ## October 17 companionship feedback and experimental preferences
 
 E02 passed compact light/dark rendered controls for Open and all feedback actions,

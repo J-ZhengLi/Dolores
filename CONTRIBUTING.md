@@ -36,6 +36,14 @@ The Windows runner builds/checks the normal app and runs eight isolated save/res
 
 For focused changes, run relevant Rust/Flutter tests. After the normal build prepares dependencies, run `flutter analyze --no-pub` and `flutter test --no-pub` in the app directory. A fixture pass does not establish model competence. Authorized live probes use isolated data and bounded prompts, preserving user settings. Record real failures as failures.
 
+For rendered controls connected to the real Rust bridge, run
+`python scripts/qualify-native-ui.py` after a normal Windows build. It uses a
+fresh `output/native-ui/` profile, a public loopback response and no credentials.
+The initial case covers workspace instruction review/stale-source recovery and
+Memory Off/Forget with retained conversation/draft. Logs and a receipt remain in
+that profile. Ordinary widget runs skip this opt-in case. This does not qualify
+native pointer/IME/dialog behavior or real-model reliability.
+
 Async deadline tests should use a paused Tokio clock and establish the blocked
 queue/provider phase before advancing time. Keep provider inactivity, legacy
 fallback, delivery expiry and Stop assertions separate; do not race equal real
