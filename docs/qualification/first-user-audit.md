@@ -8,7 +8,38 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-**Current checkpoint: 86/129 checked, 43 pending.**
+**Current checkpoint: 88/129 checked, 41 pending.**
+
+Browser checks now prefer headless Playwright with text snapshots. The current
+Flutter desktop entry uses a native FFI bridge and is not a browser target.
+Widget/integration checks and saved renders cover suitable desktop paths; native
+interaction gaps remain labeled and are not checked off from browser evidence.
+
+### October 13–16: scoped limits and bounded continuation
+
+P04 passed native all-chat/project/chat task-limit edits and reset. All chats was
+saved at 3 calls, Project A at 2, and one A chat at 4. Restart inspection retained
+4 / 2 / 3 for that chat, its sibling and Project B. The four-call chat completed
+a three-call task through two native public-file approvals. Use inherited settings
+restored 2 / 2 / 3. The sibling's new run used the two-call allowance and paused
+with its completed read retained. These runs used a labeled local deterministic
+provider; the configured Qwen request on October 13 returned “Model access denied”,
+restored the draft and offered Model settings. No live success is claimed.
+
+A10 passed native Continue and fresh approval: incomplete work stayed unexecuted
+at the step limit, Continue started another bounded segment and requested a new
+file-read approval. An initial fixture counted only current-segment tool messages,
+causing an extra pause. Correcting that same local endpoint to recognize retained
+evidence allowed final completion. The runtime allowance was never enlarged; each
+read was separately approved. This establishes the host/UI continuation path,
+not real-model task reliability. Public evidence is retained in
+`output/native-audit-20261010-01/p04-a10-native-receipt.json`.
+
+The native attempt to save one model call also exposed missing range guidance.
+The host correctly refused it and retained the previous settings. The editor now
+shows short numeric ranges and refuses out-of-range saves locally with a focused
+message, preserving edits and saved values. Range validation matches the host;
+no limits were relaxed. Audit notes accompany the code change.
 
 ### Native audit resumed — October 12
 
@@ -356,10 +387,10 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
-| C16–C17, A10–A11, A13 (5) | Disposable deletion retention, question/custom-answer continuation, retained receipts, output/task limits, explicit continuation and restart checkpoints | Delete confirmation; failed-send Retry; Continue/interrupt/log-capture controls |
+| C16–C17, A11, A13 (4) | Disposable deletion retention, question/custom-answer continuation, retained receipts, interruption/log capture and restart checkpoints | Delete confirmation; failed-send Retry; interruption/log-capture controls |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
-| P04, P06–P08, P12–P14 (7) | Scoped settings, permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Scoped settings and attachment dialogs; native/manual privacy/access/experimental preference controls |
+| P06–P08, P12–P14 (6) | Permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Attachment dialogs; native/manual privacy/access/experimental preference controls |
 | M01, M04–M10 (8) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions, instructions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Memory sources/activity/switch/correction/forget, instruction/skill reviews, draft test/promotion and rollback controls |
 | I06, I10 (2) | Exact reviewed two-tool MCP invocation; real scoped delegation with retained reports | MCP activation controls and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
@@ -788,7 +819,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] A07 Cause a real check failure; Repair and verify fixes it and reruns the same check with truthful evidence.
 - [x] A08 Inspect Changes and revert a disposable edit with the reviewed reverse diff.
 - [x] A09 Inspect Activity/Earlier tasks, settings origins, tool receipts, checkpoints and reported usage. October 11 native inspection/reopen and corrected labels passed on the retained real Qwen task.
-- [ ] A10 Hit a small explicit task/output limit; Continue resumes useful work with fresh approval.
+- [x] A10 Hit a small explicit task/output limit; Continue resumes useful work with fresh approval. Native October 16: labeled two-call fixture retained a completed read, paused before pending work, requested fresh approval on Continue and completed within bounded segments; real-model continuation reliability remains separate.
 - [ ] A11 Interrupt a task with completed effects; recovery draft explains uncertainty and does not replay earlier operations.
 - [x] A12 Read a large text file by ranges and edit a unique snapshot-bound match without truncation corruption. Native qwen3.7-flash edit, stale-review refusal, fresh-read recovery and byte preservation verified; all saved action receipts remain accessible.
 - [ ] A13 Capture a larger command log; inspect its saved file and distinguish preview truncation from capture limits.
@@ -863,7 +894,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] P01 Find settings by category/search; short labels/help hints and bottom placement remain clear. October 11 native category selection, frequency search/result navigation, compact slider labels and hover-only help passed; settings closed without changing preferences.
 - [x] P02 Light/Dark/System apply consistently; pending form drafts survive navigation.
 - [x] P03 Model context/output/stall/reasoning settings save for the selected model and survive restart.
-- [ ] P04 Scoped user/project/chat overrides and inheritance show correct effective values on new runs.
+- [x] P04 Scoped user/project/chat overrides and inheritance show correct effective values on new runs. Native October 13–16: saved call limits 4/2/3 across chat/sibling/other project; restart retained them; chat override ran three calls, inheritance reset restored 2/2/3 and sibling's new run paused at two. Labeled local provider; Qwen access refusal is not a live pass.
 - [x] P05 Close/Escape with unsaved settings gives Save/Discard/Keep editing; cancel preserves values. Native October 12: timeout 30→31; Keep editing retained 31, Discard restored 30 on reopen, Save retained 31 on reopen.
 - [ ] P06 Connection controls list/manual models, selected model and remembered restart work without exposing a key.
 - [ ] P07 Attach/preview/remove/send public UTF-8 text; attachment snapshot survives later source changes.

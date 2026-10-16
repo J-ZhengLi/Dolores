@@ -1,5 +1,29 @@
 # Dolores acceptance — 2026-10-08
 
+## October 16 native audit: scope inheritance and explicit continuation
+
+P04 passed native edits of all-chat/project/chat call limits, persistence and reset.
+Saved limits were 4 for one Project A chat, 2 for its sibling and 3 for Project B.
+The four-call chat completed a three-call task. Native Use inherited settings
+restored 2/2/3; the sibling's new run paused at two. A10 passed native Continue and
+fresh read approval, with completed evidence retained and incomplete work not run
+at the limit. The initial local fixture miscounted retained versus current tool
+results and caused an extra pause. Its same endpoint was corrected; the final
+segment completed from retained evidence without enlarging runtime limits. Each
+read had its own approval. These are deterministic native host/UI passes, not
+claims of model competence. On October 13, the configured Qwen request was refused
+with “Model access denied”; its exact draft was restored with Model settings
+recovery. Public receipt: `output/native-audit-20261010-01/p04-a10-native-receipt.json`.
+
+The native save of a one-call limit was correctly refused by the host but exposed
+absent input guidance and a dense combined error. Numeric ranges are now shown
+beside task-limit inputs. Out-of-range calls/tools/segments/time are refused
+locally with a short field-specific message; edited and previously saved values
+remain intact. The reproducing regression failed before the fix. Host validation
+remains authoritative and unchanged. All 14 focused settings widget tests, Flutter
+analysis of lib/test and the normal Windows desktop build passed. Checklist:
+**88/129 checked, 41 pending**.
+
 ## October 13 installer fixture cleanup race
 
 The screenshot reports `WinError 2` launching `unins000.exe` in the locked-data

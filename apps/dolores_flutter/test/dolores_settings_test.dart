@@ -98,6 +98,90 @@ Future<void> show(
 }
 
 void main() {
+  testWidgets('task limit ranges are explained and invalid saves stay local', (
+    tester,
+  ) async {
+    final bridge = SettingsBridge();
+    bridge.patch['task'] = {
+      'modelCalls': 4,
+      'toolCalls': 4,
+      'segments': 4,
+      'elapsedSeconds': null,
+    };
+    final chat = ChatController(bridge)
+      ..session = 'thread-a'
+      ..loading = false
+      ..draft = 'Retain draft';
+    await show(tester, chat, group: SettingsGroup.task);
+    final calls = find.widgetWithText(TextField, 'Model calls (optional)');
+    await tester.ensureVisible(calls);
+    expect(
+      tester.widget<TextField>(calls).decoration!.helperText,
+      '2–128, or leave blank',
+    );
+    await tester.enterText(calls, '1');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Model calls must be 2–128, or leave blank for Automatic.'),
+      findsOneWidget,
+    );
+    expect(
+      bridge.commands.where((c) => c['command'] == 'saveScopedSettings'),
+      isEmpty,
+    );
+    expect(bridge.patch['task']['modelCalls'], 4);
+    expect(tester.widget<TextField>(calls).controller!.text, '1');
+    await tester.enterText(calls, '128');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(bridge.commands.last['patch']['task']['modelCalls'], 128);
+    final tools = find.widgetWithText(TextField, 'Tool operations (optional)');
+    await tester.ensureVisible(tools);
+    await tester.enterText(tools, '257');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Tool operations must be 1–256, or leave blank for Automatic.'),
+      findsOneWidget,
+    );
+    expect(
+      bridge.commands.where((c) => c['command'] == 'saveScopedSettings').length,
+      1,
+    );
+    await tester.enterText(tools, '');
+    final segments = find.widgetWithText(
+      TextField,
+      'Total task segments (1–8)',
+    );
+    await tester.ensureVisible(segments);
+    await tester.enterText(segments, '9');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Task segments must be 1–8.'), findsOneWidget);
+    await tester.enterText(segments, '4');
+    final elapsed = find.widgetWithText(
+      TextField,
+      'Task time limit seconds (blank = no limit)',
+    );
+    await tester.ensureVisible(elapsed);
+    await tester.enterText(elapsed, '29');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Task time limit must be 30–3600, or leave blank for no limit.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      bridge.commands.where((c) => c['command'] == 'saveScopedSettings').length,
+      1,
+    );
+    expect(chat.draft, 'Retain draft');
+    await tester.pumpWidget(const SizedBox());
+    chat.dispose();
+  });
   testWidgets(
     'Automatic task limits save blank values and preserve existing numeric limits and draft',
     (tester) async {

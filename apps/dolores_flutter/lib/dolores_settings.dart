@@ -171,6 +171,22 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
       });
       return;
     }
+    if (!reset && shows(SettingsGroup.task) && task) {
+      for (final limit in [
+        (calls, 2, 128, 'Model calls', ', or leave blank for Automatic'),
+        (tools, 1, 256, 'Tool operations', ', or leave blank for Automatic'),
+        (segments, 1, 8, 'Task segments', ''),
+        (elapsed, 30, 3600, 'Task time limit', ', or leave blank for no limit'),
+      ]) {
+        final value = int.tryParse(limit.$1.text.trim());
+        if (value != null && (value < limit.$2 || value > limit.$3)) {
+          setState(() {
+            error = '${limit.$4} must be ${limit.$2}–${limit.$3}${limit.$5}.';
+          });
+          return;
+        }
+      }
+    }
     if (!reset &&
         shows(SettingsGroup.generation) &&
         generation &&
@@ -361,15 +377,26 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                               'Task time limit seconds (blank = no limit)',
                             ),
                           ])
-                            TextField(
-                              controller: field.$1,
-                              enabled: !locked,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: field.$2,
-                                hintText: field.$1 == calls || field.$1 == tools
-                                    ? 'Automatic'
-                                    : null,
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TextField(
+                                controller: field.$1,
+                                enabled: !locked,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: field.$2,
+                                  helperText: field.$1 == calls
+                                      ? '2–128, or leave blank'
+                                      : field.$1 == tools
+                                      ? '1–256, or leave blank'
+                                      : field.$1 == elapsed
+                                      ? '30–3,600, or leave blank'
+                                      : null,
+                                  hintText:
+                                      field.$1 == calls || field.$1 == tools
+                                      ? 'Automatic'
+                                      : null,
+                                ),
                               ),
                             ),
                           const Text(
