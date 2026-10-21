@@ -16,6 +16,7 @@ import 'message_frame.dart';
 import 'rich_composer.dart';
 import 'composer_commands.dart';
 import 'instruction_queue.dart';
+import 'goal_panel.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
 import 'inspector.dart';
@@ -864,6 +865,7 @@ class _ChatPageState extends State<ChatPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (chat.instructionQueueAvailable) InstructionQueue(chat: chat),
+              if (chat.goalsAvailable) GoalPanel(chat: chat),
               if (chat.commandPickerAvailable)
                 ComposerCommands(
                   key: commands,

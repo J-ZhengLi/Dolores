@@ -2,7 +2,7 @@
 
 Date: 2026-10-21 (Asia/Shanghai)
 
-Status: implementation authorized 2026-10-21; EH00–EH02 complete; EH03 is next.
+Status: implementation authorized 2026-10-21; EH00–EH03 complete; EH04 is next.
 Executable task lists and current status live in the
 [batch index](../plans/everyday-harness/README.md).
 
@@ -32,7 +32,7 @@ unrelated work. The user's 2026-10-21 follow-up authorizes implementation in thi
 order; the plan records scope and gates.
 
 Use EH00–EH10 as batch identifiers without renumbering historical milestones.
-EH00 contracts/probes, EH01 live text controls and EH02 command/skill discovery are complete; EH03 is next, with EH03–EH10 pending their dependencies. Dates and effort
+EH00 contracts/probes, EH01 live text controls, EH02 command/skill discovery and EH03 goals/context recovery are complete; EH04 is next, with EH04–EH10 pending their dependencies. Dates and effort
 estimates should follow the EH00 baseline rather than precede it.
 
 ## Architecture and invariants
@@ -181,6 +181,10 @@ draft; test slash-containing paths, code blocks, and IME composition.
    completed tool results, refuses malformed summaries, and does not replay tools.
 5. Restore inspectable task state on reopen and add explicit resume. Prevent
    no-progress continuation loops using bounded detection and actionable stops.
+6. Add calm, host-provided context-capacity awareness with byte/token estimates,
+   output reserve and separate cumulative task limits. Ship it with a usable
+   safe-boundary recovery path; model-dependent premature stopping remains a
+   qualification concern, not an assumption that prompting alone prevents it.
 
 **Exit:** complete a multi-turn fixture goal with a verifiable artifact. Test
 budget/context exhaustion and repeated failures, plus Stop/reopen with queued

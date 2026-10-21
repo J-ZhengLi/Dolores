@@ -355,6 +355,35 @@ impl SqliteStore {
             first = false;
         }
         if matches!(format, ExportFormat::Json) {
+            output.write_all(b"],\"goals\":[").map_err(error)?;
+        }
+        let mut goals=snapshot.prepare("SELECT data FROM goal_history WHERE session=?1 UNION ALL SELECT data FROM goals WHERE session=?1").map_err(storage_error)?;
+        let values = goals
+            .query_map([id], |r| r.get::<_, String>(0))
+            .map_err(storage_error)?;
+        let mut first = true;
+        for value in values {
+            let goal: dolores_core::goal::Goal =
+                serde_json::from_str(&value.map_err(storage_error)?).map_err(storage_error)?;
+            match format {
+                ExportFormat::Json => {
+                    if !first {
+                        output.write_all(b",").map_err(error)?;
+                    }
+                    serde_json::to_writer(&mut *output, &goal).map_err(storage_error)?;
+                }
+                ExportFormat::Markdown => {
+                    writeln!(output, "## Goal and progress\n").map_err(error)?;
+                    markdown_block(
+                        output,
+                        &serde_json::to_string(&goal).map_err(storage_error)?,
+                    )
+                    .map_err(error)?;
+                }
+            }
+            first = false;
+        }
+        if matches!(format, ExportFormat::Json) {
             output.write_all(b"]}\n").map_err(error)?;
         }
         Ok(count)

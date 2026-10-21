@@ -433,6 +433,16 @@ pub trait ToolPlugin: Send + Sync {
 }
 #[async_trait]
 pub trait ToolApproval: Send + Sync {
+    fn context_recovery_available(&self) -> bool {
+        false
+    }
+    async fn compact_context(
+        &self,
+        _: &[AgentMessage],
+        _: CancellationToken,
+    ) -> Result<Option<crate::context_recovery::ContextCheckpoint>, String> {
+        Ok(None)
+    }
     /// User guidance is collected only at host-defined safe boundaries.
     fn steering_pending(&self) -> Result<bool, String> {
         Ok(false)
@@ -619,6 +629,10 @@ pub async fn run_agent_with_shared_budget(
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
     let mut base_system = messages[0].content.clone();
+    let mut recovery_count = 0;
+    let mut capacity_band = 0;
+    let recovery_available =
+        approval.context_recovery_available() && messages.iter().all(|m| m.parts.is_empty());
     // Snapshot adapters declare their immutable evidence before generation.
     // Refuse a known image overrun locally instead of paying for a tool request
     // whose result can never fit. Actual results are counted again below.
@@ -669,7 +683,41 @@ pub async fn run_agent_with_shared_budget(
             });
         }
         approval.acknowledge_steering()?;
+        let capacity = crate::context_recovery::context_capacity(
+            &messages,
+            &specs,
+            provider.context_window_tokens(),
+            settings,
+            recovery_available,
+        )?;
+        if capacity.pressure_percent >= 80
+            && recovery_available
+            && recovery_count < 2
+            && number < budget.model_limit()
+        {
+            if !shared.reserve_model(child) {
+                if let Some(error) = shared.error() {
+                    return Err(error);
+                }
+                return Ok(checkpoint_reply(summary,"Task budget reached before context recovery. Saved effects remain; inspect progress before continuation."));
+            }
+            if let Some(checkpoint) = approval.compact_context(&messages, cancel.clone()).await? {
+                messages = crate::context_recovery::restored_context(
+                    &messages,
+                    &checkpoint,
+                    &summary.tools,
+                    &base_system,
+                )?;
+                recovery_count += 1;
+                capacity_band = 0;
+                // Recovery is a model attempt even though it produces no task answer.
+                summary.model_calls += 1;
+            }
+        }
         if !shared.reserve_model(child) {
+            if let Some(error) = shared.error() {
+                return Err(error);
+            }
             return Ok(AgentReply { answer: "Task checkpoint saved. Completed tool effects and evidence remain. Review progress and Continue; nothing was replayed.".into(), summary, pause: Some(if budget.model_calls.is_none() { PauseReason::Checkpoint } else { PauseReason::StepLimit }) });
         }
         messages[0].content = base_system.replacen(
@@ -677,6 +725,28 @@ pub async fn run_agent_with_shared_budget(
             &budget_note_for(number, summary.tools.len(), budget),
             1,
         );
+        let capacity = crate::context_recovery::context_capacity(
+            &messages,
+            &specs,
+            provider.context_window_tokens(),
+            settings,
+            recovery_available,
+        )?;
+        let band = if capacity.pressure_percent >= 80 {
+            2
+        } else if capacity.pressure_percent >= 60 {
+            1
+        } else {
+            0
+        };
+        if band > 0 && recovery_available {
+            if band != capacity_band {
+                capacity_band = band;
+            }
+            messages[0]
+                .content
+                .push_str(&crate::context_recovery::capacity_notice(&capacity));
+        }
         let bytes = serde_json::to_vec(&messages).map_err(|_| "Could not prepare tool context.")?;
         if bytes.len() > MAX_CONTEXT_BYTES {
             return Ok(checkpoint_reply(
@@ -922,6 +992,9 @@ pub async fn run_agent_with_shared_budget(
             || summary.tools.len() + turn.calls.len() > budget.tool_limit()
             || !shared.reserve_tools(turn.calls.len())
         {
+            if let Some(error) = shared.error() {
+                return Err(error);
+            }
             let reason = if (number == budget.model_limit() && budget.model_calls.is_some())
                 || (summary.tools.len() + turn.calls.len() > budget.tool_limit()
                     && budget.tool_calls.is_some())
@@ -1085,7 +1158,9 @@ pub async fn run_agent_with_shared_budget(
                         || request.target.len() > 1024
                         || request.query.as_ref().is_some_and(|query| {
                             query.len()
-                                > if matches!(
+                                > if request.name == "goal_progress" {
+                                    8192
+                                } else if matches!(
                                     request.name.as_str(),
                                     "delegate_tasks"
                                         | "request_user_input"

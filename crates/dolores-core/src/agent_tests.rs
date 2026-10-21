@@ -1162,6 +1162,74 @@ async fn inspection_preparation_refusal_has_actionable_recovery_without_approval
     assert!(!reply.summary.tools[0].content.contains("File request"));
     assert_eq!(reply.answer, "Final answer");
 }
+#[tokio::test]
+async fn goal_progress_accepts_bounded_receipts_without_relaxing_other_tool_queries() {
+    struct Progress(&'static str, usize);
+    #[async_trait]
+    impl ToolPlugin for Progress {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: self.0.into(),
+                description: "Fixture progress".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            Ok(ToolRequest {
+                call_id: call.id.clone(),
+                name: self.0.into(),
+                target: "Saved goal progress".into(),
+                query: Some("x".repeat(self.1)),
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            Ok("Progress retained".into())
+        }
+    }
+    for (name, bytes, accepted) in [
+        ("goal_progress", 1024, true),
+        ("goal_progress", 8192, true),
+        ("goal_progress", 8193, false),
+        ("other_tool", 1024, false),
+    ] {
+        let provider = Scripted {
+            calls: Mutex::new(vec![ToolCall {
+                id: "progress".into(),
+                name: name.into(),
+                arguments: "{}".into(),
+            }]),
+            loop_forever: false,
+        };
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let result = run_small_agent(
+            &provider,
+            context(),
+            &[Arc::new(Progress(name, bytes))],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await;
+        assert_eq!(result.is_ok(), accepted);
+        assert_eq!(approval.count.load(Ordering::SeqCst), usize::from(accepted));
+        if accepted {
+            assert_eq!(
+                result.unwrap().summary.tools[0].content,
+                "Progress retained"
+            );
+        } else {
+            assert!(result.err().unwrap().contains("invalid approval request"));
+        }
+    }
+}
+
 #[async_trait]
 impl ModelProvider for Scripted {
     fn descriptor(&self) -> PluginDescriptor {

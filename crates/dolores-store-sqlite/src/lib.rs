@@ -12,6 +12,9 @@ mod composer_skills;
 mod experimental;
 mod feedback;
 mod generation_profiles;
+#[cfg(test)]
+mod goal_tests;
+mod goals;
 mod history;
 mod instructions;
 mod mcp;
@@ -27,7 +30,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 40;
+pub const SCHEMA_VERSION: i64 = 41;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -244,6 +247,9 @@ impl SqliteStore {
         if version < 40 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS composer_skills(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL);PRAGMA user_version=40;COMMIT;").map_err(storage_error)?;
         }
+        if version < 41 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS goals(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS goal_history(session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,id TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(session,id));PRAGMA user_version=41;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -254,6 +260,57 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn goal(&self, s: &str) -> Result<Option<dolores_core::goal::Goal>, String> {
+        goals::read(&*self.lock()?, s)
+    }
+    fn edit_goal(
+        &self,
+        s: &str,
+        e: &dolores_core::goal::GoalEdit,
+        b: dolores_core::TaskBudget,
+    ) -> Result<dolores_core::goal::Goal, String> {
+        self.goal_edit(s, e, b)
+    }
+    fn claim_goal(
+        &self,
+        s: &str,
+        id: &str,
+        r: u32,
+        run: &str,
+    ) -> Result<dolores_core::goal::Goal, String> {
+        self.goal_claim(s, id, r, run)
+    }
+    fn charge_goal(
+        &self,
+        s: &str,
+        id: &str,
+        run: &str,
+        c: dolores_core::goal::GoalCharge,
+    ) -> Result<bool, String> {
+        self.goal_charge(s, id, run, c)
+    }
+    fn progress_goal(
+        &self,
+        s: &str,
+        id: &str,
+        run: &str,
+        p: &dolores_core::goal::GoalProgress,
+    ) -> Result<dolores_core::goal::Goal, String> {
+        self.goal_progress(s, id, run, p)
+    }
+    fn finish_goal(
+        &self,
+        s: &str,
+        id: &str,
+        run: &str,
+        n: bool,
+        p: bool,
+    ) -> Result<dolores_core::goal::Goal, String> {
+        self.goal_finish(s, id, run, n, p)
+    }
+    fn recover_goals(&self) -> Result<(), String> {
+        self.goals_recover()
+    }
     fn composer_skills(&self, s: &str) -> Result<Vec<dolores_core::SkillSelection>, String> {
         composer_skills::read(&*self.lock()?, s)
     }

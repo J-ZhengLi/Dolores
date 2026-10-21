@@ -332,6 +332,74 @@ class ChatController extends ChangeNotifier {
   bool durableDrafts = false;
   bool instructionQueueAvailable = false;
   bool commandPickerAvailable = false;
+  bool goalsAvailable = false;
+  Map<String, dynamic>? goal;
+  bool _goalStarted = false;
+  Future<void> refreshGoal() async {
+    if (!goalsAvailable || session == null) return;
+    final target = session;
+    final saved = await bridge.call({'command': 'goal', 'session': target});
+    if (session == target) {
+      goal = (saved as Map?)?.cast<String, dynamic>();
+      _notify();
+    }
+  }
+
+  Future<bool> changeGoal(Map<String, dynamic> edit) async {
+    if (busy || changing || loading || skillSaving) return false;
+    changing = true;
+    _notify();
+    try {
+      await _ensureWorkingSession();
+      goal = (await bridge.call({
+        'command': 'editGoal',
+        'session': session,
+        'edit': edit,
+      }) as Map).cast<String, dynamic>();
+      _goalStarted = false;
+      error = null;
+      await refreshInputs();
+      return true;
+    } catch (e) {
+      error = '$e';
+      return false;
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
+  Future<void> startGoal() async {
+    if (!goalsAvailable ||
+        busy ||
+        changing ||
+        loading ||
+        skillSaving ||
+        session == null ||
+        goal?['state'] != 'active') {
+      return;
+    }
+    _goalStarted = true;
+    await send(taskInput: 'Continue the saved goal.', goalRun: true);
+  }
+
+  Future<void> dispatchGoal() async {
+    if (!_goalStarted ||
+        goal?['state'] != 'active' ||
+        goal?['currentRun'] != null ||
+        busy ||
+        changing ||
+        loading ||
+        inputsPaused ||
+        draft.trim().isNotEmpty ||
+        attachments.isNotEmpty ||
+        error != null ||
+        inputEntries.any((e) => e['state'] == 'pending')) {
+      return;
+    }
+    await startGoal();
+  }
+
   bool skillSaving = false;
   Map<String, dynamic> commandCatalogue = {};
   List<Map<String, dynamic>> selectedSkills = [];
@@ -892,6 +960,7 @@ class ChatController extends ChangeNotifier {
     durableDrafts = state['durableDrafts'] == true;
     instructionQueueAvailable = state['instructionQueue'] == true;
     commandPickerAvailable = state['commandPicker'] == true;
+    goalsAvailable = state['goals'] == true;
     attachmentsAvailable = state['attachments'] == true;
     imageModels = ((state['imageModels'] as List?) ?? []).cast<String>();
     _setConversationList(state);
@@ -1095,6 +1164,8 @@ class ChatController extends ChangeNotifier {
   }
 
   void _clearConversation() {
+    goal = null;
+    _goalStarted = false;
     selectedSkills = [];
     commandCatalogue = {};
     taskInputs = {};
@@ -1130,6 +1201,8 @@ class ChatController extends ChangeNotifier {
     if (nextKind != 'project') workspaceRoot = null;
     workspaceKind = nextKind;
     session = null;
+    goal = null;
+    _goalStarted = false;
     taskInputs = {};
     selectedSkills = [];
     commandCatalogue = {};
@@ -1191,6 +1264,9 @@ class ChatController extends ChangeNotifier {
             }) as List).cast<Map<String, dynamic>>()
           : <Map<String, dynamic>>[];
       session = id;
+      goal = null;
+      _goalStarted = false;
+      await refreshGoal();
       selectedSkills = [];
       commandCatalogue = {};
       await refreshCommands();
@@ -1372,6 +1448,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> send({
+    bool goalRun = false,
     String? scheduledOccurrence,
     String? taskInput,
     bool queuedInstruction = false,
@@ -1422,14 +1499,14 @@ class ChatController extends ChangeNotifier {
     _observationRun = observationModel != null;
     stopping = false;
     if (taskInput != null && !queuedInstruction) _desktopDraft = draft;
-    _desktopKeepsAttachments = desktopHandoff || queuedInstruction;
+    _desktopKeepsAttachments = desktopHandoff || queuedInstruction || goalRun;
     pendingInput =
         taskInput ??
         (draft.trim().isEmpty ? 'Please review the attached files.' : draft);
-    pendingParts = desktopHandoff || queuedInstruction
+    pendingParts = desktopHandoff || queuedInstruction || goalRun
         ? []
         : [for (final part in attachments) Map.of(part)];
-    if (!queuedInstruction) draft = '';
+    if (!queuedInstruction && !goalRun) draft = '';
     partial = '';
     error = null;
     final id = _run = ++_nextRun;
@@ -1461,6 +1538,7 @@ class ChatController extends ChangeNotifier {
         'session': session,
         'input': pendingInput,
         if (queuedInstruction) 'command': 'startTaskInput',
+        if (goalRun) ...{'command': 'startGoal', 'revision': goal?['revision']},
         'continuation': ?continuation,
         'resumeRun': ?(desktopResume ?? resumeRun),
         'desktopHandoff': desktopHandoff,
@@ -1494,6 +1572,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> stop() async {
+    _goalStarted = false;
     if (!busy) return;
     if (session != null) _locallyPausedInputs.add(session!);
     stopping = true;
@@ -1715,9 +1794,13 @@ class ChatController extends ChangeNotifier {
       if (events.isNotEmpty) {
         _notify();
         await refreshInputs();
+        await refreshGoal();
       }
       _schedule(id);
       if (!busy && error == null) await dispatchNextInput();
+      if (!busy && error == null && events.any((e) => e['type'] == 'done')) {
+        await dispatchGoal();
+      }
     } catch (failure) {
       changing = false;
       if (!_disposed && id == _run) {

@@ -6,7 +6,8 @@ Type `/` at the start of a plain line to filter commands and enabled, reviewed
 skills. Use Up/Down and Enter or Tab to choose; Escape dismisses the picker and
 keeps the text. Paths and fenced code keep normal editing, and IME composition
 does not select or submit. `/stop` stops this chat's response; `/resume-queue`
-resumes its inspected, paused queue. Goal and Plan are marked **Not available yet**.
+resumes its inspected, paused queue. `/goal` opens Goal and progress; Plan remains
+marked **Not available yet**.
 
 A selected skill becomes a chip showing its scope and reviewed version. Click
 the chip to inspect its instructions, or remove it with its close button. Up to
@@ -75,6 +76,38 @@ not pass). Your choice is saved; use existing file/diff/terminal split views.
 Prevent Windows From Locked is Off by default.
 The Windows option requests display/system wakefulness while Dolores runs; it
 does not override manual locks, screen-saver security or enforced policy.
+
+## Goals and context recovery
+
+For sustained work in a project or temporary working chat, use **`/goal`** to save
+an objective, verifiable success criteria and constraints, then choose **Start
+goal**. Saving alone never starts execution. The goal panel shows criteria,
+receipt references and cumulative model/tool/segment/time accounting. The agent
+can update progress but cannot rewrite the human's objective or criteria. A final
+answer alone cannot complete a goal: every criterion needs retained successful
+work or verification receipts and a normally saved final response. Inspect those
+receipts; their existence is not a guarantee that a model judged them correctly.
+
+Eligible continuation runs through the existing chat owner while the app is open.
+Drafts, attachments, pending user input and decisions take priority. Ordinary
+queued user turns remain separate from goal segments. Stop or a failed/limited
+run pauses progress; reopening requires explicit **Resume goal**, then **Start
+goal**. Inspect retained instructions and uncertain effects before resuming.
+Two segments without new work/verification receipts block continuation. Resume
+does not reset cumulative counters. At an exhausted allowance, inspect progress,
+clear the prior goal and explicitly save a smaller new one. Prior goals and run
+receipts remain in conversation exports; working files are retained.
+
+Goal runs and chats with automatic compaction enabled can recover context at
+settled model/tool boundaries. Near capacity, the agent receives a host estimate
+that distinguishes context room, response output and cumulative task limits.
+The estimate includes the public byte ceiling and output reserve. Recovery keeps
+original user instructions, goals and receipt previews; full evidence remains in
+Run history. Two mid-run recovery attempts are allowed per segment, charged to
+the same model budget. Malformed, oversized or unusable summaries stop for
+inspection without replaying tools. Images require explicit recovery with their
+retained attachments. The reminders do not establish model reliability or remove
+the need to verify results.
 
 ## Scheduled tasks and companionship
 

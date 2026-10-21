@@ -1,5 +1,43 @@
 # Flutter/Rust bridge contract
 
+## Goals and context recovery (EH03)
+
+`bootstrap.goals` advertises working-chat goals. `goal {session}` returns the
+current record or null. `editGoal {session,edit}` supports explicit human `set
+{revision?,objective,criteria,constraints}`, `pause/resume/clear {revision}`.
+Set pins the effective task limits; completion and clear retain receipts, and a
+new Set archives the prior goal. SQLite migration 41 adds `goals` and
+`goal_history`; JSON/Markdown exports retain both current and archived records.
+Model progress has a separate `progressRevision`; human criteria remain immutable.
+
+`startGoal {session,revision,id}` uses the normal primary admission route with a
+fresh run ID, goal ancestry and durable claim. Pending, uncertain or suspended
+inputs block the claim. A `goal_progress` tool records the unchanged criterion
+list and successful `{run,sequence}` evidence; `inspect_goal` returns matching
+receipt references. Completion is requested, then finalized only after a normal,
+unpaused response and finished run evidence save. Failed/truncated responses,
+Stop, exhausted allowances and missing receipts cannot complete it. Receipt
+validation establishes provenance, not semantic correctness of model judgments.
+
+All goal model/tool attempts are reserved transactionally before dispatch,
+including failed attempts, children and compaction. Active time uses one-second
+reservations excluding observed review waits; no refund or reset on restart.
+Only explicit goal segments charge this goal, not unrelated queued human turns.
+The frontend considers continuation after done/ownership release, yielding to
+drafts, input and decisions; no idle timer or closed-app dispatcher is added.
+Restart pauses active goals. Counters survive Resume; two segments without new
+work/verification receipts block continuation. Existing task caps remain in force.
+
+The core checks the tighter serialized public-byte/model input allowance. Goal
+runs and auto-compaction chats receive calm host estimates at 60/80 percent
+pressure, with output reserve and separate context/response/task limits. At a
+safe boundary from 80 percent, up to two tool-free summary attempts can rebuild
+context. Summary schema, size and useful headroom are validated; original user
+instructions and durable host state remain separate from untrusted summary and
+receipt previews. Historical tool calls/approval tokens are never reconstructed.
+Images retain their existing explicit recovery path. Protocol fixtures do not
+qualify model-dependent premature stopping, optimal thresholds or live reliability.
+
 ## Command and skill discovery (EH02)
 
 `bootstrap.commandPicker` advertises `/` discovery. `composerCommands {session?}`
@@ -7,7 +45,8 @@ returns fixed host command descriptors (`id/title/description/available/reason`)
 effective enabled reviewed skill entries (`selection/description/text`) and saved
 `selected` references. This read does not scan disk or consume Settings reviews.
 Commands and skills remain separate types even when names collide. Stop and
-Resume queue use the existing host operations; Goal and Plan stay unavailable.
+Resume queue use the existing host operations; Goal opens its EH03 controls.
+Plan remains unavailable until EH04.
 
 `saveComposerSkills {session,selections}` persists at most three distinct
 `{scope,name,revision,version}` references. New references require exact effective,

@@ -12,7 +12,9 @@ impl ToolProposalHook for ValidateProposal {
             || request.target.len() > 1024
             || request.query.as_ref().is_some_and(|q| {
                 q.len()
-                    > if matches!(
+                    > if request.name == "goal_progress" {
+                        8192
+                    } else if matches!(
                         request.name.as_str(),
                         "delegate_tasks"
                             | "request_user_input"
@@ -220,6 +222,13 @@ impl Engine {
             working && self.browser_runtime().is_ok(),
             vec!["owned-browser-session".into()],
             vec!["browser".into()],
+        )?;
+        add(
+            "goals",
+            true,
+            working,
+            vec!["durable-goal-progress".into()],
+            vec!["inspect_goal".into(), "goal_progress".into()],
         )?;
         {
             let web = self.store.web_configuration()?;

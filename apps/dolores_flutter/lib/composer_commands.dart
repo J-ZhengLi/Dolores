@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'chat.dart';
 import 'composer_controller.dart';
+import 'goal_panel.dart';
 
 /// A slash at a plain line boundary opens discovery; paths and fenced code do not.
 TextRange? commandQuery(TextEditingValue value) {
@@ -212,6 +213,8 @@ class ComposerCommandsState extends State<ComposerCommands> {
           await chat.stop();
         case 'resume-queue':
           await chat.resumeInputs();
+        case 'goal':
+          await showGoal(context, chat);
         default:
           return; // Only fixed host handlers can execute.
       }

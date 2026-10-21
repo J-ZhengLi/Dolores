@@ -1,5 +1,72 @@
 # Dolores acceptance — 2026-10-08
 
+## EH03 goals and context recovery — October 21
+
+Explicit `/goal` controls save human objectives, criteria and constraints without
+starting work. Additive SQLite migration 41 retains revisioned checklists, run
+ancestry, lifecycle and cumulative model/tool/segment/active-time accounting.
+Completed and cleared goals remain exportable after saving a new goal. Model
+progress cannot rewrite criteria; completion requires retained successful tool
+receipts and a normally saved final response. Receipt provenance does not prove
+that a model interpreted the result correctly.
+
+Goal segments use the normal admission owner and yield to drafts, attachments,
+queued instructions and decisions. Stop, failed/truncated responses and reopening
+retain work for explicit recovery. Resume preserves counters. Two segments with
+no new work/verification receipts block continuation. Child and compaction model
+attempts share the persistent ledger; failed ledger writes refuse dispatch.
+Blocked verification reports its actual cause rather than a budget error.
+
+Storage checks exercise cumulative exhaustion across three segments, active-time
+reservations, stale revisions, failed saves, no-progress blocking, pending-input
+priority, interruption/reopen, missing/failed/foreign completion evidence, export
+of archived goals, deletion cascade and migration from version 40 with Unicode
+history retained. Parallel child reservations preserve the parent's report slot,
+including after earlier segments spent part of the cumulative model allowance;
+an injected SQLite write failure refuses a free model attempt. A core regression
+accepts bounded goal progress through 8 KiB and rejects oversized progress while
+retaining the smaller envelope for unrelated tools.
+
+Context recovery checks cover the tighter public-byte/model-input ceiling,
+literal original input and steering retained separately from a strict untrusted
+summary, host goal/constraints preserved, and no executable historical calls.
+Valid recovery spends one summary attempt before the continuing request;
+malformed recovery spends that attempt and stops before another task request.
+Calm notices distinguish estimated context, response output and task allowance
+and explicitly preserve verification. Recovery has a two-attempt segment cap;
+images and checkpoints without useful headroom require explicit inspection.
+
+Five new Flutter cases cover failed saves with retained form/composer edits,
+Save without execution (including later automatic-dispatch checks), explicit
+Start before continuation, input priority, resume with retained counters,
+and compact light/dark layouts. With existing composer/queue/Stop/Skills cases,
+**68 checks pass**. Changed-file analysis passes; both saved compact goal renders
+were inspected with readable actions. These are rendered widget checks, not
+native keyboard/pointer/IME qualification.
+
+The first connected trial passed the four existing journeys and retained the
+created goal artifact, but failed its progress submission at the core's smaller
+query envelope. The goal paused with five model attempts, two segments and its
+file/receipts retained; it was not completed. Evidence remains under
+`output/harness/eh03-native-trial/`. Core, registry and tool preparation now agree
+on the bounded goal-progress envelope. The full-suite run also exposed a fixed
+80 ms assumption in an existing child Stop test; it now waits, with a deadline,
+for both requests to be in flight before testing the same interruption/evidence
+assertions.
+
+Final confirmation passes: **364 Rust library tests**, with one existing ignored
+test, Clippy across all targets, the normal Windows x64 build and **all five
+connected journeys**. The goal journey creates one Unicode artifact, reads it
+back and completes the evidence-linked checklist across two segments and six
+model attempts under one cumulative budget. Final receipts:
+`output/harness/eh03-native-final/{receipt,schedule-receipt,stop-receipt,queue-receipt,goal-receipt}.json`.
+Document links, batch ownership, whitespace and tracked-file publication checks
+pass. EH03 is complete within its declared scope. Fixtures use fresh
+isolated data, public loopback responses and no provider credentials. Real-model
+reliability, premature stopping under context notices, threshold tuning, native
+input behavior and the broader EH10 resource/isolation gates remain unqualified.
+H21 remote supervision remains deferred.
+
 ## EH02 command and skill discovery — October 21
 
 The composer discovers fixed host commands and effective enabled reviewed skills

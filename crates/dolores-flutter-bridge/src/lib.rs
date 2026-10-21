@@ -28,6 +28,7 @@ mod experience_tests;
 mod experimental;
 mod export;
 mod git_process;
+mod goals;
 mod harness_repair;
 mod instructions;
 mod introspection;
@@ -91,6 +92,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    goal: Option<goals::Binding>,
     selected_skills: Vec<dolores_core::SkillSelection>,
     delegation: Option<Arc<subagents::DelegateTasks>>,
     log: Option<Arc<run_journal::RunLog>>,
@@ -143,6 +145,18 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    Goal {
+        session: String,
+    },
+    EditGoal {
+        session: String,
+        edit: dolores_core::goal::GoalEdit,
+    },
+    StartGoal {
+        session: String,
+        revision: u32,
+        id: u64,
+    },
     ComposerCommands {
         session: Option<String>,
     },
@@ -846,6 +860,7 @@ impl Engine {
         store.recover_scheduled_occurrences()?;
         store.recover_companion()?;
         store.recover_task_inputs()?;
+        store.recover_goals()?;
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
@@ -925,6 +940,7 @@ impl Engine {
                     | Command::SavedDraft { .. }
                     | Command::TaskInputs { .. }
                     | Command::ComposerCommands { .. }
+                    | Command::Goal { .. }
                     | Command::DraftAttachments { .. }
                     | Command::NativeStartupReady
                     | Command::NativeUpdateReady
@@ -938,6 +954,18 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::Goal{session} => return Ok(json!(self.store.goal(&session)?)),
+            Command::EditGoal{session,edit} => {
+                if active.has_session(&session) { return Err("Stop this chat's response before changing the goal.".into()); }
+                if self.store.workspace(&session)?.root.is_none(){return Err("Choose a project or temporary working chat for a goal.".into());}
+                let limits=self.effective_settings(Some(&session))?.task;
+                if matches!(edit,dolores_core::goal::GoalEdit::Resume{..}){
+                    let inputs=self.store.task_inputs(&session)?;
+                    if inputs.entries.iter().any(|v|matches!(v.state,dolores_core::harness_task::InputState::Pending|dolores_core::harness_task::InputState::Delivering)||(v.state==dolores_core::harness_task::InputState::Uncertain&&!v.inspected)){return Err("Inspect retained instructions and Resume queue first. User input takes priority.".into());}
+                    if inputs.suspended||inputs.recovery_required {self.store.edit_task_inputs(&session,&dolores_core::harness_task::InputEdit::Resume{revision:inputs.revision})?;}
+                }
+                return Ok(json!(self.store.edit_goal(&session,&edit,limits)?));
+            },
             Command::ComposerCommands { session } => return self.composer_commands(session.as_deref(), session.as_ref().is_some_and(|s| active.has_session(s))),
             Command::SaveComposerSkills { session, selections } => { self.store.save_composer_skills(&session, &selections)?; return Ok(json!(selections)); },
             Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
@@ -1110,6 +1138,7 @@ impl Engine {
                 &command,
                 Command::Start { .. }
                     | Command::StartTaskInput { .. }
+                    | Command::StartGoal { .. }
                     | Command::Bootstrap
                     | Command::CreateSession { .. }
                     | Command::Context { .. }
@@ -1117,6 +1146,48 @@ impl Engine {
         {
             return Err("Stop the current response first.".into());
         }
+        let (command, goal_start) = if let Command::StartGoal {
+            session,
+            revision,
+            id,
+        } = command
+        {
+            active.check_primary(id, Some(&session))?;
+            let g = self
+                .store
+                .goal(&session)?
+                .ok_or("Save an explicit goal before starting.")?;
+            if g.revision != revision
+                || g.state != dolores_core::goal::GoalState::Active
+                || g.current_run.is_some()
+            {
+                return Err("Goal changed or paused. Inspect progress before Start/Resume.".into());
+            }
+            if !self.store.draft_attachments(&session)?.is_empty() {
+                return Err(
+                    "Send or remove draft attachments before starting a goal; your draft remains."
+                        .into(),
+                );
+            }
+            (
+                Command::Start {
+                    desktop_handoff: false,
+                    desktop_capture: None,
+                    desktop_grant: None,
+                    desktop_reconciled: false,
+                    observation_model: None,
+                    resume_run: None,
+                    continuation: None,
+                    id,
+                    session: Some(session),
+                    input: g.prompt()?,
+                    workspace: None,
+                },
+                Some(g),
+            )
+        } else {
+            (command, None)
+        };
         let (command, queued_input) = if let Command::StartTaskInput { session, id } = command {
             active.check_primary(id, Some(&session))?;
             let input = task_inputs::next(self.store.as_ref(), &session)?;
@@ -1460,7 +1531,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"goals":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -2141,7 +2212,8 @@ impl Engine {
                     .map(|o| o.snapshot.preferences.model.clone())
                     .unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
                 let settings = provider.request_settings();
-                let reflection_provider = if desktop_capture.is_none()
+                let reflection_provider = if goal_start.is_none()
+                    && desktop_capture.is_none()
                     && session
                         .as_deref()
                         .and_then(|s| self.store.workspace(s).ok())
@@ -2161,17 +2233,35 @@ impl Engine {
                 } else {
                     None
                 };
-                let learner =
-                    if desktop_capture.is_none() && self.store.automatic_memory_policy()?.enabled {
-                        self.connection
-                            .lock()
-                            .map_err(|_| "Connection unavailable.")?
-                            .automatic_memory_provider()
-                            .ok()
-                    } else {
-                        None
-                    };
+                let learner = if goal_start.is_none()
+                    && desktop_capture.is_none()
+                    && self.store.automatic_memory_policy()?.enabled
+                {
+                    self.connection
+                        .lock()
+                        .map_err(|_| "Connection unavailable.")?
+                        .automatic_memory_provider()
+                        .ok()
+                } else {
+                    None
+                };
                 let run_id = uuid::Uuid::new_v4().to_string();
+                let goal_binding = goal_start.as_ref().map(|g| goals::Binding {
+                    session: session.clone().unwrap(),
+                    id: g.id.clone(),
+                    run: run_id.clone(),
+                    store: self.store.clone(),
+                });
+                if let Some(binding) = &goal_binding {
+                    tools.push(Arc::new(goals::ProgressTool {
+                        binding: binding.clone(),
+                        inspect: true,
+                    }));
+                    tools.push(Arc::new(goals::ProgressTool {
+                        binding: binding.clone(),
+                        inspect: false,
+                    }));
+                }
                 let log = run_journal::RunLog::new(self.store.clone(), run_id.clone());
                 let (output, events) = mpsc::channel(32);
                 let approvals = Arc::new(Mutex::new(None));
@@ -2190,19 +2280,23 @@ impl Engine {
                     .into_iter()
                     .map(|tool| registry.pin_tool(tool))
                     .collect::<Result<Vec<_>, _>>()?;
-                if !desktop_handoff && queued_input.is_none() {
+                if !desktop_handoff && queued_input.is_none() && goal_start.is_none() {
                     self.store.save_draft(session.as_deref().unwrap(), &input)?;
                 }
                 self.store.begin_run(&dolores_core::RunSnapshot {
-                    parent_run: resume_run.clone().or_else(|| {
-                        continuation.and_then(|_| {
-                            self.store
-                                .runs(session.as_deref().unwrap())
-                                .ok()
-                                .and_then(|r| r.into_iter().next())
-                                .map(|r| r.id)
-                        })
-                    }),
+                    parent_run: goal_start
+                        .as_ref()
+                        .and_then(|g| g.runs.last().cloned())
+                        .or(resume_run.clone())
+                        .or_else(|| {
+                            continuation.and_then(|_| {
+                                self.store
+                                    .runs(session.as_deref().unwrap())
+                                    .ok()
+                                    .and_then(|r| r.into_iter().next())
+                                    .map(|r| r.id)
+                            })
+                        }),
                     segments: if let Some(source) = continuation {
                         continuation::source(
                             self.store.as_ref(),
@@ -2213,7 +2307,10 @@ impl Engine {
                         .segments
                             + 1
                     } else {
-                        parent.as_ref().map_or(1, |p| p.segments + 1)
+                        goal_start.as_ref().map_or_else(
+                            || parent.as_ref().map_or(1, |p| p.segments + 1),
+                            |g| g.used.segments + 1,
+                        )
                     },
                     id: run_id.clone(),
                     thread: session.clone().unwrap(),
@@ -2301,6 +2398,29 @@ impl Engine {
                     } else {
                         approval
                     };
+                let recovery_provider = if desktop_capture.is_none()
+                    && (goal_start.is_some()
+                        || self.store.auto_compact(session.as_deref().unwrap())?)
+                {
+                    Some(
+                        self.connection
+                            .lock()
+                            .map_err(|_| "Connection unavailable.")?
+                            .bounded_review_provider(1024, 30)?,
+                    )
+                } else {
+                    None
+                };
+                let approval: Arc<dyn dolores_core::ToolApproval> =
+                    Arc::new(goals::RecoveryApproval {
+                        inner: approval,
+                        provider: recovery_provider,
+                        log: log.clone(),
+                    });
+                if let (Some(g), Some(b)) = (&goal_start, &goal_binding) {
+                    self.store
+                        .claim_goal(&b.session, &b.id, g.revision, &b.run)?;
+                }
                 let claimed_input = queued_input
                     .as_ref()
                     .map(|v| {
@@ -2329,6 +2449,7 @@ impl Engine {
                     let _desktop_lifetime=control;
                     let learning_session = session.clone();
                     let learning_model = model.clone();
+                    let finishing_goal=goal_binding.clone();
                     let permit = admission.acquire(id, &cancel).await;
                     let result = match permit.as_ref().map_err(Clone::clone) {
                     Err(error) => Err(error),
@@ -2340,6 +2461,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            goal: goal_binding,
                             selected_skills,
                             delegation: delegation.clone(),
                             log: Some(log.clone()),
@@ -2374,7 +2496,7 @@ impl Engine {
                     }
 
                     if result.is_err() || paused { if let Some(session)=&learning_session { let _=store.suspend_task_inputs(session); } }
-                    if result.is_ok() && !desktop_handoff && claimed_input.is_none() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
+                    if result.is_ok() && !desktop_handoff && claimed_input.is_none() && finishing_goal.is_none() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
                     // A failed check can justify inspecting a skill. Its approved,
                     // completed reads remain evidence even while the task is paused.
                     let knowledge_update = if desktop_capture.is_none() && result.is_ok() && pause_reason.is_none_or(|reason|reason==dolores_core::PauseReason::CommandReview) { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
@@ -2386,6 +2508,10 @@ impl Engine {
                     } else { None };
                     let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
                     let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"pauseReason":pause_reason,"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
+                    let goal_warning=if let Some(b)=&finishing_goal {
+                        let progress=goals::made_progress(b);
+                        match progress {Ok(progress)=>store.finish_goal(&b.session,&b.id,&b.run,result.is_ok()&&!paused&&!cancel.is_cancelled()&&child_evidence_error.is_none()&&evidence_error.is_none(),progress).err(),Err(e)=>Some(e)}
+                    }else{None};
                     let mut event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update,"learningUpdate":learning_update}),
                         Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
@@ -2394,7 +2520,7 @@ impl Engine {
                         event["recovery"] = json!({"kind":"desktop","retryable":false,"guidance":"Computer use stopped or failed. The original goal and action receipts remain in Settings → Computer use. Input may already have occurred; inspect the selected window, capture it again, and explicitly reconcile before continuing. No input or approval was replayed."});
                     }
                     event["runId"]=json!(log.id);
-                    let evidence_error = evidence_error.or(child_evidence_error);
+                    let evidence_error = evidence_error.or(child_evidence_error).or(goal_warning);
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
@@ -2431,6 +2557,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        goal,
         selected_skills,
         delegation,
         log,
@@ -2545,7 +2672,14 @@ async fn execute(
     } else {
         context
     };
-    let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
+    let mut context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
+    if let Some(b) = &goal {
+        let g = store.goal(&b.session)?.ok_or("Saved goal unavailable.")?;
+        context[0].content.push_str(&format!(
+            "\nDurable human goal/criteria/constraints (preserve through compaction): {}",
+            g.prompt()?
+        ));
+    }
     let (context, skill_sources) =
         dolores_core::prepare_selected_skill_context(context, &skills, &selected_skills)?;
     let knowledge_facts = knowledge::facts(store.as_ref(), &session)?;
@@ -2566,7 +2700,8 @@ async fn execute(
     } else {
         false
     };
-    let preserve_draft = queued_delivery
+    let preserve_draft = goal.is_some()
+        || queued_delivery
         || resume_run.as_ref().is_some_and(|source| {
             tools.iter().any(|t| {
                 matches!(
@@ -2636,6 +2771,16 @@ async fn execute(
             )
             .await?;
         }
+        if let Some(b) = &goal {
+            if !store.charge_goal(
+                &b.session,
+                &b.id,
+                &b.run,
+                dolores_core::goal::GoalCharge::Model,
+            )? {
+                return Err("Goal budget reached before compaction. Saved work remains.".into());
+            }
+        }
         let summarizer = compaction_provider
             .ok_or("Compaction provider is unavailable. Use Session summary manually.")?;
         let mut batch = store.review_summary_batch(&session)?;
@@ -2648,8 +2793,15 @@ async fn execute(
                 Err(error)=>return Err(format!("{error} Summary sources cannot fit this model window. Last valid summary remains; use manual recovery or a larger window.")),
             }
         };
-        let (text,usage)=memory_suggestions::collect_review(summarizer,prompt,cancel.clone(),"Compaction").await.map_err(|e|format!("{e} Last valid summary and draft remain. Open Session summary for manual recovery."))?;
-        let goal = batch
+        let summarize =
+            memory_suggestions::collect_review(summarizer, prompt, cancel.clone(), "Compaction");
+        let result = if let (Some(b), Some(a)) = (&goal, &approval) {
+            tokio::select! {result=summarize=>result,clock=goals::clock(Some(b),a.as_ref())=>Err(clock.err().unwrap_or_else(||"Goal clock ended.".into()))}
+        } else {
+            summarize.await
+        };
+        let (text,usage)=result.map_err(|e|format!("{e} Last valid summary and draft remain. Open Session summary for manual recovery."))?;
+        let original_goal = batch
             .previous
             .as_ref()
             .and_then(|s| s.text.lines().find(|l| l.starts_with("Original goal: ")))
@@ -2665,7 +2817,7 @@ async fn execute(
                 && r.state != dolores_core::RunState::Prepared
         });
         let text = format!(
-            "{goal}\nUnresolved run provenance (inspect receipts; no replay authority): {}\n{text}",
+            "{original_goal}\nUnresolved run provenance (inspect receipts; no replay authority): {}\n{text}",
             latest.map_or_else(|| "none".into(), |r| format!("{} {:?}", r.id, r.state))
         );
         dolores_core::validate_summary(&text).map_err(|e| {
@@ -2702,6 +2854,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                goal,
                 selected_skills,
                 delegation,
                 log,
@@ -2770,7 +2923,11 @@ async fn execute(
             )
         });
         let approval = approval.ok_or("Tool approval is unavailable.")?;
-        let shared = Arc::new(dolores_core::SharedTaskBudget::new(task));
+        let shared = Arc::new(if let Some(b) = &goal {
+            b.shared_budget(task)?
+        } else {
+            dolores_core::SharedTaskBudget::new(task)
+        });
         if let (Some(delegation), Some(log)) = (&delegation, &log) {
             delegation.bind(subagents::RuntimeContext {
                 provider: provider.clone(),
@@ -2861,6 +3018,7 @@ async fn execute(
         let reply = tokio::select! { biased;
             _ = cancel.cancelled() => return Err(stopped()),
             result = running => result?,
+            result = goals::clock(goal.as_ref(),approval.as_ref()) => {work_cancel.cancel(); return Err(result.err().unwrap_or_else(||"Goal clock ended.".into()));},
             _ = task_execution::active_deadline(task.elapsed_seconds, approval.as_ref()) => {
                 work_cancel.cancel();
                 progress.lock().map_err(|_| "Task progress is unavailable.")?.paused()
@@ -3308,6 +3466,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    goal: None,
                     selected_skills: vec![],
                     delegation: None,
                     log: None,
@@ -3682,6 +3841,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            goal: None,
             selected_skills: vec![],
             delegation: None,
             log: None,

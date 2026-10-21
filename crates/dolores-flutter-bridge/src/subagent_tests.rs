@@ -366,7 +366,18 @@ async fn stop_drops_inflight_models_and_records_interruption_before_parent_termi
     {
         let run = tool.invoke(&request, cancel.clone());
         tokio::pin!(run);
-        tokio::select! { result=&mut run=>panic!("Unexpected result: {result:?}"), _=tokio::time::sleep(std::time::Duration::from_millis(80))=>{} }
+        // Wait for both requests to be in flight before testing cancellation.
+        // A fixed 80 ms delay races durable startup on a busy build host.
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while provider.active.load(Ordering::SeqCst) != 2 {
+                tokio::select! {
+                    result = &mut run => panic!("Unexpected result: {result:?}"),
+                    _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {}
+                }
+            }
+        })
+        .await
+        .expect("Both child requests must reach the provider before Stop");
         assert_eq!(provider.active.load(Ordering::SeqCst), 2);
         cancel.cancel();
         assert!(run.await.is_err());

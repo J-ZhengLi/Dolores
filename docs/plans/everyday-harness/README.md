@@ -12,8 +12,8 @@ deferred. Historical roadmap milestone numbers are independent.
 | --- | --- | --- | --- | --- | --- |
 | [EH00](eh00.md) | contracts, baseline, and feasibility | Shared prerequisites | None | Complete; later qualification gaps retained | `67449f4` |
 | [EH01](eh01.md) | instruction queue and steering | H01, H02 | EH00 | Complete | `645805a` |
-| [EH02](eh02.md) | command and skill discovery | H04 | EH01 | Complete | EH02 batch commit |
-| [EH03](eh03.md) | goals, checklist, and long-context recovery | H03, H07, H16 | EH01, EH02 | Pending | — |
+| [EH02](eh02.md) | command and skill discovery | H04 | EH01 | Complete | `0774115` |
+| [EH03](eh03.md) | goals, checklist, and long-context recovery | H03, H07, H16 | EH01, EH02 | Complete | EH03 batch commit |
 | [EH04](eh04.md) | plan mode and context references | H05, H06 | EH02, EH03 | Pending | — |
 | [EH05](eh05.md) | agent command sessions and enforced isolation | H08, H17 | EH00, EH03 | Pending | — |
 | [EH06](eh06.md) | managed task worktrees | H09 | EH03, EH05 | Pending | — |

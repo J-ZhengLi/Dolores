@@ -343,8 +343,46 @@ mod repair_evaluation;
 pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 
 pub mod companionship;
+pub mod context_recovery;
+#[cfg(test)]
+mod context_recovery_tests;
+pub mod goal;
 pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn goal(&self, _: &str) -> Result<Option<goal::Goal>, String> {
+        Ok(None)
+    }
+    fn edit_goal(&self, _: &str, _: &goal::GoalEdit, _: TaskBudget) -> Result<goal::Goal, String> {
+        Err("Goals unavailable in this store.".into())
+    }
+    fn claim_goal(&self, _: &str, _: &str, _: u32, _: &str) -> Result<goal::Goal, String> {
+        Err("Goals unavailable in this store.".into())
+    }
+    fn charge_goal(&self, _: &str, _: &str, _: &str, _: goal::GoalCharge) -> Result<bool, String> {
+        Err("Goals unavailable in this store.".into())
+    }
+    fn progress_goal(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &goal::GoalProgress,
+    ) -> Result<goal::Goal, String> {
+        Err("Goals unavailable in this store.".into())
+    }
+    fn finish_goal(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: bool,
+        _: bool,
+    ) -> Result<goal::Goal, String> {
+        Err("Goals unavailable in this store.".into())
+    }
+    fn recover_goals(&self) -> Result<(), String> {
+        Ok(())
+    }
     fn composer_skills(&self, _: &str) -> Result<Vec<SkillSelection>, String> {
         Ok(vec![])
     }
