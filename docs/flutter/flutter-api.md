@@ -1,5 +1,32 @@
 # Flutter/Rust bridge contract
 
+## Live instruction control (EH01)
+
+`bootstrap.instructionQueue` advertises durable text input. `taskInputs {session}`
+returns task revision, suspension/recovery flags, unresolved entries and the most
+recent 50 terminal receipts. `editTaskInputs {session,edit}` supports `enqueue
+{id,text,mode}`, `edit {id,revision,text}`, `cancel {id,revision}`, `reorder
+{revision,ids}`, `resume {revision}` and uncertain-delivery `acknowledge
+{id,revision}`. Revisions are optimistic; failed writes preserve saved data and
+drafts. Identical enqueue IDs are idempotent within their conversation.
+
+`startTaskInput {session,id}` selects the oldest pending steer, otherwise queued
+input, then uses the normal primary-run admission path. `id` is the client run
+ID; the returned `instructionId/input` identify the actual saved submission. It
+preserves unrelated draft text/attachments. Normal polling and cancellation still
+use the client run ID. The frontend starts eligible follow-ups only after the
+previous done event has released ownership. No closed-app/background dispatcher
+is added. Existing same-root serialization and host run limits remain.
+
+The core approval adapter collects steering at provider/tool boundaries. A new
+instruction cannot edit an in-flight request or grant tools. Pending steering
+supersedes undispatched operations; a review crossed by steering requires a fresh
+operation. Durable Applied receipts acknowledge context insertion, not model
+success. Stop suspends inputs before future dispatch; failed suspension never
+prevents cancellation. Reopen converts Delivering to Uncertain and requires
+inspection/resume. Uncertain input is never replayed. See the
+[full contract](../design/everyday-harness-contracts.md).
+
 ## Reviewed Windows native updates (20.5)
 
 Working-chat `build_harness_repair {repairId,revision,evaluationId}` requires a

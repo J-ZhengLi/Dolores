@@ -2,6 +2,27 @@
 
 ## Home and files
 
+While an ordinary chat task runs, keep typing in the composer. **Queue** saves a
+text follow-up for the next turn; **Steer now** guides the current task after its
+running model/tool operation settles. Steering can prevent later operations;
+completed changes remain. Enter uses Queue while busy and never silently steers.
+Tool approvals and answers remain separate decisions.
+
+The **Instructions** list shows saved input and delivery receipts. Its menu offers
+Edit, Move up/down and Cancel while an entry is pending. Up to eight unresolved
+inputs are retained per chat. Applied means inserted into a request, not that the
+task succeeded; inspect the associated run's outcome. Stop, failure, a resource
+pause or reopening pauses automatic queue dispatch. Inspect retained work, then
+choose **Resume queue**. An uncertain receipt is never automatically retried;
+inspect its run before acknowledging uncertainty or submitting a new instruction.
+JSON and Markdown conversation exports include all instruction receipts.
+
+Queued input currently supports text for ordinary foreground chat tasks. Send
+attachments after the active task finishes. Scheduled and computer-use runs keep
+their existing controls. Failed saves keep your draft, and subsequent queued
+turns preserve newer unsubmitted text. Queued work runs while its chat owner is
+available; background scheduling does not make it run after closing the app.
+
 Home keeps the conversation list and chat. The compact left rail opens Folders;
 Settings stays at its bottom. Selecting a Home conversation also selects its
 project for developer pages. Side chats have no project. The top-left title-bar

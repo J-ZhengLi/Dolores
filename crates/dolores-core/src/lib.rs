@@ -343,6 +343,39 @@ pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 pub mod companionship;
 pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn task_inputs(&self, _: &str) -> Result<harness_task::TaskInputs, String> {
+        Err("Instruction queue is unavailable in this store.".into())
+    }
+    fn edit_task_inputs(
+        &self,
+        _: &str,
+        _: &harness_task::InputEdit,
+    ) -> Result<harness_task::TaskInputs, String> {
+        Err("Instruction queue is unavailable in this store.".into())
+    }
+    fn claim_task_input(
+        &self,
+        _: &str,
+        _: &str,
+        _: u32,
+        _: &str,
+    ) -> Result<harness_task::TaskInput, String> {
+        Err("Instruction queue is unavailable in this store.".into())
+    }
+    fn finish_task_input(
+        &self,
+        _: &str,
+        _: &str,
+        _: harness_task::InputState,
+    ) -> Result<(), String> {
+        Err("Instruction queue is unavailable in this store.".into())
+    }
+    fn suspend_task_inputs(&self, _: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn recover_task_inputs(&self) -> Result<(), String> {
+        Ok(())
+    }
     fn background_policy(&self) -> Result<scheduling::BackgroundPolicy, String> {
         Ok(Default::default())
     }

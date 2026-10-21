@@ -44,7 +44,9 @@ Memory Off/Forget and conversation deletion with retained files/other chats. A
 second serial case covers scheduled failure, explicit Run now and confirmed
 deletion retaining source/results/files. A third covers Stop after a completed
 file effect, retained receipts, protected drafts and explicit recovery without
-automatic replay. Logs and all three receipts remain in that
+automatic replay. A fourth case queues and reorders follow-ups, steers a live
+generation, prevents its superseded file operation and retains newer unsent text.
+Logs and all four receipts remain in that
 profile. Ordinary widget runs skip these opt-in cases. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.
 

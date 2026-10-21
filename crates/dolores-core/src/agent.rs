@@ -433,6 +433,16 @@ pub trait ToolPlugin: Send + Sync {
 }
 #[async_trait]
 pub trait ToolApproval: Send + Sync {
+    /// User guidance is collected only at host-defined safe boundaries.
+    fn steering_pending(&self) -> Result<bool, String> {
+        Ok(false)
+    }
+    fn take_steering(&self) -> Result<Vec<String>, String> {
+        Ok(vec![])
+    }
+    fn acknowledge_steering(&self) -> Result<(), String> {
+        Ok(())
+    }
     /// Host-owned review state. Human waiting is excluded from an explicit task clock.
     fn is_waiting(&self) -> bool {
         false
@@ -626,6 +636,16 @@ pub async fn run_agent_with_shared_budget(
         return Err("Selected screenshot exceeds this model's context allowance. Choose a larger-context image model or compact/start a fresh chat; your screenshot and draft remain. Nothing was sent.".into());
     }
     for number in 1..=budget.model_limit() {
+        for text in approval.take_steering()? {
+            messages.push(AgentMessage {
+                role: "user".into(),
+                content: text,
+                parts: vec![],
+                calls: vec![],
+                call_id: None,
+            });
+        }
+        approval.acknowledge_steering()?;
         if !shared.reserve_model(child) {
             return Ok(AgentReply { answer: "Task checkpoint saved. Completed tool effects and evidence remain. Review progress and Continue; nothing was replayed.".into(), summary, pause: Some(if budget.model_calls.is_none() { PauseReason::Checkpoint } else { PauseReason::StepLimit }) });
         }
@@ -845,6 +865,21 @@ pub async fn run_agent_with_shared_budget(
         }
         if turn.content.len() > MAX_OUTPUT_BYTES {
             return Err("Response exceeds the 128 KiB limit.".into());
+        }
+        if approval.steering_pending()? {
+            if number == budget.model_limit() {
+                return Ok(checkpoint_reply(summary,"New steering is saved but this run reached its model-call allowance. Inspect progress and Resume the queue explicitly. Pending operations were not run."));
+            }
+            // The generation is settled. Supersede its undispatched requests,
+            // retaining completed effects and the original task in context.
+            messages.push(AgentMessage {
+                role: "assistant".into(),
+                content: turn.content,
+                parts: vec![],
+                calls: vec![],
+                call_id: None,
+            });
+            continue;
         }
         if turn.calls.is_empty() {
             if turn.content.trim().is_empty() {
@@ -1098,7 +1133,10 @@ pub async fn run_agent_with_shared_budget(
                         request.command.clone(),
                         request.mcp.clone(),
                     );
-                    if denied.contains(&denial)
+                    if approval.steering_pending()? {
+                        plugin.discard(&request);
+                        (request.target, "superseded", "Not run: new user steering is pending. Reconsider this operation after reading it.".into())
+                    } else if denied.contains(&denial)
                         || !approval.authorize(&request, cancel.clone()).await?
                     {
                         plugin.discard(&request);
@@ -1106,6 +1144,10 @@ pub async fn run_agent_with_shared_budget(
                         (request.target, "denied", "User denied this tool request. Do not retry it without a new user request.".into())
                     } else {
                         approval.recheck(&request, cancel.clone()).await?;
+                        if approval.steering_pending()? {
+                            plugin.discard(&request);
+                            (request.target, "superseded", "Not run: user steering arrived during review. Request a fresh review after reconsidering it.".into())
+                        } else {
                         match plugin.invoke(&request, cancel.clone()).await {
                             Ok(content) => (
                                 request.target,
@@ -1184,6 +1226,7 @@ pub async fn run_agent_with_shared_budget(
                                     "Folder tool could not complete within its text and access limits.".into()
                                 },
                             ),
+                        }
                         }
                     }
                 }

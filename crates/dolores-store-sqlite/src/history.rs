@@ -325,6 +325,36 @@ impl SqliteStore {
             first = false;
         }
         if matches!(format, ExportFormat::Json) {
+            output.write_all(b"],\"instructions\":[").map_err(error)?;
+        }
+        let mut inputs = snapshot
+            .prepare("SELECT data FROM task_inputs WHERE session=?1 ORDER BY position")
+            .map_err(storage_error)?;
+        let mut rows = inputs.query([id]).map_err(storage_error)?;
+        let mut first = true;
+        while let Some(row) = rows.next().map_err(storage_error)? {
+            let input: dolores_core::harness_task::TaskInput =
+                serde_json::from_str(&row.get::<_, String>(0).map_err(storage_error)?)
+                    .map_err(storage_error)?;
+            match format {
+                ExportFormat::Json => {
+                    if !first {
+                        output.write_all(b",").map_err(error)?;
+                    }
+                    serde_json::to_writer(&mut *output, &input).map_err(storage_error)?;
+                }
+                ExportFormat::Markdown => {
+                    writeln!(output, "## Instruction receipt\n").map_err(error)?;
+                    markdown_block(
+                        output,
+                        &serde_json::to_string(&input).map_err(storage_error)?,
+                    )
+                    .map_err(error)?;
+                }
+            }
+            first = false;
+        }
+        if matches!(format, ExportFormat::Json) {
             output.write_all(b"]}\n").map_err(error)?;
         }
         Ok(count)

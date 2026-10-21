@@ -26,7 +26,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 38;
+pub const SCHEMA_VERSION: i64 = 39;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -42,6 +42,7 @@ mod message_timestamp_tests;
 mod mods;
 mod runs;
 mod settings;
+mod task_inputs;
 mod threads;
 mod web;
 fn storage_error(_: impl std::fmt::Display) -> String {
@@ -232,6 +233,13 @@ impl SqliteStore {
         if version < 38 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS scheduler_background(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN(0,1))); PRAGMA user_version=38; COMMIT;").map_err(storage_error)?;
         }
+        if version < 39 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS task_input_state(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,revision INTEGER NOT NULL,suspended INTEGER NOT NULL,recovery INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS task_inputs(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,position INTEGER NOT NULL,state TEXT NOT NULL,data TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS task_inputs_pending ON task_inputs(session,state,position);
+                PRAGMA user_version=39; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -242,6 +250,39 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn task_inputs(&self, s: &str) -> Result<dolores_core::harness_task::TaskInputs, String> {
+        task_inputs::read(&*self.lock()?, s)
+    }
+    fn edit_task_inputs(
+        &self,
+        s: &str,
+        e: &dolores_core::harness_task::InputEdit,
+    ) -> Result<dolores_core::harness_task::TaskInputs, String> {
+        task_inputs::edit(&mut *self.lock()?, s, e)
+    }
+    fn claim_task_input(
+        &self,
+        s: &str,
+        id: &str,
+        revision: u32,
+        run: &str,
+    ) -> Result<dolores_core::harness_task::TaskInput, String> {
+        task_inputs::claim(&mut *self.lock()?, s, id, revision, run)
+    }
+    fn finish_task_input(
+        &self,
+        s: &str,
+        id: &str,
+        state: dolores_core::harness_task::InputState,
+    ) -> Result<(), String> {
+        task_inputs::finish(&mut *self.lock()?, s, id, state)
+    }
+    fn suspend_task_inputs(&self, s: &str) -> Result<(), String> {
+        task_inputs::suspend(&mut *self.lock()?, s)
+    }
+    fn recover_task_inputs(&self) -> Result<(), String> {
+        task_inputs::recover(&mut *self.lock()?)
+    }
     fn background_policy(&self) -> Result<dolores_core::scheduling::BackgroundPolicy, String> {
         scheduling::background(&*self.lock()?)
     }

@@ -6,6 +6,59 @@ use serde::{Deserialize, Serialize};
 /// Eight existing-size inputs bound text storage to 128 KiB before references.
 pub const MAX_PENDING_INPUTS: usize = 8;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskInputs {
+    pub revision: u32,
+    pub suspended: bool,
+    pub recovery_required: bool,
+    pub entries: Vec<TaskInput>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskInput {
+    pub id: String,
+    pub revision: u32,
+    pub position: u64,
+    pub mode: InputMode,
+    pub text: String,
+    pub state: InputState,
+    pub run: Option<String>,
+    #[serde(default)]
+    pub inspected: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
+pub enum InputEdit {
+    Acknowledge {
+        id: String,
+        revision: u32,
+    },
+    Enqueue {
+        id: String,
+        text: String,
+        mode: InputMode,
+    },
+    Edit {
+        id: String,
+        revision: u32,
+        text: String,
+    },
+    Cancel {
+        id: String,
+        revision: u32,
+    },
+    Reorder {
+        revision: u32,
+        ids: Vec<String>,
+    },
+    Resume {
+        revision: u32,
+    },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum InputMode {

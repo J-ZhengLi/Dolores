@@ -1,5 +1,55 @@
 # Dolores acceptance — 2026-10-08
 
+## EH01 live instruction control — October 21
+
+EH01 adds a text instruction queue and provider-independent steering for ordinary
+foreground chats. Additive SQLite migration 39 keeps pending input, revisions,
+delivery states and run references. Queued execution uses the existing primary
+owner and admission controller, preserves newer draft text/attachments, and does
+not create a closed-app dispatcher. Stop, failed execution, resource pauses and
+reopen retain input for explicit inspection/resume. Delivering becomes Uncertain
+after restart; acknowledgement preserves that receipt instead of replaying it.
+JSON/Markdown export includes all input receipts.
+
+Storage checks cover accepted-input idempotency, reorder/stale edits, failed save
+with retained draft, restart uncertainty/no replay, migration from version 38,
+queue capacity, explicit uncertainty acknowledgement, export and deletion cascade.
+The core/storage suites passed **174 checks**. Bridge boundary checks cover steering
+during generation, review, final permission recheck and tool completion: original
+input remains, undispatched operations are superseded and completed effects stay.
+A separate failed-suspension check proves Stop still cancels execution.
+
+Six new Flutter checks cover failed enqueue/draft retention, Stop/pending input,
+reopen without dispatch, preservation of newer text/attachment references, compact
+light/dark controls, and failed/stale editing with explicit comparison. Together
+with composer/history/Stop regression cases, **46 checks passed**. Changed-file
+analysis passed. The retained light/dark renders were inspected with readable
+system-font action labels; initial Ahem-font captures were replaced. These are
+widget renders, not native keyboard or pointer qualification.
+
+The first connected trial found an observer timing flaw: fixtures waited on the
+controller's approval value before the review control was rendered. Poll updates
+now notify the main UI before fetching queue receipts, and the fixtures wait for
+the actual rendered approval control. A fresh trial passed four connected cases,
+including the new queue journey: two edited/reordered follow-ups, safe-boundary
+steering, five public local provider requests, the completed file retained,
+`superseded.txt` never created and a newer draft neither sent nor consumed.
+Trial evidence: `output/harness/eh01-native-trial-02/queue-receipt.json`.
+
+Final confirmation passed: the normal Windows x64 build and all four connected
+journeys passed against its bridge, with five requests in the queue journey and
+the retained/superseded/draft assertions above. Evidence:
+`output/harness/eh01-native-final/{receipt,schedule-receipt,stop-receipt,queue-receipt}.json`.
+The final full bridge suite passed **186 tests**, with one existing ignored test;
+Clippy passed for core, storage and bridge. The six queue/editor tests and changed
+analysis passed again after the draft-debounce preservation adjustment. Document
+links, feature ownership and publication checks passed. EH01 is complete within
+the declared ordinary-text-chat scope.
+No provider credentials or real models were used. Queued attachments and steering
+of scheduled/computer-use runs are explicitly unavailable with draft retention.
+Actual native IME/pointer behavior, live-model reliability and sustained resource
+qualification remain open; the earlier audit and H17 isolation gaps are unchanged.
+
 ## EH00 harness foundations — October 21
 
 The user authorized H01–H20 implementation in batches, with a commit after each

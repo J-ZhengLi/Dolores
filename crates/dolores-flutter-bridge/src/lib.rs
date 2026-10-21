@@ -58,6 +58,7 @@ mod source_control;
 mod subagents;
 mod summaries;
 mod task_execution;
+mod task_inputs;
 mod terminal;
 #[cfg(test)]
 mod timeout_tests;
@@ -140,6 +141,17 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    TaskInputs {
+        session: String,
+    },
+    EditTaskInputs {
+        session: String,
+        edit: dolores_core::harness_task::InputEdit,
+    },
+    StartTaskInput {
+        session: String,
+        id: u64,
+    },
     BackgroundPolicy,
     SetBackgroundPolicy {
         enabled: bool,
@@ -824,6 +836,7 @@ impl Engine {
         let _ = store.recover_automatic_memory();
         store.recover_scheduled_occurrences()?;
         store.recover_companion()?;
+        store.recover_task_inputs()?;
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
@@ -901,6 +914,7 @@ impl Engine {
                     | Command::MessagesPage { .. }
                     | Command::SessionsPage { .. }
                     | Command::SavedDraft { .. }
+                    | Command::TaskInputs { .. }
                     | Command::DraftAttachments { .. }
                     | Command::NativeStartupReady
                     | Command::NativeUpdateReady
@@ -914,6 +928,18 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
+            Command::EditTaskInputs { session, edit } => {
+                if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}) {
+                    if let Some(id)=active.client_id(&session) {
+                        if self.store.scheduled_for_run(&session,id)?.is_some() || self.store.runs(&session)?.first().is_some_and(|run|run.tools.iter().any(|name|matches!(name.as_str(),"desktop_control"|"inspect_desktop_capture"))) {
+                            return Err("Queue and steering are available for ordinary chat tasks. Finish this scheduled or computer-use run first; your draft remains.".into());
+                        }
+                    }
+                }
+                if matches!(edit,dolores_core::harness_task::InputEdit::Resume{..}) && active.has_session(&session) {return Err("Wait for the stopped run to finish before resuming.".into());}
+                return Ok(json!(self.store.edit_task_inputs(&session,&edit)?));
+            },
             Command::BackgroundPolicy=>return Ok(json!(self.store.background_policy()?)),
             Command::SetBackgroundPolicy{enabled,revision}=>{if enabled && !cfg!(windows){return Err("Background scheduling is unavailable on this platform.".into());}return Ok(json!(self.store.set_background_policy(enabled,revision)?));},
             Command::CompanionState=>{drop(active);return self.companion_view();},
@@ -1041,6 +1067,7 @@ impl Engine {
             Command::Cancel { id } => {
                 if let Some(run) = active.get(id) {
                     run.cancel.cancel();
+                    if let Some(session)=&run.thread { self.store.suspend_task_inputs(session)?; }
                     self.clear_memory_review()?;
                     self.clear_summary_review()?;
                     self.clear_mcp_review()?;
@@ -1070,6 +1097,7 @@ impl Engine {
             && !matches!(
                 &command,
                 Command::Start { .. }
+                    | Command::StartTaskInput { .. }
                     | Command::Bootstrap
                     | Command::CreateSession { .. }
                     | Command::Context { .. }
@@ -1077,6 +1105,28 @@ impl Engine {
         {
             return Err("Stop the current response first.".into());
         }
+        let (command, queued_input) = if let Command::StartTaskInput { session, id } = command {
+            active.check_primary(id, Some(&session))?;
+            let input = task_inputs::next(self.store.as_ref(), &session)?;
+            (
+                Command::Start {
+                    desktop_handoff: false,
+                    desktop_capture: None,
+                    desktop_grant: None,
+                    desktop_reconciled: false,
+                    observation_model: None,
+                    resume_run: None,
+                    continuation: None,
+                    id,
+                    session: Some(session),
+                    input: input.text.clone(),
+                    workspace: None,
+                },
+                Some(input),
+            )
+        } else {
+            (command, None)
+        };
         match command {
             Command::ReviewNativeUpdate {
                 session,
@@ -1398,7 +1448,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -2108,7 +2158,7 @@ impl Engine {
                     .into_iter()
                     .map(|tool| registry.pin_tool(tool))
                     .collect::<Result<Vec<_>, _>>()?;
-                if !desktop_handoff {
+                if !desktop_handoff && queued_input.is_none() {
                     self.store.save_draft(session.as_deref().unwrap(), &input)?;
                 }
                 self.store.begin_run(&dolores_core::RunSnapshot {
@@ -2206,6 +2256,30 @@ impl Engine {
                 } else {
                     approval
                 };
+                let approval: Arc<dyn dolores_core::ToolApproval> =
+                    if scheduled.is_none() && desktop_capture.is_none() {
+                        Arc::new(task_inputs::SteeringApproval {
+                            claimed: Mutex::new(vec![]),
+                            inner: approval,
+                            store: self.store.clone(),
+                            session: session.clone().unwrap(),
+                            run: run_id.clone(),
+                            cancel: cancel.clone(),
+                        })
+                    } else {
+                        approval
+                    };
+                let claimed_input = queued_input
+                    .as_ref()
+                    .map(|v| {
+                        self.store.claim_task_input(
+                            session.as_deref().unwrap(),
+                            &v.id,
+                            v.revision,
+                            &run_id,
+                        )
+                    })
+                    .transpose()?;
                 let admission = active.reserve_primary(
                     Run {
                         thread: session.clone(),
@@ -2260,7 +2334,14 @@ impl Engine {
                     } else { None };
                     let pause_reason = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).map(|p|p.reason);
                     let paused = pause_reason.is_some();
-                    if result.is_ok() && !desktop_handoff {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
+                    if let (Some(input),Some(session))=(&claimed_input,&learning_session) {
+                        if store.task_inputs(session).is_ok_and(|s|s.entries.iter().any(|v|v.id==input.id && v.state==dolores_core::harness_task::InputState::Delivering)) {
+                            let _=store.finish_task_input(session,&input.id,dolores_core::harness_task::InputState::Uncertain);
+                        }
+                    }
+
+                    if result.is_err() || paused { if let Some(session)=&learning_session { let _=store.suspend_task_inputs(session); } }
+                    if result.is_ok() && !desktop_handoff && claimed_input.is_none() {if let Some(session)=&learning_session { let _=store.clear_draft_if(session,&store.runs(session).ok().and_then(|r|r.into_iter().next()).map_or(String::new(),|r|r.input)); }}
                     // A failed check can justify inspecting a skill. Its approved,
                     // completed reads remain evidence even while the task is paused.
                     let knowledge_update = if desktop_capture.is_none() && result.is_ok() && pause_reason.is_none_or(|reason|reason==dolores_core::PauseReason::CommandReview) { learning_session.as_deref().and_then(|s|knowledge::learn(store.as_ref(),s).unwrap_or_else(|e|Some(format!("{e} Reply saved; refresh Project knowledge before retrying. No automatic retry.")))) } else {None};
@@ -2284,7 +2365,10 @@ impl Engine {
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
-                Ok(Value::Null)
+                Ok(queued_input.map_or(
+                    Value::Null,
+                    |v| json!({"input":v.text,"instructionId":v.id}),
+                ))
             }
             _ => unreachable!(),
         }
@@ -2435,16 +2519,29 @@ async fn execute(
     if scheduling_metadata {
         scheduling::prepare_default_context(&mut context);
     }
-    let preserve_draft = resume_run.as_ref().is_some_and(|source| {
-        tools.iter().any(|t| {
-            matches!(
-                t.spec().name.as_str(),
-                "desktop_control" | "inspect_desktop_capture"
-            )
-        }) && store
-            .run_events(&session, source)
-            .is_ok_and(|events| events.iter().any(|e| e.kind == "desktopHandoff"))
-    });
+    let queued_delivery = if let Some(log) = &log {
+        match store.task_inputs(&session) {
+            Ok(state) => state
+                .entries
+                .iter()
+                .any(|v| v.run.as_deref() == Some(log.id.as_str())),
+            Err(error) if error == "Instruction queue is unavailable in this store." => false,
+            Err(error) => return Err(error),
+        }
+    } else {
+        false
+    };
+    let preserve_draft = queued_delivery
+        || resume_run.as_ref().is_some_and(|source| {
+            tools.iter().any(|t| {
+                matches!(
+                    t.spec().name.as_str(),
+                    "desktop_control" | "inspect_desktop_capture"
+                )
+            }) && store
+                .run_events(&session, source)
+                .is_ok_and(|events| events.iter().any(|e| e.kind == "desktopHandoff"))
+        });
     let context = if preserve_draft {
         attachments::prepare_history(store.as_ref(), &session, context)?
     } else {
@@ -2609,6 +2706,20 @@ async fn execute(
     summary.memory = memory_context;
     summary.knowledge = knowledge_facts;
     dolores_core::account_summary(&mut summary, session_summary.as_ref());
+    if queued_delivery {
+        if let Some(log) = &log {
+            if let Some(input) = store.task_inputs(&session)?.entries.into_iter().find(|v| {
+                v.run.as_deref() == Some(log.id.as_str())
+                    && v.state == dolores_core::harness_task::InputState::Delivering
+            }) {
+                store.finish_task_input(
+                    &session,
+                    &input.id,
+                    dolores_core::harness_task::InputState::Applied,
+                )?;
+            }
+        }
+    }
     forward(
         output,
         json!({"type":"started", "id":id, "session":session, "context":summary, "requestSettings":settings,"taskBudget":task}),

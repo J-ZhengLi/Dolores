@@ -19,6 +19,17 @@ pub(super) struct RunCoordinator {
     admission: Arc<crate::run_admission::Admission>,
 }
 impl RunCoordinator {
+    pub fn has_session(&self, session: &str) -> bool {
+        self.runs
+            .values()
+            .any(|run| run.thread.as_deref() == Some(session))
+    }
+    pub fn client_id(&self, session: &str) -> Option<u64> {
+        self.runs
+            .values()
+            .find(|run| run.thread.as_deref() == Some(session))
+            .map(|run| run.id)
+    }
     pub fn has_repo(&self, root: &std::path::Path) -> bool {
         self.primary
             .values()
@@ -280,6 +291,8 @@ mod tests {
     fn multiple_primary_owners_route_stop_and_poll_by_id_and_shutdown_cancels_all() {
         let store =
             Arc::new(dolores_store_sqlite::SqliteStore::open(Path::new(":memory:")).unwrap());
+        store.create("A").unwrap();
+        store.create("B").unwrap();
         let engine = crate::Engine::new(
             store,
             Arc::new(crate::connection::testing::MemoryCredentials::default()),

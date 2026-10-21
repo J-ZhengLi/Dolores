@@ -14,6 +14,7 @@ import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'message_frame.dart';
 import 'rich_composer.dart';
+import 'instruction_queue.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
 import 'inspector.dart';
@@ -860,6 +861,7 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (chat.instructionQueueAvailable) InstructionQueue(chat: chat),
               if (!chat.busy && chat.attachments.isNotEmpty)
                 AttachmentChips(
                   chat: chat,
@@ -873,7 +875,10 @@ class _ChatPageState extends State<ChatPage> {
                 onPasteImage: chat.attachmentsAvailable
                     ? chat.pasteImage
                     : null,
-                readOnly: chat.busy || chat.changing || chat.loading,
+                readOnly:
+                    (chat.busy && !chat.instructionQueueAvailable) ||
+                    chat.changing ||
+                    chat.loading,
                 hint: chat.configured
                     ? 'Message Dolores…'
                     : 'Connect a model to begin…',
@@ -884,11 +889,62 @@ class _ChatPageState extends State<ChatPage> {
                 },
                 onSend: () {
                   if (input.value.composing.isCollapsed) {
-                    unawaited(chat.send());
+                    unawaited(
+                      chat.busy && chat.instructionQueueAvailable
+                          ? chat.queueDraft()
+                          : chat.send(),
+                    );
                   }
                 },
                 trailing: const SizedBox.shrink(),
               ),
+              if (chat.acceptsLiveInputs && chat.busy)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        key: const Key('queue-instruction'),
+                        onPressed:
+                            chat.inputSaving ||
+                                chat.stopping ||
+                                chat.draft.trim().isEmpty ||
+                                !input.value.composing.isCollapsed
+                            ? null
+                            : () => chat.queueDraft(),
+                        child: Text(
+                          'Queue',
+                          style: TextStyle(
+                            fontFamily: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.fontFamily,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        key: const Key('steer-instruction'),
+                        onPressed:
+                            chat.inputSaving ||
+                                chat.stopping ||
+                                chat.draft.trim().isEmpty ||
+                                !input.value.composing.isCollapsed
+                            ? null
+                            : () => chat.queueDraft(steer: true),
+                        child: Text(
+                          'Steer now',
+                          style: TextStyle(
+                            fontFamily: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.fontFamily,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Row(
                 key: const Key('composer-actions'),
                 mainAxisAlignment: MainAxisAlignment.end,

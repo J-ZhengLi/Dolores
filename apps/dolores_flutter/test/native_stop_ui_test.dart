@@ -77,7 +77,7 @@ void main() {
           request.response.headers.contentType = ContentType(
             'text',
             'event-stream',
-          charset: 'utf-8',
+            charset: 'utf-8',
           );
           final delta = {
             'tool_calls': [
@@ -148,7 +148,11 @@ void main() {
       await tester.enterText(find.byKey(const Key('composer-field-0')), prompt);
       await tester.pump();
       await tester.tap(find.byKey(const Key('send')));
-      await waitUntil(() => chat.toolApproval != null);
+      await waitUntil(
+        () =>
+            chat.toolApproval != null &&
+            find.byKey(const Key('allow-tool')).evaluate().isNotEmpty,
+      );
       expect(file.existsSync(), isFalse);
       expect(chat.toolApproval?['name'], 'create_text_file');
       await tester.ensureVisible(find.byKey(const Key('allow-tool')));

@@ -5,6 +5,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ## [Unreleased]
 
+### Added
+
+- Queue and edit text follow-ups while an ordinary chat task runs, or steer the current task at its next safe boundary. Saved instruction receipts survive interruption; Stop pauses the queue for explicit inspection and resume.
+
 ### Fixed
 
 - “Fewer messages” preserves Quiet companionship frequency instead of raising it to one message per day.

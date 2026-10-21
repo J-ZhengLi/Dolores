@@ -10,8 +10,8 @@ deferred. Historical roadmap milestone numbers are independent.
 
 | Batch | Outcome | Owned gaps | Dependencies | Status | Commit |
 | --- | --- | --- | --- | --- | --- |
-| [EH00](eh00.md) | contracts, baseline, and feasibility | Shared prerequisites | None | Complete; later qualification gaps retained | EH00 batch commit |
-| [EH01](eh01.md) | instruction queue and steering | H01, H02 | EH00 | Pending | — |
+| [EH00](eh00.md) | contracts, baseline, and feasibility | Shared prerequisites | None | Complete; later qualification gaps retained | `67449f4` |
+| [EH01](eh01.md) | instruction queue and steering | H01, H02 | EH00 | Complete | EH01 batch commit |
 | [EH02](eh02.md) | command and skill discovery | H04 | EH01 | Pending | — |
 | [EH03](eh03.md) | goals, checklist, and long-context recovery | H03, H07, H16 | EH01, EH02 | Pending | — |
 | [EH04](eh04.md) | plan mode and context references | H05, H06 | EH02, EH03 | Pending | — |

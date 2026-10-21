@@ -329,6 +329,128 @@ class ChatController extends ChangeNotifier {
       pendingInput = '',
       partial = '';
   bool durableDrafts = false;
+  bool instructionQueueAvailable = false;
+  bool get acceptsLiveInputs =>
+      instructionQueueAvailable && !_scheduledRun && !_observationRun;
+  bool inputSaving = false;
+  Map<String, dynamic> taskInputs = {};
+  final Set<String> _locallyPausedInputs = {};
+  List<Map<String, dynamic>> get inputEntries =>
+      ((taskInputs['entries'] as List?) ?? []).cast<Map<String, dynamic>>();
+  bool get inputsPaused =>
+      taskInputs['suspended'] == true ||
+      taskInputs['recoveryRequired'] == true ||
+      _locallyPausedInputs.contains(session);
+
+  Future<void> refreshInputs() async {
+    if (!instructionQueueAvailable || session == null) return;
+    final target = session;
+    final state = (await bridge.call({
+      'command': 'taskInputs',
+      'session': target,
+    }) as Map).cast<String, dynamic>();
+    if (session == target) taskInputs = state;
+    _notify();
+  }
+
+  Future<void> changeInput(Map<String, dynamic> edit) async {
+    if (inputSaving || session == null) return;
+    inputSaving = true;
+    _notify();
+    try {
+      taskInputs = (await bridge.call({
+        'command': 'editTaskInputs',
+        'session': session,
+        'edit': edit,
+      }) as Map).cast<String, dynamic>();
+      error = null;
+    } catch (failure) {
+      error = failure.toString();
+      // Refresh stale revisions while retaining unsaved text in the editor.
+      try {
+        await refreshInputs();
+      } catch (_) {}
+    } finally {
+      inputSaving = false;
+      _notify();
+    }
+  }
+
+  String? _inputSubmissionId;
+  String? _inputSubmissionText;
+  Future<void> queueDraft({bool steer = false}) async {
+    if (!instructionQueueAvailable ||
+        inputSaving ||
+        changing ||
+        loading ||
+        session == null ||
+        draft.trim().isEmpty) {
+      return;
+    }
+    final text = draft;
+    if (_inputSubmissionId == null ||
+        _inputSubmissionText != '$session:$steer:$text') {
+      _inputSubmissionId =
+          'input-${DateTime.now().microsecondsSinceEpoch}-${++_nextRun}';
+      _inputSubmissionText = '$session:$steer:$text';
+    }
+    // Do not let an older debounce re-save a draft after atomic acceptance.
+    _draftTimer?.cancel();
+    await changeInput({
+      'action': 'enqueue',
+      'id': _inputSubmissionId,
+      'text': text,
+      'mode': steer ? 'steer' : 'queue',
+    });
+    if (error == null) {
+      if (draft == text) {
+        _draftTimer?.cancel();
+        _draft = '';
+        viewRevision++;
+      }
+      _inputSubmissionId = null;
+      _inputSubmissionText = null;
+      _notify();
+      await dispatchNextInput();
+    }
+  }
+
+  Future<void> resumeInputs() async {
+    await changeInput({'action': 'resume', 'revision': taskInputs['revision']});
+    if (error == null) {
+      _locallyPausedInputs.remove(session);
+      await dispatchNextInput();
+    }
+  }
+
+  Future<void> dispatchNextInput() async {
+    if (!instructionQueueAvailable ||
+        busy ||
+        changing ||
+        loading ||
+        inputSaving ||
+        inputsPaused ||
+        !configured ||
+        session == null) {
+      return;
+    }
+    final pending = inputEntries.where((v) => v['state'] == 'pending').toList();
+    pending.sort((a, b) {
+      final mode = (a['mode'] == 'steer' ? 0 : 1).compareTo(
+        b['mode'] == 'steer' ? 0 : 1,
+      );
+      return mode != 0
+          ? mode
+          : (a['position'] as int).compareTo(b['position'] as int);
+    });
+    if (pending.isNotEmpty) {
+      await send(
+        taskInput: pending.first['text'] as String,
+        queuedInstruction: true,
+      );
+    }
+  }
+
   bool attachmentsAvailable = false;
   List<Map<String, dynamic>> attachments = [];
   List<Map<String, dynamic>> pendingParts = [];
@@ -445,7 +567,11 @@ class ChatController extends ChangeNotifier {
     _draft = value;
     if (value.trim().isEmpty && !busy) resumeRun = null;
     _draftTimer?.cancel();
-    if (!durableDrafts || session == null || busy || changing || loading) {
+    if (!durableDrafts ||
+        session == null ||
+        (busy && !instructionQueueAvailable) ||
+        changing ||
+        loading) {
       return;
     }
     final target = session!, text = value;
@@ -696,6 +822,7 @@ class ChatController extends ChangeNotifier {
     nativeStartup = state['nativeStartup'] == true;
     appearance = state['appearance'] as String? ?? 'system';
     durableDrafts = state['durableDrafts'] == true;
+    instructionQueueAvailable = state['instructionQueue'] == true;
     attachmentsAvailable = state['attachments'] == true;
     imageModels = ((state['imageModels'] as List?) ?? []).cast<String>();
     _setConversationList(state);
@@ -899,6 +1026,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void _clearConversation() {
+    taskInputs = {};
     toolRecords.clear();
     subagents.clear();
     modelTexts.clear();
@@ -930,6 +1058,7 @@ class ChatController extends ChangeNotifier {
     if (nextKind != 'project') workspaceRoot = null;
     workspaceKind = nextKind;
     session = null;
+    taskInputs = {};
     resumeRun = null;
     contextSummary = null;
     contextBasis = null;
@@ -988,6 +1117,8 @@ class ChatController extends ChangeNotifier {
             }) as List).cast<Map<String, dynamic>>()
           : <Map<String, dynamic>>[];
       session = id;
+      taskInputs = {};
+      await refreshInputs();
       _setWorkspace(workspace);
       toolRecords.clear();
       subagents.clear();
@@ -1131,6 +1262,8 @@ class ChatController extends ChangeNotifier {
 
   bool _continuing = false;
   bool _scheduledRun = false;
+  bool _queuedRun = false;
+  bool _observationRun = false;
   String? _desktopDraft;
   bool _desktopKeepsAttachments = false;
   int? get latestPausedId =>
@@ -1164,6 +1297,7 @@ class ChatController extends ChangeNotifier {
   Future<void> send({
     String? scheduledOccurrence,
     String? taskInput,
+    bool queuedInstruction = false,
     bool desktopHandoff = false,
     int? continuation,
     String? desktopCapture,
@@ -1206,16 +1340,18 @@ class ChatController extends ChangeNotifier {
     activeDesktopTarget = desktopGrant == null ? null : desktopTarget;
     _continuing = continuation != null;
     _scheduledRun = scheduledOccurrence != null;
+    _queuedRun = queuedInstruction;
+    _observationRun = observationModel != null;
     stopping = false;
-    if (taskInput != null) _desktopDraft = draft;
-    _desktopKeepsAttachments = desktopHandoff;
+    if (taskInput != null && !queuedInstruction) _desktopDraft = draft;
+    _desktopKeepsAttachments = desktopHandoff || queuedInstruction;
     pendingInput =
         taskInput ??
         (draft.trim().isEmpty ? 'Please review the attached files.' : draft);
-    pendingParts = desktopHandoff
+    pendingParts = desktopHandoff || queuedInstruction
         ? []
         : [for (final part in attachments) Map.of(part)];
-    draft = '';
+    if (!queuedInstruction) draft = '';
     partial = '';
     error = null;
     final id = _run = ++_nextRun;
@@ -1246,6 +1382,7 @@ class ChatController extends ChangeNotifier {
         'id': id,
         'session': session,
         'input': pendingInput,
+        if (queuedInstruction) 'command': 'startTaskInput',
         'continuation': ?continuation,
         'resumeRun': ?(desktopResume ?? resumeRun),
         'desktopHandoff': desktopHandoff,
@@ -1258,6 +1395,9 @@ class ChatController extends ChangeNotifier {
           'occurrence': scheduledOccurrence,
         },
       });
+      if (queuedInstruction && started is Map && started['input'] is String) {
+        pendingInput = started['input'] as String;
+      }
       if (scheduledOccurrence != null && started is Map) {
         session = started['session'] as String;
         _requestModel = started['model'] as String;
@@ -1277,6 +1417,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> stop() async {
     if (!busy) return;
+    if (session != null) _locallyPausedInputs.add(session!);
     stopping = true;
     _record('Stop requested');
     _notify();
@@ -1493,8 +1634,12 @@ class ChatController extends ChangeNotifier {
             changing = false;
         }
       }
-      if (events.isNotEmpty) _notify();
+      if (events.isNotEmpty) {
+        _notify();
+        await refreshInputs();
+      }
       _schedule(id);
+      if (!busy && error == null) await dispatchNextInput();
     } catch (failure) {
       changing = false;
       if (!_disposed && id == _run) {
@@ -1505,6 +1650,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void _failed(String failure, {Map<String, dynamic>? advice}) {
+    if (session != null) _locallyPausedInputs.add(session!);
     if (_scheduledRun &&
         (advice?['kind'] == 'stopped' ||
             failure == 'Response stopped.' ||
@@ -1541,7 +1687,10 @@ class ChatController extends ChangeNotifier {
     }
     _clock.stop();
     error = failure;
-    draft = _desktopDraft ?? (_continuing ? '' : pendingInput);
+    // Editing during a running response must survive Stop or provider failure.
+    draft = draft.isNotEmpty
+        ? draft
+        : (_desktopDraft ?? (_continuing || _queuedRun ? '' : pendingInput));
     _desktopDraft = null;
     _continuing = false;
     pendingInput = '';

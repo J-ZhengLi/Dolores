@@ -37,12 +37,13 @@ finish a real task within them.
 | Record | Required fields and ownership |
 | --- | --- |
 | Task | Stable UUID, conversation FK, revision, suspended/recovery flags, run ancestry; one current task per chat in EH01. Retain prior run evidence. |
-| Input | UUID, task/conversation identity, monotonic display position, Queue/Steer mode, text, reference snapshots, revision, delivery state, timestamps, target run/boundary receipt. |
+| Input | Stable ID, task/conversation identity, monotonic display position, Queue/Steer mode, text, revision, delivery state and target run/boundary receipt. EH01 binds delivery times through its run; structured reference snapshots belong to EH02/EH04. |
 | Goal | Task FK, revision, user-set objective/criteria/constraints, lifecycle, cumulative budget and evidence references; owned by EH03. |
 | Plan/checklist | Task FK, separate accepted-plan and progress revisions, decisions and evidence links; owned by EH03/EH04. |
 | Explicit context | Immutable selected identity/revision, scope, sharing preview and bounded resolved content; owned by EH02/EH04. |
 
-EH01 adds tables through the current transactional migration mechanism; do not
+EH01 uses the existing conversation UUID as current task identity. It adds tables
+through the current transactional migration mechanism; do not
 rewrite applied migrations or eagerly create empty goal/plan tables. Version 38
 profiles must reopen without changing messages, settings, attachments, schedules
 or working files. Index pending input by task, state and order. Foreign keys and
