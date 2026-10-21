@@ -1,6 +1,6 @@
 # First-user feature audit
 
-Started 2026-10-08. This is an ongoing audit using native user interaction,
+Started 2026-10-08. This audit used native user interaction,
 background integration with real configured models, and generated UI renders.
 Order follows likely everyday use. Existing reports are references, not fresh
 passes. Record the verification mode; background evidence does not establish
@@ -8,7 +8,58 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-**Current checkpoint: 96/129 checked, 33 pending.**
+**Priority audit closed October 21: 98/129 checked, 31 deferred.**
+
+At the user's request, the final batch prioritized automatic memory quality and
+Stop/recovery after completed file effects. Both passed. Feature implementation
+can resume; the remaining unchecked flows are deferred, not successful tests.
+They have partial/background coverage below and should be revisited when their
+features change or a release requires their specific native qualification.
+
+Deferred IDs:
+
+- A13: diagnostic log capture.
+- T01–T02, T04–T08: remaining native terminal interaction.
+- S10: interrupted scheduled occurrence with completed/uncertain effects.
+- P06–P08, P12–P13: attachment dialogs and native privacy/access controls.
+- M05–M06, M08–M10: skill/memory review, image and rollback controls.
+- I06, I08–I10: MCP activation, window sharing/control and child progress.
+- E01, E05–E08, E10–E12: idle companionship, learning/mod and repair controls.
+
+### October 21: final priority checks
+
+M01 passed the rendered Memory switch, actual chat composer/Send and normal Rust
+bridge with real `qwen3.7-flash`. Two completed public conversations automatically
+saved a fact and a preference; activity and exact sources were inspectable, with
+four messages and a newer draft retained. The first trial exposed a defect:
+the preference included the one-off acknowledgement and no-tools instructions.
+The host now enforces its existing single-sentence quote contract, rejecting
+mixed suggestions rather than truncating possible qualifiers. The extraction
+prompt also clarifies this separation. English/Chinese regression examples fail
+before the fix and pass after it; version numbers and inline qualifiers remain.
+The rebuilt live retest saved exactly the lasting fact/preference, with neither
+one-off request. Its two extraction calls reported 435 and 469 tokens; foreground
+turn usage was unavailable, not zero. Original profile digests were unchanged.
+Receipt: `output/native-audit-20261010-01/memory-live-fixed-20261021/memory-live-receipt.json`.
+This is a bounded model result, not universal language/extraction reliability.
+
+A11 passed rendered chat, Create once, Stop and Earlier tasks controls connected
+to the normal host and a loopback provider. The provider stalled only after a
+successful creation receipt. Stop retained exact UTF-8 file bytes and the returned
+receipt; the checkpoint correctly had no uncertain effects for this completed
+operation. Recovery refused to overwrite a newer saved draft. After clearing it,
+Prepare resume draft included the evidence and an explicit warning against
+repeating applied operations, without sending another request. Exactly two local
+requests were made and no operation was replayed. This does not qualify the
+separate scheduled interruption case S10. Receipt:
+`output/native-audit-20261010-01/stop-ui-fixed-20261021/stop-receipt.json`.
+
+The normal Windows build, ten core memory checks, two automatic-store checks,
+changed-file analysis and all three connected UI cases passed. Original-profile
+verification still matched all 49 table digests. An initial Stop test fixture
+encoding error was corrected before the passing run; it was not an app defect.
+No native pointer/IME/dialog claim is made by these rendered checks. Notes are
+committed with the memory fix and executable regressions.
 
 Browser checks now prefer headless Playwright with text snapshots. The current
 Flutter desktop entry uses a native FFI bridge and is not a browser target.
@@ -473,11 +524,11 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
-| A11, A13 (2) | Retained receipts, interruption/log capture and restart checkpoints | Interruption/log-capture controls |
+| A13 (1) | Retained receipts, log capture and restart checkpoints | Log-capture controls |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10 (1) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation and Qwen/DeepSeek pinned reports; connected rendered explicit retry after a no-effect failure | Interrupted occurrence with completed/uncertain effects and safe retry controls |
 | P06–P08, P12–P13 (5) | Permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Attachment dialogs; native/manual privacy/access preference controls |
-| M01, M05–M06, M08–M10 (6) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Automatic capture sources/activity, skill reviews, draft test/promotion and rollback controls |
+| M05–M06, M08–M10 (5) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Skill reviews, draft test/promotion, image and rollback controls |
 | I06, I10 (2) | Exact reviewed two-tool MCP invocation; real scoped delegation with retained reports | MCP activation controls and child progress |
 | I08–I09 (2) | Deterministic selected-window scope/state/Stop/revoke tests | Actual window sharing/inspection/control requires a working native helper |
 | E01, E05–E08, E10–E12 (8) | Real companion invitations and cooldown/cap fixtures; strict drafts; real automatic skill activation/manual restore/reopen; real mod generation, six checks, activation/restore; health/restart/source/capability refusal; isolated native-test decline/stale/non-improvement and diagnostic/export fixtures | Native idle delivery, learning/mod/diagnostic reviews and native repair/install/restore controls |
@@ -761,7 +812,8 @@ Earlier results retain the model actually used; this change does not retest them
 Bound each request and record reported usage where available. Do not publish keys,
 private transcripts, endpoints or personal paths. Never claim an untested feature works.
 
-`[ ]` means pending; `[x]` means the listed user flow passed. A failure remains
+`[ ]` means deferred after the October 21 scope reduction; `[x]` means the listed
+user flow passed. A failure remains
 unchecked until repaired and retested. Record app defects separately from model
 limitations, unavailable prerequisites and automation restrictions. Backend probes
 can diagnose a problem but cannot establish a native UX pass. Destructive tests use
@@ -906,7 +958,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] A08 Inspect Changes and revert a disposable edit with the reviewed reverse diff.
 - [x] A09 Inspect Activity/Earlier tasks, settings origins, tool receipts, checkpoints and reported usage. October 11 native inspection/reopen and corrected labels passed on the retained real Qwen task.
 - [x] A10 Hit a small explicit task/output limit; Continue resumes useful work with fresh approval. Native October 16: labeled two-call fixture retained a completed read, paused before pending work, requested fresh approval on Continue and completed within bounded segments; real-model continuation reliability remains separate.
-- [ ] A11 Interrupt a task with completed effects; recovery draft explains uncertainty and does not replay earlier operations.
+- [x] A11 Interrupt a task with completed effects; recovery draft explains uncertainty and does not replay earlier operations.
 - [x] A12 Read a large text file by ranges and edit a unique snapshot-bound match without truncation corruption. Native qwen3.7-flash edit, stale-review refusal, fresh-read recovery and byte preservation verified; all saved action receipts remain accessible.
 - [ ] A13 Capture a larger command log; inspect its saved file and distinguish preview truncation from capture limits.
 
@@ -994,7 +1046,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 
 ## 8. Memory, instructions and skills
 
-- [ ] M01 One Memory switch starts automatic useful fact/preference capture from real completed chats, with sources/activity.
+- [x] M01 One Memory switch starts automatic useful fact/preference capture from real completed chats, with sources/activity.
 - [x] M02 Fresh conversation recalls a retained useful fact; no manual population is required.
 - [x] M03 Inspect/correct a memory; protected correction survives later extraction.
 - [x] M04 Disable capture/recall; existing memory remains inspectable and can be forgotten deliberately. October 17 real Rust bridge + rendered Flutter controls: Off excluded recall, one completed fixture task made no capture request, saved record remained inspectable, explicit Forget retained chat and newer draft. Manually seeded record; no automatic/live-model capture claim.

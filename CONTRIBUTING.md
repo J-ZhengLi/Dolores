@@ -42,9 +42,20 @@ fresh `output/native-ui/` profile, a public loopback response and no credentials
 The initial case covers workspace instruction review/stale-source recovery and
 Memory Off/Forget and conversation deletion with retained files/other chats. A
 second serial case covers scheduled failure, explicit Run now and confirmed
-deletion retaining source/results/files. Logs and both receipts remain in that
+deletion retaining source/results/files. A third covers Stop after a completed
+file effect, retained receipts, protected drafts and explicit recovery without
+automatic replay. Logs and all three receipts remain in that
 profile. Ordinary widget runs skip these opt-in cases. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.
+
+For an authorized live Memory check, run
+`python scripts/qualify-native-memory-live.py --source <profile-dolores.db>
+--model <enabled-model-id> --reasoning <supported-reasoning-mode>
+--directory <fresh-output-directory>`. It uses two public chat prompts, rendered
+Memory/composer controls and the normal bridge. Only connection configuration is
+read from the source; the credential stays in memory, history is not copied and
+source-profile digests must remain unchanged. Each extraction retains exact
+source evidence. This is opt-in and ordinary tests require no credentials.
 
 Async deadline tests should use a paused Tokio clock and establish the blocked
 queue/provider phase before advancing time. Keep provider inactivity, legacy

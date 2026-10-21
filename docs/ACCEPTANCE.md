@@ -1,5 +1,40 @@
 # Dolores acceptance — 2026-10-08
 
+## October 21 priority audit closure
+
+At the user's request, this audit ends after the two remaining priority cases:
+**98/129 checked, 31 deferred**, listed in the
+[checklist](qualification/first-user-audit.md). Deferred items are not passes;
+native terminal/privacy/window controls and experimental feature qualification
+remain explicit gaps for later changes/releases.
+
+M01 passed actual rendered Memory/composer controls and the normal native bridge
+with `qwen3.7-flash`, two public completed chats and automatic fact/preference
+capture, activity and exact sources. A first trial saved acknowledgement/no-tools
+instructions as part of the lasting preference. A failing regression reproduced
+it. The host now rejects multi-sentence automatic quotes without truncating
+potential qualifiers; the prompt clarifies exclusion of one-off instructions.
+English/Chinese examples, inline qualifiers and version numbers pass. After a
+normal rebuild, the live rerun saved exactly the two durable sentences. The two
+extractions reported 904 total tokens; foreground usage was unavailable. Four
+messages and the newer draft remained. Receipt:
+`output/native-audit-20261010-01/memory-live-fixed-20261021/memory-live-receipt.json`.
+
+A11 passed rendered Create once → completed file receipt → stalled follow-up →
+Stop → Earlier tasks → Prepare resume draft. Exact UTF-8 bytes and the successful
+receipt remained. The cancelled checkpoint truthfully had no uncertain effects;
+its recovery draft warned against repeating applied operations. Preparing recovery
+protected a newer saved draft and sent no new request. Two local requests, zero
+replays. This is not scheduled-occurrence S10 or native pointer qualification.
+Receipt: `output/native-audit-20261010-01/stop-ui-fixed-20261021/stop-receipt.json`.
+
+Ten core memory and two automatic-store checks, changed-file analysis, the normal
+Windows build and all three connected UI cases passed. The initial Stop fixture
+needed explicit UTF-8 HTTP encoding; this harness failure preceded the passing
+run and was not a product defect. Original profile: all 49 table digests unchanged.
+The checklist/notes accompany code and test changes, without a documentation-only
+commit. No blanket claim about all models or languages is made.
+
 ## October 21 scheduled deletion and failed-occurrence retry
 
 S12 passed a rendered Scheduled page connected to the normal Rust bridge. The
