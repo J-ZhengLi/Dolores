@@ -7,6 +7,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Discover host commands and reviewed skills with `/`. Selected skill chips show scope/version, persist with the chat and travel with queued or steered instructions; changed selections retain your draft for recovery.
 - Queue and edit text follow-ups while an ordinary chat task runs, or steer the current task at its next safe boundary. Saved instruction receipts survive interruption; Stop pauses the queue for explicit inspection and resume.
 
 ### Fixed

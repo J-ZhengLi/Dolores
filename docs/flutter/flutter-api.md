@@ -1,5 +1,30 @@
 # Flutter/Rust bridge contract
 
+## Command and skill discovery (EH02)
+
+`bootstrap.commandPicker` advertises `/` discovery. `composerCommands {session?}`
+returns fixed host command descriptors (`id/title/description/available/reason`),
+effective enabled reviewed skill entries (`selection/description/text`) and saved
+`selected` references. This read does not scan disk or consume Settings reviews.
+Commands and skills remain separate types even when names collide. Stop and
+Resume queue use the existing host operations; Goal and Plan stay unavailable.
+
+`saveComposerSkills {session,selections}` persists at most three distinct
+`{scope,name,revision,version}` references. New references require exact effective,
+enabled reviewed snapshots; stale chips can always be removed. Selections persist
+until removed and are included in context preview and normal request preparation.
+Scheduled occurrences retain their own pinned skill. SQLite migration 40 adds
+per-chat selections without rewriting version 39 input receipts.
+
+Enqueue snapshots the selected references transactionally in `selectedSkills`.
+Changing composer chips or editing queued text does not rewrite those snapshots.
+Queued start and steering resolve them again before delivery, refusing changed,
+disabled or overridden identities with draft/queue retained. Cancel and requeue
+explicitly to choose a new version. Steering adds reviewed skill instructions
+only at the same safe boundary as its user input, with existing context limits.
+Normal request context sources and instruction receipts retain scope/version
+provenance. Failed saves preserve the previous selection and draft.
+
 ## Live instruction control (EH01)
 
 `bootstrap.instructionQueue` advertises durable text input. `taskInputs {session}`

@@ -27,6 +27,8 @@ pub struct TaskInput {
     pub run: Option<String>,
     #[serde(default)]
     pub inspected: bool,
+    #[serde(default)]
+    pub selected_skills: Vec<crate::SkillSelection>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

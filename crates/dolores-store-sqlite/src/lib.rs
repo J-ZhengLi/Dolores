@@ -8,6 +8,7 @@ mod automatic_memory;
 mod change_tests;
 mod changes;
 mod comparison;
+mod composer_skills;
 mod experimental;
 mod feedback;
 mod generation_profiles;
@@ -26,7 +27,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 39;
+pub const SCHEMA_VERSION: i64 = 40;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -240,6 +241,9 @@ impl SqliteStore {
                 CREATE INDEX IF NOT EXISTS task_inputs_pending ON task_inputs(session,state,position);
                 PRAGMA user_version=39; COMMIT;").map_err(storage_error)?;
         }
+        if version < 40 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS composer_skills(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL);PRAGMA user_version=40;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -250,6 +254,16 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn composer_skills(&self, s: &str) -> Result<Vec<dolores_core::SkillSelection>, String> {
+        composer_skills::read(&*self.lock()?, s)
+    }
+    fn save_composer_skills(
+        &self,
+        s: &str,
+        selections: &[dolores_core::SkillSelection],
+    ) -> Result<(), String> {
+        composer_skills::save(&mut *self.lock()?, s, selections)
+    }
     fn task_inputs(&self, s: &str) -> Result<dolores_core::harness_task::TaskInputs, String> {
         task_inputs::read(&*self.lock()?, s)
     }

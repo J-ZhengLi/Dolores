@@ -32,7 +32,7 @@ impl dolores_core::ToolApproval for SteeringApproval {
     fn steering_pending(&self) -> Result<bool, String> {
         Ok(!self.pending()?.is_empty())
     }
-    fn take_steering(&self) -> Result<Vec<String>, String> {
+    fn take_steering(&self) -> Result<Vec<dolores_core::SteeringInput>, String> {
         let mut text = vec![];
         let mut claimed_ids = self
             .claimed
@@ -44,12 +44,19 @@ impl dolores_core::ToolApproval for SteeringApproval {
             );
         }
         for input in self.pending()? {
+            let skills = dolores_core::resolve_skill_selections(
+                &crate::skills::for_session(self.store.as_ref(), Some(&self.session))?,
+                &input.selected_skills,
+            )?;
             // Editing may win between list and claim. Refuse that stale boundary
             // instead of applying different text under an acknowledged revision.
             let claimed =
                 self.store
                     .claim_task_input(&self.session, &input.id, input.revision, &self.run)?;
-            text.push(claimed.text);
+            text.push(dolores_core::SteeringInput {
+                text: claimed.text,
+                skills,
+            });
             claimed_ids.push(input.id);
         }
         Ok(text)
@@ -174,6 +181,7 @@ mod tests {
         ) -> Result<AgentTurn, String> {
             let n = self.calls.fetch_add(1, Ordering::SeqCst);
             if n == 0 {
+                assert!(!messages[0].content.contains("EXACT_STEERING_SKILL"));
                 if self.arrival == "generation" {
                     steer(self.store.as_ref());
                 }
@@ -188,6 +196,7 @@ mod tests {
                     output_limit: false,
                 })
             } else {
+                assert!(messages[0].content.contains("EXACT_STEERING_SKILL"));
                 assert!(messages
                     .iter()
                     .any(|m| m.role == "user" && m.content == "Original goal: write export"));
@@ -269,6 +278,20 @@ mod tests {
                         mode: InputMode::Queue,
                     },
                 )
+                .unwrap();
+            let skill = store
+                .activate_global_skill(
+                    &dolores_core::SkillDocument {
+                        name: "precise-format".into(),
+                        description: "Structure exports".into(),
+                        text: "EXACT_STEERING_SKILL".into(),
+                    },
+                    None,
+                    None,
+                )
+                .unwrap();
+            store
+                .save_composer_skills("chat", &[dolores_core::SkillSelection::from_skill(&skill)])
                 .unwrap();
             let fixture = Fixture {
                 store: store.clone(),

@@ -16,6 +16,7 @@ class RichComposer extends StatefulWidget {
   final VoidCallback onSend;
   final Widget trailing;
   final Future<bool> Function()? onPasteImage;
+  final KeyEventResult Function(KeyEvent)? onCommandKey;
   const RichComposer({
     super.key,
     required this.controller,
@@ -26,6 +27,7 @@ class RichComposer extends StatefulWidget {
     required this.onSend,
     required this.trailing,
     this.onPasteImage,
+    this.onCommandKey,
   });
   @override
   State<RichComposer> createState() => _RichComposerState();
@@ -526,6 +528,9 @@ class _RichComposerState extends State<RichComposer> {
     final keyboard = HardwareKeyboard.instance;
     final modified = keyboard.isControlPressed || keyboard.isMetaPressed;
     if (!input.value.composing.isCollapsed) return KeyEventResult.ignored;
+    if (widget.onCommandKey?.call(event) == KeyEventResult.handled) {
+      return KeyEventResult.handled;
+    }
     // Handle native image paste before text-only clipboard availability can
     // disable the platform's default paste shortcut.
     if (widget.onPasteImage != null &&

@@ -48,9 +48,11 @@ mod automatic_memory;
 mod instructions;
 mod relevant_skills;
 mod skill_drafts;
+mod skill_selection;
 mod skills;
-pub use relevant_skills::prepare_relevant_skill_context;
+pub use relevant_skills::{prepare_relevant_skill_context, prepare_selected_skill_context};
 pub use skill_drafts::*;
+pub use skill_selection::*;
 pub use skills::{
     effective_skills, prepare_skill_context, valid_skill_name, ProjectSkill, SkillDocument,
     SkillScope, SkillSource, SkillVersion, MAX_ACTIVE_SKILLS, MAX_SAVED_SKILLS, MAX_SKILL_BYTES,
@@ -343,6 +345,12 @@ pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 pub mod companionship;
 pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn composer_skills(&self, _: &str) -> Result<Vec<SkillSelection>, String> {
+        Ok(vec![])
+    }
+    fn save_composer_skills(&self, _: &str, _: &[SkillSelection]) -> Result<(), String> {
+        Err("Explicit skill selection is unavailable in this store.".into())
+    }
     fn task_inputs(&self, _: &str) -> Result<harness_task::TaskInputs, String> {
         Err("Instruction queue is unavailable in this store.".into())
     }

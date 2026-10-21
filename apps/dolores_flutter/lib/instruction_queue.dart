@@ -97,7 +97,7 @@ class InstructionQueue extends StatelessWidget {
                               title: const Text('Instruction receipt'),
                               content: SingleChildScrollView(
                                 child: SelectableText(
-                                  '${entry['text']}\n\nState: ${entry['state']}\nRun: ${entry['run'] ?? 'Not delivered'}',
+                                  '${entry['text']}\n\nState: ${entry['state']}\nRun: ${entry['run'] ?? 'Not delivered'}\nSkills: ${(entry['selectedSkills'] as List? ?? []).map((s) => "${s['name']} · ${s['scope']} v${s['version']} (revision ${s['revision']})").join(', ')}',
                                 ),
                               ),
                               actions: [

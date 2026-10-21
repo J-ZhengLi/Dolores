@@ -2,6 +2,23 @@
 
 ## Home and files
 
+Type `/` at the start of a plain line to filter commands and enabled, reviewed
+skills. Use Up/Down and Enter or Tab to choose; Escape dismisses the picker and
+keeps the text. Paths and fenced code keep normal editing, and IME composition
+does not select or submit. `/stop` stops this chat's response; `/resume-queue`
+resumes its inspected, paused queue. Goal and Plan are marked **Not available yet**.
+
+A selected skill becomes a chip showing its scope and reviewed version. Click
+the chip to inspect its instructions, or remove it with its close button. Up to
+three selections stay with the chat until removed. They apply to normal requests,
+context preview and snapshots saved with Queue/Steer; later chip changes do not
+rewrite saved inputs. Implicit skill-name/keyword matching still works. These
+selections do not change a scheduled task's pinned skill. If a skill changes,
+is disabled or is overridden by a project skill, delivery stops without choosing
+another version. Remove the stale chip, refresh the picker and reselect. For an
+already saved instruction, cancel it and submit again with the new selection.
+Failed saves keep the draft and prior chips; no skill is activated by the picker.
+
 While an ordinary chat task runs, keep typing in the composer. **Queue** saves a
 text follow-up for the next turn; **Steer now** guides the current task after its
 running model/tool operation settles. Steering can prevent later operations;

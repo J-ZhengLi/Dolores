@@ -14,6 +14,7 @@ import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'message_frame.dart';
 import 'rich_composer.dart';
+import 'composer_commands.dart';
 import 'instruction_queue.dart';
 import 'usage_details.dart';
 import 'task_feedback.dart';
@@ -107,6 +108,7 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final input = ComposerController();
+  final commands = GlobalKey<ComposerCommandsState>();
   final focus = FocusNode();
   final scroll = ScrollController();
   final shell = GlobalKey<ScaffoldState>();
@@ -862,6 +864,13 @@ class _ChatPageState extends State<ChatPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (chat.instructionQueueAvailable) InstructionQueue(chat: chat),
+              if (chat.commandPickerAvailable)
+                ComposerCommands(
+                  key: commands,
+                  chat: chat,
+                  input: input,
+                  focus: focus,
+                ),
               if (!chat.busy && chat.attachments.isNotEmpty)
                 AttachmentChips(
                   chat: chat,
@@ -872,6 +881,9 @@ class _ChatPageState extends State<ChatPage> {
                 key: const Key('composer'),
                 controller: input,
                 focusNode: focus,
+                onCommandKey: (event) =>
+                    commands.currentState?.handleKey(event) ??
+                    KeyEventResult.ignored,
                 onPasteImage: chat.attachmentsAvailable
                     ? chat.pasteImage
                     : null,
@@ -908,6 +920,7 @@ class _ChatPageState extends State<ChatPage> {
                         key: const Key('queue-instruction'),
                         onPressed:
                             chat.inputSaving ||
+                                chat.skillSaving ||
                                 chat.stopping ||
                                 chat.draft.trim().isEmpty ||
                                 !input.value.composing.isCollapsed
@@ -927,6 +940,7 @@ class _ChatPageState extends State<ChatPage> {
                         key: const Key('steer-instruction'),
                         onPressed:
                             chat.inputSaving ||
+                                chat.skillSaving ||
                                 chat.stopping ||
                                 chat.draft.trim().isEmpty ||
                                 !input.value.composing.isCollapsed
@@ -1057,6 +1071,7 @@ class _ChatPageState extends State<ChatPage> {
                       onPressed: chat.busy
                           ? (chat.stopping ? null : chat.stop)
                           : (chat.loading ||
+                                    chat.skillSaving ||
                                     chat.changing ||
                                     !chat.configured ||
                                     (chat.draft.trim().isEmpty &&

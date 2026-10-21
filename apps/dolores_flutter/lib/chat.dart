@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -175,7 +176,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> openProject(String root) async {
-    if (busy || changing || loading) return;
+    if (busy || changing || loading || skillSaving) return;
     changing = true;
     _notify();
     try {
@@ -330,6 +331,65 @@ class ChatController extends ChangeNotifier {
       partial = '';
   bool durableDrafts = false;
   bool instructionQueueAvailable = false;
+  bool commandPickerAvailable = false;
+  bool skillSaving = false;
+  Map<String, dynamic> commandCatalogue = {};
+  List<Map<String, dynamic>> selectedSkills = [];
+  Future<void> refreshCommands() async {
+    if (!commandPickerAvailable) return;
+    // A new project chat needs its existing workspace identity before reading
+    // project-scoped skills. Serialize creation with Send/navigation.
+    if (session == null && workspaceKind == 'project') {
+      if (changing || loading) return;
+      changing = true;
+      _notify();
+      try {
+        await _ensureWorkingSession();
+      } finally {
+        changing = false;
+        _notify();
+      }
+    }
+    final target = session;
+    final result = (await bridge.call({
+      'command': 'composerCommands',
+      'session': target,
+    }) as Map).cast<String, dynamic>();
+    if (session == target) {
+      commandCatalogue = result;
+      selectedSkills = ((result['selected'] as List?) ?? [])
+          .cast<Map<String, dynamic>>();
+      _notify();
+    }
+  }
+
+  Future<bool> selectSkills(List<Map<String, dynamic>> selections) async {
+    if (skillSaving || changing || loading) return false;
+    skillSaving = true;
+    _notify();
+    try {
+      await _ensureWorkingSession();
+      final target = session;
+      await bridge.call({
+        'command': 'saveComposerSkills',
+        'session': target,
+        'selections': selections,
+      });
+      if (session != target) return false;
+      selectedSkills = List.of(selections);
+      error = null;
+      invalidateContext();
+      return true;
+    } catch (failure) {
+      error =
+          'Could not save selected skills. Your draft remains. Refresh commands and try again. ($failure)';
+      return false;
+    } finally {
+      skillSaving = false;
+      _notify();
+    }
+  }
+
   bool get acceptsLiveInputs =>
       instructionQueueAvailable && !_scheduledRun && !_observationRun;
   bool inputSaving = false;
@@ -380,6 +440,7 @@ class ChatController extends ChangeNotifier {
   String? _inputSubmissionText;
   Future<void> queueDraft({bool steer = false}) async {
     if (!instructionQueueAvailable ||
+        skillSaving ||
         inputSaving ||
         changing ||
         loading ||
@@ -388,11 +449,18 @@ class ChatController extends ChangeNotifier {
       return;
     }
     final text = draft;
-    if (_inputSubmissionId == null ||
-        _inputSubmissionText != '$session:$steer:$text') {
+    final submission = jsonEncode([
+      session,
+      steer,
+      text,
+      selectedSkills
+          .map((s) => [s['scope'], s['name'], s['revision'], s['version']])
+          .toList(),
+    ]);
+    if (_inputSubmissionId == null || _inputSubmissionText != submission) {
       _inputSubmissionId =
           'input-${DateTime.now().microsecondsSinceEpoch}-${++_nextRun}';
-      _inputSubmissionText = '$session:$steer:$text';
+      _inputSubmissionText = submission;
     }
     // Do not let an older debounce re-save a draft after atomic acceptance.
     _draftTimer?.cancel();
@@ -823,6 +891,7 @@ class ChatController extends ChangeNotifier {
     appearance = state['appearance'] as String? ?? 'system';
     durableDrafts = state['durableDrafts'] == true;
     instructionQueueAvailable = state['instructionQueue'] == true;
+    commandPickerAvailable = state['commandPicker'] == true;
     attachmentsAvailable = state['attachments'] == true;
     imageModels = ((state['imageModels'] as List?) ?? []).cast<String>();
     _setConversationList(state);
@@ -1026,6 +1095,8 @@ class ChatController extends ChangeNotifier {
   }
 
   void _clearConversation() {
+    selectedSkills = [];
+    commandCatalogue = {};
     taskInputs = {};
     toolRecords.clear();
     subagents.clear();
@@ -1044,6 +1115,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void newChat({String? kind}) {
+    if (skillSaving) return;
     if (!busy && !changing) {
       toolRecords.clear();
       subagents.clear();
@@ -1059,6 +1131,8 @@ class ChatController extends ChangeNotifier {
     workspaceKind = nextKind;
     session = null;
     taskInputs = {};
+    selectedSkills = [];
+    commandCatalogue = {};
     resumeRun = null;
     contextSummary = null;
     contextBasis = null;
@@ -1089,7 +1163,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> select(String id) async {
-    if (busy || changing) return;
+    if (busy || changing || skillSaving) return;
     _rememberView();
     changing = true;
     _notify();
@@ -1117,6 +1191,9 @@ class ChatController extends ChangeNotifier {
             }) as List).cast<Map<String, dynamic>>()
           : <Map<String, dynamic>>[];
       session = id;
+      selectedSkills = [];
+      commandCatalogue = {};
+      await refreshCommands();
       taskInputs = {};
       await refreshInputs();
       _setWorkspace(workspace);
@@ -1228,7 +1305,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> delete(String id) async {
-    if (busy || changing) return;
+    if (busy || changing || skillSaving) return;
     changing = true;
     _notify();
     try {
@@ -1308,6 +1385,7 @@ class ChatController extends ChangeNotifier {
     String? observationModel,
   }) async {
     if (busy ||
+        skillSaving ||
         changing ||
         loading ||
         (taskInput == null && draft.trim().isEmpty && attachments.isEmpty)) {

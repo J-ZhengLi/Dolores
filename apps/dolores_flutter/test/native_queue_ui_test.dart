@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -131,7 +132,7 @@ void main() {
         'apiKey': '',
         'rememberConnection': true,
       });
-      final session = (await call('createSession', {
+      var session = (await call('createSession', {
         'kind': 'project',
         'path': project.path,
       }))['session']['id'];
@@ -142,6 +143,16 @@ void main() {
           'revision': memories['automaticPolicy']['revision'],
         });
       }
+      final reviewed = await call('reviewSkillText', {
+        'session': session,
+        'scope': 'project',
+        'name': 'precise-format',
+        'text': '---\nname: precise-format\ndescription: Structure exports\n---\nEXACT_PUBLIC_SELECTED_SKILL_V1\n',
+      });
+      await call('activateSkill', {
+        'session': session,
+        'token': reviewed['token'],
+      });
       final chat = ownedChat = ChatController(bridge, ownsBridge: false)
         ..loading = false;
       await tester.runAsync(chat.refresh);
@@ -152,6 +163,46 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(DoloresApp(chat: chat));
       await tester.pumpAndSettle();
+      final setupSession = session;
+      chat.newChat(kind: 'project');
+      await tester.pump();
+      await waitUntil(
+        () =>
+            chat.session != null &&
+            chat.session != setupSession &&
+            !chat.changing &&
+            chat.commandCatalogue['skills'] is List,
+      );
+      session = chat.session!;
+      await tester.enterText(
+        find.byKey(const Key('composer-field-0')),
+        '/precise',
+      );
+      await tester.pump();
+      await waitUntil(
+        () =>
+            find
+                .byKey(const Key('command-skill-precise-format'))
+                .evaluate()
+                .isNotEmpty &&
+            find
+                .descendant(
+                  of: find.byKey(const Key('command-picker')),
+                  matching: find.byType(LinearProgressIndicator),
+                )
+                .evaluate()
+                .isEmpty,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await waitUntil(
+        () => chat.selectedSkills.length == 1 && chat.draft.isEmpty,
+      );
+      final preview = await tester.runAsync(chat.previewContext);
+      expect(
+        jsonEncode(preview!['messages']),
+        contains('EXACT_PUBLIC_SELECTED_SKILL_V1'),
+      );
+      expect(preview['skills'][0]['version'], 1);
       await tester.enterText(
         find.byKey(const Key('composer-field-0')),
         'Original task: create kept.txt, then summarize.',
@@ -241,6 +292,12 @@ void main() {
         jsonEncode(bodies),
         isNot(contains('Newer private draft stays unsent')),
       );
+      for (final body in bodies) {
+        expect(
+          jsonEncode((body['messages'] as List).first),
+          contains('EXACT_PUBLIC_SELECTED_SKILL_V1'),
+        );
+      }
       final saved = await call('taskInputs', {'session': session});
       expect(
         (saved['entries'] as List).every((e) => e['state'] == 'applied'),
@@ -260,6 +317,8 @@ void main() {
           'supersededEffectPrevented': true,
           'newerDraftUnsentAndRetained': true,
           'inputs': saved,
+          'selectedSkillInPreviewNormalQueueAndSteer': true,
+          'selectedSkill': chat.selectedSkills.single,
         }),
       );
       expect(tester.takeException(), isNull);

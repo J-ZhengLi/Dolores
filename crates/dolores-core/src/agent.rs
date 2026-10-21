@@ -437,7 +437,7 @@ pub trait ToolApproval: Send + Sync {
     fn steering_pending(&self) -> Result<bool, String> {
         Ok(false)
     }
-    fn take_steering(&self) -> Result<Vec<String>, String> {
+    fn take_steering(&self) -> Result<Vec<SteeringInput>, String> {
         Ok(vec![])
     }
     fn acknowledge_steering(&self) -> Result<(), String> {
@@ -458,6 +458,11 @@ pub trait ToolApproval: Send + Sync {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<bool, String>;
+}
+/// Host-resolved reviewed skills accompany a single safe-boundary instruction.
+pub struct SteeringInput {
+    pub text: String,
+    pub skills: Vec<crate::ProjectSkill>,
 }
 async fn emit(
     events: &mpsc::Sender<AgentEvent>,
@@ -613,7 +618,7 @@ pub async fn run_agent_with_shared_budget(
     let mut failures = crate::agent_watchdog::FailureWatchdog::default();
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
-    let base_system = messages[0].content.clone();
+    let mut base_system = messages[0].content.clone();
     // Snapshot adapters declare their immutable evidence before generation.
     // Refuse a known image overrun locally instead of paying for a tool request
     // whose result can never fit. Actual results are counted again below.
@@ -636,10 +641,28 @@ pub async fn run_agent_with_shared_budget(
         return Err("Selected screenshot exceeds this model's context allowance. Choose a larger-context image model or compact/start a fresh chat; your screenshot and draft remain. Nothing was sent.".into());
     }
     for number in 1..=budget.model_limit() {
-        for text in approval.take_steering()? {
+        for input in approval.take_steering()? {
+            if !input.skills.is_empty() {
+                let (prepared, _) = crate::prepare_skill_context(
+                    vec![
+                        Message {
+                            role: crate::Role::System,
+                            content: String::new(),
+                            parts: vec![],
+                        },
+                        Message {
+                            role: crate::Role::User,
+                            content: input.text.clone(),
+                            parts: vec![],
+                        },
+                    ],
+                    &input.skills,
+                )?;
+                base_system.push_str(&prepared[0].content);
+            }
             messages.push(AgentMessage {
                 role: "user".into(),
-                content: text,
+                content: input.text,
                 parts: vec![],
                 calls: vec![],
                 call_id: None,

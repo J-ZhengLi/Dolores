@@ -46,6 +46,8 @@ deletion retaining source/results/files. A third covers Stop after a completed
 file effect, retained receipts, protected drafts and explicit recovery without
 automatic replay. A fourth case queues and reorders follow-ups, steers a live
 generation, prevents its superseded file operation and retains newer unsent text.
+The same journey chooses a reviewed skill through `/` and verifies its exact
+snapshot in preview, normal, queued and steered provider requests.
 Logs and all four receipts remain in that
 profile. Ordinary widget runs skip these opt-in cases. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.

@@ -17,9 +17,18 @@ fn keyword_matches(left: &str, right: &str) -> bool {
 }
 
 pub fn prepare_relevant_skill_context(
-    mut messages: Vec<Message>,
+    messages: Vec<Message>,
     skills: &[ProjectSkill],
 ) -> Result<(Vec<Message>, Vec<SkillSource>), String> {
+    prepare_selected_skill_context(messages, skills, &[])
+}
+
+pub fn prepare_selected_skill_context(
+    mut messages: Vec<Message>,
+    skills: &[ProjectSkill],
+    selections: &[crate::SkillSelection],
+) -> Result<(Vec<Message>, Vec<SkillSource>), String> {
+    let explicit = crate::resolve_skill_selections(skills, selections)?;
     let input = messages
         .last()
         .map_or("", |m| m.content.as_str())
@@ -28,9 +37,12 @@ pub fn prepare_relevant_skill_context(
     let selected: Vec<_> = active
         .iter()
         .filter(|s| {
-            input
-                .split(|c: char| !c.is_alphanumeric() && c != '-')
-                .any(|word| word == s.name)
+            explicit
+                .iter()
+                .any(|p| p.scope == s.scope && p.name == s.name)
+                || input
+                    .split(|c: char| !c.is_alphanumeric() && c != '-')
+                    .any(|word| word == s.name)
                 || s.current()
                     .document
                     .description

@@ -71,6 +71,7 @@ fn compaction_is_opt_in_once_charged_and_failure_preserves_summary_history_and_d
             store.clone(),
             provider.clone(),
             TurnRequest {
+                selected_skills: vec![],
                 delegation: None,
                 log: None,
                 compaction_provider: Some(provider.clone()),

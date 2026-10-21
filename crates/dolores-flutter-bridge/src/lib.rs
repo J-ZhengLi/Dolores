@@ -10,6 +10,7 @@ mod changes;
 #[cfg(test)]
 mod checkpoint_tests;
 mod checkpoints;
+mod command_catalog;
 #[cfg(test)]
 mod compaction_tests;
 mod companionship;
@@ -90,6 +91,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    selected_skills: Vec<dolores_core::SkillSelection>,
     delegation: Option<Arc<subagents::DelegateTasks>>,
     log: Option<Arc<run_journal::RunLog>>,
     compaction_provider: Option<Arc<dyn ModelProvider>>,
@@ -141,6 +143,13 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ComposerCommands {
+        session: Option<String>,
+    },
+    SaveComposerSkills {
+        session: String,
+        selections: Vec<dolores_core::SkillSelection>,
+    },
     TaskInputs {
         session: String,
     },
@@ -915,6 +924,7 @@ impl Engine {
                     | Command::SessionsPage { .. }
                     | Command::SavedDraft { .. }
                     | Command::TaskInputs { .. }
+                    | Command::ComposerCommands { .. }
                     | Command::DraftAttachments { .. }
                     | Command::NativeStartupReady
                     | Command::NativeUpdateReady
@@ -928,6 +938,8 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::ComposerCommands { session } => return self.composer_commands(session.as_deref(), session.as_ref().is_some_and(|s| active.has_session(s))),
+            Command::SaveComposerSkills { session, selections } => { self.store.save_composer_skills(&session, &selections)?; return Ok(json!(selections)); },
             Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
             Command::EditTaskInputs { session, edit } => {
                 if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}) {
@@ -1448,7 +1460,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -1517,8 +1529,15 @@ impl Engine {
                 };
                 let messages =
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
-                let (messages, skill_sources) =
-                    dolores_core::prepare_relevant_skill_context(messages, &skills)?;
+                let (messages, skill_sources) = dolores_core::prepare_selected_skill_context(
+                    messages,
+                    &skills,
+                    &session
+                        .as_deref()
+                        .map(|s| self.store.composer_skills(s))
+                        .transpose()?
+                        .unwrap_or_default(),
+                )?;
                 let knowledge_facts = session
                     .as_deref()
                     .map(|s| knowledge::facts(self.store.as_ref(), s))
@@ -1893,6 +1912,19 @@ impl Engine {
                     );
                 }
                 let scheduled = scheduling::for_run(self.store.as_ref(), session.as_deref(), id)?;
+                let selected_skills = if scheduled.is_some() {
+                    vec![]
+                } else if let Some(input) = &queued_input {
+                    input.selected_skills.clone()
+                } else {
+                    self.store.composer_skills(session.as_deref().unwrap())?
+                };
+                if !selected_skills.is_empty() {
+                    dolores_core::resolve_skill_selections(
+                        &skills::for_session(self.store.as_ref(), session.as_deref())?,
+                        &selected_skills,
+                    )?;
+                }
                 if let Some(o) = &scheduled {
                     if o.state != "claimed" || o.snapshot.prompt != input {
                         return Err("Scheduled run snapshot changed. Refresh Scheduled.".into());
@@ -2308,6 +2340,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            selected_skills,
                             delegation: delegation.clone(),
                             log: Some(log.clone()),
                             compaction_provider,
@@ -2398,6 +2431,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        selected_skills,
         delegation,
         log,
         compaction_provider,
@@ -2512,7 +2546,8 @@ async fn execute(
         context
     };
     let context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
-    let (context, skill_sources) = dolores_core::prepare_relevant_skill_context(context, &skills)?;
+    let (context, skill_sources) =
+        dolores_core::prepare_selected_skill_context(context, &skills, &selected_skills)?;
     let knowledge_facts = knowledge::facts(store.as_ref(), &session)?;
     let context = dolores_core::knowledge_context(context, &knowledge_facts)?;
     let mut context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
@@ -2667,6 +2702,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                selected_skills,
                 delegation,
                 log,
                 compaction_provider: None,
@@ -3272,6 +3308,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    selected_skills: vec![],
                     delegation: None,
                     log: None,
                     compaction_provider: None,
@@ -3645,6 +3682,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            selected_skills: vec![],
             delegation: None,
             log: None,
             compaction_provider: None,

@@ -1,5 +1,54 @@
 # Dolores acceptance — 2026-10-08
 
+## EH02 command and skill discovery — October 21
+
+The composer discovers fixed host commands and effective enabled reviewed skills
+at a plain-line `/` boundary. Commands and skills keep distinct identities, even
+when names collide. Goal and Plan stay visibly unavailable. Selected chips show
+scope/version, expose the reviewed instructions, persist per chat and can be
+removed. SQLite migration 40 adds selections; old input JSON defaults to no
+selections. Queue/Steer snapshots references in the enqueue transaction, with
+fresh exact-identity validation before delivery. Preview and normal requests use
+the same resolver; scheduled occurrences keep their existing pinned skill.
+
+Core/storage library suites pass **166 tests**, including exact unrelated-prompt
+selection, disabled/stale/overridden refusal, version 39 migration with Unicode
+history retained, reopen/queue snapshot independence, failed selection saves,
+stale enqueue with retained draft, explicit stale removal and deletion. The full
+bridge suite passes **187 tests** with one existing ignored test. Its four steering
+boundaries now assert exact selected skill text reaches the next request, original
+input remains and undispatched effects are prevented. A registry/preview check
+covers host/skill name collisions and changed skill recovery. Clippy passes for
+core, storage and bridge across all targets.
+
+Ten new Flutter cases cover filtering/selection/inspection/removal, failed save
+and retry without sending, unavailable command collisions, Escape and simulated
+IME, compact light/dark layouts, first-message project scope, explicit refresh
+after catalogue failure, and `/stop` retaining interrupted work without another
+request. Together with existing composer, queue, Stop and Skills cases,
+**63 checks pass**. Both saved compact renders were inspected: skill chips and the
+picker are readable, and Queue/Steer/Stop remain reachable. Changed-file analysis
+passes. Native keyboard/pointer/IME behavior and live-model reliability remain
+unqualified by these fixture tests.
+
+The final normal Windows x64 build and all four connected journeys pass. The
+extended journey opens a new project chat, chooses its reviewed skill with `/`
+before the first message, checks the exact snapshot in preview and all five
+normal/queued/steered provider requests, and retains the completed file and newer
+unsent draft while preventing the superseded file effect. Its receipt includes
+scope/version references for each submitted input. Evidence:
+`output/harness/eh02-native-confirmed/{receipt,schedule-receipt,stop-receipt,queue-receipt}.json`.
+The first connected trial (`eh02-native-final`) passed three journeys but pressed
+Enter before the refreshed picker was ready; no selection was saved. The fixture
+now waits for its rendered loading indicator to finish before keyboard selection.
+The passing run uses a fresh profile and retains the failed trial evidence.
+
+Document links, feature ownership, whitespace and tracked-file publication checks
+pass. EH02 is complete within its declared scope. These are public deterministic
+fixtures against the normal bridge, with no credentials or real model requests;
+native pointer/IME, live-model reliability and the separate EH10 qualification
+gates remain open. H21 remote supervision remains deferred.
+
 ## EH01 live instruction control — October 21
 
 EH01 adds a text instruction queue and provider-independent steering for ordinary

@@ -2,7 +2,7 @@
 
 Date: 2026-10-21 (Asia/Shanghai)
 
-Status: implementation authorized 2026-10-21; EH00 and EH01 complete; EH02 is next.
+Status: implementation authorized 2026-10-21; EH00–EH02 complete; EH03 is next.
 Executable task lists and current status live in the
 [batch index](../plans/everyday-harness/README.md).
 
@@ -32,7 +32,7 @@ unrelated work. The user's 2026-10-21 follow-up authorizes implementation in thi
 order; the plan records scope and gates.
 
 Use EH00–EH10 as batch identifiers without renumbering historical milestones.
-EH00 contracts/probes and EH01 live text controls are complete; EH02 is next, with EH03–EH10 pending their dependencies. Dates and effort
+EH00 contracts/probes, EH01 live text controls and EH02 command/skill discovery are complete; EH03 is next, with EH03–EH10 pending their dependencies. Dates and effort
 estimates should follow the EH00 baseline rather than precede it.
 
 ## Architecture and invariants
