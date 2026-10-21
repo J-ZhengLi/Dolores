@@ -16,6 +16,41 @@ async fn invoke(tool: &RunCommand, script: &str) -> serde_json::Value {
     )
     .unwrap()
 }
+
+#[test]
+fn supervised_stdio_can_receive_unicode_input_and_stop_while_waiting() {
+    use std::io::Write;
+    let dir = tempfile::tempdir().unwrap();
+    let node = resolve(&dir.path().canonicalize().unwrap(), "node").unwrap();
+    let (mut child, mut input, mut output, _error) = process::spawn_stdio(
+        &node,
+        &["-e".into(), "process.stdin.on('data',b=>{process.stdout.write(b);require('fs').writeFileSync('received',b)})".into()],
+        dir.path(),
+        &environment(),
+    ).unwrap();
+    input.write_all("public 世界\n".as_bytes()).unwrap();
+    input.flush().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut bytes = Vec::new();
+    while !bytes.ends_with(b"\n") && Instant::now() < deadline {
+        let mut buffer = [0u8; 128];
+        match process::read_available(&mut output, &mut buffer) {
+            Ok(n) => bytes.extend_from_slice(&buffer[..n]),
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+            other => panic!("Unexpected pipe outcome: {other:?}"),
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(bytes, "public 世界\n".as_bytes());
+    assert_eq!(child.try_exit().unwrap(), None);
+    child.stop();
+    drop(input);
+    assert!(child.try_exit().unwrap().is_some());
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("received")).unwrap(),
+        "public 世界\n"
+    );
+}
 #[tokio::test]
 async fn literal_absolute_argument_reads_sibling_evidence_without_changing_cwd() {
     let root = tempfile::tempdir().unwrap();

@@ -26,6 +26,7 @@ mod mods;
 pub use mods::*;
 mod task_budget;
 pub use task_budget::*;
+pub mod harness_task;
 mod shared_budget;
 pub use shared_budget::*;
 mod settings;

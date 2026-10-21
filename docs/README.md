@@ -13,6 +13,9 @@
 | Inspect Windows bundled licenses and prerequisites | [Dependency notices](DEPENDENCIES.md) |
 | Check what was actually verified | [Acceptance](ACCEPTANCE.md) |
 | Review priorities, dependencies and acceptance gates | [Roadmap](ROADMAP.md) |
+| Review proposed everyday harness gaps compared with Codex | [Agent harness gap analysis](research/agent-harness-gap-analysis.md) |
+| Implement everyday harness controls in dependency order | [Umbrella implementation plan](design/everyday-harness-implementation-plan.md) |
+| Execute and track each harness batch | [Batch task lists](plans/everyday-harness/README.md) |
 | Review the proposed integrated editor/Git/terminal workspace | [Developer workspace specification](design/developer-workspace.md) |
 | Continue implementation in a fresh development chat | [roadmap](ROADMAP.md) |
 | Review the planned harness self-repair workflow | [Self-repair specification](design/harness-self-repair.md) |

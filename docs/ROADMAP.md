@@ -1,5 +1,17 @@
 # Dolores roadmap
 
+**Everyday harness planning addition — 2026-10-21.** The user requested an
+[umbrella implementation plan](design/everyday-harness-implementation-plan.md)
+covering gap IDs **H01–H20**, including queueing, steering, skill/command
+discovery, goals, planning, and the supporting engineering workflows.
+**H21: remote task supervision is deferred.** These gap IDs do not renumber
+existing milestones; milestone 21 below remains automatic useful memory.
+EH00–EH10 define the new plan's delivery batches, dependencies, and acceptance
+gates. Implementation is now authorized; EH00 foundations are complete; EH01 is next.
+Follow the [batch task lists](plans/everyday-harness/README.md), with a commit after
+each completed batch. Earlier milestone updates and qualification gaps remain historical
+evidence, not completion claims for this plan.
+
 **Current implementation revision — 2026-10-08.** Preserve the current agent UI on Home.
 Use separate Home, Scheduled, Folders, Source Control and Terminal pages, reached
 through a compact icon rail with hover/focus names and Settings at the bottom.

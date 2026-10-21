@@ -1,5 +1,55 @@
 # Dolores acceptance — 2026-10-08
 
+## EH00 harness foundations — October 21
+
+The user authorized H01–H20 implementation in batches, with a commit after each
+batch. [Eleven task lists](plans/everyday-harness/README.md) preserve feature
+ownership, dependencies and failure/recovery exits. H21 remote supervision remains
+deferred. EH00 establishes contracts and feasibility evidence; no queue, steering,
+goal, plan or isolation control is exposed by this batch.
+
+The [frozen contracts](design/everyday-harness-contracts.md) define records,
+additive migration ownership, checked revisions, deletion/export, safe-boundary
+input, Stop/reopen recovery, UI/IME rules and bounded resource ceilings. Three new
+core checks cover eleven dispatch cases, crash uncertainty/no replay and stale or
+terminal receipt refusal. The full core suite passed **91 tests**; three existing
+run-admission and two persistent-draft checks passed. Fourteen command tests passed,
+including real Unicode stdin/retained receipt/Stop and existing timeout, flooding
+and descendant cleanup. Core/command Clippy and formatting passed.
+
+Forty-nine focused Flutter checks passed for composer, history, settings,
+zero idle animation and Stop recovery. Four saved compact/wide light/dark
+design sketches were inspected; they do not establish implemented Flutter UI or
+native IME behavior. A normal Windows x64 build passed. Three rendered native-bridge
+cases then passed with fresh public fixture data, including active delivery,
+Stop after a completed file effect and protected recovery draft:
+`output/harness/eh00-native/{receipt,schedule-receipt,stop-receipt}.json`.
+These establish the existing baseline, not EH01 integration or model reliability.
+
+An isolated normal app opened a visible window. A 10.04-second idle sample recorded
+0.078 CPU seconds, 240,005,120-byte working-set peak and 248,573,952-byte private
+peak, with no desktop helpers. This is an uncontrolled-focus reference sample,
+not a startup, active-resource or low-end release qualification. Receipt:
+`output/harness/eh00-baseline/resources.json`. Only the recorded preview was closed.
+
+The bounded AppContainer probe **failed the required network boundary**. A verified
+container token could read/write its granted folder and was denied sibling-file
+read/write (error 5), but loopback TCP succeeded with no network capabilities.
+The unrestricted control succeeded as expected. The sibling file remained and
+profile/owned ACL grants were removed. Initial low-integrity-label setup failed
+with access denied; that failed attempt is retained separately. Receipts:
+`output/harness/eh00-isolation-01/receipt.json` and
+`output/harness/eh00-isolation-03/receipt.json`. This is a rejected complete backend,
+not a passed isolation test. EH05 must prove network enforcement or revise its
+backend; requested isolation must fail closed until then. No machine policy,
+firewall, loopback exemption, installation or elevation was changed.
+
+Document/link and batch coverage checks passed: H01–H20 owned once, H21 excluded,
+eleven ordered task files. Existing October audit deferrals remain unchanged.
+Native keyboard/IME, measured startup/active resources, real-model reliability,
+toolchain/container compatibility and full isolation remain explicit later
+qualification gates.
+
 ## October 21 priority audit closure
 
 At the user's request, this audit ends after the two remaining priority cases:
