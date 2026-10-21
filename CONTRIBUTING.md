@@ -52,8 +52,11 @@ A fifth journey saves and explicitly starts a goal, creates one public artifact,
 continues into a second segment, reads it back and records receipt-linked
 completion under the same cumulative budget. A sixth selects context, requests a
 forbidden command during planning, accepts a concrete plan and explicitly starts
-its linked goal with normal tool review. Logs and all six receipts remain in that
-profile. Ordinary widget runs skip these opt-in cases. This does not qualify
+its linked goal with normal tool review. Logs and receipts remain in that
+profile. A seventh journey sends again after an IME commit, checks the always-on
+summary explanation and removes the active and final models without losing chat
+history or an unsent draft. It saves rendered review images in the same profile.
+Ordinary widget runs skip these opt-in cases. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.
 
 For an authorized live Memory check, run

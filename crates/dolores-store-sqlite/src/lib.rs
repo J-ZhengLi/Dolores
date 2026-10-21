@@ -1342,6 +1342,9 @@ impl SqliteStore {
             }
         };
         let data = serde_json::to_string(&contexts).map_err(storage_error)?;
+        let mut images = attachments::image_models(&transaction, &preferences.base_url)?;
+        images.retain(|id| models.contains(id));
+        attachments::save_image_models(&transaction, &preferences.base_url, &images)?;
         // Disabled models lose their overrides in the same configuration transaction.
         let mut statement = transaction
             .prepare("SELECT model FROM model_request_settings WHERE base_url=?1")

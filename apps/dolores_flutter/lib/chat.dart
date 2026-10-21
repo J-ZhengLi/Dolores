@@ -1162,6 +1162,38 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<void> removeModel(String value) async {
+    if (busy || changing || loading) {
+      throw StateError('Finish the current action first.');
+    }
+    changing = true;
+    _notify();
+    try {
+      await bridge.call({
+        'command': 'removeModel',
+        'preferences': {'baseUrl': baseUrl, 'model': value},
+      });
+      // Apply the acknowledged mutation without a fallible bootstrap reread.
+      enabledModels = enabledModels.where((m) => m != value).toList();
+      if (model == value) {
+        model = enabledModels.firstOrNull ?? '';
+        requestSettings =
+            (modelRequestSettings[model] as Map?)?.cast<String, dynamic>() ??
+            Map.of(defaultRequestSettings);
+      }
+      configured = configured && model.isNotEmpty;
+      modelContexts.remove(value);
+      modelRequestSettings.remove(value);
+      imageModels = imageModels.where((m) => m != value).toList();
+      contextSummary = null;
+      contextBasis = null;
+      error = null;
+    } finally {
+      changing = false;
+      _notify();
+    }
+  }
+
   Future<void> selectModel(String value) async {
     if (busy || changing || !configured || value == model) return;
     changing = true;

@@ -208,6 +208,10 @@ impl ConnectionManager {
         let preferences = self.store.preferences()?;
         let saved = self.store.remembered_connection()?;
         self.remembered = saved.is_some();
+        if preferences.model.is_empty() {
+            self.has_key = saved.as_ref().is_some_and(|s| s.credential_id.is_some());
+            return Ok(());
+        }
         let Some(saved) = saved else {
             if !preferences.model.is_empty() {
                 self.warning = Some(
@@ -565,6 +569,53 @@ impl ConnectionManager {
         self.provider = Some(provider);
         Ok(())
     }
+    pub fn remove_model(&mut self, expected: ConnectionPreferences) -> Result<(), String> {
+        let mut preferences = self.store.preferences()?;
+        let mut models = self.model_choices()?;
+        if expected.base_url != preferences.base_url || !models.contains(&expected.model) {
+            return Err("Model connection changed. Reopen Models and try again.".into());
+        }
+        let mut saved = self.store.remembered_connection()?;
+        if saved.as_ref().is_some_and(|s| s.preferences != preferences) {
+            return Err("Model connection changed. Reopen Models and try again.".into());
+        }
+        models.retain(|m| m != &expected.model);
+        let active_removed = preferences.model == expected.model;
+        if active_removed {
+            preferences.model = models.first().cloned().unwrap_or_default();
+        }
+        // Prepare the replacement before saving. A failed write retains the
+        // current provider and credential; removal never rotates a secure key.
+        let provider = if active_removed {
+            if preferences.model.is_empty() {
+                None
+            } else if let Some(key) = self.active_key.as_ref() {
+                if self.active_base_url.as_deref() != Some(preferences.base_url.as_str()) {
+                    return Err("Reconnect the provider before removing its active model.".into());
+                }
+                Some(Arc::new(
+                    OpenAiProvider::with_settings(
+                        &preferences,
+                        key.clone(),
+                        self.store.effective_request_settings(&preferences)?,
+                    )?
+                    .with_context_window(self.context_window(&preferences)?),
+                ) as Arc<dyn ModelProvider>)
+            } else {
+                None
+            }
+        } else {
+            self.provider.clone()
+        };
+        if let Some(record) = &mut saved {
+            record.preferences = preferences.clone();
+        }
+        self.store
+            .save_connection_models(&preferences, saved.as_ref(), &models)?;
+        self.provider = provider;
+        self.warning = None;
+        Ok(())
+    }
     pub fn forget(&mut self) -> Result<(), String> {
         let saved = self.store.remembered_connection()?;
         self.remembered = saved.is_some();
@@ -670,6 +721,124 @@ mod tests {
             base_url: endpoint.into(),
             model: "fixture".into(),
         }
+    }
+    #[tokio::test]
+    async fn removing_models_switches_active_and_keeps_credentials_history_and_restart() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let vault = Arc::new(MemoryCredentials::default());
+        let mut manager = ConnectionManager::new(store.clone(), vault.clone());
+        let p = preferences("https://example.com/v1");
+        manager
+            .configure_models(
+                p.clone(),
+                Some("fixture-key".into()),
+                true,
+                Some(vec!["fixture".into(), "other".into(), "unused".into()]),
+            )
+            .unwrap();
+        store.create("chat").unwrap();
+        store
+            .commit_turn("chat", "Keep this", "Saved result")
+            .unwrap();
+        let original = store
+            .remembered_connection()
+            .unwrap()
+            .unwrap()
+            .credential_id;
+        let before = store.model_details(&p).unwrap();
+        manager
+            .update_model_details(
+                p.clone(),
+                before,
+                dolores_core::ModelDetails {
+                    context_window_tokens: Some(32768),
+                    image_input: true,
+                    request_settings: Some(RequestSettings::default()),
+                },
+            )
+            .unwrap();
+        manager
+            .remove_model(ConnectionPreferences {
+                model: "unused".into(),
+                ..p.clone()
+            })
+            .unwrap();
+        assert_eq!(store.preferences().unwrap(), p);
+        manager.remove_model(p.clone()).unwrap();
+        assert_eq!(store.preferences().unwrap().model, "other");
+        assert_eq!(manager.model_choices().unwrap(), vec!["other"]);
+        assert!(store.image_models(&p.base_url).unwrap().is_empty());
+        assert!(store.model_contexts(&p.base_url).unwrap().is_empty());
+        assert!(store
+            .model_request_settings(&p.base_url)
+            .unwrap()
+            .is_empty());
+        assert!(manager.remove_model(p.clone()).is_err());
+        manager
+            .remove_model(ConnectionPreferences {
+                model: "other".into(),
+                ..p.clone()
+            })
+            .unwrap();
+        assert!(manager.provider.is_none());
+        assert!(manager.model_choices().unwrap().is_empty());
+        let mut restarted = ConnectionManager::new(store.clone(), vault.clone());
+        restarted.recover().unwrap();
+        assert!(restarted.provider.is_none());
+        assert!(restarted.has_key && restarted.remembered);
+        assert_eq!(
+            store
+                .remembered_connection()
+                .unwrap()
+                .unwrap()
+                .credential_id,
+            original
+        );
+        assert_eq!(vault.values.lock().unwrap().len(), 1);
+        restarted.configure(p, None, true).unwrap();
+        assert!(restarted.provider.is_some());
+        assert_eq!(store.messages("chat").unwrap().len(), 2);
+    }
+    #[tokio::test]
+    async fn failed_model_removal_keeps_provider_choices_and_secure_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("models.db");
+        let store = Arc::new(SqliteStore::open(&file).unwrap());
+        let vault = Arc::new(MemoryCredentials::default());
+        let mut manager = ConnectionManager::new(store.clone(), vault.clone());
+        let p = preferences("https://example.com/v1");
+        manager
+            .configure_models(
+                p.clone(),
+                Some("fixture-key".into()),
+                true,
+                Some(vec!["fixture".into(), "other".into()]),
+            )
+            .unwrap();
+        let provider = manager.provider.as_ref().unwrap().clone();
+        let saved = store
+            .remembered_connection()
+            .unwrap()
+            .unwrap()
+            .credential_id;
+        let db = rusqlite::Connection::open(&file).unwrap();
+        db.execute_batch("CREATE TRIGGER fail_remove BEFORE UPDATE ON preferences BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+        assert!(manager.remove_model(p.clone()).is_err());
+        assert_eq!(store.preferences().unwrap(), p);
+        assert_eq!(manager.model_choices().unwrap(), vec!["fixture", "other"]);
+        assert!(Arc::ptr_eq(manager.provider.as_ref().unwrap(), &provider));
+        assert_eq!(
+            store
+                .remembered_connection()
+                .unwrap()
+                .unwrap()
+                .credential_id,
+            saved
+        );
+        assert_eq!(vault.values.lock().unwrap().len(), 1);
+        db.execute_batch("DROP TRIGGER fail_remove").unwrap();
+        manager.remove_model(p).unwrap();
+        assert_eq!(store.preferences().unwrap().model, "other");
     }
     #[tokio::test]
     async fn profiles_switch_restore_reset_and_failed_save_without_rotating_credentials() {

@@ -1,5 +1,71 @@
 # Dolores acceptance — 2026-10-08
 
+## Chat input, model removal and automatic compaction repairs — October 21–22
+
+An IME composition update could be ignored when focus moved and the committed
+text did not change. The canonical composer then retained a composing range and
+disabled Send. Regressions reproduce that stale state both after ordinary focus
+loss and while an inspector locks the composer. Forwarding the owning block's
+unchanged-text commit now enables Send and sends the exact retained text. A
+separate inactive block cannot clear another block's composition. Another case
+completes a reply, waits three seconds and sends another message. Active
+composition still blocks Send. These are synthetic Flutter input events, not
+physical Windows IME qualification or proof that every intermittent input issue
+has the same cause.
+
+Settings → Models offers Remove model in each row's options menu. Removing the
+active model selects the first remaining model; removing the final model returns
+to connection setup. The configuration transaction prunes removed model overrides
+while retaining conversations and the provider's secure credential. Restart and
+re-adding a model reuse that connection. Failed storage writes retain the prior
+provider, choices and credential; retry explicitly recovers. Stale or missing
+model targets are refused. Compact light/dark widget journeys verify the same
+failure/recovery and preserve an unsent draft.
+
+Automatic compaction is always enabled for new chats, forks and legacy opt-out
+rows. The Summary switch is removed; manual review and correction remain.
+Existing bounded summary/model-call/time checks still apply. Invalid summaries
+keep the last valid summary, history and draft without automatic retries. An
+oversized single instruction or insufficient remaining capacity can still require
+shortening input, manual summary recovery or a larger configured model window.
+The historical SQLite flag is retained for schema compatibility and no longer
+disables protection; the legacy disable command refuses with a specific message.
+
+Verification: 50 focused Flutter cases, 96 core and 79 storage tests pass. All
+197 bridge cases pass across the broad run and isolated follow-ups, with one
+existing ignored test. Three earlier fixtures assumed opt-in compaction or
+unconfigured injected providers; they now exercise the always-on contract. The
+subsequent broad run hit native-child cancellation and PowerShell terminal
+assertions during concurrent release compilation; both pass unchanged in isolated
+follow-ups. This is not a claim of a clean full parallel bridge run. Clippy for
+the three changed Rust crates across all targets and changed-file Dart analysis
+pass. The normal Windows x64 build passes through the supported CMake fallback.
+
+All seven connected normal-bridge/rendered journeys pass. The new journey taps
+Send twice, including an IME commit during an inspector lock, checks the always-on
+summary explanation, removes the active/final models and verifies retained history,
+an unsent draft and recovery of the empty model configuration. Four saved renders
+were inspected at desktop/compact widths. The new menu, summary explanation and
+Send state are visible; test-font fallback still obscures some unchanged labels
+and Chinese glyphs, so these images do not qualify native typography. An initial
+fixture timeout came from screenshot capture outside Flutter's real-async boundary;
+moving capture into that boundary restores subsequent taps/pumps. Failed trials
+remain under ignored output directories.
+
+The native compaction fixture tests an old opt-out row, one bounded summary,
+recorded usage, malformed output with preserved summary/draft, and explicit resend.
+Its 4K case saves a valid summary but refuses a still-overfull request without
+dropping more history. Explicitly choosing an 8K window recovers using that saved
+summary. The positive fixture uses 8K because current host/tool definitions leave
+insufficient capacity for a full source batch at 4K; production defaults and
+recovery bounds are unchanged. Summary requests remain tool-free, while ordinary
+side-chat requests retain their existing question/scheduling tools.
+
+Final native evidence: `output/native-ui/f57e089a0cbf4aa289001443b218e254/` and
+`output/managed-context-kqr4vo1f/receipt.json`. No live model or normal-profile
+data/credential was accessed; provider traffic stayed on loopback. Physical Windows pointer/IME behavior,
+real-model summary quality and the later harness batches remain open.
+
 ## EH04 planning and context references — October 21
 
 `/plan` opens a dedicated inspection mode and a revisioned plan/decisions form.

@@ -1,6 +1,6 @@
 use super::{now, storage_error, SqliteStore};
 use dolores_core::{Session, TurnMetadata};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::params;
 impl SqliteStore {
     pub(super) fn read_auto_compact(&self, id: &str) -> Result<bool, String> {
         let c = self.lock()?;
@@ -14,16 +14,13 @@ impl SqliteStore {
         if !exists {
             return Err("Chat no longer exists.".into());
         }
-        Ok(c.query_row(
-            "SELECT auto_compact FROM thread_context WHERE session_id=?1",
-            [id],
-            |r| r.get(0),
-        )
-        .optional()
-        .map_err(storage_error)?
-        .unwrap_or(false))
+        // Compaction is a context safeguard, including for legacy opt-out rows.
+        Ok(true)
     }
     pub(super) fn write_auto_compact(&self, id: &str, enabled: bool) -> Result<(), String> {
+        if !enabled {
+            return Err("Automatic compaction is always enabled.".into());
+        }
         self.lock()?.execute("INSERT INTO thread_context(session_id,auto_compact) VALUES(?1,?2) ON CONFLICT(session_id) DO UPDATE SET auto_compact=excluded.auto_compact",params![id,enabled]).map_err(storage_error)?;
         Ok(())
     }
@@ -126,6 +123,31 @@ mod tests {
     use super::*;
     use dolores_core::{SessionStore, SessionWorkspace, WorkspaceKind};
     #[test]
+    fn compaction_is_always_enabled_for_new_and_legacy_chats_after_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("context.db");
+        let s = SqliteStore::open(&file).unwrap();
+        s.create("new").unwrap();
+        s.create("legacy").unwrap();
+        s.lock()
+            .unwrap()
+            .execute(
+                "INSERT INTO thread_context(session_id,auto_compact) VALUES('legacy',0)",
+                [],
+            )
+            .unwrap();
+        assert!(s.auto_compact("new").unwrap());
+        assert!(s.auto_compact("legacy").unwrap());
+        assert!(s
+            .set_auto_compact("legacy", false)
+            .unwrap_err()
+            .contains("always enabled"));
+        drop(s);
+        let s = SqliteStore::open(&file).unwrap();
+        assert!(s.auto_compact("legacy").unwrap());
+        assert!(s.auto_compact("missing").is_err());
+    }
+    #[test]
     fn forks_are_atomic_scoped_and_do_not_copy_drafts_permissions_or_policy() {
         let s = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
         s.create_workspace_session(
@@ -149,7 +171,7 @@ mod tests {
         assert_eq!(s.messages("fork").unwrap().len(), 2);
         assert_eq!(s.workspace("fork").unwrap(), s.workspace("parent").unwrap());
         assert_eq!(s.saved_draft("fork").unwrap(), "");
-        assert!(!s.auto_compact("fork").unwrap());
+        assert!(s.auto_compact("fork").unwrap());
         assert!(s.runs("fork").unwrap().is_empty());
         assert_eq!(
             s.scoped_settings(dolores_core::SettingsScope::Thread, "fork")

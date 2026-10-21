@@ -691,7 +691,7 @@ pub trait SessionStore: Send + Sync {
         Err("Thread forks are unavailable.".into())
     }
     fn auto_compact(&self, _: &str) -> Result<bool, String> {
-        Ok(false)
+        Ok(true)
     }
     fn set_auto_compact(&self, _: &str, _: bool) -> Result<(), String> {
         Err("Managed context is unavailable.".into())

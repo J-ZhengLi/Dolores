@@ -107,6 +107,17 @@ Future<void> open(
 }
 
 void main() {
+  testWidgets('Automatic compaction is explained without an opt-out switch', (
+    tester,
+  ) async {
+    final bridge = SummaryBridge();
+    await open(tester, bridge);
+    expect(find.byType(SwitchListTile), findsNothing);
+    expect(
+      find.textContaining('automatically summarized when context fills'),
+      findsOneWidget,
+    );
+  });
   testWidgets(
     'review is local; corrected draft is explicitly saved, revised and deleted in compact dark UI',
     (tester) async {
@@ -157,6 +168,12 @@ void main() {
     await tester.pumpAndSettle();
     await manual.enter(tester, 'summary-text', 'Keep my correction');
     await tester.tap(find.byKey(const Key('save-summary')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('summary-text')),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(
       tester

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/models.dart';
+import 'package:dolores_flutter/settings_frame.dart';
 
 import 'widget_test.dart' show ConnectionBridge;
 
@@ -38,7 +39,90 @@ class DetailsBridge extends ConnectionBridge {
   }
 }
 
+class RemovalBridge extends DetailsBridge {
+  bool failRemoval = false;
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    if (command['command'] == 'removeModel') {
+      commands.add(command);
+      if (failRemoval) throw StateError('Storage unavailable. Try again.');
+      final removed = command['preferences']['model'];
+      choices = choices.where((m) => m != removed).toList();
+      if (activeModel == removed) activeModel = choices.firstOrNull ?? '';
+      configured = activeModel.isNotEmpty;
+      return null;
+    }
+    return super.call(command);
+  }
+}
+
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Models can be removed including the final model; failed removal can recover ($dark)',
+      (tester) async {
+        tester.view.physicalSize = const Size(420, 480);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final bridge = RemovalBridge()
+          ..choices = ['fixture', 'other', 'unused']
+          ..configured = true;
+        final chat = ChatController(bridge)..loading = false;
+        await chat.refresh();
+        chat.draft = 'Keep my question';
+        final lock = ValueNotifier(false);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              brightness: dark ? Brightness.dark : Brightness.light,
+            ),
+            home: Builder(
+              builder: (context) => SettingsEmbedding(
+                route: ModalRoute.of(context),
+                pending: lock,
+                child: Material(child: ModelsSettings(chat: chat)),
+              ),
+            ),
+          ),
+        );
+        Future<void> remove(String id) async {
+          await tester.tap(find.byKey(Key('model-menu-$id')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Remove model'));
+          await tester.pumpAndSettle();
+        }
+
+        bridge.failRemoval = true;
+        await remove('unused');
+        expect(
+          find.textContaining('Storage unavailable. Try again.'),
+          findsOneWidget,
+        );
+        expect(chat.enabledModels, ['fixture', 'other', 'unused']);
+        bridge.failRemoval = false;
+        await remove('unused');
+        expect(chat.model, 'fixture');
+        expect(find.byKey(const Key('model-details-unused')), findsNothing);
+        await remove('fixture');
+        expect(chat.model, 'other');
+        expect(chat.configured, isTrue);
+        await remove('other');
+        expect(chat.configured, isFalse);
+        expect(chat.enabledModels, isEmpty);
+        expect(
+          find.text('Connection & models'),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('model-menu-other')), findsNothing);
+        expect(chat.draft, 'Keep my question');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        chat.dispose();
+        lock.dispose();
+      },
+    );
+  }
   testWidgets(
     'Model output supports provider default, rejects invalid input and keeps larger saved limits',
     (tester) async {

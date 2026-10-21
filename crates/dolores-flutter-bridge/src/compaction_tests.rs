@@ -45,7 +45,7 @@ impl ModelProvider for Summarizer {
     }
 }
 #[test]
-fn compaction_is_opt_in_once_charged_and_failure_preserves_summary_history_and_draft() {
+fn compaction_is_automatic_once_charged_and_failure_preserves_summary_history_and_draft() {
     for invalid in [false, true] {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
         store.create("chat").unwrap();
@@ -59,8 +59,7 @@ fn compaction_is_opt_in_once_charged_and_failure_preserves_summary_history_and_d
                 .unwrap();
         }
         store.save_draft("chat", "continue").unwrap();
-        assert!(!store.auto_compact("chat").unwrap());
-        store.set_auto_compact("chat", true).unwrap();
+        assert!(store.auto_compact("chat").unwrap());
         let provider = Arc::new(Summarizer {
             calls: std::sync::atomic::AtomicU32::new(0),
             invalid,

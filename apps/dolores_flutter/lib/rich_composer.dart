@@ -194,10 +194,24 @@ class _RichComposerState extends State<RichComposer> {
   }
 
   void _fieldChanged(int index) {
-    if (syncing || editing || index >= blocks.length || widget.readOnly) {
+    if (syncing || editing || index >= blocks.length) {
       return;
     }
     final block = blocks[index], field = fields[index];
+    final range = input.value.composing;
+    final ownsComposition =
+        range.isValid &&
+        !range.isCollapsed &&
+        range.start >= block.bodyStart &&
+        range.end <= block.bodyEnd;
+    // Opening an inspector can lock the composer before focus loss commits
+    // the IME. Accept only that unchanged-text commit while it is read-only.
+    if (widget.readOnly &&
+        (field.text != block.body(input.text) ||
+            !field.value.composing.isCollapsed ||
+            !ownsComposition)) {
+      return;
+    }
     if (allSelected) {
       if (field.text != block.body(input.text) ||
           selectionTyping ||
@@ -212,7 +226,18 @@ class _RichComposerState extends State<RichComposer> {
       }
       _clearSelection(index);
     }
-    if (!focuses[index].hasFocus && field.text == block.body(input.text)) {
+    final fieldComposing = field.value.composing;
+    final composing = fieldComposing.isValid && !fieldComposing.isCollapsed
+        ? TextRange(
+            start: block.bodyStart + fieldComposing.start,
+            end: block.bodyStart + fieldComposing.end,
+          )
+        : TextRange.empty;
+    // An IME may commit unchanged text after focus moves. Forward that
+    // composition update so Send does not remain blocked by a stale range.
+    if (!focuses[index].hasFocus &&
+        field.text == block.body(input.text) &&
+        (composing == input.value.composing || !ownsComposition)) {
       return;
     }
     active = index;
@@ -222,7 +247,6 @@ class _RichComposerState extends State<RichComposer> {
       field.text,
     );
     final selection = field.selection;
-    final composing = field.value.composing;
     editing = true;
     input.edit(
       TextEditingValue(
@@ -235,12 +259,7 @@ class _RichComposerState extends State<RichComposer> {
               block.bodyStart +
               selection.extentOffset.clamp(0, field.text.length),
         ),
-        composing: composing.isValid && !composing.isCollapsed
-            ? TextRange(
-                start: block.bodyStart + composing.start,
-                end: block.bodyStart + composing.end,
-              )
-            : TextRange.empty,
+        composing: composing,
       ),
     );
     editing = false;

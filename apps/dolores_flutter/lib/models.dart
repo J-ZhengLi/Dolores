@@ -20,6 +20,17 @@ class ModelsSettings extends StatefulWidget {
 
 class _ModelsSettingsState extends State<ModelsSettings> {
   bool connection = false;
+  String? error;
+
+  Future<void> remove(String model) async {
+    setState(() => error = null);
+    try {
+      await widget.chat.removeModel(model);
+    } catch (failure) {
+      if (mounted) setState(() => error = 'Could not remove model: $failure');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +91,14 @@ class _ModelsSettingsState extends State<ModelsSettings> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             for (final model in widget.chat.enabledModels)
               ListTile(
                 key: Key('model-details-$model'),
@@ -87,8 +106,24 @@ class _ModelsSettingsState extends State<ModelsSettings> {
                 subtitle: Text(
                   '${((widget.chat.modelContexts[model] ?? 131072) / 1024).round()}K context · ${widget.chat.imageModels.contains(model) ? 'Images enabled' : 'Image support not set'}',
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => details(model),
+                trailing: PopupMenuButton<String>(
+                  key: Key('model-menu-$model'),
+                  tooltip: 'Options for $model',
+                  enabled:
+                      !widget.chat.busy &&
+                      !widget.chat.changing &&
+                      !widget.chat.loading,
+                  onSelected: (action) {
+                    if (action == 'remove') remove(model);
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Remove model'),
+                    ),
+                  ],
+                ),
+                onTap: widget.chat.changing ? null : () => details(model),
               ),
             const SizedBox(height: 8),
             TextButton.icon(

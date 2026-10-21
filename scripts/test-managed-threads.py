@@ -48,8 +48,8 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         requests.append(payload)
         summary = payload["messages"][0]["content"].startswith("You draft a session summary")
-        assert "tools" not in payload
         if summary:
+            assert "tools" not in payload
             assert payload["max_tokens"] <= 1024
             text = "x" * 8193 if invalid else "Goal: build a parser. Pending: verify Unicode errors."
         else:
@@ -83,7 +83,10 @@ try:
     call("bootstrap")
     policy = call("memories")["automaticPolicy"]
     call("setAutomaticMemory",enabled=False,revision=policy["revision"])
-    call("configure",preferences={"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"},apiKey="",rememberConnection=False,modelContexts={"fixture":4096})
+    preferences = {"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"}
+    # 8K admits a complete source batch plus the current fixed host context.
+    # The separately exercised 4K case must stop rather than omit more history.
+    call("configure",preferences=preferences,apiKey="",rememberConnection=False,modelContexts={"fixture":8192})
     call("setRequestSettings",settings={"maxOutputTokens":128,"timeoutSeconds":60})
     session = call("createSession",kind="side")["session"]["id"]
     seed(session,30)
@@ -96,7 +99,12 @@ try:
     assert call("savedDraft",session=fork) == ""
     assert call("runs",session=fork) == []
     assert call("taskPermissions",session=fork)["revision"] == 0
-    call("setAutoCompact",session=session,enabled=True)
+    # New chats and old opt-out rows both keep automatic context protection.
+    assert call("reviewSummary",session=session)["autoCompact"] is True
+    with sqlite3.connect(directory / "data/dolores.db") as db:
+        db.execute("INSERT INTO thread_context(session_id,auto_compact) VALUES(?,0)", (session,))
+    assert call("reviewSummary",session=session)["autoCompact"] is True
+    assert not envelope("setAutoCompact",session=session,enabled=False)["ok"]
     preview = call("context",session=session,input="continue",tools=False)
     assert preview["omittedTurns"] > 0 and len(requests) == 0
     call("start",id=1,session=session,input="continue")
@@ -116,6 +124,33 @@ try:
     assert len(requests) == before + 1
     assert call("reviewSummary",session=session)["summary"] == saved
     assert call("savedDraft",session=session) == "finish tests"
+    # A failed automatic summary never retries by itself. Explicit send recovers.
+    invalid = False
+    before = len(requests)
+    call("start",id=3,session=session,input="finish tests")
+    recovered, events = finish(3)
+    assert not recovered.get("error"), recovered
+    assert len(requests) == before + 2
+    assert call("reviewSummary",session=session)["summary"]["provenance"]["revision"] > saved["provenance"]["revision"]
+    tiny = call("createSession",kind="side")["session"]["id"]
+    seed(tiny,30)
+    call("configure",preferences=preferences,apiKey="",rememberConnection=False,modelContexts={"fixture":4096})
+    before = len(requests)
+    call("start",id=4,session=tiny,input="continue tiny window")
+    limited, events = finish(4)
+    assert "valid summary but this window still omits history" in limited["error"], limited
+    checkpoint = call("reviewSummary",session=tiny)["summary"]
+    assert checkpoint and len(requests) == before + 1
+    assert call("savedDraft",session=tiny) == "continue tiny window"
+    with sqlite3.connect(directory / "data/dolores.db") as db:
+        assert db.execute("SELECT count(*) FROM messages WHERE session_id=?", (tiny,)).fetchone()[0] == 60
+    call("configure",preferences=preferences,apiKey="",rememberConnection=False,modelContexts={"fixture":8192})
+    call("start",id=5,session=tiny,input="continue tiny window")
+    resumed, events = finish(5)
+    assert not resumed.get("error"), resumed
+    assert len(requests) == before + 2
+    assert call("reviewSummary",session=tiny)["summary"] == checkpoint
+    (directory / "receipt.json").write_text(json.dumps({"tinyWindowFailure":limited,"explicitRecovery":resumed,"providerRequests":len(requests)},indent=2),encoding="utf-8")
     print(json.dumps({"passed":True,"forkBoundary":True,"oneCompaction":True,"usageRecorded":True,"failedSummaryPreserved":True,"draftPreserved":True}))
 finally:
     call("shutdown");server.shutdown()

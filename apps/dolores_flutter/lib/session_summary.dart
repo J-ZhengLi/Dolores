@@ -245,24 +245,8 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   const Text(
-                    'A summary keeps older progress in this chat’s context.',
+                    'Older progress is automatically summarized when context fills. Full history stays in this chat.',
                   ),
-                  if (review?.containsKey('autoCompact') == true)
-                    SwitchListTile(
-                      title: const Text('Automatically compact this chat'),
-                      subtitle: const Text(
-                        'Use your model to summarize older turns when context fills.',
-                      ),
-                      value: review!['autoCompact'] == true,
-                      onChanged: busy
-                          ? null
-                          : (enabled) => _act(() async {
-                              await _call('setAutoCompact', {
-                                'enabled': enabled,
-                              });
-                              await _load();
-                            }),
-                    ),
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),

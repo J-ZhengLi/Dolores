@@ -800,6 +800,9 @@ enum Command {
     SelectModel {
         model: String,
     },
+    RemoveModel {
+        preferences: ConnectionPreferences,
+    },
     RecoverConnection,
     ForgetConnection,
     SavedDraft {
@@ -1956,6 +1959,14 @@ impl Engine {
                     .select_model(model)?;
                 Ok(Value::Null)
             }
+            Command::RemoveModel { preferences } => {
+                let _entered = self.runtime.enter();
+                self.connection
+                    .lock()
+                    .map_err(|_| "Connection unavailable.")?
+                    .remove_model(preferences)?;
+                Ok(Value::Null)
+            }
             Command::RecoverConnection => {
                 let _runtime = self.runtime.enter();
                 self.connection
@@ -2923,7 +2934,7 @@ async fn execute(
             .ok_or("Compaction provider is unavailable. Use Session summary manually.")?;
         let mut batch = store.review_summary_batch(&session)?;
         let mut prompt = dolores_core::summary_prompt(&batch)?;
-        prompt[0].content.push_str(" The user opted into automatic compaction. Preserve the original goal, unresolved work and uncertainty. No tools or permissions are granted.");
+        prompt[0].content.push_str(" Automatic context compaction is active. Preserve the original goal, unresolved work and uncertainty. No tools or permissions are granted.");
         let prompt = loop {
             match dolores_core::prepare_token_context(prompt.clone(),&[],summarizer.context_window_tokens(),summarizer.request_settings().unwrap_or_default()) {
                 Ok((prepared,_))=>break prepared,
@@ -3506,7 +3517,7 @@ mod tests {
             }
         }
         fn context_window_tokens(&self) -> Option<u32> {
-            Some(8192)
+            Some(32768)
         }
         fn request_settings(&self) -> Option<RequestSettings> {
             Some(RequestSettings {
@@ -3528,7 +3539,7 @@ mod tests {
         }
     }
     #[test]
-    fn token_preview_matches_sent_history_and_saved_snapshot_without_mutating_old_turns() {
+    fn fitting_token_preview_matches_sent_history_and_saved_snapshot_without_mutating_old_turns() {
         let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
         let engine = Engine::new(
             store.clone(),
@@ -3544,7 +3555,7 @@ mod tests {
                 &preferences,
                 None,
                 &["budget".into()],
-                &dolores_core::ModelContexts::from([("budget".into(), Some(8192))]),
+                &dolores_core::ModelContexts::from([("budget".into(), Some(32768))]),
             )
             .unwrap();
         store
@@ -3595,7 +3606,10 @@ mod tests {
                 tools: false,
             })
             .unwrap();
-        assert!(preview["includedTurns"].as_u64().unwrap() < 10);
+        // A fitting preview matches the request verbatim. When older turns
+        // would be omitted, automatic compaction prepares a new context first;
+        // that separate lifecycle is exercised in compaction_tests.
+        assert_eq!(preview["includedTurns"].as_u64().unwrap(), 10);
         assert!(preview["messages"].to_string().contains("CHECK OK"));
         assert!(preview["messages"].to_string().contains("Historical"));
         let provider = Arc::new(CapturingBudgetFixture(Mutex::new(vec![])));
@@ -4127,13 +4141,19 @@ mod tests {
                 Arc::new(connection::testing::MemoryCredentials::default()),
             )
             .unwrap();
-            engine.connection.lock().unwrap().provider = Some(Arc::new(Fixture { hang, fail }));
-            store
-                .save_preferences(&ConnectionPreferences {
-                    base_url: "http://localhost/v1".into(),
-                    model: "fixture".into(),
+            engine
+                .call(Command::Configure {
+                    preferences: ConnectionPreferences {
+                        base_url: "http://localhost/v1".into(),
+                        model: "fixture".into(),
+                    },
+                    api_key: Some(String::new()),
+                    remember: false,
+                    enabled_models: None,
+                    model_contexts: None,
                 })
                 .unwrap();
+            engine.connection.lock().unwrap().provider = Some(Arc::new(Fixture { hang, fail }));
             store
                 .create_workspace_session("side", &dolores_core::SessionWorkspace::default())
                 .unwrap();

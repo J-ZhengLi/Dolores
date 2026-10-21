@@ -14,6 +14,9 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Send recovers when an input method commits unchanged text after focus moves.
+- Models can be removed from their options menu, including the active or final model, while retaining conversations and the saved provider connection.
+- Automatic context compaction is always enabled for new and existing chats. Failed summaries retain drafts and history for explicit recovery.
 - “Fewer messages” preserves Quiet companionship frequency instead of raising it to one message per day.
 - Reusing a saved instruction comparison now retains its output and time limits.
 - Task-limit settings show supported ranges and explain invalid values before saving, while retaining your edits.
