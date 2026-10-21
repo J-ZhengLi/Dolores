@@ -1,5 +1,43 @@
 # Flutter/Rust bridge contract
 
+## Planning and reference snapshots (EH04)
+
+`bootstrap.planning` advertises `/plan` and `@` discovery. `planning {session}`
+returns `{revision,planning,draft,decisions,accepted,references}`. `editPlanning
+{session,revision,edit}` accepts `mode {enabled}`, `draft {text,decisions}`,
+`accept`, `add {source,expected}` and `remove {digest}` actions. Revisions use
+checked CAS; failed saves retain prior state. Drafts permit 8 KiB of plan and
+2 KiB of decisions. Accept snapshots a concrete plan and optionally binds the
+current goal ID and criterion strings, without starting execution. New drafts
+or reference selections invalidate acceptance. `startPlan {session,revision,id}`
+checks the accepted revision/goal, then uses normal Start/StartGoal admission and
+permissions. Saving/accepting/reopening alone never dispatches work.
+
+Planning filters both advertised and executable tools to local read/list/search
+and human questions. No command, MCP, delegation, browser, schedule, repair or
+write tool is available. Queued instructions freeze PlanningState, and steering
+uses frozen reference text without changing the active run's tool policy. A
+normal unpaused planning result saves its draft only against the original CAS;
+a changed or failed save leaves the prior plan plus the saved reply/receipts.
+
+`referenceChoices {session,kind,owner?,path,cursor}` enumerates bounded sources;
+`referencePreview {session,source}` resolves a tagged file/folder path, code or
+terminal attachment digest, message `{session,message}` or conversation session.
+Preview uses existing scoped editor/attachment/history ports. Selecting rechecks
+the digest and refuses changed/deleted sources. Saved snapshots remain literal
+historical data: later source edits/deletion never substitute current content.
+Four references allow 16 KiB each and 24 KiB total; a folder contains only a
+200-entry first page with omissions; cross-chat sharing requires the same working
+folder and latest 80 messages, excluding attachments. Code/terminal categories
+require explicit text attachments from their existing selection commands.
+
+Context preview and dispatch use the same core preparation, label snapshots as
+untrusted data, and retain existing 128 KiB/model allowance checks. Run journals
+retain PlanningState; queue/steer receipts snapshot it transactionally. Migration
+42 adds chat-owned `planning` plus immutable `plan_versions` for accepted plans.
+JSON/Markdown export includes current state, accepted versions and input receipts;
+chat deletion cascades the records. Existing history/configuration is preserved.
+
 ## Goals and context recovery (EH03)
 
 `bootstrap.goals` advertises working-chat goals. `goal {session}` returns the
@@ -46,7 +84,7 @@ effective enabled reviewed skill entries (`selection/description/text`) and save
 `selected` references. This read does not scan disk or consume Settings reviews.
 Commands and skills remain separate types even when names collide. Stop and
 Resume queue use the existing host operations; Goal opens its EH03 controls.
-Plan remains unavailable until EH04.
+Plan opens EH04 review controls.
 
 `saveComposerSkills {session,selections}` persists at most three distinct
 `{scope,name,revision,version}` references. New references require exact effective,

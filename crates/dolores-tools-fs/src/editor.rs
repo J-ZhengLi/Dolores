@@ -162,7 +162,7 @@ impl EditorFolder {
             entries.push(json!({"name":name,"path":target,"directory":kind.is_dir()}));
         }
         // Offset addresses the next raw entry. No recursive traversal or whole-directory sort.
-        let next = more.then_some(scanned - 1);
+        let next = more.then(|| scanned - 1);
         Ok(json!({"entries":entries,"cursor":next,"pageSize":200}))
     }
     pub fn save(

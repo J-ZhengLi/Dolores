@@ -1,5 +1,73 @@
 # Dolores acceptance — 2026-10-08
 
+## EH04 planning and context references — October 21
+
+`/plan` opens a dedicated inspection mode and a revisioned plan/decisions form.
+Planning filters both advertised and executable tools to local read/list/search
+and human questions, excluding generic commands, writes and external tools.
+Normal unpaused replies become draft plans under checked revisions; a failed or
+stale save preserves the prior plan and saved reply. Save and Accept do not
+dispatch work. Explicit accepted-revision execution uses existing Start/StartGoal
+admission, normal permissions and the unchanged goal/checklist binding.
+
+The `@` picker previews scoped files, one directory page, explicitly attached
+code/terminal excerpts, messages and conversations. Four historical reference
+snapshots permit 16 KiB each and 24 KiB total. Directory contents are not expanded;
+cross-chat references require the same folder and latest 80 messages, excluding
+attachments. Preview-to-selection checks refuse changed/deleted sources. Saved
+snapshots deliberately survive later source changes/deletion, keeping exactly the
+selected text and provenance. Equal text from different sources has distinct
+identities. Normal/queued/steered requests retain the selected snapshots, labeled
+as untrusted data rather than instructions or permissions. Context preview uses
+the same adapter and existing public/model budget checks.
+
+Additive migration 42 preserves version 41 history and goals and adds planning
+state plus immutable accepted-plan versions. Run journals and input receipts
+retain their planning/context snapshots. JSON/Markdown export includes current
+state and accepted versions; deleting a chat cascades those records. Reopen
+restores plans without dispatch. Existing queued text receipts default to no
+planning selections.
+
+Five new backend cases exercise stale/deleted preview sources, retained queued
+snapshots after chip removal, folder omissions (including an empty folder), scope
+and traversal refusal, every excerpt category, over-budget context without
+dispatch, stale execution, goal/checklist mismatch, failed SQLite plan saves,
+Unicode migration/reopen, accepted-version export and deletion cascade. An empty
+directory preview exposed an existing eager cursor subtraction; lazy evaluation
+now prevents that panic. The full core/storage/bridge/filesystem library run
+passes **407 tests**, with one existing ignored test. The five focused backend
+cases pass again after the source-identity fix; Clippy passes for all four crates
+across all targets.
+
+Six new Flutter cases cover `@` boundaries/IME, real widget keyboard selection
+through preview/sharing without send, failed saves, acceptance/reopen without
+execution, stale source recovery with retained draft, and compact light/dark plan
+review. Together with the prior 68 focused cases, **74 tests pass**. Changed-file
+analysis is clean.
+Both compact plan renders were inspected with readable content and reachable,
+wrapping actions. These do not qualify native pointer or IME behavior.
+
+The first connected trial retained useful evidence but failed two checks. Its
+command attempt was correctly refused and ended planning, while the fixture
+incorrectly expected automatic recovery. The revised journey explicitly inspects
+that refusal, resumes retained queue state and retries inspection-only planning.
+A collapsed instruction-receipt expansion also lacked its own Material ancestor;
+the wrapper now preserves visible ink and avoids the framework assertion.
+Evidence remains under `output/harness/eh04-native-trial/`. The next fresh run,
+`eh04-native-confirmation`, passes all six journeys, including context sharing,
+refusal/recovery, plan acceptance bound to a goal, explicit execution, one
+artifact and evidence-linked completion over two goal segments. It uses nine
+public provider requests: three planning attempts and six cumulative goal calls.
+
+Final confirmation passes: the normal Windows x64 build, all six connected
+journeys against its bridge, source-identity checks, lint, document links, batch
+ownership, whitespace and tracked-file publication checks. Final receipts:
+`output/harness/eh04-native-final/{receipt,schedule-receipt,stop-receipt,queue-receipt,goal-receipt,plan-receipt}.json`.
+EH04 is complete within its declared scope. Fixtures use isolated output profiles and public loopback responses,
+without credentials or real models. Real-model plan quality, sustained resource
+use, native keyboard/pointer/IME and EH05 isolation remain separate qualification
+gates. H21 remote supervision remains deferred.
+
 ## EH03 goals and context recovery — October 21
 
 Explicit `/goal` controls save human objectives, criteria and constraints without

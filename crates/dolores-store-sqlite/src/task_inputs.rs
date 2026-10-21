@@ -170,6 +170,7 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
                     state: InputState::Pending,
                     run: None,
                     inspected: false,
+                    planning: super::planning::read(&tx, s)?,
                     selected_skills: {
                         let selections = super::composer_skills::read(&tx, s)?;
                         dolores_core::resolve_skill_selections(

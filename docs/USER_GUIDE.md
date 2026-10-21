@@ -6,8 +6,36 @@ Type `/` at the start of a plain line to filter commands and enabled, reviewed
 skills. Use Up/Down and Enter or Tab to choose; Escape dismisses the picker and
 keeps the text. Paths and fenced code keep normal editing, and IME composition
 does not select or submit. `/stop` stops this chat's response; `/resume-queue`
-resumes its inspected, paused queue. `/goal` opens Goal and progress; Plan remains
-marked **Not available yet**.
+resumes its inspected, paused queue. `/goal` opens Goal and progress; `/plan`
+opens Plan and decisions.
+
+Use **Planning mode** to inspect local files and discuss a change. The model can
+read/list/search and ask questions; commands, writes, delegation and external
+tools are unavailable. A normally saved reply becomes a draft plan. Review or
+edit that plan and your decisions, choose **Save plan**, then **Accept saved
+plan**. Neither action starts execution. **Execute accepted plan** starts the
+reviewed revision through normal task ownership and permissions. An existing
+goal is bound by its ID and unchanged checklist; a changed goal requires a new
+acceptance. Plans and accepted versions survive reopening without starting work.
+
+Type `@` at the start of a plain line to choose a file, folder, selected code,
+terminal excerpt, message or conversation. Preview the selected text and size,
+then **Share snapshot**. Context chips let you inspect or remove it. Files use
+the current working folder. Folders share one listing page (up to 200 entries),
+without recursive contents. Messages/conversations are restricted to the same
+working folder and latest 80 messages; attachments are omitted. For unsaved code
+or terminal output, first use **Attach selection** in Folders or Terminal, then
+refresh that category. Remove the original attachment if you only want the
+reference snapshot; the existing text-only queue still refuses draft attachments.
+
+Four reference snapshots can share up to 24 KiB total, 16 KiB each. Sources are
+checked again between preview and selection; changed/deleted sources require
+reselection. After selection, the retained text is historical and stays unchanged
+even if the source changes or disappears. It is sent to the chat's configured
+model as source data, never as tool permission. References persist until removed;
+queued/steered instructions freeze their selected snapshots. Narrow or remove
+context when a limit is reached; the draft and prior selections remain. A new
+plan or reference selection requires accepting the plan again.
 
 A selected skill becomes a chip showing its scope and reviewed version. Click
 the chip to inspect its instructions, or remove it with its close button. Up to

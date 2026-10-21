@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'chat.dart';
 import 'composer_controller.dart';
 import 'goal_panel.dart';
+import 'planning_panel.dart';
 
 /// A slash at a plain line boundary opens discovery; paths and fenced code do not.
 TextRange? commandQuery(TextEditingValue value) {
@@ -29,10 +30,13 @@ TextRange? commandQuery(TextEditingValue value) {
   }
   final start = end == 0 ? 0 : value.text.lastIndexOf('\n', end - 1) + 1;
   final line = value.text.substring(start, end);
-  if (!RegExp(r'^ {0,3}/[a-zA-Z0-9-]*$').hasMatch(line)) {
+  if (!RegExp(r'^ {0,3}[/@][a-zA-Z0-9-]*$').hasMatch(line)) {
     return null;
   }
-  return TextRange(start: start + line.indexOf('/'), end: end);
+  return TextRange(
+    start: start + (line.contains('@') ? line.indexOf('@') : line.indexOf('/')),
+    end: end,
+  );
 }
 
 class ComposerCommands extends StatefulWidget {
@@ -122,6 +126,28 @@ class ComposerCommandsState extends State<ComposerCommands> {
         .substring(range.start + 1, range.end)
         .toLowerCase();
     final chat = widget.chat;
+    final isReference = widget.input.text[range.start] == '@';
+    if (isReference) {
+      return widget.chat.planningAvailable
+          ? [
+              for (final kind in [
+                'file',
+                'folder',
+                'code',
+                'terminal',
+                'message',
+                'conversation',
+              ])
+                {
+                  'kind': 'reference',
+                  'id': kind,
+                  'title': kind,
+                  'description': 'Preview and select a $kind snapshot',
+                  'available': !chat.busy,
+                },
+            ].where((e) => '${e['title']}'.contains(filter)).toList()
+          : [];
+    }
     final all = [
       for (final c in (chat.commandCatalogue['commands'] as List? ?? []))
         {
@@ -196,7 +222,11 @@ class ComposerCommandsState extends State<ComposerCommands> {
     final chat = widget.chat;
     if (entry['available'] != true || chat.skillSaving) return;
     final value = widget.input.value;
-    if (entry['kind'] == 'skill') {
+    if (entry['kind'] == 'reference') {
+      if (!await showContextPicker(context, chat, entry['id'] as String)) {
+        return;
+      }
+    } else if (entry['kind'] == 'skill') {
       final reference = (entry['selection'] as Map).cast<String, dynamic>();
       final next = [
         ...chat.selectedSkills.where(
@@ -215,6 +245,8 @@ class ComposerCommandsState extends State<ComposerCommands> {
           await chat.resumeInputs();
         case 'goal':
           await showGoal(context, chat);
+        case 'plan':
+          await showPlan(context, chat);
         default:
           return; // Only fixed host handlers can execute.
       }
@@ -337,7 +369,9 @@ class ComposerCommandsState extends State<ComposerCommands> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Commands and reviewed skills',
+                          widget.input.text[range.start] == '@'
+                              ? 'Share a context snapshot'
+                              : 'Commands and reviewed skills',
                           style: theme.textTheme.labelMedium,
                         ),
                       ),

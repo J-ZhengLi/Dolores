@@ -383,8 +383,37 @@ impl SqliteStore {
             }
             first = false;
         }
+        let versions: Vec<String> = snapshot
+            .prepare("SELECT data FROM plan_versions WHERE session=?1 ORDER BY revision")
+            .map_err(storage_error)?
+            .query_map([id], |r| r.get(0))
+            .map_err(storage_error)?
+            .collect::<Result<_, _>>()
+            .map_err(storage_error)?;
         if matches!(format, ExportFormat::Json) {
-            output.write_all(b"]}\n").map_err(error)?;
+            output.write_all(b"],\"planning\":").map_err(error)?;
+            serde_json::to_writer(&mut *output, &super::planning::read(&snapshot, id)?)
+                .map_err(storage_error)?;
+            output.write_all(b",\"acceptedPlans\":[").map_err(error)?;
+            for (index, v) in versions.iter().enumerate() {
+                if index > 0 {
+                    output.write_all(b",").map_err(error)?;
+                }
+                output.write_all(v.as_bytes()).map_err(error)?;
+            }
+            output.write_all(b"]").map_err(error)?;
+            output.write_all(b"}\n").map_err(error)?;
+        } else {
+            writeln!(
+                output,
+                "\n## Plan and context snapshots\n\n{}",
+                serde_json::to_string_pretty(&super::planning::read(&snapshot, id)?)
+                    .map_err(storage_error)?
+            )
+            .map_err(error)?;
+            for v in versions {
+                writeln!(output, "\nAccepted plan revision: {v}").map_err(error)?;
+            }
         }
         Ok(count)
     }

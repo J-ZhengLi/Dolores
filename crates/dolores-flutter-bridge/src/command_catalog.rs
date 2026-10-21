@@ -21,7 +21,7 @@ impl Engine {
                 {"id":"stop","title":"Stop","description":"Stop this chat's current response","available":busy,"reason":"No response is running in this chat"},
                 {"id":"resume-queue","title":"Resume queue","description":"Resume saved instructions after inspecting them","available":paused && !busy,"reason":"Available when this chat's queue is paused and idle"},
                 {"id":"goal","title":"Goal mode","description":"Set or inspect a saved objective and criteria","available":!busy,"reason":"Finish or stop this response before editing its goal"},
-                {"id":"plan","title":"Plan mode","description":"Review a plan before implementation","available":false,"reason":"Not available yet"}
+                {"id":"plan","title":"Plan mode","description":"Review a plan before implementation","available":!busy,"reason":"Finish or stop this response before changing its plan"}
             ],
             "skills": dolores_core::effective_skills(&saved).into_iter().map(|s|json!({
                 "selection":dolores_core::SkillSelection::from_skill(s),
@@ -57,7 +57,7 @@ mod tests {
             .unwrap();
         assert_eq!(catalogue["commands"][2]["id"], "goal");
         assert_eq!(catalogue["commands"][2]["available"], true);
-        assert_eq!(catalogue["commands"][3]["available"], false);
+        assert_eq!(catalogue["commands"][3]["available"], true);
         assert_eq!(catalogue["skills"][0]["selection"]["name"], "goal");
         engine
             .call(Command::SaveComposerSkills {

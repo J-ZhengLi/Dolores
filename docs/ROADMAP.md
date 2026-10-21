@@ -7,7 +7,7 @@ discovery, goals, planning, and the supporting engineering workflows.
 **H21: remote task supervision is deferred.** These gap IDs do not renumber
 existing milestones; milestone 21 below remains automatic useful memory.
 EH00–EH10 define the new plan's delivery batches, dependencies, and acceptance
-gates. Implementation is now authorized; EH00 foundations, EH01 live text controls, EH02 command/skill discovery and EH03 goals/context recovery are complete; EH04 is next.
+gates. Implementation is now authorized; EH00 foundations, EH01 live text controls, EH02 command/skill discovery and EH03 goals/context recovery and EH04 planning/context references are complete; EH05 is next.
 Follow the [batch task lists](plans/everyday-harness/README.md), with a commit after
 each completed batch. Earlier milestone updates and qualification gaps remain historical
 evidence, not completion claims for this plan.

@@ -20,6 +20,7 @@ mod instructions;
 mod mcp;
 mod memory;
 mod model_details;
+mod planning;
 mod scheduling;
 mod skills;
 mod summaries;
@@ -30,7 +31,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 41;
+pub const SCHEMA_VERSION: i64 = 42;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -250,6 +251,9 @@ impl SqliteStore {
         if version < 41 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS goals(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS goal_history(session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,id TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(session,id));PRAGMA user_version=41;COMMIT;").map_err(storage_error)?;
         }
+        if version < 42 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS planning(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS plan_versions(session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,revision INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(session,revision)); PRAGMA user_version=42; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -260,6 +264,18 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn planning(&self, s: &str) -> Result<dolores_core::planning::PlanningState, String> {
+        planning::read(&*self.lock()?, s)
+    }
+    fn save_planning(
+        &self,
+        s: &str,
+        r: u32,
+        v: &dolores_core::planning::PlanningState,
+    ) -> Result<dolores_core::planning::PlanningState, String> {
+        self.planning_save(s, r, v)
+    }
+
     fn goal(&self, s: &str) -> Result<Option<dolores_core::goal::Goal>, String> {
         goals::read(&*self.lock()?, s)
     }

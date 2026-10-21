@@ -46,6 +46,9 @@ mod mods;
 mod native_build;
 mod native_update;
 mod permissions;
+mod planning;
+#[cfg(test)]
+mod planning_tests;
 mod recovery;
 mod registry;
 mod repair_evaluation;
@@ -92,6 +95,8 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    plan_execution: bool,
+    planning: dolores_core::planning::PlanningState,
     goal: Option<goals::Binding>,
     selected_skills: Vec<dolores_core::SkillSelection>,
     delegation: Option<Arc<subagents::DelegateTasks>>,
@@ -145,6 +150,31 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ReferenceChoices {
+        session: String,
+        kind: String,
+        owner: Option<String>,
+        path: String,
+        cursor: usize,
+    },
+    Planning {
+        session: String,
+    },
+    EditPlanning {
+        session: String,
+        revision: u32,
+        edit: planning::Edit,
+    },
+    ReferencePreview {
+        session: String,
+        source: planning::Source,
+    },
+    StartPlan {
+        session: String,
+        revision: u32,
+        id: u64,
+    },
+
     Goal {
         session: String,
     },
@@ -941,6 +971,8 @@ impl Engine {
                     | Command::TaskInputs { .. }
                     | Command::ComposerCommands { .. }
                     | Command::Goal { .. }
+                    | Command::Planning { .. }
+                    | Command::ReferencePreview { .. }
                     | Command::DraftAttachments { .. }
                     | Command::NativeStartupReady
                     | Command::NativeUpdateReady
@@ -954,6 +986,13 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::ReferenceChoices{session,kind,owner,path,cursor}=>return self.reference_choices(&session,&kind,owner.as_deref(),&path,cursor),
+            Command::Planning{session}=>return Ok(json!(self.store.planning(&session)?)),
+            Command::ReferencePreview{session,source}=>return Ok(json!(self.reference_preview(&session,&source)?)),
+            Command::EditPlanning{session,revision,edit}=>{
+                if active.has_session(&session) {return Err("Finish or stop this response before changing its plan/context.".into());}
+                return self.edit_planning(&session,revision,edit);
+            },
             Command::Goal{session} => return Ok(json!(self.store.goal(&session)?)),
             Command::EditGoal{session,edit} => {
                 if active.has_session(&session) { return Err("Stop this chat's response before changing the goal.".into()); }
@@ -1139,6 +1178,7 @@ impl Engine {
                 Command::Start { .. }
                     | Command::StartTaskInput { .. }
                     | Command::StartGoal { .. }
+                    | Command::StartPlan { .. }
                     | Command::Bootstrap
                     | Command::CreateSession { .. }
                     | Command::Context { .. }
@@ -1146,6 +1186,45 @@ impl Engine {
         {
             return Err("Stop the current response first.".into());
         }
+        let plan_execution = matches!(&command, Command::StartPlan { .. });
+        let command = if let Command::StartPlan {
+            session,
+            revision,
+            id,
+        } = command
+        {
+            active.check_primary(id, Some(&session))?;
+            let mut state = self.store.planning(&session)?;
+            if state.revision != revision {
+                return Err("Plan changed. Review the current revision before execution.".into());
+            }
+            let accepted = state
+                .accepted
+                .clone()
+                .ok_or("Accept a concrete plan before execution.")?;
+            planning::check_goal(self.store.as_ref(), &session, &state)?;
+            // Validate before changing mode; Start remains subject to normal policy/admission.
+            if !self.store.draft_attachments(&session)?.is_empty() {
+                return Err("Send or remove draft attachments first. Your draft remains.".into());
+            }
+            state.planning = false;
+            self.store.save_planning(&session, revision, &state)?;
+            if accepted.goal.is_some() {
+                let g = self
+                    .store
+                    .goal(&session)?
+                    .ok_or("Accepted goal unavailable.")?;
+                Command::StartGoal {
+                    session,
+                    revision: g.revision,
+                    id,
+                }
+            } else {
+                Command::Start{session:Some(session),id,input:format!("Execute the human-accepted plan revision {}. Preserve direct user instructions and existing access rules.\n{}",accepted.revision,accepted.text),workspace:None,desktop_handoff:false,desktop_capture:None,desktop_grant:None,desktop_reconciled:false,observation_model:None,resume_run:None,continuation:None}
+            }
+        } else {
+            command
+        };
         let (command, goal_start) = if let Command::StartGoal {
             session,
             revision,
@@ -1531,7 +1610,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"goals":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -1672,6 +1751,16 @@ impl Engine {
                         ),
                     ));
                 }
+                let planning_state = session
+                    .as_deref()
+                    .map(|s| self.store.planning(s))
+                    .transpose()?
+                    .unwrap_or_default();
+                if let Some(s) = session.as_deref() {
+                    planning::check_goal(self.store.as_ref(), s, &planning_state)?;
+                }
+                dolores_core::planning::filter_specs(&mut specs, &planning_state);
+                let messages = dolores_core::planning::prepare(messages, &planning_state)?;
                 let preferences = self.store.preferences()?;
                 let messages = dolores_core::prepare_external_tool_context(messages, &specs)?;
                 let messages = if !specs.is_empty() {
@@ -1983,6 +2072,23 @@ impl Engine {
                     );
                 }
                 let scheduled = scheduling::for_run(self.store.as_ref(), session.as_deref(), id)?;
+                let planning_state = if scheduled.is_some() || desktop_capture.is_some() {
+                    Default::default()
+                } else if let Some(input) = &queued_input {
+                    input.planning.clone()
+                } else {
+                    self.store.planning(session.as_deref().unwrap())?
+                };
+                planning::check_goal(
+                    self.store.as_ref(),
+                    session.as_deref().unwrap(),
+                    &planning_state,
+                )?;
+                if goal_start.is_some() && planning_state.planning {
+                    return Err(
+                        "Accept and explicitly execute the plan before starting this goal.".into(),
+                    );
+                }
                 let selected_skills = if scheduled.is_some() {
                     vec![]
                 } else if let Some(input) = &queued_input {
@@ -2212,7 +2318,8 @@ impl Engine {
                     .map(|o| o.snapshot.preferences.model.clone())
                     .unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
                 let settings = provider.request_settings();
-                let reflection_provider = if goal_start.is_none()
+                let reflection_provider = if !planning_state.planning
+                    && goal_start.is_none()
                     && desktop_capture.is_none()
                     && session
                         .as_deref()
@@ -2233,7 +2340,8 @@ impl Engine {
                 } else {
                     None
                 };
-                let learner = if goal_start.is_none()
+                let learner = if !planning_state.planning
+                    && goal_start.is_none()
                     && desktop_capture.is_none()
                     && self.store.automatic_memory_policy()?.enabled
                 {
@@ -2245,6 +2353,9 @@ impl Engine {
                 } else {
                     None
                 };
+                if planning_state.planning {
+                    tools.retain(|t| dolores_core::planning::inspection_tool(&t.spec().name));
+                }
                 let run_id = uuid::Uuid::new_v4().to_string();
                 let goal_binding = goal_start.as_ref().map(|g| goals::Binding {
                     session: session.clone().unwrap(),
@@ -2280,7 +2391,11 @@ impl Engine {
                     .into_iter()
                     .map(|tool| registry.pin_tool(tool))
                     .collect::<Result<Vec<_>, _>>()?;
-                if !desktop_handoff && queued_input.is_none() && goal_start.is_none() {
+                if !desktop_handoff
+                    && queued_input.is_none()
+                    && goal_start.is_none()
+                    && !plan_execution
+                {
                     self.store.save_draft(session.as_deref().unwrap(), &input)?;
                 }
                 self.store.begin_run(&dolores_core::RunSnapshot {
@@ -2449,6 +2564,8 @@ impl Engine {
                     let _desktop_lifetime=control;
                     let learning_session = session.clone();
                     let learning_model = model.clone();
+                    let finishing_work=planning_state.clone();
+                    let planning_session=session.clone();
                     let finishing_goal=goal_binding.clone();
                     let permit = admission.acquire(id, &cancel).await;
                     let result = match permit.as_ref().map_err(Clone::clone) {
@@ -2461,6 +2578,8 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            plan_execution,
+                            planning: planning_state,
                             goal: goal_binding,
                             selected_skills,
                             delegation: delegation.clone(),
@@ -2512,15 +2631,21 @@ impl Engine {
                         let progress=goals::made_progress(b);
                         match progress {Ok(progress)=>store.finish_goal(&b.session,&b.id,&b.run,result.is_ok()&&!paused&&!cancel.is_cancelled()&&child_evidence_error.is_none()&&evidence_error.is_none(),progress).err(),Err(e)=>Some(e)}
                     }else{None};
+                    let plan_warning=if !paused && !cancel.is_cancelled() && evidence_error.is_none(){
+                        match (&planning_session,&result){(Some(s),Ok(text))=>planning::save_result(store.as_ref(),s,&finishing_work,text).err(),_=>None}
+                    }else{None};
                     let mut event = match result {
                         Ok(answer) => json!({"type":"done", "id":id, "answer":answer, "memoryUpdate":memory_update,"knowledgeUpdate":knowledge_update,"learningUpdate":learning_update}),
-                        Err(error) => json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error}),
+                        Err(error) => {
+                            let error=if finishing_work.planning && error=="Model requested an unavailable tool." {"Planning mode refused an execution tool. Saved work remains. Resume the inspected queue, then ask for an inspection-only plan or explicitly execute an accepted plan.".to_string()}else{error};
+                            json!({"type":"done", "id":id, "recovery":recovery::advice(&error), "error":error})
+                        },
                     };
                     if _desktop_lifetime.is_some() && event["error"].is_string() {
                         event["recovery"] = json!({"kind":"desktop","retryable":false,"guidance":"Computer use stopped or failed. The original goal and action receipts remain in Settings → Computer use. Input may already have occurred; inspect the selected window, capture it again, and explicitly reconcile before continuing. No input or approval was replayed."});
                     }
                     event["runId"]=json!(log.id);
-                    let evidence_error = evidence_error.or(child_evidence_error).or(goal_warning);
+                    let evidence_error = evidence_error.or(child_evidence_error).or(goal_warning).or(plan_warning);
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
@@ -2557,6 +2682,8 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        plan_execution,
+        planning,
         goal,
         selected_skills,
         delegation,
@@ -2573,9 +2700,18 @@ async fn execute(
         input,
         model,
         settings,
-        tools,
+        mut tools,
         approval,
     } = request;
+    if planning.planning {
+        tools.retain(|t| dolores_core::planning::inspection_tool(&t.spec().name));
+    }
+    if let Some(log) = &log {
+        if planning.planning || planning.accepted.is_some() || !planning.references.is_empty() {
+            log.record(None, "planningContext", json!(&planning))
+                .await?;
+        }
+    }
     if cancel.is_cancelled() {
         return Err(stopped());
     }
@@ -2700,7 +2836,8 @@ async fn execute(
     } else {
         false
     };
-    let preserve_draft = goal.is_some()
+    let preserve_draft = plan_execution
+        || goal.is_some()
         || queued_delivery
         || resume_run.as_ref().is_some_and(|source| {
             tools.iter().any(|t| {
@@ -2717,6 +2854,7 @@ async fn execute(
     } else {
         attachments::prepare_text(store.as_ref(), &session, context)?
     };
+    let context = dolores_core::planning::prepare(context, &planning)?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let context = if !specs.is_empty() {
         dolores_core::prepare_response_context(
@@ -2854,6 +2992,8 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                plan_execution,
+                planning,
                 goal,
                 selected_skills,
                 delegation,
@@ -3466,6 +3606,8 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    plan_execution: false,
+                    planning: Default::default(),
                     goal: None,
                     selected_skills: vec![],
                     delegation: None,
@@ -3841,6 +3983,8 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            plan_execution: false,
+            planning: Default::default(),
             goal: None,
             selected_skills: vec![],
             delegation: None,

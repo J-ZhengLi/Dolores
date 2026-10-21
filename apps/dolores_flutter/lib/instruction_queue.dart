@@ -193,9 +193,12 @@ class InstructionQueue extends StatelessWidget {
           (v['state'] == 'uncertain' && v['inspected'] != true),
     );
     if (unresolved || chat.inputsPaused) return panel;
-    return ExpansionTile(
-      title: const Text('Instruction receipts'),
-      children: [panel],
+    return Material(
+      type: MaterialType.transparency,
+      child: ExpansionTile(
+        title: const Text('Instruction receipts'),
+        children: [panel],
+      ),
     );
   }
 }

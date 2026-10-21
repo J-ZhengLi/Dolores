@@ -35,12 +35,12 @@ def main():
                'test', '--no-pub', '--concurrency=1',
                'test/native_local_ui_test.dart', 'test/native_scheduled_ui_test.dart',
                'test/native_stop_ui_test.dart', 'test/native_queue_ui_test.dart',
-               'test/native_goal_ui_test.dart']
+               'test/native_goal_ui_test.dart', 'test/native_plan_ui_test.dart']
     with (base / 'test.log').open('w', encoding='utf-8') as log:
         child = subprocess.Popen(command, cwd=desktop.APP, env=env,
                                  stdout=log, stderr=subprocess.STDOUT)
         try:
-            status = child.wait(timeout=90)
+            status = child.wait(timeout=120)
         except subprocess.TimeoutExpired:
             # Only the process tree created above is stopped; never another app.
             subprocess.run(['taskkill', '/PID', str(child.pid), '/T', '/F'],
@@ -49,7 +49,7 @@ def main():
             print(f'Native UI qualification timed out. Evidence retained at {base}.')
             return 1
     print((base / 'test.log').read_text(encoding='utf-8')[-2400:])
-    if status or not all((base / name).is_file() for name in ('receipt.json', 'schedule-receipt.json', 'stop-receipt.json', 'queue-receipt.json', 'goal-receipt.json')):
+    if status or not all((base / name).is_file() for name in ('receipt.json', 'schedule-receipt.json', 'stop-receipt.json', 'queue-receipt.json', 'goal-receipt.json', 'plan-receipt.json')):
         print(f'Qualification incomplete. Evidence retained at {base}.')
         return 1
     print(f'Native bridge/rendered UI passed; receipt: {base / "receipt.json"}')

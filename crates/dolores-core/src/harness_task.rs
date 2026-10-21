@@ -29,6 +29,8 @@ pub struct TaskInput {
     pub inspected: bool,
     #[serde(default)]
     pub selected_skills: Vec<crate::SkillSelection>,
+    #[serde(default)]
+    pub planning: crate::planning::PlanningState,
 }
 
 #[derive(Debug, Clone, Deserialize)]

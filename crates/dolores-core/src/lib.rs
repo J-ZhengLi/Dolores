@@ -347,8 +347,21 @@ pub mod context_recovery;
 #[cfg(test)]
 mod context_recovery_tests;
 pub mod goal;
+pub mod planning;
 pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn planning(&self, _: &str) -> Result<planning::PlanningState, String> {
+        Ok(Default::default())
+    }
+    fn save_planning(
+        &self,
+        _: &str,
+        _: u32,
+        _: &planning::PlanningState,
+    ) -> Result<planning::PlanningState, String> {
+        Err("Planning unavailable in this store.".into())
+    }
+
     fn goal(&self, _: &str) -> Result<Option<goal::Goal>, String> {
         Ok(None)
     }
