@@ -1,5 +1,15 @@
 # Dolores acceptance — 2026-10-08
 
+## October 21 disposable conversation deletion
+
+C16 passed the rendered Home/sidebar and normal Rust bridge: Keep preserved the
+selected chat and exact messages; confirmed Delete removed only that chat.
+Another conversation and its draft remained, and the public UTF-8 project file
+was byte-identical. The opt-in native UI runner passed with fresh output data;
+receipt `output/native-audit-20261010-01/local-ui-delete-20261021/receipt.json`.
+No native pointer or new live-model pass is claimed. Checklist:
+**95/129 checked, 34 pending**. Notes accompany the executable regression change.
+
 ## October 17 controls connected to the normal Rust bridge
 
 M07 passed rendered Flutter instruction controls using the actual `NativeBridge`

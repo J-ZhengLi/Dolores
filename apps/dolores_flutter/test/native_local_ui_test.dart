@@ -7,6 +7,8 @@ import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/instructions.dart';
 import 'package:dolores_flutter/theme.dart';
 import 'package:dolores_flutter/memory.dart';
+import 'package:dolores_flutter/chat.dart';
+import 'package:dolores_flutter/main.dart';
 
 Future<void> settled(WidgetTester tester) async {
   final deadline = DateTime.now().add(const Duration(seconds: 10));
@@ -328,6 +330,72 @@ void main() {
         'retainedMessages': history.length,
         'draftRetained': true,
       };
+      final keepFile = File('${project.path}/keep-file.txt');
+      keepFile.writeAsStringSync('PUBLIC-WORKING-FILE-42\n中文\n');
+      final fileBytes = keepFile.readAsBytesSync();
+      final other = (await call('createSession', {
+        'kind': 'side',
+      }))['session']['id'];
+      await call('saveDraft', {
+        'session': other,
+        'text': 'Other conversation stays',
+      });
+      final chat = ChatController(bridge, ownsBridge: false)..loading = false;
+      await tester.runAsync(chat.refresh);
+      await tester.runAsync(() => chat.select(session));
+      expect(chat.error, isNull);
+      expect(chat.messages, hasLength(2));
+      tester.view.physicalSize = const Size(1200, 800);
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      await tester.pumpAndSettle();
+      final delete = find.descendant(
+        of: find.byKey(ValueKey('chat-$session')),
+        matching: find.byTooltip('Delete conversation'),
+      );
+      await tester.ensureVisible(delete);
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('This removes its saved messages. Working files are kept.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Keep'));
+      await tester.pumpAndSettle();
+      expect(chat.session, session);
+      expect(
+        (await call('messagesPage', {'session': session}))['items'],
+        history,
+      );
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+      final deleteDeadline = DateTime.now().add(const Duration(seconds: 10));
+      while ((chat.changing || chat.session == session) &&
+          DateTime.now().isBefore(deleteDeadline)) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 25)),
+        );
+        await tester.pump();
+      }
+      expect(chat.error, isNull);
+      expect(chat.session, isNull);
+      expect(find.byKey(ValueKey('chat-$session')), findsNothing);
+      final remaining = (await call('sessionsPage'))['items'] as List;
+      expect(remaining.any((s) => s['id'] == session), isFalse);
+      expect(remaining.any((s) => s['id'] == other), isTrue);
+      expect(
+        await call('savedDraft', {'session': other}),
+        'Other conversation stays',
+      );
+      expect(keepFile.readAsBytesSync(), fileBytes);
+      receipts['deleteConversation'] = {
+        'keepRetainsMessages': true,
+        'confirmedRemovedOnlySelectedChat': true,
+        'otherChatAndDraftRetained': true,
+        'workingFileBytesRetained': true,
+      };
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
       receipts['mode'] = 'Rendered Flutter controls with actual normal Rust bridge; one loopback fixture request, zero external providers; no native pointer claim';
       File(
         '${directory.parent.path}/receipt.json',

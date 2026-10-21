@@ -40,7 +40,7 @@ For rendered controls connected to the real Rust bridge, run
 `python scripts/qualify-native-ui.py` after a normal Windows build. It uses a
 fresh `output/native-ui/` profile, a public loopback response and no credentials.
 The initial case covers workspace instruction review/stale-source recovery and
-Memory Off/Forget with retained conversation/draft. Logs and a receipt remain in
+Memory Off/Forget and conversation deletion with retained files/other chats. Logs and a receipt remain in
 that profile. Ordinary widget runs skip this opt-in case. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.
 

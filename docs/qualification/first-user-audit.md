@@ -8,12 +8,23 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-**Current checkpoint: 94/129 checked, 35 pending.**
+**Current checkpoint: 95/129 checked, 34 pending.**
 
 Browser checks now prefer headless Playwright with text snapshots. The current
 Flutter desktop entry uses a native FFI bridge and is not a browser target.
 Widget/integration checks and saved renders cover suitable desktop paths; native
 interaction gaps remain labeled and are not checked off from browser evidence.
+
+### October 21: disposable conversation deletion
+
+C16 passed rendered Home/sidebar controls connected to the normal Rust bridge.
+Keep preserved the selected conversation and exact messages. A second explicit
+Delete removed only that conversation; another chat and its draft remained, and
+the project's UTF-8 working file retained identical bytes. This extends the
+opt-in native UI regression, uses only fresh disposable data and sends no extra
+provider request. It is rendered interaction with the real host, not native
+pointer input. Receipt:
+`output/native-audit-20261010-01/local-ui-delete-20261021/receipt.json`.
 
 ### October 17: rendered controls connected to the real host
 
@@ -451,7 +462,7 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 
 | Open IDs | Background coverage completed | Remaining interaction |
 | --- | --- | --- |
-| C16, A11, A13 (3) | Disposable deletion retention, retained receipts, interruption/log capture and restart checkpoints | Delete confirmation; interruption/log-capture controls |
+| A11, A13 (2) | Retained receipts, interruption/log capture and restart checkpoints | Interruption/log-capture controls |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
 | S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
 | P06–P08, P12–P13 (5) | Permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Attachment dialogs; native/manual privacy/access preference controls |
@@ -869,7 +880,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] C13 Export a test conversation as Markdown and JSON; inspect actual saved contents.
 - [x] C14 Branch from a completed turn; branch retains context and uses the same files with fresh permissions.
 - [x] C15 Record Worked/Needs work feedback and inspect the retained note.
-- [ ] C16 Delete only a disposable conversation; verify its working files are retained.
+- [x] C16 Delete only a disposable conversation; verify its working files are retained. October 21 rendered Home/sidebar with real Rust bridge: Keep retained messages; confirmed Delete removed only that chat, preserved another chat/draft and identical UTF-8 project file bytes. No native pointer claim.
 - [x] C17 Answer agent questions through clickable choices or custom text; Back retains answers, failed send allows retry, and the agent continues after submission. Native Qwen choice/custom/Back/Next/continuation passed October 10; October 17 compact light/dark Flutter failure injection verified explicit UI retry and completion without granting tool permission.
 
 ## 2. Everyday agent work and recovery
