@@ -1,5 +1,20 @@
 # Dolores acceptance — 2026-10-08
 
+## October 21 scheduled deletion and failed-occurrence retry
+
+S12 passed a rendered Scheduled page connected to the normal Rust bridge. The
+public loopback provider created a task through `schedule_task`, failed an
+occurrence with 503 and completed a new occurrence only after explicit Run now.
+Both history entries remained inspectable. Keep task cancelled deletion;
+confirmed Delete retained exact source/result messages and public UTF-8 project
+bytes. A subsequent tick claimed nothing. Four local requests; zero external
+provider requests. The regression runner now executes the local and scheduled
+UI cases serially and requires both receipts. Both cases and changed-file
+analysis passed. Receipt:
+`output/native-audit-20261010-01/local-ui-schedule-20261021/schedule-receipt.json`.
+S10 remains open for interruption after completed effects; this no-effect failure
+does not prove that case. Checklist: **96/129 checked, 33 pending**.
+
 ## October 21 disposable conversation deletion
 
 C16 passed the rendered Home/sidebar and normal Rust bridge: Keep preserved the

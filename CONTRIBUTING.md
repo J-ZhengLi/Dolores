@@ -40,8 +40,10 @@ For rendered controls connected to the real Rust bridge, run
 `python scripts/qualify-native-ui.py` after a normal Windows build. It uses a
 fresh `output/native-ui/` profile, a public loopback response and no credentials.
 The initial case covers workspace instruction review/stale-source recovery and
-Memory Off/Forget and conversation deletion with retained files/other chats. Logs and a receipt remain in
-that profile. Ordinary widget runs skip this opt-in case. This does not qualify
+Memory Off/Forget and conversation deletion with retained files/other chats. A
+second serial case covers scheduled failure, explicit Run now and confirmed
+deletion retaining source/results/files. Logs and both receipts remain in that
+profile. Ordinary widget runs skip these opt-in cases. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.
 
 Async deadline tests should use a paused Tokio clock and establish the blocked

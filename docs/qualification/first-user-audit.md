@@ -8,7 +8,7 @@ physical keyboard, IME, native dialogs, tray or pointer behavior.
 
 ## Method and status
 
-**Current checkpoint: 95/129 checked, 34 pending.**
+**Current checkpoint: 96/129 checked, 33 pending.**
 
 Browser checks now prefer headless Playwright with text snapshots. The current
 Flutter desktop entry uses a native FFI bridge and is not a browser target.
@@ -16,6 +16,17 @@ Widget/integration checks and saved renders cover suitable desktop paths; native
 interaction gaps remain labeled and are not checked off from browser evidence.
 
 ### October 21: disposable conversation deletion
+
+S12 also passed rendered Scheduled controls connected to the normal bridge and a
+public loopback provider. Scheduling through the actual model-tool path saved a
+task; a 503 occurrence failed, stayed visible and made no automatic retry. One
+explicit Run now completed a fresh occurrence. Keep task cancelled deletion;
+confirmed Delete removed future recurrence while exact source/result messages
+and UTF-8 project bytes remained. A later tick claimed nothing. Four fixture
+requests were made; no external provider or native pointer input was used.
+Receipt: `output/native-audit-20261010-01/local-ui-schedule-20261021/schedule-receipt.json`.
+S10 remains open for interruption after completed effects; this case had no
+uncertain file effects and is not offered as proof of that recovery path.
 
 C16 passed rendered Home/sidebar controls connected to the normal Rust bridge.
 Keep preserved the selected conversation and exact messages. A second explicit
@@ -464,7 +475,7 @@ still matches all 49 table digests. No public Git remote was changed or pushed.
 | --- | --- | --- |
 | A11, A13 (2) | Retained receipts, interruption/log capture and restart checkpoints | Interruption/log-capture controls |
 | T01–T02, T04–T08 (7) | Three project/HOME shells, Unicode, resize, real interrupt/prompt recovery, bounded polling/flood cleanup, stopped snapshots and scoped output sharing | Physical typing/selection, tabs/splits, copy-vs-interrupt, close/reopen and attachment controls |
-| S10, S12 (2) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation, Qwen/DeepSeek pinned reports and deletion retaining chats/results/files | Skill receipt/result navigation, explicit retry/delete, tray/Quit/owner interactions |
+| S10 (1) | Save/reopen scheduling corpus: pinned/unpinned skills, failed/Stop/overlap/stale/offline recovery; real Chinese creation and Qwen/DeepSeek pinned reports; connected rendered explicit retry after a no-effect failure | Interrupted occurrence with completed/uncertain effects and safe retry controls |
 | P06–P08, P12–P13 (5) | Permission isolation/revoke, snapshot attachments, image capability refusal, export/caps and compaction fixtures | Attachment dialogs; native/manual privacy/access preference controls |
 | M01, M05–M06, M08–M10 (6) | Real fact/correction/project isolation and image recall; useful/source-only/image memory, suggestions and skill save/restore fixtures; real draft/edit/test/promotion/reopen/provenance with format and content accuracy distinguished | Automatic capture sources/activity, skill reviews, draft test/promotion and rollback controls |
 | I06, I10 (2) | Exact reviewed two-tool MCP invocation; real scoped delegation with retained reports | MCP activation controls and child progress |
@@ -962,7 +973,7 @@ input/tab controls, and attachment chooser flows on disposable fixtures.
 - [x] S09 A real timed occurrence runs while open; approval-needed status is visible and recoverable.
 - [ ] S10 Interrupted/failed occurrence keeps evidence; explicit retry does not replay uncertain effects.
 - [x] S11 Background close-to-tray/reopen/Quit preserves task result and draft with no duplicate owner.
-- [ ] S12 Delete only a disposable schedule; original conversation/results and files remain inspectable as specified.
+- [x] S12 Delete only a disposable schedule; original conversation/results and files remain inspectable as specified. October 21 rendered Scheduled + actual Rust bridge: Keep cancelled deletion; confirmed Delete stopped future claims and retained exact source/results/project bytes. Public loopback fixture; no native pointer or new real-model claim.
 
 ## 7. Settings, attachments and context
 
