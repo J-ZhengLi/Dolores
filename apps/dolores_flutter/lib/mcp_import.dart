@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -87,15 +88,16 @@ Future<Map<String, dynamic>?> showMcpImport(BuildContext context) async {
                     ),
                     const SizedBox(height: 12),
                     if (entries == null)
-                      TextField(
-                        key: const Key('mcp-import-json'),
-                        controller: controller,
-                        minLines: 4,
-                        maxLines: 8,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Configuration JSON',
+                      FieldLabel(
+                        label: 'Configuration JSON',
+                        child: TextField(
+                          key: const Key('mcp-import-json'),
+                          controller: controller,
+                          minLines: 4,
+                          maxLines: 8,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: const InputDecoration(),
                         ),
                       ),
                     if (error != null) Text(error!),

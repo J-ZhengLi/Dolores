@@ -1,3 +1,4 @@
+import 'support/dock_navigation.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -123,7 +124,7 @@ void main() {
       final chat = ChatController(bridge)..loading = false;
       final host = AppHost(chat);
       await t.pumpWidget(DoloresApp(chat: chat, host: host));
-      await t.tap(find.byKey(const Key('rail-settings')));
+      await tapDockItem(t, 'rail-settings');
       await t.pumpAndSettle();
       await t.tap(find.byKey(const Key('gentle-motion')));
       await t.pumpAndSettle();
@@ -184,7 +185,7 @@ void main() {
         await t.sendKeyEvent(LogicalKeyboardKey.escape);
         await t.pumpAndSettle();
         expect(chat.draft, 'Help me improve my notes app.');
-        await t.tap(find.byKey(const Key('rail-settings')));
+        await tapDockItem(t, 'rail-settings');
         await t.pumpAndSettle();
         final rect = t.getRect(find.byKey(const Key('settings-window')));
         expect(rect.center.dx, closeTo(600, 1));

@@ -9,6 +9,7 @@ import 'usage_details.dart';
 import 'tool_activity.dart';
 import 'model_steps.dart';
 import 'task_feedback.dart';
+import 'help_tip.dart';
 
 Future<void> showContextPreview(
   BuildContext context,
@@ -296,9 +297,12 @@ class ContextInspector extends StatelessWidget {
             'Older turns left out: ${report['omittedTurns'] ?? 'Unavailable'}',
           ),
           const SizedBox(height: 8),
-          Text(
-            'Latest uncovered complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved; summary coverage is counted separately from turns left out. ${limit == null ? 'Set this model’s context window in Model connection. ' : ''}Token counts are approximate; your provider may count differently.',
-            style: TextStyle(color: p.muted, fontSize: 12),
+          HelpLabel(
+            help: 'Latest uncovered complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved; summary coverage is counted separately from turns left out. Token counts are approximate; your provider may count differently.',
+            child: Text(
+              limit == null ? 'Set a context window in Models' : 'How context is selected',
+              style: TextStyle(color: p.muted, fontSize: 12),
+            ),
           ),
           const SizedBox(height: 20),
           for (var i = 0; i < groups.length; i++)

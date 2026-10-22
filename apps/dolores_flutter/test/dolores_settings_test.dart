@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dolores_flutter/form_field_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -113,11 +114,14 @@ void main() {
       ..loading = false
       ..draft = 'Retain draft';
     await show(tester, chat, group: SettingsGroup.task);
-    final calls = find.widgetWithText(TextField, 'Model calls (optional)');
+    final calls = find.descendant(
+      of: find.widgetWithText(FieldLabel, 'Model calls (optional)'),
+      matching: find.byType(TextField),
+    );
     await tester.ensureVisible(calls);
     expect(
-      tester.widget<TextField>(calls).decoration!.helperText,
-      '2–128, or leave blank',
+      find.text('2–128, or leave blank'),
+      findsOneWidget,
     );
     await tester.enterText(calls, '1');
     await tester.tap(find.text('Save'));
@@ -136,7 +140,10 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(bridge.commands.last['patch']['task']['modelCalls'], 128);
-    final tools = find.widgetWithText(TextField, 'Tool operations (optional)');
+    final tools = find.descendant(
+      of: find.widgetWithText(FieldLabel, 'Tool operations (optional)'),
+      matching: find.byType(TextField),
+    );
     await tester.ensureVisible(tools);
     await tester.enterText(tools, '257');
     await tester.tap(find.text('Save'));
@@ -150,9 +157,9 @@ void main() {
       1,
     );
     await tester.enterText(tools, '');
-    final segments = find.widgetWithText(
-      TextField,
-      'Total task segments (1–8)',
+    final segments = find.descendant(
+      of: find.widgetWithText(FieldLabel, 'Total task segments (1–8)'),
+      matching: find.byType(TextField),
     );
     await tester.ensureVisible(segments);
     await tester.enterText(segments, '9');
@@ -160,9 +167,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Task segments must be 1–8.'), findsOneWidget);
     await tester.enterText(segments, '4');
-    final elapsed = find.widgetWithText(
-      TextField,
-      'Task time limit seconds (blank = no limit)',
+    final elapsed = find.descendant(
+      of: find.widgetWithText(FieldLabel, 'Task time limit seconds (blank = no limit)'),
+      matching: find.byType(TextField),
     );
     await tester.ensureVisible(elapsed);
     await tester.enterText(elapsed, '29');
@@ -202,10 +209,13 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       expect(bridge.commands.last['patch']['task']['modelCalls'], 4);
-      final calls = find.widgetWithText(TextField, 'Model calls (optional)');
-      final tools = find.widgetWithText(
-        TextField,
-        'Tool operations (optional)',
+      final calls = find.descendant(
+        of: find.widgetWithText(FieldLabel, 'Model calls (optional)'),
+        matching: find.byType(TextField),
+      );
+      final tools = find.descendant(
+        of: find.widgetWithText(FieldLabel, 'Tool operations (optional)'),
+        matching: find.byType(TextField),
       );
       await tester.ensureVisible(calls);
       await tester.enterText(calls, 'many');

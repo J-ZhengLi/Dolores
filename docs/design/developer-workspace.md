@@ -10,22 +10,25 @@ The finalized design uses **developer-pages variant B** with the amendments belo
 
 ## Navigation and page layout
 
-The shared shell follows [UI.md](../UI.md): wide windows combine labeled
-navigation and the current page's contextual panel in one sidebar. Home shows
-project chats and recents; developer pages use that space for their existing
-file, change or terminal controls. Keep Home, Scheduled, Files, Source Control,
-Terminal and Library reachable, with Settings at the bottom. Library opens skill
-management. Compact or short windows, and a hidden side panel, use a 64-pixel icon
-rail with hover/focus names and semantic labels. The brand appears once.
-A sidebar-layout button at the **top-left of
-the title bar**, matching the supplied ChatGPT reference, toggles it; neither a
+The shared shell follows [UI.md](../UI.md): primary navigation occupies a compact
+centered bottom dock with Home, Scheduled, Files, Source Control, Terminal, Library
+and Settings. Library opens skill management. The dock floats above the workspace
+without reserving height. It hides after inactivity/pointer departure and reveals
+from the bottom edge, its tap handle or Ctrl+Alt+D; pointer hover and keyboard
+navigation keep it visible. Escape dismisses it. Wide windows show icons and labels; compact
+windows show icons with hover/focus names and semantic labels. The sidebar is
+dedicated to the current page, starting near the top. Home shows project chats
+and recents; developer pages use its full height for file, change or terminal
+controls. The infinity mark and Dolores title appear once in the shared title bar
+on every page, beside the outlined sidebar toggle.
+A sidebar-layout button **immediately right of the Dolores title** toggles it; neither a
 Close button nor a folder icon substitutes for this control. The panel's divider
 supports mouse resizing down to hidden; reopening restores its last usable width.
 Provide a named keyboard-accessible toggle and preserve panel contents when hidden.
 Preserve Dolores's
 infinity brand, palette, system appearance, message/composer and conversation
-controls. Keep primary navigation above the contextual panel, shared glass
-selection feedback, familiar icons/hints and contextual actions.
+controls. Keep shared glass selection feedback, familiar icons/hints and
+contextual actions; never place the primary page list above feature controls.
 
 | Page | Side panel | Main panel | Empty state / availability |
 | --- | --- | --- | --- |
@@ -67,9 +70,9 @@ screen or separate Start terminal step. Visiting Home never creates a shell.
 Headers identify this basis. Missing roots offer Choose folder/Open at home rather
 than silent fallback. Selecting B cannot retarget A's running shell.
 
-At compact sizes the icon rail stays reachable and the page panel uses an
-accessible drawer; at minimum height navigation may scroll while bottom Settings
-remains fixed. One file/terminal group
+At compact sizes the bottom dock stays reachable and the page panel uses a
+dismissible drawer. It closes through the title toggle or outside click without
+discarding work. One file/terminal group
 can take focus while all groups stay reachable. Restore the wide layout on expansion.
 Settings, Stop and native Close remain accessible. Native interaction checks are
 separate from screenshot inspection.

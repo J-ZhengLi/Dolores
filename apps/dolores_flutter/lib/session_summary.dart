@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -268,13 +269,16 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                       'Check facts, decisions and remaining work before saving. Summaries can miss details; correct the text below.',
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('summary-text'),
-                      controller: text,
-                      enabled: !busy,
-                      minLines: 6,
-                      maxLines: 14,
-                      decoration: const InputDecoration(labelText: 'Summary'),
+                    FieldLabel(
+                      label: 'Summary',
+                      child: TextField(
+                        key: const Key('summary-text'),
+                        controller: text,
+                        enabled: !busy,
+                        minLines: 6,
+                        maxLines: 14,
+                        decoration: const InputDecoration(),
+                      ),
                     ),
                   ] else ...[
                     if (saved != null) ...[

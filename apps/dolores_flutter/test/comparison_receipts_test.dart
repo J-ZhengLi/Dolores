@@ -6,6 +6,7 @@ import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/comparison.dart';
 import 'package:dolores_flutter/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:dolores_flutter/form_field_layout.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -266,9 +267,9 @@ void main() {
     final tokens = find.byKey(const Key('comparison-tokens'));
     await reveal(tester, tokens);
     expect(tester.widget<TextField>(tokens).controller!.text, '512');
-    final timeout = find.widgetWithText(
-      TextField,
-      'Timeout per response · up to 60 seconds',
+    final timeout = find.descendant(
+      of: find.widgetWithText(FieldLabel, 'Timeout per response · up to 60 seconds'),
+      matching: find.byType(TextField),
     );
     await reveal(tester, timeout);
     expect(tester.widget<TextField>(timeout).controller!.text, '5');

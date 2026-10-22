@@ -1,3 +1,5 @@
+import 'form_field_layout.dart';
+import 'help_tip.dart';
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -154,14 +156,10 @@ class _TaskFeedbackDialogState extends State<TaskFeedbackDialog> {
                       key: const Key('feedback-error'),
                       style: TextStyle(color: p.errorText),
                     ),
-                  const Text(
-                    'Did this task work for you? Feedback stays on this reply and is not sent to the model or used to change memory or skills.',
+                  const HelpLabel(
+                    help: 'Feedback stays on this reply. It is not sent to the model or used to change memory or skills. Your assessment is separate from command results; an exited-zero command does not prove the whole task worked.',
+                    child: Text('Did this task work for you?'),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Your assessment is separate from command results. A reply or an exited-zero command alone does not prove the whole task worked.',
-                  ),
-                  UsageDetails(metadata: metadata),
                   if (metadata?['paused'] is Map)
                     Text(
                       'This run paused: ${metadata!['paused']['reason']}. Progress remains saved.',
@@ -183,18 +181,20 @@ class _TaskFeedbackDialogState extends State<TaskFeedbackDialog> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('feedback-note'),
-                    controller: note,
-                    enabled: !saving,
-                    minLines: 3,
-                    maxLines: 8,
-                    maxLength: 1024,
-                    decoration: const InputDecoration(
-                      labelText: 'Optional note',
-                      helperText: 'Keep credentials out of notes. Included in chat exports.',
+                  FieldLabel(
+                    label: 'Optional note',
+                    help: 'Keep credentials out of notes. Included in chat exports.',
+                    child: TextField(
+                      key: const Key('feedback-note'),
+                      controller: note,
+                      enabled: !saving,
+                      minLines: 3,
+                      maxLines: 8,
+                      maxLength: 1024,
+                      decoration: const InputDecoration(),
                     ),
                   ),
+                  UsageDetails(metadata: metadata),
                 ],
               ),
             ),

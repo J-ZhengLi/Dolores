@@ -81,6 +81,16 @@ ThemeData doloresTheme(bool dark) {
       bodyMedium: TextStyle(fontSize: 14, height: 1.55, color: p.text),
     ),
     dividerColor: p.border,
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.zero,
+      minVerticalPadding: 12,
+    ),
+    expansionTileTheme: const ExpansionTileThemeData(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.only(top: 8, bottom: 16),
+      shape: Border(),
+      collapsedShape: Border(),
+    ),
     dialogTheme: DialogThemeData(
       backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
@@ -104,6 +114,9 @@ ThemeData doloresTheme(bool dark) {
       filled: true,
       fillColor: p.surface,
       contentPadding: const EdgeInsets.all(14),
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      helperMaxLines: 3,
+      errorMaxLines: 3,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: p.border),

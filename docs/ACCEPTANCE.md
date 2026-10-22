@@ -1,5 +1,55 @@
 # Dolores acceptance — 2026-10-08
 
+## Desktop interaction and layout polish — October 22
+
+Primary navigation now uses a floating bottom dock. It overlays the workspace
+without reserving height, hides after inactivity/pointer departure, and reveals
+from the bottom edge, its handle or Ctrl+Alt+D. Hover and keyboard navigation keep
+it open; Escape dismisses it. Feature sidebars begin below the shared title bar,
+which keeps the Dolores name and outlined sidebar toggle visible on every page.
+
+Glass navigation suppresses competing Material hover/splash fills and uses a
+paint translation. Workspace and settings content now fade/slide during page
+changes, respecting reduced motion. External form labels use shared edges and
+spacing. Long explanations use hover/focus/tap help; validation, errors and
+important sharing consequences remain visible. Run details lead with per-call
+metrics and retain breakdowns, settings and sources in expandable sections.
+
+Focused verification exercises rapid navigation, retained chat/commit/settings
+drafts, hidden-dock input/focus exclusion, pointer edge reveal, keyboard reveal
+after focus leaves content, compact drawer dismissal and Light/Dark renders.
+The hover regression failed before the fix with a nontransparent Material layer;
+the navigation layout probe fell from 20 parent layouts over 20 animation frames
+to zero. This measures layout invalidation, not native GPU frame time.
+Long-help tests cover mouse, keyboard and tap without changing the setting.
+Missing/zero usage counts and stale/failed saves retain truthful recovery states.
+
+Full Flutter verification: 513 passed, 10 existing opt-in tests skipped; analyzer
+reports no issues. All 13 focused frame/polish tests pass after the final title
+alignment and toggle-size refinement. Documentation links and tracked-file
+publication checks pass.
+
+Saved widget renders under `output/ui-polish/` were inspected for wide/compact
+Light/Dark forms, run details, floating/hidden dock and Source Control. They use
+synthetic public data. Four native bridge journeys pass: local instructions/Memory,
+chat safeguards, Stop/recovery and queue/steering. Their logs and receipts are in
+`output/native-ui/d4eedf318a0c41d39b681c501e4ec2b0/`. These fixtures ran against the
+shared working checkout, including concurrent backend changes. Native pointer
+timing, screen-reader/IME input and real-model reliability remain outside this
+fixture evidence.
+
+The normal Windows x64 helper build completed after the final header edits. Its
+`main` build identity and compiled Flutter artifact freshness were verified.
+The bundle includes concurrent backend changes from the shared checkout; the
+normal user profile was not relaunched or used for qualification.
+
+Separate reported follow-up: the user's running app refused Close with
+“Could not read or save local conversation data. Keep Dolores open and retry”.
+The user explicitly authorized force-closing that instance to release the build
+DLL. Its PID/path were checked before stopping it; no profile was edited. The
+storage/Close failure remains undiagnosed and unfixed, deferred at the user's
+request. Do not treat UI fixture passes as qualification of that incident.
+
 ## Frost & Graphite desktop redesign — October 22
 
 The normal Flutter app now uses the shared cool Light / graphite Dark palette,

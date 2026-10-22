@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'settings_frame.dart';
 
 import 'dart:convert';
@@ -466,6 +467,14 @@ class _MemoryInspectorState extends State<MemoryInspector> {
         child: Column(
           children: [
             if (busy) const LinearProgressIndicator(minHeight: 2),
+            if (error != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 100),
+                child: SingleChildScrollView(child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Text(error!, style: TextStyle(color: p.errorText)),
+                )),
+              ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(20),
@@ -520,11 +529,6 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                         ],
                       ),
                   ],
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(error!, style: TextStyle(color: p.errorText)),
-                    ),
                   if (notice != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -550,48 +554,49 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                         available: editing!['originAvailable'] as bool?,
                         automatic: editing!['source'] == 'automatic',
                       ),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('memory-scope-$scope'),
-                      initialValue: scope,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Use in'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: 'all',
-                          child: Text('All chats'),
-                        ),
-                        if (folderAvailable)
-                          const DropdownMenuItem(
-                            value: 'folder',
-                            child: Text('This working folder'),
-                          ),
-                      ],
-                      onChanged: busy || editing != null
-                          ? null
-                          : (value) => setState(() => scope = value!),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('memory-title'),
-                      controller: title,
-                      enabled: !busy,
-                      maxLength: 80,
-                      decoration: const InputDecoration(
-                        labelText: 'Title',
-                        hintText: 'Response style',
+                    FieldLabel(
+                      label: 'Use in',
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('memory-scope-$scope'),
+                        initialValue: scope,
+                        isExpanded: true,
+                        decoration: const InputDecoration(),
+                        items: [
+                          const DropdownMenuItem(value: 'all', child: Text('All chats')),
+                          if (folderAvailable)
+                            const DropdownMenuItem(
+                              value: 'folder',
+                              child: Text('This working folder'),
+                            ),
+                        ],
+                        onChanged: busy || editing != null
+                            ? null
+                            : (value) => setState(() => scope = value!),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('memory-text'),
-                      controller: text,
-                      enabled: !busy,
-                      minLines: 4,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        labelText: 'Preference',
-                        hintText:
-                            'Prefer concise explanations with a short example.',
+                    FieldLabel(
+                      label: 'Title',
+                      child: TextField(
+                        key: const Key('memory-title'),
+                        controller: title,
+                        enabled: !busy,
+                        maxLength: 80,
+                        decoration: const InputDecoration(hintText: 'Response style'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FieldLabel(
+                      label: 'Preference',
+                      child: TextField(
+                        key: const Key('memory-text'),
+                        controller: text,
+                        enabled: !busy,
+                        minLines: 4,
+                        maxLines: 8,
+                        decoration: const InputDecoration(
+                          hintText: 'Prefer concise explanations with a short example.',
+                        ),
                       ),
                     ),
                     CheckboxListTile(

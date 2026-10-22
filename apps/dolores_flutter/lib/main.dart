@@ -304,6 +304,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget sidebar(Palette p, {double width = UiTokens.sidebarWidth}) =>
       ChatSidebar(
         width: width,
+        showBrand: context.findAncestorWidgetOfExactType<DesktopFrame>() == null,
         chat: chat,
         onNewTemporary: () {
           chat.newChat(kind: 'temporary');

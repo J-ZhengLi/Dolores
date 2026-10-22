@@ -118,6 +118,8 @@ void main() {
         expect(find.text('Occasional notes from Dolores'), findsOneWidget);
         expect(find.textContaining('At least three hours'), findsNothing);
         final frequency = find.byKey(const Key('companion-frequency'));
+        await t.scrollUntilVisible(frequency, 100,
+          scrollable: find.descendant(of: find.byKey(const Key('companion-form')), matching: find.byType(Scrollable)).first);
         final slider = t.widget<Slider>(frequency);
         expect(slider.value, 2);
         expect(slider.min, 0);

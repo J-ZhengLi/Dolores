@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -159,64 +161,53 @@ class _WebSettingsState extends State<WebSettingsInspector> {
                         title: const Text('Search connection'),
                         initiallyExpanded: provider != 'mwmbl',
                         children: [
-                          DropdownButtonFormField<String>(
-                            key: const Key('web-provider'),
-                            isExpanded: true,
-                            initialValue: provider,
-                            decoration: const InputDecoration(
-                              labelText: 'Search provider',
+                          FieldLabel(
+                            label: 'Search provider',
+                            child: DropdownButtonFormField<String>(
+                              key: const Key('web-provider'),
+                              isExpanded: true,
+                              initialValue: provider,
+                              decoration: const InputDecoration(),
+                              items: const [
+                                DropdownMenuItem(value: 'mwmbl', child: Text('Default (Mwmbl · no key)')),
+                                DropdownMenuItem(value: 'brave', child: Text('Brave Search API')),
+                                DropdownMenuItem(value: 'searxng', child: Text('Custom SearXNG')),
+                              ],
+                              onChanged: locked ? null : (value) => setState(() => provider = value!),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'mwmbl',
-                                child: Text('Default (Mwmbl · no key)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'brave',
-                                child: Text('Brave Search API'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'searxng',
-                                child: Text('Custom SearXNG'),
-                              ),
-                            ],
-                            onChanged: locked
-                                ? null
-                                : (value) => setState(() => provider = value!),
                           ),
                           if (provider == 'searxng') ...[
                             const SizedBox(height: 12),
-                            TextField(
-                              key: const Key('web-endpoint'),
-                              controller: endpoint,
-                              enabled: !locked,
-                              decoration: const InputDecoration(
-                                labelText: 'Public HTTPS search endpoint',
-                                hintText: 'https://search.example.org/search',
+                            FieldLabel(
+                              label: 'Public HTTPS search endpoint',
+                              child: TextField(
+                                key: const Key('web-endpoint'),
+                                controller: endpoint,
+                                enabled: !locked,
+                                decoration: const InputDecoration(
+                                  hintText: 'https://search.example.org/search',
+                                ),
                               ),
                             ),
-                            const Text(
-                              'The instance must enable JSON search. No private-network endpoint, login or embedded key is supported.',
-                            ),
+                            HelpLabel(help: 'The instance must enable JSON search. No private-network endpoint, login or embedded key is supported.', child: const Text('Requires a public endpoint with JSON search.')),
                           ],
                           if (provider == 'brave') ...[
                             const SizedBox(height: 12),
-                            TextField(
-                              key: const Key('web-api-key'),
-                              controller: apiKey,
-                              enabled: !locked && !clearKey,
-                              obscureText: true,
-                              autocorrect: false,
-                              enableSuggestions: false,
-                              decoration: InputDecoration(
-                                labelText: report?['hasSavedKey'] == true
-                                    ? 'Replace API key (blank keeps saved key)'
-                                    : 'API key',
+                            FieldLabel(
+                              label: report?['hasSavedKey'] == true
+                                  ? 'Replace API key (blank keeps saved key)'
+                                  : 'API key',
+                              child: TextField(
+                                key: const Key('web-api-key'),
+                                controller: apiKey,
+                                enabled: !locked && !clearKey,
+                                obscureText: true,
+                                autocorrect: false,
+                                enableSuggestions: false,
+                                decoration: InputDecoration(),
                               ),
                             ),
-                            const Text(
-                              'Stored in the OS credential vault. Brave queries may consume your plan’s quota; Dolores does not purchase a subscription or increase limits.',
-                            ),
+                            HelpLabel(help: 'Stored in the OS credential vault. Brave queries may consume your plan’s quota; Dolores does not purchase a subscription or increase limits.', child: const Text('Stored securely. Provider charges may apply.')),
                           ],
                           if (report?['hasSavedKey'] == true)
                             CheckboxListTile(
@@ -234,16 +225,12 @@ class _WebSettingsState extends State<WebSettingsInspector> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Web operations share the exact query or URL with the displayed service. Results are shared with your chat model and retained in run evidence. No files, cookies or model keys are sent by this adapter. Task permissions and limits still apply.',
-                      ),
+                      HelpLabel(help: 'Web operations share the exact query or URL with the displayed service. Results are shared with your chat model and retained in run evidence. No files, cookies or model keys are sent by this adapter. Task permissions and limits still apply.', child: const Text('Queries, URLs and results are shared with your providers.')),
                       const SizedBox(height: 12),
                       ExpansionTile(
                         title: const Text('Limits and privacy'),
                         children: [
-                          const Text(
-                            'One query returns up to five sources. Page reads accept public HTTPS HTML/plain text only: 20 seconds, 256 KiB download and 8 KiB excerpt. No redirects, scripts, login or automatic provider switching. If your routing proxy supplies synthetic DNS addresses, the public hostname is resolved through Cloudflare DNS; local/private addresses remain blocked. If blocked or empty, refine the query, supply a source URL or choose another provider.',
-                          ),
+                          HelpLabel(help: 'One query returns up to five sources. Page reads accept public HTTPS HTML/plain text only: 20 seconds, 256 KiB download and 8 KiB excerpt. No redirects, scripts, login or automatic provider switching. If your routing proxy supplies synthetic DNS addresses, the public hostname is resolved through Cloudflare DNS; local/private addresses remain blocked. If blocked or empty, refine the query, supply a source URL or choose another provider.', child: const Text('Search and page limits')),
                         ],
                       ),
                       if (report?['cleanupPending'] == true)

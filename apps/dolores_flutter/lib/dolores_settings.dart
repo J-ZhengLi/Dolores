@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -303,38 +304,36 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           SelectableText(
                             '${data['validationError']} Reduce the override, use inherited settings, or correct the model context window before sending.',
                           ),
-                        DropdownButtonFormField<String>(
-                          key: const Key('settings-scope'),
-                          initialValue: scope,
-                          decoration: const InputDecoration(
-                            labelText: 'Apply to',
+                        FieldLabel(
+                          label: 'Apply to',
+                          child: DropdownButtonFormField<String>(
+                            key: const Key('settings-scope'),
+                            initialValue: scope,
+                            decoration: const InputDecoration(),
+                            items: [
+                              for (final item in data['scopes'] as List)
+                                DropdownMenuItem(
+                                  value: item['scope'] as String,
+                                  child: Text(label(item['scope'] as String)),
+                                ),
+                            ],
+                            onChanged: locked
+                                ? null
+                                : (value) async {
+                                    if (savedDraft != null &&
+                                        draftValue != savedDraft &&
+                                        !await resolveSettingsDraft(context, save: saveDraft)) {
+                                      return;
+                                    }
+                                    if (!mounted) return;
+                                    setState(() {
+                                      scope = value!;
+                                      error = null;
+                                      notice = null;
+                                      fill();
+                                    });
+                                  },
                           ),
-                          items: [
-                            for (final item in data['scopes'] as List)
-                              DropdownMenuItem(
-                                value: item['scope'] as String,
-                                child: Text(label(item['scope'] as String)),
-                              ),
-                          ],
-                          onChanged: locked
-                              ? null
-                              : (value) async {
-                                  if (savedDraft != null &&
-                                      draftValue != savedDraft &&
-                                      !await resolveSettingsDraft(
-                                        context,
-                                        save: saveDraft,
-                                      )) {
-                                    return;
-                                  }
-                                  if (!mounted) return;
-                                  setState(() {
-                                    scope = value!;
-                                    error = null;
-                                    notice = null;
-                                    fill();
-                                  });
-                                },
                         ),
                         const SizedBox(height: 12),
                         if (widget.group == SettingsGroup.personalization)
@@ -379,23 +378,22 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           ])
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
-                              child: TextField(
-                                controller: field.$1,
-                                enabled: !locked,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  labelText: field.$2,
-                                  helperText: field.$1 == calls
-                                      ? '2–128, or leave blank'
-                                      : field.$1 == tools
-                                      ? '1–256, or leave blank'
-                                      : field.$1 == elapsed
-                                      ? '30–3,600, or leave blank'
-                                      : null,
-                                  hintText:
-                                      field.$1 == calls || field.$1 == tools
-                                      ? 'Automatic'
-                                      : null,
+                              child: FieldLabel(
+                                label: field.$2,
+                                help: field.$1 == calls
+                                    ? '2–128, or leave blank'
+                                    : field.$1 == tools
+                                    ? '1–256, or leave blank'
+                                    : field.$1 == elapsed
+                                    ? '30–3,600, or leave blank'
+                                    : null,
+                                child: TextField(
+                                  controller: field.$1,
+                                  enabled: !locked,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: field.$1 == calls || field.$1 == tools ? 'Automatic' : null,
+                                  ),
                                 ),
                               ),
                             ),
@@ -424,23 +422,24 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                       setState(() => generation = value!),
                           ),
                           if (generation) ...[
-                            TextField(
-                              key: const Key('scoped-output'),
-                              controller: output,
-                              enabled: !locked,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Output tokens (optional)',
-                                hintText: 'Provider default',
+                            FieldLabel(
+                              label: 'Output tokens (optional)',
+                              child: TextField(
+                                key: const Key('scoped-output'),
+                                controller: output,
+                                enabled: !locked,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(hintText: 'Provider default'),
                               ),
                             ),
-                            TextField(
-                              key: const Key('scoped-timeout'),
-                              controller: timeout,
-                              enabled: !locked,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Stall timeout (seconds)',
+                            FieldLabel(
+                              label: 'Stall timeout (seconds)',
+                              child: TextField(
+                                key: const Key('scoped-timeout'),
+                                controller: timeout,
+                                enabled: !locked,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(),
                               ),
                             ),
                           ],
@@ -460,26 +459,21 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           ),
                         if (shows(SettingsGroup.personalization) &&
                             interaction) ...[
-                          DropdownButtonFormField<String>(
-                            key: ValueKey('discussion-$scope-$discussion'),
-                            initialValue: discussion,
-                            decoration: const InputDecoration(
-                              labelText: 'Explanation style',
+                          FieldLabel(
+                            label: 'Explanation style',
+                            child: DropdownButtonFormField<String>(
+                              key: ValueKey('discussion-$scope-$discussion'),
+                              initialValue: discussion,
+                              decoration: const InputDecoration(),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'discuss',
+                                  child: Text('Discuss before substantial work'),
+                                ),
+                                DropdownMenuItem(value: 'brief', child: Text('Keep explanations brief')),
+                              ],
+                              onChanged: locked ? null : (value) => setState(() => discussion = value!),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'discuss',
-                                child: Text('Discuss before substantial work'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'brief',
-                                child: Text('Keep explanations brief'),
-                              ),
-                            ],
-                            onChanged: locked
-                                ? null
-                                : (value) =>
-                                      setState(() => discussion = value!),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,

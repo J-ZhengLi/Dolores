@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -113,34 +114,42 @@ class _GoalEditorState extends State<_GoalEditor> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (!existing) ...[
-                  TextField(
-                    key: const Key('goal-objective'),
-                    controller: objective,
-                    readOnly: saving,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: const InputDecoration(labelText: 'Objective'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('goal-criteria'),
-                    controller: criteria,
-                    readOnly: saving,
-                    minLines: 2,
-                    maxLines: 8,
-                    decoration: const InputDecoration(
-                      labelText: 'Success criteria',
-                      hintText: 'One verifiable criterion per line',
+                  FieldLabel(
+                    label: 'Objective',
+                    child: TextField(
+                      key: const Key('goal-objective'),
+                      controller: objective,
+                      readOnly: saving,
+                      minLines: 1,
+                      maxLines: 4,
+                      decoration: const InputDecoration(),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('goal-constraints'),
-                    controller: constraints,
-                    readOnly: saving,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: const InputDecoration(labelText: 'Constraints'),
+                  FieldLabel(
+                    label: 'Success criteria',
+                    child: TextField(
+                      key: const Key('goal-criteria'),
+                      controller: criteria,
+                      readOnly: saving,
+                      minLines: 2,
+                      maxLines: 8,
+                      decoration: const InputDecoration(
+                        hintText: 'One verifiable criterion per line',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FieldLabel(
+                    label: 'Constraints',
+                    child: TextField(
+                      key: const Key('goal-constraints'),
+                      controller: constraints,
+                      readOnly: saving,
+                      minLines: 1,
+                      maxLines: 4,
+                      decoration: const InputDecoration(),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const Text(

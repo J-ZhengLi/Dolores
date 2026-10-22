@@ -1,3 +1,6 @@
+import 'form_field_layout.dart';
+import 'help_tip.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -306,6 +309,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 620),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
@@ -315,7 +319,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                       child: Text(
                         widget.model,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                     IconButton(
@@ -326,8 +330,10 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                   ],
                 ),
               ),
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: ListView(
+                  shrinkWrap: true,
                   padding: const EdgeInsets.all(20),
                   children: [
                     if (error != null)
@@ -338,32 +344,33 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                         ),
                       ),
                     if (notice != null) Text(notice!),
-                    TextField(
-                      key: const Key('model-detail-context'),
-                      controller: contextTokens,
-                      enabled: !pending,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Context window (tokens)',
-                        hintText: '131072',
-                        helperText: 'Blank uses 128K',
+                    FieldLabel(
+                      label: 'Context window (tokens)',
+                      help: 'Blank uses 128K',
+                      child: TextField(
+                        key: const Key('model-detail-context'),
+                        controller: contextTokens,
+                        enabled: !pending,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(hintText: '131072'),
                       ),
                     ),
+                    const SizedBox(height: 20),
                     SwitchListTile(
                       key: const Key('model-detail-images'),
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Image input'),
-                      subtitle: Text(
-                        images ? 'Enabled in model configuration' : 'Unknown or disabled. Enable only if your provider supports images.',
+                      title: const HelpLabel(
+                        help: 'Enable only if your provider supports images. Window sharing can check support before sending a private screenshot.',
+                        child: Text('Image input'),
                       ),
+                      subtitle: Text(images ? 'Enabled' : 'Not enabled'),
                       value: images,
                       onChanged: pending
                           ? null
                           : (v) => setState(() => images = v),
                     ),
-                    const Text(
-                      'Window sharing can check image support before sending a private screenshot.',
-                    ),
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
                     ExpansionTile(
                       key: const Key('model-detail-advanced'),
                       title: const Text('Response settings'),
@@ -372,6 +379,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                       ),
                       children: [
                         SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
                           title: const Text('Customize responses'),
                           value: custom,
                           onChanged: pending
@@ -379,66 +387,71 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                               : (v) => setState(() => custom = v),
                         ),
                         if (custom) ...[
-                          TextField(
-                            key: const Key('model-detail-output'),
-                            controller: output,
-                            enabled: !pending,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Output tokens (optional)',
-                              hintText: 'Provider default',
-                              helperText: 'Blank lets the provider choose',
+                          FieldLabel(
+                            label: 'Output tokens (optional)',
+                            help: 'Blank lets the provider choose',
+                            child: TextField(
+                              key: const Key('model-detail-output'),
+                              controller: output,
+                              enabled: !pending,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: 'Provider default',
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          TextField(
-                            key: const Key('model-detail-timeout'),
-                            controller: timeout,
-                            enabled: !pending,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Stall timeout (seconds)',
-                              helperText: 'Time without new model data; review has no timeout',
+                          FieldLabel(
+                            label: 'Stall timeout (seconds)',
+                            help: 'Time without new model data; review has no timeout',
+                            child: TextField(
+                              key: const Key('model-detail-timeout'),
+                              controller: timeout,
+                              enabled: !pending,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: reasoning,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Reasoning',
+                          FieldLabel(
+                            label: 'Reasoning',
+                            child: DropdownButtonFormField<String>(
+                              initialValue: reasoning,
+                              isExpanded: true,
+                              decoration: const InputDecoration(),
+                              items: [
+                                for (final r in [
+                                  'providerDefault',
+                                  'deepseekThinkingOff',
+                                  'glmLow',
+                                  'openaiLow',
+                                  'openaiMedium',
+                                  'openaiHigh',
+                                ])
+                                  DropdownMenuItem(
+                                    value: r,
+                                    child: Text(switch (r) {
+                                      'providerDefault' => 'Provider default',
+                                      'deepseekThinkingOff' =>
+                                        'DeepSeek thinking off',
+                                      'openaiLow' => 'OpenAI low',
+                                      'glmLow' => 'GLM low',
+                                      'openaiMedium' => 'OpenAI medium',
+                                      _ => 'OpenAI high',
+                                    }),
+                                  ),
+                              ],
+                              onChanged: pending
+                                  ? null
+                                  : (v) => setState(() => reasoning = v!),
                             ),
-                            items: [
-                              for (final r in [
-                                'providerDefault',
-                                'deepseekThinkingOff',
-                                'glmLow',
-                                'openaiLow',
-                                'openaiMedium',
-                                'openaiHigh',
-                              ])
-                                DropdownMenuItem(
-                                  value: r,
-                                  child: Text(switch (r) {
-                                    'providerDefault' => 'Provider default',
-                                    'deepseekThinkingOff' =>
-                                      'DeepSeek thinking off',
-                                    'openaiLow' => 'OpenAI low',
-                                    'glmLow' => 'GLM low',
-                                    'openaiMedium' => 'OpenAI medium',
-                                    _ => 'OpenAI high',
-                                  }),
-                                ),
-                            ],
-                            onChanged: pending
-                                ? null
-                                : (v) => setState(() => reasoning = v!),
                           ),
                         ],
                         const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Text(
-                            'Project/chat output and timeout overrides take precedence. Changes apply to the next task.',
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: HelpLabel(
+                            help: 'Project/chat output and timeout overrides take precedence. Changes apply to the next task.',
+                            child: Text('Applies to the next task'),
                           ),
                         ),
                       ],

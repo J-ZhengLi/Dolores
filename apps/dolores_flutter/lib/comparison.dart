@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -339,73 +340,76 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         if (sources.isNotEmpty)
-          DropdownButtonFormField<String>(
-            key: ValueKey('${base ? 'baseline' : 'candidate'}-$source'),
-            initialValue: sources.any((v) => v['source'] == source)
-                ? source
-                : null,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Copy a saved memory / skill version',
-            ),
-            items: sources
-                .map(
-                  (v) => DropdownMenuItem(
-                    value: v['source'] as String,
-                    child: Text(
-                      v['label'] as String,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          FieldLabel(
+            label: 'Copy a saved memory / skill version',
+            child: DropdownButtonFormField<String>(
+              key: ValueKey('${base ? 'baseline' : 'candidate'}-$source'),
+              initialValue: sources.any((v) => v['source'] == source) ? source : null,
+              isExpanded: true,
+              decoration: const InputDecoration(),
+              items: sources
+                  .map(
+                    (v) => DropdownMenuItem(
+                      value: v['source'] as String,
+                      child: Text(
+                        v['label'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                )
-                .toList(),
-            onChanged: busy
-                ? null
-                : (id) {
-                    final value = sources.firstWhere((v) => v['source'] == id);
-                    setState(() {
-                      if (base) {
-                        baselineSource = id;
-                        baselineLabel.text = value['label'];
-                        baseline.text = value['text'];
-                      } else {
-                        candidateSource = id;
-                        candidateLabel.text = value['label'];
-                        candidate.text = value['text'];
-                      }
-                    });
-                  },
+                  )
+                  .toList(),
+              onChanged: busy
+                  ? null
+                  : (id) {
+                      final value = sources.firstWhere((v) => v['source'] == id);
+                      setState(() {
+                        if (base) {
+                          baselineSource = id;
+                          baselineLabel.text = value['label'];
+                          baseline.text = value['text'];
+                        } else {
+                          candidateSource = id;
+                          candidateLabel.text = value['label'];
+                          candidate.text = value['text'];
+                        }
+                      });
+                    },
+            ),
           ),
-        TextField(
-          controller: base ? baselineLabel : candidateLabel,
-          enabled: !busy,
-          decoration: const InputDecoration(labelText: 'Snapshot label'),
-          onChanged: (_) => setState(() {
-            if (base) {
-              baselineSource = null;
-            } else {
-              candidateSource = null;
-            }
-          }),
+        FieldLabel(
+          label: 'Snapshot label',
+          child: TextField(
+            controller: base ? baselineLabel : candidateLabel,
+            enabled: !busy,
+            decoration: const InputDecoration(),
+            onChanged: (_) => setState(() {
+              if (base) {
+                baselineSource = null;
+              } else {
+                candidateSource = null;
+              }
+            }),
+          ),
         ),
-        TextField(
-          key: Key(base ? 'comparison-baseline' : 'comparison-candidate'),
-          controller: base ? baseline : candidate,
-          enabled: !busy,
-          minLines: 2,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            labelText: 'Exact instruction text',
-            helperText: 'Blank is allowed. At most 8 KiB; text only.',
+        FieldLabel(
+          label: 'Exact instruction text',
+          help: 'Blank is allowed. At most 8 KiB; text only.',
+          child: TextField(
+            key: Key(base ? 'comparison-baseline' : 'comparison-candidate'),
+            controller: base ? baseline : candidate,
+            enabled: !busy,
+            minLines: 2,
+            maxLines: 6,
+            decoration: const InputDecoration(),
+            onChanged: (_) => setState(() {
+              if (base) {
+                baselineSource = null;
+              } else {
+                candidateSource = null;
+              }
+            }),
           ),
-          onChanged: (_) => setState(() {
-            if (base) {
-              baselineSource = null;
-            } else {
-              candidateSource = null;
-            }
-          }),
         ),
         Text(
           source == null
@@ -523,11 +527,12 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
                     Text(
                       'Model: ${model.isEmpty ? 'Configure a model connection first' : model}',
                     ),
-                    TextField(
-                      controller: title,
-                      enabled: !busy,
-                      decoration: const InputDecoration(
-                        labelText: 'Comparison title',
+                    FieldLabel(
+                      label: 'Comparison title',
+                      child: TextField(
+                        controller: title,
+                        enabled: !busy,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -538,34 +543,37 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
                         'Test ${index + 1}',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      TextField(
-                        key: Key('comparison-prompt-$index'),
-                        controller: test.prompt,
-                        enabled: !busy,
-                        minLines: 2,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Prompt · up to 2 KiB',
+                      FieldLabel(
+                        label: 'Prompt · up to 2 KiB',
+                        child: TextField(
+                          key: Key('comparison-prompt-$index'),
+                          controller: test.prompt,
+                          enabled: !busy,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: const InputDecoration(),
                         ),
                       ),
-                      TextField(
-                        key: Key('comparison-required-$index'),
-                        controller: test.requiredText,
-                        enabled: !busy,
-                        minLines: 1,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Required exact snippets · one per line',
-                          helperText: '1–4 snippets, each within 128 bytes.',
+                      FieldLabel(
+                        label: 'Required exact snippets · one per line',
+                        help: '1–4 snippets, each within 128 bytes.',
+                        child: TextField(
+                          key: Key('comparison-required-$index'),
+                          controller: test.requiredText,
+                          enabled: !busy,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: const InputDecoration(),
                         ),
                       ),
-                      TextField(
-                        controller: test.forbidden,
-                        enabled: !busy,
-                        minLines: 1,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Forbidden exact snippets · optional',
+                      FieldLabel(
+                        label: 'Forbidden exact snippets · optional',
+                        child: TextField(
+                          controller: test.forbidden,
+                          enabled: !busy,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: const InputDecoration(),
                         ),
                       ),
                       if (trials.length > 1)
@@ -586,21 +594,23 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
                             : () => setState(() => trials.add(_Trial())),
                         child: const Text('Add test'),
                       ),
-                    TextField(
-                      key: const Key('comparison-tokens'),
-                      controller: tokens,
-                      enabled: !busy,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Output tokens per response · up to 2048',
+                    FieldLabel(
+                      label: 'Output tokens per response · up to 2048',
+                      child: TextField(
+                        key: const Key('comparison-tokens'),
+                        controller: tokens,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(),
                       ),
                     ),
-                    TextField(
-                      controller: timeout,
-                      enabled: !busy,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Timeout per response · up to 60 seconds',
+                    FieldLabel(
+                      label: 'Timeout per response · up to 60 seconds',
+                      child: TextField(
+                        controller: timeout,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                     const Text(

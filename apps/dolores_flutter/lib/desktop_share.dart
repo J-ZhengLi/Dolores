@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -285,21 +286,22 @@ class _WindowSharingState extends State<WindowSharing> {
                           : () => setState(() => target = window),
                     ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    key: const Key('share-window-model'),
-                    initialValue: model,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Model'),
-                    items: [
-                      for (final value in widget.chat.enabledModels)
-                        DropdownMenuItem(
-                          value: value,
-                          child: Text(value, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    onChanged: pending
-                        ? null
-                        : (v) => setState(() => model = v),
+                  FieldLabel(
+                    label: 'Model',
+                    child: DropdownButtonFormField<String>(
+                      key: const Key('share-window-model'),
+                      initialValue: model,
+                      isExpanded: true,
+                      decoration: const InputDecoration(),
+                      items: [
+                        for (final value in widget.chat.enabledModels)
+                          DropdownMenuItem(
+                            value: value,
+                            child: Text(value, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: pending ? null : (v) => setState(() => model = v),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(

@@ -20,7 +20,8 @@ import 'file_workspace.dart';
 import 'terminal_page.dart';
 import 'scheduled_page.dart';
 import 'companion_note.dart';
-import 'glass_navigation.dart';
+import 'workspace_dock.dart';
+import 'window_identity.dart';
 
 enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 
@@ -43,6 +44,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   AppHost get host => widget.host;
   double dragWidth = 0;
   final panelFocus = FocusNode();
+  final dockKey = GlobalKey<WorkspaceDockState>();
   String? selectedTask;
   static const labels = [
     'Home',
@@ -61,6 +63,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(handleDockShortcut);
     page = widget.initialPage;
     if (page == WorkspacePage.scheduled) {
       unawaited(host.scheduled.refresh());
@@ -167,6 +170,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(handleDockShortcut);
     panelFocus.dispose();
     host.closeReview = null;
     host.repositoryNavigation = null;
@@ -175,6 +179,18 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<void> settings() => showSettings(context, host.visible);
+  bool handleDockShortcut(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.keyD &&
+        HardwareKeyboard.instance.isControlPressed &&
+        HardwareKeyboard.instance.isAltPressed &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      dockKey.currentState?.reveal(fromKeyboard: true);
+      return true;
+    }
+    return false;
+  }
+
   void selectPage(WorkspacePage value) {
     setState(() => page = value);
     if (value == WorkspacePage.scheduled) unawaited(host.scheduled.refresh());
@@ -189,108 +205,64 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
   }
 
-  Widget navigation(Palette p) => GlassNavigation(
-    selected: WorkspacePage.values.indexOf(page),
-    rowHeight: 44,
-    children: [
+  Widget dock() => WorkspaceDock(
+    key: dockKey,
+    selected: page.index,
+    items: [
       for (final value in WorkspacePage.values)
-        TextButton.icon(
+        DockItem(
           key: Key('page-${value.name}'),
+          label: labels[value.index],
+          icon: icons[value.index],
           onPressed: () => selectPage(value),
-          style: TextButton.styleFrom(
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            foregroundColor: p.text,
-          ),
-          icon: Icon(icons[value.index], size: 20),
-          label: Text(labels[value.index]),
         ),
-      TextButton.icon(
+      DockItem(
         key: const Key('page-library'),
+        label: 'Library',
+        icon: Icons.auto_awesome_outlined,
         onPressed: () => showSettings(
           context,
           host.visible,
           initial: SettingsCategory.skills,
         ),
-        style: TextButton.styleFrom(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-        ),
-        icon: const Icon(Icons.auto_awesome_outlined, size: 20),
-        label: const Text('Library'),
+      ),
+      DockItem(
+        key: const Key('rail-settings'),
+        label: 'Settings',
+        icon: Icons.settings_outlined,
+        onPressed: settings,
       ),
     ],
   );
 
-  Widget workspaceSidebar(Palette p) => ChatSidebar(
-    width: host.panelWidth,
-    chat: host.visible,
-    independentNavigation: true,
-    navigation: navigation(p),
-    content: page == WorkspacePage.home ? null : panel(p),
-    settingsKey: const Key('rail-settings'),
-    onNewTemporary: () async {
-      await host.newConversation(kind: 'temporary');
-      if (mounted) selectPage(WorkspacePage.home);
-    },
-    onNewSide: () async {
-      await host.newConversation(kind: 'side');
-      if (mounted) selectPage(WorkspacePage.home);
-    },
-    onOpenProject: openProject,
-    onProject: (root) => openProject(root),
-    onSelect: host.select,
-    onSettings: settings,
-  );
+  Widget workspaceSidebar(Palette p) => page != WorkspacePage.home
+      ? Container(decoration: p.sidebarDecoration, child: panel(p))
+      : ChatSidebar(
+          width: host.panelWidth,
+          chat: host.visible,
+          independentNavigation: true,
+          showSettings: false,
+          showBrand: false,
+          settingsKey: const Key('rail-settings'),
+          onNewTemporary: () async {
+            await host.newConversation(kind: 'temporary');
+            if (mounted) selectPage(WorkspacePage.home);
+          },
+          onNewSide: () async {
+            await host.newConversation(kind: 'side');
+            if (mounted) selectPage(WorkspacePage.home);
+          },
+          onOpenProject: openProject,
+          onProject: (root) => openProject(root),
+          onSelect: host.select,
+          onSettings: settings,
+        );
   Future<void> openProject([String? root]) async {
     root ??= await getDirectoryPath();
     if (root == null) return;
     await host.openProject(root);
   }
 
-  Widget rail(Palette p) => Container(
-    width: 64,
-    decoration: p.sidebarDecoration,
-    child: Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-            child: GlassNavigation(
-              selected: WorkspacePage.values.indexOf(page),
-              rowHeight: 56,
-              children: [
-                for (final value in WorkspacePage.values)
-                  IconButton(
-                    key: Key('page-${value.name}'),
-                    tooltip: labels[value.index],
-                    onPressed: () => selectPage(value),
-                    icon: Icon(icons[value.index], size: 21),
-                  ),
-                IconButton(
-                  key: const Key('page-library'),
-                  tooltip: 'Library',
-                  onPressed: () => showSettings(
-                    context,
-                    host.visible,
-                    initial: SettingsCategory.skills,
-                  ),
-                  icon: const Icon(Icons.auto_awesome_outlined, size: 21),
-                ),
-              ],
-            ),
-          ),
-        ),
-        IconButton(
-          key: const Key('rail-settings'),
-          tooltip: 'Settings',
-          onPressed: settings,
-          icon: const Icon(Icons.settings_outlined),
-        ),
-        const SizedBox(height: 12),
-      ],
-    ),
-  );
   Widget panel(Palette p) {
     if (page == WorkspacePage.scheduled) {
       return ScheduledPanel(
@@ -361,7 +333,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     );
   }
 
-  Widget content() {
+  Widget content(WorkspacePage page) {
     if (page == WorkspacePage.scheduled) {
       return ScheduledPage(
         host: host.scheduled,
@@ -534,95 +506,143 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               unawaited(quickOpen(context, host.files)),
       },
       child: Scaffold(
-        body: Column(
+        body: Stack(
           children: [
-            if (!widget.nativeTitleBar)
-              SizedBox(
-                height: 32,
-                child: Row(
-                  children: [
-                    IconButton(
-                      key: const Key('title-panel-toggle'),
-                      tooltip: 'Toggle side panel',
-                      onPressed: host.togglePanel,
-                      icon: const Icon(Icons.vertical_split_outlined, size: 18),
-                    ),
-                  ],
-                ),
-              ),
-            if (host.error != null)
-              MaterialBanner(
-                content: Text(host.error!),
-                actions: [
-                  TextButton(
-                    onPressed: () => setState(() => host.error = null),
-                    child: const Text('Dismiss'),
+            Column(
+              children: [
+                if (!widget.nativeTitleBar)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 32,
+                    child: WindowTitle(onTogglePanel: host.togglePanel),
                   ),
-                ],
-              ),
-            if (host.tasks.isNotEmpty)
-              SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final task in host.tasks)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: TextButton(
-                          onPressed: () => task.session == null
-                              ? null
-                              : host.select(task.session!),
-                          child: Text(
-                            '${task.workspaceLabel} · ${task.modelPhase == 'queued' ? 'Queued' : 'Running'}',
-                          ),
-                        ),
+                if (host.error != null)
+                  MaterialBanner(
+                    content: Text(host.error!),
+                    actions: [
+                      TextButton(
+                        onPressed: () => setState(() => host.error = null),
+                        child: const Text('Dismiss'),
                       ),
-                  ],
-                ),
-              ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, c) {
-                  final compact = c.maxWidth < 800 || c.maxHeight < 620;
-                  return Stack(
-                    children: [
-                      Row(
+                    ],
+                  ),
+                if (host.tasks.isNotEmpty)
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        for (final task in host.tasks)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: TextButton(
+                              onPressed: () => task.session == null
+                                  ? null
+                                  : host.select(task.session!),
+                              child: Text(
+                                '${task.workspaceLabel} · ${task.modelPhase == 'queued' ? 'Queued' : 'Running'}',
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, c) {
+                      final compact = c.maxWidth < 800 || c.maxHeight < 620;
+                      return Stack(
                         children: [
-                          if (compact || host.panelHidden) rail(p),
-                          if (!compact && !host.panelHidden)
-                            SizedBox(
+                          Row(
+                            children: [
+                              if (!compact && !host.panelHidden)
+                                SizedBox(
+                                  width: host.panelWidth.clamp(
+                                    180,
+                                    (c.maxWidth - 300).clamp(180, 420),
+                                  ),
+                                  child: workspaceSidebar(p),
+                                ),
+                              if (!compact) divider(),
+                              Expanded(
+                                child: AnimatedSwitcher(
+                                  duration:
+                                      MediaQuery.disableAnimationsOf(context) ||
+                                          MediaQuery.accessibleNavigationOf(
+                                            context,
+                                          )
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 240),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  layoutBuilder: (current, previous) => Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      for (final child in previous)
+                                        IgnorePointer(
+                                          child: ExcludeFocus(
+                                            child: ExcludeSemantics(
+                                              child: child,
+                                            ),
+                                          ),
+                                        ),
+                                      ?current,
+                                    ],
+                                  ),
+                                  transitionBuilder: (child, animation) =>
+                                      FadeTransition(
+                                        opacity: animation,
+                                        child: SlideTransition(
+                                          position: Tween(
+                                            begin: const Offset(.012, 0),
+                                            end: Offset.zero,
+                                          ).animate(animation),
+                                          child: child,
+                                        ),
+                                      ),
+                                  child: KeyedSubtree(
+                                    key: ValueKey(page),
+                                    child: content(page),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (compact && !host.panelHidden)
+                            Positioned.fill(
+                              child: ModalBarrier(
+                                color: Colors.black.withValues(alpha: .12),
+                                dismissible: true,
+                                onDismiss: host.togglePanel,
+                              ),
+                            ),
+                          if (compact && !host.panelHidden)
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
                               width: host.panelWidth.clamp(
                                 180,
-                                (c.maxWidth - 300).clamp(180, 420),
+                                c.maxWidth - 48,
                               ),
-                              child: workspaceSidebar(p),
+                              child: Material(
+                                elevation: 8,
+                                child: Row(
+                                  children: [
+                                    Expanded(child: workspaceSidebar(p)),
+                                    divider(),
+                                  ],
+                                ),
+                              ),
                             ),
-                          if (!compact) divider(),
-                          Expanded(child: content()),
                         ],
-                      ),
-                      if (compact && !host.panelHidden)
-                        Positioned(
-                          left: 64,
-                          top: 0,
-                          bottom: 0,
-                          width: host.panelWidth.clamp(180, c.maxWidth - 72),
-                          child: Material(
-                            elevation: 8,
-                            child: Row(
-                              children: [
-                                Expanded(child: panel(p)),
-                                divider(),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
+            Positioned(left: 0, right: 0, bottom: 0, child: dock()),
           ],
         ),
       ),

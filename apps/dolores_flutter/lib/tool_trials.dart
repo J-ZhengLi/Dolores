@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -202,37 +203,38 @@ class _ToolTrialsState extends State<ToolTrialsInspector> {
                     const Text(
                       'Enable a project skill in Library before comparing. Global skills are excluded.',
                     ),
-                  DropdownButtonFormField<String>(
-                    initialValue: name,
-                    decoration: const InputDecoration(
-                      labelText: 'Baseline project skill',
+                  FieldLabel(
+                    label: 'Baseline project skill',
+                    child: DropdownButtonFormField<String>(
+                      initialValue: name,
+                      decoration: const InputDecoration(),
+                      items: [
+                        for (final s in skills)
+                          DropdownMenuItem(
+                            value: s['name'] as String,
+                            child: Text(s['name'] as String),
+                          ),
+                      ],
+                      onChanged: pending
+                          ? null
+                          : (value) => setState(() {
+                              name = value;
+                              candidate.text =
+                                  ((selected!['versions'] as List).last['document']['text'])
+                                      as String;
+                            }),
                     ),
-                    items: [
-                      for (final s in skills)
-                        DropdownMenuItem(
-                          value: s['name'] as String,
-                          child: Text(s['name'] as String),
-                        ),
-                    ],
-                    onChanged: pending
-                        ? null
-                        : (value) => setState(() {
-                            name = value;
-                            candidate.text =
-                                ((selected!['versions'] as List)
-                                        .last['document']['text'])
-                                    as String;
-                          }),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('trial-candidate'),
-                    controller: candidate,
-                    enabled: !pending,
-                    minLines: 5,
-                    maxLines: 14,
-                    decoration: const InputDecoration(
-                      labelText: 'Candidate SKILL.md (8 KiB maximum)',
+                  FieldLabel(
+                    label: 'Candidate SKILL.md (8 KiB maximum)',
+                    child: TextField(
+                      key: const Key('trial-candidate'),
+                      controller: candidate,
+                      enabled: !pending,
+                      minLines: 5,
+                      maxLines: 14,
+                      decoration: const InputDecoration(),
                     ),
                   ),
                 ],

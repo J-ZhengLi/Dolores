@@ -29,7 +29,8 @@ void main() {
         await tester.tap(result);
         await tester.pumpAndSettle();
         final frequency = find.byKey(const Key('companion-frequency'));
-        await tester.ensureVisible(frequency);
+        await tester.scrollUntilVisible(frequency, 100,
+          scrollable: find.descendant(of: find.byKey(const Key('companion-form')), matching: find.byType(Scrollable)).first);
         await tester.pumpAndSettle();
         await tester.drag(frequency, const Offset(1200, 0));
         await tester.pumpAndSettle();

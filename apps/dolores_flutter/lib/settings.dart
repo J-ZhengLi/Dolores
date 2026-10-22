@@ -26,6 +26,7 @@ import 'experimental_settings.dart';
 import 'companionship_settings.dart';
 import 'background_settings.dart';
 import 'glass_navigation.dart';
+import 'page_transition.dart';
 
 enum SettingsCategory {
   background,
@@ -581,18 +582,10 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                 ),
                               Expanded(
                                 key: const ValueKey('cached-settings-editors'),
-                                child: IndexedStack(
+                                child: PageTransitionStack(
                                   key: editorStackKey,
-                                  sizing: StackFit.expand,
-                                  index: panels.keys.toList().indexOf(panelKey),
-                                  children: panels.entries
-                                      .map(
-                                        (e) => KeyedSubtree(
-                                          key: ValueKey(e.key),
-                                          child: e.value,
-                                        ),
-                                      )
-                                      .toList(),
+                                  selected: panelKey,
+                                  pages: panels,
                                 ),
                               ),
                             ],
@@ -681,7 +674,6 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                               : () => selectSection(value),
                                           style: TextButton.styleFrom(
                                             alignment: Alignment.centerLeft,
-                                            foregroundColor: p.text,
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 12,
                                               vertical: 8,

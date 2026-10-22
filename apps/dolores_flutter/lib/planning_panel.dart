@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -182,23 +183,25 @@ class _PlanEditorState extends State<_PlanEditor> {
                           })
                         : null,
                   ),
-                  TextField(
-                    key: const Key('plan-text'),
-                    controller: text,
-                    maxLines: 8,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Concrete plan (up to 8 KiB)',
+                  FieldLabel(
+                    label: 'Concrete plan (up to 8 KiB)',
+                    child: TextField(
+                      key: const Key('plan-text'),
+                      controller: text,
+                      maxLines: 8,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('plan-decisions'),
-                    controller: decisions,
-                    maxLines: 3,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Your decisions and constraints',
+                  FieldLabel(
+                    label: 'Your decisions and constraints',
+                    child: TextField(
+                      key: const Key('plan-decisions'),
+                      controller: decisions,
+                      maxLines: 3,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(),
                     ),
                   ),
                   const SizedBox(height: 12),

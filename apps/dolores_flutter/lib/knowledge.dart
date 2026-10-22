@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -272,9 +274,7 @@ class _KnowledgeState extends State<KnowledgeInspector> {
                   ExpansionTile(
                     title: const Text('Learning details'),
                     children: [
-                      const Text(
-                        'File observations become stale when their source changes. Other observations expire after seven days. A declared script is not a tested command. Corrections are protected; knowledge never grants tool access.',
-                      ),
+                      HelpLabel(help: 'File observations become stale when their source changes. Other observations expire after seven days. A declared script is not a tested command. Corrections are protected; knowledge never grants tool access.', child: const Text('How knowledge stays current')),
                     ],
                   ),
                   if ('${report!['notice'] ?? ''}'.isNotEmpty)
@@ -283,19 +283,23 @@ class _KnowledgeState extends State<KnowledgeInspector> {
                       child: SelectableText('${report!['notice']}'),
                     ),
                   if (form) ...[
-                    TextField(
-                      controller: title,
-                      enabled: !pending,
-                      decoration: const InputDecoration(labelText: 'Title'),
+                    FieldLabel(
+                      label: 'Title',
+                      child: TextField(
+                        controller: title,
+                        enabled: !pending,
+                        decoration: const InputDecoration(),
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: text,
-                      enabled: !pending,
-                      minLines: 2,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: 'Fact or correction (512 bytes maximum)',
+                    FieldLabel(
+                      label: 'Fact or correction (512 bytes maximum)',
+                      child: TextField(
+                        controller: text,
+                        enabled: !pending,
+                        minLines: 2,
+                        maxLines: 5,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                     DropdownButtonFormField<String>(

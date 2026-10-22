@@ -63,15 +63,32 @@ decision changes.
   without relying on color alone.
 - Move one highlight between entries from its current rendered position, using
   the motion rules below. Keep hit targets and text stationary.
+- The glass owns the selection fill. Suppress Material hover/splash fills in
+  glass navigation; use a fine outline for hover and a stronger keyboard focus
+  outline so interaction never adds a competing gray block.
 - Choose the rendering technique to meet native performance requirements.
   Provide an opaque selected surface when transparency is reduced or blur is
   unavailable or too costly.
 
 ## Layout and navigation
 
-- Use a sidebar with compact labeled primary navigation, grouped projects and
-  recent chats, and Settings at the bottom. Home centers a short invitation and
-  composer, followed by useful projects and recent work.
+- Put Home, Scheduled, Files, Source Control, Terminal, Library and Settings in
+  one centered floating bottom dock. Overlay it without reserving workspace
+  height or resizing content. Hide after inactivity/pointer departure; reveal at
+  the bottom edge, by tapping its handle or with Ctrl+Alt+D. Keep it visible while
+  hovered or navigating it by keyboard. Escape dismisses it. Hidden controls must
+  not intercept input. Use icon-and-label items at wide widths and icons with
+  hover/focus names and semantic labels at compact widths.
+- Keep the infinity mark and Dolores name in the shared title bar on every page.
+  Place the sidebar toggle immediately right of the title. Share one centered
+  header layout across native and fallback frames: 18 px logo, compact title
+  line height, 16 px toggle glyph inside a 32 px click target. Use a thin rounded
+  window outline with a narrow left pane for its icon;
+  preserve its tooltip, semantic name, native dragging and window controls.
+- Reserve the sidebar for the current feature, starting near the top: project
+  chats and recents on Home, files on Files, repository controls on Source Control,
+  and relevant task/terminal controls on their pages. Home centers a short
+  invitation and composer, followed by useful projects and recent work.
 - Group related controls near the content they affect. Prefer one contextual
   overflow menu to scattered secondary actions or permanent action bars.
 - Choose the smallest surface that comfortably fits the task:
@@ -104,6 +121,9 @@ decision changes.
 
 ## Wording and settings
 
+- Use `FieldLabel` for external labels above filled inputs; never cut a label
+  into the field border. Align labels, fields, switches and disclosure rows to
+  common edges, with consistent gaps and wrapping at compact widths.
 - Lead with a short, familiar name and its control. Add at most one brief
   supporting sentence when it helps the user decide. Empty states and success
   notices should also be short and actionable.
@@ -115,6 +135,12 @@ decision changes.
   the label (`Icons.help_outline`). Show its wrapped hint on hover or keyboard
   focus, and make it accessible on touch without changing the setting or moving
   the layout. Keep the explanation available to assistive technology.
+- Reuse `HelpTip` and `HelpLabel` for floating help. Keep validation and sharing
+  consequences visible; disclose supporting explanations without hiding recovery.
+- Run details lead with model and per-call input/output/total metrics. Put
+  token breakdowns, request settings and context sources in expandable sections.
+  Keep local context estimates separate from provider usage; never infer missing
+  counts or a run total from partial per-call data.
 - Keep essential availability, errors and consequences visible in plain language.
   Use wording such as “Not available yet” or “Couldn't save. Try again.” Explain
   the effect and next action; put supporting evidence in optional details.
@@ -132,6 +158,10 @@ decision changes.
 - Animate position, scale and opacity. New input retargets movement from its
   current rendered state and takes effect immediately. Animate a window entrance
   only when opening it; field and category changes keep the window stationary.
+- Fade and slightly slide page content over about 240 ms when changing workspace
+  pages or settings categories. Retain existing draft ownership and exclude
+  outgoing/hidden content from input, focus and semantics. Move the glass with
+  a paint transform so animation ticks do not relayout the navigation stack.
 - Respect both the OS reduced-motion preference and an in-app motion preference.
   Persist the in-app choice and apply it across conversations; failed saves retain
   the last acknowledged choice. OS reduced motion takes precedence.

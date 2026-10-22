@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 import 'dart:async';
 
@@ -180,33 +181,35 @@ class _SkillCreateState extends State<SkillCreateDialog> {
                       icon: const Icon(Icons.file_open_outlined),
                       label: const Text('Choose SKILL.md'),
                     ),
-                  TextField(
-                    key: const Key('create-skill-name'),
-                    controller: name,
-                    enabled: !pending,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      hintText: 'code-review',
+                  FieldLabel(
+                    label: 'Name',
+                    child: TextField(
+                      key: const Key('create-skill-name'),
+                      controller: name,
+                      enabled: !pending,
+                      decoration: const InputDecoration(hintText: 'code-review'),
                     ),
                   ),
                   if (!widget.importing)
-                    TextField(
-                      key: const Key('create-skill-description'),
-                      controller: description,
-                      enabled: !pending,
-                      decoration: const InputDecoration(
-                        labelText: 'When to use it',
+                    FieldLabel(
+                      label: 'When to use it',
+                      child: TextField(
+                        key: const Key('create-skill-description'),
+                        controller: description,
+                        enabled: !pending,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                   const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('create-skill-text'),
-                    controller: body,
-                    enabled: !pending,
-                    minLines: 5,
-                    maxLines: 10,
-                    decoration: InputDecoration(
-                      labelText: widget.importing ? 'SKILL.md' : 'Instructions',
+                  FieldLabel(
+                    label: widget.importing ? 'SKILL.md' : 'Instructions',
+                    child: TextField(
+                      key: const Key('create-skill-text'),
+                      controller: body,
+                      enabled: !pending,
+                      minLines: 5,
+                      maxLines: 10,
+                      decoration: InputDecoration(),
                     ),
                   ),
                 ] else ...[

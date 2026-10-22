@@ -150,7 +150,7 @@ void main() {
   );
 
   testWidgets(
-    'The title strip follows light and dark themes without branding',
+    'The title strip keeps the app name in light and dark themes',
     (tester) async {
       for (final dark in [false, true]) {
         await mount(tester, dark: dark);
@@ -167,7 +167,7 @@ void main() {
               .color,
           Palette(dark).bg,
         );
-        expect(find.text('Dolores'), findsNothing);
+        expect(find.text('Dolores'), findsOneWidget);
         expect(
           find.descendant(
             of: find.byKey(const Key('window-drag-area')),

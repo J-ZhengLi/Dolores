@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -134,24 +135,27 @@ class _CompanionshipSettingsState extends State<CompanionshipSettings> {
                         : (v) => setState(() => policy!['enabled'] = v),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    key: const Key('companion-model'),
-                    initialValue: models.contains(policy!['model'])
-                        ? policy!['model'] as String
-                        : null,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Model'),
-                    hint: const Text('Choose a model'),
-                    items: [
-                      for (final m in models)
-                        DropdownMenuItem(
-                          value: m,
-                          child: Text(m, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    onChanged: pending
-                        ? null
-                        : (v) => setState(() => policy!['model'] = v ?? ''),
+                  FieldLabel(
+                    label: 'Model',
+                    child: DropdownButtonFormField<String>(
+                      key: const Key('companion-model'),
+                      initialValue: models.contains(policy!['model'])
+                          ? policy!['model'] as String
+                          : null,
+                      isExpanded: true,
+                      decoration: const InputDecoration(),
+                      hint: const Text('Choose a model'),
+                      items: [
+                        for (final m in models)
+                          DropdownMenuItem(
+                            value: m,
+                            child: Text(m, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: pending
+                          ? null
+                          : (v) => setState(() => policy!['model'] = v ?? ''),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -200,11 +204,12 @@ class _CompanionshipSettingsState extends State<CompanionshipSettings> {
                   SettingsDetails(
                     title: 'Details',
                     children: [
-                      TextField(
-                        controller: zone,
-                        enabled: !pending,
-                        decoration: const InputDecoration(
-                          labelText: 'Timezone',
+                      FieldLabel(
+                        label: 'Timezone',
+                        child: TextField(
+                          controller: zone,
+                          enabled: !pending,
+                          decoration: const InputDecoration(),
                         ),
                       ),
                       const SizedBox(height: 12),

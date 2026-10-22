@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -150,117 +152,109 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                     child: Text(failure!, style: TextStyle(color: p.errorText)),
                   ),
                 if (model.isNotEmpty) ...[
-                  DropdownButtonFormField<String>(
-                    key: const Key('generation-model'),
-                    initialValue: model,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Model'),
-                    items: {...widget.chat.enabledModels, model}
-                        .map(
-                          (id) => DropdownMenuItem(
-                            value: id,
-                            child: Text(id, overflow: TextOverflow.ellipsis),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: saving
-                        ? null
-                        : (value) {
-                            setState(() {
-                              model = value!;
-                              inherited = false;
-                              tokens.text =
-                                  selectedSettings['maxOutputTokens']
-                                      ?.toString() ??
-                                  '';
-                              timeout.text =
-                                  '${selectedSettings['timeoutSeconds']}';
-                              reasoning =
-                                  selectedSettings['reasoning'] as String? ??
-                                  'providerDefault';
-                              failure = null;
-                            });
-                          },
+                  FieldLabel(
+                    label: 'Model',
+                    child: DropdownButtonFormField<String>(
+                      key: const Key('generation-model'),
+                      initialValue: model,
+                      isExpanded: true,
+                      decoration: const InputDecoration(),
+                      items: {...widget.chat.enabledModels, model}
+                          .map(
+                            (id) => DropdownMenuItem(
+                              value: id,
+                              child: Text(id, overflow: TextOverflow.ellipsis),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: saving
+                          ? null
+                          : (value) {
+                              setState(() {
+                                model = value!;
+                                inherited = false;
+                                tokens.text =
+                                    selectedSettings['maxOutputTokens']?.toString() ?? '';
+                                timeout.text = '${selectedSettings['timeoutSeconds']}';
+                                reasoning =
+                                    selectedSettings['reasoning'] as String? ?? 'providerDefault';
+                                failure = null;
+                              });
+                            },
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],
-                TextFormField(
-                  key: const Key('output-token-limit'),
-                  controller: tokens,
-                  enabled: !saving && !inherited,
-                  keyboardType: TextInputType.number,
-                  maxLength: 9,
-                  decoration: const InputDecoration(
-                    labelText: 'Output tokens (optional)',
-                    hintText: 'Provider default',
-                    helperText: 'Blank lets the provider choose',
-                    counterText: '',
+                FieldLabel(
+                  label: 'Output tokens (optional)',
+                  help: 'Blank lets the provider choose',
+                  child: TextFormField(
+                    key: const Key('output-token-limit'),
+                    controller: tokens,
+                    enabled: !saving && !inherited,
+                    keyboardType: TextInputType.number,
+                    maxLength: 9,
+                    decoration: const InputDecoration(
+                      hintText: 'Provider default',
+
+                      counterText: '',
+                    ),
+                    validator: (v) => inherited || (v?.trim().isEmpty ?? true)
+                        ? null
+                        : _validate(v, 16777216),
                   ),
-                  validator: (v) => inherited || (v?.trim().isEmpty ?? true)
-                      ? null
-                      : _validate(v, 16777216),
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
-                  key: const Key('request-timeout'),
-                  controller: timeout,
-                  enabled: !saving && !inherited,
-                  keyboardType: TextInputType.number,
-                  maxLength: 9,
-                  decoration: const InputDecoration(
-                    labelText: 'Stall timeout (seconds)',
-                    helperText: '1–900 seconds · default 180',
-                    counterText: '',
+                FieldLabel(
+                  label: 'Stall timeout (seconds)',
+                  help: '1–900 seconds · default 180',
+                  child: TextFormField(
+                    key: const Key('request-timeout'),
+                    controller: timeout,
+                    enabled: !saving && !inherited,
+                    keyboardType: TextInputType.number,
+                    maxLength: 9,
+                    decoration: const InputDecoration(counterText: ''),
+                    validator: (v) => inherited ? null : _validate(v, 900),
                   ),
-                  validator: (v) => inherited ? null : _validate(v, 900),
                 ),
                 const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  key: ValueKey('reasoning-$model-$reasoning'),
-                  initialValue: reasoning,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Reasoning control',
+                FieldLabel(
+                  label: 'Reasoning control',
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('reasoning-$model-$reasoning'),
+                    initialValue: reasoning,
+                    isExpanded: true,
+                    decoration: const InputDecoration(),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'providerDefault',
+                        child: Text('Provider default'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'deepseekThinkingOff',
+                        child: Text('DeepSeek · thinking off'),
+                      ),
+                      DropdownMenuItem(value: 'glmLow', child: Text('GLM · low effort')),
+                      DropdownMenuItem(value: 'openaiLow', child: Text('OpenAI · low effort')),
+                      DropdownMenuItem(
+                        value: 'openaiMedium',
+                        child: Text('OpenAI · medium effort'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'openaiHigh',
+                        child: Text('OpenAI · high effort'),
+                      ),
+                    ],
+                    onChanged: saving || inherited
+                        ? null
+                        : (value) => setState(() => reasoning = value!),
                   ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'providerDefault',
-                      child: Text('Provider default'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'deepseekThinkingOff',
-                      child: Text('DeepSeek · thinking off'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'glmLow',
-                      child: Text('GLM · low effort'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'openaiLow',
-                      child: Text('OpenAI · low effort'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'openaiMedium',
-                      child: Text('OpenAI · medium effort'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'openaiHigh',
-                      child: Text('OpenAI · high effort'),
-                    ),
-                  ],
-                  onChanged: saving || inherited
-                      ? null
-                      : (value) => setState(() => reasoning = value!),
                 ),
                 const SizedBox(height: 12),
-                SettingsDetails(
-                  title: 'How response limits apply',
-                  children: [
-                    Text(
-                      'Stall timeout waits for new model data; active responses and review can take longer. Scope overrides take precedence. Output may include thinking tokens. Reasoning controls depend on provider support.',
-                      style: TextStyle(color: p.muted, fontSize: 12),
-                    ),
-                  ],
+                const HelpLabel(
+                  help: 'Stall timeout waits for new model data; active responses and review can take longer. Scope overrides take precedence. Output may include thinking tokens. Reasoning controls depend on provider support.',
+                  child: Text('How response limits work'),
                 ),
                 const SizedBox(height: 8),
                 TextButton(

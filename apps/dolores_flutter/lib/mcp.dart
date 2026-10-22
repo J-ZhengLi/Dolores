@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+import 'form_field_layout.dart';
 import 'mcp_import.dart';
 import 'settings_frame.dart';
 
@@ -563,25 +565,28 @@ class _McpInspectorState extends State<McpInspector> {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('mcp-name'),
-                      controller: _name,
-                      enabled: !_busy,
-                      onChanged: (_) => _edited(),
-                      maxLength: 128,
-                      decoration: const InputDecoration(
-                        labelText: 'Server name',
+                    FieldLabel(
+                      label: 'Server name',
+                      child: TextField(
+                        key: const Key('mcp-name'),
+                        controller: _name,
+                        enabled: !_busy,
+                        onChanged: (_) => _edited(),
+                        maxLength: 128,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('mcp-program'),
-                      controller: _program,
-                      enabled: !_busy,
-                      onChanged: (_) => _edited(),
-                      decoration: const InputDecoration(
-                        labelText: 'Executable',
-                        hintText: 'Choose a direct installed program',
+                    FieldLabel(
+                      label: 'Executable',
+                      child: TextField(
+                        key: const Key('mcp-program'),
+                        controller: _program,
+                        enabled: !_busy,
+                        onChanged: (_) => _edited(),
+                        decoration: const InputDecoration(
+                          hintText: 'Choose a direct installed program',
+                        ),
                       ),
                     ),
                     Align(
@@ -592,22 +597,21 @@ class _McpInspectorState extends State<McpInspector> {
                         child: const Text('Choose executable'),
                       ),
                     ),
-                    const Text(
-                      'Arguments are passed literally, in order. No shell command, package installation or variable expansion. Keep secrets out of these saved fields.',
-                    ),
+                    HelpLabel(help: 'Arguments are passed literally, in order. No shell command, package installation or variable expansion. Keep secrets out of these saved fields.', child: const Text('Arguments are passed directly. Keep secrets out.')),
                     for (var i = 0; i < _args.length; i++)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(
                           children: [
                             Expanded(
-                              child: TextField(
-                                key: Key('mcp-arg-$i'),
-                                controller: _args[i],
-                                enabled: !_busy,
-                                onChanged: (_) => _edited(),
-                                decoration: InputDecoration(
-                                  labelText: 'Argument ${i + 1}',
+                              child: FieldLabel(
+                                label: 'Argument ${i + 1}',
+                                child: TextField(
+                                  key: Key('mcp-arg-$i'),
+                                  controller: _args[i],
+                                  enabled: !_busy,
+                                  onChanged: (_) => _edited(),
+                                  decoration: InputDecoration(),
                                 ),
                               ),
                             ),
@@ -658,44 +662,42 @@ class _McpInspectorState extends State<McpInspector> {
                             },
                     ),
                     if (_isolated) ...[
-                      TextField(
-                        key: const Key('mcp-isolation-roots'),
-                        controller: _readonlyRoots,
-                        enabled: !_busy,
-                        minLines: 2,
-                        maxLines: 5,
-                        onChanged: (_) => _edited(),
-                        decoration: const InputDecoration(
-                          labelText: 'Additional read-only folders',
-                          hintText: 'One absolute path per line, up to eight',
+                      FieldLabel(
+                        label: 'Additional read-only folders',
+                        child: TextField(
+                          key: const Key('mcp-isolation-roots'),
+                          controller: _readonlyRoots,
+                          enabled: !_busy,
+                          minLines: 2,
+                          maxLines: 5,
+                          onChanged: (_) => _edited(),
+                          decoration: const InputDecoration(
+                            hintText: 'One absolute path per line, up to eight',
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Keep server files in the working folder or a listed folder. For local Node modules, add --preserve-symlinks and --preserve-symlinks-main before the script argument. Child processes must inherit stdio.',
-                      ),
+                      HelpLabel(help: 'Keep server files in the working folder or a listed folder. For local Node modules, add --preserve-symlinks and --preserve-symlinks-main before the script argument. Child processes must inherit stdio.', child: const Text('Node server setup')),
                       const SizedBox(height: 12),
                     ],
                     const Text('Credentials'),
-                    const Text(
-                      'Optional keys for this server. Inspect sends them to the program; Enable saves them in secure storage. Saved keys stay masked. Leave a saved value blank to reuse it, or remove its row to revoke it when enabling. A changed program needs the key entered again.',
-                    ),
+                    HelpLabel(help: 'Optional keys for this server. Inspect sends them to the program; Enable saves them in secure storage. Saved keys stay masked. Leave a saved value blank to reuse it, or remove its row to revoke it when enabling. A changed program needs the key entered again.', child: const Text('Inspect sends keys; Enable saves them securely.')),
                     for (var i = 0; i < _credentials.length; i++) ...[
                       const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
-                              key: Key('mcp-credential-name-$i'),
-                              controller: _credentials[i].name,
-                              enabled: !_busy,
-                              maxLength: 64,
-                              autocorrect: false,
-                              enableSuggestions: false,
-                              onChanged: (_) => _edited(),
-                              decoration: const InputDecoration(
-                                labelText: 'Environment name',
-                                hintText: 'SERVICE_API_KEY',
+                            child: FieldLabel(
+                              label: 'Environment name',
+                              child: TextField(
+                                key: Key('mcp-credential-name-$i'),
+                                controller: _credentials[i].name,
+                                enabled: !_busy,
+                                maxLength: 64,
+                                autocorrect: false,
+                                enableSuggestions: false,
+                                onChanged: (_) => _edited(),
+                                decoration: const InputDecoration(hintText: 'SERVICE_API_KEY'),
                               ),
                             ),
                           ),
@@ -716,21 +718,21 @@ class _McpInspectorState extends State<McpInspector> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        key: Key('mcp-credential-value-$i'),
-                        controller: _credentials[i].value,
-                        enabled: !_busy,
-                        obscureText: true,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        onChanged: (_) => _edited(),
-                        decoration: InputDecoration(
-                          labelText: 'Secret value',
-                          hintText:
-                              _credentials[i].savedName ==
-                                  _credentials[i].name.text.trim()
-                              ? 'Saved securely · leave blank to reuse'
-                              : 'Required for a new credential',
+                      FieldLabel(
+                        label: 'Secret value',
+                        child: TextField(
+                          key: Key('mcp-credential-value-$i'),
+                          controller: _credentials[i].value,
+                          enabled: !_busy,
+                          obscureText: true,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          onChanged: (_) => _edited(),
+                          decoration: InputDecoration(
+                            hintText: _credentials[i].savedName == _credentials[i].name.text.trim()
+                                ? 'Saved securely · leave blank to reuse'
+                                : 'Required for a new credential',
+                          ),
                         ),
                       ),
                     ],
@@ -751,10 +753,7 @@ class _McpInspectorState extends State<McpInspector> {
                       tilePadding: EdgeInsets.zero,
                       title: const Text('Limits and supported features'),
                       children: [
-                        Text(
-                          'Up to four saved connections per folder, sharing two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.',
-                          style: TextStyle(color: p.muted, fontSize: 12),
-                        ),
+                        HelpLabel(help: 'Up to four saved connections per folder, sharing two enabled MCP tools. Inspection and each approved call start a fresh server and stop it afterward; no idle server or automatic startup. 30 seconds per operation, up to 32 tools / four pages / 32 KiB for discovery, and 8 KiB text results. Up to eight explicit credential bindings (4 KiB each / 16 KiB total), stored in the native vault. No general environment editor, remote transport, images/resources, sampling or task execution in this first connection.', child: const Text('Connection limits')),
                       ],
                     ),
                     if (_review != null) ...[

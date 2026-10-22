@@ -7,6 +7,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Move primary navigation to a floating bottom dock that hides when unused and reveals from the bottom edge or Ctrl+Alt+D, giving feature sidebars their full height. Keep the Dolores title visible on every page with an outlined sidebar toggle. Smooth page changes, remove competing gray navigation hover fills, and align form labels above their controls. Long explanations open as floating help; run details lead with per-call metrics and keep supporting evidence expandable.
 - Refresh the desktop with cool light and graphite dark surfaces, animated glass navigation, a unified labeled sidebar, and a Home composer with project shortcuts. Settings stays in a centered window; model, attachment and access choices use compact menus. General includes a saved Gentle motion preference that respects reduced motion.
 
 ### Added

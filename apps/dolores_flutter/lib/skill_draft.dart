@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -263,14 +264,17 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
     TextEditingController controller,
     String key, {
     int lines = 1,
-  }) => TextField(
-    key: Key(key),
-    controller: controller,
-    enabled: !busy,
-    minLines: lines,
-    maxLines: lines == 1 ? 1 : lines + 4,
-    decoration: InputDecoration(labelText: label),
-    onChanged: _edited,
+  }) => FieldLabel(
+    label: label,
+    child: TextField(
+      key: Key(key),
+      controller: controller,
+      enabled: !busy,
+      minLines: lines,
+      maxLines: lines == 1 ? 1 : lines + 4,
+      decoration: InputDecoration(),
+      onChanged: _edited,
+    ),
   );
   @override
   Widget build(BuildContext context) {
@@ -286,6 +290,14 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
         child: Column(
           children: [
             if (busy) const LinearProgressIndicator(minHeight: 2),
+            if (draft?['warning'] is String && result == null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 100),
+                child: SingleChildScrollView(child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Text('Correct the draft before evaluation: ${draft!['warning']}'),
+                )),
+              ),
             Expanded(
               child: ListView(
                 key: const Key('skill-draft-scroll'),
@@ -309,25 +321,27 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                       'Latest 20 exchanges · 16 KiB combined. One tool-free request. No skill is saved yet.',
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('skill-draft-output-tokens'),
-                      controller: outputTokens,
-                      enabled: !busy,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Draft output tokens',
-                        helperText: '1–32,768 · includes model reasoning where applicable',
+                    FieldLabel(
+                      label: 'Draft output tokens',
+                      help: '1–32,768 · includes model reasoning where applicable',
+                      child: TextField(
+                        key: const Key('skill-draft-output-tokens'),
+                        controller: outputTokens,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('skill-draft-timeout'),
-                      controller: timeoutSeconds,
-                      enabled: !busy,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Draft timeout (seconds)',
-                        helperText: '1–900',
+                    FieldLabel(
+                      label: 'Draft timeout (seconds)',
+                      help: '1–900',
+                      child: TextField(
+                        key: const Key('skill-draft-timeout'),
+                        controller: timeoutSeconds,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -381,10 +395,6 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                       ),
                   ] else ...[
                     Text('Drafted by ${draft!['model']}'),
-                    if (draft!['warning'] is String && result == null)
-                      Text(
-                        'Correct the draft before evaluation: ${draft!['warning']}',
-                      ),
                     const Text(
                       'Edit a narrow workflow and when it applies. Avoid private details. It will be shared in future messages after activation.',
                     ),

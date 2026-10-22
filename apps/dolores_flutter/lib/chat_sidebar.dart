@@ -10,7 +10,7 @@ class ChatSidebar extends StatefulWidget {
   final VoidCallback onNewTemporary, onNewSide, onSettings;
   final Future<void> Function() onOpenProject;
   final Future<void> Function(String) onProject, onSelect;
-  final bool independentNavigation, showSettings;
+  final bool independentNavigation, showSettings, showBrand;
   final Widget? navigation, content;
   final Key settingsKey;
   const ChatSidebar({
@@ -25,6 +25,7 @@ class ChatSidebar extends StatefulWidget {
     required this.onSelect,
     this.independentNavigation = false,
     this.showSettings = true,
+    this.showBrand = true,
     this.navigation,
     this.content,
     this.settingsKey = const Key('settings'),
@@ -193,7 +194,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
+              if (widget.showBrand) Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 0, 16),
                 child: Row(
                   children: [

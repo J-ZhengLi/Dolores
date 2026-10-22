@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 
 import 'git_host.dart';
@@ -111,11 +112,14 @@ class GitLocalControls extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Create branch'),
-        content: TextField(
-          autofocus: true,
-          maxLength: 256,
-          onChanged: (value) => name = value,
-          decoration: const InputDecoration(labelText: 'Branch name'),
+        content: FieldLabel(
+          label: 'Branch name',
+          child: TextField(
+            autofocus: true,
+            maxLength: 256,
+            onChanged: (value) => name = value,
+            decoration: const InputDecoration(),
+          ),
         ),
         actions: [
           TextButton(

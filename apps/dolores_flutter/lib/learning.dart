@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -250,12 +251,13 @@ class _LearningState extends State<LearningInspector> {
                           'Optional supported workflow: enable the top-level config.json flag and run one project check. Review its command before creating the saved project skill. This does not grant command permission.',
                         ),
                         const SizedBox(height: 16),
-                        TextField(
-                          key: const Key('learning-command'),
-                          controller: command,
-                          enabled: !pending,
-                          decoration: const InputDecoration(
-                            labelText: 'Current check command (node and one .cjs filename)',
+                        FieldLabel(
+                          label: 'Current check command (node and one .cjs filename)',
+                          child: TextField(
+                            key: const Key('learning-command'),
+                            controller: command,
+                            enabled: !pending,
+                            decoration: const InputDecoration(),
                           ),
                         ),
                         TextButton(

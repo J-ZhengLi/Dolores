@@ -46,7 +46,7 @@ void main() {
     for (final width in [390.0, 940.0]) {
       for (final experimental in [false, true]) {
         testWidgets(
-          'Concise settings and hover-only help ($dark, $width, $experimental)',
+          'Concise settings and accessible floating help ($dark, $width, $experimental)',
           (tester) async {
             tester.view.physicalSize = Size(width, 760);
             tester.view.devicePixelRatio = 1;
@@ -120,16 +120,16 @@ void main() {
             );
             await tester.pumpAndSettle();
             final tooltip = tester.widget<Tooltip>(
-              find.ancestor(of: help, matching: find.byType(Tooltip)),
+              find.descendant(of: help, matching: find.byType(Tooltip)),
             );
             final value = tester.widget<SwitchListTile>(toggle).value;
-            expect(tooltip.triggerMode, TooltipTriggerMode.manual);
             expect(find.text(tooltip.message!), findsNothing);
             await tester.tap(help);
-            await tester.longPress(help);
             await tester.pumpAndSettle();
-            expect(find.text(tooltip.message!), findsNothing);
+            expect(find.text(tooltip.message!), findsOneWidget);
             expect(tester.widget<SwitchListTile>(toggle).value, value);
+            Tooltip.dismissAllToolTips();
+            await tester.pumpAndSettle();
             Future<void> render(String suffix) async {
               if (output == null) return;
               final boundary =

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:dolores_flutter/form_field_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -177,10 +178,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final snapshots = find.byWidgetPredicate(
-          (w) =>
-              w is DropdownButtonFormField<String> &&
-              w.decoration.labelText == 'Saved screenshots in this chat',
+        final snapshots = find.descendant(
+          of: find.widgetWithText(FieldLabel, 'Saved screenshots in this chat'),
+          matching: find.byType(DropdownButtonFormField<String>),
         );
         await tester.scrollUntilVisible(snapshots, 180);
         await Scrollable.ensureVisible(

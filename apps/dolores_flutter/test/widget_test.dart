@@ -135,7 +135,7 @@ void main() {
       await tester.pumpWidget(DoloresApp(chat: chat));
       expect(
         tester
-            .widget<PopupMenuButton<String>>(
+            .widget<PopupMenuButton<Object>>(
               find.byKey(const Key('chat-model-picker')),
             )
             .enabled,

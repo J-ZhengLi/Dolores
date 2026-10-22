@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -405,19 +406,20 @@ class _CommandSessionsInspectorState extends State<CommandSessionsInspector> {
               if (receipt != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: TextField(
-                    key: const Key('command-input'),
-                    controller: input,
-                    minLines: 1,
-                    maxLines: 3,
-                    readOnly: !canInput || pending,
-                    decoration: InputDecoration(
-                      labelText: 'Input to command',
-                      helperText: canInput
-                          ? 'Send exact text · include a newline when needed'
-                          : attached
-                          ? 'Stdin unavailable. Inspect the receipt above.'
-                          : 'Saved output; no live process attached.',
+                  child: FieldLabel(
+                    label: 'Input to command',
+                    help: canInput
+                        ? 'Send exact text · include a newline when needed'
+                        : attached
+                        ? 'Stdin unavailable. Inspect the receipt above.'
+                        : 'Saved output; no live process attached.',
+                    child: TextField(
+                      key: const Key('command-input'),
+                      controller: input,
+                      minLines: 1,
+                      maxLines: 3,
+                      readOnly: !canInput || pending,
+                      decoration: InputDecoration(),
                     ),
                   ),
                 ),

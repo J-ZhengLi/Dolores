@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -212,32 +213,30 @@ class _ModsState extends State<ModsInspector> {
                           }),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: category,
-                    decoration: const InputDecoration(
-                      labelText: 'Recovery case',
+                  FieldLabel(
+                    label: 'Recovery case',
+                    child: DropdownButtonFormField<int>(
+                      initialValue: category,
+                      decoration: const InputDecoration(),
+                      isExpanded: true,
+                      items: [
+                        for (final entry in {
+                          0: 'Unknown',
+                          1: 'Output limit',
+                          2: 'Context limit',
+                          3: 'Tool allowance',
+                          4: 'Access denied',
+                          5: 'Interrupted task',
+                        }.entries)
+                          DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                      ],
+                      onChanged: pending
+                          ? null
+                          : (v) {
+                              setState(() => category = v!);
+                              action('modState');
+                            },
                     ),
-                    isExpanded: true,
-                    items: [
-                      for (final entry in {
-                        0: 'Unknown',
-                        1: 'Output limit',
-                        2: 'Context limit',
-                        3: 'Tool allowance',
-                        4: 'Access denied',
-                        5: 'Interrupted task',
-                      }.entries)
-                        DropdownMenuItem(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        ),
-                    ],
-                    onChanged: pending
-                        ? null
-                        : (v) {
-                            setState(() => category = v!);
-                            action('modState');
-                          },
                   ),
                   const SizedBox(height: 16),
                   Card(
@@ -285,21 +284,19 @@ class _ModsState extends State<ModsInspector> {
                     key: const Key('mod-source-details'),
                     title: 'Edit extension source',
                     children: [
-                      TextField(
-                        key: const Key('mod-source'),
-                        controller: source,
-                        enabled: !pending,
-                        minLines: 4,
-                        maxLines: 9,
-                        maxLength: 8192,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'WebAssembly text source',
-                          hintText:
-                              '(module (func (export "recovery_hint") …))',
+                      FieldLabel(
+                        label: 'WebAssembly text source',
+                        child: TextField(
+                          key: const Key('mod-source'),
+                          controller: source,
+                          enabled: !pending,
+                          minLines: 4,
+                          maxLines: 9,
+                          maxLength: 8192,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                          decoration: const InputDecoration(
+                            hintText: '(module (func (export "recovery_hint") …))',
+                          ),
                         ),
                       ),
                     ],

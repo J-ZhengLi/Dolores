@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 
 import 'file_host.dart';
@@ -25,7 +26,15 @@ class _PathDialogState extends State<_PathDialog> {
   late final input=TextEditingController(text:widget.initial);
   @override void dispose(){input.dispose();super.dispose();}
   @override Widget build(BuildContext context)=>AlertDialog(title:Text(widget.title),
-    content:TextField(controller:input,autofocus:true,decoration:InputDecoration(labelText:widget.label),onSubmitted:(v)=>Navigator.pop(context,v)),
+    content:FieldLabel(
+      label: widget.label,
+      child: TextField(
+        controller: input,
+        autofocus: true,
+        decoration: InputDecoration(),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+    ),
     actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('Cancel')),TextButton(onPressed:()=>Navigator.pop(context,input.text),child:const Text('Continue'))]);
 }
 

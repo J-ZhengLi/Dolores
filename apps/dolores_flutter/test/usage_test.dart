@@ -116,11 +116,15 @@ void main() {
         );
         await tester.tap(find.text('Tokens: 0 in · 12 out'));
         await tester.pumpAndSettle();
-        expect(find.text('Input tokens: 0'), findsOneWidget);
-        expect(find.text('Total tokens: Unavailable'), findsOneWidget);
-        expect(find.text('Cached input tokens: 0'), findsOneWidget);
-        expect(find.text('Model: original-model'), findsOneWidget);
-        expect(find.text('Older turns left out: 21'), findsOneWidget);
+        expect(find.text('0'), findsOneWidget);
+        expect(find.text('Unavailable'), findsOneWidget);
+        expect(find.text('original-model'), findsOneWidget);
+        expect(find.text('21 older turns'), findsOneWidget);
+        expect(find.text('Cached input'), findsNothing);
+        await tester.tap(find.byKey(const Key('token-breakdown')));
+        await tester.pumpAndSettle();
+        expect(find.text('Cached input'), findsOneWidget);
+        expect(find.text('0'), findsNWidgets(2));
         expect(tester.takeException(), isNull);
         await tester.tap(find.text('Close'));
         await tester.pumpAndSettle();
@@ -135,7 +139,7 @@ void main() {
       );
       await tester.tap(find.text('Usage unavailable'));
       await tester.pumpAndSettle();
-      expect(find.text('Input tokens: Unavailable'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNWidgets(3));
       expect(find.text('Saved request context: Unavailable'), findsOneWidget);
     },
   );
@@ -216,7 +220,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Tokens: 0 in · 12 out'));
       await tester.pumpAndSettle();
-      expect(find.text('Model: original-model'), findsOneWidget);
+      expect(find.text('original-model'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

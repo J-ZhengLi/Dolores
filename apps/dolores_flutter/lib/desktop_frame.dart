@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'theme.dart';
+import 'window_identity.dart';
 
 /// Keep the native frame as a fallback if a desktop plugin cannot initialize.
 Future<bool> initializeDesktopFrame() async {
@@ -205,18 +206,6 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                 children: [
                   // macOS keeps its native traffic lights at the upper left.
                   if (mac) const SizedBox(width: 80),
-                  if (widget.onTogglePanel != null)
-                    IconButton(
-                      key: const Key('title-panel-toggle'),
-                      tooltip: 'Toggle side panel',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 48,
-                        height: 32,
-                      ),
-                      onPressed: widget.onTogglePanel,
-                      icon: const Icon(Icons.vertical_split_outlined, size: 18),
-                    ),
                   Expanded(
                     child: GestureDetector(
                       key: const Key('window-drag-area'),
@@ -231,7 +220,7 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                               windowManager.popUpWindowMenu,
                             )
                           : null,
-                      child: const SizedBox.expand(),
+                      child: WindowTitle(onTogglePanel: widget.onTogglePanel),
                     ),
                   ),
                   if (!mac) ...[

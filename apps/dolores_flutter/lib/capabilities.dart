@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 
@@ -176,28 +177,29 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
                         const Text(
                           'Bundled source matches this build. A checkout is only compared; it never replaces this source.',
                         ),
-                        DropdownButtonFormField<String>(
-                          initialValue: selected,
-                          decoration: const InputDecoration(
-                            labelText: 'Source component',
+                        FieldLabel(
+                          label: 'Source component',
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selected,
+                            decoration: const InputDecoration(),
+                            items: [
+                              for (final item in data['sources'] as List)
+                                DropdownMenuItem(
+                                  value: item['id'] as String,
+                                  child: Text(item['id'] as String),
+                                ),
+                            ],
+                            onChanged: pending
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      selected = value;
+                                      source = null;
+                                      line = 1;
+                                    });
+                                    readSource();
+                                  },
                           ),
-                          items: [
-                            for (final item in data['sources'] as List)
-                              DropdownMenuItem(
-                                value: item['id'] as String,
-                                child: Text(item['id'] as String),
-                              ),
-                          ],
-                          onChanged: pending
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    selected = value;
-                                    source = null;
-                                    line = 1;
-                                  });
-                                  readSource();
-                                },
                         ),
                       ],
                     ),

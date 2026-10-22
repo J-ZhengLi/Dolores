@@ -1,3 +1,4 @@
+import 'form_field_layout.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -276,27 +277,26 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                 ),
               if (selected.isNotEmpty && !widget.setupOnly) ...[
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(
-                    'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
+                FieldLabel(
+                  label: 'Model settings',
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
+                    ),
+                    initialValue: selected.contains(contextModel)
+                        ? contextModel
+                        : selected.first,
+                    isExpanded: true,
+                    decoration: const InputDecoration(),
+                    items: [
+                      for (final id in selected)
+                        DropdownMenuItem(
+                          value: id,
+                          child: Text(id, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: working ? null : (id) => setState(() => contextModel = id),
                   ),
-                  initialValue: selected.contains(contextModel)
-                      ? contextModel
-                      : selected.first,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Model settings',
-                  ),
-                  items: [
-                    for (final id in selected)
-                      DropdownMenuItem(
-                        value: id,
-                        child: Text(id, overflow: TextOverflow.ellipsis),
-                      ),
-                  ],
-                  onChanged: working
-                      ? null
-                      : (id) => setState(() => contextModel = id),
                 ),
                 if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
                   CheckboxListTile(
@@ -323,51 +323,53 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                           }),
                   ),
                 const SizedBox(height: 12),
-                TextField(
-                  key: const Key('context-window'),
-                  controller: contextInput(
-                    selected.contains(contextModel)
-                        ? contextModel!
-                        : selected.first,
-                  ),
-                  enabled: !working,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Context window (tokens)',
-                    hintText: '131072 (128K default)',
-                    helperText: 'Blank uses 128K tokens. Override with your provider’s limit.',
-                    helperMaxLines: 2,
+                FieldLabel(
+                  label: 'Context window (tokens)',
+                  help: 'Blank uses 128K tokens. Override with your provider’s limit.',
+                  child: TextField(
+                    key: const Key('context-window'),
+                    controller: contextInput(
+                      selected.contains(contextModel) ? contextModel! : selected.first,
+                    ),
+                    enabled: !working,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: '131072 (128K default)',
+
+                      helperMaxLines: 2,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
               ],
               const Divider(height: 24),
-              TextField(
-                key: const Key('base-url'),
-                controller: url,
-                enabled: !working,
-                onChanged: endpointChanged,
-                decoration: const InputDecoration(
-                  labelText: 'Base URL',
-                  hintText: 'http://localhost:11434/v1',
+              FieldLabel(
+                label: 'Base URL',
+                child: TextField(
+                  key: const Key('base-url'),
+                  controller: url,
+                  enabled: !working,
+                  onChanged: endpointChanged,
+                  decoration: const InputDecoration(hintText: 'http://localhost:11434/v1'),
                 ),
               ),
               const SizedBox(height: 18),
-              TextField(
-                key: const Key('api-key'),
-                controller: keyInput,
-                enabled: !working,
-                obscureText: true,
-                enableSuggestions: false,
-                autocorrect: false,
-                onChanged: (_) => setState(() => clearKey = false),
-                decoration: InputDecoration(
-                  labelText: 'API key (optional for local servers)',
-                  helperText: clearKey
-                      ? 'This connection will use no key.'
-                      : widget.chat.hasSavedKey || widget.chat.configured
-                      ? 'Leave blank to keep the current key.'
-                      : null,
+              FieldLabel(
+                label: 'API key (optional for local servers)',
+                help: clearKey
+                    ? 'This connection will use no key.'
+                    : widget.chat.hasSavedKey || widget.chat.configured
+                    ? 'Leave blank to keep the current key.'
+                    : null,
+                child: TextField(
+                  key: const Key('api-key'),
+                  controller: keyInput,
+                  enabled: !working,
+                  obscureText: true,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  onChanged: (_) => setState(() => clearKey = false),
+                  decoration: InputDecoration(),
                 ),
               ),
               if (widget.chat.hasSavedKey || widget.chat.configured)
@@ -478,13 +480,14 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        key: const Key('manual-model'),
-                        controller: manualModel,
-                        enabled: !working,
-                        onSubmitted: (_) => addManual(),
-                        decoration: const InputDecoration(
-                          labelText: 'Model ID',
+                      child: FieldLabel(
+                        label: 'Model ID',
+                        child: TextField(
+                          key: const Key('manual-model'),
+                          controller: manualModel,
+                          enabled: !working,
+                          onSubmitted: (_) => addManual(),
+                          decoration: const InputDecoration(),
                         ),
                       ),
                     ),
