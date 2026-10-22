@@ -87,6 +87,7 @@ class AppHost extends ChangeNotifier {
   double panelWidth = 252;
   final appearanceChanges = ValueNotifier(0);
   String? _appearance;
+  bool? _reducedMotion;
   final _running = <ChatController>{};
   final _themes = <ChatController, VoidCallback>{};
   Future<bool> Function()? closeReview;
@@ -271,13 +272,19 @@ class AppHost extends ChangeNotifier {
     };
     owner.beforeNativeRestart = () => prepareNativeRestart(owner);
     owner.appearance = _appearance ?? owner.appearance;
+    owner.reducedMotion.value = _reducedMotion ?? owner.reducedMotion.value;
     owners.add(owner);
     owner.addListener(_changed);
     void theme() {
-      if (_appearance == owner.appearance) return;
+      if (_appearance == owner.appearance &&
+          _reducedMotion == owner.reducedMotion.value) {
+        return;
+      }
       _appearance = owner.appearance;
+      _reducedMotion = owner.reducedMotion.value;
       for (final other in owners.where((c) => c != owner)) {
         other.appearance = _appearance!;
+        other.reducedMotion.value = _reducedMotion!;
       }
       appearanceChanges.value++;
       notifyListeners();
@@ -285,6 +292,7 @@ class AppHost extends ChangeNotifier {
 
     _themes[owner] = theme;
     owner.appearanceChanges.addListener(theme);
+    owner.reducedMotion.addListener(theme);
   }
 
   void _changed() {
@@ -359,7 +367,9 @@ class AppHost extends ChangeNotifier {
         );
       }
       removable.removeListener(_changed);
-      removable.appearanceChanges.removeListener(_themes.remove(removable)!);
+      final theme = _themes.remove(removable)!;
+      removable.appearanceChanges.removeListener(theme);
+      removable.reducedMotion.removeListener(theme);
       owners.remove(removable);
       _scheduledOwners.remove(removable);
       _settings.remove(removable);
@@ -457,6 +467,7 @@ class AppHost extends ChangeNotifier {
       owner.onOpenSourceControl = null;
       owner.removeListener(_changed);
       owner.appearanceChanges.removeListener(_themes[owner]!);
+      owner.reducedMotion.removeListener(_themes[owner]!);
     }
     for (final owner in owners.where((c) => c != initial)) {
       owner.dispose();

@@ -103,8 +103,9 @@ class CommandsBridge implements ChatBridge {
         unsaved = false;
         return {'saved': true};
       case 'recoverIsolation':
-        if (failCleanup)
+        if (failCleanup) {
           throw 'Cleanup path changed. Restore the reviewed folder and retry.';
+        }
         cleanupPending = false;
         return {'available': true, 'pendingCleanup': 0};
       default:

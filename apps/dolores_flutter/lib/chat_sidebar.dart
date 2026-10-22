@@ -11,6 +11,8 @@ class ChatSidebar extends StatefulWidget {
   final Future<void> Function() onOpenProject;
   final Future<void> Function(String) onProject, onSelect;
   final bool independentNavigation, showSettings;
+  final Widget? navigation, content;
+  final Key settingsKey;
   const ChatSidebar({
     super.key,
     this.width = UiTokens.sidebarWidth,
@@ -23,6 +25,9 @@ class ChatSidebar extends StatefulWidget {
     required this.onSelect,
     this.independentNavigation = false,
     this.showSettings = true,
+    this.navigation,
+    this.content,
+    this.settingsKey = const Key('settings'),
   });
   @override
   State<ChatSidebar> createState() => _ChatSidebarState();
@@ -181,7 +186,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
         .toList();
     return Container(
       width: widget.width,
-      color: p.sidebar,
+      decoration: p.sidebarDecoration,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
@@ -204,8 +209,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'Georgia',
-                          fontSize: 26,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: -.8,
                           color: p.text,
                         ),
@@ -222,7 +227,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                       onPressed: navigationLocked
                           ? null
                           : widget.onNewTemporary,
-                      icon: const Icon(Icons.edit_square, size: 19),
+                      icon: const Icon(Icons.add, size: 21),
                       label: const Text('New chat'),
                       style: TextButton.styleFrom(
                         foregroundColor: p.text,
@@ -250,166 +255,180 @@ class _ChatSidebarState extends State<ChatSidebar> {
                 ],
               ),
               const SizedBox(height: 16),
+              if (widget.navigation != null) ...[
+                widget.navigation!,
+                const SizedBox(height: 16),
+              ],
               Expanded(
-                child: ListView(
-                  key: const Key('sidebar-history'),
-                  children: [
-                    section(
-                      'Projects',
-                      'section-projects',
-                      projectsOpen,
-                      () => setState(() => projectsOpen = !projectsOpen),
-                      action: IconButton(
-                        key: const Key('open-project'),
-                        tooltip: 'Open project…',
-                        iconSize: 18,
-                        onPressed: locked ? null : widget.onOpenProject,
-                        icon: Icon(Icons.add, color: p.muted),
-                      ),
-                    ),
-                    if (projectsOpen) ...[
-                      if (projects.isEmpty)
-                        TextButton.icon(
-                          key: const Key('empty-open-project'),
-                          onPressed: locked ? null : widget.onOpenProject,
-                          icon: const Icon(
-                            Icons.folder_open_outlined,
-                            size: 16,
-                          ),
-                          label: const Text('Open project…'),
-                          style: TextButton.styleFrom(
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                child:
+                    widget.content ??
+                    ListView(
+                      key: const Key('sidebar-history'),
+                      children: [
+                        section(
+                          'Projects',
+                          'section-projects',
+                          projectsOpen,
+                          () => setState(() => projectsOpen = !projectsOpen),
+                          action: IconButton(
+                            key: const Key('open-project'),
+                            tooltip: 'Open project…',
+                            iconSize: 18,
+                            onPressed: locked ? null : widget.onOpenProject,
+                            icon: Icon(Icons.add, color: p.muted),
                           ),
                         ),
-                      for (final project in projects.values) ...[
-                        Builder(
-                          builder: (_) {
-                            final root = project['root'] as String;
-                            final open =
-                                expanded.contains(root) ||
-                                (chat.workspaceRoot == root &&
-                                    !collapsed.contains(root));
-                            return Column(
-                              children: [
-                                Row(
+                        if (projectsOpen) ...[
+                          if (projects.isEmpty)
+                            TextButton.icon(
+                              key: const Key('empty-open-project'),
+                              onPressed: locked ? null : widget.onOpenProject,
+                              icon: const Icon(
+                                Icons.folder_open_outlined,
+                                size: 16,
+                              ),
+                              label: const Text('Open project…'),
+                              style: TextButton.styleFrom(
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                              ),
+                            ),
+                          for (final project in projects.values) ...[
+                            Builder(
+                              builder: (_) {
+                                final root = project['root'] as String;
+                                final open =
+                                    expanded.contains(root) ||
+                                    (chat.workspaceRoot == root &&
+                                        !collapsed.contains(root));
+                                return Column(
                                   children: [
-                                    Expanded(
-                                      child: TextButton(
-                                        key: ValueKey('project-$root'),
-                                        onPressed: () => setState(() {
-                                          if (open) {
-                                            expanded.remove(root);
-                                            collapsed.add(root);
-                                          } else {
-                                            expanded.add(root);
-                                            collapsed.remove(root);
-                                          }
-                                        }),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: p.text,
-                                          alignment: Alignment.centerLeft,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextButton(
+                                            key: ValueKey('project-$root'),
+                                            onPressed: () => setState(() {
+                                              if (open) {
+                                                expanded.remove(root);
+                                                collapsed.add(root);
+                                              } else {
+                                                expanded.add(root);
+                                                collapsed.remove(root);
+                                              }
+                                            }),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: p.text,
+                                              alignment: Alignment.centerLeft,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  open
+                                                      ? Icons.expand_more
+                                                      : Icons.chevron_right,
+                                                  size: 16,
+                                                  color: p.muted,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.folder_outlined,
+                                                  size: 16,
+                                                  color: p.muted,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    project['name'] as String,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              open
-                                                  ? Icons.expand_more
-                                                  : Icons.chevron_right,
-                                              size: 16,
-                                              color: p.muted,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.folder_outlined,
-                                              size: 16,
-                                              color: p.muted,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                project['name'] as String,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        IconButton(
+                                          key: ValueKey(
+                                            'new-project-chat-$root',
+                                          ),
+                                          tooltip:
+                                              'New chat in ${project['name']}',
+                                          iconSize: 16,
+                                          onPressed: navigationLocked
+                                              ? null
+                                              : () => widget.onProject(root),
+                                          icon: Icon(Icons.add, color: p.muted),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    IconButton(
-                                      key: ValueKey('new-project-chat-$root'),
-                                      tooltip: 'New chat in ${project['name']}',
-                                      iconSize: 16,
-                                      onPressed: navigationLocked
-                                          ? null
-                                          : () => widget.onProject(root),
-                                      icon: Icon(Icons.add, color: p.muted),
-                                    ),
+                                    if (open) ...[
+                                      for (final item in chat.sessions.where(
+                                        (item) =>
+                                            item['workspace']?['kind'] ==
+                                                'project' &&
+                                            item['workspace']?['root'] == root,
+                                      ))
+                                        chatRow(item, p, project: true),
+                                      if (!chat.sessions.any(
+                                        (item) =>
+                                            item['workspace']?['root'] == root,
+                                      ))
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            32,
+                                            4,
+                                            8,
+                                            10,
+                                          ),
+                                          child: Text(
+                                            'No chats on this page',
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ],
-                                ),
-                                if (open) ...[
-                                  for (final item in chat.sessions.where(
-                                    (item) =>
-                                        item['workspace']?['kind'] ==
-                                            'project' &&
-                                        item['workspace']?['root'] == root,
-                                  ))
-                                    chatRow(item, p, project: true),
-                                  if (!chat.sessions.any(
-                                    (item) =>
-                                        item['workspace']?['root'] == root,
-                                  ))
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        32,
-                                        4,
-                                        8,
-                                        10,
-                                      ),
-                                      child: Text(
-                                        'No chats on this page',
-                                        style: TextStyle(
-                                          color: p.muted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ],
-                            );
-                          },
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                        const SizedBox(height: 12),
+                        section(
+                          'Recents',
+                          'section-recents',
+                          recentsOpen,
+                          () => setState(() => recentsOpen = !recentsOpen),
                         ),
+                        if (recentsOpen) ...[
+                          for (final item in recents) chatRow(item, p),
+                          if (recents.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 4, 10, 12),
+                              child: Text(
+                                'Temporary and side chats appear here',
+                                style: TextStyle(color: p.muted, fontSize: 11),
+                              ),
+                            ),
+                        ],
                       ],
-                    ],
-                    const SizedBox(height: 12),
-                    section(
-                      'Recents',
-                      'section-recents',
-                      recentsOpen,
-                      () => setState(() => recentsOpen = !recentsOpen),
                     ),
-                    if (recentsOpen) ...[
-                      for (final item in recents) chatRow(item, p),
-                      if (recents.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(10, 4, 10, 12),
-                          child: Text(
-                            'Temporary and side chats appear here',
-                            style: TextStyle(color: p.muted, fontSize: 11),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
               ),
-              if (chat.sessionsOlder || chat.sessionsNewer)
+              if (widget.content == null &&
+                  (chat.sessionsOlder || chat.sessionsNewer))
                 Row(
                   children: [
                     Expanded(
@@ -435,7 +454,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
               if (widget.showSettings) Divider(color: p.border),
               if (widget.showSettings)
                 TextButton.icon(
-                  key: const Key('settings'),
+                  key: widget.settingsKey,
                   onPressed: chat.loading || chat.changing
                       ? null
                       : widget.onSettings,

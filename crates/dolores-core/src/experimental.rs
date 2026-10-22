@@ -6,6 +6,8 @@ pub struct ExperimentalPreferences {
     pub revision: u32,
     pub multiple_window: bool,
     pub prevent_windows_from_locked: bool,
+    #[serde(default)]
+    pub reduce_motion: bool,
 }
 impl Default for ExperimentalPreferences {
     fn default() -> Self {
@@ -13,6 +15,7 @@ impl Default for ExperimentalPreferences {
             revision: 0,
             multiple_window: true,
             prevent_windows_from_locked: false,
+            reduce_motion: false,
         }
     }
 }

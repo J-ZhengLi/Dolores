@@ -1,5 +1,48 @@
 # Dolores acceptance — 2026-10-08
 
+## Frost & Graphite desktop redesign — October 22
+
+The normal Flutter app now uses the shared cool Light / graphite Dark palette,
+one labeled workspace sidebar, moving glass selection highlights, a Home composer
+with real projects and recent chats, anchored composer dropdowns and centered
+settings. Existing Files, Source Control, Terminal, Scheduled, chat/history and
+settings editors remain reachable. Home shortcuts use AppHost conversation
+ownership. Moving the composer from Home into an active chat preserves its editor
+identity, focus, draft, selection and slash-command handling.
+
+Gentle motion is a persisted application preference shared across conversations.
+OS reduced motion takes precedence. Interrupted selection travel retargets from
+the current position; reduced motion uses immediate, opaque selection feedback.
+Failed preference saves retain the acknowledged value and offer an explicit retry.
+Legacy preference JSON without the new field remains readable without migration.
+
+Verification exercised:
+
+- Full Flutter suite: 505 passed, 10 skipped; analyzer: no issues. An obsolete
+  toolbar-position assertion was updated, and a real Home-to-chat `/stop` focus
+  regression was fixed before the passing run.
+- Four focused design tests passed again after the final menu refinement:
+  interrupted highlight travel, reduced motion, failed-save/retry and propagation,
+  Light/Dark centered settings, draft retention, Escape and compact menu bounds.
+- SQLite preference tests: 2 passed; native bridge appearance/bootstrap test:
+  1 passed. These cover old records, restart, stale revisions, failed writes and
+  saved motion restoration.
+- Normal Windows release build passed using `scripts/desktop.py build` with the
+  installed Visual Studio 18 2026 generator.
+- Four rendered Flutter journeys against that normal Rust bridge passed:
+  local instructions/Memory, chat reentry/summary/model safeguards, Stop recovery
+  and queue editing/steering. Evidence is retained under
+  `output/native-ui/215e132d7a1c4d8b97a9c02d6661efce/`.
+- Light, Dark, compact, settings and model-menu widget renders were inspected
+  under `output/frost-design/`. They use synthetic data and system fonts.
+- Rust formatting, documentation links and publication checks passed.
+
+Scope of evidence: native-bridge journeys use isolated profiles and a public
+loopback provider fixture; no normal profile, credentials or private transcripts
+were used. These checks do not qualify physical Windows IME/screen-reader input,
+GPU animation frame timing, clean-machine behavior or real-model reliability.
+The separate EH06 acceptance gaps below remain open.
+
 ## EH06 managed worktrees — October 22 (in progress)
 
 The first implementation increment adds private lifecycle contracts in

@@ -2,6 +2,18 @@
 
 ## Home and files
 
+Home puts the composer above your projects and recent chats. Use the sidebar for
+Files, Scheduled tasks, Source Control and Terminal; Library opens skill management.
+The side panel can still be resized or hidden. Narrow windows use an icon rail
+and a collapsible panel.
+
+The composer’s **+**, model and access controls open compact menus. Model settings
+and Access settings open the corresponding section of the centered Settings
+window. Your draft stays in place. Settings → General contains theme, Gentle
+motion, Personalization and Companionship; tool setup is under Connections.
+Turning Gentle motion off removes travel and bounce. Your device’s reduced-motion
+preference also takes precedence, even when Gentle motion is on.
+
 Type `/` at the start of a plain line to filter commands and enabled, reviewed
 skills. Use Up/Down and Enter or Tab to choose; Escape dismisses the picker and
 keeps the text. Paths and fenced code keep normal editing, and IME composition

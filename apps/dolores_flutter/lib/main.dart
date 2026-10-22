@@ -32,6 +32,7 @@ import 'thread_fork.dart';
 import 'attachments.dart';
 
 import 'theme.dart';
+import 'home_landing.dart';
 import 'settings.dart';
 import 'desktop_frame.dart';
 import 'desktop_share.dart';
@@ -70,7 +71,10 @@ class DoloresApp extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: host?.appearanceChanges ?? chat.appearanceChanges,
+    animation: Listenable.merge([
+      host?.appearanceChanges ?? chat.appearanceChanges,
+      chat.reducedMotion,
+    ]),
     builder: (context, _) => MaterialApp(
       title: 'Dolores',
       debugShowCheckedModeBanner: false,
@@ -83,15 +87,22 @@ class DoloresApp extends StatelessWidget {
             'dark' => ThemeMode.dark,
             _ => ThemeMode.system,
           },
-      builder: (context, child) => RepaintBoundary(
-        key: captureKey,
-        child: desktopFrame
-            ? DesktopFrame(
-                onTogglePanel: host?.togglePanel,
-                onBeforeClose: host?.requestClose,
-                child: child!,
-              )
-            : child!,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          disableAnimations:
+              MediaQuery.of(context).disableAnimations ||
+              (host?.visible ?? chat).reducedMotion.value,
+        ),
+        child: RepaintBoundary(
+          key: captureKey,
+          child: desktopFrame
+              ? DesktopFrame(
+                  onTogglePanel: host?.togglePanel,
+                  onBeforeClose: host?.requestClose,
+                  child: child!,
+                )
+              : child!,
+        ),
       ),
       home: host == null
           ? ChatPage(chat: chat)
@@ -103,12 +114,23 @@ class DoloresApp extends StatelessWidget {
 class ChatPage extends StatefulWidget {
   final ChatController chat;
   final bool embedded;
-  const ChatPage({super.key, required this.chat, this.embedded = false});
+  final Future<void> Function(String)? onSelectChat, onSelectProject;
+  final Future<void> Function()? onOpenProject;
+  const ChatPage({
+    super.key,
+    required this.chat,
+    this.embedded = false,
+    this.onSelectChat,
+    this.onSelectProject,
+    this.onOpenProject,
+  });
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
 
 class _ChatPageState extends State<ChatPage> {
+  final composerKey = GlobalKey();
+  final modelSettingsAction = Object();
   final input = ComposerController();
   final commands = GlobalKey<ComposerCommandsState>();
   final focus = FocusNode();
@@ -573,70 +595,34 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget welcome(Palette p) => Center(
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: p.soft,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(
-                Icons.all_inclusive_rounded,
-                size: 35,
-                color: p.accent,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              chat.workspaceKind == 'side'
-                  ? 'A little space to think.'
-                  : 'What are we working on?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 30,
-                color: p.text,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              chat.workspaceKind == 'project'
-                  ? 'Work with files in ${chat.workspaceLabel}.'
-                  : chat.workspaceKind == 'side'
-                  ? 'A conversation without file access.'
-                  : 'Start here, or open a project. Your working folder is ready when you send.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, color: p.muted),
-            ),
-            const SizedBox(height: 28),
-            if (chat.workspaceKind != 'project')
-              TextButton.icon(
-                key: const Key('welcome-open-project'),
-                onPressed: chat.busy || chat.changing || chat.loading
-                    ? null
-                    : openProject,
-                icon: const Icon(Icons.folder_open_outlined, size: 18),
-                label: const Text('Open project…'),
-              ),
-            if (!chat.configured)
-              OutlinedButton.icon(
-                onPressed: chat.loading ? null : settings,
-                icon: const Icon(Icons.tune, size: 17),
-                label: const Text('Connect a model'),
-              ),
-          ],
-        ),
-      ),
-    ),
+  Widget welcome(Palette p) => HomeLanding(
+    composer: composer(p),
+    title: chat.workspaceKind == 'side'
+        ? 'A little space to think.'
+        : 'Where shall we begin?',
+    subtitle: chat.workspaceKind == 'project'
+        ? 'Work with files in ${chat.workspaceLabel}.'
+        : chat.workspaceKind == 'side'
+        ? 'A conversation without file access.'
+        : 'Bring a thought. We’ll take it from here.',
+    projects: chat.projects,
+    sessions: chat.sessions,
+    openProject: chat.changing || chat.loading
+        ? null
+        : widget.onOpenProject ?? openProject,
+    connectModel: !chat.configured && !chat.loading ? settings : null,
+    selectProject: widget.onSelectProject ?? (root) => chat.openProject(root),
+    selectChat: widget.onSelectChat ?? chat.select,
+    canSuggest: chat.draft.isEmpty && !chat.changing && !chat.loading,
+    suggest: (value) {
+      input.text = value;
+      chat.draft = value;
+      focus.requestFocus();
+      setState(() {});
+    },
   );
   Widget composer(Palette p) => Column(
+    key: composerKey,
     mainAxisSize: MainAxisSize.min,
     children: [
       if (!chat.busy && chat.modelTexts.isNotEmpty)
@@ -851,7 +837,7 @@ class _ChatPageState extends State<ChatPage> {
         decoration: BoxDecoration(
           color: p.surface,
           border: Border.all(color: p.border),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: p.dark ? 0.12 : 0.025),
@@ -973,6 +959,7 @@ class _ChatPageState extends State<ChatPage> {
                       height: 36,
                       child: PopupMenuButton<String>(
                         key: const Key('attach-file'),
+                        popUpAnimationStyle: surfaceAnimation(context),
                         tooltip: 'Add to chat',
                         enabled: !chat.busy && !chat.changing && !chat.loading,
                         onSelected: (value) => value == 'window'
@@ -992,31 +979,47 @@ class _ChatPageState extends State<ChatPage> {
                         icon: const Icon(Icons.add, size: 20),
                       ),
                     ),
-                  if (chat.workspaceKind != 'side') AccessSelector(chat: chat),
                   if (chat.configured && chat.enabledModels.isNotEmpty)
                     Expanded(
                       child: Align(
-                        alignment: Alignment.centerRight,
-                        child: PopupMenuButton<String>(
+                        alignment: Alignment.centerLeft,
+                        child: PopupMenuButton<Object>(
                           key: const Key('chat-model-picker'),
+                          popUpAnimationStyle: surfaceAnimation(context),
                           tooltip: 'Choose model',
                           enabled:
                               !chat.busy && !chat.changing && !chat.loading,
                           initialValue: chat.model,
-                          onSelected: chat.selectModel,
+                          onSelected: (value) =>
+                              identical(value, modelSettingsAction)
+                              ? requestSettings()
+                              : chat.selectModel(value as String),
                           itemBuilder: (_) => [
                             for (final model in chat.enabledModels)
                               PopupMenuItem(
                                 value: model,
                                 child: SizedBox(
                                   width: 240,
-                                  child: Text(
-                                    model,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          model,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (model == chat.model)
+                                        const Icon(Icons.check, size: 16),
+                                    ],
                                   ),
                                 ),
                               ),
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: modelSettingsAction,
+                              child: const Text('Model settings'),
+                            ),
                           ],
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -1056,6 +1059,7 @@ class _ChatPageState extends State<ChatPage> {
                     )
                   else
                     const Spacer(),
+                  if (chat.workspaceKind != 'side') AccessSelector(chat: chat),
                   ContextIndicator(
                     summary: chat.contextSummary,
                     basis: chat.contextBasis,
@@ -1088,7 +1092,7 @@ class _ChatPageState extends State<ChatPage> {
                         foregroundColor: p.bg,
                         disabledBackgroundColor: p.soft,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(9),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                       ),
                       iconSize: 18,
@@ -1333,23 +1337,24 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           )),
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: UiTokens.contentWidth,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    narrow ? 24 : 40,
-                    12,
-                    narrow ? 24 : 40,
-                    24,
+            if (chat.messages.isNotEmpty || chat.busy || chat.loading)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: UiTokens.contentWidth,
                   ),
-                  child: composer(p),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      narrow ? 24 : 40,
+                      12,
+                      narrow ? 24 : 40,
+                      24,
+                    ),
+                    child: composer(p),
+                  ),
                 ),
               ),
-            ),
           ],
         );
         if (widget.embedded) return Scaffold(body: body);

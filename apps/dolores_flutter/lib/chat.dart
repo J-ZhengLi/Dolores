@@ -32,6 +32,22 @@ class _ViewState {
 
 class ChatController extends ChangeNotifier {
   final appearanceChanges = ValueNotifier<String>('system');
+  final reducedMotion = ValueNotifier<bool>(false);
+  Future<void> saveReducedMotion(bool reduce) async {
+    final current =
+        await bridge.call({'command': 'experimentalPreferences'}) as Map;
+    final saved = await bridge.call({
+      'command': 'saveExperimentalPreferences',
+      'preferences': {
+        ...Map<String, dynamic>.from(current['preferences'] as Map),
+        'reduceMotion': reduce,
+      },
+    }) as Map;
+    if (!_disposed) {
+      reducedMotion.value = saved['preferences']['reduceMotion'] == true;
+    }
+  }
+
   String get appearance => appearanceChanges.value;
   set appearance(String theme) {
     if (!_disposed) appearanceChanges.value = theme;
@@ -1014,6 +1030,7 @@ class ChatController extends ChangeNotifier {
     final state = await bridge.call({'command': 'bootstrap'});
     nativeStartup = state['nativeStartup'] == true;
     appearance = state['appearance'] as String? ?? 'system';
+    reducedMotion.value = state['reduceMotion'] == true;
     durableDrafts = state['durableDrafts'] == true;
     instructionQueueAvailable = state['instructionQueue'] == true;
     commandPickerAvailable = state['commandPicker'] == true;
@@ -1971,6 +1988,7 @@ class ChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     appearanceChanges.dispose();
+    reducedMotion.dispose();
     _timer?.cancel();
     _draftTimer?.cancel();
     if (ownsBridge) unawaited(bridge.close());

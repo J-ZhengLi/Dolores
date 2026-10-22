@@ -84,6 +84,10 @@ decision changes.
 
 - Route broader configuration through an explicit dropdown link to the relevant
   settings category. Keep short choices in dropdowns rather than side panels.
+- Keep Personalization and Companionship reachable under General, permission
+  controls under Access, and tool connections under Connections. Library opens
+  skill management. Retain named navigation to Files, Source Control, Terminal
+  and Scheduled tasks alongside Home.
 - Dropdowns stay within the viewport and flip above their trigger near the bottom
   edge. They dismiss on outside interaction or Escape, support arrow keys and
   Enter, and return focus to the trigger after selection or Escape. Keep the
@@ -129,6 +133,8 @@ decision changes.
   current rendered state and takes effect immediately. Animate a window entrance
   only when opening it; field and category changes keep the window stationary.
 - Respect both the OS reduced-motion preference and an in-app motion preference.
+  Persist the in-app choice and apply it across conversations; failed saves retain
+  the last acknowledged choice. OS reduced motion takes precedence.
   Reduced motion removes travel, bounce and scale effects while preserving clear
   immediate state feedback. Repeating animation is limited to meaningful active
   progress, with a readable static alternative.

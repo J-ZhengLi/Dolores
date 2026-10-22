@@ -25,6 +25,7 @@ import 'native_repairs.dart';
 import 'experimental_settings.dart';
 import 'companionship_settings.dart';
 import 'background_settings.dart';
+import 'glass_navigation.dart';
 
 enum SettingsCategory {
   background,
@@ -63,6 +64,7 @@ Future<void> showSettings(
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
+    animationStyle: surfaceAnimation(context),
     builder: (_) =>
         SettingsWindow(chat: chat, initial: initial, modelsPage: modelsPage),
   );
@@ -83,14 +85,7 @@ class SettingsWindow extends StatefulWidget {
   State<SettingsWindow> createState() => _SettingsWindowState();
 }
 
-enum SettingsSection {
-  general,
-  models,
-  personalization,
-  memory,
-  tools,
-  advanced,
-}
+enum SettingsSection { general, models, memory, access, tools, advanced }
 
 SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
     switch (category) {
@@ -102,7 +97,8 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
             ? SettingsSection.advanced
             : SettingsSection.models,
       SettingsCategory.personalization ||
-      SettingsCategory.companionship => SettingsSection.personalization,
+      SettingsCategory.companionship => SettingsSection.general,
+      SettingsCategory.permissions => SettingsSection.access,
       SettingsCategory.memory => SettingsSection.memory,
       SettingsCategory.advancedHome ||
       SettingsCategory.nativeRepairs ||
@@ -133,9 +129,9 @@ class _SettingsWindowState extends State<SettingsWindow> {
   static const labels = {
     SettingsSection.general: ('General', Icons.contrast),
     SettingsSection.models: ('Models', Icons.auto_awesome_outlined),
-    SettingsSection.personalization: ('Personalization', Icons.tune),
     SettingsSection.memory: ('Memory', Icons.bookmarks_outlined),
-    SettingsSection.tools: ('Tools', Icons.extension_outlined),
+    SettingsSection.access: ('Access', Icons.shield_outlined),
+    SettingsSection.tools: ('Connections', Icons.extension_outlined),
     SettingsSection.advanced: ('Advanced', Icons.settings_outlined),
   };
   static const destinations = <(String, SettingsCategory, ModelsPage, String)>[
@@ -496,6 +492,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
           key: const Key('settings-window'),
           insetPadding: const EdgeInsets.all(16),
           backgroundColor: p.bg,
+          clipBehavior: Clip.antiAlias,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 960, maxHeight: 720),
             child: Column(
@@ -663,33 +660,42 @@ class _SettingsWindowState extends State<SettingsWindow> {
                         children: [
                           Container(
                             width: 180,
-                            color: p.sidebar,
+                            decoration: p.sidebarDecoration,
                             child: ListView(
                               padding: const EdgeInsets.all(12),
                               children: [
-                                for (final value in SettingsSection.values)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: TextButton.icon(
-                                      key: Key('settings-${value.name}'),
-                                      onPressed: pending
-                                          ? null
-                                          : () => selectSection(value),
-                                      style: TextButton.styleFrom(
-                                        alignment: Alignment.centerLeft,
-                                        foregroundColor: p.text,
-                                        backgroundColor: section == value
-                                            ? p.soft
-                                            : null,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 16,
+                                GlassNavigation(
+                                  selected: SettingsSection.values.indexOf(
+                                    section,
+                                  ),
+                                  children: [
+                                    for (final value in SettingsSection.values)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 4,
+                                        ),
+                                        child: TextButton.icon(
+                                          key: Key('settings-${value.name}'),
+                                          onPressed: pending
+                                              ? null
+                                              : () => selectSection(value),
+                                          style: TextButton.styleFrom(
+                                            alignment: Alignment.centerLeft,
+                                            foregroundColor: p.text,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                          ),
+                                          icon: Icon(
+                                            labels[value]!.$2,
+                                            size: 18,
+                                          ),
+                                          label: Text(labels[value]!.$1),
                                         ),
                                       ),
-                                      icon: Icon(labels[value]!.$2, size: 18),
-                                      label: Text(labels[value]!.$1),
-                                    ),
-                                  ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
@@ -719,6 +725,25 @@ class AppearanceSettings extends StatefulWidget {
 class _AppearanceSettingsState extends State<AppearanceSettings> {
   bool pending = false;
   String? error;
+  Future<void> motion(bool gentle) async {
+    if (pending) return;
+    setState(() {
+      pending = true;
+      error = null;
+    });
+    try {
+      await widget.chat.saveReducedMotion(!gentle);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => error = "Couldn't save motion. Your previous choice is retained. Try again.",
+        );
+      }
+    } finally {
+      if (mounted) setState(() => pending = false);
+    }
+  }
+
   Future<void> save(String appearance) async {
     if (pending || widget.chat.appearance == appearance) return;
     setState(() {
@@ -728,7 +753,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     try {
       await widget.chat.saveAppearance(appearance);
     } catch (failure) {
-      if (mounted) setState(() => error = '$failure');
+      if (mounted) {
+        setState(
+          () => error = '$failure Your previous theme is retained. Try again.',
+        );
+      }
     } finally {
       if (mounted) setState(() => pending = false);
     }
@@ -746,7 +775,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         if (error != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Text('$error Your previous theme is retained. Try again.'),
+            child: Text('$error'),
           ),
         const Text('Theme', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
@@ -798,8 +827,15 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'System follows your device. Theme changes save immediately.',
+        SwitchListTile(
+          key: const Key('gentle-motion'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Gentle motion'),
+          subtitle: const Text(
+            'Follows your device’s reduced-motion preference.',
+          ),
+          value: !widget.chat.reducedMotion.value,
+          onChanged: pending ? null : motion,
         ),
         if (pending) const LinearProgressIndicator(),
       ],

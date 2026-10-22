@@ -20,6 +20,7 @@ import 'file_workspace.dart';
 import 'terminal_page.dart';
 import 'scheduled_page.dart';
 import 'companion_note.dart';
+import 'glass_navigation.dart';
 
 enum WorkspacePage { home, scheduled, folders, sourceControl, terminal }
 
@@ -46,7 +47,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   static const labels = [
     'Home',
     'Scheduled',
-    'Folders',
+    'Files',
     'Source Control',
     'Terminal',
   ];
@@ -174,6 +175,73 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<void> settings() => showSettings(context, host.visible);
+  void selectPage(WorkspacePage value) {
+    setState(() => page = value);
+    if (value == WorkspacePage.scheduled) unawaited(host.scheduled.refresh());
+    if (value == WorkspacePage.terminal) {
+      unawaited(host.terminals.enter(host.visible.session));
+    }
+    if (value == WorkspacePage.folders) {
+      unawaited(host.files.bind(host.visible.session, host.projectRoot));
+    }
+    if (value == WorkspacePage.sourceControl) {
+      unawaited(host.git.bind(host.visible.session, host.projectRoot));
+    }
+  }
+
+  Widget navigation(Palette p) => GlassNavigation(
+    selected: WorkspacePage.values.indexOf(page),
+    rowHeight: 44,
+    children: [
+      for (final value in WorkspacePage.values)
+        TextButton.icon(
+          key: Key('page-${value.name}'),
+          onPressed: () => selectPage(value),
+          style: TextButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            foregroundColor: p.text,
+          ),
+          icon: Icon(icons[value.index], size: 20),
+          label: Text(labels[value.index]),
+        ),
+      TextButton.icon(
+        key: const Key('page-library'),
+        onPressed: () => showSettings(
+          context,
+          host.visible,
+          initial: SettingsCategory.skills,
+        ),
+        style: TextButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        icon: const Icon(Icons.auto_awesome_outlined, size: 20),
+        label: const Text('Library'),
+      ),
+    ],
+  );
+
+  Widget workspaceSidebar(Palette p) => ChatSidebar(
+    width: host.panelWidth,
+    chat: host.visible,
+    independentNavigation: true,
+    navigation: navigation(p),
+    content: page == WorkspacePage.home ? null : panel(p),
+    settingsKey: const Key('rail-settings'),
+    onNewTemporary: () async {
+      await host.newConversation(kind: 'temporary');
+      if (mounted) selectPage(WorkspacePage.home);
+    },
+    onNewSide: () async {
+      await host.newConversation(kind: 'side');
+      if (mounted) selectPage(WorkspacePage.home);
+    },
+    onOpenProject: openProject,
+    onProject: (root) => openProject(root),
+    onSelect: host.select,
+    onSettings: settings,
+  );
   Future<void> openProject([String? root]) async {
     root ??= await getDirectoryPath();
     if (root == null) return;
@@ -182,60 +250,33 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   Widget rail(Palette p) => Container(
     width: 64,
-    color: p.sidebar,
+    decoration: p.sidebarDecoration,
     child: Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
-            child: Column(
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+            child: GlassNavigation(
+              selected: WorkspacePage.values.indexOf(page),
+              rowHeight: 56,
               children: [
-                const SizedBox(height: 12),
                 for (final value in WorkspacePage.values)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Semantics(
-                      selected: page == value,
-                      child: IconButton.filledTonal(
-                        key: Key('page-${value.name}'),
-                        tooltip: labels[value.index],
-                        style: IconButton.styleFrom(
-                          backgroundColor: page == value
-                              ? p.soft
-                              : Colors.transparent,
-                          minimumSize: const Size(48, 48),
-                          foregroundColor: p.text,
-                        ),
-                        onPressed: () {
-                          setState(() => page = value);
-                          if (value == WorkspacePage.scheduled) {
-                            unawaited(host.scheduled.refresh());
-                          }
-                          if (value == WorkspacePage.terminal) {
-                            unawaited(
-                              host.terminals.enter(host.visible.session),
-                            );
-                          }
-                          if (value == WorkspacePage.folders) {
-                            unawaited(
-                              host.files.bind(
-                                host.visible.session,
-                                host.projectRoot,
-                              ),
-                            );
-                          }
-                          if (value == WorkspacePage.sourceControl) {
-                            unawaited(
-                              host.git.bind(
-                                host.visible.session,
-                                host.projectRoot,
-                              ),
-                            );
-                          }
-                        },
-                        icon: Icon(icons[value.index], size: 21),
-                      ),
-                    ),
+                  IconButton(
+                    key: Key('page-${value.name}'),
+                    tooltip: labels[value.index],
+                    onPressed: () => selectPage(value),
+                    icon: Icon(icons[value.index], size: 21),
                   ),
+                IconButton(
+                  key: const Key('page-library'),
+                  tooltip: 'Library',
+                  onPressed: () => showSettings(
+                    context,
+                    host.visible,
+                    initial: SettingsCategory.skills,
+                  ),
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 21),
+                ),
               ],
             ),
           ),
@@ -414,6 +455,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               key: ObjectKey(host.visible),
               chat: host.visible,
               embedded: true,
+              onSelectChat: host.select,
+              onSelectProject: (root) => openProject(root),
+              onOpenProject: openProject,
             ),
           ),
         ],
@@ -540,19 +584,19 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, c) {
-                  final compact = c.maxWidth < 800;
+                  final compact = c.maxWidth < 800 || c.maxHeight < 620;
                   return Stack(
                     children: [
                       Row(
                         children: [
-                          rail(p),
+                          if (compact || host.panelHidden) rail(p),
                           if (!compact && !host.panelHidden)
                             SizedBox(
                               width: host.panelWidth.clamp(
                                 180,
                                 (c.maxWidth - 300).clamp(180, 420),
                               ),
-                              child: panel(p),
+                              child: workspaceSidebar(p),
                             ),
                           if (!compact) divider(),
                           Expanded(child: content()),

@@ -10,21 +10,22 @@ The finalized design uses **developer-pages variant B** with the amendments belo
 
 ## Navigation and page layout
 
-Use a compact ChatGPT-inspired **icon rail** in this order: **Home, Scheduled,
-Folders, Source Control, Terminal**; **Settings** anchors at the bottom. The ChatGPT desktop design reference replaced the full-width
-labeled navigation study on 2026-10-07. Start at 64 logical pixels with 48-pixel targets;
-page names appear on hover/focus and remain semantic labels. Keep the wider page
-panel beside the rail for sessions/files; brand appears once in that panel.
-Use B's collapsible adjacent panel. A sidebar-layout button at the **top-left of
+The shared shell follows [UI.md](../UI.md): wide windows combine labeled
+navigation and the current page's contextual panel in one sidebar. Home shows
+project chats and recents; developer pages use that space for their existing
+file, change or terminal controls. Keep Home, Scheduled, Files, Source Control,
+Terminal and Library reachable, with Settings at the bottom. Library opens skill
+management. Compact or short windows, and a hidden side panel, use a 64-pixel icon
+rail with hover/focus names and semantic labels. The brand appears once.
+A sidebar-layout button at the **top-left of
 the title bar**, matching the supplied ChatGPT reference, toggles it; neither a
 Close button nor a folder icon substitutes for this control. The panel's divider
 supports mouse resizing down to hidden; reopening restores its last usable width.
 Provide a named keyboard-accessible toggle and preserve panel contents when hidden.
 Preserve Dolores's
 infinity brand, palette, system appearance, message/composer and conversation
-controls. Inspiration does not mean copying assets or exact dimensions. Primary
-navigation is separate from each page's side panel. Keep familiar icons/hints,
-quiet selected backgrounds and contextual actions; no permanent pane action bars.
+controls. Keep primary navigation above the contextual panel, shared glass
+selection feedback, familiar icons/hints and contextual actions.
 
 | Page | Side panel | Main panel | Empty state / availability |
 | --- | --- | --- | --- |

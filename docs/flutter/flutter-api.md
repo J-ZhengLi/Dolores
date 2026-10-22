@@ -1,5 +1,17 @@
 # Flutter/Rust bridge contract
 
+## Motion preference
+
+`bootstrap.reduceMotion` is the local reduced-motion choice. The persisted
+`experimentalPreferences.preferences.reduceMotion` boolean defaults to false for
+older records; `saveExperimentalPreferences` retains its existing revision check
+and returns the acknowledged preferences. The General motion control reads the
+latest preferences and changes only this field, preserving the window and
+keep-awake choices. Failed saves retain the displayed value. Flutter combines
+this preference with OS reduced motion and shares it across conversation owners.
+If the stored preference cannot be read at bootstrap, motion is reduced while
+other app features remain available; an explicit settings save exposes the error.
+
 ## Planning and reference snapshots (EH04)
 
 `bootstrap.planning` advertises `/plan` and `@` discovery. `planning {session}`

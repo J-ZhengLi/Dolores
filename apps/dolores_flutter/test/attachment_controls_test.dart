@@ -50,7 +50,7 @@ class CapabilityBridge implements ChatBridge {
 
 void main() {
   testWidgets(
-    'Attachment action stays at the left with aligned right controls',
+    'Attachment and model stay together while access, context and Send fit the row',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -88,7 +88,10 @@ void main() {
             final send = tester.getRect(find.byKey(const Key('send')));
             expect(attach.left, closeTo(actions.left, 0.1));
             expect(attach.center.dy, closeTo(send.center.dy, 0.1));
-            expect(picker.right, closeTo(context.left, 0.1));
+            final access = tester.getRect(find.byKey(const Key('chat-access')));
+            expect(picker.right, lessThanOrEqualTo(access.left));
+            expect(picker.center.dy, closeTo(send.center.dy, 0.1));
+            expect(access.right, closeTo(context.left, 0.1));
             expect(context.center.dy, closeTo(send.center.dy, 0.1));
             expect(send.right, closeTo(actions.right, 0.1));
             expect(picker.left, greaterThanOrEqualTo(attach.right));

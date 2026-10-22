@@ -1643,7 +1643,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -4030,6 +4030,21 @@ mod tests {
         assert_eq!(
             engine.call(Command::Bootstrap).unwrap()["appearance"],
             "system"
+        );
+        assert_eq!(
+            engine.call(Command::Bootstrap).unwrap()["reduceMotion"],
+            false
+        );
+        let mut motion = engine.store.experimental_preferences().unwrap();
+        motion.reduce_motion = true;
+        engine
+            .call(Command::SaveExperimentalPreferences {
+                preferences: motion,
+            })
+            .unwrap();
+        assert_eq!(
+            engine.call(Command::Bootstrap).unwrap()["reduceMotion"],
+            true
         );
         let command: Command =
             serde_json::from_value(json!({"command":"saveAppearance","theme":"dark"})).unwrap();

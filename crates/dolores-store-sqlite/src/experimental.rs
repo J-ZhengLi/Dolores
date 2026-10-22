@@ -48,12 +48,15 @@ mod tests {
         let mut value = s.experimental_preferences().unwrap();
         assert!(value.multiple_window);
         assert!(!value.prevent_windows_from_locked);
+        assert!(!value.reduce_motion);
         value.multiple_window = false;
+        value.reduce_motion = true;
         let next = s.save_experimental_preferences(&value).unwrap();
         assert!(s.save_experimental_preferences(&value).is_err());
         s.lock().unwrap().execute_batch("CREATE TRIGGER reject_experimental BEFORE UPDATE ON experimental_preferences BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
         let mut failed = next.clone();
         failed.multiple_window = true;
+        failed.reduce_motion = false;
         assert!(s.save_experimental_preferences(&failed).is_err());
         drop(s);
         let s = SqliteStore::open(&p).unwrap();
@@ -65,5 +68,20 @@ mod tests {
                 .unwrap(),
             crate::SCHEMA_VERSION
         );
+    }
+    #[test]
+    fn legacy_preferences_default_to_gentle_motion() {
+        let s = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        s.lock()
+            .unwrap()
+            .execute(
+                "INSERT INTO experimental_preferences(id,data) VALUES(1,?1)",
+                [r#"{"revision":3,"multipleWindow":true,"preventWindowsFromLocked":false}"#],
+            )
+            .unwrap();
+        let value = s.experimental_preferences().unwrap();
+        assert!(!value.reduce_motion);
+        assert_eq!(value.revision, 3);
+        assert!(value.multiple_window);
     }
 }

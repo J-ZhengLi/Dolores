@@ -5,6 +5,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ## [Unreleased]
 
+### Changed
+
+- Refresh the desktop with cool light and graphite dark surfaces, animated glass navigation, a unified labeled sidebar, and a Home composer with project shortcuts. Settings stays in a centered window; model, attachment and access choices use compact menus. General includes a saved Gentle motion preference that respects reduced motion.
+
 ### Added
 
 - Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain bounded output and receipts through failure and restart. Saved commands are never reattached or replayed automatically.

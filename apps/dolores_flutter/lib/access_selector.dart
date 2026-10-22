@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'task_permissions.dart';
+import 'settings.dart';
+import 'theme.dart';
 
 class AccessSelector extends StatefulWidget {
   final ChatController chat;
@@ -93,9 +95,17 @@ class _AccessSelectorState extends State<AccessSelector> {
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
     key: const Key('chat-access'),
+    popUpAnimationStyle: surfaceAnimation(context),
     enabled: !pending && !widget.chat.changing && !widget.chat.loading,
     tooltip: 'Chat access',
-    onSelected: select,
+    constraints: const BoxConstraints(minWidth: 240, maxWidth: 320),
+    onSelected: (choice) => choice == 'settings'
+        ? showSettings(
+            context,
+            widget.chat,
+            initial: SettingsCategory.permissions,
+          )
+        : select(choice),
     itemBuilder: (_) => [
       for (final entry in accessModes.entries)
         PopupMenuItem(
@@ -105,10 +115,23 @@ class _AccessSelectorState extends State<AccessSelector> {
             children: [
               Icon(!custom && mode == entry.key ? Icons.check : null, size: 16),
               const SizedBox(width: 8),
-              Text(entry.value),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.value),
+                    Text(
+                      accessHints[entry.key]!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
+      const PopupMenuDivider(),
+      const PopupMenuItem(value: 'settings', child: Text('Access settings')),
     ],
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
