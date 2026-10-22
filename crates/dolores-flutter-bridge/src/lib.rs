@@ -70,6 +70,9 @@ mod terminal;
 mod timeout_tests;
 mod web;
 mod workspace;
+mod worktree_git;
+mod worktree_identity;
+mod worktrees;
 use approval::{ApprovalSlot, RunApproval};
 mod questions;
 use connection::ConnectionManager;
@@ -128,6 +131,7 @@ struct Engine {
     languages: Mutex<language::Registry>,
     terminals: Mutex<terminal::Registry>,
     git: Arc<Mutex<source_control::Registry>>,
+    worktrees: Arc<Mutex<worktrees::Registry>>,
     editor: Arc<Mutex<editor::Registry>>,
     keep_awake: Mutex<Option<experimental::PowerRequest>>,
     runtime: Runtime,
@@ -268,6 +272,10 @@ enum Command {
     Git {
         session: String,
         request: source_control::Request,
+    },
+    Worktrees {
+        session: String,
+        request: worktrees::Request,
     },
     Editor {
         session: String,
@@ -906,6 +914,7 @@ impl Engine {
         store.recover_task_inputs()?;
         store.recover_goals()?;
         store.recover_command_sessions()?;
+        store.recover_worktrees()?;
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
@@ -921,6 +930,7 @@ impl Engine {
             languages: Mutex::new(Default::default()),
             terminals: Mutex::new(Default::default()),
             git: Arc::new(Mutex::new(Default::default())),
+            worktrees: Arc::new(Mutex::new(Default::default())),
             editor: Arc::new(Mutex::new(Default::default())),
             keep_awake: Mutex::new(None),
             runtime,
@@ -1005,6 +1015,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::Worktrees {session,request}=>return self.worktree_call(&session,request,&active),
             Command::SessionControl {session,request}=>{drop(active);return self.command_session_call(&session,request);},
             Command::ReferenceChoices{session,kind,owner,path,cursor}=>return self.reference_choices(&session,&kind,owner.as_deref(),&path,cursor),
             Command::Planning{session}=>return Ok(json!(self.store.planning(&session)?)),
@@ -1045,9 +1056,10 @@ impl Engine {
             Command::CompanionPolicy{policy,revision}=>{drop(active);return self.companion_policy(policy,revision);},
             Command::CompanionTick{session,busy}=>{drop(active);return self.companion_tick(session.as_deref(),busy);},
             Command::CompanionFeedback{id,action}=>{drop(active);return self.companion_feedback(&id,&action);},
-            Command::Terminal {request} => {drop(active);return self.terminal_call(request);},
-            Command::Language {request} => {drop(active);return self.language_call(request);},
+            Command::Terminal {request} => {return self.terminal_call(request);},
+            Command::Language {request} => {return self.language_call(request);},
             Command::LanguageEdits {session,request} => {
+                let _worktree_pins=self.pin_worktree(&session)?;
                 if !matches!(&request,editor::language_edits::Request::Preview{..}) && self.store.workspace(&session)?.root.is_some_and(|root|active.has_repo(std::path::Path::new(&root))) {return Err("Finish or stop the task in this project before applying language edits. Preview and buffers remain.".into());}
                 drop(active);return self.language_edits_call(&session,request);
             },
@@ -1055,7 +1067,7 @@ impl Engine {
                 if let source_control::Request::Apply{repo,..}=&request {
                     if self.git.lock().map_err(|_|"Source Control is unavailable.")?.review_root(repo).is_some_and(|root|active.has_repo(&root)) {return Err("Finish or stop the task in this repository before its Git mutation. Review and drafts remain.".into());}
                 }
-                drop(active);return self.git_call(&session,request);
+                return self.git_call(&session,request);
             },
             Command::Editor {session,request} => return self.editor_call(&session,request),
             Command::ExperimentalPreferences => return self.experimental_view(),
@@ -1179,6 +1191,7 @@ impl Engine {
                 self.languages.lock().map_err(|_| "Language state is unavailable.")?.stop_all()?;
                 self.terminals.lock().map_err(|_| "Terminal state is unavailable.")?.stop_all()?;
                 self.stop_git()?;
+                self.stop_worktrees()?;
                 self.keep_awake.lock().map_err(|_| "Keep-awake state is unavailable.")?.take();
                 active.close();
                 self.clear_revert()?;
@@ -2057,6 +2070,7 @@ impl Engine {
                     .workspace(session.as_deref().unwrap())?
                     .root
                     .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
+                let worktree_pins = self.pin_worktree(session.as_deref().unwrap())?;
                 active.check_scope(id, &scope)?;
                 if self
                     .git
@@ -2635,6 +2649,7 @@ impl Engine {
                 let store = self.store.clone();
                 let _ = output.try_send(json!({"type":"queued","id":id,"note":"Waiting for an available run slot or project."}));
                 self.runtime.spawn(async move {
+                    let _worktree_pins=worktree_pins;
                     let mut command_lifetime=command_sessions::Lifetime {live:command_owner.clone(),armed:true};
                     let observer_stop=CancellationToken::new();
                     let observer=command_owner.as_ref().map(|owner|tokio::spawn(owner.clone().observe(observer_stop.clone())));
@@ -2644,7 +2659,12 @@ impl Engine {
                     let finishing_work=planning_state.clone();
                     let planning_session=session.clone();
                     let finishing_goal=goal_binding.clone();
-                    let permit = admission.acquire(id, &cancel).await;
+                    let permit = admission.acquire(id, &cancel).await.and_then(|permit| {
+                        if let Some(session)=&session {
+                            if let Some(record)=worktrees::record_for_chat(store.as_ref(),session)? {worktree_git::validate_ready(&record)?;}
+                        }
+                        Ok(permit)
+                    });
                     let result = match permit.as_ref().map_err(Clone::clone) {
                     Err(error) => Err(error),
                     Ok(_) => {

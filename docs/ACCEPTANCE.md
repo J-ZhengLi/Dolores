@@ -1,5 +1,93 @@
 # Dolores acceptance — 2026-10-08
 
+## EH06 managed worktrees — October 22 (in progress)
+
+The first implementation increment adds private lifecycle contracts in
+`crates/dolores-core/src/worktrees.rs` and additive SQLite schema 44 in
+`crates/dolores-store-sqlite/src/worktrees.rs` / `lib.rs`. The core storage port
+is additive; core now uses the existing workspace UUID dependency for identity
+validation. A creation intent, new chat, and actual target-folder binding are
+atomic. Immutable base/source/target/setup fields, monotonic revisions, and
+phase-specific recovery prevent stale saves from redirecting a checkout or
+discarding its saved snapshot. Lifecycle records survive chat deletion and are
+paged independently; local paths remain excluded from conversation exports.
+
+Verification exercised:
+
+- `cargo test -p dolores-core -p dolores-store-sqlite`: 103 core unit tests,
+  7 core integration tests, 88 SQLite unit tests, and 5 SQLite integration tests
+  passed. After tightening recovery transitions, the focused `worktree` filter
+  passed all 7 applicable tests again.
+- Creation/binding, restart interruption without replay, stale updates, duplicate
+  destination rollback, retained archive snapshot after an injected SQLite write
+  failure, chat deletion, export privacy, and multi-page retained records.
+- A version-43 fixture reopens as schema 44 with its original conversation,
+  working-folder binding and unsent draft. The older version-3 migration test
+  also passed in the full suite.
+- `cargo clippy -p dolores-core -p dolores-store-sqlite --all-targets -- -D warnings`
+  passed. Initial compiler findings (missing core UUID dependency and a temporary
+  MutexGuard coercion) were fixed before the successful tests.
+
+### Git creation and host ownership increment
+
+Seven real-Git bridge tests passed with `cargo test -p dolores-flutter-bridge
+managed_worktree -- --nocapture`. They create public repositories under temporary
+fixture directories, with no provider credentials or normal application profile:
+
+- Create two detached, locked worktrees at the exact reviewed commit; edit one
+  independently; retain the original checkout byte-for-byte for its staged index,
+  unstaged file, and untracked file. Chat binding points to each actual checkout.
+- Configure an executable post-checkout hook and an invalid required Git filter;
+  managed creation skips both and materializes the committed file without setup.
+- Reject a different chat using the review, changed repository configuration, an
+  occupied destination, a replaced checkout directory, and redirected Git metadata.
+  Existing contents stay in place and recovery details remain inspectable.
+- Inject failure when saving Ready after successful Git checkout, reopen the host,
+  and explicitly reconcile the existing checkout. Retained user-created work and
+  Git index remain unchanged, and no extra checkout or setup is executed.
+- Pre-cancel creation before saving an intent; no checkout is created. Repository
+  ownership reservations refuse conflicting Source Control operations.
+
+The bridge now exposes background review/create/poll/cancel and explicit creation
+reconciliation operations. Startup marks in-flight lifecycle records for recovery.
+Run admission, editor and Source Control entry validate Ready state plus target,
+common-directory and Git-registration filesystem identities. Creation reserves
+the registered repository roots while active; source Git entry and run admission
+use the existing shared ownership checks. Completed job results remain bounded.
+
+The existing Source Control regression filter also passed all 25 tests after the
+initial reservation change. Subsequent ownership changes retain directory and
+Git-pointer handles through queued/active runs, Source Control jobs, terminals
+and language servers. Shared and nested chats resolve managed ownership by their
+actual folder. A Windows fixture verifies that these pins refuse rename/pointer
+replacement and that unsaved editor buffers remain inspectable/checkpointable
+when the checkout disappears. The parallel-run fixture now passes: independent
+checkouts run concurrently, a shared checkout queues, and cancellation releases
+ownership. It caught missing project-scope registration, now saved atomically
+with creation. Its provider/settings snapshot was also corrected to keep the
+fixture credential-free.
+
+### Foundation commit verification — October 22
+
+The latest combined library test run passed 103 core tests and finished the bridge
+with 207 passed, 2 failed and 1 ignored. The bridge failures were
+`source_control::diff::tests::large_saved_files_render_their_small_changes_in_dolores`
+(Windows error 112, disk full) and
+`repair_evaluation::tests::real_installed_cargo_executes_fixed_baseline_and_candidate_fixture`
+(candidate test execution incomplete; cause not yet established). SQLite was not
+reached in that combined run; its earlier results above remain the available
+evidence. These failures are unresolved, not waived or counted as passes.
+Formatting was checked again before the foundation commit. No normal EH06 desktop
+build or native user journey has been qualified.
+
+Still required: UI creation/details/recovery, complete file/terminal/language and
+queued-run ownership audit, shared-repository races including externally added
+worktrees, reviewed transfer, snapshots/removal/restore, failed manual setup and
+restore plus real disk-pressure recovery, and a normal Windows build/native journey.
+The injected SQLite failure does not qualify disk exhaustion during Git operations.
+The user requested a foundation checkpoint commit before the full batch is done.
+This commit does not complete EH06; all four task checkboxes remain open.
+
 ## EH05 command sessions and isolation — October 22 (complete)
 
 ### Command and MCP integration checkpoint

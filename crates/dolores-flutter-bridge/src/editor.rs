@@ -322,7 +322,22 @@ impl Engine {
         if supplied.is_some_and(|p| p != &project) {
             return Err("Selected project changed. Return to the owning conversation; documents are retained.".into());
         }
-        let fs = EditorFolder::new(std::path::Path::new(&root))?;
+        let buffer_only = matches!(
+            &request,
+            Request::Workspace
+                | Request::Edit { .. }
+                | Request::Checkpoint { .. }
+                | Request::Layout { .. }
+                | Request::Close { .. }
+                | Request::Recover { .. }
+                | Request::Attach { .. }
+        );
+        let _worktree_pins = if buffer_only {
+            None
+        } else {
+            self.pin_worktree(session)?
+        };
+        let fs = || EditorFolder::new(std::path::Path::new(&root));
         let mut registry = self
             .editor
             .lock()
@@ -347,7 +362,7 @@ impl Engine {
                     json!({"project":project,"root":root,"layout":saved["layout"],"recovery":recovery,"documents":registry.docs.values().filter(|d|d.project==project).map(Document::view).collect::<Vec<_>>()}),
                 )
             }
-            Request::Tree { path, cursor, .. } => fs.tree(&path, cursor),
+            Request::Tree { path, cursor, .. } => fs()?.tree(&path, cursor),
             Request::Checkpoint { .. } => {
                 self.editor_checkpoint(&registry, &root)?;
                 Ok(Value::Null)
@@ -399,9 +414,9 @@ impl Engine {
                     d
                 } else {
                     let snapshot = if create {
-                        fs.create(&path, "", false, "lf")?
+                        fs()?.create(&path, "", false, "lf")?
                     } else {
-                        fs.snapshot(&path)?
+                        fs()?.snapshot(&path)?
                     };
                     Document {
                         id: uuid::Uuid::new_v4().to_string(),
@@ -465,7 +480,7 @@ impl Engine {
                 let reload = matches!(&other, Request::Reload { .. });
                 match other {
                     Request::Refresh { .. } => {
-                        let disk = fs.snapshot(&d.snapshot.path)?;
+                        let disk = fs()?.snapshot(&d.snapshot.path)?;
                         if disk.revision == d.snapshot.revision {
                             return Ok(json!({"changed":false}));
                         }
@@ -539,7 +554,7 @@ impl Engine {
                         Ok(ack)
                     }
                     Request::Compare { .. } => {
-                        Ok(json!({"disk":fs.snapshot(&d.snapshot.path)?,"version":d.version}))
+                        Ok(json!({"disk":fs()?.snapshot(&d.snapshot.path)?,"version":d.version}))
                     }
                     Request::Save { .. } => {
                         if d.snapshot.readonly {
@@ -550,7 +565,7 @@ impl Engine {
                             return Err("Resident text limit reached. Close an inactive document before saving.".into());
                         }
                         next.next()?;
-                        next.snapshot = fs.save(
+                        next.snapshot = fs()?.save(
                             &d.snapshot.path,
                             &d.snapshot.revision,
                             &d.text,
@@ -566,7 +581,7 @@ impl Engine {
                         Ok(view)
                     }
                     Request::Reload { revision, .. } | Request::Rebase { revision, .. } => {
-                        let disk = fs.snapshot(&d.snapshot.path)?;
+                        let disk = fs()?.snapshot(&d.snapshot.path)?;
                         if disk.revision != revision {
                             return Err("Disk changed again after comparison. Compare again; edits are retained.".into());
                         }
@@ -604,7 +619,7 @@ impl Engine {
                         }
                         next.next()?;
                         next.snapshot =
-                            fs.create(&path, &d.text, d.snapshot.bom, &d.snapshot.newline)?;
+                            fs()?.create(&path, &d.text, d.snapshot.bom, &d.snapshot.newline)?;
                         let view = next.view();
                         registry.docs.insert(id, next);
                         if let Err(error) =
@@ -645,7 +660,8 @@ impl Engine {
                         }
                         let old_path = d.snapshot.path.clone();
                         next.next()?;
-                        next.snapshot = fs.rename(&d.snapshot.path, &path, &d.snapshot.revision)?;
+                        next.snapshot =
+                            fs()?.rename(&d.snapshot.path, &path, &d.snapshot.revision)?;
                         next.text = next.snapshot.text.clone();
                         let view = next.view();
                         registry.docs.insert(id, next);
@@ -661,7 +677,7 @@ impl Engine {
                             return Err("Save or close dirty views before deleting.".into());
                         }
                         let path = d.snapshot.path.clone();
-                        fs.delete(&path, &d.snapshot.revision)?;
+                        fs()?.delete(&path, &d.snapshot.revision)?;
                         registry.docs.remove(&id);
                         if let Err(error) =
                             self.editor_checkpoint_forget(&registry, &root, Some(&path))

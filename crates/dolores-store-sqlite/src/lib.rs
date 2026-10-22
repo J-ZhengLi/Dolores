@@ -26,13 +26,14 @@ mod scheduling;
 mod skills;
 mod summaries;
 mod workspace;
+mod worktrees;
 use std::{
     path::Path,
     sync::{Mutex, MutexGuard},
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 43;
+pub const SCHEMA_VERSION: i64 = 44;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -261,6 +262,14 @@ impl SqliteStore {
                 CREATE INDEX IF NOT EXISTS command_sessions_owner ON command_sessions(run);
                 PRAGMA user_version=43;COMMIT;").map_err(storage_error)?;
         }
+        if version < 44 {
+            // No cascading chat FK: deleting a conversation cannot discard checkout ownership
+            // or the only durable pointer to an interrupted archive/restore.
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS managed_worktrees(id TEXT PRIMARY KEY,session TEXT NOT NULL UNIQUE,root TEXT NOT NULL UNIQUE COLLATE NOCASE,revision INTEGER NOT NULL CHECK(revision>=0),state TEXT NOT NULL CHECK(state IN ('creating','ready','archiving','archived','restoring','recovery')),data TEXT NOT NULL CHECK(length(data)<=32768));
+                CREATE INDEX IF NOT EXISTS managed_worktrees_state ON managed_worktrees(state);
+                PRAGMA user_version=44;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -271,6 +280,39 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn create_worktree(
+        &self,
+        record: &dolores_core::worktrees::ManagedWorktree,
+    ) -> Result<Session, String> {
+        worktrees::create(self, record)
+    }
+    fn worktree(
+        &self,
+        session: &str,
+    ) -> Result<Option<dolores_core::worktrees::ManagedWorktree>, String> {
+        worktrees::get(self, session)
+    }
+    fn worktrees(
+        &self,
+        cursor: Option<i64>,
+    ) -> Result<dolores_core::worktrees::WorktreePage, String> {
+        worktrees::list(self, cursor)
+    }
+    fn worktree_for_root(
+        &self,
+        root: &str,
+    ) -> Result<Option<dolores_core::worktrees::ManagedWorktree>, String> {
+        worktrees::for_root(self, root)
+    }
+    fn save_worktree(
+        &self,
+        record: &dolores_core::worktrees::ManagedWorktree,
+    ) -> Result<(), String> {
+        worktrees::save(self, record)
+    }
+    fn recover_worktrees(&self) -> Result<(), String> {
+        worktrees::recover(self)
+    }
     fn save_command_session(
         &self,
         r: &dolores_core::command_sessions::SessionRecord,

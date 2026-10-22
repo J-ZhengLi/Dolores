@@ -43,6 +43,7 @@ mod change;
 mod request_settings;
 mod token_context;
 mod workspace;
+pub mod worktrees;
 pub use accounting::{ContextSummary, Reply, StreamOutcome, TokenUsage, TurnMetadata};
 mod automatic_memory;
 mod instructions;
@@ -988,6 +989,27 @@ pub trait SessionStore: Send + Sync {
     }
     fn create_workspace_session(&self, _: &str, _: &SessionWorkspace) -> Result<Session, String> {
         Err("This storage plugin does not support working folders.".into())
+    }
+    fn create_worktree(&self, _: &worktrees::ManagedWorktree) -> Result<Session, String> {
+        Err("This storage plugin does not support managed worktrees.".into())
+    }
+    fn worktree(&self, _: &str) -> Result<Option<worktrees::ManagedWorktree>, String> {
+        Ok(None)
+    }
+    fn worktree_for_root(&self, _: &str) -> Result<Option<worktrees::ManagedWorktree>, String> {
+        Ok(None)
+    }
+    fn worktrees(&self, _: Option<i64>) -> Result<worktrees::WorktreePage, String> {
+        Ok(worktrees::WorktreePage {
+            items: vec![],
+            next_cursor: None,
+        })
+    }
+    fn save_worktree(&self, _: &worktrees::ManagedWorktree) -> Result<(), String> {
+        Err("This storage plugin does not support managed worktrees.".into())
+    }
+    fn recover_worktrees(&self) -> Result<(), String> {
+        Ok(())
     }
     fn descriptor(&self) -> PluginDescriptor;
     fn list(&self) -> Result<Vec<Session>, String>;

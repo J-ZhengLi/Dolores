@@ -69,6 +69,7 @@ pub(crate) struct Registry {
     install: Option<crate::language_tools::Install>,
     servers: HashMap<String, Server>,
     jobs: Arc<Mutex<HashMap<String, Job>>>,
+    worktree_pins: HashMap<String, crate::worktree_git::ReadyPins>,
 }
 impl Registry {
     pub(crate) fn stop_all(&mut self) -> Result<(), String> {
@@ -111,6 +112,7 @@ impl Registry {
                 let _ = t.join();
             }
         }
+        self.worktree_pins.clear();
         self.jobs
             .lock()
             .map_err(|_| "Language state unavailable.")?
@@ -751,11 +753,23 @@ impl Engine {
                 position,
                 name,
             } => {
+                let pins = self.pin_worktree(&session)?;
                 let root = self
                     .store
                     .workspace(&session)?
                     .root
                     .ok_or("Select a project conversation on Home.")?;
+                if self
+                    .git
+                    .lock()
+                    .map_err(|_| "Repository ownership is unavailable.")?
+                    .mutation_overlaps(Path::new(&root))
+                {
+                    return Err(
+                        "Wait for the repository operation before requesting language features."
+                            .into(),
+                    );
+                }
                 let snapshot = self
                     .editor
                     .lock()
@@ -767,10 +781,16 @@ impl Engine {
                     .and_then(|p| p.parent())
                     .ok_or("Private profile directory unavailable.")?
                     .join("language-tools");
-                self.languages
+                let mut registry = self
+                    .languages
                     .lock()
-                    .map_err(|_| "Language state unavailable.")?
-                    .submit(root, snapshot, feature, position, name, &managed)
+                    .map_err(|_| "Language state unavailable.")?;
+                let result =
+                    registry.submit(root.clone(), snapshot, feature, position, name, &managed)?;
+                if let Some(pins) = pins {
+                    registry.worktree_pins.insert(root, pins);
+                }
+                Ok(result)
             }
             Request::Poll { id } => {
                 let state = self

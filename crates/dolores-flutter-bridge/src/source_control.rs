@@ -80,12 +80,35 @@ pub(crate) struct Registry {
     lanes: BTreeMap<String, Arc<Mutex<()>>>,
     reviews: BTreeMap<String, mutation::Review>,
     mutations: BTreeMap<String, PathBuf>,
+    worktrees: BTreeMap<String, Vec<PathBuf>>,
 }
 impl Registry {
     pub fn mutation_overlaps(&self, root: &Path) -> bool {
         self.mutations
             .values()
+            .chain(self.worktrees.values().flatten())
             .any(|r| within(root, r) || within(r, root))
+    }
+    pub(super) fn reserve_worktree(&mut self, id: &str, roots: &[PathBuf]) -> Result<(), String> {
+        if self.closed
+            || roots.iter().any(|root| {
+                self.mutation_overlaps(root)
+                    || self
+                        .active
+                        .keys()
+                        .any(|r| within(Path::new(r), root) || within(root, Path::new(r)))
+            })
+        {
+            return Err(
+                "A repository operation is still running. Wait, then retry the worktree review."
+                    .into(),
+            );
+        }
+        self.worktrees.insert(id.into(), roots.to_vec());
+        Ok(())
+    }
+    pub(super) fn release_worktree(&mut self, id: &str) {
+        self.worktrees.remove(id);
     }
     pub fn review_root(&self, id: &str) -> Option<PathBuf> {
         self.reviews.get(id).map(|r| r.root.clone())
@@ -397,11 +420,20 @@ impl Engine {
                 Ok(Value::Null)
             }
             operation => {
+                let worktree_pins = self.pin_worktree(session)?;
                 let root = self
                     .store
                     .workspace(session)?
                     .root
                     .ok_or("Select a project conversation on Home or open a folder.")?;
+                if state
+                    .worktrees
+                    .values()
+                    .flatten()
+                    .any(|r| within(Path::new(&root), r) || within(r, Path::new(&root)))
+                {
+                    return Err("Worktree management owns this repository. Wait for it to finish, then Refresh.".into());
+                }
                 if state.jobs.len() >= 8
                     || state.active.len() >= 2
                     || state.active.contains_key(&root)
@@ -434,6 +466,7 @@ impl Engine {
                 let editor = self.editor.clone();
                 let owned = id.clone();
                 std::thread::spawn(move || {
+                    let _worktree_pins = worktree_pins;
                     let result = Repo::discover(&root, &cancel).and_then(|repo| {
                         let lane = {
                             let mut state = registry

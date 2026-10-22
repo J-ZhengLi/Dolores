@@ -78,6 +78,7 @@ struct Session {
     stopping: Arc<AtomicBool>,
     tree: Option<tree::Tree>,
     threads: Vec<std::thread::JoinHandle<()>>,
+    worktree_pins: Option<crate::worktree_git::ReadyPins>,
 }
 #[derive(Default)]
 pub(crate) struct Registry {
@@ -143,6 +144,7 @@ impl Session {
                 if self.state != "exited" {
                     self.state = "stopped";
                 }
+                self.worktree_pins.take();
                 return Ok(());
             }
             std::thread::sleep(Duration::from_millis(10));
@@ -297,6 +299,7 @@ impl Registry {
             stopping,
             tree: Some(tree),
             threads: vec![read, write],
+            worktree_pins: None,
         };
         let value = session.view();
         self.sessions.insert(id, session);
@@ -436,6 +439,15 @@ impl Engine {
                 home,
                 shell,
             } => {
+                let pins = if home {
+                    None
+                } else {
+                    session
+                        .as_deref()
+                        .map(|s| self.pin_worktree(s))
+                        .transpose()?
+                        .flatten()
+                };
                 let root = if home {
                     None
                 } else {
@@ -448,7 +460,23 @@ impl Engine {
                     .map(PathBuf::from)
                     .or_else(|| directories::BaseDirs::new().map(|b| b.home_dir().to_owned()))
                     .ok_or("OS home directory is unavailable.")?;
-                state.create(&cwd, shell.as_deref())
+                if self
+                    .git
+                    .lock()
+                    .map_err(|_| "Repository ownership is unavailable.")?
+                    .mutation_overlaps(&cwd)
+                {
+                    return Err(
+                        "Wait for the repository operation before opening a terminal here.".into(),
+                    );
+                }
+                let result = state.create(&cwd, shell.as_deref())?;
+                state
+                    .sessions
+                    .get_mut(result["id"].as_str().unwrap())
+                    .unwrap()
+                    .worktree_pins = pins;
+                Ok(result)
             }
             Request::List => Ok(json!(state
                 .sessions
