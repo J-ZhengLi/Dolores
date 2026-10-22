@@ -21,6 +21,9 @@ use tokio_util::sync::CancellationToken;
 
 pub mod credentials;
 use credentials::Credentials;
+mod isolation;
+pub use isolation::ExecutionHost;
+use isolation::Reviewed;
 
 const SECONDS: u64 = 30;
 const MAX_FRAME: usize = 64 * 1024;
@@ -53,6 +56,9 @@ fn fingerprints(
     deadline: Instant,
 ) -> Result<Vec<McpFingerprint>, String> {
     launch.validate()?;
+    let root = root
+        .canonicalize()
+        .map_err(|_| "Working folder is unavailable.")?;
     let mut files = vec![(PathBuf::from(&launch.executable), 128 * 1024 * 1024)];
     let mut seen = BTreeSet::from([PathBuf::from(&launch.executable)]);
     for arg in &launch.args {
@@ -141,17 +147,14 @@ impl Session {
         cancel: CancellationToken,
         deadline: Instant,
         credentials: Credentials,
+        reviewed: &Reviewed,
     ) -> Result<(Self, String, String, String), String> {
         check(&cancel, deadline)?;
         credentials.validate_launch(launch)?;
         let mut environment = process::environment();
         environment.extend(credentials.0.iter().map(|(n, v)| (n.into(), v.into())));
-        let (process, mut input, output, error) = process::spawn_stdio(
-            Path::new(&launch.executable),
-            &launch.args,
-            root,
-            &environment,
-        )?;
+        let (process, mut input, output, error) =
+            reviewed.spawn(root, launch, &environment, &cancel)?;
         let (sender, receiver) = mpsc::sync_channel::<WriteJob>(1);
         // The owner can kill the process while a non-reading server blocks stdin.
         let writer = thread::spawn(move || {
@@ -364,19 +367,18 @@ impl Session {
         }
         Err("MCP catalog exceeds four pages. Use a smaller server catalog.".into())
     }
-    fn close(&mut self) {
+    fn close(&mut self) -> Result<(), String> {
         self.input.take();
+        // Kill before joining: a server may stop reading after its last reply.
+        let cleaned = self.process.stop_checked();
         if let Some(writer) = self.writer.take() {
             let _ = writer.join();
         }
-        let end = Instant::now() + Duration::from_millis(200);
-        while Instant::now() < end {
-            if self.process.try_exit().ok().flatten().is_some() {
-                break;
-            }
-            thread::sleep(Duration::from_millis(5));
+        if cleaned {
+            Ok(())
+        } else {
+            Err("MCP process cleanup is incomplete. Inspect Commands and Retry cleanup; the tool was not replayed.".into())
         }
-        self.process.stop();
     }
 }
 impl Drop for Session {
@@ -408,16 +410,32 @@ pub fn inspect_with_credentials(
     cancel: CancellationToken,
     credentials: Credentials,
 ) -> Result<Inspection, String> {
+    inspect_with_host(root, launch, cancel, credentials, ExecutionHost::default())
+}
+pub fn inspect_with_host(
+    root: &Path,
+    launch: McpLaunch,
+    cancel: CancellationToken,
+    credentials: Credentials,
+    host: ExecutionHost,
+) -> Result<Inspection, String> {
     credentials.validate_launch(&launch)?;
     let root = root
         .canonicalize()
         .map_err(|_| "Working folder is unavailable.")?;
     let deadline = Instant::now() + Duration::from_secs(SECONDS);
+    let reviewed = host.review(&root, &launch, &cancel)?;
     let hashes = fingerprints(&root, &launch, &cancel, deadline)?;
-    let (mut session, protocol_version, server_name, server_version) =
-        Session::start(&root, &launch, cancel.clone(), deadline, credentials)?;
+    let (mut session, protocol_version, server_name, server_version) = Session::start(
+        &root,
+        &launch,
+        cancel.clone(),
+        deadline,
+        credentials,
+        &reviewed,
+    )?;
     let tools = session.tools()?;
-    session.close();
+    session.close()?;
     if tools.is_empty() {
         return Err("MCP server has no supported ordinary tools.".into());
     }
@@ -443,23 +461,33 @@ pub struct McpPlugin {
     root: PathBuf,
     connection: McpConnection,
     index: usize,
-    plans: Mutex<HashMap<String, ToolRequest>>,
+    plans: Mutex<HashMap<String, (ToolRequest, Reviewed)>>,
     vault: Option<Arc<dyn CredentialStore>>,
+    host: ExecutionHost,
 }
 pub fn plugins(root: &Path, connection: McpConnection) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
-    plugins_inner(root, connection, None)
+    plugins_inner(root, connection, None, ExecutionHost::default())
 }
 pub fn plugins_with_credentials(
     root: &Path,
     connection: McpConnection,
     vault: Arc<dyn CredentialStore>,
 ) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
-    plugins_inner(root, connection, Some(vault))
+    plugins_inner(root, connection, Some(vault), ExecutionHost::default())
+}
+pub fn plugins_with_host(
+    root: &Path,
+    connection: McpConnection,
+    vault: Arc<dyn CredentialStore>,
+    host: ExecutionHost,
+) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    plugins_inner(root, connection, Some(vault), host)
 }
 fn plugins_inner(
     root: &Path,
     connection: McpConnection,
     vault: Option<Arc<dyn CredentialStore>>,
+    host: ExecutionHost,
 ) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
     connection.validate()?;
     let root = root
@@ -476,6 +504,7 @@ fn plugins_inner(
                 index,
                 plans: Mutex::new(HashMap::new()),
                 vault: vault.clone(),
+                host: host.clone(),
             }) as Arc<dyn ToolPlugin>
         })
         .collect())
@@ -496,6 +525,11 @@ impl ToolPlugin for McpPlugin {
             return Err("MCP arguments must be a JSON object.".into());
         }
         let tool = &self.connection.tools[self.index];
+        let reviewed = self.host.review(
+            &self.root,
+            &self.connection.launch,
+            &CancellationToken::new(),
+        )?;
         let request = ToolRequest {
             call_id: call.id.clone(),
             name: call.name.clone(),
@@ -509,6 +543,7 @@ impl ToolPlugin for McpPlugin {
                 tool: tool.name.clone(),
                 arguments: arguments.to_string(),
                 revision: self.connection.revision,
+                isolation: reviewed.preview(),
                 credential_names: self
                     .connection
                     .credentials
@@ -524,7 +559,7 @@ impl ToolPlugin for McpPlugin {
         if plans.len() >= dolores_core::MAX_TOOL_CALLS || plans.contains_key(&call.id) {
             return Err("MCP approval limit reached.".into());
         }
-        plans.insert(call.id.clone(), request.clone());
+        plans.insert(call.id.clone(), (request.clone(), reviewed));
         Ok(request)
     }
     fn discard(&self, request: &ToolRequest) {
@@ -537,7 +572,7 @@ impl ToolPlugin for McpPlugin {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        let plan = self
+        let (plan, reviewed) = self
             .plans
             .lock()
             .map_err(|_| "MCP approval is unavailable.")?
@@ -553,7 +588,7 @@ impl ToolPlugin for McpPlugin {
         let cancel = cancel.child_token();
         let _guard = CancelOnDrop(cancel.clone());
         tokio::task::spawn_blocking(move || {
-            invoke_reviewed(root, connection, index, arguments, cancel, vault)
+            invoke_reviewed(root, connection, index, arguments, cancel, vault, reviewed)
         })
         .await
         .map_err(|_| "MCP worker failed.")?
@@ -567,6 +602,7 @@ fn invoke_reviewed(
     arguments: String,
     cancel: CancellationToken,
     vault: Option<Arc<dyn CredentialStore>>,
+    reviewed: Reviewed,
 ) -> Result<String, String> {
     let deadline = Instant::now() + Duration::from_secs(SECONDS);
     if root.canonicalize().ok().as_ref() != Some(&root) {
@@ -590,6 +626,7 @@ fn invoke_reviewed(
         cancel.clone(),
         deadline,
         credentials,
+        &reviewed,
     )?;
     let catalog = session.tools()?;
     if protocol != connection.protocol_version
@@ -638,11 +675,16 @@ fn invoke_reviewed(
         Some(Value::Bool(value)) => *value,
         _ => return Err("MCP result has an invalid error flag.".into()),
     };
-    let encoded = json!({"text":text,"isError":is_error}).to_string();
+    let mut result = json!({"text":text,"isError":is_error});
+    if let Some(isolation) = reviewed.preview() {
+        result["execution"] = json!("isolated; Windows LPAC; network denied");
+        result["isolation"] = json!(isolation);
+    }
+    let encoded = result.to_string();
     if encoded.len() > dolores_core::MAX_TOOL_BYTES {
         return Err("MCP result exceeds its encoded limit.".into());
     }
-    session.close();
+    session.close()?;
     check(&cancel, deadline)?;
     Ok(encoded)
 }

@@ -19,6 +19,7 @@ from mcp_fixture_support import CHAT_TOOLS, WORKSPACE_TOOLS, assert_catalog
 parser = argparse.ArgumentParser()
 parser.add_argument('stage', choices=['save', 'restore'])
 parser.add_argument('--credentials', action='store_true', help='Exercise explicit credentials using the native OS vault; cleans synthetic keys on restore.')
+parser.add_argument('--isolated', action='store_true', help='Use reviewed Windows isolation with a public server copied into the owned project.')
 parser.add_argument('--directory', type=Path, required=True)
 args = parser.parse_args()
 credential = {'name':'DOLORES_MCP_TEST_TOKEN', 'value':'synthetic-native-mcp-credential-test'}
@@ -99,6 +100,8 @@ def done(number, decide=None, stop=False, folder=None):
                 assert request['mcp']['server'] == 'Fixture'
                 assert request['mcp']['tool'] == 'echo'
                 assert json.loads(request['mcp']['arguments']) == {'text': 'synthetic 世界'}
+                if args.isolated:
+                    assert request['mcp']['isolation']['workspace'].endswith('project')
                 assert decide is not None
                 assert not envelope('disableMcp', session=session, revision=1)['ok']
                 call('approveTool', id=number, callId=request['callId'], allow=decide)
@@ -152,6 +155,10 @@ if args.stage == 'save':
         assert call('mcpSettings', session=temporary)['connection'] is None
         assert not envelope('mcpSettings', session=side)['ok']
         launch = {'label': 'Fixture', 'executable': shutil.which('node'), 'args': [str(root / 'scripts/mock-mcp.mjs')] + (['--mode=credential-echo'] if args.credentials else [])}
+        if args.isolated:
+            shutil.copyfile(root / 'scripts/mock-mcp.mjs', folder / 'mock-mcp.mjs')
+            launch['args'] = ['--preserve-symlinks', '--preserve-symlinks-main', 'mock-mcp.mjs'] + (['--mode=credential-echo'] if args.credentials else [])
+            launch['isolation'] = {'readonlyRoots': []}
         assert starts(folder) == 0
         call('inspectMcp', id=1, session=session, launch=launch, credentials=[credential] if args.credentials else [])
         review = done(1)['mcpInspection']
@@ -184,7 +191,13 @@ if args.stage == 'save':
         assert 'error' not in result and starts(folder) == count + 1
         record = messages(session)[-1]['metadata']['agent']['tools'][0]
         assert record['mcp']['tool'] == 'echo'
-        assert json.loads(record['content']) == {'text': expected_text, 'isError': False}
+        content = json.loads(record['content'])
+        assert content['text'] == expected_text and content['isError'] is False
+        if args.isolated:
+            assert content['execution'].startswith('isolated;')
+            assert call('commandSession', session=session, request={'operation':'list'})['isolation']['pendingCleanup'] == 0
+        else:
+            assert content == {'text': expected_text, 'isError': False}
         assert_catalog(requests[0]['tools'], WORKSPACE_TOOLS | {'mcp_tool_1'}, wire=True)
         assert requests[0]['messages'] == preview['messages'], 'Preview differs from initial model context'
         assert json.loads(requests[-1]['messages'][-1]['content'])['text'] == expected_text
@@ -236,6 +249,9 @@ else:
     session, folder = state['session'], Path(state['folder'])
     saved = call('mcpSettings', session=session)['connection']
     assert saved['enabled'] and saved['revision'] == 3
+    if args.isolated:
+        assert saved['launch']['isolation'] == {'readonlyRoots': []}
+        assert call('commandSession', session=session, request={'operation':'list'})['isolation']['pendingCleanup'] == 0
     assert starts(folder) == state['count'], 'Restart auto-started a server'
     assert_catalog(call('context', session=session, input='hello')['tools'], WORKSPACE_TOOLS | {'mcp_tool_1'})
     assert messages(session)[-1]['metadata']['agent']['tools'][0] == state['record']
@@ -270,7 +286,7 @@ else:
     if args.credentials: assert credential['value'] not in exported.read_text(encoding='utf-8')
     call('shutdown')
 with sqlite3.connect(fixture / 'data/dolores.db') as db:
-    assert db.execute('PRAGMA user_version').fetchone()[0] == 38
+    assert db.execute('PRAGMA user_version').fetchone()[0] == 43
     if args.credentials:
         assert credential['value'] not in '\n'.join(db.iterdump())
-print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 38, 'nativeCredentialFlow': args.credentials}))
+print(json.dumps({'ok': True, 'stage': args.stage, 'modelFixtureRequests': len(requests), 'liveProviderRequests': 0, 'schema': 43, 'nativeCredentialFlow': args.credentials, 'isolated': args.isolated}))

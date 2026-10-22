@@ -1,4 +1,58 @@
 use super::*;
+#[cfg(windows)]
+#[tokio::test]
+async fn isolated_one_shot_binds_grants_and_recovers_after_stale_review() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("work");
+    let read = temp.path().join("read");
+    std::fs::create_dir(&root).unwrap();
+    std::fs::create_dir(&read).unwrap();
+    std::fs::write(read.join("public.txt"), "PUBLIC_READ").unwrap();
+    let host = isolation::Host::open(&temp.path().join("state")).unwrap();
+    let tool = RunCommand::new(&root).unwrap().with_isolation(host.clone());
+    let script = format!(
+        "process.stdout.write(require('fs').readFileSync({},'utf8'))",
+        serde_json::to_string(&read.join("public.txt")).unwrap()
+    );
+    let call=ToolCall{id:"isolated".into(),name:"run_command".into(),arguments:json!({"program":"node","args":["-e",script],"isolation":"isolated","readonly_roots":[read]}).to_string()};
+    let request = tool.prepare(&call).unwrap();
+    let mut changed = request.clone();
+    changed
+        .command
+        .as_mut()
+        .unwrap()
+        .isolation
+        .as_mut()
+        .unwrap()
+        .readonly_roots
+        .clear();
+    assert!(tool
+        .invoke(&changed, CancellationToken::new())
+        .await
+        .unwrap_err()
+        .contains("changed"));
+    let request = tool.prepare(&call).unwrap();
+    std::fs::rename(&read, temp.path().join("old-read")).unwrap();
+    std::fs::create_dir(&read).unwrap();
+    assert!(tool
+        .invoke(&request, CancellationToken::new())
+        .await
+        .unwrap_err()
+        .contains("changed after review"));
+    std::fs::write(read.join("public.txt"), "FRESH_READ").unwrap();
+    let request = tool.prepare(&call).unwrap();
+    let value: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(value["stdout"], "FRESH_READ");
+    assert_eq!(value["cleanupComplete"], true);
+    assert_eq!(value["reason"], "completed");
+    assert_eq!(host.pending_cleanup().unwrap(), 0);
+}
 fn call(script: &str) -> ToolCall {
     ToolCall {
         id: "one".into(),

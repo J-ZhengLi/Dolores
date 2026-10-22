@@ -370,6 +370,9 @@ impl Engine {
         }
         if working {
             tools.push(dolores_tools_command::command_spec());
+            if cfg!(windows) {
+                tools.push(dolores_tools_command::sessions::session_spec());
+            }
             tools.push(spec());
             if self.workspace_directory.is_some() {
                 tools.push(crate::harness_repair::spec());
@@ -391,7 +394,7 @@ impl Engine {
                 tools.extend(c.specs());
             }
         }
-        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if matches!(tool.name.as_str(), "inspect_harness" | "request_user_input") { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if matches!(tool.name.as_str(), "web_search" | "read_web_page") { "web adapter; no bundled source" } else if tool.name == "run_command" { "command adapter; no bundled source" } else { "files" }})).collect();
+        let catalog: Vec<_> = tools.iter().map(|tool| json!({"id":tool.name,"enabled":true,"available":configured,"permission":"host checks current task mode and exact grants","empiricallyTested":"unknown","source": if matches!(tool.name.as_str(), "inspect_harness" | "request_user_input") { "host" } else if tool.name == "delegate_tasks" {"subagents"} else if tool.name.starts_with("mcp_tool_") { "external server; no bundled source" } else if matches!(tool.name.as_str(), "web_search" | "read_web_page") { "web adapter; no bundled source" } else if matches!(tool.name.as_str(), "run_command" | "command_session") { "command adapter; no bundled source" } else { "files" }})).collect();
         let sources: Vec<_> = ALIASES
             .iter()
             .map(|(key, path)| {

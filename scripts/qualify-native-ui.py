@@ -17,6 +17,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--flutter-sdk', type=Path)
+    cases = {
+        'local': ('test/native_local_ui_test.dart', 'receipt.json'),
+        'scheduled': ('test/native_scheduled_ui_test.dart', 'schedule-receipt.json'),
+        'stop': ('test/native_stop_ui_test.dart', 'stop-receipt.json'),
+        'queue': ('test/native_queue_ui_test.dart', 'queue-receipt.json'),
+        'goal': ('test/native_goal_ui_test.dart', 'goal-receipt.json'),
+        'plan': ('test/native_plan_ui_test.dart', 'plan-receipt.json'),
+        'chat-safeguards': ('test/native_chat_safeguards_ui_test.dart', 'chat-safeguards-receipt.json'),
+        'commands': ('test/native_commands_ui_test.dart', 'commands-receipt.json'),
+        'isolated-commands': ('test/native_isolated_commands_ui_test.dart', 'commands-isolated-receipt.json'),
+    }
+    parser.add_argument('--case', action='append', choices=cases, help='Run selected journeys; default: all.')
     args = parser.parse_args()
     if os.name != 'nt':
         parser.error('This qualification currently needs the Windows native bundle.')
@@ -31,12 +43,10 @@ def main():
                DOLORES_GLOBAL_SKILLS_DIR=str(base / 'skills'),
                DOLORES_AUDIT_LIBRARY=str(desktop.executable().parent / 'dolores_flutter_bridge.dll'),
                FLUTTER_SUPPRESS_ANALYTICS='true', DART_SUPPRESS_ANALYTICS='true')
+    selected = list(dict.fromkeys(args.case or cases))
     command = [desktop.flutter_path(args.flutter_sdk), '--no-version-check',
                'test', '--no-pub', '--concurrency=1',
-               'test/native_local_ui_test.dart', 'test/native_scheduled_ui_test.dart',
-               'test/native_stop_ui_test.dart', 'test/native_queue_ui_test.dart',
-               'test/native_goal_ui_test.dart', 'test/native_plan_ui_test.dart',
-               'test/native_chat_safeguards_ui_test.dart']
+               *(cases[name][0] for name in selected)]
     with (base / 'test.log').open('w', encoding='utf-8') as log:
         child = subprocess.Popen(command, cwd=desktop.APP, env=env,
                                  stdout=log, stderr=subprocess.STDOUT)
@@ -50,10 +60,10 @@ def main():
             print(f'Native UI qualification timed out. Evidence retained at {base}.')
             return 1
     print((base / 'test.log').read_text(encoding='utf-8')[-2400:])
-    if status or not all((base / name).is_file() for name in ('receipt.json', 'schedule-receipt.json', 'stop-receipt.json', 'queue-receipt.json', 'goal-receipt.json', 'plan-receipt.json', 'chat-safeguards-receipt.json')):
+    if status or not all((base / cases[name][1]).is_file() for name in selected):
         print(f'Qualification incomplete. Evidence retained at {base}.')
         return 1
-    print(f'Native bridge/rendered UI passed; receipt: {base / "receipt.json"}')
+    print(f'Native bridge/rendered UI passed ({", ".join(selected)}); evidence: {base}')
     return 0
 
 

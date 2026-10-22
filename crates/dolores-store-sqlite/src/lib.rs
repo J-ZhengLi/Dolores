@@ -7,6 +7,7 @@ mod automatic_memory;
 #[cfg(test)]
 mod change_tests;
 mod changes;
+mod command_sessions;
 mod comparison;
 mod composer_skills;
 mod experimental;
@@ -31,7 +32,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 42;
+pub const SCHEMA_VERSION: i64 = 43;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -254,6 +255,12 @@ impl SqliteStore {
         if version < 42 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS planning(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS plan_versions(session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,revision INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(session,revision)); PRAGMA user_version=42; COMMIT;").map_err(storage_error)?;
         }
+        if version < 43 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS command_sessions(run TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,id TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=0),data TEXT NOT NULL CHECK(length(data)<=8192),output BLOB NOT NULL CHECK(length(output)<=262144),PRIMARY KEY(run,id));
+                CREATE INDEX IF NOT EXISTS command_sessions_owner ON command_sessions(run);
+                PRAGMA user_version=43;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -264,6 +271,32 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn save_command_session(
+        &self,
+        r: &dolores_core::command_sessions::SessionRecord,
+    ) -> Result<(), String> {
+        command_sessions::save(self, r)
+    }
+    fn command_sessions(
+        &self,
+        s: &str,
+        r: Option<&str>,
+        c: Option<i64>,
+    ) -> Result<dolores_core::command_sessions::ReceiptPage, String> {
+        command_sessions::list(self, s, r, c)
+    }
+    fn command_session_output(
+        &self,
+        s: &str,
+        r: &str,
+        id: &str,
+        offset: usize,
+    ) -> Result<dolores_core::command_sessions::OutputPage, String> {
+        command_sessions::output(self, s, r, id, offset)
+    }
+    fn recover_command_sessions(&self) -> Result<(), String> {
+        command_sessions::recover(self)
+    }
     fn planning(&self, s: &str) -> Result<dolores_core::planning::PlanningState, String> {
         planning::read(&*self.lock()?, s)
     }

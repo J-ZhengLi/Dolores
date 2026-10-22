@@ -1287,7 +1287,7 @@ struct Read {
 }
 
 #[tokio::test]
-async fn packaged_catalog_accepts_twenty_tools_and_refuses_excess_or_duplicates() {
+async fn packaged_catalog_accepts_twenty_three_tools_and_refuses_excess_or_duplicates() {
     struct Registered(usize);
     #[async_trait]
     impl ToolPlugin for Registered {
@@ -1305,7 +1305,7 @@ async fn packaged_catalog_accepts_twenty_tools_and_refuses_excess_or_duplicates(
             unreachable!()
         }
     }
-    for count in [20, 21] {
+    for count in [20, 23, 24] {
         let provider = Scripted {
             calls: Mutex::new(vec![]),
             loop_forever: false,
@@ -1327,7 +1327,7 @@ async fn packaged_catalog_accepts_twenty_tools_and_refuses_excess_or_duplicates(
             CancellationToken::new(),
         )
         .await;
-        if count == 20 {
+        if count <= 23 {
             assert_eq!(result.unwrap().answer, "Final answer");
         } else {
             assert_eq!(result.err().unwrap(), "Tool registration is invalid.");
@@ -1410,6 +1410,7 @@ impl ToolPlugin for CommandMock {
             command: Some(CommandPreview {
                 invocation,
                 executable: "/runtime/node".into(),
+                isolation: None,
                 timeout_seconds: 30,
                 capture_bytes: 8192,
             }),
@@ -1466,6 +1467,158 @@ async fn command_denial_binds_exact_arguments_and_public_records_omit_executable
         .contains("/runtime/node"));
     let legacy:ToolRecord=serde_json::from_value(json!({"callId":"legacy","name":"read_text_file","target":"note","status":"read","content":"text"})).unwrap();
     assert!(legacy.command.is_none());
+}
+
+#[tokio::test]
+async fn session_start_and_input_reach_review_but_invalid_executable_shapes_do_not() {
+    struct SessionMock(u8);
+    #[async_trait]
+    impl ToolPlugin for SessionMock {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "command_session".into(),
+                description: "session".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            let mut request = CommandMock.prepare(&ToolCall {
+                id: call.id.clone(),
+                name: call.name.clone(),
+                arguments: json!({"program":"node","args":["--version"]}).to_string(),
+            })?;
+            request.query = Some(call.arguments.clone());
+            if matches!(self.0, 1 | 3 | 4 | 5) {
+                request.command = None;
+            }
+            Ok(request)
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            panic!("These operations must be denied or refused before dispatch")
+        }
+    }
+    for case in 0..6 {
+        let operation = match case {
+            0 | 3 => "start",
+            4 => "unknown",
+            _ => "input",
+        };
+        let arguments =
+            json!({"operation":operation,"text":"x".repeat(if case==5 {32768} else {1024})})
+                .to_string();
+        let provider = Scripted {
+            calls: Mutex::new(vec![ToolCall {
+                id: "session-review".into(),
+                name: "command_session".into(),
+                arguments,
+            }]),
+            loop_forever: false,
+        };
+        let approval = Approval {
+            allow: false,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let result = run_small_agent(
+            &provider,
+            context(),
+            &[Arc::new(SessionMock(case))],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await;
+        if case <= 1 {
+            let reply = result.unwrap();
+            assert_eq!(reply.summary.tools[0].status, "denied");
+            assert!(reply.summary.tools[0].query.as_ref().unwrap().len() > 1024);
+            assert_eq!(approval.count.load(Ordering::SeqCst), 1);
+        } else {
+            assert!(result.is_err());
+            assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+        }
+    }
+}
+
+#[tokio::test]
+async fn command_session_failures_keep_the_actual_input_limit_and_stale_revision_recovery() {
+    struct SessionFailure(bool);
+    #[async_trait]
+    impl ToolPlugin for SessionFailure {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "command_session".into(),
+                description: "session".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            if self.0 {
+                return Err(
+                    "Input must contain 1–4096 UTF-8 bytes, or explicitly close stdin with eof."
+                        .into(),
+                );
+            }
+            Ok(ToolRequest {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                target: "owned-session".into(),
+                query: Some(call.arguments.clone()),
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            Err("Input revision changed. Nothing was sent.".into())
+        }
+    }
+    for preparation in [false, true] {
+        let provider = Scripted {
+            calls: Mutex::new(vec![ToolCall {
+                id: "input-one".into(),
+                name: "command_session".into(),
+                arguments:
+                    json!({"operation":"input","session":"owned-session","revision":0,"text":"yes"})
+                        .to_string(),
+            }]),
+            loop_forever: false,
+        };
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let reply = run_small_agent(
+            &provider,
+            context(),
+            &[Arc::new(SessionFailure(preparation))],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let record = &reply.summary.tools[0];
+        assert!(
+            record.content.contains(if preparation {
+                "4096 UTF-8 bytes"
+            } else {
+                "Input revision changed"
+            }),
+            "{}",
+            record.content
+        );
+        assert!(record.content.contains("Commands"));
+        assert!(
+            !record.content.contains("File request") && !record.content.contains("Folder tool")
+        );
+        assert_eq!(record.status, if preparation { "blocked" } else { "error" });
+        assert_eq!(
+            approval.count.load(Ordering::SeqCst),
+            usize::from(!preparation)
+        );
+    }
 }
 
 struct DiscoveryMock {

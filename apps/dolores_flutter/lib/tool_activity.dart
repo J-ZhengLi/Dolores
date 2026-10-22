@@ -175,7 +175,7 @@ String toolResultText(dynamic record) {
       return 'Shared task used ${usage?['modelCalls'] ?? '?'} model calls and ${usage?['toolCalls'] ?? '?'} tool operations when children returned.\n${result['note'] ?? ''}';
     }
     if ('${record['name']}'.startsWith('mcp_tool_')) {
-      return '${result['isError'] == true ? 'Tool reported an error\n\n' : ''}${result['text'] ?? ''}';
+      return '${result['execution'] == null ? '' : '${result['execution']}\n'}${result['isError'] == true ? 'Tool reported an error\n\n' : ''}${result['text'] ?? ''}';
     }
     if (record['name'] == 'run_command') {
       final outcome = switch (result['reason']) {
@@ -347,8 +347,23 @@ class ToolApprovalCard extends StatelessWidget {
     final repairing = name == 'harness_repair';
     final evaluating = name == 'test_harness_repair';
     final building = name == 'build_harness_repair';
-    final running = name == 'run_command';
+    Map? sessionOperation;
+    if (name == 'command_session' && request['query'] is String) {
+      try {
+        final decoded = jsonDecode(request['query'] as String);
+        if (decoded is Map) sessionOperation = decoded;
+      } on FormatException {
+        // Retain the literal request below when an old receipt is malformed.
+      }
+    }
+    final commandSession = name == 'command_session';
+    final running =
+        name == 'run_command' ||
+        commandSession && sessionOperation?['operation'] == 'start';
     final external = request['mcp'] is Map;
+    final isolation =
+        (request['command'] as Map?)?['isolation'] ??
+        (request['mcp'] as Map?)?['isolation'];
     final credentialNames =
         (request['mcp'] as Map?)?['credentialNames'] as List? ?? [];
     final title = switch (name) {
@@ -359,6 +374,10 @@ class ToolApprovalCard extends StatelessWidget {
       'edit_text_file' => 'Apply this file change?',
       'create_text_file' => 'Create this file?',
       'run_command' => 'Run this command?',
+      'command_session' =>
+        sessionOperation?['operation'] == 'input'
+            ? 'Send this input to the command?'
+            : 'Allow this command operation?',
       'inspect_harness' => 'Inspect the running harness?',
       'harness_repair' => 'Review this repair step?',
       'test_harness_repair' => 'Build and test this repair?',
@@ -371,6 +390,8 @@ class ToolApprovalCard extends StatelessWidget {
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
+      'command_session' =>
+        'The exact operation below addresses one task-owned command. Input may cause further file or network effects. A written receipt means delivery to stdin, not completion of those effects. Output goes to ${chat.model} and local history. Stop closes owned processes; completed effects may remain.',
       'desktop_control' => 'Review the exact action and selected window below. Coordinates use the latest screenshot. This may submit data or change files through that application. Input receipts prove dispatch only; Dolores must observe again. Stop or failure can leave effects; inspect before repeating. Desktop access is separate from folder access.',
       'browser' =>
         'Uses one fresh visible browser for this run. Review the literal operation below. Click/input can submit data or cause external effects and always need fresh approval. Only this origin loads; no saved profile, passwords, uploads/downloads or popups. Page text/state goes to ${chat.model} and local evidence. Screenshots stay local. Stop closes owned resources; submitted effects may remain.',
@@ -456,7 +477,9 @@ class ToolApprovalCard extends StatelessWidget {
                   if (running || external) ...[
                     const SizedBox(height: 6),
                     Text(
-                      external || running
+                      isolation is Map
+                          ? 'Isolated command · network denied. The working folder is writable; additional listed folders are read-only. File changes may remain after Stop.'
+                          : external || running
                           ? 'Runs with your OS permissions; may change files or use the network. Effects may remain after Stop.'
                           : disclosure,
                       style: TextStyle(color: p.muted, fontSize: 12),
@@ -484,6 +507,14 @@ class ToolApprovalCard extends StatelessWidget {
                         fontFamily: 'monospace',
                         fontSize: 12,
                       ),
+                    ),
+                  ],
+                  if (isolation is Map) ...[
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      'Writable: ${isolation['workspace']}\nRead-only: ${((isolation['readonly_roots'] as List?) ?? []).join(', ')}\nThe runtime copy is read-only. Isolation setup failure stops this command.',
+                      key: const Key('command-isolation-grants'),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                   if (running && request['command'] is Map) ...[
@@ -539,6 +570,8 @@ class ToolApprovalCard extends StatelessWidget {
                           ? 'Inspect this source/range:'
                           : repairing || evaluating || building
                           ? 'Exact repair step:'
+                          : commandSession
+                          ? 'Exact command operation and input (JSON):'
                           : name == 'read_text_file'
                           ? 'Read these lines (start:count):'
                           : name == 'web_search'
@@ -561,6 +594,7 @@ class ToolApprovalCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   if (!running && !external)
                     Text(switch (name) {
+                      'command_session' => disclosure,
                       'desktop_control' => 'Input affects the selected window. Submission or deletion may be irreversible.',
                       'browser' => 'Click or input may submit data or change this website.',
                       'web_search' => 'The query and returned sources are shared with the search service and your model.',

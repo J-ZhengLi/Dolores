@@ -12,7 +12,9 @@ impl ToolProposalHook for ValidateProposal {
             || request.target.len() > 1024
             || request.query.as_ref().is_some_and(|q| {
                 q.len()
-                    > if request.name == "goal_progress" {
+                    > if request.name == "command_session" {
+                        32768
+                    } else if request.name == "goal_progress" {
                         8192
                     } else if matches!(
                         request.name.as_str(),
@@ -168,7 +170,11 @@ impl Engine {
             true,
             working,
             vec!["user-account-process".into()],
-            vec!["run_command".into()],
+            if cfg!(windows) {
+                vec!["run_command".into(), "command_session".into()]
+            } else {
+                vec!["run_command".into()]
+            },
         )?;
         add(
             "introspection",

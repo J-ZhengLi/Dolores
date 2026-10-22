@@ -439,7 +439,31 @@ Working models can request folder listing, literal search, text reads and file c
 
 **Changes** retains file before/after snapshots independently of the final reply. Select a record, **Review revert**, inspect the reverse diff, then **Revert once**; a recorded creation offers **Remove once**. Changed files require another review. **Needs check** indicates an uncertain receipt to inspect. Applied files can remain after Stop or a later model failure. Command and MCP effects are outside this journal.
 
-Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable installed local servers under **Settings → External tools**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
+Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Native commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable installed local servers under **Settings → External tools**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
+
+Open **Commands** from Activity or Earlier tasks to inspect a task-owned process,
+read incremental output, send exact input, close stdin, interrupt or close its
+handle. Two live commands per task and four per host are allowed. Each input is
+at most 4 KiB, with one pending write and 64 KiB total per session. Model-proposed
+input requires review; **Send input** sends the text you entered. Delivery to
+stdin does not prove the command acted on it. Commands end with their owning run;
+saved output remains available afterward. Restart marks lost commands and
+uncertain input rather than reconnecting or replaying. **Retry saving** retries
+only receipt storage and preserves the visible output and draft.
+
+For supported Node commands, explicitly request isolated execution. For an MCP
+connection, choose **Run in isolation** before inspecting it. Windows isolation
+grants write access to the selected working folder and read access to up to eight
+additional listed folders. Review shows those exact paths, including in Full
+access mode. Network access is denied; unsupported runtimes and failed setup
+refuse without switching to native. A changed grant folder needs a fresh review.
+**Retry cleanup** in Commands revokes retained grants without replaying the command.
+
+Keep isolated Node scripts/modules inside the reviewed folders. Use explicit
+`--preserve-symlinks` and `--preserve-symlinks-main` arguments before a local script.
+Child processes must inherit stdio: Node-created child pipes can stall, and the
+host deadline or **Interrupt** stops the owned tree. Human Terminal tabs, browser
+helpers and native repair builds keep their existing native execution mode.
 
 If a task pauses at an output/agent-step limit, inspect retained work and choose **Continue** on the latest paused reply. This starts another bounded run with current settings and fresh approvals. Send or clear any current draft first. **Repair and verify** uses saved failed/incomplete command evidence to repair work and rerun the same check. A model's success claim does not clear failed checks.
 

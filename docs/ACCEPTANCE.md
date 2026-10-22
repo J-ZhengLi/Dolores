@@ -1,5 +1,365 @@
 # Dolores acceptance — 2026-10-08
 
+## EH05 command sessions and isolation — October 22 (complete)
+
+### Command and MCP integration checkpoint
+
+Shared launch policy now routes explicit isolated Node commands, supervised
+sessions and MCP servers through the same LPAC lease. Reviews retain exact root
+identities before execution; replacements refuse and a fresh review recovers.
+Native MCP configurations deserialize unchanged. Full access does not bypass
+isolated-root review. Unsupported runtime/host combinations fail without native
+fallback. Bridge startup and explicit Commands cleanup retain unexpected files
+and never replay a command.
+
+The command crate passed 32 cases plus two parent-invoked worker entry points
+before the descendant-by-name refinement. The refined offline CommonJS build
+passes with inherited child stdio and retains both HTML and child artifacts.
+Node-created child pipes instead stalled, including with a 2-second Node child
+timeout; that failed diagnostic is not counted as successful compatibility.
+Host deadlines/Stop remain the recovery boundary. The runtime copy preserves its
+executable basename and provides only its owned directory on PATH.
+
+All 12 MCP transport cases pass, including an isolated real Node stdio discovery
+and tool call, an actual denied sibling write, no launch from default/unavailable
+isolation hosts, stale read-only-root refusal and explicit fresh-review recovery.
+The three Commands bridge cases pass, including cleanup failure retaining its
+foreign file/output/draft, no retry from polling, and explicit cleanup recovery.
+All 15 focused MCP/Commands widgets pass. The new compact review checks exact
+writable/read-only roots and no native-permissions wording, starts nothing before
+Inspect, and invalidates review when the mode changes while retaining fields.
+The initial assertion tried to inspect a lazily unmounted field; scrolling it
+back into view corrected the test. Changed bridge all-target compilation passes.
+
+The normal Windows build passes through the supported helper. Its bundled and
+optimized Rust bridge DLLs both hash to
+`77f40d85fe214d63dc9ff7e1d156317820620a7e284436369c490043130560c8`.
+The fresh combined suite passes 101 core cases, seven core integration cases,
+32 command cases (plus two parent-invoked workers), and 12 MCP cases. Changed
+Dart analysis reports no issues. The compact dark MCP review render was inspected
+at `output/eh05-mcp-isolation-review-fonts/mcp-isolated-review-dark.png`:
+grants and both actions are readable. The render-only theme supplies an explicit
+system font for otherwise unspecified button fonts; it changes no product code.
+
+The native isolated command journey passes at
+`output/native-ui/5ce7b1ba646148b4a8a98a1e578398fe/commands-isolated-receipt.json`.
+The normal bridge consumes two public provider responses, reviews isolation in
+Flutter, denies an actual sibling write (EPERM) and TCP connect (EACCES), accepts
+exact 20-byte Unicode input, interrupts the owned process and reopens durable
+output. Cleanup completes with zero pending journals and the draft survives.
+Its saved render shows isolation, retained denial/input output and disabled
+finished-session input. Some generic labels still use test-font fallback; this
+does not establish normal desktop typography or physical IME acceptance.
+
+Retained eight-case transport evidence is at
+`output/isolation-qualification/0a73dabee22e4e94b012c4a26f34d571/receipt.json`.
+The separate opt-in public network receipt is at
+`output/isolation-qualification/b9fd5cb03ac34da993bd2110cb033fb4/receipt.json`.
+Native controls connect to an owned listener on the local adapter and to
+1.1.1.1:443, and resolve example.com through the system resolver. LPAC returns
+EACCES for both connections and EAI_FAIL for the same resolver operation.
+EAI_FAIL is recorded as resolver failure, not mislabeled as a socket-denial
+code; no timeout counts as denial. No payload or private DNS name is sent.
+This is evidence for these exercised APIs on this Windows host, not a universal
+claim about every OS broker or future runtime. The case is opt-in and excluded
+from deterministic CI; `--public-network` retains its separate source-bound log.
+
+Final MCP save/restart qualification now passes (see the final integration follow-up below). Node-created
+child pipes remain an explicit unsupported combination. The final integration follow-up closes the declared EH05.3/.4 gates. Public fixtures only;
+normal profiles, credentials, installed runtime ACLs and firewall remain unchanged.
+
+### Final integration follow-up
+
+The native MCP save fixture initially refused a relative script at Enable: the
+inspection fingerprint used a canonical Windows root while the save recheck used
+the caller spelling. Fingerprinting now canonicalizes its root consistently.
+The isolated MCP regression explicitly exercises verify-before-save and passes.
+Clippy also exposed the larger review payload in the existing Restore enum;
+boxing that variant preserves behavior and all three existing revert tests pass.
+Five-crate all-target Clippy passes with warnings denied.
+
+The broad bridge sweep passed 199 cases and skipped the explicit live-provider
+case; its new human-input fixture failed once by reading the output file before
+the child had written it. Its stdout echo occurs before append. The test now
+waits for the exact file effect as well as output, preserving the product
+contract that pipe delivery does not prove execution. No production timeout or
+retry policy was changed. All three focused command bridge cases pass afterward;
+the corrected case also passes eight explicit repetitions without retries.
+The final normal Windows build passes after the fingerprint correction. Bundled
+and optimized bridge DLLs match SHA-256
+`d2cdb892fe44c2c7f9f234c3f9cd8f857ac5f11aaabbe5b3a313b2500cfbf659`.
+Native MCP save and separate-process restore both pass under
+`output/eh05-native-mcp-isolated-retry/`: seven public model-fixture requests,
+zero live-provider requests, no credential flow, schema 43. Inspection, enabling,
+exact tool approval, metadata-drift refusal, Stop, disable/re-enable, cancelled
+inspection, saved isolation restoration, export and Forget all pass. Restart
+starts no server and leaves no pending cleanup. The earlier failing fixture at
+`output/eh05-native-mcp-isolated/` remains retained.
+
+EH05 is complete for its declared Windows Node/MCP boundary. Other runtimes and
+native helper paths remain explicit; Node-created child pipes are unsupported.
+Real-model reliability, physical Windows input and clean-machine qualification
+remain separate EH10/release work. Earlier transport paragraphs below describe
+historical checkpoints and do not override this final status.
+
+### Earlier LPAC runtime transport checkpoints
+
+The Windows LPAC transport now exists in `dolores-tools-command` behind an
+unadvertised library API. It copies the reviewed executable into private runtime
+storage, creates a unique package identity with registryRead and no network
+capabilities, applies writable-workspace/read-only-resource grants only to that
+package SID, and supplies the LPAC/handle-list process attributes before resuming
+the child inside its kill-on-close job. Attribute storage and SID allocations
+remain live through process creation. No setup path falls back to native launch.
+
+A synced journal precedes profile/grant effects. Cleanup merges the current ACL
+and revokes only the owned SID, retaining other trustees. A host gate serializes
+its grant/cleanup writes. Root handles pin their namespace while live; recorded
+volume/file identities reject replacement roots during recovery. Reparse paths,
+hard links, overlapping grants and grants containing private state are refused.
+Validation/cleanup explicitly stop at 65,536 entries or 64 levels; runtime copies
+stop at 256 MiB. These are new transport bounds, not changes to native commands.
+Cleanup failure retains its journal; completed cleanup has an idempotent marker,
+and unexpected private files are preserved. Recovery never reattaches or replays.
+
+Retained transport receipt:
+`output/isolation-qualification/3f421a58405d4270b822ed74da1caf0f/receipt.json`.
+All six parent cases pass; two ignored worker cases are explicitly invoked by
+their parents. No cleanup journal remains. The receipt binds source SHA-256s.
+The broader command crate run passes 28 cases, with those two helper workers
+ignored at the top level. Changed core/command/bridge all-target Clippy passes
+with warnings denied; the two bridge command-session regressions still pass.
+
+Exercised actual Windows controls:
+
+- Exact Unicode stdin and separate stdout/stderr; workspace read/write, additional
+  read-only reads, denied read-only writes and denied sibling access.
+- Matching unrestricted Node TCP IPv4/IPv6, UDP and inbound-bind controls succeed.
+  LPAC returns EACCES for all four operations; no timeout is counted as denial.
+- Unrestricted WRITE_DAC opens succeed for user-owned read-only/workspace/state/
+  runtime objects; LPAC opens return error 5 for all four, preventing user
+  ownership from silently expanding those ACL rights.
+- Two package grants coexist and one package's cleanup preserves the other's
+  ability to run. Setup failure after granting revokes before launch. Hard-link
+  and junction workspaces refuse; fresh reviewed setup then succeeds.
+- A hard-killed owner loses both child and grandchild before delayed writes. The
+  grandchild retains sibling denial and actual TCP EACCES before the kill. Reopen
+  refuses a replacement root, preserves its unrelated file, recovers after the
+  original root is restored, and permits a fresh explicit command without replay.
+- Interrupted private-file cleanup retains an unexpected file, then succeeds
+  after explicit removal; normal completed workspace results remain available.
+
+These tests use only public temporary workspaces and owned loopback listeners.
+Installed runtimes, normal app profiles, firewall, exemptions and installed
+features are unchanged. The latest retained run places all temporary fixtures
+under its output directory. Ordinary Node-file startup still needs compatibility
+qualification; richer module/build runtimes, LAN/external controls, review-bound
+grant identities, cancellation during setup, product command/MCP routing,
+cleanup UX and a fresh integrated normal build remain open. The product continues
+to refuse requested isolation until that integration is qualified. EH05.3/.4
+and the batch commit remain open.
+
+The model-side error-classification gap also has a red/green core regression:
+input-limit and stale-revision failures used to become generic folder errors.
+They now retain the actual bounded reason and point to Commands for inspection
+before another reviewed operation. All 100 core cases and seven integration cases
+pass after this repair. A normal release containing this later change is pending.
+
+The latest transport refinement is source-bound at
+`output/isolation-qualification/6731f009e1d74c4f9e8471990400c954/receipt.json`:
+all seven parent cases pass, with no retained cleanup journals. Before removing
+an inheritable package ACE, cleanup now validates the full tree again. A junction
+introduced after child exit causes explicit retained cleanup rather than ACL
+propagation through that alias. The regression compares the outside target's
+DACL bytes and contents before/after, then removes only the public fixture alias
+and verifies successful recovery. Cleanup errors preserve the actual alias/root
+reason and avoid claiming that no command ran after execution. Core/command
+all-target Clippy passes after this final change. The earlier six-case receipt
+remains historical evidence, not a hash match for the newer source.
+
+Command-session bridge/storage/UX integration is now implemented. Additive schema
+43 saves a starting receipt before native launch, append-only bounded raw output,
+input delivery state and final cleanup evidence. Startup marks previously live
+records lost and pending input uncertain; it never reattaches or replays them.
+The bridge saves progress once per second and at final cleanup. A failed evidence
+write cancels the owner, preserves prior rows and keeps cached output inspectable
+with an explicit Retry saving action. Saved and cached pages are separately
+bounded; a finished handle can be released without deleting its durable output.
+JSON/Markdown export includes these records even without a completed reply and
+preserves raw bytes alongside display text. Chat deletion cascades only its rows.
+
+Activity and Earlier tasks expose Commands with paged output, exact human stdin,
+EOF, Interrupt, Close and save recovery. Model input uses its separate exact
+review, including Full access. Unsent command input survives inspector navigation
+in memory and never replaces the conversation draft. It is not saved across app
+restart. Refresh/poll only read evidence; no action is retried automatically.
+
+Current checks: all 22 command-crate cases, 99 core cases plus seven integration cases, 83 store cases plus five
+memory audit cases pass. Four store cases cover evidence conflicts/write failure,
+restart uncertainty, migration/paging/deletion and lossless scoped exports. Two
+bridge cases pass for human ownership/input, post-release output and failed-save
+cache recovery. The broad bridge run passed 198 cases and ignored one explicit
+live-provider case; one old catalog-count assertion failed (14 tools versus 13).
+Its updated Windows-aware assertion and tool-presence check pass in a focused
+rerun. The packaged registry test first failed at its old 20-entry limit and now
+passes at 23 after including all shipped host tools, browser and two MCP slots;
+execution/output/task allowances did not increase. The full core rerun also
+exposed its older 20/21 boundary test, now checked at 20/23/24 with duplicates
+still refused. All 99 core cases and seven integration cases then pass.
+Four-crate all-target Clippy
+passes with warnings denied.
+
+Four focused command widgets pass: model stdin review, light/dark compact
+input/EOF/interruption/closed-handle inspection, and stale-input/read/save failure
+recovery with no duplicate pending Send. Twenty-one combined command/review/MCP/
+Stop widget cases passed before the final added stdin-review/EOF checks. Changed
+Dart analysis passes. Saved compact renders were inspected under
+`output/eh05-command-ui/`: body/output and wrapping footer fit; some generic action
+labels still use Flutter test font fallback, so they do not establish normal-app
+typography. The normal Windows build passes. Native rendered integration results
+are recorded below when complete. Production isolation, actual crash cleanup,
+physical Windows input and real-model acceptance remain open. EH05 stays open
+and uncommitted until its required isolation gates pass.
+
+The first native command attempt exposed an agent-boundary gap: start receipts
+with both canonical operation JSON and a reviewed executable were rejected by
+the old run-command-only approval shape. The direct transport/LoggedTool tests
+had bypassed that validation. A new core agent test fails on that exact rejection
+and passes after limiting executable previews to run_command or session start,
+requiring a known session operation and allowing its bounded 32 KiB canonical
+query. Input with an executable, start without one, unknown operation and
+oversized arguments all refuse before approval. Retained native failed evidence:
+`output/native-ui/cffe746ec9ba4509b677eb22a3a716fe/`. A prior attempt in
+`output/native-ui/136bb6343285432a857db55ae62a51eb/` passed the seven existing
+journeys, then failed because the new fixture tapped Send before pumping its
+enabled frame; that fixture timing was corrected. Neither failed run is counted
+as command native acceptance. The normal build and native journey are being
+rerun after the approval repair.
+
+The command journey now passes against the rebuilt normal bridge at
+`output/native-ui/12a1c568311a418081a8e2d548154bf7/commands-receipt.json`.
+Rendered controls review and launch the Node fixture, deliver exactly 20 UTF-8
+bytes (`PUBLIC_INPUT 世界\n`), observe the file/output, interrupt its owned tree
+with `cleanupComplete=true`, retain the newer conversation draft and reopen saved
+output after live-owner release. There are exactly two public loopback provider
+requests and a durable human-input intent; no real provider or credential is used.
+The bundle and optimized bridge DLL SHA-256 match. The saved native-connected
+image was inspected: status, input evidence and output are visible; some action
+labels/CJK still use test fallback fonts. This qualifies the native bridge plus
+rendered fixture, not physical desktop input, normal typography or OS isolation.
+
+### Node isolation compatibility probes
+
+The static Rust A/B probe still passes after diagnostic stdio/runtime additions:
+`output/eh05-isolation/rust-post-stdio-20261022-01/paired-receipt.json`.
+These additions copy Node into fresh owned output; installed runtime, drive and
+ancestor ACLs are untouched. Ordinary Node file entry exits 1 before a receipt.
+The captured diagnostic stderr identifies `realpathSync` → `lstat 'D:\\'` →
+`EPERM`; it is not counted as denied network access. An explicit
+`--preserve-symlinks-main` trial and an eval control reach the public fixture.
+
+At `output/eh05-isolation/node-stdio-paired-20261022-02/paired-receipt.json`,
+unrestricted Node reaches the owned TCP IPv4 listener. Both container variants
+retain granted read/write and deny sibling operations with EPERM; only LPAC
+denies the ALL_APPLICATION_PACKAGES-only canary. LPAC returns EACCES/-4092 from
+the actual connect. Unicode stdin and separate stdout/stderr pass with exactly
+the intended bytes through inherited handle-list pipes. The first stdio attempt
+exposed Python text-mode CRLF conversion in the unrestricted control; binary
+input fixes that diagnostic mismatch without normalizing child receipts.
+
+The aggregate Node A/B probe remains **failed**, because ordinary AppContainer
+reports ETIMEDOUT rather than the declared successful ordinary-network control.
+This timeout is never counted as denial or success. The receipt separately shows
+`candidateNetworkDenialPassed=true`, `stdioPassed=true` and
+`ordinaryNetworkAllowObserved=false`. Draining the owned accept backlog in a
+fresh trial does not change that outcome:
+`output/eh05-isolation/node-stdio-drained-20261022-01/paired-receipt.json`.
+The file-entry failure is independently retained with stdout/stderr in
+`output/eh05-isolation/node-file-stdio-20261022-01/paired-receipt.json`.
+Every completed trial reports disposable-profile deletion and no cleanup errors.
+This changes the next implementation/qualification action; it does not qualify
+production isolation or require a privileged broker. Broader network, module/
+toolchain, child-tree, path-alias and crash-cleanup controls remain open.
+
+The first command-supervision transport brick is implemented but unadvertised.
+`CommandSessions` owns run-scoped handles and native process trees, paged combined
+output, reviewed input/EOF, interrupt and close. It reuses the existing literal
+command validation and executable identity checks. Host/task admission counts
+remain held until cleanup is confirmed, including across a later run for the
+same task. Finish closes the owner permanently; previously prepared starts cannot
+dispatch after Finish or Stop. Read-only host inspection still exposes retained
+output after Stop. It does not expose human terminal tabs.
+
+The initial 21 command-crate cases passed, including seven new
+session journeys: Unicode input and stale-review rejection; flooding/deadline and
+explicit recovery; blocked stdin with responsive interruption; run finish/Stop
+and descendant cleanup; task/host admission and closed-handle recovery; unavailable
+isolation/tampering/stale-folder refusal; escaped-output byte paging within the
+tool-result bound. The five focused core permission cases pass; stdin requires
+fresh exact review even under Full access. Clippy for both changed crates across
+all targets passes with warnings denied. These are native Windows/Node transport
+fixtures, not a rendered desktop or provider journey. No normal app profile or
+provider credentials were accessed.
+
+The initial checked-cleanup implementation incorrectly reported lost sessions:
+Windows job accounting reached zero before the root process handle signaled.
+Requiring both observations inside the same bounded wait fixes the regression.
+Failure remains explicit: an unconfirmed tree retains its host slot until app
+restart; a still-pending I/O thread holds its slot until it actually exits.
+Bridge registration, durable receipts, UI and the normal build were pending at
+that transport checkpoint and are covered by the newer integration evidence
+above. Broader crash/reopen/isolation qualification still remains pending.
+
+A subsequent resource-compatibility probe changes the isolation direction. LPAC
+with only the documented `registryRead` capability initializes Winsock and returns
+an actual connect error 10013; the unrestricted listener control succeeds.
+The paired test runs ordinary AppContainer and LPAC with identical registryRead
+grants and no network capabilities. An ALL_APPLICATION_PACKAGES-only public
+canary is readable in ordinary AppContainer and denied with error 5 under LPAC;
+ordinary AppContainer connects to loopback, while LPAC is denied. Both variants
+retain granted workspace access, deny sibling read/write, preserve outside content
+and clean up the profile/owned grants. The paired probe exits zero. Its receipt is
+`output/eh05-isolation/paired-f7417130998c448682fe9062579e9e26/paired-receipt.json`.
+The earlier registryRead trial remains at
+`output/eh05-isolation/lpac-registry-5894d9879bd345548dad06764528b136/receipt.json`;
+it exits nonzero because its token query was unsupported, not because connection
+denial failed. Query error 87 remains recorded as unknown, never changed to true.
+The new paired evidence verifies the documented opt-out behavior separately.
+
+This selects LPAC+registryRead for further qualification before a privileged
+broker. It proves TCP IPv4 loopback denial for the static fixture only. IPv6,
+UDP/inbound/LAN/Internet policy, Node/Python/build-tool runtime grants, stdio,
+descendants, reparse/hard-link paths and crash-safe ACL cleanup remain open.
+No production isolation mode is advertised or enabled by this diagnostic pass.
+The session's pretty-printed provider-argument case also passes after canonical
+query serialization; literal input bytes remain unchanged. Changed-crate Clippy
+and Python compilation checks pass after those final edits.
+
+In the earlier controls, ordinary AppContainer denies sibling read/write with error 5,
+while allowing a real host-loopback connection. The unrestricted control reaches
+the same listener. BFE/MpsSvc and firewall profiles are enabled; this observation
+does not identify why the connection is allowed. LPAC without registryRead accepts the
+opt-out attribute, but its LPAC token query returns error 87. Its Rust Winsock
+initializer panics with error 10107 before a connect result. The diagnostic child
+now catches and records initializer panics, preserving file results and explicitly
+reporting `networkAttemptCompleted=false` with `networkError=null`. A setup or
+runtime failure is never counted as denied network access. Both final probe
+invocations exit nonzero, as required for these rejected candidates.
+
+Final retained diagnostic receipts:
+`output/eh05-isolation/appcontainer-a752d3a3bdd146c892e6bbc96fbafe3a/receipt.json`
+and `output/eh05-isolation/lpac-615c2e48e49d4f71bf7e9ef67ea210bf/receipt.json`.
+Both preserve outside content, remove disposable profiles and owned ACL grants,
+and report no cleanup errors. Earlier failed query/panic trials remain separate.
+No firewall policy, exemptions, feature installation or user data was changed.
+
+[Research](design/eh05-isolation-research.md) records supported API directions and
+their prerequisites. A WFP alternative would need provisioned rights and a
+verified rule lifetime through crashes. Windows Sandbox is absent on this Home
+edition. Real command-session integration, stdin review, receipts, Stop/crash
+recovery and filesystem/network isolation qualification remain open. This is
+feasibility evidence, not completed EH05 acceptance or a release-isolation claim.
+
 ## Chat input, model removal and automatic compaction repairs — October 21–22
 
 An IME composition update could be ignored when focus moved and the committed

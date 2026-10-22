@@ -212,6 +212,7 @@ mod tests {
                 "edit_text_file",
                 "create_text_file",
                 "run_command",
+                "command_session",
                 "web_search",
                 "read_web_page",
                 "browser",
@@ -223,6 +224,11 @@ mod tests {
                 "request_desktop_access",
                 "schedule_task",
                 "manage_scheduled_task",
+                "inspect_goal",
+                "goal_progress",
+                "request_user_input",
+                "mcp_tool_fixture_one",
+                "mcp_tool_fixture_two",
             ]
             .into_iter()
             .map(str::to_string)

@@ -24,6 +24,13 @@ pub(super) struct McpReview {
 }
 
 impl Engine {
+    pub(super) fn mcp_execution_host(&self) -> dolores_tools_mcp::ExecutionHost {
+        #[cfg(windows)]
+        if let Some(host) = &self.isolation_host {
+            return dolores_tools_mcp::ExecutionHost::new(host.clone());
+        }
+        dolores_tools_mcp::ExecutionHost::default()
+    }
     pub(super) fn clear_mcp_review(&self) -> Result<(), String> {
         self.mcp_review.lock().map_err(|_| STALE)?.take();
         Ok(())
@@ -85,6 +92,7 @@ impl Engine {
         let store = self.store.clone();
         let slot = self.mcp_review.clone();
         let vault = self.mcp_credentials.clone();
+        let execution_host = self.mcp_execution_host();
         self.runtime.spawn(async move {
             let result = async {
                 let check_root = root.clone();
@@ -109,7 +117,7 @@ impl Engine {
                         values.push((input.name, value));
                     }
                     let credentials = Credentials::new(values)?;
-                    let inspection = dolores_tools_mcp::inspect_with_credentials(Path::new(&check_root), launch, token_cancel, credentials.clone())?;
+                    let inspection = dolores_tools_mcp::inspect_with_host(Path::new(&check_root), launch, token_cancel, credentials.clone(), execution_host)?;
                     Ok::<_, String>((inspection, credentials))
                 }).await?;
                 if store.workspace(&session)?.root.as_ref() != Some(&root) || store.mcp_connection_by_id(&root, &connection_id)? != previous { return Err(STALE.into()); }
@@ -373,6 +381,7 @@ mod tests {
         Inspection {
             launch: McpLaunch {
                 label: "Fixture".into(),
+                isolation: None,
                 executable: executable.to_str().unwrap().into(),
                 args: vec![],
             },

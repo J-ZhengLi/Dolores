@@ -248,7 +248,18 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("updated guidance"));
-        assert_eq!(context["tools"].as_array().unwrap().len(), 13);
+        assert_eq!(
+            context["tools"].as_array().unwrap().len(),
+            13 + usize::from(cfg!(windows))
+        );
+        assert_eq!(
+            context["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|t| t["name"] == "command_session"),
+            cfg!(windows)
+        );
         assert!(context["tools"]
             .as_array()
             .unwrap()

@@ -39,8 +39,51 @@ impl Handle {
 pub struct Running {
     process: Handle,
     job: Option<Handle>,
+    isolation: Option<crate::isolation::Lease>,
 }
 impl Running {
+    pub fn stop_checked(&mut self) -> bool {
+        let Some(job) = self.job.take() else {
+            return self.try_exit().ok().flatten().is_some() && self.clean_isolation();
+        };
+        unsafe {
+            TerminateJobObject(job.0, 1);
+        }
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        let stopped = loop {
+            let mut accounting: JOBOBJECT_BASIC_ACCOUNTING_INFORMATION =
+                unsafe { std::mem::zeroed() };
+            let queried = unsafe {
+                QueryInformationJobObject(
+                    job.0,
+                    JobObjectBasicAccountingInformation,
+                    (&mut accounting as *mut JOBOBJECT_BASIC_ACCOUNTING_INFORMATION).cast(),
+                    size_of_val(&accounting) as u32,
+                    null_mut(),
+                )
+            } != 0;
+            // Job accounting can reach zero just before the root process handle
+            // becomes signaled. Require both observations within this deadline.
+            if queried
+                && accounting.ActiveProcesses == 0
+                && unsafe { WaitForSingleObject(self.process.0, 0) } == WAIT_OBJECT_0
+            {
+                break true;
+            }
+            if std::time::Instant::now() >= end {
+                break false;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        drop(job); // Kill-on-close remains in force even if accounting failed.
+        let cleanup = self.clean_isolation();
+        stopped && self.try_exit().ok().flatten().is_some() && cleanup
+    }
+    fn clean_isolation(&mut self) -> bool {
+        self.isolation
+            .take()
+            .is_none_or(|mut lease| lease.close().is_ok())
+    }
     pub fn try_exit(&mut self) -> io::Result<Option<i32>> {
         unsafe {
             match WaitForSingleObject(self.process.0, 0) {
@@ -67,6 +110,7 @@ impl Running {
                 WaitForSingleObject(self.process.0, 200);
             };
         }
+        self.clean_isolation();
     }
 }
 impl Drop for Running {
@@ -76,25 +120,35 @@ impl Drop for Running {
 }
 struct Attributes {
     storage: Vec<usize>,
+    security: Option<Box<windows_sys::Win32::Security::SECURITY_CAPABILITIES>>,
+    policy: Option<Box<u32>>,
 }
 impl Attributes {
     fn pointer(&mut self) -> LPPROC_THREAD_ATTRIBUTE_LIST {
         self.storage.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST
     }
-    fn new(handles: &[HANDLE]) -> Result<Self, String> {
+    fn new(
+        handles: &[HANDLE],
+        isolation: Option<&mut crate::isolation::Lease>,
+    ) -> Result<Self, String> {
+        let count = if isolation.is_some() { 3 } else { 1 };
         let mut size = 0;
         unsafe {
-            InitializeProcThreadAttributeList(null_mut(), 1, 0, &mut size);
+            InitializeProcThreadAttributeList(null_mut(), count, 0, &mut size);
         };
         if size == 0 {
             return Err("Command handle isolation is unavailable.".into());
         }
         let mut storage = vec![0usize; size.div_ceil(size_of::<usize>())];
         let pointer = storage.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
-        if unsafe { InitializeProcThreadAttributeList(pointer, 1, 0, &mut size) } == 0 {
+        if unsafe { InitializeProcThreadAttributeList(pointer, count, 0, &mut size) } == 0 {
             return Err("Command handle isolation is unavailable.".into());
         }
-        let mut list = Self { storage };
+        let mut list = Self {
+            storage,
+            security: None,
+            policy: None,
+        };
         if unsafe {
             UpdateProcThreadAttribute(
                 list.pointer(),
@@ -108,6 +162,19 @@ impl Attributes {
         } == 0
         {
             return Err("Command handle isolation is unavailable.".into());
+        }
+        if let Some(isolation) = isolation {
+            list.security = Some(Box::new(isolation.security()));
+            list.policy = Some(Box::new(1)); // ALL_APPLICATION_PACKAGES_OPT_OUT.
+            let security = list.security.as_deref().unwrap()
+                as *const windows_sys::Win32::Security::SECURITY_CAPABILITIES;
+            let policy = list.policy.as_deref().unwrap() as *const u32;
+            if unsafe {UpdateProcThreadAttribute(list.pointer(),0,PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES as usize,security.cast(),size_of::<windows_sys::Win32::Security::SECURITY_CAPABILITIES>(),null_mut(),null())}==0
+                // WinBase.h: ProcThreadAttributeAllApplicationPackagesPolicy.
+                || unsafe {UpdateProcThreadAttribute(list.pointer(),0,0x2000f,policy.cast(),size_of::<u32>(),null_mut(),null())}==0
+            {
+                return Err("LPAC process attributes are unavailable. Nothing was launched; no native fallback was used.".into());
+            }
         }
         Ok(list)
     }
@@ -171,21 +238,31 @@ fn pipe() -> Result<(Handle, Handle), String> {
     }
     Ok((Handle(read), Handle(write)))
 }
-pub(super) fn spawn(
-    executable: &Path,
-    args: &[String],
-    root: &Path,
-    env: &[(String, String)],
-) -> Result<(Running, File, File), String> {
-    let (running, input, stdout, stderr) = spawn_stdio(executable, args, root, env)?;
-    drop(input);
-    Ok((running, stdout, stderr))
-}
 pub fn spawn_stdio(
     executable: &Path,
     args: &[String],
     root: &Path,
     env: &[(String, String)],
+) -> Result<(Running, File, File, File), String> {
+    spawn_stdio_inner(executable, args, root, env, None, None)
+}
+pub(crate) fn spawn_isolated(
+    lease: crate::isolation::Lease,
+    args: &[String],
+    env: &[(String, String)],
+    cancel: &tokio_util::sync::CancellationToken,
+) -> Result<(Running, File, File, File), String> {
+    let executable = lease.executable();
+    let root = lease.workspace();
+    spawn_stdio_inner(&executable, args, &root, env, Some(lease), Some(cancel))
+}
+fn spawn_stdio_inner(
+    executable: &Path,
+    args: &[String],
+    root: &Path,
+    env: &[(String, String)],
+    mut isolation: Option<crate::isolation::Lease>,
+    cancel: Option<&tokio_util::sync::CancellationToken>,
 ) -> Result<(Running, File, File, File), String> {
     let (stdout, out_write) = pipe()?;
     let (stderr, err_write) = pipe()?;
@@ -196,7 +273,7 @@ pub fn spawn_stdio(
         }
     }
     let handles = [stdin.0, out_write.0, err_write.0];
-    let mut attributes = Attributes::new(&handles)?;
+    let mut attributes = Attributes::new(&handles, isolation.as_mut())?;
     let job = Handle(unsafe { CreateJobObjectW(null(), null()) });
     if job.0.is_null() {
         return Err("Command process control is unavailable.".into());
@@ -272,7 +349,14 @@ pub fn spawn_stdio(
     let mut running = Running {
         process,
         job: Some(job),
+        isolation,
     };
+    // The child is still suspended and already belongs to the kill-on-close
+    // job. Cancellation here must revoke grants without running user code.
+    if cancel.is_some_and(|c| c.is_cancelled()) {
+        running.stop_checked();
+        return Err("Isolation setup stopped. No child was launched.".into());
+    }
     if unsafe { ResumeThread(thread.0) } == u32::MAX {
         running.stop();
         return Err("Command could not be started.".into());
@@ -304,6 +388,13 @@ pub fn read_available(pipe: &mut File, buffer: &mut [u8]) -> io::Result<usize> {
     }
     let count = buffer.len().min(available as usize);
     pipe.read(&mut buffer[..count])
+}
+pub(super) fn cancel_input(worker: &std::thread::JoinHandle<()>) {
+    // Best effort: the caller still observes actual worker completion. An I/O
+    // cancellation request alone is never treated as a completed write/cleanup.
+    unsafe {
+        windows_sys::Win32::System::IO::CancelSynchronousIo(worker.as_raw_handle());
+    }
 }
 #[cfg(test)]
 mod tests {

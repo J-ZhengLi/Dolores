@@ -18,7 +18,7 @@ pub(super) struct PendingRevert {
 }
 
 enum ReversePlan {
-    Restore(RevertPlan),
+    Restore(Box<RevertPlan>),
     Remove(RemoveCreatedPlan),
 }
 impl ReversePlan {
@@ -86,12 +86,12 @@ impl Engine {
             return Err("This change can no longer be reverted.".into());
         }
         let plan = match (entry.change.before_exists, entry.change.after_exists) {
-            (true, true) => ReversePlan::Restore(RevertPlan::preview(
+            (true, true) => ReversePlan::Restore(Box::new(RevertPlan::preview(
                 Path::new(&entry.root),
                 &entry.change.target,
                 &entry.after,
                 &entry.before,
-            )?),
+            )?)),
             (false, true) => ReversePlan::Remove(RemoveCreatedPlan::preview(
                 Path::new(&entry.root),
                 &entry.change.target,

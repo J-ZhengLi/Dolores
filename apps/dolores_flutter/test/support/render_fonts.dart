@@ -11,6 +11,12 @@ Future<void> loadReviewFonts() async {
         '${Platform.environment['SystemRoot'] ?? 'C:/Windows'}/Fonts/segoeui.ttf',
     'Segoe UI':
         '${Platform.environment['SystemRoot'] ?? 'C:/Windows'}/Fonts/segoeui.ttf',
+    'Roboto':
+        '${Platform.environment['SystemRoot'] ?? 'C:/Windows'}/Fonts/segoeui.ttf',
+    'monospace':
+        '${Platform.environment['SystemRoot'] ?? 'C:/Windows'}/Fonts/consola.ttf',
+    'Consolas':
+        '${Platform.environment['SystemRoot'] ?? 'C:/Windows'}/Fonts/consola.ttf',
     'MaterialIcons': '../../output/toolchains/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
   };
   for (final font in fonts.entries) {

@@ -9,6 +9,7 @@ import 'settings_frame.dart';
 import 'theme.dart';
 import 'usage_details.dart';
 import 'instructions.dart';
+import 'command_sessions.dart';
 
 enum ChatDetail { context, activity, changes }
 
@@ -89,10 +90,20 @@ class _ChatDetailsState extends State<ChatDetails> {
         if (widget.chat.session != null)
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => showRunHistory(context, widget.chat),
-              icon: const Icon(Icons.history, size: 18),
-              label: const Text('Earlier tasks'),
+            child: Wrap(
+              children: [
+                if (widget.chat.commandSessionsAvailable)
+                  TextButton.icon(
+                    onPressed: () => showCommandSessions(context, widget.chat),
+                    icon: const Icon(Icons.terminal, size: 18),
+                    label: const Text('Commands'),
+                  ),
+                TextButton.icon(
+                  onPressed: () => showRunHistory(context, widget.chat),
+                  icon: const Icon(Icons.history, size: 18),
+                  label: const Text('Earlier tasks'),
+                ),
+              ],
             ),
           ),
         Expanded(child: TrajectoryInspector(chat: widget.chat)),

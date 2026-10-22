@@ -71,7 +71,11 @@ pub(super) fn view(store: &dyn SessionStore, session: &str, id: &str) -> Result<
             i["name"].as_str().is_some_and(|n| {
                 matches!(
                     n,
-                    "edit_text_file" | "create_text_file" | "run_command" | "desktop_control"
+                    "edit_text_file"
+                        | "create_text_file"
+                        | "run_command"
+                        | "command_session"
+                        | "desktop_control"
                 ) || n.starts_with("mcp_tool_")
             }) && if i["name"] == "desktop_control" {
                 let action = i["arguments"]

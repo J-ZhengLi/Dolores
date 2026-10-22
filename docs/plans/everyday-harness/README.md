@@ -14,8 +14,8 @@ deferred. Historical roadmap milestone numbers are independent.
 | [EH01](eh01.md) | instruction queue and steering | H01, H02 | EH00 | Complete | `645805a` |
 | [EH02](eh02.md) | command and skill discovery | H04 | EH01 | Complete | `0774115` |
 | [EH03](eh03.md) | goals, checklist, and long-context recovery | H03, H07, H16 | EH01, EH02 | Complete | `59d8cc3` |
-| [EH04](eh04.md) | plan mode and context references | H05, H06 | EH02, EH03 | Complete | EH04 batch commit |
-| [EH05](eh05.md) | agent command sessions and enforced isolation | H08, H17 | EH00, EH03 | Pending | — |
+| [EH04](eh04.md) | plan mode and context references | H05, H06 | EH02, EH03 | Complete | `2631848` |
+| [EH05](eh05.md) | agent command sessions and enforced isolation | H08, H17 | EH00, EH03 | Complete; Windows Node/MCP scope documented | This batch |
 | [EH06](eh06.md) | managed task worktrees | H09 | EH03, EH05 | Pending | — |
 | [EH07](eh07.md) | review, side conversations, and edited prompts | H10, H11, H14 | EH04, EH06 | Pending | — |
 | [EH08](eh08.md) | history and attention | H12, H13 | EH03, EH07 | Pending | — |

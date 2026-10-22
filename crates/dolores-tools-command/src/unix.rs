@@ -14,6 +14,10 @@ pub struct Running {
     stopped: bool,
 }
 impl Running {
+    pub fn stop_checked(&mut self) -> bool {
+        self.stop();
+        self.try_exit().ok().flatten().is_some()
+    }
     pub fn try_exit(&mut self) -> io::Result<Option<i32>> {
         Ok(self.child.try_wait()?.map(|s| s.code().unwrap_or(-1)))
     }
@@ -31,16 +35,6 @@ impl Drop for Running {
     fn drop(&mut self) {
         self.stop();
     }
-}
-pub(super) fn spawn(
-    executable: &Path,
-    args: &[String],
-    root: &Path,
-    env: &[(String, String)],
-) -> Result<(Running, File, File), String> {
-    let (running, input, stdout, stderr) = spawn_stdio(executable, args, root, env)?;
-    drop(input);
-    Ok((running, stdout, stderr))
 }
 pub fn spawn_stdio(
     executable: &Path,

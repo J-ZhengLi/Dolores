@@ -59,6 +59,17 @@ history or an unsent draft. It saves rendered review images in the same profile.
 Ordinary widget runs skip these opt-in cases. This does not qualify
 native pointer/IME/dialog behavior or real-model reliability.
 
+An eighth native journey starts a task-owned command through its rendered review,
+sends exact Unicode stdin, interrupts it and reopens saved output after owner
+release while retaining the conversation draft. Command controls never reattach
+a PID or replay a saved operation. This fixture uses native account permissions;
+it does not qualify the separate Windows isolation backend.
+
+The `isolated-commands` journey uses the same rendered controls with explicit
+Windows isolation. It checks reviewed roots, actual sibling-write/TCP denial,
+Unicode stdin, interruption, cleanup and reopened saved output. This fixture
+does not establish DNS/LAN/external network coverage or physical input behavior.
+
 For an authorized live Memory check, run
 `python scripts/qualify-native-memory-live.py --source <profile-dolores.db>
 --model <enabled-model-id> --reasoning <supported-reasoning-mode>

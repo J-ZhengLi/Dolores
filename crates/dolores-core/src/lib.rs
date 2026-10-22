@@ -15,7 +15,7 @@ pub use comparison::*;
 pub use feedback::*;
 mod agent;
 mod agent_watchdog;
-pub use agent::{ModelActivity, StreamDiagnostics, StreamMeasurements};
+pub use agent::{CommandIsolationPreview, ModelActivity, StreamDiagnostics, StreamMeasurements};
 mod web;
 pub use web::*;
 mod runs;
@@ -342,6 +342,7 @@ pub use harness_repair::{RepairFile, RepairWorkspace};
 mod repair_evaluation;
 pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 
+pub mod command_sessions;
 pub mod companionship;
 pub mod context_recovery;
 #[cfg(test)]
@@ -350,6 +351,29 @@ pub mod goal;
 pub mod planning;
 pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn save_command_session(&self, _: &command_sessions::SessionRecord) -> Result<(), String> {
+        Err("Command-session evidence unavailable in this store. Nothing was started.".into())
+    }
+    fn command_sessions(
+        &self,
+        _: &str,
+        _: Option<&str>,
+        _: Option<i64>,
+    ) -> Result<command_sessions::ReceiptPage, String> {
+        Err("Command-session history unavailable in this store.".into())
+    }
+    fn command_session_output(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: usize,
+    ) -> Result<command_sessions::OutputPage, String> {
+        Err("Command-session output unavailable in this store.".into())
+    }
+    fn recover_command_sessions(&self) -> Result<(), String> {
+        Ok(())
+    }
     fn planning(&self, _: &str) -> Result<planning::PlanningState, String> {
         Ok(Default::default())
     }

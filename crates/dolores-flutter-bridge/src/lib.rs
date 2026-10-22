@@ -11,6 +11,7 @@ mod changes;
 mod checkpoint_tests;
 mod checkpoints;
 mod command_catalog;
+mod command_sessions;
 #[cfg(test)]
 mod compaction_tests;
 mod companionship;
@@ -95,6 +96,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    command_sessions: Option<Arc<command_sessions::Live>>,
     plan_execution: bool,
     planning: dolores_core::planning::PlanningState,
     goal: Option<goals::Binding>,
@@ -117,6 +119,10 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    #[cfg(windows)]
+    isolation_host: Option<Arc<dolores_tools_command::isolation::Host>>,
+    isolation_error: Mutex<Option<String>>,
+    command_sessions: Arc<command_sessions::Registry>,
     companion: Arc<companionship::Generation>,
     memory_maintenance: Arc<memory_maintenance::Maintenance>,
     languages: Mutex<language::Registry>,
@@ -150,6 +156,11 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    #[serde(rename = "commandSession")]
+    SessionControl {
+        session: String,
+        request: command_sessions::Request,
+    },
     ReferenceChoices {
         session: String,
         kind: String,
@@ -894,12 +905,17 @@ impl Engine {
         store.recover_companion()?;
         store.recover_task_inputs()?;
         store.recover_goals()?;
+        store.recover_command_sessions()?;
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            #[cfg(windows)]
+            isolation_host: None,
+            isolation_error: Mutex::new(None),
+            command_sessions: Arc::new(Default::default()),
             companion: Arc::new(Default::default()),
             memory_maintenance: Arc::new(Default::default()),
             languages: Mutex::new(Default::default()),
@@ -989,6 +1005,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::SessionControl {session,request}=>{drop(active);return self.command_session_call(&session,request);},
             Command::ReferenceChoices{session,kind,owner,path,cursor}=>return self.reference_choices(&session,&kind,owner.as_deref(),&path,cursor),
             Command::Planning{session}=>return Ok(json!(self.store.planning(&session)?)),
             Command::ReferencePreview{session,source}=>return Ok(json!(self.reference_preview(&session,&source)?)),
@@ -1613,7 +1630,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -1709,6 +1726,9 @@ impl Engine {
                 };
                 if tools {
                     specs.push(dolores_tools_command::command_spec());
+                    if cfg!(windows) {
+                        specs.push(dolores_tools_command::sessions::session_spec());
+                    }
                     specs.extend(dolores_tools_web::specs(&self.store.web_configuration()?));
                     if self.browser_runtime().is_ok() {
                         specs.push(dolores_tools_browser::spec());
@@ -1891,6 +1911,7 @@ impl Engine {
                 self.clear_memory_review()?;
                 self.clear_summary_review()?;
                 self.store.delete(&session)?;
+                self.command_sessions.remove_task(&session);
                 Ok(Value::Null)
             }
             Command::SetRequestSettings { settings } => {
@@ -2228,6 +2249,9 @@ impl Engine {
                 // Scheduling tools are always offered on human turns. The model
                 // interprets intent in the user's language without keyword routing.
                 let scheduling_available = scheduled.is_none() && desktop_capture.is_none();
+                let run_id = uuid::Uuid::new_v4().to_string();
+                let cancel = CancellationToken::new();
+                let mut supervised_commands = None;
                 let mut tools = workspace
                     .map(|root| {
                         let journal = Arc::new(dolores_core::WorkspaceJournal {
@@ -2237,7 +2261,33 @@ impl Engine {
                             reverts: None,
                         });
                         let mut plugins = dolores_tools_fs::journaled_folder_tools(&root, journal)?;
-                        plugins.push(Arc::new(dolores_tools_command::RunCommand::new(&root)?));
+                        let commands = dolores_tools_command::RunCommand::new(&root)?;
+                        #[cfg(windows)]
+                        let commands = if let Some(host) = &self.isolation_host {
+                            commands.with_isolation(host.clone())
+                        } else {
+                            commands
+                        };
+                        plugins.push(Arc::new(commands));
+                        if cfg!(windows) && !planning_state.planning {
+                            self.command_sessions.admit()?;
+                            let commands = dolores_tools_command::sessions::CommandSessions::new(
+                                &root,
+                                session.clone().unwrap(),
+                                run_id.clone(),
+                                cancel.clone(),
+                            )?
+                            .with_evidence(command_sessions::evidence(self.store.clone()));
+                            #[cfg(windows)]
+                            let commands = if let Some(host) = &self.isolation_host {
+                                commands.with_isolation(host.clone())
+                            } else {
+                                commands
+                            };
+                            let commands = Arc::new(commands);
+                            plugins.push(commands.clone());
+                            supervised_commands = Some(commands);
+                        }
                         plugins.extend(dolores_tools_web::plugins(
                             self.store.web_configuration()?,
                             self.mcp_credentials.clone(),
@@ -2248,10 +2298,11 @@ impl Engine {
                         for connection in self.store.mcp_connections(
                             root.to_str().ok_or("Working folder path needs Unicode.")?,
                         )? {
-                            plugins.extend(dolores_tools_mcp::plugins_with_credentials(
+                            plugins.extend(dolores_tools_mcp::plugins_with_host(
                                 &root,
                                 connection,
                                 self.mcp_credentials.clone(),
+                                self.mcp_execution_host(),
                             )?);
                         }
                         Ok::<_, String>(plugins)
@@ -2367,7 +2418,6 @@ impl Engine {
                 if planning_state.planning {
                     tools.retain(|t| dolores_core::planning::inspection_tool(&t.spec().name));
                 }
-                let run_id = uuid::Uuid::new_v4().to_string();
                 let goal_binding = goal_start.as_ref().map(|g| goals::Binding {
                     session: session.clone().unwrap(),
                     id: g.id.clone(),
@@ -2466,6 +2516,16 @@ impl Engine {
                         .revision,
                     policy: effective.permissions.clone(),
                 });
+                let command_owner = supervised_commands.map(|commands| {
+                    command_sessions::Live::new(
+                        commands,
+                        session.clone().unwrap(),
+                        run_id.clone(),
+                        log.clone(),
+                        dispatch_guard.clone(),
+                        cancel.clone(),
+                    )
+                });
                 tools = tools
                     .into_iter()
                     .map(|inner| {
@@ -2476,7 +2536,6 @@ impl Engine {
                         }) as Arc<dyn dolores_core::ToolPlugin>
                     })
                     .collect();
-                let cancel = CancellationToken::new();
                 let guard = Arc::new(permissions::PermissionGuard {
                     store: self.store.clone(),
                     session: session.clone().unwrap(),
@@ -2569,9 +2628,16 @@ impl Engine {
                     scope,
                 )?;
                 let memory_maintenance = self.memory_maintenance.clone();
+                if let Some(owner) = &command_owner {
+                    self.command_sessions.register(owner.clone());
+                }
+                let command_registry = self.command_sessions.clone();
                 let store = self.store.clone();
                 let _ = output.try_send(json!({"type":"queued","id":id,"note":"Waiting for an available run slot or project."}));
                 self.runtime.spawn(async move {
+                    let mut command_lifetime=command_sessions::Lifetime {live:command_owner.clone(),armed:true};
+                    let observer_stop=CancellationToken::new();
+                    let observer=command_owner.as_ref().map(|owner|tokio::spawn(owner.clone().observe(observer_stop.clone())));
                     let _desktop_lifetime=control;
                     let learning_session = session.clone();
                     let learning_model = model.clone();
@@ -2589,6 +2655,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            command_sessions:command_owner.clone(),
                             plan_execution,
                             planning: planning_state,
                             goal: goal_binding,
@@ -2614,6 +2681,12 @@ impl Engine {
                         &output,
                     )
                     .await }} };
+                    observer_stop.cancel();if let Some(observer)=observer{let _=observer.await;}
+                    let command_evidence_error=if let Some(owner)=&command_owner {
+                        let result=owner.finish().await;
+                        command_registry.settle(owner,result.is_ok());result.err()
+                    }else{None};
+                    command_lifetime.armed=false;
                     let child_evidence_error = if let Some(delegation) = &delegation {
                         delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
                     } else { None };
@@ -2636,13 +2709,13 @@ impl Engine {
                             memory_maintenance.enqueue(store.clone(), learner, session, learning_model.clone()).await
                         } else { None }
                     } else { None };
-                    let state=if result.is_ok() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
+                    let state=if result.is_ok() && command_evidence_error.is_none() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
                     let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"pauseReason":pause_reason,"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
                     let goal_warning=if let Some(b)=&finishing_goal {
                         let progress=goals::made_progress(b);
-                        match progress {Ok(progress)=>store.finish_goal(&b.session,&b.id,&b.run,result.is_ok()&&!paused&&!cancel.is_cancelled()&&child_evidence_error.is_none()&&evidence_error.is_none(),progress).err(),Err(e)=>Some(e)}
+                        match progress {Ok(progress)=>store.finish_goal(&b.session,&b.id,&b.run,result.is_ok()&&!paused&&!cancel.is_cancelled()&&child_evidence_error.is_none()&&command_evidence_error.is_none()&&evidence_error.is_none(),progress).err(),Err(e)=>Some(e)}
                     }else{None};
-                    let plan_warning=if !paused && !cancel.is_cancelled() && evidence_error.is_none(){
+                    let plan_warning=if !paused && !cancel.is_cancelled() && evidence_error.is_none() && command_evidence_error.is_none(){
                         match (&planning_session,&result){(Some(s),Ok(text))=>planning::save_result(store.as_ref(),s,&finishing_work,text).err(),_=>None}
                     }else{None};
                     let mut event = match result {
@@ -2656,7 +2729,7 @@ impl Engine {
                         event["recovery"] = json!({"kind":"desktop","retryable":false,"guidance":"Computer use stopped or failed. The original goal and action receipts remain in Settings → Computer use. Input may already have occurred; inspect the selected window, capture it again, and explicitly reconcile before continuing. No input or approval was replayed."});
                     }
                     event["runId"]=json!(log.id);
-                    let evidence_error = evidence_error.or(child_evidence_error).or(goal_warning).or(plan_warning);
+                    let evidence_error = evidence_error.or(child_evidence_error).or(command_evidence_error).or(goal_warning).or(plan_warning);
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
@@ -2693,6 +2766,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        command_sessions,
         plan_execution,
         planning,
         goal,
@@ -3003,6 +3077,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                command_sessions,
                 plan_execution,
                 planning,
                 goal,
@@ -3166,7 +3241,7 @@ async fn execute(
             }
             reply
         };
-        let reply = tokio::select! { biased;
+        let mut reply = tokio::select! { biased;
             _ = cancel.cancelled() => return Err(stopped()),
             result = running => result?,
             result = goals::clock(goal.as_ref(),approval.as_ref()) => {work_cancel.cancel(); return Err(result.err().unwrap_or_else(||"Goal clock ended.".into()));},
@@ -3193,6 +3268,9 @@ async fn execute(
         }
         if observation_run && reply.pause.is_none() {
             desktop::require_evidence(&reply.summary)?;
+        }
+        if let Some(owner) = &command_sessions {
+            reply.summary.tools.extend(owner.finish().await?);
         }
         let saved = reply.answer.clone();
         let mut receipts = prior
@@ -3365,6 +3443,22 @@ fn initialize() -> Result<Engine, String> {
     engine.data_lock = Some(data_lock);
     engine.restore_keep_awake();
     engine.workspace_directory = Some(directory.join("workspaces"));
+    #[cfg(windows)]
+    match dolores_tools_command::isolation::Host::open(&directory.join("isolation")) {
+        Ok(host) => {
+            *engine
+                .isolation_error
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = host.recover().err();
+            engine.isolation_host = Some(host);
+        }
+        Err(error) => {
+            *engine
+                .isolation_error
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = Some(error)
+        }
+    }
     engine.global_skills_directory = Some(match std::env::var_os("DOLORES_GLOBAL_SKILLS_DIR") {
         Some(value) => {
             let path = PathBuf::from(value);
@@ -3620,6 +3714,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    command_sessions: None,
                     plan_execution: false,
                     planning: Default::default(),
                     goal: None,
@@ -3997,6 +4092,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            command_sessions: None,
             plan_execution: false,
             planning: Default::default(),
             goal: None,

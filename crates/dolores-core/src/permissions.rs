@@ -89,6 +89,16 @@ impl PermissionPolicy {
         self.expires_at.is_some_and(|at| now >= at)
     }
     pub fn automatic(&self, request: &ToolRequest, now: u64) -> bool {
+        // Filesystem grants are separate authority from a literal command.
+        // Each isolated launch reviews those exact roots even in Full access.
+        if request
+            .command
+            .as_ref()
+            .is_some_and(|c| c.isolation.is_some())
+            || request.mcp.as_ref().is_some_and(|m| m.isolation.is_some())
+        {
+            return false;
+        }
         // Native repair proposals have an independent exact review, even in Full access.
         if matches!(
             request.name.as_str(),
@@ -102,6 +112,21 @@ impl PermissionPolicy {
         // Desktop authority is always separate, including in Full access.
         if request.name == "desktop_control" {
             return false;
+        }
+        // Starting a native session does not approve later stdin. Each write
+        // can authorize new effects and must be reviewed with its exact bytes.
+        if request.name == "command_session" {
+            let operation = request
+                .query
+                .as_deref()
+                .and_then(|q| serde_json::from_str::<serde_json::Value>(q).ok())
+                .and_then(|q| q["operation"].as_str().map(str::to_owned));
+            if !operation
+                .as_deref()
+                .is_some_and(|op| ["start", "read", "list", "interrupt", "close"].contains(&op))
+            {
+                return false;
+            }
         }
         // A website's external effects cannot be inferred from page labels or
         // covered by blanket full access. Require review for every input/click.
@@ -160,6 +185,51 @@ pub fn prepare_permission_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn isolated_roots_require_review_even_when_the_command_is_automatic() {
+        let policy = PermissionPolicy {
+            mode: PermissionMode::FullAccess,
+            ..Default::default()
+        };
+        let mut r = request("node");
+        r.command = Some(crate::CommandPreview {
+            invocation: CommandSpec {
+                program: "node".into(),
+                args: vec![],
+            },
+            executable: "node.exe".into(),
+            timeout_seconds: 30,
+            capture_bytes: 8192,
+            isolation: Some(crate::CommandIsolationPreview {
+                workspace: "C:\\project".into(),
+                readonly_roots: vec![],
+            }),
+        });
+        for name in ["run_command", "command_session"] {
+            r.name = name.into();
+            r.query = Some("{\"operation\":\"start\"}".into());
+            assert!(!policy.automatic(&r, 0));
+        }
+    }
+    #[test]
+    fn command_stdin_requires_exact_review_even_under_full_access() {
+        let policy = PermissionPolicy {
+            mode: PermissionMode::FullAccess,
+            ..Default::default()
+        };
+        let mut r = request("owned-command");
+        r.name = "command_session".into();
+        for operation in ["input", "unknown"] {
+            r.query = Some(serde_json::json!({"operation":operation,"text":"yes\n"}).to_string());
+            assert!(!policy.automatic(&r, 1));
+        }
+        r.query = Some("invalid".into());
+        assert!(!policy.automatic(&r, 1));
+        for operation in ["start", "read", "list", "interrupt", "close"] {
+            r.query = Some(serde_json::json!({"operation":operation}).to_string());
+            assert!(policy.automatic(&r, 1));
+        }
+    }
     #[test]
     fn native_repair_cannot_inherit_full_access_or_an_inspection_grant() {
         let mut policy = PermissionPolicy {
@@ -256,6 +326,7 @@ mod tests {
         r.command = Some(crate::CommandPreview {
             invocation: command,
             executable: "/python".into(),
+            isolation: None,
             timeout_seconds: 30,
             capture_bytes: 8192,
         });

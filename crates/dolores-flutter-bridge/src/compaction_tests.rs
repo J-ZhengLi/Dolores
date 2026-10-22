@@ -70,6 +70,7 @@ fn compaction_is_automatic_once_charged_and_failure_preserves_summary_history_an
             store.clone(),
             provider.clone(),
             TurnRequest {
+                command_sessions: None,
                 plan_execution: false,
                 planning: Default::default(),
                 goal: None,

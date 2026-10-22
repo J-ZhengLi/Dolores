@@ -7,6 +7,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain bounded output and receipts through failure and restart. Saved commands are never reattached or replayed automatically.
+- Request Windows isolation for Node commands and MCP servers with reviewed writable/read-only folders and denied network access. Failed setup never falls back to native execution; incomplete cleanup can be inspected and retried without replaying work.
 - Review plans in an inspection-only mode and explicitly execute an accepted revision. Share bounded, previewed context snapshots with `@`, including scoped files, folders, code, terminal excerpts and chat messages.
 - Save explicit goals with verifiable criteria, inspect progress and continue within cumulative task limits. Context recovery preserves user instructions and operation evidence, with calm capacity estimates and explicit recovery after interruption.
 - Discover host commands and reviewed skills with `/`. Selected skill chips show scope/version, persist with the chat and travel with queued or steered instructions; changed selections retain your draft for recovery.
@@ -24,6 +26,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 - Windows language-server checks allow bounded slow startup and verify timeout recovery without losing unsaved text.
 - Windows build checks no longer intermittently fail when testing a stalled chat stream.
 - Windows checks cover MCP recovery under software hashing and constrained workloads; checks and installer qualification can run locally without pushing or tagging.
+
+### Known limitations
+
+- Isolated Node child processes must inherit stdio; Node-created child pipes can stall until the host deadline or Stop. Other runtimes, human terminals, browser helpers and native repair builds retain their existing native execution mode.
 
 ## [0.0.1-alpha] - 2026-10-13
 

@@ -248,6 +248,7 @@ mod tests {
             enabled: true,
             launch: McpLaunch {
                 label: "Fixture".into(),
+                isolation: None,
                 executable: exe.clone(),
                 args: vec![],
             },

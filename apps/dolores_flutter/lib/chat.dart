@@ -332,6 +332,10 @@ class ChatController extends ChangeNotifier {
   bool durableDrafts = false;
   bool instructionQueueAvailable = false;
   bool commandPickerAvailable = false;
+  bool commandSessionsAvailable = false;
+  // These unsent process-input drafts survive inspector navigation in this app
+  // session. They are separate from the saved conversation draft.
+  final commandInputDrafts = <String, String>{};
   bool planningAvailable = false;
   Map<String, dynamic> planning = {};
   Future<void> refreshPlanning() async {
@@ -1013,6 +1017,7 @@ class ChatController extends ChangeNotifier {
     durableDrafts = state['durableDrafts'] == true;
     instructionQueueAvailable = state['instructionQueue'] == true;
     commandPickerAvailable = state['commandPicker'] == true;
+    commandSessionsAvailable = state['commandSessions'] == true;
     goalsAvailable = state['goals'] == true;
     planningAvailable = state['planning'] == true;
     attachmentsAvailable = state['attachments'] == true;

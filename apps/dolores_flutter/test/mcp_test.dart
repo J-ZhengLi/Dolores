@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/mcp.dart';
@@ -6,7 +8,26 @@ import 'package:dolores_flutter/theme.dart';
 import 'package:dolores_flutter/tool_activity.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/render_fonts.dart';
+
+final reviewRender = GlobalKey();
+Future<void> saveReview(WidgetTester tester, String name) async {
+  const directory = String.fromEnvironment('AUDIT_RENDER_DIR');
+  if (directory.isEmpty) return;
+  await tester.runAsync(() async {
+    final boundary =
+        reviewRender.currentContext!.findRenderObject()
+            as RenderRepaintBoundary;
+    final image = await boundary.toImage(pixelRatio: 1);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    await Directory(directory).create(recursive: true);
+    await File('$directory/$name.png').writeAsBytes(data!.buffer.asUint8List());
+    image.dispose();
+  });
+}
 
 class McpBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
@@ -120,13 +141,28 @@ class McpBridge implements ChatBridge {
 }
 
 Future<void> open(WidgetTester t, McpBridge b, bool dark) async {
+  if (const String.fromEnvironment('AUDIT_RENDER_DIR').isNotEmpty) {
+    await t.runAsync(loadReviewFonts);
+  }
   t.view.physicalSize = const Size(390, 700);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.resetPhysicalSize);
   addTearDown(t.view.resetDevicePixelRatio);
   await t.pumpWidget(
     MaterialApp(
-      theme: doloresTheme(dark),
+      builder: (context, child) =>
+          RepaintBoundary(key: reviewRender, child: child!),
+      theme: const String.fromEnvironment('AUDIT_RENDER_DIR').isEmpty
+          ? doloresTheme(dark)
+          : doloresTheme(dark).copyWith(
+              textButtonTheme: TextButtonThemeData(
+                style: doloresTheme(dark).textButtonTheme.style!.copyWith(
+                  textStyle: const WidgetStatePropertyAll(
+                    TextStyle(fontFamily: 'Segoe UI', fontSize: 14),
+                  ),
+                ),
+              ),
+            ),
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
@@ -181,6 +217,52 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
 }
 
 void main() {
+  testWidgets(
+    'isolation review shows exact grants and changing mode discards prior review',
+    (t) async {
+      final b = McpBridge();
+      await open(t, b, true);
+      await press(t, 'mcp-isolation');
+      await t.enterText(
+        find.byKey(const Key('mcp-isolation-roots')),
+        'C:/synthetic/reference',
+      );
+      await t.tap(find.byKey(const Key('mcp-inspect')));
+      await t.pumpAndSettle();
+      expect(find.textContaining('Network access is denied.'), findsOneWidget);
+      expect(find.text('Read and write: C:/synthetic/project'), findsOneWidget);
+      expect(find.text('Read only: C:/synthetic/reference'), findsOneWidget);
+      expect(find.textContaining('with your OS permissions'), findsNothing);
+      expect(b.commands.where((c) => c['command'] == 'inspectMcp'), isEmpty);
+      await saveReview(t, 'mcp-isolated-review-dark');
+      await t.tap(find.byKey(const Key('mcp-launch-confirm')));
+      await t.pumpAndSettle();
+      final launch =
+          b.commands.lastWhere((c) => c['command'] == 'inspectMcp')['launch']
+              as Map;
+      expect(launch['isolation'], {
+        'readonlyRoots': ['C:/synthetic/reference'],
+      });
+      await press(t, 'mcp-isolation');
+      expect(
+        b.commands.where((c) => c['command'] == 'discardMcpReview').length,
+        1,
+      );
+      await t.scrollUntilVisible(
+        find.byKey(const Key('mcp-program')),
+        -180,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        t
+            .widget<TextField>(find.byKey(const Key('mcp-program')))
+            .controller!
+            .text,
+        'C:/Runtime/node.exe',
+      );
+      expect(t.takeException(), isNull);
+    },
+  );
   testWidgets(
     'shared-slot refusal preserves review and fields while disabling another server enables retry',
     (t) async {
@@ -440,7 +522,10 @@ void main() {
         expect(find.text('Deny').hitTestable(), findsOneWidget);
         expect(find.textContaining('does not sandbox'), findsNothing);
         expect(find.textContaining('Effects may remain'), findsWidgets);
-        if(find.textContaining('Server receives saved credentials').evaluate().isEmpty){
+        if (find
+            .textContaining('Server receives saved credentials')
+            .evaluate()
+            .isEmpty) {
           await t.ensureVisible(find.text('Operation details'));
           await t.pumpAndSettle();
           await t.tap(find.text('Operation details'));

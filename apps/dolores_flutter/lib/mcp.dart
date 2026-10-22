@@ -1,4 +1,4 @@
-﻿import 'mcp_import.dart';
+import 'mcp_import.dart';
 import 'settings_frame.dart';
 
 import 'dart:async';
@@ -58,6 +58,8 @@ class _McpInspectorState extends State<McpInspector> {
   String get draft => jsonEncode([
     _name.text,
     _program.text,
+    _isolated,
+    _readonlyRoots.text,
     _args.map((a) => a.text).toList(),
     _credentials.map((r) => [r.name.text, r.value.text]).toList(),
   ]);
@@ -106,6 +108,14 @@ class _McpInspectorState extends State<McpInspector> {
   }
 
   final _name = TextEditingController(), _program = TextEditingController();
+  final _readonlyRoots = TextEditingController();
+  bool _isolated = false;
+  String _directory = '';
+  List<String> get _roots => _readonlyRoots.text
+      .split('\n')
+      .map((p) => p.trim())
+      .where((p) => p.isNotEmpty)
+      .toList();
   final _args = <TextEditingController>[];
   final _credentials = <_CredentialRow>[];
   final _scroll = ScrollController();
@@ -197,6 +207,12 @@ class _McpInspectorState extends State<McpInspector> {
       _connections = entries;
       _editingId = id;
       _connection = saved;
+      _directory = result['directory'] as String? ?? '';
+      final isolation = saved?['launch']['isolation'] as Map?;
+      _isolated = isolation != null;
+      _readonlyRoots.text = (isolation?['readonlyRoots'] as List? ?? []).join(
+        '\n',
+      );
 
       _review = null;
       _selected.clear();
@@ -251,9 +267,18 @@ class _McpInspectorState extends State<McpInspector> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Starts this installed program with your OS permissions to discover its tools. It may access files or the network.',
+              Text(
+                _isolated
+                    ? 'Starts an isolated copy of Node to discover tools. Network access is denied.'
+                    : 'Starts this installed program with your OS permissions to discover its tools. It may access files or the network.',
               ),
+              if (_isolated) ...[
+                SelectableText('Read and write: $_directory'),
+                for (final root in _roots) SelectableText('Read only: $root'),
+                const Text(
+                  'The copied runtime is read only. Each tool call reviews these folders again.',
+                ),
+              ],
               const SizedBox(height: 12),
               SelectableText(_program.text),
               for (var i = 0; i < _args.length; i++)
@@ -312,6 +337,7 @@ class _McpInspectorState extends State<McpInspector> {
         'label': _name.text.trim(),
         'executable': _program.text,
         'args': _args.map((c) => c.text).toList(),
+        if (_isolated) 'isolation': {'readonlyRoots': _roots},
       },
     });
     final deadline = DateTime.now().add(const Duration(seconds: 35));
@@ -423,6 +449,7 @@ class _McpInspectorState extends State<McpInspector> {
     }
     _name.dispose();
     _program.dispose();
+    _readonlyRoots.dispose();
     for (final arg in _args) {
       arg.dispose();
     }
@@ -615,6 +642,40 @@ class _McpInspectorState extends State<McpInspector> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    CheckboxListTile(
+                      key: const Key('mcp-isolation'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Run in isolation'),
+                      subtitle: const Text(
+                        'Node on Windows. Network access denied; this working folder stays writable.',
+                      ),
+                      value: _isolated,
+                      onChanged: _busy
+                          ? null
+                          : (value) {
+                              _isolated = value == true;
+                              _edited();
+                            },
+                    ),
+                    if (_isolated) ...[
+                      TextField(
+                        key: const Key('mcp-isolation-roots'),
+                        controller: _readonlyRoots,
+                        enabled: !_busy,
+                        minLines: 2,
+                        maxLines: 5,
+                        onChanged: (_) => _edited(),
+                        decoration: const InputDecoration(
+                          labelText: 'Additional read-only folders',
+                          hintText: 'One absolute path per line, up to eight',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Keep server files in the working folder or a listed folder. For local Node modules, add --preserve-symlinks and --preserve-symlinks-main before the script argument. Child processes must inherit stdio.',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     const Text('Credentials'),
                     const Text(
                       'Optional keys for this server. Inspect sends them to the program; Enable saves them in secure storage. Saved keys stay masked. Leave a saved value blank to reuse it, or remove its row to revoke it when enabling. A changed program needs the key entered again.',

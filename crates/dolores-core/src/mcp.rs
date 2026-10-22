@@ -7,9 +7,27 @@ pub struct McpLaunch {
     pub label: String,
     pub executable: String,
     pub args: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isolation: Option<McpIsolation>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct McpIsolation {
+    #[serde(default)]
+    pub readonly_roots: Vec<String>,
 }
 impl McpLaunch {
     pub fn validate(&self) -> Result<(), String> {
+        if self.isolation.as_ref().is_some_and(|mode| {
+            mode.readonly_roots.len() > 8
+                || mode.readonly_roots.iter().any(|p| {
+                    p.len() > 1024
+                        || p.chars().any(char::is_control)
+                        || !std::path::Path::new(p).is_absolute()
+                })
+        }) {
+            return Err("Isolation supports up to eight absolute read-only folder paths.".into());
+        }
         if self.label.trim().is_empty()
             || self.label.len() > 128
             || self.label.chars().any(char::is_control)
@@ -208,6 +226,8 @@ pub struct McpCallPreview {
     pub revision: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub credential_names: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isolation: Option<crate::CommandIsolationPreview>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
+import 'command_sessions.dart';
 
 Future<void> showRunHistory(BuildContext context, ChatController chat) =>
     showDialog<void>(
@@ -133,6 +134,18 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),
                 if (selected != null) const Divider(),
+                if (selected != null && widget.chat.commandSessionsAvailable)
+                  TextButton.icon(
+                    onPressed: pending
+                        ? null
+                        : () => showCommandSessions(
+                            context,
+                            widget.chat,
+                            run: selected,
+                          ),
+                    icon: const Icon(Icons.terminal, size: 18),
+                    label: const Text('Commands from this task'),
+                  ),
                 if (selected != null)
                   ExpansionTile(
                     title: const Text('Run details'),

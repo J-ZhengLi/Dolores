@@ -293,6 +293,45 @@ impl SqliteStore {
             count += 1;
         }
         if matches!(format, ExportFormat::Json) {
+            output
+                .write_all(b"],\"commandSessions\":[")
+                .map_err(error)?;
+        }
+        // Stream one bounded capture at a time. Raw bytes preserve non-UTF-8
+        // output; the display text is a convenience, never substituted evidence.
+        let mut commands = snapshot.prepare("SELECT c.revision,c.data,c.output FROM command_sessions c JOIN runs r ON r.id=c.run WHERE r.thread=?1 ORDER BY c.rowid").map_err(storage_error)?;
+        let mut rows = commands.query([id]).map_err(storage_error)?;
+        let mut first = true;
+        while let Some(row) = rows.next().map_err(storage_error)? {
+            let receipt: dolores_core::command_sessions::SessionReceipt =
+                serde_json::from_str(&row.get::<_, String>(1).map_err(storage_error)?)
+                    .map_err(storage_error)?;
+            let record = dolores_core::command_sessions::SessionRecord {
+                revision: row.get(0).map_err(storage_error)?,
+                receipt,
+                output: row.get(2).map_err(storage_error)?,
+            };
+            record.validate()?;
+            let value = serde_json::json!({"revision":record.revision,"receipt":record.receipt,"output":String::from_utf8_lossy(&record.output),"rawBytes":record.output});
+            match format {
+                ExportFormat::Json => {
+                    if !first {
+                        output.write_all(b",").map_err(error)?;
+                    }
+                    serde_json::to_writer(&mut *output, &value).map_err(storage_error)?;
+                }
+                ExportFormat::Markdown => {
+                    writeln!(output, "## Command session (untrusted output)\n").map_err(error)?;
+                    markdown_block(
+                        output,
+                        &serde_json::to_string(&value).map_err(storage_error)?,
+                    )
+                    .map_err(error)?;
+                }
+            }
+            first = false;
+        }
+        if matches!(format, ExportFormat::Json) {
             output.write_all(b"],\"comparisons\":[").map_err(error)?;
         }
         let mut comparisons = snapshot
