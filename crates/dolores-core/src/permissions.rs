@@ -110,7 +110,7 @@ impl PermissionPolicy {
             return false;
         }
         // Desktop authority is always separate, including in Full access.
-        if request.name == "desktop_control" {
+        if matches!(request.name.as_str(), "desktop_control" | "computer") {
             return false;
         }
         // Starting a native session does not approve later stdin. Each write

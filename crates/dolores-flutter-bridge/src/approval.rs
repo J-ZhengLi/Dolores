@@ -63,6 +63,23 @@ impl ToolApproval for RunApproval {
         cancel: CancellationToken,
     ) -> Result<bool, String> {
         self.recheck(request, cancel.clone()).await?;
+        if request.name == "computer"
+            && request
+                .query
+                .as_deref()
+                .and_then(|q| serde_json::from_str::<Value>(q).ok())
+                .is_some_and(|q| matches!(q["operation"].as_str(), Some("list" | "observe")))
+        {
+            if let Some(log) = &self.log {
+                log.record(
+                    None,
+                    "computerObservation",
+                    json!({"callId":request.call_id,"target":request.target}),
+                )
+                .await?;
+            }
+            return Ok(true);
+        }
         // This host-owned request only saves a pause. Actual sharing/authority
         // is decided in the local chooser, never in a model tool invocation.
         if matches!(

@@ -317,7 +317,8 @@ impl OpenAiProvider {
             return Err(match response.status().as_u16() {
                 401 | 403 => "Model access denied. Check your API key and permissions.".into(),
                 429 => "Model rate limit reached. Try again later.".into(),
-                status => format!("Tool request failed (HTTP {status}). Start a side chat or check model support."),
+                status if status == 408 || status >= 500 => format!("Tool request failed (HTTP {status}). The model server could not complete the request. Wait, then try again explicitly."),
+                status => format!("Tool request failed (HTTP {status}). Check the endpoint, model and request settings."),
             });
         }
         if !response

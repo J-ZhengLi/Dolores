@@ -16,6 +16,7 @@ mod command_sessions;
 mod compaction_tests;
 mod companionship;
 mod comparison;
+mod computer;
 mod connection;
 mod continuation;
 mod desktop;
@@ -150,6 +151,7 @@ struct Engine {
     mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
     mcp_credentials: Arc<dyn CredentialStore>,
     desktop_access: desktop_control::Grants,
+    computer_ownership: computer::Ownership,
     desktop_boot_ms: u64,
     native_review: Mutex<Option<native_update::Review>>,
     native_startup: Option<PathBuf>,
@@ -950,6 +952,7 @@ impl Engine {
             mcp_credentials: credentials,
             desktop_access: Mutex::new(Default::default()),
             desktop_boot_ms: desktop_control::now_millis(),
+            computer_ownership: Arc::new(Mutex::new(None)),
             native_review: Mutex::new(None),
             native_startup: None,
             native_leaving: std::sync::atomic::AtomicBool::new(false),
@@ -2358,9 +2361,19 @@ impl Engine {
                             )));
                         }
                     }
-                    if desktop::helper().is_ok() {
-                        tools.push(Arc::new(desktop_access::RequestAccess));
+                }
+                if scheduled.is_none()
+                    && desktop_capture.is_none()
+                    && !planning_state.planning
+                    && cfg!(windows)
+                {
+                    tools.push(Arc::new(desktop_access::RequestAccess));
+                    let computer = self.computer_tool(session.as_deref().unwrap(), &run_id)?;
+                    if computer.images_enabled() {
+                        provider = provider.with_attachment_assets(vec![], true)?;
+                        provider = provider.with_attachment_resolver(computer.clone())?;
                     }
+                    tools.push(computer);
                 }
                 if scheduling_available {
                     tools.push(Arc::new(scheduling::ScheduleTool::new(
@@ -3288,6 +3301,9 @@ async fn execute(
         }
         if observation_run && reply.pause.is_none() {
             desktop::require_evidence(&reply.summary)?;
+        }
+        if reply.pause.is_none() {
+            computer::require_evidence(&reply.summary)?;
         }
         if let Some(owner) = &command_sessions {
             reply.summary.tools.extend(owner.finish().await?);
@@ -4267,11 +4283,14 @@ mod tests {
         for (hang, fail) in [(false, false), (true, false), (false, true)] {
             let directory = tempfile::tempdir().unwrap();
             let store = Arc::new(SqliteStore::open(&directory.path().join("fixture.db")).unwrap());
-            let engine = Engine::new(
+            let mut engine = Engine::new(
                 store.clone(),
                 Arc::new(connection::testing::MemoryCredentials::default()),
             )
             .unwrap();
+            // Match the normal host's private data location, independently of
+            // whether this conversation has a working folder.
+            engine.workspace_directory = Some(directory.path().join("workspaces"));
             engine
                 .call(Command::Configure {
                     preferences: ConnectionPreferences {
@@ -4303,6 +4322,19 @@ mod tests {
                     workspace: None,
                 })
                 .unwrap();
+            let registered = &store.runs("side").unwrap()[0].tools;
+            assert_eq!(
+                registered.iter().any(|name| name == "computer"),
+                cfg!(windows)
+            );
+            assert!(!registered.iter().any(|name| matches!(
+                name.as_str(),
+                "read_text_file"
+                    | "write_text_file"
+                    | "run_command"
+                    | "command_session"
+                    | "delegate_tasks"
+            )));
             assert!(engine
                 .call(Command::Delete {
                     session: "anything".into()

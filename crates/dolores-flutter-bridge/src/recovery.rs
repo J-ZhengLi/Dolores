@@ -28,7 +28,14 @@ pub fn advice(error: &str) -> Recovery {
         "Model request timed out. Adjust the request timeout or try again." => ("timeout", true, "Your message was not saved. Increase the timeout for a slow model, or retry the current draft."),
         "Agent run timed out while working or waiting for approval. Your message was not saved." => ("timeout", true, "Your message was not saved. Increase the timeout or retry the current draft, then review each file request."),
         "Agent reached its tool or model-call limit. Your message was not saved." | "Agent reached its model-call limit." | "Tool context exceeds the 128 KiB limit." => ("outputLimit", false, "The agent run reached its local budget. Narrow the task or disable folder tools before sending again."),
-        error if error.starts_with("Tool request failed (HTTP ") || error == "Model did not return a JSON tool response. Disable folder tools or check model support." => ("configuration", false, "Disable folder tools or choose a model that supports Chat Completions function calls."),
+        error if error.starts_with("Tool request failed (HTTP ") => {
+            let status = error.strip_prefix("Tool request failed (HTTP ").and_then(|v| v.split(')').next()).and_then(|v| v.parse::<u16>().ok());
+            if status.is_some_and(|status| status == 408 || (500..=599).contains(&status)) {
+                ("provider", true, "The model server could not complete the request. Your draft and completed work remain. Wait, review any completed actions, then retry explicitly. Nothing is retried automatically.")
+            } else {
+                ("configuration", false, "Review the endpoint, selected model and request settings. Your draft and completed work remain; the HTTP status alone does not establish tool support.")
+            }
+        },
         "Could not reach the model. Check the endpoint and whether the server is running." | "Connection interrupted before the response finished." | "Connection ended before the response finished." => ("network", true, "Your message was not saved. Check the connection, then retry the current draft."),
         "Model rate limit reached. Try again later." => ("rateLimit", true, "Wait before retrying the current draft. Dolores will not retry automatically."),
         "Model access denied. Check your API key and permissions." => ("access", false, "Check the API key and permissions in Model connection. Your draft is restored."),
@@ -56,6 +63,18 @@ pub fn advice(error: &str) -> Recovery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tool_service_outages_do_not_claim_unsupported_computer_use() {
+        for status in [408, 500, 502, 503, 504] {
+            let recovery = advice(&format!(
+                "Tool request failed (HTTP {status}). Start a side chat or check model support."
+            ));
+            assert_eq!(recovery.kind, "provider", "HTTP {status}");
+            assert!(recovery.retryable);
+            assert!(!recovery.guidance.contains("Disable folder tools"));
+            assert!(recovery.guidance.contains("completed"));
+        }
+    }
     #[test]
     fn stream_limits_explain_manual_recovery_without_changing_context_or_replaying() {
         let stalled = advice("Provider stream sent 2 MiB without new response data.");

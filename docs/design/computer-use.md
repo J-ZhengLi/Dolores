@@ -1,5 +1,37 @@
 # Computer use — selected-window observation and input (14.1–14.2)
 
+## Ordinary-chat computer use — October 22 update
+
+Foreground chats on Windows advertise `computer` alongside their other tools,
+including side chats without a working folder. Computer access does not enable
+file, command or delegation tools in those chats. When asked to inspect or operate an app, the agent lists visible
+windows, selects a returned opaque window ID and observes it directly. It can
+inspect Dolores's own window. A screenshot is sent to the currently selected
+image-enabled model; no separate Settings task or silent model switch is needed.
+Window titles and pixels remain untrusted observations. Background tasks,
+delegated children and planning-only runs do not receive this tool.
+
+Window IDs and input authority live only for that run. Refreshing the list
+invalidates earlier selections. One run owns computer use at a time; ownership
+is released when it ends. Each input uses the latest unused capture UUID and
+requires an exact in-chat review, including under Full access. It uses the
+existing native identity/focus/geometry checks and dispatch handshake described
+below. Ordinary-chat computer use may observe and control Dolores itself. Every input still requires exact human review, including under Full access; the agent must never approve its own operations or change access to bypass that review.
+Stop, denial or failure pauses before later queued computer actions; subsequent
+work must inspect fresh state rather than replay input. A final input receipt
+requires a later screenshot of that same window before reporting completion.
+
+Up to 16 images remain resolvable within one run, alongside the existing global
+64-capture cache and model/tool/context/time limits. Model image input disabled,
+missing helpers, stale windows and exhausted evidence limits produce their actual
+recovery instructions. Server HTTP 408/5xx errors indicate provider availability,
+not proof that a model lacks function calling; they never trigger automatic retries.
+
+The manual chooser, saved-screenshot analysis and scoped-access workflow below
+remain available through `request_desktop_access` and Settings. Their original
+explicit-sharing boundaries apply to that workflow; they are no longer a
+prerequisite for ordinary-chat computer use.
+
 ## Decision before implementation
 
 Keep Flutter/Rust. Use Windows Graphics Capture through the pinned Rust

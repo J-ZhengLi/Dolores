@@ -1,5 +1,18 @@
 use super::*;
 
+#[test]
+fn computer_context_explains_automatic_window_discovery() {
+    let specs = [ToolSpec {
+        name: "computer".into(),
+        description: "Computer use".into(),
+        parameters: serde_json::json!({}),
+    }];
+    let prepared = prepare_external_tool_context(context(), &specs).unwrap();
+    assert!(prepared[0].content.contains("computer tool"));
+    assert!(prepared[0].content.contains("Dolores"));
+    assert!(prepared[0].content.contains("No Settings"));
+}
+
 #[tokio::test]
 async fn repeated_failures_inside_one_batch_stop_before_later_requests() {
     struct Batch;
@@ -257,7 +270,7 @@ async fn default_task_completes_six_reviewed_operations_without_continue() {
 
 #[tokio::test]
 async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry() {
-    struct Batch;
+    struct Batch(&'static str);
     #[async_trait]
     impl ModelProvider for Batch {
         fn descriptor(&self) -> PluginDescriptor {
@@ -289,19 +302,19 @@ async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry
                     .into_iter()
                     .map(|id| ToolCall {
                         id: id.into(),
-                        name: "desktop_control".into(),
+                        name: self.0.into(),
                         arguments: "{}".into(),
                     })
                     .collect(),
             })
         }
     }
-    struct Uncertain(AtomicUsize);
+    struct Uncertain(AtomicUsize, &'static str);
     #[async_trait]
     impl ToolPlugin for Uncertain {
         fn spec(&self) -> ToolSpec {
             ToolSpec {
-                name: "desktop_control".into(),
+                name: self.1.into(),
                 description: "Fixture".into(),
                 parameters: json!({}),
             }
@@ -322,8 +335,13 @@ async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry
             Err("Input may already have occurred. Inspect before continuing.".into())
         }
     }
-    for allow in [true, false] {
-        let plugin = Arc::new(Uncertain(AtomicUsize::new(0)));
+    for (allow, name) in [
+        (true, "desktop_control"),
+        (false, "desktop_control"),
+        (true, "computer"),
+        (false, "computer"),
+    ] {
+        let plugin = Arc::new(Uncertain(AtomicUsize::new(0), name));
         let approval = Approval {
             allow,
             count: AtomicUsize::new(0),
@@ -331,7 +349,7 @@ async fn desktop_failure_or_denial_stops_the_remaining_batch_without_model_retry
         let (events, _receiver) = mpsc::channel(32);
         let plugins: Vec<Arc<dyn ToolPlugin>> = vec![plugin.clone()];
         let reply = run_small_agent(
-            &Batch,
+            &Batch(name),
             context(),
             &plugins,
             &approval,
@@ -1287,7 +1305,7 @@ struct Read {
 }
 
 #[tokio::test]
-async fn packaged_catalog_accepts_twenty_three_tools_and_refuses_excess_or_duplicates() {
+async fn packaged_catalog_accepts_twenty_four_tools_and_refuses_excess_or_duplicates() {
     struct Registered(usize);
     #[async_trait]
     impl ToolPlugin for Registered {
@@ -1305,7 +1323,7 @@ async fn packaged_catalog_accepts_twenty_three_tools_and_refuses_excess_or_dupli
             unreachable!()
         }
     }
-    for count in [20, 23, 24] {
+    for count in [21, 24, 25] {
         let provider = Scripted {
             calls: Mutex::new(vec![]),
             loop_forever: false,
@@ -1327,7 +1345,7 @@ async fn packaged_catalog_accepts_twenty_three_tools_and_refuses_excess_or_dupli
             CancellationToken::new(),
         )
         .await;
-        if count <= 23 {
+        if count <= 24 {
             assert_eq!(result.unwrap().answer, "Final answer");
         } else {
             assert_eq!(result.err().unwrap(), "Tool registration is invalid.");

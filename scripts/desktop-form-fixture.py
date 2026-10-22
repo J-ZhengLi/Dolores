@@ -32,7 +32,9 @@ def publish():
     data={'text':entry.get(),'saved':saved,'saveClicks':clicks,'status':status.get(),
           'entry':{'x':entry.winfo_rootx()+100,'y':entry.winfo_rooty()+20},
           'button':{'x':button.winfo_rootx()+100,'y':button.winfo_rooty()+24}}
-    temporary=directory/'form-state.tmp';temporary.write_text(json.dumps(data),encoding='utf-8');temporary.replace(directory/'form-state.json')
+    temporary=directory/'form-state.tmp';temporary.write_text(json.dumps(data),encoding='utf-8')
+    try: temporary.replace(directory/'form-state.json')
+    except PermissionError: pass  # A concurrent Windows reader can briefly hold the file; the next tick republishes.
 entry.bind('<KeyRelease>',lambda _:publish())
 last=None
 def tick():

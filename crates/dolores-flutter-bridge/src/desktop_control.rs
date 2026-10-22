@@ -179,6 +179,31 @@ impl AttachmentResolver for Control {
     }
 }
 impl Control {
+    pub(super) fn from_observation(
+        root: PathBuf,
+        helper: PathBuf,
+        capture: desktop::Capture,
+        asset: AttachmentData,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            grant: Arc::new(Grant {
+                token: uuid::Uuid::new_v4().to_string(),
+                target: capture.observation["target"].clone(),
+                automatic: false,
+                expires: now() + 900,
+                revoked: AtomicBool::new(false),
+            }),
+            root,
+            helper,
+            state: Mutex::new(State {
+                capture,
+                usable: true,
+                assets: BTreeMap::from([(asset.reference.name.clone(), asset)]),
+                parts: vec![],
+                unchanged: 0,
+            }),
+        })
+    }
     fn parsed(&self, request: &ToolRequest) -> Result<Value, String> {
         if request.name != "desktop_control"
             || request.target != self.grant.target["title"].as_str().unwrap_or("")

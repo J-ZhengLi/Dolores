@@ -46,6 +46,11 @@ def main():
     client = NativeHost(directory)
     began = time.monotonic()
     try:
+        deadline = time.monotonic() + 10
+        while not (directory/'form-state.json').is_file():
+            assert fixture.poll() is None, 'Owned fixture exited before publishing its state'
+            assert time.monotonic() < deadline, 'Owned fixture startup exceeded ten seconds'
+            time.sleep(.05)
         call = client.call
         call('bootstrap')
         policy = call('memories')['automaticPolicy']

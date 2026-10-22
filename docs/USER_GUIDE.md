@@ -298,7 +298,9 @@ Send shares the image with your configured provider.
 
 ## Inspect a Windows application
 
-In a project or temporary chat, ask Dolores to inspect or work in an application. When it needs access, choose **Share window**, select one visible window and choose view-only or control access. The composer’s plus menu also offers **Share window**. Review the sharing purpose before sending pixels to your configured provider. A bounded image check helps identify transport problems; it does not prove that a model can reliably control an application.
+In any foreground chat, including a side chat without a working folder, ask Dolores to inspect or work in an application, for example “Look at your current interface.” It can list visible windows and capture the intended one directly, including its own window. The screenshot goes to your current provider, so enable **Supports image input** for a compatible model under Settings → Models. You do not need to start a separate Settings workflow or attach a project. Ambiguous targets need clarification; Dolores should describe only what its screenshot actually shows.
+
+Input actions show their exact operation and target in chat for review. Ordinary-chat computer use can also click and type in Dolores itself, for example to change its theme, with the same human review and fresh screenshot checks. Another chat cannot use the computer while this run owns it. You can still choose **+ → Share window** or use **Settings → Tools → Computer use** for manual selection, local preview and the existing scoped workflow. A bounded image check helps identify transport problems; it does not prove that a model can reliably control an application.
 
 Desktop control is currently Windows-only and limited to the selected window. The model must observe fresh state before input and verify afterward. Consequential actions still need review. Stop ends access; input already dispatched may have effects, so inspect before repeating. Closed/minimized windows and unsupported models produce a recovery instead of switching targets or providers.
 

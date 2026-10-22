@@ -29,7 +29,7 @@ String toolLabel(dynamic name) => switch (name) {
   'read_web_page' => 'Web page',
   'browser' => 'Browser',
   'inspect_desktop_capture' => 'Desktop screenshot',
-  'desktop_control' => 'Computer use',
+  'desktop_control' || 'computer' => 'Computer use',
   'request_desktop_access' => 'Window access',
   _ => 'File read',
 };
@@ -165,6 +165,17 @@ String toolResultText(dynamic record) {
     if (record['name'] == 'browser') {
       return '${result['outcome']} · ${result['title'] ?? ''}\n${result['url'] ?? ''}\n${result['partial'] == true ? 'Partial page state\n' : ''}${result['recovery'] ?? ''}\n${result['text'] ?? ''}\n\n${result['controls'] ?? ''}\n${result['note'] ?? ''}';
     }
+    if (record['name'] == 'computer') {
+      if (result['windows'] is List) {
+        return '${(result['windows'] as List).length} visible windows · No screenshot yet';
+      }
+      if (result['capture'] is Map) {
+        final capture = result['capture'] as Map;
+        final observation = capture['observation'] as Map;
+        return 'Fresh screenshot · ${observation['target']['title']}\n${observation['width']} × ${observation['height']} image pixels\nCapture: ${capture['id']}';
+      }
+      return 'Input dispatched · Observe the window to verify the result.\n${result['action']}';
+    }
     if (record['name'] == 'inspect_desktop_capture') {
       final capture = result['capture'] as Map;
       final observation = capture['observation'] as Map;
@@ -227,7 +238,7 @@ String toolQueryText(dynamic record) {
     return 'Page request: ${record['query']}';
   }
   final label = switch (record['name']) {
-    'browser' => 'Operation',
+    'browser' || 'computer' || 'desktop_control' => 'Operation',
     'delegate_tasks' => 'Plan',
     'inspect_harness' => 'Inspection',
     'harness_repair' => 'Repair',
@@ -386,13 +397,13 @@ class ToolApprovalCard extends StatelessWidget {
       'web_search' => 'Share this web search query?',
       'read_web_page' => 'Read this public web page?',
       'browser' => 'Allow this browser operation?',
-      'desktop_control' => 'Allow this desktop input?',
+      'desktop_control' || 'computer' => 'Allow this desktop input?',
       _ => 'Allow a file read?',
     };
     final disclosure = switch (name) {
       'command_session' =>
         'The exact operation below addresses one task-owned command. Input may cause further file or network effects. A written receipt means delivery to stdin, not completion of those effects. Output goes to ${chat.model} and local history. Stop closes owned processes; completed effects may remain.',
-      'desktop_control' => 'Review the exact action and selected window below. Coordinates use the latest screenshot. This may submit data or change files through that application. Input receipts prove dispatch only; Dolores must observe again. Stop or failure can leave effects; inspect before repeating. Desktop access is separate from folder access.',
+      'desktop_control' || 'computer' => 'Review the exact action and selected window below. Coordinates use the latest screenshot. This may submit data or change files through that application. Input receipts prove dispatch only; Dolores must observe again. Stop or failure can leave effects; inspect before repeating. Desktop access is separate from folder access.',
       'browser' =>
         'Uses one fresh visible browser for this run. Review the literal operation below. Click/input can submit data or cause external effects and always need fresh approval. Only this origin loads; no saved profile, passwords, uploads/downloads or popups. Page text/state goes to ${chat.model} and local evidence. Screenshots stay local. Stop closes owned resources; submitted effects may remain.',
       'web_search' =>
@@ -471,6 +482,8 @@ class ToolApprovalCard extends StatelessWidget {
                   Text(
                     repairing || evaluating || building
                         ? 'Storage: Dolores repair workspace'
+                        : name == 'computer' || name == 'desktop_control'
+                        ? 'Target: observed application window'
                         : 'Folder: ${chat.workspaceKind == 'temporary' ? 'Temporary workspace' : path.basename(chat.workspaceRoot ?? '')}',
                     style: TextStyle(color: p.muted, fontSize: 12),
                   ),
@@ -572,6 +585,8 @@ class ToolApprovalCard extends StatelessWidget {
                           ? 'Exact repair step:'
                           : commandSession
                           ? 'Exact command operation and input (JSON):'
+                          : name == 'computer' || name == 'desktop_control'
+                          ? 'Exact window action (JSON):'
                           : name == 'read_text_file'
                           ? 'Read these lines (start:count):'
                           : name == 'web_search'
@@ -595,7 +610,7 @@ class ToolApprovalCard extends StatelessWidget {
                   if (!running && !external)
                     Text(switch (name) {
                       'command_session' => disclosure,
-                      'desktop_control' => 'Input affects the selected window. Submission or deletion may be irreversible.',
+                      'desktop_control' || 'computer' => 'Input affects the selected window. Submission or deletion may be irreversible.',
                       'browser' => 'Click or input may submit data or change this website.',
                       'web_search' => 'The query and returned sources are shared with the search service and your model.',
                       'read_web_page' => 'The URL is sent to its host; extracted text is shared with your model.',
@@ -724,7 +739,11 @@ class _ToolRecordsState extends State<ToolRecords> {
               }, style: TextStyle(fontSize: 11, color: p.muted)),
               childrenPadding: const EdgeInsets.all(12),
               children: [
-                if (record['name'] == 'inspect_desktop_capture' &&
+                if ([
+                      'inspect_desktop_capture',
+                      'desktop_control',
+                      'computer',
+                    ].contains(record['name']) &&
                     bridge != null &&
                     desktopCaptureReference(record) != null)
                   BrowserCapturePreview(

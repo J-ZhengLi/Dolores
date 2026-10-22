@@ -848,6 +848,31 @@ async fn generic_rejections_and_stream_errors_do_not_retry_or_fall_back_to_plain
 }
 
 #[tokio::test]
+async fn tool_service_outage_has_neutral_guidance_in_both_transports() {
+    for streaming in [false, true] {
+        let (url, server) = crate::tests::sequence_server(vec![
+            "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                .into(),
+        ])
+        .await;
+        let model = provider(url);
+        let result = if streaming {
+            let (sender, _receiver) = mpsc::channel(8);
+            model
+                .stream_tool_turn(&[], &[], sender, CancellationToken::new())
+                .await
+        } else {
+            model.tool_turn(&[], &[], CancellationToken::new()).await
+        };
+        let error = result.err().unwrap();
+        assert!(error.contains("503"));
+        assert!(!error.contains("model support"), "{error}");
+        assert!(error.contains("server"), "{error}");
+        assert_eq!(server.await.unwrap().split("\nREQUEST\n").count(), 1);
+    }
+}
+
+#[tokio::test]
 async fn idle_stream_and_individual_frame_budgets_are_enforced() {
     for (frames, expected) in [
         (

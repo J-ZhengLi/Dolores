@@ -76,8 +76,43 @@ pub(super) fn view(store: &dyn SessionStore, session: &str, id: &str) -> Result<
                         | "run_command"
                         | "command_session"
                         | "desktop_control"
+                        | "computer"
                 ) || n.starts_with("mcp_tool_")
-            }) && if i["name"] == "desktop_control" {
+            }) && if i["name"] == "computer" {
+                let action = i["arguments"]
+                    .as_str()
+                    .and_then(|s| serde_json::from_str::<Value>(s).ok());
+                action
+                    .as_ref()
+                    .is_none_or(|a| !matches!(a["operation"].as_str(), Some("list" | "observe")))
+                    && !results
+                        .iter()
+                        .filter(|r| {
+                            r["runId"] == i["runId"]
+                                && r["callId"] == i["callId"]
+                                && r["returned"] == true
+                        })
+                        .any(|input| {
+                            let window = input["content"]
+                                .as_str()
+                                .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                                .and_then(|v| v["window"].as_str().map(str::to_owned));
+                            window.is_some()
+                                && results.iter().any(|r| {
+                                    r["runId"] == i["runId"]
+                                        && r["sequence"].as_u64() > input["sequence"].as_u64()
+                                        && r["returned"] == true
+                                        && r["name"] == "computer"
+                                        && r["parts"].as_array().is_some_and(|p| !p.is_empty())
+                                        && r["content"]
+                                            .as_str()
+                                            .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                                            .is_some_and(|v| {
+                                                v["window"].as_str() == window.as_deref()
+                                            })
+                                })
+                        })
+            } else if i["name"] == "desktop_control" {
                 let action = i["arguments"]
                     .as_str()
                     .and_then(|s| serde_json::from_str::<Value>(s).ok());

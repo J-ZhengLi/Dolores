@@ -1,5 +1,159 @@
 # Dolores acceptance — 2026-10-08
 
+## Live computer-use qualification — October 23 (failed journey)
+
+The normal Windows app was exercised with the configured
+`deepseek-v4.1-flash-1017` real model in an isolated profile. Only its saved
+connection was read; no source chat/history was copied. A bounded local relay
+kept the real key in memory and retained status/count receipts, not request or
+response bodies. The original profile's logical database digest remained
+unchanged after both live attempts.
+
+The natural-language request was to switch Dolores from Dark to Light, close
+Settings, reveal the bottom navigation dock and inspect it. The first attempt
+made five model calls: window discovery, screenshots and a reviewed native click
+worked, but the proposed overflow-menu click missed. A subsequent title-area
+click was declined, and the task paused without later dispatch.
+
+A fresh attempt with an explicit dock-navigation hint made seven model calls.
+It revealed the dock and correctly named Home, Scheduled, Files, Source Control,
+Terminal, Library and Settings. Its proposed Settings coordinate opened Source
+Control instead. After capturing that result, the model exhausted the bounded
+1,200-token response allowance during reasoning and paused with retained progress.
+Light mode was not reached. This is a failed end-to-end qualification, not proof
+of reliable self-navigation; coordinate grounding and response-budget suitability
+remain open. No automatic retries or budget changes were made to the product.
+
+Evidence: `output/computer-live-20261023-02/relay-result.json` and
+`output/computer-live-20261023-03/relay-result.json`, plus isolated run events and
+captures in those directories. The reusable opt-in runner is
+`scripts/qualify-computer-live.py`; it launches the normal app, leaves all input
+reviews to the human/qualification operator, and bounds requests, output and time.
+The initial runner attempt held its own profile lock while launching; seeding now
+runs in a separate process that exits before launch. No live model was contacted
+in that failed setup attempt.
+
+## Reviewed control of Dolores itself — October 23
+
+The ordinary-chat `computer` tool no longer rejects input solely because the
+target window belongs to the host process. Its tool and system guidance now
+allow operating Dolores itself under the same exact human review used for other
+applications. Full access does not automatically approve this input. The native
+identity, focus, geometry, single-use capture, Stop and post-input screenshot
+checks remain in force. The legacy manual-grant workflow keeps its original
+self-target restriction; this change addresses direct ordinary-chat control.
+
+The self-window regression first failed with the reported "cannot control its
+own window" error. It now requires a self-target click to prepare and checks
+that Full access still cannot automatically approve it. Forged image references,
+stale window IDs and cancelled capture checks remain covered by the same tests.
+The native fixture has a `--same-process` option that hosts its disposable window
+in the process loading the release bridge, exercising the real self-PID path.
+
+Verification: four focused bridge computer tests and the core computer-guidance
+test passed; Clippy passed for all targets of both crates with warnings denied.
+The normal Windows x64 build passed. Against that release, the same-process
+native fixture passed observation, denied typing, reviewed typing and reviewed
+clicking; both successful inputs were followed by fresh screenshot evidence.
+The old bundle failed this fixture before the repair because no self-input review
+could be reached. Public result: `output/computer-self-green-20261023/public-result.json`.
+The fixture's state publishing tolerates a brief Windows reader lock so its
+observation/recovery loop continues. Documentation and publication checks passed.
+
+These checks use an isolated profile, disposable native form and local scripted
+provider. They establish real same-process input and screenshot delivery. A live
+model navigating the actual Dolores settings and completing a theme change is
+not yet qualified; the existing theme control permits saves during an active
+run. No saved provider configuration or private history was used or changed.
+
+## Computer availability without a working folder — October 23
+
+The October 22 integration incorrectly required a workspace root both when
+adding `computer` and when enabling its extension registration. Ordinary side
+chats therefore received only scheduling and question tools, matching the
+reported refusal. Removing those conditions makes direct
+computer use available in foreground side chats as well as project/temporary
+chats. Scheduled runs and planning-only runs retain their existing exclusions;
+file, command and delegation tools still require their separate working context.
+
+The native regression now defaults to `--kind side` and also supports `temporary`
+and `project`. Before the fix, its first provider request failed with the exact
+catalog `[schedule_task, manage_scheduled_task, request_user_input]`, proving that
+the tool was absent rather than ignored by a model. The earlier project-only
+fixture did not cover this path. The side fixture also asserts that enabling
+computer use does not expose file, shell or delegation tools.
+
+The regular bridge backpressure/cancellation test now asserts the same side-chat
+catalog. Its isolated host supplies the normal private data directory for capture
+storage, independently of the conversation's absent working folder. That test
+also caught the second registration restriction before it was removed.
+
+Verification: all 213 bridge tests passed (one existing ignored test), Clippy
+passed for all bridge targets with warnings denied, and formatting/document-link
+checks passed. The normal Windows x64 build completed through `desktop.py build`.
+The rebuilt release bridge passed all three side-chat native cases: automatic
+capture with no review, denied input with no subsequent dispatch, and reviewed
+typing followed by a fresh screenshot. No file/shell/delegation tool appeared.
+Public receipts: `output/computer-side-green-20261023/public-result.json`.
+The same three native cases also passed for project and temporary chats;
+receipts are in the corresponding `computer-project-green-20261023` and
+`computer-temporary-green-20261023` output directories.
+
+These native checks use a disposable form, isolated profile and local scripted
+provider. They verify the missing-tool repair and image delivery, not a live
+model's natural-language tool selection. No saved provider configuration or
+private conversation was changed. The first build could not replace files held
+by the user's app; after it closed, the final build succeeded.
+
+## Ordinary-chat computer use — October 22
+
+Windows working chats now offer a native `computer` tool. The agent can discover
+visible windows and send the intended window's screenshot to the current
+image-enabled model without a Settings handoff. It may inspect Dolores itself;
+input to its own process remains refused. Other input retains exact in-chat
+review, fresh single-use captures and the existing native identity/focus checks.
+Only one ordinary chat owns computer use at a time. Denial, Stop and tool failure
+pause before later actions; input needs a subsequent screenshot of the same
+window. The manual chooser and saved-screenshot workflow remain available.
+
+HTTP 408/5xx failures now identify a provider failure rather than asserting that
+the model cannot use tools. Recovery retains work and calls for an explicit retry.
+The registered-tool capacity grows from 23 to 24 to accommodate the direct tool
+alongside the manual chooser; execution budgets are unchanged.
+
+Verification exercised:
+
+- Rust: 104 core, 213 bridge and 48 provider tests passed; one existing bridge
+  test remains ignored. Tests cover self-observation, forged image references,
+  stale window/capture IDs, disabled image input, cancellation, exclusive use,
+  denial stopping queued actions and HTTP 503 without silent retries. The new
+  guidance and outage-recovery assertions failed before their respective fixes.
+- Clippy passed for all targets in the three affected crates with warnings denied.
+  Thirteen focused Flutter tests passed and the two changed Dart files passed
+  analysis. Compact Light/Dark review renders were inspected under
+  `output/computer-use-renders-20261022/`; denying input preserves the draft.
+- The normal Windows x64 build passed through `scripts/desktop.py build`.
+  `scripts/test-computer-chat.py` exercised that release bridge with a disposable
+  native form: automatic list/capture with zero reviews, denied input with no
+  subsequent model call or text change, and one approved typing operation followed
+  by a second screenshot. The captured image visibly contains the expected text;
+  the form was never submitted. Receipts are under
+  `output/computer-chat-20261022-02/public-result.json`.
+- The existing manual handoff fixture also passed, including retained unrelated
+  draft/attachment, shared task budgets, fresh image evidence and no submission.
+  Receipts are under `output/computer-legacy-20261022-02/public-result.json`.
+  Both native scripts now wait for fixture startup before inspecting it; the
+  original startup races failed before adding that bounded wait.
+
+Evidence boundaries: native journeys use an isolated profile and deterministic
+loopback provider, never saved credentials or private transcripts. They establish
+real window capture/input and image delivery, not real-model reliability or
+Codex feature parity. A normal-app self-inspection journey with a live model,
+cross-application targeting, elevated windows, multi-monitor/DPI combinations and
+clean-machine packaging remain unqualified. This change does not diagnose the
+separate storage/Close incident recorded below. The harness umbrella remains
+paused at EH06.
+
 ## Desktop interaction and layout polish — October 22
 
 Primary navigation now uses a floating bottom dock. It overlays the workspace

@@ -21,6 +21,9 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Allow ordinary-chat computer use to control Dolores's own window, including theme controls, with exact human review and fresh screenshot verification. Previously its own window was limited to observation.
+- Make computer use available in ordinary side chats without a working folder. These chats previously received scheduling tools but no computer tool; file and shell access stay separate.
+- Use Windows computer tools directly in ordinary working chats: discover and inspect an application, including Dolores itself, without a Settings handoff. Screenshots use the current image-enabled model; input keeps exact in-chat review and fresh verification. HTTP 408/5xx errors now explain provider failures instead of incorrectly blaming tool support.
 - Send recovers when an input method commits unchanged text after focus moves.
 - Models can be removed from their options menu, including the active or final model, while retaining conversations and the saved provider connection.
 - Automatic context compaction is always enabled for new and existing chats. Failed summaries retain drafts and history for explicit recovery.

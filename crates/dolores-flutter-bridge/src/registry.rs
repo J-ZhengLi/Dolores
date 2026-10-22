@@ -22,6 +22,7 @@ impl ToolProposalHook for ValidateProposal {
                             | "request_user_input"
                             | "browser"
                             | "desktop_control"
+                            | "computer"
                             | "inspect_harness"
                             | "harness_repair"
                             | "test_harness_repair"
@@ -81,6 +82,8 @@ impl Engine {
                         ""
                     } else if id == "provider/openai" {
                         "Connect a model"
+                    } else if id == "desktop/observation" {
+                        "Computer use requires Windows"
                     } else {
                         "Start a project or temporary working chat"
                     }
@@ -207,11 +210,12 @@ impl Engine {
         add(
             "desktop/observation",
             true,
-            working,
+            cfg!(windows),
             vec!["selected-screenshot-sharing".into()],
             vec![
                 "inspect_desktop_capture".into(),
                 "desktop_control".into(),
+                "computer".into(),
                 "request_desktop_access".into(),
             ],
         )?;
@@ -379,6 +383,14 @@ mod tests {
                 "sourceId":crate::introspection::bundle::find("crates/dolores-core/src/lib.rs").unwrap().id}).to_string(),
         }).is_ok());
         let side = engine.extension_registry(Some("side")).unwrap();
+        assert_eq!(
+            side.entries
+                .iter()
+                .find(|e| e.descriptor.id == "desktop/observation")
+                .unwrap()
+                .active,
+            cfg!(windows)
+        );
         assert!(
             !side
                 .entries
