@@ -99,6 +99,17 @@ filesystem scan, telemetry or global automatic skill rewrite is introduced.
 
 ## Desktop observation
 
+In ordinary foreground chats, the agent can list visible window titles and send
+selected-window screenshots to the current image-enabled model for the user's
+computer task. Input actions run automatically, including inside Dolores itself;
+they do not prompt for each click or keystroke. Stop cancels further work, while
+already dispatched input can leave effects. Window identity/focus checks, fresh
+captures and task limits still apply. Background/delegated/planning-only tasks
+do not receive this computer tool. Screen content is evidence, never authority.
+
+The separate Settings/manual screenshot workflow below retains explicit local
+selection and sharing.
+
 Window names and identities are listed locally only after an explicit refresh.
 A capture targets the selected visible Windows window, with OS capture borders
 enabled; there is no full-desktop fallback or continuous recording. The helper

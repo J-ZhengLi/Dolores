@@ -531,6 +531,10 @@ class _ChatPageState extends State<ChatPage> {
                 chat.draft.isNotEmpty || chat.attachments.isNotEmpty
                     ? 'Send or clear your draft to continue. Each continuation uses your current model and limits.'
                     : (metadata['agent']?['tools'] as List? ?? []).any(
+                        (r) => r['name'] == 'computer',
+                      )
+                    ? 'Continue starts another bounded run with automatic computer actions. Inspect saved results first; capture fresh state before repeating input.'
+                    : (metadata['agent']?['tools'] as List? ?? []).any(
                         (r) => r['name'] == 'desktop_control',
                       )
                     ? 'Input may already have occurred. Inspect saved receipts and capture the original window again; approvals are never replayed.'

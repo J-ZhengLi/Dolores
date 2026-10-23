@@ -249,7 +249,7 @@ pub fn run(request: Value) -> Result<Value, String> {
                 MinimumUpdateIntervalSettings::Default,
                 DirtyRegionSettings::Default,
                 ColorFormat::Rgba8,
-                (target, result.clone()),
+                (target.clone(), result.clone()),
             );
             Capture::start(settings).map_err(|_| {
                 "Windows capture unavailable. Check Windows capture support and restore the target."
@@ -258,9 +258,17 @@ pub fn run(request: Value) -> Result<Value, String> {
                 .lock()
                 .map_err(|_| "Capture state unavailable.")?
                 .take();
-            value.unwrap_or_else(|| {
+            let mut value = value.unwrap_or_else(|| {
                 Err("No frame arrived. Restore the window and capture again.".into())
-            })
+            })?;
+            value["accessibility"] = crate::accessibility::capture(&target, &value);
+            recheck(&target)?;
+            if geometry(&target)? != value["geometry"] {
+                return Err(
+                    "Window changed during observation. Observe again before input.".into(),
+                );
+            }
+            Ok(value)
         }
         _ => Err("Unknown observation operation.".into()),
     }

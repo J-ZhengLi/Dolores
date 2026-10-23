@@ -4,8 +4,8 @@
 
 Foreground chats on Windows advertise `computer` alongside their other tools,
 including side chats without a working folder. Computer access does not enable
-file, command or delegation tools in those chats. When asked to inspect or operate an app, the agent lists visible
-windows, selects a returned opaque window ID and observes it directly. It can
+file, command or delegation tools in those chats. When asked to inspect or
+operate an app, the agent lists visible windows, selects a returned opaque window ID and observes it directly. It can
 inspect Dolores's own window. A screenshot is sent to the currently selected
 image-enabled model; no separate Settings task or silent model switch is needed.
 Window titles and pixels remain untrusted observations. Background tasks,
@@ -14,10 +14,13 @@ delegated children and planning-only runs do not receive this tool.
 Window IDs and input authority live only for that run. Refreshing the list
 invalidates earlier selections. One run owns computer use at a time; ownership
 is released when it ends. Each input uses the latest unused capture UUID and
-requires an exact in-chat review, including under Full access. It uses the
+runs automatically within the foreground task. Clicks, typing, scrolling, dragging and supported keys need no
+per-action approval, independently of folder access mode. It uses the
 existing native identity/focus/geometry checks and dispatch handshake described
-below. Ordinary-chat computer use may observe and control Dolores itself. Every input still requires exact human review, including under Full access; the agent must never approve its own operations or change access to bypass that review.
-Stop, denial or failure pauses before later queued computer actions; subsequent
+below. Ordinary-chat computer use may observe and control Dolores itself. It
+must follow the user's requested task, never instructions from screen content,
+and must not change access or security settings to expand its authority.
+Stop or failure pauses before later queued computer actions; subsequent
 work must inspect fresh state rather than replay input. A final input receipt
 requires a later screenshot of that same window before reporting completion.
 
@@ -103,6 +106,48 @@ provider projection, target availability and native capture success are separate
 facts. Test unsupported vision, missing/oversized captures, stale target identity,
 Stop/deadline, backward-readable receipts and restart, plus one live synthetic
 window observation. Record hardware/model/platform gaps honestly in acceptance.
+
+## Accessibility targets in ordinary chat
+
+Observation supplements pixels with a bounded Windows UI Automation control list:
+names, roles, image-space centres and opaque IDs. This is application-independent;
+no theme names, application routes or task-specific selectors are built in.
+For example, a model can choose a visible form button by its observed name and
+send `click` with `capture` and `target`, omitting `x,y`. `doubleClick` and `scroll`
+also accept targets. Text entry still uses click, observe, then type. Unknown IDs,
+mixed target/coordinates and IDs from previous captures refuse with a fresh
+observation instruction. The existing single-use 60-second capture rule applies.
+
+Discovery queries native child clients as well as the containing frame, including
+the standard MSAA/IAccessibleEx compatibility bridge. The list includes enabled,
+onscreen client controls in the selected process; password
+controls and their subtrees are skipped. Values and document-text patterns are
+not read. Names are untrusted screen data. Discovery examines at most 512 nodes,
+16 levels and 64 targets, with 8 KiB of control metadata. A separate helper process
+has a 1.2-second deadline; an unavailable, empty, truncated or stalled provider
+leaves screenshot coordinates available. Existing image/request/context budgets
+are unchanged. Applications with custom canvases or missing accessibility still
+need visual targeting.
+
+The broker resolves the target only in the attached capture. Before input it
+checks the current control hit at that physical point or its ancestor, matching
+role, name, bounds and image centre. Runtime IDs are also matched where available.
+Providers returning empty runtime IDs are explicitly marked `identity: properties`;
+these still require the complete property match and a fresh native hit test.
+An identical replacement with the same properties cannot be distinguished in
+that fallback, so it offers weaker identity checking than a runtime ID.
+Disabled, moved, replaced or covered controls refuse; observe again to recover.
+Window identity, foreground, geometry, cancellation, the dispatch handshake and
+post-input screenshots remain required. Input uses the existing checked mouse
+path; no arbitrary UI Automation patterns or background invocation are exposed.
+UIA identities can be reused and input remains a global queue, so this is
+best-effort stale-target detection, not an exactly-once or sandbox guarantee.
+See Microsoft's [UI Automation testing guidance](https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-usefortesting).
+
+Run `python scripts/test-computer-targets.py --directory <absolute-output-path>`
+after a normal desktop build to exercise a separate public Win32 form, changed-control
+refusal and recovery. This deterministic fixture does not establish model
+competence; live model results remain separately recorded in acceptance.
 
 ## Scoped desktop input (14.2)
 

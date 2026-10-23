@@ -7,11 +7,13 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Run ordinary-chat computer actions automatically, including control of Dolores itself, without per-click or per-keystroke prompts. Stop, fresh screenshots, native target checks and task limits remain active.
 - Move primary navigation to a floating bottom dock that hides when unused and reveals from the bottom edge or Ctrl+Alt+D, giving feature sidebars their full height. Keep the Dolores title visible on every page with an outlined sidebar toggle. Smooth page changes, remove competing gray navigation hover fills, and align form labels above their controls. Long explanations open as floating help; run details lead with per-call metrics and keep supporting evidence expandable.
 - Refresh the desktop with cool light and graphite dark surfaces, animated glass navigation, a unified labeled sidebar, and a Home composer with project shortcuts. Settings stays in a centered window; model, attachment and access choices use compact menus. General includes a saved Gentle motion preference that respects reduced motion.
 
 ### Added
 
+- Target named controls in Windows apps through capture-bound accessibility IDs, with fresh native checks before clicks and screenshot coordinates when accessibility is unavailable.
 - Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain bounded output and receipts through failure and restart. Saved commands are never reattached or replayed automatically.
 - Request Windows isolation for Node commands and MCP servers with reviewed writable/read-only folders and denied network access. Failed setup never falls back to native execution; incomplete cleanup can be inspected and retried without replaying work.
 - Review plans in an inspection-only mode and explicitly execute an accepted revision. Share bounded, previewed context snapshots with `@`, including scoped files, folders, code, terminal excerpts and chat messages.

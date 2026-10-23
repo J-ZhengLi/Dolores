@@ -68,12 +68,26 @@ impl ToolApproval for RunApproval {
                 .query
                 .as_deref()
                 .and_then(|q| serde_json::from_str::<Value>(q).ok())
-                .is_some_and(|q| matches!(q["operation"].as_str(), Some("list" | "observe")))
+                .is_some_and(|q| {
+                    matches!(
+                        q["operation"].as_str(),
+                        Some(
+                            "list"
+                                | "observe"
+                                | "click"
+                                | "doubleClick"
+                                | "type"
+                                | "key"
+                                | "scroll"
+                                | "drag"
+                        )
+                    )
+                })
         {
             if let Some(log) = &self.log {
                 log.record(
                     None,
-                    "computerObservation",
+                    "computerAutomatic",
                     json!({"callId":request.call_id,"target":request.target}),
                 )
                 .await?;
@@ -152,6 +166,47 @@ impl ToolApproval for RunApproval {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn computer_actions_are_automatic_but_stop_still_prevents_authorization() {
+        let (output, mut events) = mpsc::channel(4);
+        let approval = RunApproval {
+            policy: None,
+            id: 1,
+            pending: Arc::default(),
+            output,
+            log: None,
+        };
+        for operation in [
+            "list",
+            "observe",
+            "click",
+            "type",
+            "key",
+            "drag",
+            "scroll",
+            "doubleClick",
+        ] {
+            let request = ToolRequest {
+                call_id: operation.into(),
+                name: "computer".into(),
+                target: "Dolores".into(),
+                query: Some(json!({"operation":operation}).to_string()),
+                diff: None,
+                command: None,
+                mcp: None,
+            };
+            tokio::select! {
+                biased;
+                event = events.recv() => panic!("Computer use must not interrupt for approval: {event:?}"),
+                result = approval.authorize(&request, CancellationToken::new()) => assert!(result.unwrap()),
+            }
+            assert!(!approval.is_waiting());
+            let stopped = CancellationToken::new();
+            stopped.cancel();
+            assert!(approval.authorize(&request, stopped).await.is_err());
+        }
+        assert!(events.try_recv().is_err());
+    }
     #[tokio::test]
     async fn decisions_are_single_use_and_pending_permissions_clear_on_stop_or_timeout() {
         for mode in 0..3 {

@@ -33,8 +33,8 @@ def seed_profile(directory, model, port, navigation_hint):
         call('setImageModels', models=[model])
         call('saveAppearance', theme='dark')
         session = call('createSession', kind='side')['session']['id']
-        call('saveScopedSettings', session=session, scope='thread', revision=0, patch={'generation': {'maxOutputTokens': 1200, 'timeoutSeconds': 90}, 'task': {'modelCalls': 20, 'toolCalls': 20, 'segments': 1, 'elapsedSeconds': 600}})
-        prompt = "Use computer use to switch this Dolores window from dark to light mode, then close Settings, reveal and inspect the bottom navigation dock. Use fresh screenshots and reviewed input. Only operate Dolores; do not change model/access settings. Stop when verified and briefly describe what you see."
+        call('saveScopedSettings', session=session, scope='thread', revision=0, patch={'generation': {'maxOutputTokens': 4096, 'timeoutSeconds': 90}, 'task': {'modelCalls': 20, 'toolCalls': 20, 'segments': 1, 'elapsedSeconds': 600}})
+        prompt = "Use computer use to switch this Dolores window from dark to light mode, then close Settings, reveal and inspect the bottom navigation dock. Use fresh screenshots and automatic input. Only operate Dolores; do not change model/access settings. Stop when verified and briefly describe what you see."
         if navigation_hint:
             prompt += " Settings is in the bottom dock, revealed by clicking its thin bottom-center handle. Use returned screenshot pixel dimensions. Then choose Settings, General, Light."
         call('saveDraft', session=session, text=prompt)
@@ -82,7 +82,7 @@ def main():
                 return
             body = json.loads(self.rfile.read(size))
             body['model'] = args.model
-            body['max_tokens'] = min(body.get('max_tokens', 1200), 1200)
+            body['max_tokens'] = min(body.get('max_tokens', 4096), 4096)
             request = urllib.request.Request(endpoint.rstrip('/') + '/chat/completions', data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key})
             try:
                 response = urllib.request.urlopen(request, timeout=90)
@@ -111,7 +111,7 @@ def main():
     subprocess.run([sys.executable, str(desktop.ROOT / 'scripts/desktop.py'), 'launch', '--data-directory', str(directory / 'data'), '--pid-file', str(directory / 'preview.json')], check=True, env={**os.environ, 'DOLORES_GLOBAL_SKILLS_DIR': str(directory / 'skills')})
     print(json.dumps({'ready': True, 'model': args.model, 'directory': str(directory), 'session': session}), flush=True)
     try:
-        deadline = time.monotonic() + 1200
+        deadline = time.monotonic() + 4096
         while not (directory / 'finish').exists() and time.monotonic() < deadline:
             time.sleep(.25)
     finally:

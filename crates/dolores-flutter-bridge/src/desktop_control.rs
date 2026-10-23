@@ -179,6 +179,11 @@ impl AttachmentResolver for Control {
     }
 }
 impl Control {
+    #[cfg(test)]
+    pub(super) fn fixture_elements(&self, elements: Value) {
+        self.state.lock().unwrap().capture.observation["accessibility"] =
+            json!({"status":"available","elements":elements});
+    }
     pub(super) fn from_observation(
         root: PathBuf,
         helper: PathBuf,
@@ -233,7 +238,7 @@ impl ToolPlugin for Control {
             .unwrap_or_default()
     }
     fn spec(&self) -> ToolSpec {
-        ToolSpec{name:"desktop_control".into(),description:"Operate ONLY the explicitly granted window. First send exactly {\"operation\":\"observe\"}, with NO other fields, to get fresh pixels and a capture UUID. Before EVERY input copy that UUID; after EVERY input observe again with only operation. Omit unused fields entirely, including null or false defaults. No scripts, clipboard, other-window selection or system shortcuts. Coordinates refer to the resized screenshot; use only client controls. Click/doubleClick/drag/Enter/deletion/Escape always require user review. Set consequential true for any action that may submit data or cause external effects, even typing. Never repeat uncertain input. A dispatch receipt is NOT application success; verify fresh pixels. Budget-limited work must report remaining work.".into(),parameters:json!({"type":"object","properties":{"operation":{"type":"string","enum":["observe","click","doubleClick","type","scroll","key","drag"],"description":"observe takes only this field. For input, include only the fields needed for that operation."},"capture":{"type":"string","description":"Input only: exact UUID from the latest unused observation. Omit for observe."},"x":{"type":"integer"},"y":{"type":"integer"},"endX":{"type":"integer"},"endY":{"type":"integer"},"text":{"type":"string"},"delta":{"type":"integer"},"key":{"type":"string","enum":["Tab","Shift+Tab","Left","Right","Up","Down","Home","End","Ctrl+A","Backspace","Delete","Enter","Escape"]},"consequential":{"type":"boolean","description":"Input only: true if it may submit or cause external effects. Omit for observe."}},"required":["operation"],"additionalProperties":false})}
+        ToolSpec{name:"desktop_control".into(),description:"Operate ONLY the explicitly granted window. First send exactly {\"operation\":\"observe\"}, with NO other fields, to get fresh pixels and a capture UUID. Before EVERY input copy that UUID; after EVERY input observe again with only operation. Omit unused fields entirely, including null or false defaults. No scripts, clipboard, other-window selection or system shortcuts. Coordinates refer to the resized screenshot; use only client controls. Prefer observed accessibility target IDs for click/doubleClick/scroll instead of x,y. Observe again after a stale-control error. Click/doubleClick/drag/Enter/deletion/Escape always require user review. Set consequential true for any action that may submit data or cause external effects, even typing. Never repeat uncertain input. A dispatch receipt is NOT application success; verify fresh pixels. Budget-limited work must report remaining work.".into(),parameters:json!({"type":"object","properties":{"operation":{"type":"string","enum":["observe","click","doubleClick","type","scroll","key","drag"],"description":"observe takes only this field. For input, include only the fields needed for that operation."},"capture":{"type":"string","description":"Input only: exact UUID from the latest unused observation. Omit for observe."},"target":{"type":"string"},"x":{"type":"integer"},"y":{"type":"integer"},"endX":{"type":"integer"},"endY":{"type":"integer"},"text":{"type":"string"},"delta":{"type":"integer"},"key":{"type":"string","enum":["Tab","Shift+Tab","Left","Right","Up","Down","Home","End","Ctrl+A","Backspace","Delete","Enter","Escape"]},"consequential":{"type":"boolean","description":"Input only: true if it may submit or cause external effects. Omit for observe."}},"required":["operation"],"additionalProperties":false})}
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         self.grant.check()?;
@@ -252,24 +257,7 @@ impl ToolPlugin for Control {
             if !state.usable || value["capture"] != state.capture.id {
                 return Err("Input needs the latest unused capture UUID. Observe again; no input dispatched.".into());
             }
-            let mut action = value.clone();
-            let object = action
-                .as_object_mut()
-                .ok_or("Desktop arguments must be an object.")?;
-            object.remove("capture");
-            if object
-                .remove("consequential")
-                .is_some_and(|v| !v.is_boolean())
-            {
-                return Err("consequential must be a boolean.".into());
-            }
-            let action: Input = serde_json::from_value(action).map_err(|_| {
-                "Use only fields required by this desktop operation; no input dispatched."
-            })?;
-            action.validate(
-                state.capture.observation["width"].as_u64().unwrap_or(0) as u32,
-                state.capture.observation["height"].as_u64().unwrap_or(0) as u32,
-            )?;
+            dolores_core::desktop_targets::resolve(&value, &state.capture.observation)?;
         }
         Ok(ToolRequest {
             call_id: call.id.clone(),
@@ -365,12 +353,9 @@ impl ToolPlugin for Control {
                     .unchanged = 0;
             }
             let automatic = self.automatic(&value);
-            let mut action = value.clone();
-            if let Some(o) = action.as_object_mut() {
-                o.remove("capture");
-                o.remove("consequential");
-            }
-            let receipt=dispatch(&self.helper,json!({"target":self.grant.target,"observation":capture.observation,"action":action,"hostPid":std::process::id(),"automatic":automatic}),self.grant.clone(),cancel).await?;
+            let (action, element) =
+                dolores_core::desktop_targets::resolve(&value, &capture.observation)?;
+            let receipt=dispatch(&self.helper,json!({"target":self.grant.target,"observation":capture.observation,"action":action,"element":element,"hostPid":std::process::id(),"automatic":automatic}),self.grant.clone(),cancel).await?;
             Ok(json!({"receipt":receipt,"captureUsed":capture.id,"action":value,"mustObserve":true}).to_string())
         }
     }

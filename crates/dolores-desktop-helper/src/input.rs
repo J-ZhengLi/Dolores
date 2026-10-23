@@ -163,6 +163,7 @@ pub fn run<R: BufRead>(request: Value, reader: &mut R) -> Result<Value, String> 
         }
     }
     let mut events = Vec::new();
+    let checked_action = action.clone();
     let move_flag = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK;
     match action {
         Input::Type { text } => {
@@ -253,6 +254,34 @@ pub fn run<R: BufRead>(request: Value, reader: &mut R) -> Result<Value, String> 
             || capture::geometry(&target)? != request["observation"]["geometry"]
         {
             return Err("Focus or geometry changed before dispatch. No input dispatched.".into());
+        }
+        if !request["element"].is_null() {
+            let expected: crate::desktop_targets::Element =
+                serde_json::from_value(request["element"].clone())
+                    .map_err(|_| "Invalid control target. Observe again; no input dispatched.")?;
+            let (resolved, bound) = crate::desktop_targets::resolve(
+                &match &checked_action {
+                    Input::Click { .. } => json!({"operation":"click","target":expected.id}),
+                    Input::DoubleClick { .. } => {
+                        json!({"operation":"doubleClick","target":expected.id})
+                    }
+                    Input::Scroll { delta, .. } => {
+                        json!({"operation":"scroll","target":expected.id,"delta":delta})
+                    }
+                    _ => return Err("This operation cannot use a control target.".into()),
+                },
+                &request["observation"],
+            )?;
+            if resolved != checked_action || bound.as_ref() != Some(&expected) {
+                return Err("Control target does not match the observation. Observe again; no input dispatched.".into());
+            }
+            crate::accessibility::recheck(&target, &request["observation"], &expected)?;
+            capture::recheck(&target)?;
+            if GetForegroundWindow() as usize as u64 != target.handle
+                || capture::geometry(&target)? != request["observation"]["geometry"]
+            {
+                return Err("Window changed while resolving the control. Observe again; no input dispatched.".into());
+            }
         }
         let sent = SendInput(
             events.len() as u32,

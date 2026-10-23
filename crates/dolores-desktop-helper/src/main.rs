@@ -1,10 +1,15 @@
 use std::io::{self, BufRead, Read};
 
 #[cfg(windows)]
+mod accessibility;
+#[cfg(windows)]
 mod capture;
 #[cfg(windows)]
 #[path = "../../dolores-core/src/desktop_input.rs"]
 mod desktop_input;
+#[cfg(windows)]
+#[path = "../../dolores-core/src/desktop_targets.rs"]
+mod desktop_targets;
 #[cfg(windows)]
 mod input;
 
@@ -51,6 +56,15 @@ fn main() {
         let request = serde_json::from_slice(&bytes).map_err(|_| "Invalid observation request.")?;
         #[cfg(windows)]
         {
+            if std::env::args().nth(1).as_deref() == Some("--accessibility") {
+                // A provider may block inside COM. The worker must also expire
+                // when Stop kills its parent before the parent can reap it.
+                std::thread::spawn(|| {
+                    std::thread::sleep(std::time::Duration::from_millis(1200));
+                    std::process::exit(1);
+                });
+                return accessibility::run(request);
+            }
             capture::run(request)
         }
         #[cfg(not(windows))]

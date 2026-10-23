@@ -14,7 +14,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from desktop_test_support import ROOT, NativeHost, fixture_state, wait_for_fixture_focus
+from desktop_test_support import ROOT, NativeHost, fixture_state
 
 
 def main():
@@ -108,22 +108,11 @@ def main():
         call('saveScopedSettings', session=session, scope='thread', revision=0, patch={'generation': {'maxOutputTokens': 256, 'timeoutSeconds': 15}, 'task': {'modelCalls': 8, 'toolCalls': 8, 'segments': 1, 'elapsedSeconds': 60}})
         fixture_state(directory)
         results = []
-        for index, mode in enumerate(['observe', 'denied', 'input'] + (['click'] if args.same_process else []), 1):
+        for index, mode in enumerate(['observe', 'input', 'click'], 1):
             state.update(mode=mode, requests=0, images=0)
             approvals = []
             def approve(event):
-                if event['type'] != 'toolApproval':
-                    return
-                request = event['request']
-                approvals.append(request['name'])
-                action = json.loads(request['query'])
-                safe = request['name'] == 'computer' and action['operation'] == 'type' and action['text'] == 'Verified ordinary chat' and fixture_state(directory)['text'] == ''
-                if mode == 'click':
-                    safe = request['name'] == 'computer' and action == state['click']
-                if safe and mode in ['input', 'click']:
-                    capture = next(c for c in call('desktopState', session=session)['captures'] if c['id'] == action['capture'])
-                    wait_for_fixture_focus(capture['observation']['target'], seconds=20)
-                call('approveTool', id=index, callId=request['callId'], allow=safe and mode in ['input', 'click'])
+                assert event['type'] != 'toolApproval', 'Ordinary computer use must execute without per-action prompts'
             call('start', id=index, session=session, input=f'Fixture computer task: {mode}. Inspect only the Dolores local form fixture. For input type Verified ordinary chat once, do not save, then observe again.')
             done, events = client.finish(index, callback=approve, seconds=65)
             assert not state['errors'], state['errors']
@@ -135,14 +124,10 @@ def main():
             assert form['saveClicks'] == 0
             assert state['images'] >= 1
             assert all(t['name'] == 'computer' for t in tools)
-            if mode == 'denied':
-                assert (metadata.get('paused') or {}).get('reason') == 'desktopReview'
-                assert state['requests'] == 3 and form['text'] == ''
-            else:
-                assert not metadata.get('paused'), metadata.get('paused')
-                assert form['text'] == ('Verified ordinary chat' if mode in ['input', 'click'] else '')
-                assert len([t for t in tools if t.get('parts')]) == (2 if mode in ['input', 'click'] else 1)
-            assert approvals == ([] if mode == 'observe' else ['computer'])
+            assert not metadata.get('paused'), metadata.get('paused')
+            assert form['text'] == ('Verified ordinary chat' if mode in ['input', 'click'] else '')
+            assert len([t for t in tools if t.get('parts')]) == (2 if mode in ['input', 'click'] else 1)
+            assert approvals == []
             assert call('desktopState', session=session)['access'] is None, 'No persisted desktop grant should be required'
             results.append({'case': mode, 'modelCalls': state['requests'], 'imageMessages': state['images'], 'inputReviews': len(approvals), 'passed': True})
         result = {'passed': True, 'normalBridge': True, 'realModel': False, 'kind': args.kind, 'sameProcess': args.same_process, 'cases': results}

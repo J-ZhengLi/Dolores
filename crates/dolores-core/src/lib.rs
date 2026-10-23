@@ -195,6 +195,7 @@ impl Default for ConnectionPreferences {
 }
 
 pub mod desktop_input;
+pub mod desktop_targets;
 /// Host-owned evidence lookup. Never accepts a model path or raw image bytes.
 pub trait AttachmentResolver: Send + Sync {
     fn resolve(&self, reference: &AttachmentRef) -> Result<AttachmentData, String>;

@@ -1,5 +1,121 @@
 # Dolores acceptance — 2026-10-08
 
+## General accessibility targets — October 23
+
+Computer observations now add selected-window UI Automation controls with names,
+roles, bounds and capture-bound IDs. Click, double-click and scroll can choose
+an observed target instead of estimating pixels. Before input, the broker checks
+the current control at that point against the observed name, role and bounds,
+plus runtime identity when available, then rechecks native window/focus/geometry. Unknown IDs, mixed
+coordinates/IDs and old/consumed captures refuse; recovery requires observation.
+There are no theme-specific commands or application selectors.
+
+Discovery is bounded to 512 nodes, 16 levels, 64 targets and 8 KiB. A separate
+1.2-second helper deadline retains screenshot fallback when UI Automation stalls
+or is unavailable. Password subtrees and disabled/offscreen controls are excluded;
+values/document text are not requested. These checks improve targeting, not
+model planning or exactly-once guarantees. Existing task/image/protocol budgets
+and automatic ordinary-chat authorization remain unchanged.
+
+The new bridge test first failed because target-based input was unsupported.
+It now passes for a public form button and refuses invented, conflicting and
+old-capture references. Shared validation also exercises scroll and unavailable
+accessibility with coordinate fallback. The full suite passed: 105 core unit
+tests, seven core integration tests, four helper tests and 215 bridge tests
+(one existing ignored bridge test). Clippy passed for all targets of these crates
+with warnings denied, and formatting passed.
+
+`scripts/test-computer-targets.py` passed against an owned, separate-process
+Win32 form: a target click fired Save; moving the button inside the unchanged
+window refused the stale target without a second click; a fresh observation
+allowed recovery. Disabled and password controls were absent. This check used
+no model/provider requests. Public receipt: `output/computer-targets-20261023-01/`.
+The fixture qualifies general native targeting, not real-model task reliability.
+
+The first live attempt discovered only frame chrome and ended after five model
+calls when a stale/mismatched target was refused. Dark mode remained, with zero
+approval prompts and the original profile unchanged. This exposed a harness
+discovery gap: Flutter's native child publishes its controls through MSAA, and
+its compatibility elements return empty runtime IDs. Discovery now queries
+native child clients through the standard bridge, filters unsupported frame
+chrome and explicitly marks property-only identity fallback. Such targets require
+the full name/role/bounds and current hit-test match, but cannot distinguish an
+identical replacement control. The first live result remains a failed journey:
+`output/computer-target-live-20261023-01/`.
+
+After this correction, the native public-form fixture passed again with only its
+two usable client targets, including changed-control refusal and fresh-observation
+recovery: `output/computer-targets-20261023-02/`. Shared validation covers empty
+runtime IDs with and without the explicit property identity marker. Clippy passed
+again for all three crates.
+
+The final normal Windows x64 build passed, including the accessibility worker's
+independent 1.2-second watchdog so a blocked provider cannot outlive a killed
+parent indefinitely. The public form fixture passed against the bundled release
+helper: `output/computer-targets-release-20261023-03/`. The ordinary-chat
+loopback fixture also passed capture, typing and coordinate fallback with zero
+prompts through the final rebuilt bridge (`output/computer-target-fallback-20261023-02/`).
+
+The corrected live journey passed with `deepseek-v4.1-flash-1017`: the original
+natural-language request, no navigation hint, 17 model calls / 16 computer
+operations, all HTTP 200 and zero approval requests. Six clicks used observed
+control IDs, one input used Escape, and no coordinate input was needed. The
+model first opened and closed Chat actions, then revealed navigation, opened
+Settings, chose Light, closed Settings, revealed the dock and inspected its
+final fresh image. The saved response identified all seven dock labels. The
+isolated database persisted `light`; visual inspection of the final model-fed
+screenshot confirmed Light mode with Settings closed and the dock visible.
+The run finished normally and saved its turn. Receipts and local image evidence:
+`output/computer-target-live-20261023-02/`. The source user profile was unchanged,
+and the owned preview was stopped using its verified process record.
+
+This is one successful real-model journey plus a separate native form fixture,
+not broad application/model reliability qualification. Custom canvases, apps
+without useful accessibility, identical property-only replacements, elevated
+applications and pathological blocking providers remain acceptance gaps.
+
+## Automatic ordinary-chat computer use — October 23
+
+Ordinary foreground `computer` operations now proceed without per-action
+approval, including clicking/typing in Dolores itself. The dedicated authorization
+path applies in Review, Auto edit and Full access independently of folder tools;
+scheduled/delegated/planning-only exclusions are unchanged. The older manual
+`desktop_control` grant/review workflow is unchanged. Stop/policy revision is
+rechecked before authorization; the native identity/focus/geometry handshake,
+single-use screenshots, exclusive run ownership and post-input image evidence
+remain required. Recovery copy now explains automatic computer continuation.
+
+The new authorization test first failed on a click's `toolApproval` event, then
+passed for all eight computer operations. It checks no approval event/slot and
+refusal after cancellation. The native fixture now treats any ordinary computer
+approval as failure and exercises capture, typing and clicking with zero prompts.
+
+The live qualification runner's disposable response allowance is now 4,096
+tokens after the previous 1,200-token reasoning-only exhaustion. This changes
+only that explicit test's request; product defaults and execution budgets remain
+unchanged. Earlier live failures above remain failures.
+
+Verification: 104 core and 214 bridge tests passed (one existing ignored bridge
+test); Clippy passed for all targets of both crates with warnings denied. Ten
+focused Flutter computer/history tests passed, and the changed page passed
+analysis. The normal Windows x64 build passed. Both same-process and separate
+native-window fixtures passed capture, typing and clicking with zero approval
+events and fresh post-input screenshots. Receipts are under
+`output/computer-auto-self-20261023-01/` and
+`output/computer-auto-other-20261023-01/`.
+
+The real-model automatic run used `deepseek-v4.1-flash-1017` with a 4,096-token
+response allowance and the original natural-language request, without the dock
+hint. It made 17 model calls and 16 automatic computer operations, with zero
+`approvalRequested` events. Captures and native clicks worked, but the model
+mis-targeted dock controls and opened Scheduled. Light mode was not reached.
+The run ended with the existing 2 MiB reasoning-continuation protocol allowance;
+no product limit was raised, no retry occurred, and journal/capture evidence
+remained available. This qualifies the removal of per-action prompts, not
+reliable model navigation. Receipts and isolated evidence are under
+`output/computer-auto-live-20261023-01/`. The normal user profile remained
+unchanged and the owned preview was closed after the check.
+
 ## Conversation scroll rebound — October 23
 
 A small upward wheel movement cancelled following, but the scroll-position
