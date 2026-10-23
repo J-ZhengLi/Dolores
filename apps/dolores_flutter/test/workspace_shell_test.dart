@@ -1,4 +1,5 @@
 import 'support/dock_navigation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:dolores_flutter/app_host.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/workspace_shell.dart';
 import 'package:dolores_flutter/settings.dart';
+import 'package:dolores_flutter/skills.dart';
 
 import 'app_host_test.dart' show HostBridge;
 
@@ -80,6 +82,39 @@ class ExperimentalBridge extends HostBridge {
 }
 
 void main() {
+  testWidgets('dock has one Settings entry and skills remain reachable there', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(1200, 800);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final chat = ChatController(HostBridge())
+      ..loading = false
+      ..draft = 'Keep my draft';
+    final host = AppHost(chat);
+    await t.pumpWidget(MaterialApp(home: WorkspaceShell(host: host)));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('page-library')), findsNothing);
+    expect(find.byTooltip('Library'), findsNothing);
+    await tapDockItem(t, 'rail-settings');
+    await t.pumpAndSettle();
+    expect(find.byType(SettingsWindow), findsOneWidget);
+    await t.enterText(find.byKey(const Key('settings-search')), 'Skills');
+    await t.pumpAndSettle();
+    await t.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is Text && widget.data == 'Skills',
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.byType(SkillsInspector), findsOneWidget);
+    expect(chat.draft, 'Keep my draft');
+    await t.tap(find.byKey(const Key('close-settings')));
+    await t.pumpAndSettle();
+    await t.pumpWidget(const SizedBox());
+    host.dispose();
+  });
   testWidgets('one-motion mouse drag resizes the panel', (t) async {
     t.view.physicalSize = const Size(1200, 800);
     t.view.devicePixelRatio = 1;

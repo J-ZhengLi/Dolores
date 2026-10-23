@@ -122,6 +122,34 @@ fn shell(choice: Option<&str>) -> Result<PathBuf, String> {
     };
     executable(names).ok_or_else(|| "No supported shell was found. Install a shell, then Retry. Home and editing remain available.".into())
 }
+// Windows PowerShell's .NET Framework initialization rejects verbatim executable
+// paths returned by canonicalize (ServicePointManager fails before the prompt).
+// Keep canonical paths for ownership; use ordinary disk/UNC paths at launch.
+fn shell_launch_path(path: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        let unc: Vec<u16> = r"\\?\UNC\".encode_utf16().collect();
+        let disk: Vec<u16> = r"\\?\".encode_utf16().collect();
+        let normalized = if wide.starts_with(&unc) {
+            [vec![b'\\' as u16, b'\\' as u16], wide[unc.len()..].to_vec()].concat()
+        } else if wide.starts_with(&disk)
+            && wide.len() >= 7
+            && (wide[4] as u8).is_ascii_alphabetic()
+            && wide[4] <= 127
+            && wide[5] == b':' as u16
+            && wide[6] == b'\\' as u16
+        {
+            wide[disk.len()..].to_vec()
+        } else {
+            wide
+        };
+        PathBuf::from(std::ffi::OsString::from_wide(&normalized))
+    }
+    #[cfg(not(windows))]
+    path.to_owned()
+}
 impl Session {
     fn view(&self) -> Value {
         json!({"id":self.id,"cwd":self.cwd,"shell":self.shell,"pid":self.pid,"state":self.state})
@@ -165,6 +193,9 @@ impl Registry {
             .any(|s| matches!(s.state, "running" | "unknown"))
     }
     fn create(&mut self, cwd: &Path, choice: Option<&str>) -> Result<Value, String> {
+        self.create_shell(cwd, shell(choice)?)
+    }
+    fn create_shell(&mut self, cwd: &Path, shell: PathBuf) -> Result<Value, String> {
         if self.closed {
             return Err("Terminals are closing. Restart Dolores.".into());
         }
@@ -181,12 +212,11 @@ impl Registry {
                 "Terminal folder is not a directory. Choose a folder or Open at home.".into(),
             );
         }
-        let shell = shell(choice)?;
         let pair = native_pty_system()
             .openpty(size(24, 80)?)
             .map_err(|_| "PTY initialization failed. Home/editing remain available; Retry.")?;
-        let mut command = CommandBuilder::new(&shell);
-        command.cwd(cwd.to_string_lossy().trim_start_matches(r"\\?\"));
+        let mut command = CommandBuilder::new(shell_launch_path(&shell));
+        command.cwd(shell_launch_path(&cwd));
         command.env_clear();
         for (key, value) in dolores_tools_command::process::environment() {
             if !matches!(
@@ -490,6 +520,93 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn shell_launch_paths_preserve_unc_unicode_and_ordinary_paths() {
+        for (input, expected) in [
+            (
+                r"\\?\C:\Tools\世界\powershell.exe",
+                r"C:\Tools\世界\powershell.exe",
+            ),
+            (r"\\?\UNC\server\share\世界", r"\\server\share\世界"),
+            (r"C:\Tools\pwsh.exe", r"C:\Tools\pwsh.exe"),
+            (r"\\server\share\folder", r"\\server\share\folder"),
+            (
+                r"\\?\Volume{example}\shell.exe",
+                r"\\?\Volume{example}\shell.exe",
+            ),
+        ] {
+            assert_eq!(shell_launch_path(Path::new(input)), PathBuf::from(expected));
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_powershell_starts_with_canonical_shell_and_unicode_folder() {
+        let shell = PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+            .join("System32/WindowsPowerShell/v1.0/powershell.exe")
+            .canonicalize()
+            .unwrap();
+        let folder = tempfile::tempdir().unwrap();
+        let cwd = folder.path().join("project 世界");
+        std::fs::create_dir(&cwd).unwrap();
+        let mut registry = Registry::default();
+        let value = registry.create_shell(&cwd, shell).unwrap();
+        let id = value["id"].as_str().unwrap().to_owned();
+        registry
+            .request(Request::Resize {
+                id: id.clone(),
+                rows: 37,
+                cols: 111,
+            })
+            .unwrap();
+        registry.request(Request::Input {
+            id: id.clone(),
+            text: "[Net.ServicePointManager]::SecurityProtocol > $null; [Console]::WriteLine(('PTY_' + [char]0x4e16 + [char]0x754c))\r".into(),
+        }).unwrap();
+        let started = Instant::now();
+        let mut seen = Vec::new();
+        while started.elapsed() < Duration::from_secs(15) {
+            let value = registry.request(Request::Poll { id: id.clone() }).unwrap();
+            let chunk = STANDARD.decode(value["bytes"].as_str().unwrap()).unwrap();
+            if chunk.windows(4).any(|v| v == b"\x1b[6n") {
+                registry
+                    .request(Request::Input {
+                        id: id.clone(),
+                        text: "\x1b[1;1R".into(),
+                    })
+                    .unwrap();
+            }
+            seen.extend(chunk);
+            if String::from_utf8_lossy(&seen).contains("PTY_世界") || value["state"] == "exited" {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        registry.request(Request::Stop { id: id.clone() }).unwrap();
+        let output = String::from_utf8_lossy(&seen);
+        assert!(!output.contains("The shell cannot be started"), "{output}");
+        assert!(output.contains("PTY_世界"), "{output}");
+        let retained = registry.request(Request::Poll { id: id.clone() }).unwrap();
+        assert_ne!(retained["state"], "running");
+        assert!(registry
+            .request(Request::Input {
+                id: id.clone(),
+                text: "must-not-run\r".into()
+            })
+            .is_err());
+        registry.request(Request::Close { id }).unwrap();
+        let replacement = registry
+            .create_shell(
+                &cwd,
+                PathBuf::from(std::env::var_os("SystemRoot").unwrap()).join("System32/cmd.exe"),
+            )
+            .unwrap();
+        registry
+            .request(Request::Close {
+                id: replacement["id"].as_str().unwrap().into(),
+            })
+            .unwrap();
+    }
     #[cfg(windows)]
     #[test]
     fn powershell_resolves_bare_executable_with_standard_extensions() {

@@ -1,4 +1,5 @@
 import 'form_field_layout.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -234,7 +235,7 @@ class _LearningState extends State<LearningInspector> {
                         'One proposed command repair can use four isolated cases: at most 20 model calls, 32 tool operations and 120 seconds total, 1024 output tokens per call. Only skill snapshots and disposable fixtures go to the configured provider. Original replies and baseline snapshots remain. No model-authored JSON draft, global rewrite or process execution is enabled.',
                       ),
                       Text(
-                        'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate Library reviews remain available.',
+                        'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate reviews in Settings → Skills remain available.',
                       ),
                     ],
                   ),
@@ -294,12 +295,12 @@ class _LearningState extends State<LearningInspector> {
                           ),
                         if (event['status'] == 'quarantined')
                           const Text(
-                            'Candidate quarantined. Automatic learning will not reactivate it. Inspect Library for deliberate edits.',
+                            'Candidate quarantined. Automatic learning will not reactivate it. Open Settings → Skills for deliberate edits.',
                           ),
                         if (event['status'] == 'pending' ||
                             event['status'] == 'interrupted')
                           const Text(
-                            'Unfinished evidence is not eligible for activation and will not replay. Review Library for a new deliberate change.',
+                            'Unfinished evidence is not eligible for activation and will not replay. Open Settings → Skills for a new deliberate change.',
                           ),
                         ExpansionTile(
                           title: const Text('Snapshots & source'),

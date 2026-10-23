@@ -12,6 +12,12 @@ shell, plus snapshots selected Home project's root or OS home. Missing roots
 refuse before spawning and expose Choose folder / Open at home / Retry. Existing
 sessions retain initial ownership and any shell-changed working directory.
 
+On Windows, retain canonical paths for ownership but launch shells and set their
+working folders with ordinary disk/UNC paths. Windows PowerShell's .NET Framework
+startup rejects a verbatim executable path returned by canonicalization. Preserve
+Unicode and the existing filtered environment; do not silently change shells or
+inherit additional environment values to recover from this failure.
+
 Allow eight retained sessions and four groups. Each PTY has a 1 MiB bounded output
 queue; consumer reads at most 64 KiB, emulator keeps at most 5,000 lines. Drain
 output even when hidden, pause the producer at the queue bound, and resume as

@@ -1,5 +1,35 @@
 # Dolores acceptance — 2026-10-08
 
+## Terminal startup and dock cleanup — October 23
+
+The reported Windows PowerShell startup error was reproduced using the actual
+Windows PowerShell executable. A normal executable path worked with both the
+full and production-filtered environment; the canonical verbatim executable
+path failed with the exact ServicePointManager initialization error. A new real
+PTY regression also failed before the fix. The launcher now converts canonical
+disk/UNC paths to ordinary Windows paths only when starting the shell and setting
+its working folder. Ownership metadata retains canonical paths; the environment
+allowlist and preferred-shell selection are unchanged.
+
+All five terminal Rust tests passed after repair. They exercised Windows
+PowerShell specifically even where PowerShell 7 is installed, Unicode working
+folders and output, .NET initialization, PTY resizing, stopped-session input
+refusal, retained state, closing/replacement and existing descendant cleanup.
+Path tests cover UNC, Unicode, ordinary paths and preservation of other device
+paths. UNC conversion is unit-tested; no network-share shell was launched.
+The native shell tests require no provider credentials and change no saved
+provider configuration or conversation history.
+
+Library was removed from the navigation dock. Settings remains its single
+configuration entry and retains Skills; related skill-recovery text points there.
+Light/Dark wide and compact dock renders were inspected under
+`output/dock-terminal-renders/`. Focused Flutter checks passed, including 20
+workspace, terminal and learning tests and the wider title/dock/timeline render
+cases. Flutter analysis, document/publication checks and the final normal Windows
+x64 build passed. Native pointer/IME interaction was not repeated;
+the real PTY regression establishes shell startup and I/O separately from UI
+fixture coverage.
+
 ## Inline agent activity — October 23
 
 Public progress and tool receipts now share the conversation timeline. New runs

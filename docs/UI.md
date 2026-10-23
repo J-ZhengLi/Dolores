@@ -72,7 +72,7 @@ decision changes.
 
 ## Layout and navigation
 
-- Put Home, Scheduled, Files, Source Control, Terminal, Library and Settings in
+- Put Home, Scheduled, Files, Source Control, Terminal and Settings in
   one centered floating bottom dock. Overlay it without reserving workspace
   height or resizing content. Hide after inactivity/pointer departure; reveal at
   the bottom edge, by tapping its handle or with Ctrl+Alt+D. Keep it visible while
@@ -107,9 +107,9 @@ decision changes.
 - Route broader configuration through an explicit dropdown link to the relevant
   settings category. Keep short choices in dropdowns rather than side panels.
 - Keep Personalization and Companionship reachable under General, permission
-  controls under Access, and tool connections under Connections. Library opens
-  skill management. Retain named navigation to Files, Source Control, Terminal
-  and Scheduled tasks alongside Home.
+  controls under Access, and tool connections under Connections. Open skill
+  management through Settings. Retain named navigation to Files, Source Control,
+  Terminal and Scheduled tasks alongside Home.
 - Dropdowns stay within the viewport and flip above their trigger near the bottom
   edge. They dismiss on outside interaction or Escape, support arrow keys and
   Enter, and return focus to the trigger after selection or Escape. Keep the

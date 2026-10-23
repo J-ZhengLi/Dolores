@@ -7,6 +7,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Remove the duplicate Library dock button; skill management remains available in Settings → Skills.
 - Show tool receipts as compact expandable rows between the agent's progress updates, retaining their order in saved chats instead of appending large cards after the answer.
 - Run ordinary-chat computer actions automatically, including control of Dolores itself, without per-click or per-keystroke prompts. Stop, fresh screenshots, native target checks and task limits remain active.
 - Move primary navigation to a floating bottom dock that hides when unused and reveals from the bottom edge or Ctrl+Alt+D, giving feature sidebars their full height. Keep the Dolores title visible on every page with an outlined sidebar toggle. Smooth page changes, remove competing gray navigation hover fills, and align form labels above their controls. Long explanations open as floating help; run details lead with per-call metrics and keep supporting evidence expandable.
@@ -25,6 +26,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Start Windows PowerShell terminals successfully instead of exiting with a `System.Net.ServicePointManager` initialization error.
 - Keep the conversation at the reader's position after even a small upward scroll during or after a reply. Updates resume following only after returning to the bottom, instead of pulling the page back down.
 - Allow ordinary-chat computer use to control Dolores's own window, including theme controls, with exact human review and fresh screenshot verification. Previously its own window was limited to observation.
 - Make computer use available in ordinary side chats without a working folder. These chats previously received scheduling tools but no computer tool; file and shell access stay separate.

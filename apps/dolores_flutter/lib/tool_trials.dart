@@ -1,4 +1,5 @@
 import 'form_field_layout.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -201,7 +202,7 @@ class _ToolTrialsState extends State<ToolTrialsInspector> {
                   Text('Model: ${report!['model']} · ${report!['suite']}'),
                   if (skills.isEmpty)
                     const Text(
-                      'Enable a project skill in Library before comparing. Global skills are excluded.',
+                      'Enable a project skill in Settings → Skills before comparing. Global skills are excluded.',
                     ),
                   FieldLabel(
                     label: 'Baseline project skill',
@@ -220,7 +221,8 @@ class _ToolTrialsState extends State<ToolTrialsInspector> {
                           : (value) => setState(() {
                               name = value;
                               candidate.text =
-                                  ((selected!['versions'] as List).last['document']['text'])
+                                  ((selected!['versions'] as List)
+                                          .last['document']['text'])
                                       as String;
                             }),
                     ),

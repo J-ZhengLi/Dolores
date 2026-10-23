@@ -217,16 +217,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
           onPressed: () => selectPage(value),
         ),
       DockItem(
-        key: const Key('page-library'),
-        label: 'Library',
-        icon: Icons.auto_awesome_outlined,
-        onPressed: () => showSettings(
-          context,
-          host.visible,
-          initial: SettingsCategory.skills,
-        ),
-      ),
-      DockItem(
         key: const Key('rail-settings'),
         label: 'Settings',
         icon: Icons.settings_outlined,
