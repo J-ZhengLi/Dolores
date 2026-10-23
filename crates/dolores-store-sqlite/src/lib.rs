@@ -23,6 +23,7 @@ mod memory;
 mod model_details;
 mod planning;
 mod scheduling;
+mod side_conversations;
 mod skills;
 mod summaries;
 mod workspace;
@@ -33,7 +34,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 45;
+pub const SCHEMA_VERSION: i64 = 46;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -47,6 +48,7 @@ mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;
 mod mods;
+mod prompt_branches;
 mod review_findings;
 mod runs;
 mod settings;
@@ -278,6 +280,12 @@ impl SqliteStore {
                 CREATE TABLE IF NOT EXISTS review_submissions(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,selection TEXT NOT NULL CHECK(length(selection)<=4096),mode TEXT NOT NULL);
                 PRAGMA user_version=45;COMMIT;").map_err(storage_error)?;
         }
+        if version < 46 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS prompt_branches(session TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=2097152));
+                CREATE TABLE IF NOT EXISTS prompt_branch_attachments(session TEXT NOT NULL REFERENCES prompt_branches(session) ON DELETE CASCADE,digest TEXT NOT NULL,reference TEXT NOT NULL CHECK(length(CAST(reference AS BLOB))<=1024),PRIMARY KEY(session,digest));
+                PRAGMA user_version=46;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -288,6 +296,69 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn prompt_branch_target(
+        &self,
+        parent: &str,
+        child: &str,
+        revision: u32,
+    ) -> Result<dolores_core::worktrees::ManagedWorktree, String> {
+        prompt_branches::inspect_target(self, parent, child, revision)
+    }
+    fn preview_prompt_branch(
+        &self,
+        s: &str,
+        message: i64,
+    ) -> Result<dolores_core::prompt_branches::Preview, String> {
+        prompt_branches::preview(self, s, message)
+    }
+    fn prompt_branch(
+        &self,
+        s: &str,
+    ) -> Result<Option<dolores_core::prompt_branches::Info>, String> {
+        prompt_branches::read(self, s)
+    }
+    fn create_prompt_branch(
+        &self,
+        parent: &str,
+        request: &dolores_core::prompt_branches::Create,
+    ) -> Result<dolores_core::prompt_branches::Created, String> {
+        prompt_branches::create(self, parent, request)
+    }
+    fn prompt_branch_archive(
+        &self,
+        s: &str,
+        offset: usize,
+    ) -> Result<dolores_core::prompt_branches::ArchivePage, String> {
+        prompt_branches::archive(self, s, offset)
+    }
+    fn side_quote(
+        &self,
+        s: &str,
+        message: i64,
+        text: &str,
+    ) -> Result<dolores_core::side_conversations::Quote, String> {
+        side_conversations::preview(self, s, message, text)
+    }
+    fn side_conversation(
+        &self,
+        s: &str,
+    ) -> Result<Option<dolores_core::side_conversations::Info>, String> {
+        side_conversations::read(self, s)
+    }
+    fn create_side_conversation(
+        &self,
+        parent: &str,
+        request: &dolores_core::side_conversations::Create,
+    ) -> Result<dolores_core::side_conversations::Created, String> {
+        side_conversations::create(self, parent, request)
+    }
+    fn return_side_conclusion(
+        &self,
+        child: &str,
+        request: &dolores_core::side_conversations::Return,
+    ) -> Result<dolores_core::side_conversations::Info, String> {
+        side_conversations::bring_back(self, child, request)
+    }
     fn review_finding(
         &self,
         session: &str,

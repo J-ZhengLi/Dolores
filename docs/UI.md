@@ -96,6 +96,23 @@ decision changes.
   invitation and composer, followed by useful projects and recent work.
 - Group related controls near the content they affect. Prefer one contextual
   overflow menu to scattered secondary actions or permanent action bars.
+- Saved message selections offer **Ask about this** and, in linked side chats,
+  **Bring to parent task**. Review an editable excerpt in a bounded dialog before
+  opening or sharing. Opening a side chat or returning to its parent sends
+  nothing. Keep parent navigation and the frozen excerpt visible in the side
+  chat; disclose return receipts and source details on demand. An unavailable
+  parent retains the excerpt and explains why return is disabled.
+- Saved user messages offer **Edit in a new branch**. Preview the edited text,
+  optional prompt attachments/context and explicit folder choice before opening
+  an unsent independent draft. Keep original-chat navigation and a paged receipt
+  archive available in that branch. Explain that files remain current and earlier
+  actions are historical. Stale previews retain edits for refresh; failed saves
+  retain their identity for retry without overwriting a newer branch draft.
+  The managed-worktree choice reuses explicit base review and creation, then
+  returns an empty Ready target to the editor without sending or navigating.
+  Show the selected folder and reviewed commit. Explain that source staging and
+  dirty files stay in the source checkout and that a failed attachment retains
+  the worktree for inspection and same-target retry.
 - Choose the smallest surface that comfortably fits the task:
 
   | Task | Surface |

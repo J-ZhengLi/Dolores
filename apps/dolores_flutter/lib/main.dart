@@ -31,6 +31,8 @@ import 'instructions.dart';
 import 'chat_sidebar.dart';
 import 'agent_timeline.dart';
 import 'thread_fork.dart';
+import 'side_conversations.dart';
+import 'prompt_branches.dart';
 import 'attachments.dart';
 
 import 'theme.dart';
@@ -438,6 +440,30 @@ class _ChatPageState extends State<ChatPage> {
       text: text,
       streaming: streaming,
       savedAt: savedAt,
+      onEditBranch:
+          user &&
+              !streaming &&
+              messageId != null &&
+              chat.promptBranchesAvailable
+          ? () => showPromptBranch(context, chat, messageId)
+          : null,
+      onDiscuss:
+          !streaming && messageId != null && chat.sideConversationsAvailable
+          ? () => showSideConversation(context, chat, messageId, text)
+          : null,
+      onBringBack:
+          !streaming &&
+              !user &&
+              messageId != null &&
+              chat.sideConversation?['parentAvailable'] == true
+          ? () => showSideConversation(
+              context,
+              chat,
+              messageId,
+              text,
+              bringBack: true,
+            )
+          : null,
       onRemember:
           user && !streaming && text.isNotEmpty && !chat.busy && !chat.changing
           ? () async {
@@ -508,6 +534,26 @@ class _ChatPageState extends State<ChatPage> {
               text: text,
               streaming: streaming,
               onRendered: _followReply,
+              onAskAbout:
+                  !streaming &&
+                      messageId != null &&
+                      chat.sideConversationsAvailable
+                  ? (selected) =>
+                        showSideConversation(context, chat, messageId, selected)
+                  : null,
+              onBringBack:
+                  !streaming &&
+                      !user &&
+                      messageId != null &&
+                      chat.sideConversation?['parentAvailable'] == true
+                  ? (selected) => showSideConversation(
+                      context,
+                      chat,
+                      messageId,
+                      selected,
+                      bringBack: true,
+                    )
+                  : null,
             ),
           if (!user && !streaming) ...[
             if (metadata?['paused'] is Map) ...[
@@ -1290,6 +1336,12 @@ class _ChatPageState extends State<ChatPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (chat.sideConversation != null ||
+                          chat.sideConversationError != null)
+                        SideConversationBanner(chat: chat),
+                      if (chat.promptBranch != null ||
+                          chat.promptBranchError != null)
+                        PromptBranchBanner(chat: chat),
                       if (chat.messagesOlder || chat.messagesNewer)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 20),

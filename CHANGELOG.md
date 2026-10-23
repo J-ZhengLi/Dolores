@@ -7,6 +7,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Let edited prompt branches use a reviewed managed worktree, retaining source staging, dirty files and historical receipts. Failed attachment keeps the checkout and edited draft for retry.
+
 - Remove the duplicate Library dock button; skill management remains available in Settings → Skills.
 - Show tool receipts as compact expandable rows between the agent's progress updates, retaining their order in saved chats instead of appending large cards after the answer.
 - Run ordinary-chat computer actions automatically, including control of Dolores itself, without per-click or per-keystroke prompts. Stop, fresh screenshots, native target checks and task limits remain active.
@@ -15,6 +17,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Edit a saved prompt in a separate conversation branch, choose its folder and shared context, and inspect the retained original transcript and tool receipts without rolling files back or replaying earlier actions.
+- Ask about selected message text in an independent side chat, return to its parent, and queue or steer a selected conclusion without replacing either draft or the original task.
 - Comment on diff lines, queue or steer selected review feedback, and retain its delivery and separately verified resolution with the original source location.
 
 - Archive managed checkouts after retaining saved and ignored files, staging, empty folders and a recoverable Git snapshot. Restore explicitly, inspect interruptions and preserve unrelated recovery edits.

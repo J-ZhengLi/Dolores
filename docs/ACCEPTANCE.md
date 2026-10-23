@@ -508,6 +508,168 @@ were used. These checks do not qualify physical Windows IME/screen-reader input,
 GPU animation frame timing, clean-machine behavior or real-model reliability.
 The separate EH06 acceptance gaps below remain open.
 
+## EH07 edited-prompt branches — October 24
+
+Edited-prompt branches add a schema-46 archive and scoped attachment ownership.
+A host preview binds the saved user prompt, complete bounded original transcript,
+tool metadata, workspace, ancestry and explicit context snapshots. Atomic creation
+copies only completed exchanges preceding the edited prompt into live history,
+then saves the edited draft and selected original prompt attachments/context.
+The old answer and later messages remain in a separate local archive. Original
+messages, task, queue, goal, draft and working files are not rewritten. A branch
+has no copied run, active approval, goal, queue, skill selection, accepted plan
+or thread override. Host guidance distinguishes historical receipts from current
+files and is counted before ordinary context/token admission.
+
+Stable IDs match the entire saved request. Repeated creation opens the retained
+branch without overwriting its newer draft, including after parent/folder deletion.
+Shared-folder creation validates the current folder; a missing folder refuses
+with the edit retained and a No working folder recovery choice. The default
+preview requires a folder choice when the source has one. Opening runs nothing;
+ordinary Send handles rerun through its own existing owner. The original snapshot
+and receipts are read through bounded UTF-8 pages, with retained page/error retry.
+
+Six SQLite cases cover creation identity collision, complete rollback
+on a failed planning insert, source mutation between preview/create, original
+goal/queue/draft/file preservation, optional revision-bound context, original
+ancestry, later prompt/attachment omission from live context, archived input and
+tool-output attachment retention after parent deletion/cleanup, wrong-chat
+attachment refusal, newer draft/restart recovery, schema-45 migration, Unicode
+page boundaries, over-limit history, malformed archive provenance and repair.
+Two core cases cover source/input bounds and host-only guidance/context admission.
+The bridge case validates unavailable-folder refusal and exact saved recovery after
+parent/folder deletion. The final six SQLite cases pass, including tool-image
+retention and explicit source accepted-plan preservation. The complete suites
+pass 108 core, 245 bridge (one existing ignored case), and 104 SQLite tests,
+plus their seven core and five SQLite integration cases.
+
+The first broad Rust run overlapped the release build and Flutter suite. Core
+passed 108 cases, but bridge finished with 230 passes, fifteen failures and one
+ignored case: every failure was an existing review/worktree fixture's job-wait
+deadline (25 seconds in review), not a branch assertion or schema error. The
+isolated review case passed unchanged in 16.35 seconds. The complete rerun with
+two test threads after the build passes, including all fifteen failed cases;
+bridge takes 333.55 seconds. The overloaded run is retained as failed evidence.
+Production deadlines and test assertions were not changed.
+
+Five focused Flutter branch cases and sixteen combined branch/side-chat/AppHost
+cases pass with the native case opted out. They exercise no-send opening with a
+busy parent owner, exact lost reply, preserved newer branch and parent drafts,
+stale source refresh retaining edited text and choices, failed preview, UTF-8
+input narrowing, failed snapshot page followed by recovery, and missing-parent
+controls. Compact Light/Dark renders under `output/design/eh07-branches-final/`
+include top and folder views; both were inspected for visible labels, scrolling,
+reachable actions and current-folder warning. Initial analysis found missing
+braces in new widget/test code; those were fixed and analysis is being repeated.
+
+The full Flutter suite passes 579 cases with fourteen native opt-ins skipped.
+Final analysis and all-target warnings-denied Clippy pass, including the final
+hover and accepted-plan test refinements. The
+normal Windows build passes. Its isolated native branch journey passes in four
+seconds at `output/native-ui/prompt-branches-20261024-hover/`: six public loopback
+provider calls create a marker once, save two later parent exchanges, then read
+the current file and answer the edited prompt through a separate owner. The file
+is deliberately changed after preview and remains unchanged by branch creation
+and rerun. The new provider context includes prior completed history and host
+current-folder guidance; the old answer/later turns and newer private parent
+draft are absent. Parent history/draft/goal are unchanged, and deleting the parent
+leaves its archive readable with parent navigation disabled. Opening the archive
+sends nothing. No credentials or user profile were used.
+
+The first native attempt at `output/native-ui/prompt-branches-20261024-flow/`
+missed the hidden hover row and stopped without creating a branch. The fixture
+now settles scrolling before moving a mouse from outside into the actual message
+region. A focused message-hover regression passes. The native journey then passes
+without changing product hover behavior. The first broad Rust failures above
+remain distinct from this fixture-input issue.
+
+The combined native edited-branch, selected-text side-chat and queue/steering
+journeys pass in fifteen seconds at
+`output/native-ui/prompt-branches-20261024-final/`, retaining three receipts. The
+branch still reads current files without repeating creation, side sharing applies
+one selected conclusion, and the queue regression retains ordering, completed
+effects and a newer unsent draft. The DLL and Dart bundle postdate the final
+runtime edits. Later edits affect only fixtures and documentation. The bounded
+Rust rerun, final analysis, formatting, warnings-denied Clippy and document/
+publication checks pass. EH07.3 is complete within these documented bounds.
+
+Limits: 16 KiB edited prompt; 100 completed exchanges and 1 MiB encoded original
+transcript; 2 MiB total archive; existing four-prompt-attachment/four-context-
+snapshot limits; 32 KiB UTF-8 archive pages. Archived attachment references retain
+local bytes through ordinary cleanup without adding them to live context.
+EH07.4 managed-checkout branching remains separate. Fixture/rendered evidence
+does not qualify real-model or physical input reliability.
+
+## EH07 linked side conversations — October 24
+
+Saved user/assistant text can open a linked Side chat with a reviewed rendered
+excerpt and optional question draft. Selection works in Markdown, selectable
+code and the long-message plain-text fallback; named message actions offer an
+editable preview as an accessible alternative. Opening creates no run. The
+child receives one explicit context snapshot, no parent history, attachments,
+folder, skills, goals, queue authority or approvals. Existing AppHost owners keep
+the parent task and both drafts independent. No schema migration is needed.
+
+Bring to parent previews a selected saved assistant conclusion. Queue/Steer
+uses the existing input transaction and parent dispatcher, atomically recording
+the return receipt without consuming either draft. Stable IDs reconcile lost
+creation replies against all origin fields. A separate read-only return check
+matches source, selection digest and mode; it never enqueues. A changed selection
+cannot be mistaken for a prior accepted return. Deleted sources leave the frozen
+excerpt readable; a deleted parent disables return without deleting the child.
+Returning a conclusion does not complete or replace the parent's goal.
+
+Four SQLite cases pass with actual transaction failures, stale source,
+creation/return ID collisions, preserved newer drafts, exact retry after parent
+deletion, full queue, paused queue, restart/uncertain delivery, retained original
+goal, oversized UTF-8 question, encoded conclusion limit, assistant-source
+validation and 32 retained returns. Failed creation/return rolls back its entire
+write. The bridge case checks selected-context isolation and exact read-only
+receipt reconciliation after parent deletion. The complete suites pass 106 core,
+244 bridge (one existing ignored case), and 98 SQLite tests.
+
+The full Flutter suite passes 571 tests with thirteen opt-in native cases
+skipped. Eight focused side-chat cases additionally pass after the final test
+refinements: actual Markdown/code word selection, no unavailable fallback action,
+oversized question editing/recovery, parent owner still running on navigation,
+failed save retaining the question and retry identity, full queue retaining its
+selection, exact lost-reply receipt checks, compact missing-parent recovery and
+clearing stale links when opening a fresh project. The final side-chat/workspace/
+AppHost selection passes fifteen cases after that transition fix.
+Analysis and all-target warnings-denied Clippy pass. Compact Light/Dark renders
+are retained at `output/design/eh07-side-labeled/`; both were inspected for readable
+content, reachable actions and layout. Render review caught labels disappearing
+once fields were filled; the shared labels-above-fields component now keeps
+excerpt/question labels visible. Eight focused cases pass after this refinement.
+The initial UI checks caught a fixture
+close-finder mismatch; the rendered Close control was used. Initial lint issues
+were corrected. The first bridge fixture attempted context preparation without
+a user prompt; it now follows normal preparation with an explicit prompt.
+
+Bounds are 8 KiB excerpt, 4 KiB optional question, 1 MiB canonical source read,
+32 KiB encoded origin and 32 returns per side chat. Normal 16 KiB combined input,
+eight pending inputs, Stop, model/context budgets and live-input restrictions
+remain. Return preview checks the encoded instruction allowance before freezing
+the action; an oversized question stays editable. The first normal Windows build
+passes. Its native rendered journey passes at
+`output/native-ui/side-conversations-20261024-project/` with three provider fixture
+requests: the original parent turn, the independent child question receiving only
+the selected word, and one returned conclusion applied by the parent owner.
+Opening/navigation makes no request. Parent draft/goal stay unchanged and deleting
+the parent retains the child's frozen excerpt with return disabled. The first
+attempt at `output/native-ui/side-conversations-20261024-flow/` used a folderless
+Side parent and correctly hit the existing goal restriction; the fixture now
+creates an isolated project parent. The final normal Windows build passes with
+bridge/Dart artifacts newer than the final runtime edits. The combined native
+side-chat and queue/steering journeys pass in eight seconds at
+`output/native-ui/side-conversations-20261024-final/`, retaining both receipts.
+The queue regression preserves its ordered follow-ups, safe-boundary steer,
+completed effect and newer unsent draft. Final analysis, formatting and
+warnings-denied Clippy pass; the final bridge test also checks encoded return
+preview refusal before acceptance. EH07.2 is complete. Fixture evidence does not establish
+physical Windows input, real-model competence or clean-machine behavior.
+EH07.3 edited-prompt branches and EH07.4 explicit checkout choices remain open.
+
 ## EH07 diff review flow — October 23
 
 Source Control now captures findings from a verified displayed diff line rather
@@ -7195,3 +7357,41 @@ are local results; neither corrected hosted workflow has been rerun here.
 No model credentials, provider request, native interaction or profile mutation
 is needed. Existing published tags are retained: rerunning the old alpha tag
 still checks its old code; release the corrected commit under a new version tag.
+
+## EH07 managed-worktree prompt branches - October 24
+
+Eight focused SQLite prompt-branch cases pass, including stale revision,
+occupied/wrong-source targets, failed transaction rollback and same-target retry.
+The real-Git host case passes with source dirty bytes and staged index unchanged,
+target committed bytes, active-task refusal, exact retry preserving a newer target
+draft, and subsequent occupied-target refusal. The picker recovery case retains
+edited text and one created checkout across selection and final-save failures
+without sending a model request. Seventeen focused branch/worktree widget tests
+pass; eight updated branch tests include compact Light/Dark renders under
+output/design/eh07-managed/. All four managed-choice/picker renders were
+inspected: controls fit and retry/creation remain explicit.
+
+The normal Windows build passes. Full Flutter passes 582 tests with fifteen
+opt-in native cases skipped. Warnings-denied Clippy, Rust/Dart formatting and
+final Flutter analysis pass. Combined rendered/native managed/shared branch,
+side-conversation and queue journeys pass in the normal bridge under
+output/native-ui/prompt-managed-branches-20261024-final/, retaining four receipts.
+Each branch uses six public loopback provider requests. Managed creation reviews
+its exact base commit, retains source staging/dirty bytes, attaches an unsent
+edited draft, then Send reads committed target bytes rather than the newer
+source file. Historical tool receipts enter context as evidence without replay;
+old selected/later answers stay in the local archive. Parent draft, goal and
+history survive. Deleting the parent leaves that archive readable.
+
+Earlier diagnostic attempts are retained: the first combined in-file variant
+attempted to reopen a process-lifetime bridge after shutdown, then separate-file
+checks revealed fixture taps before polling settled and below a lazy panel's
+viewport. A subsequent check found Windows Git autocrlf changed fixture checkout
+bytes. Separate native files, settled enabled controls, bounded scrolling and
+repository-local explicit line endings correct the fixture without changing
+product lifecycle, test assertions or Git/user configuration. These diagnostic
+runs are not successful acceptance evidence. No physical desktop, external model
+or whole-volume resource-pressure reliability claim is made. The complete
+two-thread Rust regression gate passes 108 core, 246 bridge and 106 SQLite
+tests, plus seven core and five SQLite integration tests (one existing bridge
+case ignored). EH07.4 is complete within these declared Windows bounds.

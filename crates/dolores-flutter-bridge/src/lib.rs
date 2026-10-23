@@ -51,6 +51,7 @@ mod permissions;
 mod planning;
 #[cfg(test)]
 mod planning_tests;
+mod prompt_branches;
 mod recovery;
 mod registry;
 mod repair_evaluation;
@@ -60,6 +61,7 @@ mod run_journal;
 mod scheduled_edits;
 mod scheduling;
 mod settings;
+mod side_conversations;
 mod skill_drafts;
 mod skills;
 mod source_control;
@@ -218,6 +220,14 @@ enum Command {
     },
     TaskInputs {
         session: String,
+    },
+    SideConversation {
+        session: String,
+        request: side_conversations::Request,
+    },
+    PromptBranch {
+        session: String,
+        request: prompt_branches::Request,
     },
     ReviewFindings {
         session: String,
@@ -1014,6 +1024,18 @@ impl Engine {
                     | Command::Goal { .. }
                     | Command::Planning { .. }
                     | Command::ReferencePreview { .. }
+                    | Command::PromptBranch {
+                        request: prompt_branches::Request::Info
+                            | prompt_branches::Request::Preview { .. }
+                            | prompt_branches::Request::Archive { .. },
+                        ..
+                    }
+                    | Command::SideConversation {
+                        request: side_conversations::Request::Info
+                            | side_conversations::Request::Preview { .. }
+                            | side_conversations::Request::InspectReturn { .. },
+                        ..
+                    }
                     | Command::DraftAttachments { .. }
                     | Command::NativeStartupReady
                     | Command::NativeUpdateReady
@@ -1028,6 +1050,7 @@ impl Engine {
         }
         match command {
             Command::Worktrees {session,request}=>return self.worktree_call(&session,request,&active),
+            Command::PromptBranch {session,request}=>return self.prompt_branch_call(&session,request,&active),
             Command::SessionControl {session,request}=>{drop(active);return self.command_session_call(&session,request);},
             Command::ReferenceChoices{session,kind,owner,path,cursor}=>return self.reference_choices(&session,&kind,owner.as_deref(),&path,cursor),
             Command::Planning{session}=>return Ok(json!(self.store.planning(&session)?)),
@@ -1051,6 +1074,7 @@ impl Engine {
             Command::ComposerCommands { session } => return self.composer_commands(session.as_deref(), session.as_ref().is_some_and(|s| active.has_session(s))),
             Command::SaveComposerSkills { session, selections } => { self.store.save_composer_skills(&session, &selections)?; return Ok(json!(selections)); },
             Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
+            Command::SideConversation{session,request}=>return self.side_conversation_call(&session,request,&active),
             Command::ReviewFindings {session,request}=>return source_control::findings::local(self.store.as_ref(),&session,request),
             Command::EditTaskInputs { session, edit } => {
                 if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}) {
@@ -1663,7 +1687,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"sideConversations":true,"promptBranches":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -1817,6 +1841,15 @@ impl Engine {
                 }
                 dolores_core::planning::filter_specs(&mut specs, &planning_state);
                 let messages = dolores_core::planning::prepare(messages, &planning_state)?;
+                let branch = session
+                    .as_deref()
+                    .map(|s| self.store.prompt_branch(s))
+                    .transpose()?
+                    .flatten();
+                let messages = dolores_core::prompt_branches::prepare(
+                    messages,
+                    branch.as_ref().map(|b| &b.origin),
+                )?;
                 let preferences = self.store.preferences()?;
                 let messages = dolores_core::prepare_external_tool_context(messages, &specs)?;
                 let messages = if !specs.is_empty() {
@@ -2996,6 +3029,9 @@ async fn execute(
         attachments::prepare_text(store.as_ref(), &session, context)?
     };
     let context = dolores_core::planning::prepare(context, &planning)?;
+    let branch = store.prompt_branch(&session)?;
+    let context =
+        dolores_core::prompt_branches::prepare(context, branch.as_ref().map(|b| &b.origin))?;
     let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
     let context = if !specs.is_empty() {
         dolores_core::prepare_response_context(

@@ -272,6 +272,24 @@ class AppHost extends ChangeNotifier {
     unawaited(background.refresh());
   }
   void _add(ChatController owner) {
+    owner.onNavigateConversation = (id) async {
+      await select(id);
+      if (visible.session != id) {
+        throw StateError(
+          error ?? 'The requested conversation is unavailable. The current discussion remains.',
+        );
+      }
+    };
+    owner.onSideConclusion = (parent) async {
+      await select(parent);
+      if (visible.session != parent) {
+        throw StateError(
+          error ?? 'Conclusion is saved. Open the parent to inspect its queue.',
+        );
+      }
+      await visible.refreshInputs();
+      await visible.dispatchNextInput();
+    };
     _settings[owner] = owner.settingsRevision;
     owner.onOpenSourceControl = (path) async {
       if (owner.session != null) await select(owner.session!);
@@ -409,6 +427,8 @@ class AppHost extends ChangeNotifier {
         }
       } else {
         await next.refreshConversationList();
+        await next.refreshSideConversation();
+        await next.refreshPromptBranch();
       }
       visible = next;
       final note = companion.unread;
@@ -472,6 +492,8 @@ class AppHost extends ChangeNotifier {
     for (final owner in owners) {
       owner.beforeNativeRestart = null;
       owner.onOpenSourceControl = null;
+      owner.onNavigateConversation = null;
+      owner.onSideConclusion = null;
       owner.removeListener(_changed);
       owner.appearanceChanges.removeListener(_themes[owner]!);
       owner.reducedMotion.removeListener(_themes[owner]!);

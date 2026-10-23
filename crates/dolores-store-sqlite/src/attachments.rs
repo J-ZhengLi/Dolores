@@ -67,7 +67,7 @@ pub(super) fn commit_draft(c: &Connection, session: &str, id: i64) -> Result<(),
     Ok(())
 }
 pub(super) fn cleanup(c: &Connection) -> Result<usize, String> {
-    c.execute("DELETE FROM attachment_assets WHERE NOT EXISTS(SELECT 1 FROM draft_attachments,json_each(draft_attachments.data) WHERE json_extract(value,'$.digest')=attachment_assets.digest) AND NOT EXISTS(SELECT 1 FROM message_parts,json_each(message_parts.data) WHERE json_extract(value,'$.digest')=attachment_assets.digest)",[]).map_err(storage_error)
+    c.execute("DELETE FROM attachment_assets WHERE NOT EXISTS(SELECT 1 FROM draft_attachments,json_each(draft_attachments.data) WHERE json_extract(value,'$.digest')=attachment_assets.digest) AND NOT EXISTS(SELECT 1 FROM message_parts,json_each(message_parts.data) WHERE json_extract(value,'$.digest')=attachment_assets.digest) AND NOT EXISTS(SELECT 1 FROM prompt_branch_attachments WHERE digest=attachment_assets.digest)",[]).map_err(storage_error)
 }
 pub(super) fn image_models(c: &Connection, base: &str) -> Result<Vec<String>, String> {
     let data: Option<String> = c
@@ -167,6 +167,19 @@ impl SqliteStore {
             .optional()
             .map_err(storage_error)?;
         refs.extend(parse(data)?);
+        let archived: Option<String> = c
+            .query_row(
+                "SELECT reference FROM prompt_branch_attachments WHERE session=?1 AND digest=?2",
+                params![id, digest],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if let Some(raw) = archived {
+            let reference: AttachmentRef = serde_json::from_str(&raw).map_err(storage_error)?;
+            reference.validate()?;
+            refs.push(reference);
+        }
         let reference = refs
             .into_iter()
             .find(|p| p.digest == digest)

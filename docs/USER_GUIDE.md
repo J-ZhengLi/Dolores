@@ -3,7 +3,7 @@
 ## Home and files
 
 Home puts the composer above your projects and recent chats. Use the sidebar for
-Files, Scheduled tasks, Source Control and Terminal; Library opens skill management.
+Files, Scheduled tasks, Source Control and Terminal; Settings → Skills opens skill management.
 The side panel can still be resized or hidden. Narrow windows use an icon rail
 and a collapsible panel.
 
@@ -20,6 +20,59 @@ keeps the text. Paths and fenced code keep normal editing, and IME composition
 does not select or submit. `/stop` stops this chat's response; `/resume-queue`
 resumes its inspected, paused queue. `/goal` opens Goal and progress; `/plan`
 opens Plan and decisions.
+
+Select text in a saved message and choose **Ask about this**, or use that
+message's named action to review and narrow an excerpt. **Open side chat** creates
+an independent discussion with that excerpt and an optional question draft; it
+does not send the question. Other messages, attachments, folder access and task
+settings stay with the parent. The parent keeps running when you switch views.
+Use **Shared excerpt** to inspect the retained text and **Return to parent** to
+return without sending anything.
+
+Select a saved assistant conclusion in the side chat and choose **Bring to parent
+task**. Review it, then choose **Queue in parent** or **Steer parent**. The normal
+parent task handles that instruction; its draft, objective, completed work and
+paused state stay in place. A return receipt confirms acceptance, not completion.
+Retry a failed opening or return using its retained action to avoid duplicates.
+If the parent is deleted, the discussion and excerpt remain readable.
+
+Selected excerpts are limited to 8 KiB and optional questions to 4 KiB. Narrow
+an over-limit selection before opening; no text is silently clipped. A side chat
+retains up to 32 return receipts. If that allowance or the parent's eight pending
+inputs is full, inspect existing work or continue in a new discussion.
+
+Use **Edit in a new branch** on a saved user message to revise an older prompt.
+The editor previews which earlier exchanges will enter the new chat. Choose
+**Share current folder**, **Managed worktree**, or **No working folder** and optionally include the
+original prompt's attachments and current context snapshots. Review snapshots
+before including them. **Open edited branch** saves a separate unsent draft;
+ordinary **Send** starts its response. The original conversation and its newer
+draft stay in place. Goals, accepted plans, queued input and permissions are
+not copied.
+
+Sharing a folder uses its current files, including changes made since the
+original response. Branching never rolls files back or repeats an old tool
+action. **Original snapshot and receipts** opens a paged local archive of the
+source transcript, ancestry and context as they were when the branch was made.
+That archive remains readable if the parent chat is deleted. It is historical
+evidence, not a running task or a claim about current files.
+
+**Managed worktree** opens the existing worktree inspector to review a base
+commit and create or select an empty Ready task. **Use for edited branch**
+returns that choice to the editor without sending anything. The separate folder
+starts at the reviewed commit; dirty files and staging stay in the source
+checkout. Opening then attaches the edited draft and historical transcript to
+that empty task. An occupied, active or changed target is refused. If attaching
+fails, the checkout and edit remain available; retry uses the same target rather
+than creating another checkout. Canceling the editor also leaves a deliberately
+created worktree available in Worktrees.
+
+Edited input is limited to 16 KiB; branch history retains up to 100 completed
+exchanges and 1 MiB of encoded transcript within a 2 MiB archive. If the source
+changes between preview and opening, **Refresh source preview** keeps your edit
+and requires a fresh source revision. A failed opening retains its identity for
+retry and cannot overwrite an existing branch's newer draft. Over-limit histories
+stay usable; a selected-text side discussion can share a narrower excerpt.
 
 Use **Planning mode** to inspect local files and discuss a change. The model can
 read/list/search and ask questions; commands, writes, delegation and external

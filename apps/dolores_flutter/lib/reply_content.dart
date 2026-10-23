@@ -12,11 +12,14 @@ class ReplyContent extends StatefulWidget {
   final String text;
   final bool streaming;
   final VoidCallback? onRendered;
+  final ValueChanged<String>? onAskAbout, onBringBack;
   const ReplyContent({
     super.key,
     required this.text,
     this.streaming = false,
     this.onRendered,
+    this.onAskAbout,
+    this.onBringBack,
   });
 
   @override
@@ -28,6 +31,7 @@ class _ReplyContentState extends State<ReplyContent> {
   String displayed = '';
   Timer? timer;
   Widget? cached;
+  String selection = '';
 
   @override
   void initState() {
@@ -44,6 +48,10 @@ class _ReplyContentState extends State<ReplyContent> {
   @override
   void didUpdateWidget(ReplyContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if ((widget.onAskAbout == null) != (oldWidget.onAskAbout == null) ||
+        (widget.onBringBack == null) != (oldWidget.onBringBack == null)) {
+      cached = null;
+    }
     if (widget.text == displayed) {
       timer?.cancel();
       timer = null;
@@ -88,13 +96,26 @@ class _ReplyContentState extends State<ReplyContent> {
             style: TextStyle(color: p.muted, fontSize: 12),
           ),
           const SizedBox(height: 8),
-          SelectableText(displayed, style: body),
+          SelectableText(
+            displayed,
+            style: body,
+            contextMenuBuilder: (context, state) => _textSelectionMenu(
+              context,
+              state,
+              onAskAbout: widget.onAskAbout == null
+                  ? null
+                  : (text) => widget.onAskAbout?.call(text),
+              onBringBack: widget.onBringBack == null
+                  ? null
+                  : (text) => widget.onBringBack?.call(text),
+            ),
+          ),
         ],
       );
     }
-    return cached = MarkdownBody(
+    final markdown = MarkdownBody(
       data: displayed,
-      selectable: true,
+      selectable: widget.onAskAbout == null && widget.onBringBack == null,
       fitContent: false,
       extensionSet: md.ExtensionSet.gitHubFlavored,
       blockSyntaxes: const [_LiteralHtmlBlock()],
@@ -104,7 +125,16 @@ class _ReplyContentState extends State<ReplyContent> {
         'Image: ${alt?.isNotEmpty == true ? alt : 'not loaded'}',
         style: TextStyle(color: p.muted, fontSize: 13),
       ),
-      builders: {'pre': _CodeBuilder()},
+      builders: {
+        'pre': _CodeBuilder(
+          onAskAbout: widget.onAskAbout == null
+              ? null
+              : (text) => widget.onAskAbout?.call(text),
+          onBringBack: widget.onBringBack == null
+              ? null
+              : (text) => widget.onBringBack?.call(text),
+        ),
+      },
       styleSheet: MarkdownStyleSheet(
         p: body,
         a: body.copyWith(color: p.accent, decoration: TextDecoration.underline),
@@ -157,6 +187,38 @@ class _ReplyContentState extends State<ReplyContent> {
         ),
       ),
     );
+    if (widget.onAskAbout == null && widget.onBringBack == null) {
+      return cached = markdown;
+    }
+    return cached = SelectionArea(
+      onSelectionChanged: (value) => selection = value?.plainText ?? '',
+      contextMenuBuilder: (context, state) =>
+          AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: state.contextMenuAnchors,
+            buttonItems: [
+              ...state.contextMenuButtonItems,
+              if (selection.trim().isNotEmpty && widget.onAskAbout != null)
+                ContextMenuButtonItem(
+                  label: 'Ask about this',
+                  onPressed: () {
+                    final text = selection;
+                    state.hideToolbar();
+                    widget.onAskAbout?.call(text);
+                  },
+                ),
+              if (selection.trim().isNotEmpty && widget.onBringBack != null)
+                ContextMenuButtonItem(
+                  label: 'Bring to parent task',
+                  onPressed: () {
+                    final text = selection;
+                    state.hideToolbar();
+                    widget.onBringBack?.call(text);
+                  },
+                ),
+            ],
+          ),
+      child: markdown,
+    );
   }
 }
 
@@ -170,6 +232,8 @@ class _LiteralHtmlBlock extends md.HtmlBlockSyntax {
 }
 
 class _CodeBuilder extends MarkdownElementBuilder {
+  final ValueChanged<String>? onAskAbout, onBringBack;
+  _CodeBuilder({this.onAskAbout, this.onBringBack});
   @override
   Widget? visitElementAfterWithContext(
     BuildContext context,
@@ -179,14 +243,26 @@ class _CodeBuilder extends MarkdownElementBuilder {
   ) {
     final code = element.children?.whereType<md.Element>().firstOrNull;
     final language = code?.attributes['class']?.replaceFirst('language-', '');
-    return ReplyCodeBlock(text: element.textContent, language: language);
+    return ReplyCodeBlock(
+      text: element.textContent,
+      language: language,
+      onAskAbout: onAskAbout,
+      onBringBack: onBringBack,
+    );
   }
 }
 
 class ReplyCodeBlock extends StatefulWidget {
   final String text;
   final String? language;
-  const ReplyCodeBlock({super.key, required this.text, this.language});
+  final ValueChanged<String>? onAskAbout, onBringBack;
+  const ReplyCodeBlock({
+    super.key,
+    required this.text,
+    this.language,
+    this.onAskAbout,
+    this.onBringBack,
+  });
 
   @override
   State<ReplyCodeBlock> createState() => _ReplyCodeBlockState();
@@ -253,6 +329,12 @@ class _ReplyCodeBlockState extends State<ReplyCodeBlock> {
               padding: const EdgeInsets.all(12),
               child: SelectableText(
                 widget.text,
+                contextMenuBuilder: (context, state) => _textSelectionMenu(
+                  context,
+                  state,
+                  onAskAbout: widget.onAskAbout,
+                  onBringBack: widget.onBringBack,
+                ),
                 style: TextStyle(
                   fontFamily: UiTokens.codeFont,
                   fontFamilyFallback: UiTokens.codeFontFallback,
@@ -267,6 +349,39 @@ class _ReplyCodeBlockState extends State<ReplyCodeBlock> {
       ),
     );
   }
+}
+
+Widget _textSelectionMenu(
+  BuildContext context,
+  EditableTextState state, {
+  ValueChanged<String>? onAskAbout,
+  ValueChanged<String>? onBringBack,
+}) {
+  final selected = state.textEditingValue.selection.textInside(
+    state.textEditingValue.text,
+  );
+  return AdaptiveTextSelectionToolbar.buttonItems(
+    anchors: state.contextMenuAnchors,
+    buttonItems: [
+      ...state.contextMenuButtonItems,
+      if (selected.trim().isNotEmpty && onAskAbout != null)
+        ContextMenuButtonItem(
+          label: 'Ask about this',
+          onPressed: () {
+            state.hideToolbar();
+            onAskAbout(selected);
+          },
+        ),
+      if (selected.trim().isNotEmpty && onBringBack != null)
+        ContextMenuButtonItem(
+          label: 'Bring to parent task',
+          onPressed: () {
+            state.hideToolbar();
+            onBringBack(selected);
+          },
+        ),
+    ],
+  );
 }
 
 Future<void> showReplyLink(BuildContext context, String? href) async {

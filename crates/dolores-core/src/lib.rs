@@ -351,9 +351,59 @@ pub mod context_recovery;
 mod context_recovery_tests;
 pub mod goal;
 pub mod planning;
+pub mod prompt_branches;
 pub mod review_findings;
 pub mod scheduling;
+pub mod side_conversations;
 pub trait SessionStore: Send + Sync {
+    fn prompt_branch_target(
+        &self,
+        _: &str,
+        _: &str,
+        _: u32,
+    ) -> Result<worktrees::ManagedWorktree, String> {
+        Err("Managed prompt-branch targets are unavailable in this store.".into())
+    }
+    fn preview_prompt_branch(&self, _: &str, _: i64) -> Result<prompt_branches::Preview, String> {
+        Err("Edited-prompt branches are unavailable in this store.".into())
+    }
+    fn prompt_branch(&self, _: &str) -> Result<Option<prompt_branches::Info>, String> {
+        Ok(None)
+    }
+    fn create_prompt_branch(
+        &self,
+        _: &str,
+        _: &prompt_branches::Create,
+    ) -> Result<prompt_branches::Created, String> {
+        Err("Edited-prompt branches are unavailable in this store.".into())
+    }
+    fn prompt_branch_archive(
+        &self,
+        _: &str,
+        _: usize,
+    ) -> Result<prompt_branches::ArchivePage, String> {
+        Err("The original prompt snapshot is unavailable in this store.".into())
+    }
+    fn side_quote(&self, _: &str, _: i64, _: &str) -> Result<side_conversations::Quote, String> {
+        Err("Selected-text side conversations are unavailable in this store.".into())
+    }
+    fn side_conversation(&self, _: &str) -> Result<Option<side_conversations::Info>, String> {
+        Ok(None)
+    }
+    fn create_side_conversation(
+        &self,
+        _: &str,
+        _: &side_conversations::Create,
+    ) -> Result<side_conversations::Created, String> {
+        Err("Selected-text side conversations are unavailable in this store.".into())
+    }
+    fn return_side_conclusion(
+        &self,
+        _: &str,
+        _: &side_conversations::Return,
+    ) -> Result<side_conversations::Info, String> {
+        Err("Side-discussion return is unavailable in this store.".into())
+    }
     fn review_findings(&self, _: &str, _: Option<i64>) -> Result<review_findings::Page, String> {
         Err("Review findings are unavailable in this store.".into())
     }

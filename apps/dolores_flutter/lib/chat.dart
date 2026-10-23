@@ -81,6 +81,215 @@ class ChatController extends ChangeNotifier {
   bool nativeStartup = false;
   Future<void> Function()? beforeNativeRestart;
   Future<void> Function(String path)? onOpenSourceControl;
+  Future<void> Function(String session)? onNavigateConversation;
+  Future<void> Function(String parent)? onSideConclusion;
+  Map<String, dynamic>? sideConversation;
+  String? sideConversationError;
+  bool sideConversationsAvailable = false;
+  bool promptBranchesAvailable = false;
+  Map<String, dynamic>? promptBranch;
+  String? promptBranchError;
+
+  Future<dynamic> branchCall(String owner, Map<String, dynamic> request) =>
+      bridge.call({
+        'command': 'promptBranch',
+        'session': owner,
+        'request': request,
+      });
+  Future<void> refreshPromptBranch() async {
+    if (!promptBranchesAvailable || session == null) {
+      promptBranch = null;
+      promptBranchError = null;
+      return;
+    }
+    final owner = session;
+    try {
+      final value = await branchCall(owner!, {'action': 'info'});
+      if (session == owner) {
+        promptBranch = value is Map ? Map<String, dynamic>.from(value) : null;
+        promptBranchError = null;
+      }
+    } catch (e) {
+      if (session == owner) {
+        promptBranchError = '$e';
+      }
+    }
+    _notify();
+  }
+
+  Future<void> createPromptBranch(
+    String parent,
+    Map<String, dynamic> request,
+  ) async {
+    if (session != parent) {
+      throw StateError(
+        'Source chat changed. Return to the original and preview again; your edit remains.',
+      );
+    }
+    await checkpointDraft();
+    final target = request['id'] as String;
+    try {
+      await branchCall(parent, {'action': 'create', 'request': request});
+    } catch (e) {
+      try {
+        final saved = await branchCall(target, {'action': 'info'});
+        if (saved is! Map || saved['origin']['parent'] != parent) {
+          rethrow;
+        }
+        final initial = saved['request'] as Map;
+        if (initial['id'] != target ||
+            initial['edited'] != request['edited'] ||
+            initial['includeAttachments'] != request['includeAttachments'] ||
+            initial['includeContext'] != request['includeContext'] ||
+            initial['folder'] != request['folder'] ||
+            initial['targetRevision'] != request['targetRevision'] ||
+            initial['basis']['message'] != request['basis']['message'] ||
+            initial['basis']['revision'] != request['basis']['revision']) {
+          rethrow;
+        }
+      } catch (_) {
+        throw StateError(
+          '$e Your edit remains. Retry this identity, refresh the source preview, or inspect the saved branch: $target',
+        );
+      }
+    }
+    await navigateConversation(target);
+  }
+
+  Future<void> refreshSideConversation() async {
+    if (!sideConversationsAvailable || session == null) {
+      sideConversation = null;
+      sideConversationError = null;
+      return;
+    }
+    final owner = session;
+    try {
+      final value = await bridge.call({
+        'command': 'sideConversation',
+        'session': owner,
+        'request': {'action': 'info'},
+      });
+      if (session == owner) {
+        sideConversation = value is Map
+            ? Map<String, dynamic>.from(value)
+            : null;
+        sideConversationError = null;
+      }
+    } catch (e) {
+      if (session == owner) sideConversationError = '$e';
+    }
+    _notify();
+  }
+
+  Future<void> navigateConversation(String target) async {
+    if (onNavigateConversation != null) {
+      await onNavigateConversation!(target);
+      return;
+    }
+    if (busy || changing) {
+      throw StateError(
+        'Finish this response before switching in this view; the parent and excerpt remain.',
+      );
+    }
+    await select(target);
+    if (session != target) {
+      throw StateError(
+        error ?? 'Conversation is unavailable. The frozen excerpt remains.',
+      );
+    }
+  }
+
+  Future<dynamic> sideCall(String owner, Map<String, dynamic> request) =>
+      bridge.call({
+        'command': 'sideConversation',
+        'session': owner,
+        'request': request,
+      });
+  Future<void> createSide(String parent, Map<String, dynamic> request) async {
+    if (session != parent) {
+      throw StateError(
+        'Source chat changed. Return to it and preview the selection again.',
+      );
+    }
+    await checkpointDraft();
+    String target = request['id'] as String;
+    try {
+      final result = await sideCall(parent, {
+        'action': 'create',
+        'request': request,
+      });
+      target = result['session']['id'] as String;
+    } catch (e) {
+      try {
+        final saved = await sideCall(target, {'action': 'info'});
+        if (saved is! Map ||
+            saved['origin']['parent'] != parent ||
+            saved['origin']['quote']['revision'] !=
+                request['quote']['revision'] ||
+            saved['origin']['quote']['message'] !=
+                request['quote']['message'] ||
+            saved['origin']['quote']['excerpt'] !=
+                request['quote']['excerpt'] ||
+            saved['origin']['question'] != request['question']) {
+          rethrow;
+        }
+      } catch (_) {
+        throw StateError(
+          '$e The parent and question remain. Retry the same discussion or inspect its saved identity: $target',
+        );
+      }
+    }
+    await navigateConversation(target);
+  }
+
+  Future<void> returnSide(String child, Map<String, dynamic> request) async {
+    if (session != child) {
+      throw StateError(
+        'Side chat changed. Return to it before sharing this conclusion.',
+      );
+    }
+    await checkpointDraft();
+    dynamic result;
+    try {
+      result = await sideCall(child, {
+        'action': 'bringBack',
+        'request': request,
+      });
+    } catch (e) {
+      try {
+        result = await sideCall(child, {
+          'action': 'inspectReturn',
+          'request': request,
+        });
+        if (result is! Map) {
+          rethrow;
+        }
+      } catch (_) {
+        throw StateError(
+          '$e Selection and drafts remain. Inspect the return receipts before starting a different return.',
+        );
+      }
+    }
+    if (session == child) {
+      sideConversation = Map<String, dynamic>.from(result);
+      sideConversationError = null;
+      _notify();
+    }
+    if (result['parentAvailable'] != true) {
+      throw StateError(
+        'The conclusion was already accepted, but its parent is now unavailable. This discussion and receipt remain.',
+      );
+    }
+    final parent = result['origin']['parent'] as String;
+    if (onSideConclusion != null) {
+      await onSideConclusion!(parent);
+    } else {
+      await navigateConversation(parent);
+      await refreshInputs();
+      await dispatchNextInput();
+    }
+  }
+
   Future<void> saveNativeDrafts() async {
     await beforeNativeRestart?.call();
     if (busy || loading) {
@@ -1037,6 +1246,8 @@ class ChatController extends ChangeNotifier {
     commandPickerAvailable = state['commandPicker'] == true;
     commandSessionsAvailable = state['commandSessions'] == true;
     worktreesAvailable = state['worktrees'] == true;
+    sideConversationsAvailable = state['sideConversations'] == true;
+    promptBranchesAvailable = state['promptBranches'] == true;
     goalsAvailable = state['goals'] == true;
     planningAvailable = state['planning'] == true;
     attachmentsAvailable = state['attachments'] == true;
@@ -1274,6 +1485,10 @@ class ChatController extends ChangeNotifier {
   }
 
   void _clearConversation() {
+    promptBranch = null;
+    promptBranchError = null;
+    sideConversation = null;
+    sideConversationError = null;
     goal = null;
     planning = {};
     _goalStarted = false;
@@ -1312,6 +1527,10 @@ class ChatController extends ChangeNotifier {
     if (nextKind != 'project') workspaceRoot = null;
     workspaceKind = nextKind;
     session = null;
+    sideConversation = null;
+    sideConversationError = null;
+    promptBranch = null;
+    promptBranchError = null;
     goal = null;
     planning = {};
     _goalStarted = false;
@@ -1376,6 +1595,10 @@ class ChatController extends ChangeNotifier {
             }) as List).cast<Map<String, dynamic>>()
           : <Map<String, dynamic>>[];
       session = id;
+      sideConversation = null;
+      await refreshSideConversation();
+      promptBranch = null;
+      await refreshPromptBranch();
       goal = null;
       planning = {};
       _goalStarted = false;
@@ -1502,6 +1725,10 @@ class ChatController extends ChangeNotifier {
       await bridge.call({'command': 'delete', 'session': id});
       if (session == id) {
         session = null;
+        sideConversation = null;
+        sideConversationError = null;
+        promptBranch = null;
+        promptBranchError = null;
         workspaceKind = 'temporary';
         workspaceRoot = null;
         messages = [];

@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 #[path = "worktree_archive_tests.rs"]
 mod archive_tests;
+#[path = "worktree_prompt_branch_tests.rs"]
+mod prompt_branch_tests;
 #[path = "worktree_transfer_tests.rs"]
 mod transfer_tests;
 

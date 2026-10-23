@@ -11,17 +11,28 @@ Future<void> showWorktrees(
   BuildContext context,
   ChatController chat, {
   Future<void> Function(String)? onSelect,
+  bool forPromptBranch = false,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
-  builder: (_) => WorktreesInspector(chat: chat, onSelect: onSelect),
+  builder: (_) => WorktreesInspector(
+    chat: chat,
+    onSelect: onSelect,
+    forPromptBranch: forPromptBranch,
+  ),
 );
 
 /// Creation is a reviewed host operation. Polling and reopening never repeat it.
 class WorktreesInspector extends StatefulWidget {
   final ChatController chat;
   final Future<void> Function(String)? onSelect;
-  const WorktreesInspector({super.key, required this.chat, this.onSelect});
+  final bool forPromptBranch;
+  const WorktreesInspector({
+    super.key,
+    required this.chat,
+    this.onSelect,
+    this.forPromptBranch = false,
+  });
   @override
   State<WorktreesInspector> createState() => _WorktreesInspectorState();
 }
@@ -325,7 +336,9 @@ class _WorktreesInspectorState extends State<WorktreesInspector> {
           TextButton.icon(
             onPressed: locked || !sourceIdle ? null : open,
             icon: const Icon(Icons.chat_bubble_outline, size: 18),
-            label: const Text('Open chat'),
+            label: Text(
+              widget.forPromptBranch ? 'Use for edited branch' : 'Open chat',
+            ),
           ),
           if (record['state'] == 'recovery' &&
               record['recoveryFrom'] == 'creating')
@@ -361,8 +374,12 @@ class _WorktreesInspectorState extends State<WorktreesInspector> {
         if (!didPop) close();
       },
       child: InspectorFrame(
-        title: 'Worktrees',
-        subtitle: 'Separate working folders for independent tasks',
+        title: widget.forPromptBranch
+            ? 'Choose a managed worktree'
+            : 'Worktrees',
+        subtitle: widget.forPromptBranch
+            ? 'Create or choose an empty Ready chat from this source folder'
+            : 'Separate working folders for independent tasks',
         canClose: !locked,
         onClose: close,
         child: ListView(

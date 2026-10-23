@@ -11,6 +11,8 @@ class MessageFrame extends StatefulWidget {
   final bool streaming;
   final Widget child;
   final VoidCallback? onRemember;
+  final VoidCallback? onDiscuss, onBringBack;
+  final VoidCallback? onEditBranch;
 
   const MessageFrame({
     super.key,
@@ -20,6 +22,9 @@ class MessageFrame extends StatefulWidget {
     this.savedAt,
     this.streaming = false,
     this.onRemember,
+    this.onDiscuss,
+    this.onBringBack,
+    this.onEditBranch,
   });
 
   @override
@@ -97,6 +102,39 @@ class _MessageFrameState extends State<MessageFrame> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              if (widget.onEditBranch != null)
+                                IconButton(
+                                  tooltip: 'Edit in a new branch',
+                                  iconSize: 15,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: widget.onEditBranch,
+                                  icon: Icon(
+                                    Icons.edit_outlined,
+                                    color: p.muted,
+                                  ),
+                                ),
+                              if (widget.onDiscuss != null)
+                                IconButton(
+                                  tooltip: 'Ask about this',
+                                  iconSize: 15,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: widget.onDiscuss,
+                                  icon: Icon(
+                                    Icons.chat_bubble_outline,
+                                    color: p.muted,
+                                  ),
+                                ),
+                              if (widget.onBringBack != null)
+                                IconButton(
+                                  tooltip: 'Bring to parent task',
+                                  iconSize: 15,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: widget.onBringBack,
+                                  icon: Icon(
+                                    Icons.call_merge_outlined,
+                                    color: p.muted,
+                                  ),
+                                ),
                               if (widget.onRemember != null)
                                 IconButton(
                                   tooltip: 'Remember this',
