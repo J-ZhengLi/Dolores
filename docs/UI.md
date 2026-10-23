@@ -85,6 +85,11 @@ decision changes.
   line height, 16 px toggle glyph inside a 32 px click target. Use a thin rounded
   window outline with a narrow left pane for its icon;
   preserve its tooltip, semantic name, native dragging and window controls.
+- Keep a named Settings gear immediately left of Minimize in the custom Windows
+  title bar, available while the navigation dock is hidden. Open the existing
+  General/Theme settings window, avoid stacking it over an open review and restore
+  keyboard focus when it closes. The dock reveal's accessible name identifies the
+  navigation dock and its destinations so it cannot be mistaken for a sidebar toggle.
 - Reserve the sidebar for the current feature, starting near the top: project
   chats and recents on Home, files on Files, repository controls on Source Control,
   and relevant task/terminal controls on their pages. Home centers a short

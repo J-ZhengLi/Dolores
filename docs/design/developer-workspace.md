@@ -21,6 +21,9 @@ dedicated to the current page, starting near the top. Home shows project chats
 and recents; developer pages use its full height for file, change or terminal
 controls. The infinity mark and Dolores title appear once in the shared title bar
 on every page, beside the outlined sidebar toggle.
+A persistent Settings gear sits immediately left of Minimize in the custom
+Windows title bar and opens General/Theme without revealing the dock. The dock's
+accessible reveal name lists its destinations, including Settings.
 A sidebar-layout button **immediately right of the Dolores title** toggles it; neither a
 Close button nor a folder icon substitutes for this control. The panel's divider
 supports mouse resizing down to hidden; reopening restores its last usable width.

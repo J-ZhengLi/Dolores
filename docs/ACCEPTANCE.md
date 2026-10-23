@@ -1,5 +1,63 @@
 # Dolores acceptance — 2026-10-08
 
+## Persistent Settings shortcut and exported-session follow-up — October 23
+
+The user's later exported conversation disproved a broad reliability reading of
+the successful isolated Light-mode test below. Its latest active attempt did
+receive named accessibility targets and successfully opened Chat actions, then
+closed that menu with Escape. It never clicked the repeatedly observed navigation
+reveal control, described that control as a collapse toggle, and tried the wordmark
+and sidebar instead. Light mode was not reached. The final exchange explicitly
+asked the agent to wait and correctly contained no computer operations. The
+preceding older attempt stopped on malformed input; its blocked operation's
+arguments were not retained in this export, so the precise malformed field cannot
+be determined from it. No private transcript or other window titles are copied
+into repository evidence. The earlier isolated success remains one passing journey,
+not evidence that this longer conversation succeeded.
+
+A Settings gear is now permanently available immediately left of Minimize in the
+custom Windows title bar. It opens the existing General/Theme window using the
+visible conversation's controller and retains the dock entry. An existing modal
+or review prevents another settings window from stacking. Repeated activation
+while opening/visible is ignored, native window controls remain usable, failed
+opening retains content with Retry, and keyboard opening restores focus to the
+gear after close. The hidden dock's semantic name now says navigation dock and
+lists actual destinations, including Settings, instead of the ambiguous navigation
+label. This improves discoverability without hard-coding theme commands into the
+computer tool or changing its input/approval limits.
+
+Three initial tests failed on the absent title gear and ambiguous dock semantics.
+After implementation, five focused tests passed, including retained chat drafts,
+420-pixel layouts, duplicate activation, existing-review protection, keyboard
+activation/focus restoration and failed-opening recovery. The wider title-frame,
+settings and UI-polish suite passed 24 tests before the two additional edge cases.
+Saved renders were inspected in Light and Dark at wide and compact widths under
+`output/title-settings-renders/`; the gear is aligned immediately before Minimize.
+The final four-file UI suite passed all 26 tests; analysis of the three changed
+widgets and new tests reported no issues. The normal Windows x64 build passed.
+The direct native gear click opened General/Theme in the normal app, independently
+of the dock. This UI repair does not establish
+reliable navigation for every model or retroactively complete the user's session.
+
+An isolated live run with `deepseek-v4.1-flash-1017` and the same bounded natural
+request passed without navigation hints: 13 model calls, 12 computer operations,
+five target-ID clicks, no coordinate inputs or approval requests. It used the
+clearer navigation-dock reveal and dock Settings target, switched to Light,
+closed Settings and returned a final dock screenshot; the saved turn finished
+normally. The final model-fed image was visually inspected and the isolated
+database persisted Light. The source user profile remained unchanged. Public
+receipt/local evidence: `output/title-settings-live-20261023-01/`. The direct
+gear check followed only after that run finished; it did not contribute to the
+model's success. The owned preview was stopped using its verified process record.
+
+Remaining gap: the native Windows accessibility snapshot did not expose the
+custom title-bar controls, including this gear, although Flutter widget semantics
+and keyboard tests pass. The gear's native pointer behavior is qualified; direct
+model selection of that title-bar gear by accessibility ID is not. The dock's
+Settings target remains available. The user's full long conversation was read
+for diagnosis and was neither replayed nor modified; fresh-session model success
+does not establish recovery of that exact history.
+
 ## General accessibility targets — October 23
 
 Computer observations now add selected-window UI Automation controls with names,

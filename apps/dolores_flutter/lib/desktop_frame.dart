@@ -42,11 +42,13 @@ Future<bool> initializeDesktopFrame() async {
 class DesktopFrame extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTogglePanel;
+  final Future<void> Function()? onOpenSettings;
   final Future<bool> Function()? onBeforeClose;
   const DesktopFrame({
     super.key,
     required this.child,
     this.onTogglePanel,
+    this.onOpenSettings,
     this.onBeforeClose,
   });
 
@@ -56,6 +58,8 @@ class DesktopFrame extends StatefulWidget {
 
 class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
   bool maximized = false, pending = false, closePrepared = false;
+  bool settingsOpen = false;
+  final settingsFocus = FocusNode();
   String? failure;
   Future<void> Function()? retry;
 
@@ -98,6 +102,7 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
 
   @override
   void dispose() {
+    settingsFocus.dispose();
     windowManager.removeListener(this);
     super.dispose();
   }
@@ -152,6 +157,35 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
     if (closePrepared) await windowManager.destroy();
   }
 
+  Future<void> openSettings() async {
+    if (settingsOpen || widget.onOpenSettings == null) return;
+    final restoreFocus = settingsFocus.hasFocus;
+    setState(() {
+      settingsOpen = true;
+      failure = null;
+      retry = null;
+    });
+    try {
+      await widget.onOpenSettings!();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          failure = 'Could not open Settings.';
+          retry = openSettings;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => settingsOpen = false);
+        if (restoreFocus) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) settingsFocus.requestFocus();
+          });
+        }
+      }
+    }
+  }
+
   @override
   void onWindowClose() {
     if (widget.onBeforeClose != null) unawaited(perform('close', closeWindow));
@@ -165,7 +199,10 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
           height: 32,
           child: TextButton(
             key: Key('window-${label.toLowerCase()}'),
-            onPressed: pending ? null : action,
+            focusNode: label == 'Settings' ? settingsFocus : null,
+            onPressed: pending || (label == 'Settings' && settingsOpen)
+                ? null
+                : action,
             style: ButtonStyle(
               padding: const WidgetStatePropertyAll(EdgeInsets.zero),
               shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
@@ -223,6 +260,13 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                       child: WindowTitle(onTogglePanel: widget.onTogglePanel),
                     ),
                   ),
+                  if (widget.onOpenSettings != null)
+                    control(
+                      'Settings',
+                      Icons.settings_outlined,
+                      openSettings,
+                      p,
+                    ),
                   if (!mac) ...[
                     control(
                       'Minimize',

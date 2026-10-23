@@ -76,6 +76,7 @@ class DoloresApp extends StatelessWidget {
       chat.reducedMotion,
     ]),
     builder: (context, _) => MaterialApp(
+      navigatorKey: GlobalObjectKey<NavigatorState>(host ?? chat),
       title: 'Dolores',
       debugShowCheckedModeBanner: false,
       theme: doloresTheme(false),
@@ -99,6 +100,20 @@ class DoloresApp extends StatelessWidget {
               ? DesktopFrame(
                   onTogglePanel: host?.togglePanel,
                   onBeforeClose: host?.requestClose,
+                  onOpenSettings: () async {
+                    final navigator = GlobalObjectKey<NavigatorState>(
+                      host ?? chat,
+                    ).currentState;
+                    // Keep the current modal/review and its unsaved work in place.
+                    if (navigator == null || navigator.canPop()) return;
+                    final settingsContext = navigator.overlay?.context;
+                    if (settingsContext != null) {
+                      await showSettings(
+                        settingsContext,
+                        host?.visible ?? chat,
+                      );
+                    }
+                  },
                   child: child!,
                 )
               : child!,

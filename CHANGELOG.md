@@ -13,6 +13,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Open Settings directly from a gear beside the title-bar window controls, even when the navigation dock is hidden. The dock reveal now announces its destinations, including Settings.
 - Target named controls in Windows apps through capture-bound accessibility IDs, with fresh native checks before clicks and screenshot coordinates when accessibility is unavailable.
 - Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain bounded output and receipts through failure and restart. Saved commands are never reattached or replayed automatically.
 - Request Windows isolation for Node commands and MCP servers with reviewed writable/read-only folders and denied network access. Failed setup never falls back to native execution; incomplete cleanup can be inspected and retried without replaying work.

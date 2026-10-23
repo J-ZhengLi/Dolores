@@ -188,7 +188,8 @@ class WorkspaceDockState extends State<WorkspaceDock> {
                   onEnter: (_) => reveal(),
                   child: Semantics(
                     button: true,
-                    label: 'Show navigation. Control Alt D.',
+                    label:
+                        'Show navigation dock: ${widget.items.map((item) => item.label).join(', ')}. Control Alt D.',
                     child: GestureDetector(
                       key: const Key('dock-reveal'),
                       behavior: HitTestBehavior.opaque,
