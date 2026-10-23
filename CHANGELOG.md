@@ -26,6 +26,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Retain earlier failed-command receipts when a later repair reuses the same tool-call ID.
 - Start Windows PowerShell terminals successfully instead of exiting with a `System.Net.ServicePointManager` initialization error.
 - Keep the conversation at the reader's position after even a small upward scroll during or after a reply. Updates resume following only after returning to the bottom, instead of pulling the page back down.
 - Allow ordinary-chat computer use to control Dolores's own window, including theme controls, with exact human review and fresh screenshot verification. Previously its own window was limited to observation.

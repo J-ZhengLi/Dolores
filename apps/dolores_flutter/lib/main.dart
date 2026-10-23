@@ -3,6 +3,7 @@ import 'memory.dart';
 import 'chat_details.dart';
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -419,10 +420,15 @@ class _ChatPageState extends State<ChatPage> {
         metadata?['usage']?['reasoningTokens'] ??
         callUsage?.lastOrNull?['reasoningTokens'];
     final savedTools = metadata?['agent']?['tools'] as List? ?? [];
-    final inheritedTools = (metadata?['paused']?['receipts'] as List? ?? [])
+    final pausedReceipts = metadata?['paused']?['receipts'] as List? ?? [];
+    final savedReceiptKeys = pausedReceipts.isEmpty
+        ? const <String>{}
+        : savedTools.map((tool) => jsonEncode(tool)).toSet();
+    final inheritedTools = pausedReceipts
         .where(
-          (receipt) =>
-              !savedTools.any((tool) => tool['callId'] == receipt['callId']),
+          // Providers can reuse call IDs in later runs. Deduplicate only the
+          // full receipt, so a repair never hides earlier failure evidence.
+          (receipt) => !savedReceiptKeys.contains(jsonEncode(receipt)),
         )
         .toList();
     return MessageFrame(

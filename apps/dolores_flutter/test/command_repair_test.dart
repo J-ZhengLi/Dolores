@@ -30,6 +30,40 @@ Map<String, dynamic> receipt({
 };
 
 void main() {
+  testWidgets(
+    'reused tool IDs retain earlier failures beside the new receipt',
+    (tester) async {
+      final chat = ChatController(PausedBridge())
+        ..loading = false
+        ..messages = [
+          {
+            'id': 1,
+            'role': 'assistant',
+            'content': 'Verification finished.',
+            'metadata': {
+              'paused': {
+                'reason': 'commandReview',
+                'receipts': [receipt(), receipt(exit: 0)],
+              },
+              'agent': {
+                'tools': [receipt(exit: 0)],
+                'toolSteps': [1],
+                'steps': [],
+              },
+            },
+          },
+        ];
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      await tester.pumpAndSettle();
+      expect(find.text('· Failed · exit 1'), findsOneWidget);
+      expect(find.text('· Exited 0'), findsOneWidget);
+      await tester.tap(find.text('· Failed · exit 1'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Assertion failed 世界'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
   test(
     'Command status uses exit and capture evidence, including old records',
     () {

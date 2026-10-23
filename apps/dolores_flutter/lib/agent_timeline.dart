@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'bridge.dart';
@@ -62,7 +64,9 @@ class AgentTimeline extends StatelessWidget {
       ),
     );
     Widget tools(List<dynamic> items) => ToolRecords(
-      key: ValueKey('timeline-tools-${items.first['callId']}'),
+      key: PageStorageKey(
+        'timeline-tools-${items.first['callId']}-${jsonEncode(items.first).hashCode}',
+      ),
       records: items,
       maxRecords: items.length,
       compact: true,

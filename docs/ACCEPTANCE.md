@@ -59,6 +59,14 @@ when a later run contains no tool calls or incorrectly claims success.
 No live provider or native interaction is needed to establish the new rendering;
 these fixtures do not establish real-model task reliability.
 
+Follow-up: a provider may reuse a call ID in a later repair run. A focused
+regression failed because the new successful receipt hid an inherited failure
+with that ID. Deduplication now compares full receipts, retaining both distinct
+results; activity groups also keep independent expansion identities. Nine focused
+repair, continuation and timeline tests passed, including opening the retained
+failure and preserving the current successful receipt. The final follow-up
+Windows x64 build and Flutter analysis passed.
+
 ## Persistent Settings shortcut and exported-session follow-up — October 23
 
 The user's later exported conversation disproved a broad reliability reading of
