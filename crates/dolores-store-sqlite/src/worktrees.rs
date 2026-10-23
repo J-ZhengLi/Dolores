@@ -441,6 +441,6 @@ mod tests {
             .unwrap()
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 44);
+        assert_eq!(version, crate::SCHEMA_VERSION);
     }
 }

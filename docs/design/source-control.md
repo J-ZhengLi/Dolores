@@ -17,8 +17,46 @@ Status uses porcelain v1 NUL records, including rename pairs; filenames must be
 valid UTF-8 to be actionable. Diff bases are saved working tree/index, index/HEAD
 or an exact commit/parent. Binary files show Git's change summary; non-UTF-8
 display bytes carry a visible replacement-character notice.
-History pages pin HEAD and use exact commit IDs. Inline and side-by-side are
-read-only; file editors keep their independent unsaved buffers.
+History pages pin HEAD and use exact commit IDs. Inline and side-by-side do not
+edit files; file editors keep their independent unsaved buffers. Line-comment
+controls save local review findings against the exact displayed comparison.
+
+## Review findings
+
+Use a named line comment in either layout to save a finding. The host verifies
+the comparison root/repository, revision, complete patch digest, page and side,
+then captures the actual UTF-8 line excerpt. Unsupported or long segmented lines
+refuse with guidance; no frontend text is accepted as source evidence. Saving a
+note does not start a model. Current findings appear beside their lines; Review
+findings opens retained notes, selected feedback, receipts and resolution.
+
+Choose Queue selected or Steer with selected to submit one to eight findings.
+This uses ordinary task input admission, snapshots, limits, Stop and delivery
+receipts. The queue entry and finding references commit together without
+consuming the composer draft. Current chat ownership and checkout are checked;
+notes are never shared to another chat merely because it uses the same folder.
+Scheduled/computer-use runs retain their existing live-input restriction.
+
+A changed comparison leaves the original note readable and marks its location
+changed. Open/refresh the diff and explicitly select a current line if further
+repair is needed; no guessed relocation is performed. Queue acknowledgement is
+not resolution. After inspecting a later changed comparison, Resolve records the
+user's assessment and host-observed evidence. Reopen is explicit. Remove note
+only removes the local finding; it neither edits files nor cancels submitted
+input. History and retained files keep their existing deletion rules.
+
+Findings are inspectable without a live checkout. Saving, submission or resolution
+shows its actual failure and preserves the note, selected feedback and draft.
+A transport failure retains the job for Check status/Stop; committed results can
+be reconciled through read-only finding/submission receipts without replay.
+Review operations share the existing cancellable Source Control worker, checkout
+pins and Git lane; no second model dispatcher or filesystem writer is added.
+
+Bounds: 128 retained findings per chat, 32 per page, 4 KiB note, 2 KiB line
+excerpt, 32 KiB encoded record, sixteen submission references per finding and
+the existing 16 KiB input/eight-pending-instruction limits. Capacity errors offer
+deliberate removal, smaller selection or pending-input inspection; never silently
+delete findings or split a repair into unbounded automatic requests.
 
 ## Final interaction refinement — 2026-10-07
 

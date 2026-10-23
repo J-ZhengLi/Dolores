@@ -28,6 +28,7 @@ def main():
         'commands': ('test/native_commands_ui_test.dart', 'commands-receipt.json'),
         'isolated-commands': ('test/native_isolated_commands_ui_test.dart', 'commands-isolated-receipt.json'),
         'worktrees': ('test/native_worktrees_ui_test.dart', 'worktrees-receipt.json'),
+        'review-findings': ('test/native_review_findings_ui_test.dart', 'review-findings-receipt.json'),
     }
     parser.add_argument('--case', action='append', choices=cases, help='Run selected journeys; default: all.')
     args = parser.parse_args()

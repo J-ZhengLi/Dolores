@@ -351,8 +351,32 @@ pub mod context_recovery;
 mod context_recovery_tests;
 pub mod goal;
 pub mod planning;
+pub mod review_findings;
 pub mod scheduling;
 pub trait SessionStore: Send + Sync {
+    fn review_findings(&self, _: &str, _: Option<i64>) -> Result<review_findings::Page, String> {
+        Err("Review findings are unavailable in this store.".into())
+    }
+    fn review_finding(&self, _: &str, _: &str) -> Result<Option<review_findings::Finding>, String> {
+        Err("Review findings are unavailable in this store.".into())
+    }
+    fn review_submission(
+        &self,
+        _: &str,
+        _: &str,
+    ) -> Result<Option<review_findings::Submission>, String> {
+        Err("Review submission evidence is unavailable in this store.".into())
+    }
+    fn edit_review_finding(&self, _: &str, _: &review_findings::Edit) -> Result<(), String> {
+        Err("Review findings are unavailable in this store.".into())
+    }
+    fn submit_review_findings(
+        &self,
+        _: &str,
+        _: &review_findings::Submission,
+    ) -> Result<harness_task::TaskInputs, String> {
+        Err("Review submission is unavailable in this store.".into())
+    }
     fn save_command_session(&self, _: &command_sessions::SessionRecord) -> Result<(), String> {
         Err("Command-session evidence unavailable in this store. Nothing was started.".into())
     }

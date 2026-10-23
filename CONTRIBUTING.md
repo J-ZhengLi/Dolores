@@ -39,6 +39,11 @@ For focused changes, run relevant Rust/Flutter tests. After the normal build pre
 For rendered controls connected to the real Rust bridge, run
 `python scripts/qualify-native-ui.py` after a normal Windows build. It uses a
 fresh `output/native-ui/` profile, a public loopback response and no credentials.
+The `--case review-findings` journey captures a verified diff-line finding,
+submits selected feedback through the ordinary queue, applies one reviewed
+exact-text tool edit, preserves the source draft/index and resolves the finding
+against a later comparison. It establishes the rendered/native bridge flow,
+not real-model reliability or physical Windows pointer/keyboard behavior.
 The initial case covers workspace instruction review/stale-source recovery and
 Memory Off/Forget and conversation deletion with retained files/other chats. A
 second serial case covers scheduled failure, explicit Run now and confirmed

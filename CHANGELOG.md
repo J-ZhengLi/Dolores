@@ -15,6 +15,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Comment on diff lines, queue or steer selected review feedback, and retain its delivery and separately verified resolution with the original source location.
+
 - Archive managed checkouts after retaining saved and ignored files, staging, empty folders and a recoverable Git snapshot. Restore explicitly, inspect interruptions and preserve unrelated recovery edits.
 - Compare and transfer selected saved changes between a managed worktree and another checkout in the same repository. Review the destination and patch, retain both versions on conflict, and inspect interrupted transfer evidence without replaying it.
 - Create a separate task worktree from a reviewed branch, tag or commit. Inspect retained checkouts and interrupted creation, and open their chats while keeping the original files and draft.

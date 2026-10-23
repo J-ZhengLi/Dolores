@@ -87,10 +87,23 @@ fn find(c: &Connection, s: &str, id: &str) -> Result<TaskInput, String> {
 
 pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInputs, String> {
     let tx = c.transaction().map_err(storage_error)?;
-    let mut state = read(&tx, s)?;
+    edit_in_transaction(&tx, s, e, true)?;
+    tx.commit().map_err(storage_error)?;
+    read(c, s)
+}
+
+// Review submission shares this exact queue admission and snapshot path. The
+// caller owns the encompassing transaction, including finding delivery records.
+pub(super) fn edit_in_transaction(
+    tx: &Connection,
+    s: &str,
+    e: &InputEdit,
+    consume_draft: bool,
+) -> Result<TaskInputs, String> {
+    let mut state = read(tx, s)?;
     match e {
         InputEdit::Acknowledge { id, revision } => {
-            let mut v = find(&tx, s, id)?;
+            let mut v = find(tx, s, id)?;
             if v.state != InputState::Uncertain {
                 return Err(
                     "Only uncertain delivery needs acknowledgement. Refresh its receipt.".into(),
@@ -98,7 +111,7 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
             }
             v.revision = next_revision(v.revision, *revision)?;
             v.inspected = true;
-            save(&tx, s, &v)?;
+            save(tx, s, &v)?;
         }
         InputEdit::Enqueue {
             id,
@@ -114,7 +127,7 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
             {
                 return Err("Invalid instruction identity.".into());
             }
-            if let Ok(old) = find(&tx, s, id) {
+            if let Ok(old) = find(tx, s, id) {
                 if old.text == *body && old.mode == *mode {
                     return Ok(state);
                 }
@@ -148,7 +161,7 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
                 return Err("Instruction queue is full. Finish, cancel or inspect pending work; your draft remains.".into());
             }
             // Text-only queue in EH01. Never consume or accidentally share another draft's attachments.
-            if !super::attachments::draft(&tx, s)?.is_empty() {
+            if !super::attachments::draft(tx, s)?.is_empty() {
                 return Err("Queued instructions currently support text. Remove draft attachments or wait to send them; your draft remains.".into());
             }
             let position: u64 = tx
@@ -159,7 +172,7 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
                 )
                 .map_err(storage_error)?;
             save(
-                &tx,
+                tx,
                 s,
                 &TaskInput {
                     id: id.clone(),
@@ -170,22 +183,24 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
                     state: InputState::Pending,
                     run: None,
                     inspected: false,
-                    planning: super::planning::read(&tx, s)?,
+                    planning: super::planning::read(tx, s)?,
                     selected_skills: {
-                        let selections = super::composer_skills::read(&tx, s)?;
+                        let selections = super::composer_skills::read(tx, s)?;
                         dolores_core::resolve_skill_selections(
-                            &super::composer_skills::available(&tx, s)?,
+                            &super::composer_skills::available(tx, s)?,
                             &selections,
                         )?;
                         selections
                     },
                 },
             )?;
-            tx.execute(
-                "DELETE FROM session_drafts WHERE session_id=?1 AND text=?2",
-                params![s, body],
-            )
-            .map_err(storage_error)?;
+            if consume_draft {
+                tx.execute(
+                    "DELETE FROM session_drafts WHERE session_id=?1 AND text=?2",
+                    params![s, body],
+                )
+                .map_err(storage_error)?;
+            }
         }
         InputEdit::Edit {
             id,
@@ -193,23 +208,23 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
             text: body,
         } => {
             text(body)?;
-            let mut v = find(&tx, s, id)?;
+            let mut v = find(tx, s, id)?;
             if !v.state.editable() {
                 return Err("Instruction is already being delivered. Inspect its receipt.".into());
             }
             v.revision = next_revision(v.revision, *revision)?;
             v.text = body.clone();
-            save(&tx, s, &v)?;
+            save(tx, s, &v)?;
         }
         InputEdit::Cancel { id, revision } => {
-            let mut v = find(&tx, s, id)?;
+            let mut v = find(tx, s, id)?;
             v.revision = next_revision(v.revision, *revision)?;
             v.state = v.state.transition(InputState::Cancelled)?;
-            save(&tx, s, &v)?;
+            save(tx, s, &v)?;
         }
         InputEdit::Reorder { revision, ids } => {
             next_revision(state.revision, *revision)?;
-            let pending = entries(&tx, s, true)?;
+            let pending = entries(tx, s, true)?;
             let set: std::collections::BTreeSet<_> = ids.iter().collect();
             if pending.len() != ids.len()
                 || set.len() != ids.len()
@@ -219,10 +234,10 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
             }
             let positions: Vec<_> = pending.iter().map(|v| v.position).collect();
             for (i, id) in ids.iter().enumerate() {
-                let mut v = find(&tx, s, id)?;
+                let mut v = find(tx, s, id)?;
                 v.position = positions[i];
                 v.revision = next_revision(v.revision, v.revision)?;
-                save(&tx, s, &v)?;
+                save(tx, s, &v)?;
             }
         }
         InputEdit::Resume { revision } => {
@@ -231,9 +246,8 @@ pub(super) fn edit(c: &mut Connection, s: &str, e: &InputEdit) -> Result<TaskInp
             state.recovery_required = false;
         }
     }
-    bump(&tx, s, &state)?;
-    tx.commit().map_err(storage_error)?;
-    read(c, s)
+    bump(tx, s, &state)?;
+    read(tx, s)
 }
 
 pub(super) fn claim(

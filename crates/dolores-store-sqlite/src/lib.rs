@@ -33,7 +33,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 44;
+pub const SCHEMA_VERSION: i64 = 45;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -47,6 +47,7 @@ mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;
 mod mods;
+mod review_findings;
 mod runs;
 mod settings;
 mod task_inputs;
@@ -270,6 +271,13 @@ impl SqliteStore {
                 CREATE INDEX IF NOT EXISTS managed_worktrees_state ON managed_worktrees(state);
                 PRAGMA user_version=44;COMMIT;").map_err(storage_error)?;
         }
+        if version < 45 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS review_findings(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,revision INTEGER NOT NULL CHECK(revision>=0),data TEXT NOT NULL CHECK(length(data)<=32768));
+                CREATE INDEX IF NOT EXISTS review_findings_chat ON review_findings(session);
+                CREATE TABLE IF NOT EXISTS review_submissions(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,selection TEXT NOT NULL CHECK(length(selection)<=4096),mode TEXT NOT NULL);
+                PRAGMA user_version=45;COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -280,6 +288,41 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn review_finding(
+        &self,
+        session: &str,
+        id: &str,
+    ) -> Result<Option<dolores_core::review_findings::Finding>, String> {
+        review_findings::read_one(self, session, id)
+    }
+    fn review_submission(
+        &self,
+        session: &str,
+        id: &str,
+    ) -> Result<Option<dolores_core::review_findings::Submission>, String> {
+        review_findings::read_submission(self, session, id)
+    }
+    fn review_findings(
+        &self,
+        session: &str,
+        cursor: Option<i64>,
+    ) -> Result<dolores_core::review_findings::Page, String> {
+        review_findings::page(self, session, cursor)
+    }
+    fn edit_review_finding(
+        &self,
+        session: &str,
+        edit: &dolores_core::review_findings::Edit,
+    ) -> Result<(), String> {
+        review_findings::edit(self, session, edit)
+    }
+    fn submit_review_findings(
+        &self,
+        session: &str,
+        submission: &dolores_core::review_findings::Submission,
+    ) -> Result<dolores_core::harness_task::TaskInputs, String> {
+        review_findings::submit(self, session, submission)
+    }
     fn create_worktree(
         &self,
         record: &dolores_core::worktrees::ManagedWorktree,

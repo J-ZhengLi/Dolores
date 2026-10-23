@@ -4,7 +4,56 @@ import 'package:flutter/material.dart';
 class GitDiffView extends StatelessWidget {
   final Map<String, dynamic> diff;
   final bool sideBySide;
-  const GitDiffView({super.key, required this.diff, required this.sideBySide});
+  final void Function(String side, int line)? onReview;
+  final List<Map<String, dynamic>> findings;
+  const GitDiffView({
+    super.key,
+    required this.diff,
+    required this.sideBySide,
+    this.onReview,
+    this.findings = const [],
+  });
+
+  Widget reviewLine(Map<String, dynamic>? row, bool old) {
+    final line = row?[old ? 'oldLine' : 'newLine'];
+    if (onReview == null ||
+        line is! int ||
+        row?['endLine'] == false ||
+        row?['continued'] == true) {
+      return const SizedBox.shrink();
+    }
+    return IconButton(
+      key: ValueKey('review-${old ? 'left' : 'right'}-$line'),
+      tooltip: 'Comment on ${old ? 'left' : 'right'} line $line',
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      padding: const EdgeInsets.all(4),
+      icon: const Icon(Icons.add_comment_outlined, size: 15),
+      onPressed: () => onReview!(old ? 'left' : 'right', line),
+    );
+  }
+
+  Widget notes(Map<String, dynamic>? row, bool old) {
+    final line = row?[old ? 'oldLine' : 'newLine'];
+    final saved = findings.where(
+      (f) =>
+          f['anchor']['side'] == (old ? 'left' : 'right') &&
+          f['anchor']['line'] == line,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final f in saved)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Text(
+              'Review: ${f['text']}',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
 
   List<Map<String, dynamic>> get rows {
     if (diff['rows'] is List) {
@@ -70,12 +119,19 @@ class GitDiffView extends StatelessWidget {
     key: ValueKey('git-${old ? 'left' : 'right'}-cell-$index'),
     color: shade(row?['kind'] as String?),
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    child: Row(
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        number(row?[old ? 'oldLine' : 'newLine']),
-        const SizedBox(width: 12),
-        Expanded(child: text(row?['text'] as String? ?? '')),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            reviewLine(row, old),
+            number(row?[old ? 'oldLine' : 'newLine']),
+            const SizedBox(width: 12),
+            Expanded(child: text(row?['text'] as String? ?? '')),
+          ],
+        ),
+        notes(row, old),
       ],
     ),
   );
@@ -203,25 +259,33 @@ class GitDiffView extends StatelessWidget {
                           horizontal: 8,
                           vertical: 2,
                         ),
-                        child: Row(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            number(row['oldLine']),
-                            number(row['newLine']),
-                            const SizedBox(width: 12),
-                            Text(
-                              row['kind'] == 'add'
-                                  ? '+'
-                                  : row['kind'] == 'remove'
-                                  ? '−'
-                                  : ' ',
-                              style: const TextStyle(
-                                fontFamily: 'Consolas',
-                                fontSize: 13,
-                              ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                reviewLine(row, row['newLine'] == null),
+                                number(row['oldLine']),
+                                number(row['newLine']),
+                                const SizedBox(width: 12),
+                                Text(
+                                  row['kind'] == 'add'
+                                      ? '+'
+                                      : row['kind'] == 'remove'
+                                      ? '−'
+                                      : ' ',
+                                  style: const TextStyle(
+                                    fontFamily: 'Consolas',
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(child: text(row['text'] as String)),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(child: text(row['text'] as String)),
+                            notes(row, true),
+                            notes(row, false),
                           ],
                         ),
                       );

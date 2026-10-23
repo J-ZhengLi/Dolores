@@ -246,6 +246,9 @@ Read the matching specification when changing:
 
 - **Workspace navigation, file tabs or splits:** [Developer workspace](design/developer-workspace.md).
 - **Source Control or Git diffs:** [Source Control](design/source-control.md).
+  Provide accessible line comments and retained findings with separate Queue,
+  Steer and verified-resolution actions. Keep original excerpts readable when
+  locations change; status recovery must never duplicate a repair instruction.
 - **Terminal or language services:** [Terminal and language services](design/terminal-language-services.md).
 - **Conversation or settings organization:** [UX simplification](design/ux-simplification.md).
 - **Automatic memory:** [Automatic memory](design/automatic-memory.md).

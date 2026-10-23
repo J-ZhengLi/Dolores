@@ -12,12 +12,17 @@ use tokio_util::sync::CancellationToken;
 mod diff;
 #[path = "git_diff_page.rs"]
 mod diff_page;
+#[path = "review_findings.rs"]
+pub(crate) mod findings;
 #[path = "git_mutation.rs"]
 mod mutation;
 
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
+    Finding {
+        operation: Box<findings::Operation>,
+    },
     Status,
     Diff {
         repo: String,
@@ -46,6 +51,9 @@ pub(crate) enum Request {
     Cancel {
         job: String,
     },
+    ReleaseFindingJob {
+        job: String,
+    },
     Review {
         repo: String,
         revision: String,
@@ -70,6 +78,7 @@ struct Job {
     session: String,
     cancel: CancellationToken,
     result: Option<Result<Value, String>>,
+    finding: bool,
 }
 #[derive(Default)]
 pub(crate) struct Registry {
@@ -412,6 +421,22 @@ impl Engine {
             return Err("Source Control is closing. Restart Dolores before new operations.".into());
         }
         match request {
+            Request::ReleaseFindingJob { job } => {
+                let Some(value) = state.jobs.get(&job) else {
+                    return Ok(json!({"released":true}));
+                };
+                if value.session != session || !value.finding {
+                    return Err(
+                        "Review status belongs to another operation. Inspect its owning chat."
+                            .into(),
+                    );
+                }
+                if value.result.is_none() {
+                    return Ok(json!({"released":false}));
+                }
+                state.jobs.remove(&job);
+                Ok(json!({"released":true}))
+            }
             Request::Poll { job } => {
                 let value = state
                     .jobs
@@ -419,7 +444,14 @@ impl Engine {
                     .filter(|j| j.session == session)
                     .ok_or("Git job belongs to another conversation or has expired.")?;
                 if let Some(result) = value.result.take() {
+                    let finding = value.finding;
                     state.jobs.remove(&job);
+                    if finding {
+                        return Ok(match result {
+                            Ok(value) => json!({"done":true,"value":value}),
+                            Err(error) => json!({"done":true,"error":error}),
+                        });
+                    }
                     result.map(|value| json!({"done":true,"value":value}))
                 } else {
                     Ok(json!({"done":false}))
@@ -471,10 +503,13 @@ impl Engine {
                         session: session.into(),
                         cancel: cancel.clone(),
                         result: None,
+                        finding: matches!(&operation, Request::Finding { .. }),
                     },
                 );
                 let registry = self.git.clone();
                 let editor = self.editor.clone();
+                let store = self.store.clone();
+                let session = session.to_string();
                 let owned = id.clone();
                 std::thread::spawn(move || {
                     let _worktree_pins = worktree_pins;
@@ -490,6 +525,13 @@ impl Engine {
                             .try_lock()
                             .map_err(|_| "This worktree is busy. Wait, then Refresh.")?;
                         match operation {
+                            Request::Finding { operation } => findings::execute(
+                                &repo,
+                                store.as_ref(),
+                                &session,
+                                &operation,
+                                &cancel,
+                            ),
                             Request::Status => repo.status(&cancel),
                             Request::Diff {
                                 repo: id,

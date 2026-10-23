@@ -508,6 +508,120 @@ were used. These checks do not qualify physical Windows IME/screen-reader input,
 GPU animation frame timing, clean-machine behavior or real-model reliability.
 The separate EH06 acceptance gaps below remain open.
 
+## EH07 diff review flow — October 23
+
+Source Control now captures findings from a verified displayed diff line rather
+than accepting a supplied source excerpt. Capture, submit and resolve use its
+existing worker, Git lane and managed-checkout pins. Local list/get/note/removal
+inspection is independent of checkout availability. Findings remain chat-scoped
+when multiple chats share one Git view. Selected feedback reaches ordinary EH01
+queue/steer admission; the AppHost refreshes that chat's retained owner and uses
+its normal dispatcher. Scheduled/computer-use input restrictions remain.
+
+Four host real-Git tests pass: left/right capture, undisplayed-line
+refusal, wrong checkout and changed digest, stale file preservation, actual
+SQLite save failure and retry, original index/draft preservation, local inspection
+after moving the checkout, exact repeated submission after a file change without
+duplicate input, explicit resolution with later host-observed evidence, split
+pages, overlong lines and cancellation. The fourth case confirms that only the
+owning chat can release a committed terminal review job after a lost status reply;
+record inspection/release neither captures again nor submits input. The broad
+suites pass 106 core, 241 bridge (one ignored) and 94 SQLite tests, followed by
+the additional split-page and terminal-job cases.
+
+The full Flutter suite passes 566 tests with twelve opt-in native cases skipped.
+Focused review/Source Control/AppHost checks also pass, including failed capture
+with the editor note retained, full queue with selected notes retained, committed
+result reconciliation without another submit, uncertain job retention/Stop/check,
+cross-chat UI state, inline notes and later resolution preserving the anchor,
+plus a pending initial-read regression retaining the typed note while Save is
+disabled. Analysis first found two unnecessary non-null assertions in fixture
+diagnostics and a missing outer loop block; these test-only lint issues were
+corrected and analysis passes.
+Eight Light/Dark 420/1100 renders are saved under
+`output/review-finding-renders/`; compact stale findings and wide Dark inline notes
+were inspected. Render review prompted a spacing/contrast refinement. Initial
+widget failures caught notification during dialog build (fixed by post-frame
+loading); older Git-only fixture failures exposed missing feature-capability
+separation. The ordinary AppHost enables findings while Git-only harnesses opt in.
+
+The first two native attempts stopped at capture with no saved finding or queued
+input. The narrowed diagnostic showed no host operation had started: Save was
+pressed while the initial findings read was still loading. Waiting for that read
+made the complete normal-bundle journey pass in sixteen seconds at
+`output/native-ui/review-findings-20261023-capture/`. It captured a host line,
+submitted exactly one input, received the frozen finding in the provider request,
+applied a reviewed exact-text tool repair, retained the raw index and unsent draft,
+and saved explicit resolution only against the later changed comparison.
+The UI now disables Save during the initial read and preserves typed notes;
+the pending-read regression passes with the full Flutter suite. Accepted input
+receipts also appear immediately in their finding rows without requiring a list
+refresh. Final build/native checks are being repeated. This
+fixture failure is distinct from host capture failures, which retain explicit
+terminal errors and notes. The failed evidence remains at
+`output/native-ui/review-findings-20261023-flow/` and
+`output/native-ui/review-findings-20261023-diagnose/`.
+
+The final normal Windows build passes and its bridge/Dart artifacts postdate the
+final runtime edits. Repeated native review and queue/steer journeys pass in
+nineteen seconds at `output/native-ui/review-findings-20261023-final/` with both
+receipts retained. The first journey verifies exact host line capture, one
+accepted input, reviewed tool repair, unchanged raw index and retained unsent
+Unicode draft, then explicit resolution tied to a changed comparison. The second
+keeps queue ordering, safe-boundary steering, completed effects and a newer draft.
+Warnings-denied Clippy, formatting and document/publication checks pass. The final
+nine focused widget cases pass after the immediate receipt display refinement;
+analysis is clean after adding a required block around that existing call. The
+normal Windows build was repeated successfully after this lint-only edit.
+Fixture and rendered evidence does not establish real-model competence or
+physical Windows input. EH07.1 is complete; EH07 stays open for side conversations,
+edited-prompt branches and explicit shared-folder/worktree branch choices.
+
+## EH07 review persistence — October 23 (in progress)
+
+The review contract now retains a stable finding ID/revision, original comparison
+and left/right line/excerpt, submission IDs and a separate explicit resolution
+assessment. Validation bounds IDs, notes, excerpts, selected counts and combined
+input size. Resolution needs a changed comparison of the same file; an applied
+queue receipt never resolves a finding by itself. SQLite schema 45 is additive;
+applied migrations are unchanged. The older worktree migration test now asserts
+the current schema version instead of stopping at 44; its initial outdated
+assertion failed (89 passed, one failed), and the corrected migration passes.
+
+Selected findings enqueue through the existing EH01 edit path in the same
+transaction as their submission records. The composer draft remains. Failed
+receipt publication rolls back the queue input too. Exact submission retries
+return existing evidence; collisions with unrelated instruction IDs, different
+selections/modes or stale finding revisions refuse. Restart keeps delivery
+uncertain and suspended for explicit inspection, without enqueueing again.
+Local finding removal never cancels a queued instruction or edits source files.
+
+Complete core/SQLite suites pass (106 and 94 tests), including instruction-ID
+collisions, duplicate selections, aggregate input size and encoded record size.
+Tests also cover stale/cross-chat mutations, failed save, full queue,
+preserved input order and draft, explicit later-revision resolution/reopen,
+128-finding capacity with deliberate removal/retry, 32-row pagination, deletion
+and version-44 migration retaining history. Warnings-denied Clippy exposed a large
+enum variant and extra borrows after queue extraction; these were corrected.
+The encoded-record guard also accounts for JSON expansion of source control
+characters before a database size constraint can reject publication. Broad bridge
+regression passes 239 tests (one ignored). The final normal Windows x64 build
+passes with the encoded-record guard; warnings-denied all-target Clippy,
+formatting and document/publication checks pass. Logs are retained locally under
+`D:/Temp/dolores-eh07-review-storage-verified.log`,
+`D:/Temp/dolores-eh07-storage-bridge.log` and
+`D:/Temp/dolores-eh07-storage-build-final.log`.
+The existing queue/steer journey also passes in five seconds against that final
+normal bridge at `output/native-ui/review-storage-queue-20261023/`: reorder,
+safe-boundary steering, completed-effect preservation and a newer draft remain
+intact after extracting the shared transaction path. This checks the existing
+queue UI, not the still-pending finding controls or physical Windows input.
+
+This is a backend increment. Host-validated diff capture, stale comparison UX,
+review controls, normal native repair flow, side conversations and edited-prompt
+branches are not yet delivered. EH07 stays open. No provider credentials,
+normal-profile migration or external effect was used to establish these checks.
+
 ## EH06 archive and restore — October 23
 
 Archive has an explicit review of the owned UUID folder, original checkout kept,

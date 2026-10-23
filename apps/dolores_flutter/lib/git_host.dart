@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'bridge.dart';
+part 'git_review_host.dart';
 
 class GitWorkspace {
   final String root;
@@ -27,6 +28,7 @@ class GitWorkspace {
   Map<String, dynamic>? localState;
   Map<String, dynamic>? remoteState;
   bool sideBySide = false;
+  final reviewStates = <String, GitReviewState>{};
   GitWorkspace(this.root, this.session);
 }
 
@@ -39,12 +41,14 @@ class GitHost extends ChangeNotifier {
       .toLowerCase()
       .replaceFirst(RegExp(r'/+$'), '');
   final ChatBridge bridge;
-  GitHost(this.bridge);
+  final bool reviewAvailable;
+  GitHost(this.bridge, {this.reviewAvailable = false});
   final workspaces = <String, GitWorkspace>{};
   GitWorkspace? selected;
   String? error;
   void Function(GitWorkspace w, List<String> paths)? beforeMutation;
   Future<void> Function(GitWorkspace w)? afterMutation;
+  Future<void> Function(String session)? afterReviewSubmission;
   bool _disposed = false;
   void changed() {
     if (!_disposed) notifyListeners();
@@ -171,6 +175,7 @@ class GitHost extends ChangeNotifier {
       w.tabs[key]!['sideBySide'] = layout;
       w.sideBySide = layout;
       w.activeTab = key;
+      if (reviewAvailable && !reviewState(w).loaded) unawaited(loadFindings(w));
     } catch (_) {
       /* Preserve the prior tab on stale/bounded read failures. */
     }

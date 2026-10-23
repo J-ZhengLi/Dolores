@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'git_host.dart';
 import 'git_diff_view.dart';
 import 'git_local_controls.dart';
+import 'review_findings.dart';
 
 Future<void> executeGitAction(
   BuildContext context,
@@ -409,6 +410,15 @@ class SourceControlPanel extends StatelessWidget {
                         icon: const Icon(Icons.refresh, size: 18),
                         onPressed: w.busy ? null : () => git.refresh(w),
                       ),
+                      if (git.reviewAvailable)
+                        IconButton(
+                          tooltip: 'Review findings',
+                          icon: const Icon(
+                            Icons.rate_review_outlined,
+                            size: 18,
+                          ),
+                          onPressed: () => showReviewFindings(context, git, w),
+                        ),
                       if (w.busy)
                         IconButton(
                           tooltip: 'Stop Git operation',
@@ -635,6 +645,12 @@ class SourceControlView extends StatelessWidget {
                   onPressed: w.busy ? null : () => git.refreshDiff(w),
                   child: const Text('Refresh diff'),
                 ),
+                if (git.reviewAvailable)
+                  TextButton.icon(
+                    onPressed: () => showReviewFindings(context, git, w),
+                    icon: const Icon(Icons.rate_review_outlined, size: 18),
+                    label: const Text('Review findings'),
+                  ),
               ],
             ),
           ),
@@ -714,6 +730,20 @@ class SourceControlView extends StatelessWidget {
               key: ValueKey('${w.root}:${w.activeTab}:${diff['revision']}'),
               diff: diff,
               sideBySide: sideBySide,
+              onReview:
+                  !git.reviewAvailable ||
+                      w.busy ||
+                      diff['digest'] == null ||
+                      diff['encodingWarning'] == true
+                  ? null
+                  : (side, line) =>
+                        showFindingEditor(context, git, w, diff, side, line),
+              findings: git
+                  .reviewState(w)
+                  .items
+                  .values
+                  .where((f) => git.findingCurrent(w, f, diff))
+                  .toList(),
             ),
           ),
         ],

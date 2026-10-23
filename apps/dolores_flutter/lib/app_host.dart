@@ -76,7 +76,7 @@ class AppHost extends ChangeNotifier {
               )),
     ),
   );
-  late final GitHost git = GitHost(initial.bridge);
+  late final GitHost git = GitHost(initial.bridge, reviewAvailable: true);
   late final TerminalHost terminals = TerminalHost(initial.bridge);
   final ChatController initial;
   final owners = <ChatController>[];
@@ -216,6 +216,13 @@ class AppHost extends ChangeNotifier {
 
   static const maxOwners = 8;
   AppHost(this.initial) {
+    git.afterReviewSubmission = (session) async {
+      final owner = owners.where((c) => c.session == session).firstOrNull;
+      if (owner != null) {
+        await owner.refreshInputs();
+        await owner.dispatchNextInput();
+      }
+    };
     git.beforeMutation = (w, selectedPaths) {
       final root = w.status?['root'] as String? ?? w.root;
       if (tasks.any(

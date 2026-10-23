@@ -219,6 +219,10 @@ enum Command {
     TaskInputs {
         session: String,
     },
+    ReviewFindings {
+        session: String,
+        request: source_control::findings::Request,
+    },
     EditTaskInputs {
         session: String,
         edit: dolores_core::harness_task::InputEdit,
@@ -1047,6 +1051,7 @@ impl Engine {
             Command::ComposerCommands { session } => return self.composer_commands(session.as_deref(), session.as_ref().is_some_and(|s| active.has_session(s))),
             Command::SaveComposerSkills { session, selections } => { self.store.save_composer_skills(&session, &selections)?; return Ok(json!(selections)); },
             Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
+            Command::ReviewFindings {session,request}=>return source_control::findings::local(self.store.as_ref(),&session,request),
             Command::EditTaskInputs { session, edit } => {
                 if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}) {
                     if let Some(id)=active.client_id(&session) {
@@ -1072,6 +1077,13 @@ impl Engine {
                 drop(active);return self.language_edits_call(&session,request);
             },
             Command::Git {session,request} => {
+                if matches!(&request,source_control::Request::Finding {operation} if matches!(operation.as_ref(),source_control::findings::Operation::Submit{..})) {
+                    if let Some(id)=active.client_id(&session) {
+                        if self.store.scheduled_for_run(&session,id)?.is_some() || self.store.runs(&session)?.first().is_some_and(|run|run.tools.iter().any(|name|matches!(name.as_str(),"desktop_control"|"inspect_desktop_capture"))) {
+                            return Err("Queue and steering are available for ordinary chat tasks. Finish this scheduled or computer-use run first; saved findings remain.".into());
+                        }
+                    }
+                }
                 if let source_control::Request::Apply{repo,..}=&request {
                     if self.git.lock().map_err(|_|"Source Control is unavailable.")?.review_root(repo).is_some_and(|root|active.has_repo(&root)) {return Err("Finish or stop the task in this repository before its Git mutation. Review and drafts remain.".into());}
                 }
