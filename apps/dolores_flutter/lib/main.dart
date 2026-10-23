@@ -150,7 +150,11 @@ class _ChatPageState extends State<ChatPage> {
       if (!scroll.hasClients) return;
       // Layout corrections after a jump are not a request to stop following.
       if (!_positioning) {
-        following = scroll.position.extentAfter < 80;
+        if (scroll.position.extentAfter <= 1) {
+          following = true;
+        } else if (scroll.position.extentAfter >= 80) {
+          following = false;
+        }
       }
       chat.rememberScroll(scroll.offset);
     });
@@ -210,9 +214,14 @@ class _ChatPageState extends State<ChatPage> {
     },
     child: NotificationListener<UserScrollNotification>(
       onNotification: (notification) {
-        if (notification.depth == 0 &&
-            notification.direction == ScrollDirection.forward) {
-          following = false;
+        if (notification.depth == 0) {
+          if (notification.direction == ScrollDirection.forward) {
+            following = false;
+          } else if (notification.direction == ScrollDirection.idle &&
+              scroll.hasClients &&
+              scroll.position.extentAfter <= 1) {
+            following = true;
+          }
         }
         return false;
       },
@@ -304,7 +313,8 @@ class _ChatPageState extends State<ChatPage> {
   Widget sidebar(Palette p, {double width = UiTokens.sidebarWidth}) =>
       ChatSidebar(
         width: width,
-        showBrand: context.findAncestorWidgetOfExactType<DesktopFrame>() == null,
+        showBrand:
+            context.findAncestorWidgetOfExactType<DesktopFrame>() == null,
         chat: chat,
         onNewTemporary: () {
           chat.newChat(kind: 'temporary');

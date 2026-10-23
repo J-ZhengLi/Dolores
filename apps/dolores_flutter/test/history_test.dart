@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 
 import 'support/workspaces.dart';
 
@@ -89,6 +90,62 @@ class RenderedHistoryBridge extends HistoryBridge {
 }
 
 void main() {
+  for (final busy in [false, true]) {
+    testWidgets('Small upward wheel keeps reader position busy=$busy', (
+      tester,
+    ) async {
+      final chat = ChatController(RenderedHistoryBridge());
+      await chat.initialize();
+      await tester.pumpWidget(DoloresApp(chat: chat));
+      await tester.pumpAndSettle();
+      chat.busy = busy;
+      final list = find.byType(ListView).last;
+      final controller = tester.widget<ListView>(list).controller!;
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pump();
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pump();
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(list),
+          scrollDelta: const Offset(0, -24),
+        ),
+      );
+      await tester.pump();
+      final reading = controller.offset;
+      expect(controller.position.extentAfter, greaterThan(0));
+      expect(controller.position.extentAfter, lessThan(80));
+      await chat.saveAppearance('light'); // ordinary response/status rebuild
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        controller.offset,
+        closeTo(reading, 1),
+        reason: 'A small upward wheel must cancel follow immediately',
+      );
+      for (var tick = 0; tick < 3; tick++) {
+        if (busy) chat.partial += '\n\nAnother streamed paragraph $tick.';
+        await chat.saveAppearance(tick.isEven ? 'dark' : 'light');
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(controller.offset, closeTo(reading, 1));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(list),
+          scrollDelta: const Offset(0, 100000),
+        ),
+      );
+      await tester.pump();
+      if (busy) chat.partial += '\n\nFollowing resumes at the bottom.';
+      await chat.saveAppearance('light');
+      for (var frame = 0; frame < 4; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(controller.position.extentAfter, lessThanOrEqualTo(1));
+      await tester.pumpWidget(const SizedBox());
+      chat.busy = false;
+      chat.dispose();
+    });
+  }
   for (final width in [390.0, 1100.0]) {
     testWidgets('Latest reaches the final rendered reply at width $width', (
       tester,

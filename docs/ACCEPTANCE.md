@@ -1,5 +1,25 @@
 # Dolores acceptance — 2026-10-08
 
+## Conversation scroll rebound — October 23
+
+A small upward wheel movement cancelled following, but the scroll-position
+listener enabled it again whenever the remaining distance was less than 80 px.
+The next reply/status/render update then jumped back to the bottom. The listener
+now enables following only at the actual bottom (within 1 px), while upward user
+scrolls cancel it immediately. Larger programmatic moves away still cancel
+following, and latest-page restoration still reaches the final rendered reply.
+
+The regression failed before the fix: a 24 px upward wheel movement was undone
+by the next update. Both idle and busy cases now retain their offsets through
+repeated rebuilds and streamed paragraph growth, then resume following after a
+downward wheel returns to the bottom. All 20 focused history/reply-rendering tests
+passed, including late-render following and compact/wide latest-page controls.
+The changed Dart files passed analysis and formatting checks.
+The normal Windows x64 build passed. The rebuilt isolated app accepted a native
+upward wheel movement in the retained public transcript. Repeated streaming
+updates are covered by the deterministic rendered tests, not a new live-model
+scrolling run. The normal user profile was not relaunched or modified.
+
 ## Live computer-use qualification — October 23 (failed journey)
 
 The normal Windows app was exercised with the configured

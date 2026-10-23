@@ -21,6 +21,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Keep the conversation at the reader's position after even a small upward scroll during or after a reply. Updates resume following only after returning to the bottom, instead of pulling the page back down.
 - Allow ordinary-chat computer use to control Dolores's own window, including theme controls, with exact human review and fresh screenshot verification. Previously its own window was limited to observation.
 - Make computer use available in ordinary side chats without a working folder. These chats previously received scheduling tools but no computer tool; file and shell access stay separate.
 - Use Windows computer tools directly in ordinary working chats: discover and inspect an application, including Dolores itself, without a Settings handoff. Screenshots use the current image-enabled model; input keeps exact in-chat review and fresh verification. HTTP 408/5xx errors now explain provider failures instead of incorrectly blaming tool support.

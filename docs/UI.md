@@ -171,6 +171,10 @@ decision changes.
 
 ## Interaction and recovery
 
+- In conversations, the first deliberate upward scroll stops following new
+  output, including small wheel/trackpad movements near the bottom. Streaming,
+  late rendering and status updates preserve that reading position. Returning
+  to the bottom or choosing the latest page resumes following.
 - Preserve drafts, selection and usable results across navigation, dropdown
   choices, settings changes and failures. Failed saves retain edits; dismissing
   unsaved changes offers Save / Discard / Keep editing.
