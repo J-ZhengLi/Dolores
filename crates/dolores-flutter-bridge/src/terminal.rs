@@ -187,6 +187,23 @@ impl Drop for Session {
     }
 }
 impl Registry {
+    pub(super) fn checkout_pinned(&self, root: &Path) -> bool {
+        self.sessions.values().any(|session| {
+            session.worktree_pins.is_some() && crate::source_control::within(&session.cwd, root)
+        })
+    }
+    pub(super) fn repository_busy(&self, common: &Path) -> Result<bool, String> {
+        for session in self
+            .sessions
+            .values()
+            .filter(|s| !matches!(s.state, "stopped" | "exited"))
+        {
+            if crate::repository_scope::matches(&session.cwd, common)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
     pub(crate) fn live(&self) -> bool {
         self.sessions
             .values()

@@ -15,6 +15,9 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Archive managed checkouts after retaining saved and ignored files, staging, empty folders and a recoverable Git snapshot. Restore explicitly, inspect interruptions and preserve unrelated recovery edits.
+- Compare and transfer selected saved changes between a managed worktree and another checkout in the same repository. Review the destination and patch, retain both versions on conflict, and inspect interrupted transfer evidence without replaying it.
+- Create a separate task worktree from a reviewed branch, tag or commit. Inspect retained checkouts and interrupted creation, and open their chats while keeping the original files and draft.
 - Open Settings directly from a gear beside the title-bar window controls, even when the navigation dock is hidden. The dock reveal now announces its destinations, including Settings.
 - Target named controls in Windows apps through capture-bound accessibility IDs, with fresh native checks before clicks and screenshot coordinates when accessibility is unavailable.
 - Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain bounded output and receipts through failure and restart. Saved commands are never reattached or replayed automatically.
@@ -26,6 +29,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Keep subfolder chats in the same managed worktree on one run queue, and refuse conflicting worktree management when another checkout shares its Git repository. Changed checkout registrations require a fresh creation review.
 - Retain earlier failed-command receipts when a later repair reuses the same tool-call ID.
 - Start Windows PowerShell terminals successfully instead of exiting with a `System.Net.ServicePointManager` initialization error.
 - Keep the conversation at the reader's position after even a small upward scroll during or after a reply. Updates resume following only after returning to the bottom, instead of pulling the page back down.

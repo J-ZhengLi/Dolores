@@ -26,6 +26,7 @@ import 'tool_activity.dart';
 import 'user_question.dart';
 import 'subagents.dart';
 import 'workspace_picker.dart';
+import 'worktrees.dart';
 import 'instructions.dart';
 import 'chat_sidebar.dart';
 import 'agent_timeline.dart';
@@ -1201,6 +1202,7 @@ class _ChatPageState extends State<ChatPage> {
                           : WorkspacePicker(
                               chat: chat,
                               onOpenProject: openProject,
+                              onSelectChat: widget.onSelectChat,
                             ),
                     ),
                   ),
@@ -1237,6 +1239,12 @@ class _ChatPageState extends State<ChatPage> {
                       onSelected: (value) {
                         if (value == 'fork') {
                           showThreadFork(context, chat);
+                        } else if (value == 'worktrees') {
+                          showWorktrees(
+                            context,
+                            chat,
+                            onSelect: widget.onSelectChat,
+                          );
                         } else if (value == 'export') {
                           chooseExport();
                         } else {
@@ -1245,6 +1253,12 @@ class _ChatPageState extends State<ChatPage> {
                       },
                       icon: const Icon(Icons.more_horiz, size: 20),
                       itemBuilder: (_) => [
+                        if (chat.worktreesAvailable)
+                          PopupMenuItem(
+                            value: 'worktrees',
+                            enabled: !chat.busy,
+                            child: const Text('Worktrees…'),
+                          ),
                         PopupMenuItem(
                           value: 'fork',
                           enabled: !chat.busy,

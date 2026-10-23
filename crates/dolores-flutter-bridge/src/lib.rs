@@ -54,6 +54,7 @@ mod planning_tests;
 mod recovery;
 mod registry;
 mod repair_evaluation;
+mod repository_scope;
 mod run_admission;
 mod run_journal;
 mod scheduled_edits;
@@ -71,8 +72,12 @@ mod terminal;
 mod timeout_tests;
 mod web;
 mod workspace;
+mod worktree_archive;
 mod worktree_git;
 mod worktree_identity;
+mod worktree_restore;
+mod worktree_snapshot;
+mod worktree_transfer;
 mod worktrees;
 use approval::{ApprovalSlot, RunApproval};
 mod questions;
@@ -1646,7 +1651,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
@@ -2068,11 +2073,17 @@ impl Engine {
                         Some(created["session"]["id"].as_str().unwrap().to_owned())
                     }
                 };
-                let scope = self
-                    .store
-                    .workspace(session.as_deref().unwrap())?
-                    .root
-                    .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap()));
+                let scope = match worktrees::record_for_chat(
+                    self.store.as_ref(),
+                    session.as_deref().unwrap(),
+                )? {
+                    Some(record) => record.root,
+                    None => self
+                        .store
+                        .workspace(session.as_deref().unwrap())?
+                        .root
+                        .unwrap_or_else(|| format!("session:{}", session.as_deref().unwrap())),
+                };
                 let worktree_pins = self.pin_worktree(session.as_deref().unwrap())?;
                 active.check_scope(id, &scope)?;
                 if self

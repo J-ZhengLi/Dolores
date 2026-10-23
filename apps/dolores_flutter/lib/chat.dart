@@ -349,6 +349,7 @@ class ChatController extends ChangeNotifier {
   bool instructionQueueAvailable = false;
   bool commandPickerAvailable = false;
   bool commandSessionsAvailable = false;
+  bool worktreesAvailable = false;
   // These unsent process-input drafts survive inspector navigation in this app
   // session. They are separate from the saved conversation draft.
   final commandInputDrafts = <String, String>{};
@@ -1035,6 +1036,7 @@ class ChatController extends ChangeNotifier {
     instructionQueueAvailable = state['instructionQueue'] == true;
     commandPickerAvailable = state['commandPicker'] == true;
     commandSessionsAvailable = state['commandSessions'] == true;
+    worktreesAvailable = state['worktrees'] == true;
     goalsAvailable = state['goals'] == true;
     planningAvailable = state['planning'] == true;
     attachmentsAvailable = state['attachments'] == true;

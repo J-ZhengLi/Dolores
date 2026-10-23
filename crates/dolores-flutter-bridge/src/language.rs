@@ -72,6 +72,14 @@ pub(crate) struct Registry {
     worktree_pins: HashMap<String, crate::worktree_git::ReadyPins>,
 }
 impl Registry {
+    pub(super) fn retain_checkout(&mut self, root: String, pins: crate::worktree_git::ReadyPins) {
+        self.worktree_pins.insert(root, pins);
+    }
+    pub(super) fn checkout_pinned(&self, root: &Path) -> bool {
+        self.worktree_pins
+            .keys()
+            .any(|folder| crate::source_control::within(Path::new(folder), root))
+    }
     pub(crate) fn stop_all(&mut self) -> Result<(), String> {
         if let Some(i) = &self.install {
             i.cancel.cancel();
@@ -788,7 +796,7 @@ impl Engine {
                 let result =
                     registry.submit(root.clone(), snapshot, feature, position, name, &managed)?;
                 if let Some(pins) = pins {
-                    registry.worktree_pins.insert(root, pins);
+                    registry.retain_checkout(root, pins);
                 }
                 Ok(result)
             }

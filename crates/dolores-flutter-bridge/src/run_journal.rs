@@ -31,10 +31,25 @@ impl RunCoordinator {
             .map(|run| run.id)
     }
     pub fn has_repo(&self, root: &std::path::Path) -> bool {
-        self.primary
-            .values()
-            .any(|scope| crate::source_control::within(std::path::Path::new(scope), root))
-            || self.primary.len() != self.runs.len()
+        self.primary.values().any(|scope| {
+            crate::source_control::within(std::path::Path::new(scope), root)
+                || crate::source_control::within(root, std::path::Path::new(scope))
+        }) || self.primary.len() != self.runs.len()
+    }
+    pub fn has_repository(&self, common: &Path) -> Result<bool, String> {
+        if self.primary.len() != self.runs.len() {
+            return Ok(true);
+        }
+        for scope in self.primary.values() {
+            if crate::repository_scope::matches(Path::new(scope), common)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    #[cfg(test)]
+    pub fn primary_scope(&self, id: u64) -> Option<&str> {
+        self.primary.get(&id).map(String::as_str)
     }
     pub fn reserve(&mut self, run: Run) -> Result<(), String> {
         if self.closed || !self.runs.is_empty() {

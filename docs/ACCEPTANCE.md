@@ -508,6 +508,263 @@ were used. These checks do not qualify physical Windows IME/screen-reader input,
 GPU animation frame timing, clean-machine behavior or real-model reliability.
 The separate EH06 acceptance gaps below remain open.
 
+## EH06 archive and restore — October 23
+
+Archive has an explicit review of the owned UUID folder, original checkout kept,
+retained snapshot, archive path and inventory size. Raw bytes for all direct
+regular files, including ignored data, the raw index and empty-directory metadata
+are flushed before removal. A Git snapshot commit with owned ref retains those
+same raw objects plus the original HEAD, index tree and working tree. Removal
+rechecks the complete saved inventory, original index, state revision, parent/root/
+common-directory identities and Git pointers before saving Archiving and invoking
+supervised Git for the exact managed path. Missing/changed roots, aliases, nested
+repositories/submodules, Windows path aliases and over-limit inventory refuse
+without removal. Only the app's own Git lock reason is unlocked. Source checkout,
+chat history, drafts and prior transfer receipts remain.
+
+Restore requires a separate review, retained evidence/ref validation and an absent
+target. Save Restoring before reserving the directory; save its new filesystem
+identity before checkout. Setup/hooks/filters stay skipped. A flushed per-file
+plan records initial and retained bytes before publication. Explicit continuation
+skips matching completed bytes, restores only validated initial bytes and refuses
+unrelated work. Original index bytes restore the staged/unstaged split. Files,
+ignored binary data, empty folders and Windows readonly/Unix mode permissions
+are restored; custom ACL migration is not claimed. Restart never executes a
+saved intent. Inspection can reconcile completed removal/restoration without
+repeating it; incomplete work retains concrete archive paths and explicit resume.
+
+Current checks:
+
+- Nine focused real-Git archive cases pass: staged/unstaged plus binary/CRLF/ignored/
+  readonly/empty-folder round trip; stale review, wrong owned parent, occupied
+  destination and missing-root preservation; repeated cycles; failed final
+  Archived save inspected without another removal; partial restore with foreign
+  bytes refused, then explicit resolution and continuation skipping completed
+  files (verified unchanged modification time); failed Ready save inspected
+  without recopying; altered backups, ignored 65 MiB over-limit file and injected
+  pre-removal storage-full failure retaining the complete checkout and staging;
+  stopped-terminal/language-pin ownership; actual reviewed Node setup exiting 7
+  with its output preserved through archive/restore; and saved file↔directory
+  transitions while keeping the original checkout untouched.
+- The bridge storage-failure fixture injects a refusal at the durable intent boundary.
+  A separate storage test now sets a small SQLite page quota and exercises an actual
+  SQLITE_FULL allocation refusal (checked by error code), transaction rollback,
+  explicit retry after quota release and restart inspection without replay.
+  Its first run exposed a generic error message; Worktrees now reports full storage
+  with free-space/refresh/review guidance. Locked-publication tests exercise actual
+  Windows I/O refusal and retain old bytes. The bounded quota qualifies database
+  exhaustion; physical whole-volume exhaustion during Git remains unqualified.
+- Nineteen focused Flutter archive/worktree tests pass: explicit reviews and
+  owned-chat actions, saving source draft before publication, failed draft save
+  retaining the review, lifecycle inspection without replay, explicit restore
+  continuation, storage-full recovery with a fresh review, archive paths scoped
+  to the selected checkout, and existing creation/
+  recovery controls. Eight saved Light/Dark
+  420/1100 renders are retained under ignored `output/worktree-archive-renders/`;
+  narrow Light review and wide Dark recovery were inspected. Flutter analysis
+  and all-target warnings-denied Clippy pass at this checkpoint.
+
+The first normal Windows build and rendered native create/transfer/archive/restore
+journey pass: archive removes only the managed checkout; restore retains the
+saved file, ignored binary, empty folder and raw index; the original project and
+source draft remain. Receipt/image are retained at ignored
+`output/native-ui/worktrees-archive-20261023-flow/`. Final broad regression and
+rebuild after path-transition support are in progress. An initial failed-setup fixture incorrectly used Git's
+argument-prepending transport to launch a shell/Node; it is being corrected to
+use the actual reviewed command tool; the corrected fixture passes. Its failures are not counted as product
+qualification. A concurrent test relink encountered the running Windows test
+executable lock; that compile attempt is also not a pass. The first broad run
+passed 237 tests with the old setup fixture failing (one ignored). The new
+transition test then caught the snapshot directory misclassification; that
+runtime bug was fixed and its focused round trip passes before final regression.
+
+Bounds: 64 MiB raw saved content including ignored files, 20,000 entries, 16 MiB
+raw index and manifest/restore plan, two-minute bounded inventory/object retention,
+128 retained snapshots/drafts per worktree and eight live lifecycle reviews.
+Unsupported/oversized checkouts remain in place with narrowing/external-backup
+guidance; no archive removes unsupported or uncaptured data. Git-created partial
+materialization without a clean baseline or saved ownership needs manual recovery,
+not a reset. Native physical input, whole-volume pressure and model competence are
+not established by these fixtures. Required creation/ownership/transfer/archive/
+restore journeys and bounded database-exhaustion recovery pass. EH06 is complete
+within these documented Windows bounds; broader resource and real-model checks
+remain separately recorded for EH10. Deferred H21 is unchanged.
+
+## EH06 reviewed transfer — October 23 (in progress)
+
+The Worktrees panel now offers a separate Transfer changes review. It compares
+saved files against the managed source's frozen base, including committed work
+and non-ignored untracked files. Choose displayed paths and a destination chat
+in the same Git repository, inspect source/destination and the exact selected
+binary patch, then explicitly Apply. Destination staging is never reset or
+copied from the source. Conflicts refuse Apply and retain both file versions.
+Unsaved editors, active repository tasks/terminals and unavailable ownership
+refuse before publication; reviews and saved files remain inspectable.
+
+Recovery evidence lives beside managed checkouts in a host-owned
+`worktree-transfers/<uuid>/` directory, independently of chat deletion: raw numbered
+source/destination bytes with path/digest manifests, raw index copies, the patch,
+and separately flushed immutable review/intent/result files. Source/destination
+Git trees and index trees have owned refs. Git filters/hooks and external diff
+are disabled; a private index captures snapshots without changing either user's
+index. Raw copies preserve binary bytes and original line endings independently
+of Git text normalization. Apply rechecks files, commits, index digests,
+configuration, ownership and patch; recovery files are pinned and validated before
+publication. An intent without a saved result remains uncertain; restart and
+status checks never apply it. Inspect both folders and retained versions before
+resolving or reviewing a new transfer. No automatic rollback or retry is claimed.
+
+Bounds are explicit: 256 selected paths, 2,000 compared changed paths, 20,000
+snapshot files, 64 MiB of saved content per checkout/raw side, 16 MiB raw index,
+512 KiB selected patch through the existing Git transport, 8 live transfer
+reviews, 128 listed matching receipts and a 4,096-entry evidence inventory scan.
+Over-limit/unsupported symlink or submodule snapshots retain the checkout and
+offer narrowing or external inspection. Ignored files and unsaved buffers are
+not transferred. These bounds do not change command or model budgets.
+
+Current evidence:
+
+- Eight focused real-Git snapshot/transfer tests pass: exact binary/CRLF raw retention,
+  skipped filters and unchanged source index; bad paths, cancelled capture and
+  occupied backup preservation; selected binary addition/deletion with both
+  indexes and unrelated staged/untracked work retained; committed changes plus
+  non-overlapping destination edits; conflicting versions with disabled Apply;
+  stale files/patch and one-use token refusal; intent-save and result-save failure
+  with explicit inspection and no restart replay. The final backup-integrity
+  and snapshot-limit check refuses altered recovery bytes and a 65 MiB sparse
+  fixture without removing it, then recovers after explicit fixture narrowing.
+- Seventeen focused Flutter worktree/transfer tests pass: exact selection and
+  destination review, no Apply before review, conflict recovery with copyable
+  evidence path, uncertain status polling the same job once, preserved source
+  draft and existing creation/recovery controls. Four conflict renders at
+  Light/Dark 420/1100 pixels are retained under ignored
+  `output/worktree-transfer-renders/`; narrow Light and wide Dark were inspected.
+  Tests initially looked for receipt rows before scrolling the lazy list; their
+  recovery checks now scroll to the actual receipt. Product error messages remain
+  visible at the top without discarding the draft.
+- Flutter analysis, warnings-denied all-target Clippy and the normal Windows
+  build pass. The broad bridge run passes 229 tests with one ignored; final
+  backup-pin/limit changes are additionally covered by the focused case and the
+  native bridge. The extended native worktree/transfer journey passes using
+  isolated public data and the fresh release bridge: conflict refuses Apply;
+  both versions remain unchanged; explicit resolution of only the fixture's
+  destination allows a new review and selected transfer, preserving staging and
+  the source draft. Evidence is retained under ignored
+  `output/native-ui/worktrees-transfer-20261023-settled/`. The first attempt failed
+  because the fixture accessed a not-yet-built control with `.last` rather than
+  waiting for it to exist; the corrected wait passes without a product retry.
+  The final repeat also passes and retains an inspected transfer-result render
+  and receipt at `output/native-ui/worktrees-transfer-20261023-final/`. The first
+  image was captured while the final receipt refresh still owned the controls;
+  the final fixture waits for the enabled dialog Close control and scrolls to
+  the completed result before capturing it.
+
+The conflict flow deliberately keeps the source and destination untouched rather
+than writing conflict markers into either checkout. Publication can still fail
+partway on I/O; intent/result state and retained originals are the recovery path.
+No real-model or physical pointer/IME qualification is claimed. EH06.3's native
+journey passes; EH06.4 archive/restore remains open.
+
+## EH06 checkout ownership — October 23
+
+Management reservations now include the common Git directory, not only the
+checkout list captured during review. Read-only bounded local pointer inspection
+recognizes an externally added checkout and nested projects without executing Git
+under the run coordinator. Missing, malformed, aliased or unsupported ownership
+metadata cannot silently establish independence during management. Already-active
+Git jobs and runs in the same repository refuse creation; later Git/terminal/run
+admission cannot bypass the reservation through a new checkout. A changed Git
+registration list invalidates creation before its saved intent and offers a fresh
+review. Existing dirty work is retained.
+
+Chats within one managed checkout share that checkout's immutable saved root as
+their admission scope, including nested project chats. File/command working
+folders and settings stay bound to each selected workspace. Independent managed
+checkouts still run concurrently; the nested chat queues and cancellation releases
+the expected owner. Parent project scopes also overlap nested Git mutations.
+
+Verification:
+
+- Full bridge library suite: 222 passed, one ignored. The new real-Git cases
+  refuse changed registrations before saving an intent, keep the external dirty
+  file and original index, recover with a new review, cover common-directory
+  reservations versus existing Git jobs/later checkouts, refuse malformed
+  metadata and block an active external-checkout run until explicit release.
+- Root/subfolder queue identity is checked through actual Start registration;
+  the credential-free waiting provider verifies independent runs and release.
+  A real Windows terminal writes a file only inside its bound managed checkout;
+  editor Save and Git status use that same checkout, preserve the original file,
+  and retain pins until terminal Stop/Close. Pointer unit coverage includes a
+  relative commondir, nested folder, malformed marker and the 8 KiB bound.
+- The first full run passed 221 tests and failed the new headless terminal
+  fixture because it did not answer the console cursor-position query. The
+  fixture now answers that query as the terminal frontend does; the real command
+  and full suite pass. A concurrent relink attempt failed because Windows still
+  owned the running test executable; it is not counted as a test pass.
+
+The final focused worktree filter passes 13 tests; warnings-denied all-target
+Clippy passes. The normal Windows build and its final rebuild after the
+saved-revert guard pass. Saved-change revert now retains checkout
+pins and the repository/editor lock through publication; it refuses management
+conflicts and unsaved editor buffers. Three existing revert tests pass, and the
+native bound-checkout fixture exercises these new refusal/recovery paths.
+That fixture initially supplied its pre-save editor version after Save incremented
+the version; it now reads the current workspace version before the unsaved edit,
+and passes. This was a fixture failure, retained separately from product checks.
+No live-model or physical input qualification is
+claimed. This completes the checkout ownership increment, not EH06 as a whole:
+reviewed transfer, archive/restore, destructive lifecycle failure recovery and the
+integrated worktree journey remain open. Native account permissions are unchanged;
+the ownership coordinator is not a filesystem/network sandbox.
+
+## EH06 creation and inspection UI — October 23 (in progress)
+
+The Worktrees panel is reachable from chat actions and the working-folder menu.
+An explicit base and setup policy produce a review of the original folder, new
+folder and exact commit. Creation uses the existing supervised Git owner and
+atomic chat/binding intent. Opening the new chat is a separate action, preceded
+by saving the source draft. Retained records are listed independently of recent
+chats; creation recovery inspects an existing checkout without rerunning setup.
+Shared/nested chats inspect their actual managed checkout. Job polling now
+returns a terminal error envelope separately from status transport failure, so
+uncertain polling never resubmits creation.
+
+Exercised so far:
+
+- Nine real-Git bridge worktree tests pass, including independent checkouts,
+  preserved original index/dirty files, stale review/configuration, occupied or
+  replaced roots, interrupted saves and explicit reconciliation, shared/nested
+  ownership inspection, and independent/queued run pins.
+- Fourteen focused Flutter worktree/workspace tests pass. They exercise reviewed
+  creation, actual target navigation and return to the source draft; failed
+  creation with retained intent and explicit inspection; one uncertain status
+  followed by polling the same job; Stop with retained interrupted work; failed
+  draft save refusing navigation; identity-recovery errors; and normal chat-menu
+  access. The native opt-in case is skipped in that deterministic run.
+- Eight saved Light/Dark, 420/1100-pixel renders are retained in ignored
+  `output/worktrees-ui-renders/`; inspected narrow Light creation and wide Dark
+  recovery. Tests caught errors scrolled out of view; failures now reveal the
+  error and recovery controls without losing the draft.
+- Flutter analysis passes. An earlier concurrent check hit Windows error 1455
+  and Flutter out-of-memory; that run is a failure. Serial focused verification
+  passed afterward. No unrelated application processes were stopped.
+
+The normal Windows build passes. `qualify-native-ui.py --case worktrees` passes
+against that fresh release bridge: stale configuration is refused before saving
+an intent; a new checkout contains the reviewed committed file; editing it leaves
+the original dirty file and index unchanged; Open chat selects its actual folder;
+returning to the source restores its unsent Unicode draft, also verified in native
+storage. Receipt and inspected render are retained in ignored
+`output/native-ui/worktrees-20261023-settled/`. Two earlier native fixture runs
+failed because the test clicked before a control was enabled and then waited for
+animation settlement while native refresh was pending. The fixture now waits for
+enabled controls and completed refresh explicitly; the earlier outputs remain.
+The native case uses a public Git fixture and no provider credentials. No live
+model or physical keyboard/pointer behavior is claimed. Transfer, archive/restore,
+the remaining ownership/race audit, real
+disk-pressure recovery and full EH06 acceptance remain open. Earlier evidence
+and failures below remain historical, not silently upgraded to passes.
+
 ## EH06 managed worktrees — October 22 (in progress)
 
 The first implementation increment adds private lifecycle contracts in

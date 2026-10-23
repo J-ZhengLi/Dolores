@@ -3,14 +3,17 @@ import 'package:flutter/services.dart';
 
 import 'chat.dart';
 import 'theme.dart';
+import 'worktrees.dart';
 
 class WorkspacePicker extends StatelessWidget {
   final ChatController chat;
   final Future<void> Function() onOpenProject;
+  final Future<void> Function(String)? onSelectChat;
   const WorkspacePicker({
     super.key,
     required this.chat,
     required this.onOpenProject,
+    this.onSelectChat,
   });
   @override
   Widget build(BuildContext context) {
@@ -22,6 +25,8 @@ class WorkspacePicker extends StatelessWidget {
       onSelected: (value) async {
         if (value == 'project') {
           await onOpenProject();
+        } else if (value == 'worktrees') {
+          await showWorktrees(context, chat, onSelect: onSelectChat);
         } else if (value == 'folder') {
           final root = chat.workspaceRoot;
           if (root == null) return;
@@ -50,6 +55,8 @@ class WorkspacePicker extends StatelessWidget {
         const PopupMenuItem(value: 'project', child: Text('Open project…')),
         const PopupMenuItem(value: 'temporary', child: Text('Temporary chat')),
         const PopupMenuItem(value: 'side', child: Text('Side chat')),
+        if (chat.worktreesAvailable)
+          const PopupMenuItem(value: 'worktrees', child: Text('Worktrees…')),
         if (chat.workspaceRoot != null) ...[
           const PopupMenuDivider(),
           const PopupMenuItem(

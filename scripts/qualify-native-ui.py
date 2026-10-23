@@ -27,6 +27,7 @@ def main():
         'chat-safeguards': ('test/native_chat_safeguards_ui_test.dart', 'chat-safeguards-receipt.json'),
         'commands': ('test/native_commands_ui_test.dart', 'commands-receipt.json'),
         'isolated-commands': ('test/native_isolated_commands_ui_test.dart', 'commands-isolated-receipt.json'),
+        'worktrees': ('test/native_worktrees_ui_test.dart', 'worktrees-receipt.json'),
     }
     parser.add_argument('--case', action='append', choices=cases, help='Run selected journeys; default: all.')
     args = parser.parse_args()

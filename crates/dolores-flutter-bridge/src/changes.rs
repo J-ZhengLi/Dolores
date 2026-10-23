@@ -78,6 +78,18 @@ impl Engine {
         )
     }
     pub(super) fn preview_revert(&self, session: &str, id: i64) -> Result<Value, String> {
+        let _pins = self.pin_worktree(session)?;
+        let root = self.change_root(session)?;
+        let git = self
+            .git
+            .lock()
+            .map_err(|_| "Repository ownership is unavailable.")?;
+        if git.mutation_overlaps(Path::new(&root)) {
+            return Err(
+                "Finish repository management before reviewing this revert. Saved changes remain."
+                    .into(),
+            );
+        }
         self.clear_revert()?;
         let entry = self.scoped_change(session, id)?;
         if entry.change.reverts.is_some()
@@ -119,6 +131,15 @@ impl Engine {
         Ok(Value::Null)
     }
     pub(super) fn apply_revert(&self, session: &str, token: &str) -> Result<Value, String> {
+        let _pins = self.pin_worktree(session)?;
+        let root = self.change_root(session)?;
+        let git = self
+            .git
+            .lock()
+            .map_err(|_| "Repository ownership is unavailable.")?;
+        if git.mutation_overlaps(Path::new(&root)) {
+            return Err("Finish repository management before applying this revert. Review and drafts remain.".into());
+        }
         let pending = self
             .revert
             .lock()
@@ -135,6 +156,12 @@ impl Engine {
         if root != pending.root {
             return Err("Working folder changed. Review the revert again.".into());
         }
+        let editor = self
+            .editor
+            .lock()
+            .map_err(|_| "Editor state is unavailable.")?;
+        let target = self.store.change_snapshot(pending.change_id)?.change.target;
+        editor.ensure_git_clean(Path::new(&root), &[target])?;
         let journal = Arc::new(WorkspaceJournal {
             store: self.store.clone(),
             root,

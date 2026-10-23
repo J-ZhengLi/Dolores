@@ -65,6 +65,15 @@ release while retaining the conversation draft. Command controls never reattach
 a PID or replay a saved operation. This fixture uses native account permissions;
 it does not qualify the separate Windows isolation backend.
 
+The `worktrees` journey creates a separate checkout through rendered chat actions,
+refuses stale repository configuration, opens the new chat and retains the source
+draft, dirty file and index. It then refuses a selected transfer conflict,
+explicitly resolves the public destination fixture, reviews again and transfers
+the chosen change while preserving staging. It uses a public Git fixture without
+a model. The same rendered journey then archives only the owned checkout and
+restores its saved file, ignored binary data, empty folder and original staging.
+It does not qualify physical keyboard/pointer behavior or general model skill.
+
 The `isolated-commands` journey uses the same rendered controls with explicit
 Windows isolation. It checks reviewed roots, actual sibling-write/TCP denial,
 Unicode stdin, interruption, cleanup and reopened saved output. This fixture

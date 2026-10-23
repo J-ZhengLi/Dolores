@@ -86,18 +86,22 @@ impl Registry {
     pub fn mutation_overlaps(&self, root: &Path) -> bool {
         self.mutations
             .values()
-            .chain(self.worktrees.values().flatten())
             .any(|r| within(root, r) || within(r, root))
+            || self.worktree_overlaps(root)
+    }
+    pub(super) fn worktree_overlaps(&self, root: &Path) -> bool {
+        self.worktrees
+            .values()
+            .any(|roots| checkout_overlaps(root, roots))
     }
     pub(super) fn reserve_worktree(&mut self, id: &str, roots: &[PathBuf]) -> Result<(), String> {
         if self.closed
-            || roots.iter().any(|root| {
-                self.mutation_overlaps(root)
-                    || self
-                        .active
-                        .keys()
-                        .any(|r| within(Path::new(r), root) || within(root, Path::new(r)))
-            })
+            || roots.iter().any(|root| self.mutation_overlaps(root))
+            || self
+                .active
+                .keys()
+                .any(|r| checkout_overlaps(Path::new(r), roots))
+            || self.mutations.values().any(|r| checkout_overlaps(r, roots))
         {
             return Err(
                 "A repository operation is still running. Wait, then retry the worktree review."
@@ -117,6 +121,18 @@ impl Registry {
         for job in self.jobs.values() {
             job.cancel.cancel();
         }
+    }
+}
+fn checkout_overlaps(root: &Path, roots: &[PathBuf]) -> bool {
+    let contains = |path: &Path| roots.iter().any(|r| within(path, r) || within(r, path));
+    if contains(root) {
+        return true;
+    }
+    match crate::repository_scope::common_directory(root) {
+        Ok(Some(common)) => contains(&common),
+        Ok(None) => false,
+        // Unknown membership cannot establish independence during management.
+        Err(_) => true,
     }
 }
 // Windows Git roots carry the extended prefix while stored project roots may
@@ -426,12 +442,7 @@ impl Engine {
                     .workspace(session)?
                     .root
                     .ok_or("Select a project conversation on Home or open a folder.")?;
-                if state
-                    .worktrees
-                    .values()
-                    .flatten()
-                    .any(|r| within(Path::new(&root), r) || within(r, Path::new(&root)))
-                {
+                if state.worktree_overlaps(Path::new(&root)) {
                     return Err("Worktree management owns this repository. Wait for it to finish, then Refresh.".into());
                 }
                 if state.jobs.len() >= 8

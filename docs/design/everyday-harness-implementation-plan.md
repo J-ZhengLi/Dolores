@@ -2,7 +2,7 @@
 
 Date: 2026-10-21 (Asia/Shanghai)
 
-Status: implementation authorized 2026-10-21; EH00–EH04 complete; EH05 is next.
+Status: implementation authorized 2026-10-21; EH00–EH06 complete; EH07 in progress; EH08–EH10 pending.
 Executable task lists and current status live in the
 [batch index](../plans/everyday-harness/README.md).
 
@@ -32,7 +32,8 @@ unrelated work. The user's 2026-10-21 follow-up authorizes implementation in thi
 order; the plan records scope and gates.
 
 Use EH00–EH10 as batch identifiers without renumbering historical milestones.
-EH00 contracts/probes, EH01 live text controls, EH02 command/skill discovery and EH03 goals/context recovery and EH04 planning/context references are complete; EH05 is next, with EH05–EH10 pending their dependencies. Dates and effort
+EH00 contracts/probes, EH01 live text controls, EH02 command/skill discovery, EH03 goals/context recovery, EH04 planning/context references and EH05 command sessions/isolation are complete. EH06 completes the bounded Windows creation/ownership/transfer/archive/restore lifecycle.
+EH07–EH10 retain their open gates. Dates and effort
 estimates should follow the EH00 baseline rather than precede it.
 
 ## Architecture and invariants

@@ -16,16 +16,17 @@ pub(super) struct CreationReview {
     source_identity: String,
     parent_identity: String,
     configuration: String,
+    registrations: String,
 }
 
-struct Git {
+pub(super) struct Git {
     executable: PathBuf,
     root: PathBuf,
     options: Vec<String>,
 }
 
 impl Git {
-    fn new(root: &Path) -> Result<Self, String> {
+    pub(super) fn new(root: &Path) -> Result<Self, String> {
         Ok(Self {
             executable: git_process::executable(root)?,
             root: root.into(),
@@ -37,7 +38,7 @@ impl Git {
             ],
         })
     }
-    fn run(
+    pub(super) fn run(
         &self,
         args: &[&str],
         cancel: &CancellationToken,
@@ -46,7 +47,28 @@ impl Git {
         argv.extend(args.iter().map(|v| v.to_string()));
         git_process::run(&self.executable, &self.root, &argv, cancel, false)
     }
-    fn command(&self, args: &[&str], cancel: &CancellationToken) -> Result<Vec<u8>, String> {
+    pub(super) fn with_index(
+        &self,
+        args: &[&str],
+        index: &Path,
+        cancel: &CancellationToken,
+    ) -> Result<git_process::Output, String> {
+        let mut argv = self.options.clone();
+        argv.extend(args.iter().map(|v| v.to_string()));
+        git_process::run_with_index(
+            &self.executable,
+            &self.root,
+            &argv,
+            cancel,
+            false,
+            Some(index),
+        )
+    }
+    pub(super) fn command(
+        &self,
+        args: &[&str],
+        cancel: &CancellationToken,
+    ) -> Result<Vec<u8>, String> {
         let output = self.run(args, cancel)?;
         if output.code != 0 {
             let detail = String::from_utf8_lossy(&output.stderr);
@@ -55,7 +77,7 @@ impl Git {
         }
         Ok(output.stdout)
     }
-    fn line(&self, args: &[&str], cancel: &CancellationToken) -> Result<String, String> {
+    pub(super) fn line(&self, args: &[&str], cancel: &CancellationToken) -> Result<String, String> {
         String::from_utf8(self.command(args, cancel)?)
             .map(|s| s.trim().to_owned())
             .map_err(|_| {
@@ -63,13 +85,13 @@ impl Git {
                     .into()
             })
     }
-    fn configuration(&self, cancel: &CancellationToken) -> Result<String, String> {
+    pub(super) fn configuration(&self, cancel: &CancellationToken) -> Result<String, String> {
         Ok(format!(
             "{:x}",
             Sha256::digest(self.command(&["config", "--null", "--list"], cancel)?)
         ))
     }
-    fn materialization_options(
+    pub(super) fn materialization_options(
         &mut self,
         parent: &Path,
         cancel: &CancellationToken,
@@ -217,6 +239,7 @@ pub(super) fn review(
         return Err("Cannot review more than 128 registered checkouts. Inspect the repository with external Git.".into());
     }
     roots.push(PathBuf::from(&record.root));
+    roots.push(common.path.clone());
     Ok(CreationReview {
         token: uuid::Uuid::new_v4().to_string(),
         source_session: source_session.into(),
@@ -226,6 +249,7 @@ pub(super) fn review(
         source_identity: top.identity,
         parent_identity: parent_pin.identity,
         configuration: git.configuration(cancel)?,
+        registrations: format!("{:x}", Sha256::digest(&raw)),
     })
 }
 
@@ -263,6 +287,13 @@ pub(super) fn create(
     )?))?;
     if actual_common.identity != common.identity {
         return Err("Repository changed after review. No checkout was created.".into());
+    }
+    if format!(
+        "{:x}",
+        Sha256::digest(git.command(&["worktree", "list", "--porcelain", "-z"], cancel)?)
+    ) != review.registrations
+    {
+        return Err("Registered worktrees changed after review. Review creation again; no checkout was created.".into());
     }
     git.materialization_options(&parent_pin.path, cancel)?;
     if cancel.is_cancelled() {

@@ -226,6 +226,22 @@ behavior. Build and launch only when the change requires that evidence.
 
 ## Feature contracts
 
+- **Managed worktrees:** expose Worktrees from chat actions and the working-folder
+  menu. Require an explicit base and a review of the source, destination and exact
+  commit before creation. Show setup choices without running repository scripts.
+  Keep the source draft and use a separate Open chat action. Retained records and
+  recovery paths remain inspectable even when their chats are absent from recent
+  history. Status checks never repeat creation; failures bring their recovery
+  message into view. Transfer controls compare saved files, require selection and
+  an explicit destination/patch review, and keep Apply disabled on conflict.
+  Expose retained versions and a copyable recovery folder; status polling or
+  reopening an uncertain receipt never repeats publication. See
+  [EH06](plans/everyday-harness/eh06.md) for lifecycle gates.
+  Archive and Restore use separate reviews showing the owned folder, original
+  folder kept, snapshot identity and retained archive path. Save the source draft
+  before applying either action. Interrupted lifecycle work exposes inspection
+  and explicit continuation; it never automatically removes or restores files.
+
 Read the matching specification when changing:
 
 - **Workspace navigation, file tabs or splits:** [Developer workspace](design/developer-workspace.md).
