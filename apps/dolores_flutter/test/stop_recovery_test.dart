@@ -238,15 +238,14 @@ void main() {
         );
         expect(chat.messages, isEmpty);
         expect(chat.modelTexts.last['text'], 'Useful unfinished reply 世界');
-        expect(chat.modelTexts.length, lessThanOrEqualTo(3));
-        await tester.ensureVisible(find.text('Agent progress · Not saved'));
-        await tester.tap(find.text('Agent progress · Not saved'));
+        expect(chat.modelTexts.length, agent ? 4 : 1);
+        await tester.ensureVisible(find.text('Progress · Not saved'));
         await tester.pumpAndSettle();
+        expect(find.text('Partial response'), findsOneWidget);
         expect(
-          find.text(agent ? 'Step 4 · Partial' : 'Partial response'),
+          find.textContaining('Useful unfinished reply 世界', findRichText: true),
           findsOneWidget,
         );
-        expect(find.text('Useful unfinished reply 世界'), findsOneWidget);
         expect(tester.takeException(), isNull);
         chat.draft = 'New request';
         await chat.send();

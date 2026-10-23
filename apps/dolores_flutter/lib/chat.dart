@@ -1773,7 +1773,7 @@ class ChatController extends ChangeNotifier {
             }
             partial += event['text'] as String;
           case 'modelStep':
-            if (partial.isNotEmpty && modelTexts.length < 3) {
+            if (partial.isNotEmpty) {
               modelTexts.add({'number': modelStep, 'text': partial});
             }
             partial = '';
@@ -1836,9 +1836,10 @@ class ChatController extends ChangeNotifier {
           case 'toolResult':
             toolApproval = null;
             userQuestion = null;
-            if (toolRecords.length < 4) {
-              toolRecords.add((event['record'] as Map).cast<String, dynamic>());
-            }
+            toolRecords.add({
+              ...(event['record'] as Map).cast<String, dynamic>(),
+              'modelStep': modelStep,
+            });
             _record('Tool result');
           case 'memoryUpdating':
             _record('Reply saved · learning preferences');
@@ -1947,7 +1948,6 @@ class ChatController extends ChangeNotifier {
     // Keep already delivered public text available to inspect/copy. It is not
     // a saved exchange and must never become the next request's history.
     if (!_terminal && partial.isNotEmpty) {
-      if (modelTexts.length >= 3) modelTexts.removeAt(0);
       modelTexts.add({'number': modelStep, 'text': partial, 'partial': true});
     }
     recovery = _terminal ? null : advice;

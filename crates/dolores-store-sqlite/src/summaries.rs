@@ -233,6 +233,7 @@ mod tests {
             agent: Some(dolores_core::AgentSummary {
                 model_calls: 2,
                 usage_by_call: vec![],
+                tool_steps: vec![],
                 steps: vec![],
                 thinking: vec![],
                 tools: vec![dolores_core::ToolRecord {

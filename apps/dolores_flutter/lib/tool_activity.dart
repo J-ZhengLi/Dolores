@@ -34,6 +34,17 @@ String toolLabel(dynamic name) => switch (name) {
   _ => 'File read',
 };
 
+IconData toolActivityIcon(dynamic name) => switch (name) {
+  'run_command' => Icons.terminal_outlined,
+  'edit_text_file' || 'create_text_file' => Icons.edit_outlined,
+  'computer' ||
+  'desktop_control' ||
+  'inspect_desktop_capture' => Icons.desktop_windows_outlined,
+  'browser' || 'web_search' || 'read_web_page' => Icons.language_outlined,
+  'delegate_tasks' => Icons.account_tree_outlined,
+  _ => Icons.description_outlined,
+};
+
 Map? scheduledTaskReceipt(dynamic record) {
   if (!['schedule_task', 'manage_scheduled_task'].contains(record['name']) ||
       record['status'] != 'completed') {
@@ -687,11 +698,13 @@ class ToolRecords extends StatefulWidget {
   final ChatBridge? bridge;
   final List<dynamic> records;
   final int maxRecords;
+  final bool compact;
   const ToolRecords({
     super.key,
     required this.records,
     this.maxRecords = 4,
     this.bridge,
+    this.compact = false,
   }) : assert(maxRecords > 0);
   @override
   State<ToolRecords> createState() => _ToolRecordsState();
@@ -716,27 +729,72 @@ class _ToolRecordsState extends State<ToolRecords> {
         for (final record in visible)
           Card(
             elevation: 0,
-            color: p.surface,
-            margin: const EdgeInsets.only(top: 6),
+            color: widget.compact ? Colors.transparent : p.surface,
+            margin: EdgeInsets.only(top: widget.compact ? 0 : 6),
             child: ExpansionTile(
               key: PageStorageKey(
                 'tool-record-${record['callId']}-${record['name']}-${record['target']}',
               ),
+              dense: widget.compact,
+              tilePadding: widget.compact ? EdgeInsets.zero : null,
+              minTileHeight: widget.compact ? 36 : null,
+              shape: widget.compact ? const Border() : null,
+              collapsedShape: widget.compact ? const Border() : null,
               leading: Icon(
-                Icons.description_outlined,
-                size: 18,
+                widget.compact
+                    ? toolActivityIcon(record['name'])
+                    : Icons.description_outlined,
+                size: widget.compact ? 16 : 18,
                 color: p.muted,
               ),
-              title: Text(
-                scheduledTaskTitle(record),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-              subtitle: Text(switch (scheduledTaskReceipt(record)) {
-                final Map receipt => scheduledTaskSummary(receipt),
-                _ => '${toolLabel(record['name'])} · ${toolStatus(record)}',
-              }, style: TextStyle(fontSize: 11, color: p.muted)),
+              title: widget.compact
+                  ? DefaultTextStyle(
+                      style: Theme.of(context).textTheme.bodySmall!
+                          .copyWith(color: p.muted),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${toolLabel(record['name'])} ·',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Tooltip(
+                              message: scheduledTaskTitle(record),
+                              child: Text(
+                                scheduledTaskTitle(record),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              '· ${toolStatus(record)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Text(
+                      scheduledTaskTitle(record),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+              subtitle: widget.compact
+                  ? null
+                  : Text(switch (scheduledTaskReceipt(record)) {
+                      final Map receipt => scheduledTaskSummary(receipt),
+                      _ =>
+                        '${toolLabel(record['name'])} · ${toolStatus(record)}',
+                    }, style: TextStyle(fontSize: 11, color: p.muted)),
               childrenPadding: const EdgeInsets.all(12),
               children: [
                 if ([

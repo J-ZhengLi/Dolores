@@ -72,6 +72,7 @@ async fn repeated_failures_inside_one_batch_stop_before_later_requests() {
     .unwrap();
     assert_eq!(reply.pause, Some(PauseReason::NoProgress));
     assert_eq!(reply.summary.tools.len(), 2);
+    assert_eq!(reply.summary.tool_steps, vec![1, 1]);
     assert_eq!(
         reply.summary.steps[0].text,
         "Inspecting the requested file."
@@ -112,6 +113,7 @@ async fn repeated_failed_or_denied_requests_pause_before_a_third_attempt() {
         assert_eq!(reply.pause, Some(PauseReason::NoProgress));
         assert_eq!(reply.summary.tools.len(), 2);
         assert_eq!(reply.summary.model_calls, 3);
+        assert_eq!(reply.summary.tool_steps, vec![1, 2]);
         assert_eq!(read.count.load(Ordering::SeqCst), 0);
         assert_eq!(approval.count.load(Ordering::SeqCst), usize::from(denied));
         assert!(reply.answer.contains("resolve their cause"));
@@ -264,6 +266,15 @@ async fn default_task_completes_six_reviewed_operations_without_continue() {
     assert_eq!(reply.pause, None);
     assert_eq!(reply.answer, "Final answer");
     assert_eq!(reply.summary.model_calls, 7);
+    assert_eq!(reply.summary.tool_steps, vec![1, 2, 3, 4, 5, 6]);
+    let saved = serde_json::to_value(&reply.summary).unwrap();
+    let restored: AgentSummary = serde_json::from_value(saved.clone()).unwrap();
+    assert_eq!(restored, reply.summary);
+    let mut legacy = saved;
+    legacy.as_object_mut().unwrap().remove("toolSteps");
+    let restored: AgentSummary = serde_json::from_value(legacy).unwrap();
+    assert!(restored.tool_steps.is_empty());
+    assert_eq!(restored.tools, reply.summary.tools);
     assert_eq!(read.count.load(Ordering::SeqCst), 6);
     assert_eq!(approval.count.load(Ordering::SeqCst), 6);
 }

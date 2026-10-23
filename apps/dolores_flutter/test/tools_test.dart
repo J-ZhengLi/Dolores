@@ -176,6 +176,7 @@ class ToolBridge implements ChatBridge {
                 'modelCalls': 2,
                 'usageByCall': [null, null],
                 'tools': [record],
+                'toolSteps': [1],
                 if (streamText)
                   'steps': [
                     {'number': 1, 'text': 'Let me read 世界.'},
@@ -549,14 +550,62 @@ void main() {
           chat.messages.last['metadata']['agent']['steps'].single['text'],
           'Let me read 世界.',
         );
-        await tester.ensureVisible(find.text('Agent progress'));
-        await tester.tap(find.text('Agent progress'));
-        await tester.pumpAndSettle();
-        expect(find.text('Let me read 世界.'), findsOneWidget);
+        expect(find.text('Agent progress'), findsNothing);
+        expect(
+          find.textContaining('Let me read 世界.', findRichText: true),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         chat.dispose();
       }
+    },
+  );
+  testWidgets(
+    'Long live runs retain progress and receipts beyond the old preview caps',
+    (tester) async {
+      final bridge = ToolBridge()..streamText = true;
+      final chat = ready(bridge);
+      await chat.send();
+      final id = bridge.commands.lastWhere(
+        (c) => c['command'] == 'start',
+      )['id'];
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var number = 1; number <= 6; number++) {
+        bridge.queue.addAll([
+          {
+            'type': 'toolResult',
+            'id': id,
+            'record': {
+              'callId': 'long-$number',
+              'name': 'read_text_file',
+              'target': 'file-$number',
+              'status': 'read',
+              'content': 'Read $number',
+            },
+          },
+          {'type': 'modelStep', 'id': id, 'number': number + 1},
+          {
+            'type': 'modelText',
+            'id': id,
+            'number': number + 1,
+            'text': 'Progress ${number + 1}',
+          },
+        ]);
+      }
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(chat.modelTexts.length, 6);
+      expect(chat.toolRecords.map((r) => r['modelStep']), [1, 2, 3, 4, 5, 6]);
+      expect(chat.partial, 'Progress 7');
+      await chat.stop();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(chat.modelTexts.last['text'], 'Progress 7');
+      expect(chat.toolRecords.length, 6);
+      expect(chat.messages, isEmpty);
+      chat.newChat(kind: 'side');
+      expect(chat.modelTexts, isEmpty);
+      expect(chat.toolRecords, isEmpty);
+      chat.dispose();
     },
   );
   testWidgets(
@@ -647,8 +696,7 @@ void main() {
                 '世界.*',
               );
             }
-            final label =
-                '${tool == 'list_folder' ? 'Folder listing' : 'Text search'} · ${allow ? 'completed' : 'denied'}';
+            final label = '· ${allow ? 'completed' : 'denied'}';
             await tester.ensureVisible(find.text(label));
             await tester.tap(find.text(label));
             await tester.pumpAndSettle();
@@ -717,11 +765,9 @@ void main() {
           );
           expect(find.text('Run details · 2 model calls'), findsOneWidget);
           await tester.ensureVisible(
-            find.text('File read · ${allow ? 'read' : 'denied'}'),
+            find.text('· ${allow ? 'read' : 'denied'}'),
           );
-          await tester.tap(
-            find.text('File read · ${allow ? 'read' : 'denied'}'),
-          );
+          await tester.tap(find.text('· ${allow ? 'read' : 'denied'}'));
           await tester.pumpAndSettle();
           expect(
             find.text(allow ? 'File text 世界' : 'User denied this read'),

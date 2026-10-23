@@ -55,6 +55,7 @@ impl Default for Progress {
             model_calls: 0,
             usage_by_call: vec![],
             tools: vec![],
+            tool_steps: vec![],
             steps: vec![],
             thinking: vec![],
         })
@@ -91,7 +92,10 @@ impl Progress {
                 self.0.usage_by_call.resize(*number, None);
                 self.0.usage_by_call[*number - 1] = usage.clone();
             }
-            AgentEvent::ToolResult { record } => self.0.tools.push(*record.clone()),
+            AgentEvent::ToolResult { record } => {
+                self.0.tools.push(*record.clone());
+                self.0.tool_steps.push(self.0.model_calls);
+            }
             _ => {}
         }
     }

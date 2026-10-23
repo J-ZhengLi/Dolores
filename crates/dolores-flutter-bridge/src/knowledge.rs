@@ -431,6 +431,7 @@ mod tests {
                         mcp: None,
                     },
                 ],
+                tool_steps: vec![],
                 steps: vec![],
                 thinking: vec![],
             }),

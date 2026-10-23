@@ -106,7 +106,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Repair and verify'), findsOneWidget);
         expect(find.textContaining('A command failed'), findsOneWidget);
-        expect(find.text('Command · Failed · exit 1'), findsOneWidget);
+        expect(find.text('Earlier tool results'), findsOneWidget);
+        expect(find.text('· Failed · exit 1'), findsOneWidget);
         expect(find.text('sum.cjs'), findsOneWidget);
         await tester.tap(find.text('node'));
         await tester.pumpAndSettle();

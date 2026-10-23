@@ -27,7 +27,7 @@ import 'subagents.dart';
 import 'workspace_picker.dart';
 import 'instructions.dart';
 import 'chat_sidebar.dart';
-import 'model_steps.dart';
+import 'agent_timeline.dart';
 import 'thread_fork.dart';
 import 'attachments.dart';
 
@@ -418,6 +418,13 @@ class _ChatPageState extends State<ChatPage> {
     final reasoningTokens =
         metadata?['usage']?['reasoningTokens'] ??
         callUsage?.lastOrNull?['reasoningTokens'];
+    final savedTools = metadata?['agent']?['tools'] as List? ?? [];
+    final inheritedTools = (metadata?['paused']?['receipts'] as List? ?? [])
+        .where(
+          (receipt) =>
+              !savedTools.any((tool) => tool['callId'] == receipt['callId']),
+        )
+        .toList();
     return MessageFrame(
       key: key,
       user: user,
@@ -458,17 +465,38 @@ class _ChatPageState extends State<ChatPage> {
             _thinking(chat.modelThinking),
           if (!user && !streaming && metadata?['agent']?['thinking'] is List)
             _thinking(metadata!['agent']['thinking'] as List),
-          if (!user && streaming && chat.modelTexts.isNotEmpty)
-            ModelSteps(steps: chat.modelTexts, saved: false),
-          if (!user && !streaming && metadata?['agent']?['steps'] is List)
-            ModelSteps(steps: metadata!['agent']['steps'] as List),
+          if (!user && !streaming && inheritedTools.isNotEmpty) ...[
+            Text(
+              'Earlier tool results',
+              style: TextStyle(fontSize: 12, color: p.muted),
+            ),
+            AgentTimeline(records: inheritedTools, bridge: chat.bridge),
+          ],
+          if (!user)
+            AgentTimeline(
+              steps: streaming
+                  ? [
+                      ...chat.modelTexts,
+                      if (text.isNotEmpty)
+                        {'number': chat.modelStep, 'text': text},
+                    ]
+                  : metadata?['agent']?['steps'] as List? ?? [],
+              records: streaming ? chat.toolRecords : savedTools,
+              toolSteps: streaming
+                  ? [for (final record in chat.toolRecords) record['modelStep']]
+                  : metadata?['agent']?['toolSteps'] as List? ?? [],
+              bridge: chat.bridge,
+              unsaved: streaming,
+              streamingStep: streaming ? chat.modelStep : null,
+              onRendered: _followReply,
+            ),
           if (parts.isNotEmpty) AttachmentChips(chat: chat, parts: parts),
           if (text.isEmpty && !streaming)
             SelectableText(
               text,
               style: TextStyle(fontSize: 14, height: 1.65, color: p.text),
             )
-          else if (text.isNotEmpty)
+          else if (text.isNotEmpty && (!streaming || user))
             ReplyContent(
               text: text,
               streaming: streaming,
@@ -597,17 +625,6 @@ class _ChatPageState extends State<ChatPage> {
                   ],
                 ),
             ],
-            if (metadata?['paused']?['reason'] == 'commandReview')
-              ToolRecords(
-                bridge: chat.bridge,
-                records: metadata!['paused']['receipts'] as List,
-                maxRecords: 16,
-              )
-            else if (metadata?['agent']?['tools'] is List)
-              ToolRecords(
-                records: metadata!['agent']['tools'] as List,
-                bridge: chat.bridge,
-              ),
             UsageDetails(metadata: metadata),
             if (messageId != null)
               TaskFeedbackButton(
@@ -655,27 +672,23 @@ class _ChatPageState extends State<ChatPage> {
     key: composerKey,
     mainAxisSize: MainAxisSize.min,
     children: [
-      if (!chat.busy && chat.modelTexts.isNotEmpty)
+      if (!chat.busy &&
+          (chat.modelTexts.isNotEmpty || chat.toolRecords.isNotEmpty))
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 160),
           child: SingleChildScrollView(
-            child: ModelSteps(steps: chat.modelTexts, saved: false),
-          ),
-        ),
-      if (chat.toolRecords.isNotEmpty || chat.subagents.isNotEmpty)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 160),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (chat.subagents.isNotEmpty)
-                  SubagentCards(children: chat.subagents),
-                ToolRecords(records: chat.toolRecords, bridge: chat.bridge),
+            child: AgentTimeline(
+              steps: chat.modelTexts,
+              records: chat.toolRecords,
+              toolSteps: [
+                for (final record in chat.toolRecords) record['modelStep'],
               ],
+              bridge: chat.bridge,
+              unsaved: true,
             ),
           ),
         ),
+      if (chat.subagents.isNotEmpty) SubagentCards(children: chat.subagents),
       if (chat.busy && chat.activeDesktopTarget != null)
         Container(
           key: const Key('desktop-active-target'),

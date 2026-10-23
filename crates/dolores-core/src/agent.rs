@@ -322,6 +322,10 @@ pub struct AgentSummary {
     pub model_calls: usize,
     pub usage_by_call: Vec<Option<TokenUsage>>,
     pub tools: Vec<ToolRecord>,
+    /// Model-call number for each tool receipt, in the same order as `tools`.
+    /// Absent in older history, whose exact interleaving is unknown.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_steps: Vec<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<ModelText>,
     /// Bounded provider-supplied thinking previews, never executable instructions.
@@ -643,6 +647,7 @@ pub async fn run_agent_with_shared_budget(
         model_calls: 0,
         usage_by_call: vec![],
         tools: vec![],
+        tool_steps: vec![],
         steps: vec![],
         thinking: vec![],
     };
@@ -1411,6 +1416,7 @@ pub async fn run_agent_with_shared_budget(
                 && record.status != "completed";
             let no_progress = failures.record(&call, &record);
             summary.tools.push(record);
+            summary.tool_steps.push(number);
             if summary
                 .tools
                 .last()

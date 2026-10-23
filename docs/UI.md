@@ -146,6 +146,10 @@ decision changes.
   token breakdowns, request settings and context sources in expandable sections.
   Keep local context estimates separate from provider usage; never infer missing
   counts or a run total from partial per-call data.
+- Interleave public agent progress and compact tool rows in the conversation,
+  followed by the final answer. Expand a row for receipts, screenshots or diffs;
+  keep provider thinking separate. Preserve saved ordering when available and
+  identify older activity whose exact interleaving was not recorded.
 - Keep essential availability, errors and consequences visible in plain language.
   Use wording such as “Not available yet” or “Couldn't save. Try again.” Explain
   the effect and next action; put supporting evidence in optional details.

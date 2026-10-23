@@ -1,5 +1,34 @@
 # Dolores acceptance — 2026-10-08
 
+## Inline agent activity — October 23
+
+Public progress and tool receipts now share the conversation timeline. New runs
+save the model-call number associated with each receipt, preserving interleaving
+after reopening. Compact icon rows expand to the existing screenshots, command
+output, diffs and specialized receipts. The final answer follows the activity;
+thinking remains separately collapsed. Live runs retain later progress/receipts
+beyond the former three-text/four-tool preview caps, within the existing host
+execution/output limits. Interrupted unsaved work remains labeled and inspectable
+in the recovery area; it is cleared for a new independent request.
+
+Legacy chats have no exact ordering evidence: available progress and receipts
+appear before the answer under Earlier activity rather than guessed interleaving.
+Malformed/incomplete ordering metadata takes the same lossless fallback.
+
+The 38 focused Flutter tests passed, exercising chronological layout, five tool
+receipts across four progress updates, six live tool rounds, failed receipt
+expansion/recovery guidance, legacy/malformed metadata, Stop/new-request recovery,
+literal command/diff details and manual-scroll following. Saved Light/Dark renders
+at 420 and 1000 pixels were inspected under `output/inline-activity-renders/`.
+Core tests passed (105); bridge and storage library tests passed (215 and 89,
+with one existing ignored bridge test), including metadata round trips and legacy
+history. The full Flutter suite passed 529 tests with 10 opt-in native cases
+skipped. Flutter analysis and the normal Windows x64 build passed. Inherited
+failed-command receipts remain visible under Earlier tool results, including
+when a later run contains no tool calls or incorrectly claims success.
+No live provider or native interaction is needed to establish the new rendering;
+these fixtures do not establish real-model task reliability.
+
 ## Persistent Settings shortcut and exported-session follow-up — October 23
 
 The user's later exported conversation disproved a broad reliability reading of
