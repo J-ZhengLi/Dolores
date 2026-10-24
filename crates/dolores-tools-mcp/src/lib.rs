@@ -20,6 +20,7 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 pub mod credentials;
+pub mod remote;
 use credentials::Credentials;
 mod isolation;
 pub use isolation::ExecutionHost;
@@ -496,6 +497,9 @@ fn plugins_inner(
     if !connection.enabled {
         return Ok(vec![]);
     }
+    if connection.remote.is_some() {
+        return remote::approved::plugins(root, connection, vault);
+    }
     Ok((0..connection.tools.len())
         .map(|index| {
             Arc::new(McpPlugin {
@@ -527,23 +531,24 @@ impl ToolPlugin for McpPlugin {
         let tool = &self.connection.tools[self.index];
         let reviewed = self.host.review(
             &self.root,
-            &self.connection.launch,
+            self.connection.local_launch()?,
             &CancellationToken::new(),
         )?;
         let request = ToolRequest {
             call_id: call.id.clone(),
             name: call.name.clone(),
-            target: format!("{} / {}", self.connection.launch.label, tool.name),
+            target: format!("{} / {}", self.connection.label(), tool.name),
             query: None,
             diff: None,
             command: None,
             mcp: Some(Box::new(McpCallPreview {
                 connection_id: self.connection.id.clone(),
-                server: self.connection.launch.label.clone(),
+                server: self.connection.label().to_owned(),
                 tool: tool.name.clone(),
                 arguments: arguments.to_string(),
                 revision: self.connection.revision,
                 isolation: reviewed.preview(),
+                remote_endpoint: None,
                 credential_names: self
                     .connection
                     .credentials
@@ -608,7 +613,9 @@ fn invoke_reviewed(
     if root.canonicalize().ok().as_ref() != Some(&root) {
         return Err("Working folder changed. Review the MCP connection again.".into());
     }
-    if fingerprints(&root, &connection.launch, &cancel, deadline)? != connection.fingerprints {
+    if fingerprints(&root, connection.local_launch()?, &cancel, deadline)?
+        != connection.fingerprints
+    {
         return Err("MCP launch files changed. Inspect and review the server again.".into());
     }
     let credentials = if connection.credentials.is_empty() {
@@ -622,7 +629,7 @@ fn invoke_reviewed(
     };
     let (mut session, protocol, server, release) = Session::start(
         &root,
-        &connection.launch,
+        connection.local_launch()?,
         cancel.clone(),
         deadline,
         credentials,
@@ -647,6 +654,25 @@ fn invoke_reviewed(
         "tools/call",
         json!({"name":connection.tools[index].name,"arguments":arguments}),
     )?;
+    let (mut text, is_error) = text_content(&result)?;
+    text = session.credentials.redact(&text);
+    if text.len() > 8192 {
+        return Err("MCP redacted result exceeds 8 KiB.".into());
+    }
+    let mut result = json!({"text":text,"isError":is_error});
+    if let Some(isolation) = reviewed.preview() {
+        result["execution"] = json!("isolated; Windows LPAC; network denied");
+        result["isolation"] = json!(isolation);
+    }
+    let encoded = result.to_string();
+    if encoded.len() > dolores_core::MAX_TOOL_BYTES {
+        return Err("MCP result exceeds its encoded limit.".into());
+    }
+    session.close()?;
+    check(&cancel, deadline)?;
+    Ok(encoded)
+}
+fn text_content(result: &Value) -> Result<(String, bool), String> {
     let mut text = String::new();
     for item in result["content"]
         .as_array()
@@ -666,25 +692,10 @@ fn invoke_reviewed(
             return Err("MCP result exceeds 8 KiB or contains NUL.".into());
         }
     }
-    text = session.credentials.redact(&text);
-    if text.len() > 8192 {
-        return Err("MCP redacted result exceeds 8 KiB.".into());
-    }
     let is_error = match result.get("isError") {
         None => false,
         Some(Value::Bool(value)) => *value,
         _ => return Err("MCP result has an invalid error flag.".into()),
     };
-    let mut result = json!({"text":text,"isError":is_error});
-    if let Some(isolation) = reviewed.preview() {
-        result["execution"] = json!("isolated; Windows LPAC; network denied");
-        result["isolation"] = json!(isolation);
-    }
-    let encoded = result.to_string();
-    if encoded.len() > dolores_core::MAX_TOOL_BYTES {
-        return Err("MCP result exceeds its encoded limit.".into());
-    }
-    session.close()?;
-    check(&cancel, deadline)?;
-    Ok(encoded)
+    Ok((text, is_error))
 }

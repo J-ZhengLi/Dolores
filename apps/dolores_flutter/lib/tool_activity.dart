@@ -388,6 +388,8 @@ class ToolApprovalCard extends StatelessWidget {
         (request['mcp'] as Map?)?['isolation'];
     final credentialNames =
         (request['mcp'] as Map?)?['credentialNames'] as List? ?? [];
+    final remoteEndpoint =
+        (request['mcp'] as Map?)?['remoteEndpoint'] as String?;
     final title = switch (name) {
       String value when value.startsWith('mcp_tool_') =>
         'Allow this external tool?',
@@ -431,7 +433,9 @@ class ToolApprovalCard extends StatelessWidget {
       'build_harness_repair' =>
         'Build a Windows release DLL from the exact qualified trial and source below, using installed Cargo offline with locked dependencies. Native build scripts run with this account’s permissions; this is not an OS sandbox. One command, 300 seconds and 256 KiB output. Stop, failure or stale source retains the proposal and logs. This copies the complete normal bundle into private repair storage and changes only its DLL. Results go to ${chat.model}. Installation and Restore require separate user review in Native repairs; no restart or task replay occurs here.',
       String value when value.startsWith('mcp_tool_') =>
-        'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.${credentialNames.isEmpty ? '' : '\nServer receives saved credentials: ${credentialNames.join(', ')}.'}',
+        remoteEndpoint != null
+            ? 'Sends the exact arguments to the reviewed remote MCP endpoint, using its saved authentication. It may change external data. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.'
+            : 'Starts the reviewed server with your permissions. It can change files outside this folder and use the network. Effects may remain after Stop and are not recorded in Changes. Results are shared with ${chat.model} and saved with a completed reply. Limit: 30 seconds · 8 KiB text.${credentialNames.isEmpty ? '' : '\nServer receives saved credentials: ${credentialNames.join(', ')}.'}',
       'list_folder' =>
         'Share up to 100 file and folder names with ${chat.model}? This allows one listing. Results are kept with a completed reply.',
       'search_text' =>
@@ -503,6 +507,8 @@ class ToolApprovalCard extends StatelessWidget {
                     Text(
                       isolation is Map
                           ? 'Isolated command · network denied. The working folder is writable; additional listed folders are read-only. File changes may remain after Stop.'
+                          : remoteEndpoint != null
+                          ? 'Contacts the reviewed remote endpoint; external effects may remain after Stop.'
                           : external || running
                           ? 'Runs with your OS permissions; may change files or use the network. Effects may remain after Stop.'
                           : disclosure,
@@ -510,6 +516,12 @@ class ToolApprovalCard extends StatelessWidget {
                     ),
                   ],
                   if (external) ...[
+                    if (remoteEndpoint != null)
+                      SelectableText(
+                        'Endpoint: $remoteEndpoint',
+                        key: const Key('mcp-approval-endpoint'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     if (credentialNames.isNotEmpty)
                       Text(
                         'Server receives: ${credentialNames.join(', ')}',

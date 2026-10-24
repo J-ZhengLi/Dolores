@@ -94,6 +94,14 @@ Windows isolation. It checks reviewed roots, actual sibling-write/TCP denial,
 Unicode stdin, interruption, cleanup and reopened saved output. This fixture
 does not establish DNS/LAN/external network coverage or physical input behavior.
 
+The `--case mcp-remote` journey uses rendered Connections and approval controls
+with the normal bridge and public loopback MCP/model fixtures. It inspects and
+enables a remote target, verifies masked-key reuse/rotation and auth failure,
+keeps filtered selections, stops an inspection and checks one approved tool's
+actual public marker and saved receipt. It excludes keys from provider messages
+and disables only its fixture connection afterward. No physical input or
+real-model reliability is claimed.
+
 For an authorized live Memory check, run
 `python scripts/qualify-native-memory-live.py --source <profile-dolores.db>
 --model <enabled-model-id> --reasoning <supported-reasoning-mode>

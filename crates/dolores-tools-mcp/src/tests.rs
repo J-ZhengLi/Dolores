@@ -139,7 +139,7 @@ async fn identical_tool_names_route_to_separate_servers_and_one_missing_key_does
                     &a.id,
                     "DOLORES_MCP_TEST_TOKEN",
                     &root,
-                    &a.launch,
+                    a.local_launch().unwrap(),
                     &a.fingerprints,
                 )
                 .unwrap(),
@@ -250,7 +250,7 @@ async fn credentials_are_read_only_after_approval_and_echoes_are_redacted() {
                 .encoded(
                     "DOLORES_MCP_TEST_TOKEN",
                     &root,
-                    &conn.launch,
+                    conn.local_launch().unwrap(),
                     &conn.fingerprints,
                 )
                 .unwrap(),
@@ -303,7 +303,7 @@ async fn credentials_are_read_only_after_approval_and_echoes_are_redacted() {
                         .encoded(
                             "DOLORES_MCP_TEST_TOKEN",
                             &root.join("another"),
-                            &conn.launch,
+                            conn.local_launch().unwrap(),
                             &conn.fingerprints,
                         )
                         .unwrap(),
@@ -311,7 +311,7 @@ async fn credentials_are_read_only_after_approval_and_echoes_are_redacted() {
                 .unwrap();
         }
         if state == "wrong-launch" {
-            let mut other = conn.launch.clone();
+            let mut other = conn.local_launch().unwrap().clone();
             other.label = "Other".into();
             vault
                 .write(
@@ -426,7 +426,8 @@ fn connection(i: Inspection) -> McpConnection {
         retired_credentials: vec![],
         revision: 1,
         enabled: true,
-        launch: i.launch,
+        launch: Some(i.launch),
+        remote: None,
         fingerprints: i.fingerprints,
         protocol_version: i.protocol_version,
         server_name: i.server_name,
@@ -507,13 +508,27 @@ async fn reviewed_calls_are_exact_one_use_and_do_not_start_during_prepare() {
 fn pages_and_unsupported_client_requests_follow_protocol() {
     for mode in ["pages", "requests"] {
         let root = tempfile::tempdir().unwrap();
-        let i = inspect(root.path(), launch(mode), CancellationToken::new()).unwrap();
+        let mut launch = launch(mode);
+        if mode == "requests" {
+            // A peer can receive replies later than it sends its catalog. Widen
+            // that ordering window without sleeping in the assertion itself.
+            let source = std::fs::read_to_string(&launch.args[0]).unwrap();
+            let slow=source.replace("if (!request.method) {","if (!request.method) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,250);");
+            assert_ne!(source, slow, "fixture reply handler was not instrumented");
+            let path = root.path().join("slow-receipt.mjs");
+            std::fs::write(&path, slow).unwrap();
+            launch.args[0] = path.to_str().unwrap().into();
+        }
+        let i = inspect(root.path(), launch, CancellationToken::new()).unwrap();
         assert_eq!(i.tools.len(), 2);
         if mode == "requests" {
             let all = events(root.path());
-            assert!(all
-                .iter()
-                .any(|e| e["type"] == "clientResponse" && e["error"] == -32601));
+            assert!(all.iter().any(|e| e["type"] == "clientResponse"
+                && e["id"] == "server-sampling"
+                && e["error"] == -32601));
+            assert!(all.iter().any(|e| e["type"] == "clientResponse"
+                && e["id"] == "server-ping"
+                && e["result"] == json!({})));
         }
     }
 }

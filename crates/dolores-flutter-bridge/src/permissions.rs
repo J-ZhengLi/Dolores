@@ -42,7 +42,7 @@ impl Engine {
         if let Some(root) = &workspace.root {
             for connection in self.store.mcp_connections(root)? {
                 for (spec, tool) in connection.specs().iter().zip(&connection.tools) {
-                    mcp_tools.push(json!({"alias":spec.name,"tool":tool.name,"label":connection.launch.label,"connectionId":connection.id,"revision":connection.revision}));
+                    mcp_tools.push(json!({"alias":spec.name,"tool":tool.name,"label":connection.label(),"connectionId":connection.id,"revision":connection.revision}));
                 }
             }
         }

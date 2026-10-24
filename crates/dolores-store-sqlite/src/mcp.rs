@@ -246,12 +246,13 @@ mod tests {
             retired_credentials: vec![],
             revision: 1,
             enabled: true,
-            launch: McpLaunch {
+            launch: Some(McpLaunch {
                 label: "Fixture".into(),
                 isolation: None,
                 executable: exe.clone(),
                 args: vec![],
-            },
+            }),
+            remote: None,
             fingerprints: vec![McpFingerprint {
                 path: exe,
                 sha256: "a".repeat(64),
@@ -310,5 +311,106 @@ mod tests {
                 .unwrap(),
             crate::SCHEMA_VERSION
         );
+    }
+
+    #[test]
+    fn remote_and_local_share_atomic_capacity_without_rewriting_legacy_records() {
+        use dolores_core::{
+            McpCredentialBinding, McpRemoteAuthentication, McpRemoteTarget, MCP_REMOTE_BEARER,
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("mixed.db");
+        let root = directory.path().to_str().unwrap();
+        let store = SqliteStore::open(&file).unwrap();
+        let local = store
+            .save_mcp_connection(root, &value(directory.path()), None)
+            .unwrap();
+        let legacy: String = store
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT data FROM mcp_connections WHERE id='legacy'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut remote = local.clone();
+        remote.id = "00000000-0000-4000-8000-000000000001".into();
+        remote.launch = None;
+        remote.fingerprints.clear();
+        remote.protocol_version = "2026-07-28".into();
+        remote.remote = Some(McpRemoteTarget {
+            label: "Public remote".into(),
+            endpoint: "https://example.test/mcp".into(),
+            authentication: McpRemoteAuthentication::Bearer,
+        });
+        remote.credentials = vec![McpCredentialBinding {
+            name: MCP_REMOTE_BEARER.into(),
+            credential_id: "00000000-0000-4000-8000-000000000002".into(),
+        }];
+        let remote = store.save_mcp_connection(root, &remote, None).unwrap();
+        let mut third = remote.clone();
+        third.id = "00000000-0000-4000-8000-000000000003".into();
+        assert!(store
+            .save_mcp_connection(root, &third, None)
+            .unwrap_err()
+            .contains("two external tools"));
+        assert_eq!(store.mcp_connections(root).unwrap().len(), 2);
+        let mut changed = remote.clone();
+        changed.remote.as_mut().unwrap().endpoint = "https://changed.test/mcp".into();
+        store.lock().unwrap().execute_batch("CREATE TRIGGER refuse_remote BEFORE UPDATE ON mcp_connections BEGIN SELECT RAISE(ABORT,'public fixture refusal'); END;").unwrap();
+        assert!(store.save_mcp_connection(root, &changed, Some(1)).is_err());
+        assert_eq!(
+            store.mcp_connection_by_id(root, &remote.id).unwrap(),
+            Some(remote.clone())
+        );
+        store
+            .lock()
+            .unwrap()
+            .execute_batch("DROP TRIGGER refuse_remote")
+            .unwrap();
+        assert!(store.save_mcp_connection(root, &changed, Some(2)).is_err());
+        changed.launch = local.launch.clone();
+        assert!(store.save_mcp_connection(root, &changed, Some(1)).is_err());
+        let retained: String = store
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT data FROM mcp_connections WHERE id='legacy'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(retained, legacy);
+        let raw: String = store
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT data FROM mcp_connections WHERE id=?1",
+                [&remote.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!raw.contains("Bearer "));
+        assert!(serde_json::from_str::<serde_json::Value>(&raw)
+            .unwrap()
+            .get("launch")
+            .is_none());
+        drop(store);
+        let reopened = SqliteStore::open(&file).unwrap();
+        assert_eq!(
+            reopened.mcp_connection_by_id(root, &remote.id).unwrap(),
+            Some(remote.clone())
+        );
+        assert_eq!(reopened.mcp_connection(root).unwrap(), Some(local));
+        reopened
+            .mutate_mcp_connection_by_id(root, &remote.id, 1, false)
+            .unwrap();
+        let third = reopened.save_mcp_connection(root, &third, None).unwrap();
+        assert_eq!(third.revision, 1);
+        reopened
+            .mutate_mcp_connection_by_id(root, &remote.id, 2, true)
+            .unwrap();
+        assert_eq!(reopened.mcp_connections(root).unwrap().len(), 2);
     }
 }

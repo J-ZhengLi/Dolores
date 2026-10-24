@@ -35,6 +35,8 @@ class McpBridge implements ChatBridge {
   final connections = <Map<String, dynamic>>[];
   String inspectedId = 'legacy';
   String? failEnable;
+  String? failInspect;
+  Map<String, dynamic>? inspection;
   int serial = 0;
   bool pending = false, cancelled = false, failSave = false, failForget = false;
   final tools = [
@@ -62,6 +64,8 @@ class McpBridge implements ChatBridge {
               : connections,
         };
       case 'inspectMcp':
+      case 'inspectRemoteMcp':
+        inspection = c;
         inspectedId = c['connectionId'] as String? ?? 'legacy';
         if (inspectedId.isEmpty) {
           inspectedId =
@@ -75,6 +79,8 @@ class McpBridge implements ChatBridge {
             'type': 'done',
             if (cancelled)
               'error': 'MCP inspection stopped. Nothing was saved.'
+            else if (failInspect != null)
+              'error': failInspect
             else
               'mcpInspection': {
                 'token': 'review',
@@ -83,6 +89,8 @@ class McpBridge implements ChatBridge {
                 'serverName': 'Fixture',
                 'serverVersion': '1',
                 'protocolVersion': '2025-11-25',
+                if (inspection?['remote'] != null)
+                  'remote': inspection!['remote'],
               },
           },
         ];
@@ -96,21 +104,24 @@ class McpBridge implements ChatBridge {
           'id': inspectedId,
           'enabled': true,
           'revision': 1,
-          'launch': {
-            'label': 'Fixture',
-            'executable': 'C:/Runtime/node.exe',
-            'args': ['server.mjs'],
-          },
+          if (inspection?['remote'] != null)
+            'remote': inspection!['remote']
+          else
+            'launch': {
+              'label': 'Fixture',
+              'executable': 'C:/Runtime/node.exe',
+              'args': ['server.mjs'],
+            },
           'tools': tools
               .where((t) => (c['names'] as List).contains(t['name']))
               .toList(),
           'credentials': [
-            for (final row
-                in commands.lastWhere(
-                          (c) => c['command'] == 'inspectMcp',
-                        )['credentials']
-                        as List? ??
-                    [])
+            if (inspection?['remote']?['authentication'] == 'bearer')
+              {
+                'name': 'MCP_BEARER_TOKEN',
+                'credentialId': 'opaque-fixture-reference',
+              },
+            for (final row in inspection?['credentials'] as List? ?? [])
               {'name': row['name'], 'credentialId': 'opaque-fixture-reference'},
           ],
         };
@@ -140,7 +151,12 @@ class McpBridge implements ChatBridge {
   }
 }
 
-Future<void> open(WidgetTester t, McpBridge b, bool dark) async {
+Future<void> open(
+  WidgetTester t,
+  McpBridge b,
+  bool dark, {
+  bool remote = false,
+}) async {
   if (const String.fromEnvironment('AUDIT_RENDER_DIR').isNotEmpty) {
     await t.runAsync(loadReviewFonts);
   }
@@ -190,12 +206,44 @@ Future<void> open(WidgetTester t, McpBridge b, bool dark) async {
     scrollable: find.byType(Scrollable).first,
   );
   await t.enterText(find.byKey(const Key('mcp-name')), 'Fixture');
-  await press(t, 'mcp-choose-program');
+  if (remote) {
+    if (b.saved?['remote'] == null) {
+      await press(t, 'mcp-transport');
+      await t.tap(find.text('Remote endpoint').last);
+      await t.pumpAndSettle();
+    }
+    await fill(
+      t,
+      'mcp-endpoint',
+      b.saved?['remote']?['endpoint'] as String? ?? 'https://example.test/mcp',
+    );
+  } else {
+    await press(t, 'mcp-choose-program');
+  }
+}
+
+Future<void> fill(WidgetTester t, String key, String text) async {
+  final target = find.byKey(Key(key));
+  if (target.evaluate().isEmpty) {
+    t.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    await t.pump();
+  }
+  await t.scrollUntilVisible(
+    target,
+    120,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await Scrollable.ensureVisible(t.element(target), alignment: .5);
+  await t.pump();
+  await t.enterText(target, text);
+  await t.pump();
 }
 
 Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
   final target = find.byKey(Key(key));
   if (target.evaluate().isEmpty) {
+    t.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    await t.pump();
     await t.scrollUntilVisible(
       target,
       120,
@@ -206,8 +254,11 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
   await t.pump();
   await t.tap(target);
   if (key == 'mcp-inspect') {
-    await t.pumpAndSettle();
-    await t.tap(find.byKey(const Key('mcp-launch-confirm')));
+    await t.pump();
+    if (find.byKey(const Key('mcp-launch-confirm')).evaluate().isNotEmpty) {
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('mcp-launch-confirm')));
+    }
   }
   if (settle) {
     await t.pumpAndSettle();
@@ -217,6 +268,123 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'Remote connection review, masked key, filter and failed save recovery ${dark ? 'dark' : 'light'}',
+      (t) async {
+        final b = McpBridge();
+        await open(t, b, dark, remote: true);
+        expect(
+          b.commands.where((c) => c['command'] == 'inspectRemoteMcp'),
+          isEmpty,
+        );
+        expect(find.byKey(const Key('mcp-program')), findsNothing);
+        await press(t, 'mcp-auth');
+        await t.tap(find.text('Bearer key').last);
+        await t.pumpAndSettle();
+        await fill(t, 'mcp-bearer', 'synthetic-remote-credential');
+        final field = t.widget<TextField>(find.byKey(const Key('mcp-bearer')));
+        expect(field.obscureText, true);
+        expect(field.enableSuggestions, false);
+        await saveReview(t, 'mcp-remote-form-${dark ? 'dark' : 'light'}');
+        await press(t, 'mcp-inspect');
+        final inspect = b.commands.lastWhere(
+          (c) => c['command'] == 'inspectRemoteMcp',
+        );
+        expect(inspect['remote'], {
+          'label': 'Fixture',
+          'endpoint': 'https://example.test/mcp',
+          'authentication': 'bearer',
+        });
+        expect(inspect['bearer'], 'synthetic-remote-credential');
+        expect(b.saved, isNull);
+        await press(t, 'mcp-tool-echo');
+        await fill(t, 'mcp-tool-search', 'second');
+        expect(find.byKey(const Key('mcp-tool-echo')), findsNothing);
+        await press(t, 'mcp-tool-second');
+        await fill(t, 'mcp-tool-search', 'not found');
+        expect(find.text('No tools match this search.'), findsOneWidget);
+        b.failSave = true;
+        await press(t, 'mcp-enable');
+        expect(find.text('Synthetic save failure'), findsOneWidget);
+        expect(b.saved, isNull);
+        expect(
+          b.commands.lastWhere((c) => c['command'] == 'enableMcp')['names'],
+          containsAll(['echo', 'second']),
+        );
+        expect(
+          b.commands
+              .lastWhere((c) => c['command'] == 'enableMcp')
+              .containsKey('bearer'),
+          false,
+        );
+        await saveReview(
+          t,
+          'mcp-remote-save-failure-${dark ? 'dark' : 'light'}',
+        );
+        b.failSave = false;
+        await press(t, 'mcp-enable');
+        expect(b.saved!['remote'], inspect['remote']);
+        expect(b.saved!.containsKey('launch'), false);
+        await press(t, 'mcp-bearer');
+        expect(
+          t
+              .widget<TextField>(find.byKey(const Key('mcp-bearer')))
+              .controller!
+              .text,
+          isEmpty,
+        );
+        await press(t, 'mcp-inspect');
+        expect(
+          b.commands.lastWhere(
+            (c) => c['command'] == 'inspectRemoteMcp',
+          )['bearer'],
+          isNull,
+        );
+        await fill(t, 'mcp-endpoint', 'https://changed.test/mcp');
+        expect(find.byKey(const Key('mcp-enable')), findsNothing);
+        expect(
+          b.commands.lastWhere(
+            (c) => c['command'] == 'discardMcpReview',
+          )['token'],
+          'review',
+        );
+        await press(t, 'mcp-inspect');
+        expect(
+          b.commands.lastWhere(
+            (c) => c['command'] == 'inspectRemoteMcp',
+          )['bearer'],
+          '',
+        );
+        expect(b.saved!['remote']['endpoint'], 'https://example.test/mcp');
+        expect(t.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets(
+    'Remote auth failure and Stop preserve saved connection and do not claim health',
+    (t) async {
+      final b = McpBridge()
+        ..failInspect =
+            'Remote MCP authentication expired. Enter the key and inspect again.';
+      await open(t, b, true, remote: true);
+      await press(t, 'mcp-inspect');
+      expect(find.textContaining('authentication expired'), findsOneWidget);
+      expect(b.saved, isNull);
+      expect(find.byKey(const Key('mcp-enable')), findsNothing);
+      b.failInspect = null;
+      b.pending = true;
+      await press(t, 'mcp-inspect', settle: false);
+      await t.pump(const Duration(milliseconds: 80));
+      await press(t, 'mcp-stop');
+      await t.pump(const Duration(milliseconds: 80));
+      await t.pumpAndSettle();
+      expect(b.cancelled, true);
+      expect(b.saved, isNull);
+      expect(find.byKey(const Key('mcp-enable')), findsNothing);
+      expect(t.takeException(), isNull);
+    },
+  );
   testWidgets(
     'isolation review shows exact grants and changing mode discards prior review',
     (t) async {
@@ -482,6 +650,52 @@ void main() {
       'Tool reported an error\n\nbad arguments',
     );
   });
+  testWidgets(
+    'Remote approval shows the exact endpoint without claiming a local launch',
+    (t) async {
+      final chat = ChatController(McpBridge())
+        ..loading = false
+        ..model = 'fixture'
+        ..workspaceRoot = 'C:/synthetic/project';
+      addTearDown(chat.dispose);
+      chat.toolApproval = {
+        'callId': 'remote',
+        'name': 'mcp_tool_1',
+        'target': 'Public remote / echo',
+        'mcp': {
+          'server': 'Public remote',
+          'tool': 'echo',
+          'revision': 2,
+          'remoteEndpoint': 'https://example.test/mcp?tenant=public',
+          'credentialNames': ['MCP_BEARER_TOKEN'],
+          'arguments': '{"text":"Public check"}',
+        },
+      };
+      await t.pumpWidget(
+        MaterialApp(
+          theme: doloresTheme(false),
+          home: Scaffold(body: ToolApprovalCard(chat: chat)),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(
+        t
+            .widget<SelectableText>(
+              find.byKey(const Key('mcp-approval-endpoint')),
+            )
+            .data,
+        'Endpoint: https://example.test/mcp?tenant=public',
+      );
+      expect(
+        find.textContaining('Contacts the reviewed remote endpoint'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Runs with your OS permissions'),
+        findsNothing,
+      );
+    },
+  );
   testWidgets(
     'External approval shows exact selectable arguments with visible one-use buttons',
     (t) async {

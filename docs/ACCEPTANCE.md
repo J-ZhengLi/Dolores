@@ -7723,3 +7723,308 @@ unchanged. No migration, silent eviction, tool grant or script execution is adde
   real-model reliability remain unqualified, and other platforms need separate
   qualification. No user configuration/history, credentials or private transcript
   was used. These fixture passes do not establish real-model competence.
+
+# EH09 remote MCP transport foundation - October 25
+
+Scope: an internal `dolores-tools-mcp::remote` client, not a new connection type
+in Settings. EH09.2/H19 stays open for reviewed persistence, secure credentials,
+OAuth, health/search controls and the connected normal-bridge journey. Existing
+stdio records, process isolation, permissions and normal app controls are unchanged.
+
+- **Protocol:** current `2026-07-28` stateless `server/discover`, per-request
+  metadata and mirrored HTTP method/name/annotated primitive headers; pinned
+  handshake/session compatibility for `2025-11-25`, `2025-06-18`, `2025-03-26`.
+  Inspection probes can fall back after an unrecognized HTTP 400 or legacy
+  method-not-found/invalid-request response; recognized modern version/header
+  errors, auth refusal, redirects and server errors never cause downgrade.
+  Business calls never negotiate or replay. No 2024 two-endpoint transport,
+  sampling/roots authority, MRTR continuation or subscription worker is added.
+- **Bounds:** one 30-second deadline across connection/discovery/call/close;
+  64 KiB per JSON/SSE message, 256 KiB cumulative received body bytes, 64 stream
+  notifications/requests and 128 client RPC requests. Catalogs retain the local
+  profile's 32 tools, four pages and 32 KiB of serialized admitted definitions;
+  arguments are objects within 4 KiB. Unsupported required task execution is
+  excluded. Invalid modern header annotations exclude only that tool and report
+  a bounded reason. No limits are raised or silently reset per request.
+- **Credentials and authority:** HTTPS endpoints, with HTTP only for explicit
+  loopback; URL user info/fragments are rejected. Bearer values are separate,
+  sensitive request headers; redirects and HTTP-client automatic retries are
+  disabled. Known credential echoes in metadata refuse admission; tool text is
+  scrubbed and credential-bearing object keys refuse. Error Debug/Display omits
+  raw bodies, endpoint strings and authentication challenges. The bounded raw
+  challenge accessor is untrusted input reserved for the later OAuth layer.
+  Calls require the exact freshly admitted definition. Failed refresh or remote
+  call clears the callable catalog; explicit inspection is required to recover.
+- **Failure/recovery evidence:** public loopback HTTP fixtures exercise modern
+  discovery/header mapping and Unicode/base64 values; legacy probe, initialized
+  notification, SSE and explicit DELETE/405 cleanup; 401/403, redirect and 503
+  refusal; changed protocol pin and expired session; stale catalog invalidation;
+  malformed/mismatched/missing result, truncated SSE, frame/wire/notification and
+  catalog count/page/byte limits; ambiguous annotation paths and duplicate names.
+  Credential metadata refuses without granting a tool, while echoed result text
+  is scrubbed. An explicit successful inspection recovers after auth refusal and
+  sends only one business call. Stop after a confirmed dispatch returns uncertain
+  effects without replay; legacy Stop notifies the exact request ID. Cancellation
+  while initialization's notification is blocked also terminates. The in-flight
+  deadline test confirms dispatch before pausing/advancing the Tokio clock; the
+  later-call test confirms earlier work does not reset the operation deadline.
+- **Checks:** `cargo test -p dolores-tools-mcp` passes **29 tests**: **17** remote
+  cases plus **12** existing stdio/credentials/isolation cases; doc tests pass.
+  Log: `D:/Temp/dolores-eh09-remote-tests.log`. Clippy for this crate and all
+  targets with warnings denied passes: `D:/Temp/dolores-eh09-remote-clippy.log`.
+  The final-source normal Windows x64 build passes using the configured VS18
+  fallback: `D:/Temp/dolores-eh09-remote-build-final.log`. Documentation links and
+  the staged publication/diff checks pass. No desktop launch was needed for this
+  internal library slice; it introduces no rendered control.
+- **Remaining gates:** no Settings connection, vault binding, OAuth/refresh,
+  searchable health controls, persisted catalog/revision or normal permission
+  receipt is claimed by this library. No real provider or external MCP service,
+  user configuration/history, credential or private transcript was used. Native
+  interaction, rendered integration and real-model reliability remain open.
+  Explicit close is bounded; dropping/cancelling a client does not guarantee
+  remote legacy-session deletion. No SSE resumption or automatic business retry
+  occurs. Later lifecycle integration must qualify cleanup and uncertain-effect
+  recovery through the host. H21 remains deferred.
+
+# EH09 remote MCP targets and approved invocation - October 25
+
+Scope: core target/preview contracts, the existing SQLite MCP catalogue and
+shared tool-plugin factory, bound bearer payloads and the approved HTTP driver.
+This is a backend slice of EH09.2, which remains open for foreground connection
+controls, OAuth, health/search and the connected normal-bridge/model journey.
+
+- **Saved targets:** each connection has exactly one local launch or remote
+  endpoint. Remote records have a bounded label, endpoint and explicit None or
+  Bearer authentication; no dummy executable, file fingerprints or command
+  isolation is accepted. Local JSON retains its old launch object and omits the
+  absent remote field; legacy identities, aliases, credential payloads and SQL
+  rows are preserved. The same table, revision CAS, four connections and two
+  active tools per folder apply across both transports. No migration or limit
+  increase is needed. URL policy is shared by core validation and HTTP transport.
+- **Bound credentials:** remote vault payloads bind a canonical working folder,
+  connection identity, exact target and bearer purpose. Saved configuration and
+  previews contain opaque references/names only. Invalid/missing/locked keys,
+  changed root/ID/endpoint/purpose and a local-format payload refuse. Known keys
+  in a connection label or URL refuse before encoding. No key is read during
+  factory construction, specification or preparation. The approved invocation
+  checks Stop before lazily starting a vault worker, and the operation deadline
+  includes that worker and subsequent HTTP work. An already running native vault
+  read itself cannot be forcibly interrupted; its result is discarded on Stop
+  and no later network action follows it.
+  Bearer values are at most 4 KiB of visible ASCII; canonical root bindings are
+  at most 4 KiB of UTF-8 and encoded vault payloads at most 16 KiB.
+- **Approval and metadata:** the shared factory routes remote targets through
+  the ordinary ToolPlugin boundary. One-use previews bind alias, connection
+  revision, endpoint and exact arguments, with no process-isolation claim.
+  Tampering, discard, replay and pre-dispatch Stop refuse without a vault read
+  or HTTP request. Invocation pins the saved protocol, rediscovers tools and
+  compares every selected definition plus server name/version before one call.
+  Changed schema/description/server identity or unavailable credentials never
+  sends `tools/call`. This driver adds no automatic negotiation, reconnect or
+  business retry. Existing outer ownership/permission/effect logging remains
+  the integration route; a GUI approval/receipt journey is not claimed here.
+- **Output and recovery:** both transports share the existing bounded text-only
+  decoder. Known bearer echoes are scrubbed by the HTTP transport. Nontext output
+  refuses. Stop after a confirmed dispatch reports possible remaining effects
+  and sends no replay. A successful text result remains usable if legacy-session
+  DELETE fails; its `cleanupWarning` explains that repeating the tool is not a
+  cleanup action. Results including warnings retain the 16 KiB encoded limit;
+  oversized/unsupported post-dispatch output explains the actual limit and asks
+  for inspection instead of repeating the operation to retrieve output. Tests
+  cover nontext, more than 8 KiB of text and JSON escaping beyond 16 KiB.
+  This does not prove remote session deletion after client drop,
+  failed connection setup or cancellation; EH09.5 retains that lifecycle gate.
+- **Deterministic evidence:** full core **113** plus **7** integration tests,
+  bridge **261 passed / one existing ignored**, SQLite **125** plus **5**
+  integration tests, MCP **35**, and doc tests pass:
+  `D:/Temp/dolores-eh09-remote-target-tests.log`. Six new MCP cases exercise real
+  public loopback HTTP through the shared prepared/invoked plugin factory and
+  bound vault fixtures. The new store case qualifies mixed capacity, stale
+  revision, injected save failure, preserved legacy bytes, invalid mixed target,
+  reopen, disable and explicit forgetting. Two core cases cover the legacy
+  shape and exclusive target/authentication contracts. Clippy across these four
+  crates/all targets with warnings denied passes:
+  `D:/Temp/dolores-eh09-remote-target-clippy.log`.
+- **Receipt-race diagnosis:** a later focused run exposed the existing stdio
+  client-response receipt assertion failing after process cleanup. Ordinary
+  sequential **30** and concurrent **48** repetitions passed, so the regression
+  fixture now deliberately delays callback consumption by 250 ms. The old
+  fixture's immediate catalog completion fails that controlled case:
+  `D:/Temp/dolores-mcp-receipt-race-pinned-red.log`. The fixture now records the
+  exact ping response and sampling refusal before releasing its catalog; missing
+  or malformed replies still fail. No production stdio behavior was changed.
+  The delayed case passes, the whole MCP suite passes **35**, and **48**
+  repetitions with eight concurrent processes pass:
+  `D:/Temp/dolores-mcp-receipt-race-fixed.log`. This replaces a scheduling
+  assumption with protocol evidence, rather than adding a sleep to assertions.
+- **Final checks:** final-source core target checks and MCP **35** pass:
+  `D:/Temp/dolores-eh09-remote-target-final-tests.log`. Workspace/all-target
+  compilation passes: `D:/Temp/dolores-eh09-remote-target-workspace-check.log`;
+  final MCP Clippy with warnings denied passes:
+  `D:/Temp/dolores-eh09-remote-target-clippy-final.log`. The normal Windows x64
+  build passes with the configured VS18 fallback:
+  `D:/Temp/dolores-eh09-remote-target-build-final.log`. Documentation/link and
+  staged diff/publication checks pass. No new control or desktop
+  interaction is introduced in this slice, so no rendered/native journey is
+  claimed. Foreground persistence/vault rollback, OAuth/refresh, searchable
+  health controls and normal-model effect/permission receipts still require
+  connected qualification. No real service/provider, user settings/history,
+  credential or private transcript was used. H21 remains deferred.
+
+# EH09 remote MCP foreground controls - October 25
+
+Scope: remote endpoint setup, optional bearer authentication, inspection/health,
+bounded catalog search, secure enablement and a normal-bridge/model tool journey.
+EH09.2 remains open for OAuth and its remaining connected recovery gates; this
+does not complete H19 or the EH09 umbrella.
+
+- **Controls:** Settings Connections supports Local program or Remote endpoint
+  for a new entry, with immutable saved type, a separate masked bearer field and
+  the existing shared connection/tool capacities. Local executable/import and
+  isolated-launch behavior remains available. Loading makes no network request
+  and shows Not checked. Inspect/Recheck reports only the latest inspection in
+  this window; it does not claim ongoing health. A changed target requires the
+  key again. Search filters reviewed names/descriptions locally, retains hidden
+  selections, offers no-match recovery and keeps the selected count in the fixed
+  Enable action. Remote approval shows the exact selectable endpoint/arguments
+  and explains external effects without claiming a local program launch.
+- **Host ownership and saving:** the existing foreground coordinator owns remote
+  inspection, poll and Stop. Its five-minute review binds session/root, exact
+  target/authentication, previous record and admitted metadata. Inspection never
+  saves a key or enables a tool. Enable sends only the token and selected names;
+  both transports use the same vault-write/configuration-CAS helper. Failed vault
+  writes/saves preserve the old connection and review, delete newly prepared
+  keys when possible, and retain the existing cleanup-failure recovery message.
+  Successful rotation retires the old key only after the new record is saved.
+  Locked Forget retains a disabled record/references for explicit retry.
+- **Backend failure evidence:** two new normal-command/poll HTTP cases exercise
+  remote inspection without saving, wrong-session refusal, locked-vault and
+  injected insert/update failure, same-review retry, saved-key reuse, actual 401
+  after expiry, successful replacement and locked Forget/retry. The other case
+  covers expiry, changed previous snapshot, cancellation after a confirmed
+  discovery dispatch and refusal to publish/save a stopped review. The local
+  three review/credential cases still pass after helper extraction.
+- **Loopback routing:** the explicit proxy probe first recorded the synthetic
+  bearer at the proxy instead of its chosen loopback peer:
+  `D:/Temp/dolores-eh09-remote-loopback-proxy-red.log`. The shared HTTP builder now
+  bypasses proxies for explicit loopback hosts, including localhost/IP forms;
+  other HTTPS targets retain the client's proxy configuration. The passing
+  regression verifies zero proxy requests, one target request and the expected
+  synthetic Authorization header at the selected peer, without changing process
+  environment or contacting an external service.
+- **Deadline admission:** a regression exposed that a timer-only async select
+  could begin a request whose operation deadline was already expired. Immediate
+  cancellation/deadline checks now precede RPC, response/notification dispatch
+  and legacy close. The existing in-flight controlled-clock/cancellation cases
+  remain intact. The expired-at-entry case passes **200** repetitions with eight
+  concurrent processes and verifies no new tool request:
+  `D:/Temp/dolores-eh09-remote-deadline-repeat.log`. Inspection shares its original
+  30-second deadline with credential resolution and cannot reset it when HTTP
+  starts. A running native vault read cannot be forcibly interrupted; its result
+  is discarded on Stop and cannot cause subsequent network work.
+- **Checks:** full bridge **263 passed / one existing ignored**, plus doc tests:
+  `D:/Temp/dolores-eh09-remote-controls-bridge-tests.log`. MCP **36** and doc tests
+  pass: `D:/Temp/dolores-eh09-remote-controls-mcp-tests.log`. Final focused bridge
+  **5** and both crates' all-target Clippy with warnings denied pass:
+  `D:/Temp/dolores-eh09-remote-controls-final-rust.log`. Flutter MCP widgets pass
+  **13**, including Light/Dark review, retained search/selection, failed save and
+  retry, blank saved-key reuse, changed endpoint, auth failure, Stop and endpoint
+  approval: `D:/Temp/dolores-eh09-remote-controls-widgets.log`. Focused Flutter
+  analysis passes.
+- **Rendered UX:** four **390 × 700** Light/Dark form/error renders under
+  `output/eh09-remote-controls/` were inspected. Keys remain masked; the failure
+  stays visible at the top and fixed actions remain reachable with Enable's
+  selected count. Local review/isolation and existing one-use approval widgets
+  also pass. Test navigation now reveals offscreen controls from the list's top
+  instead of assuming every new field lies below the current position.
+- **Connected normal bridge:**
+  `output/native-ui/eh09-remote-controls-20261025-3/mcp-remote-receipt.json` and its
+  passing process log qualify the public loopback journey through rendered
+  Connections, composer and approval controls. Loading/Enable make no extra HTTP
+  requests; inspection performs no tool effect. It preserves a selected tool
+  through a no-match filter, saves a native-vault bearer, reopens/reuses it, retains
+  the old record on 401 and refuses to forward it to a changed target. Fresh-key
+  rotation succeeds; Stop preserves the rotated record. One exact endpoint
+  approval produces **one** real MCP tool call, **two** loopback model requests,
+  the expected UTF-8 marker and a saved completed tool receipt. Neither public
+  credential appears in provider messages. Only its fixture connection is
+  disabled afterward. The first run's functional assertions passed but the
+  fixture failed teardown on a pending attention timer; explicit AppHost disposal
+  and a pump now finish before the receipt/test completes.
+- **Final qualification:** the final-source normal Windows x64 build passes
+  using the configured VS18 fallback:
+  `D:/Temp/dolores-eh09-remote-controls-build-verified.log`. The repeated native
+  journey passes against that DLL after the loopback/deadline fixes:
+  `D:/Temp/dolores-eh09-remote-controls-native-final.log`. Documentation/link and
+  staged diff/publication checks pass.
+- **Remaining scope:** OAuth sign-in/refresh and connected changed-catalog /
+  malformed-SSE recovery still require qualification before EH09.2 closes.
+  EH09.5 retains cleanup after failed setup/drop/Stop and the scheduled/child
+  lifecycle gates. Physical pointer/keyboard behavior, third-party services,
+  real-model reliability and other platforms are unqualified. No user settings,
+  history, real credential or private transcript was used. H21 stays deferred.
+
+# EH09 remote MCP OAuth protocol foundation - October 25
+
+- **Scope:** internal OAuth protocol API in `dolores-tools-mcp/src/remote/oauth/`.
+  This does not add an OAuth choice to Settings or close EH09.2. Browser opening,
+  loopback callback ownership, secure token storage/rotation, run admission and
+  foreground recovery still need their own connected Windows qualification.
+- **Basic flow:** public TCP fixtures exercise protected-resource metadata,
+  issuer metadata, native dynamic registration, a random state/verifier and S256
+  challenge, exact callback validation, code exchange and refresh. The fixture
+  independently hashes the verifier received at the token endpoint, checks the
+  authorization challenge, resource/client/redirect fields, native application
+  type and requested authorization/refresh grants. Rotation uses the new refresh
+  token; omission of a replacement retains the previous refresh token.
+- **Discovery/binding:** challenged metadata takes precedence; a challenged scope
+  can differ from the resource's advertised scopes. Scoped/root resource URLs and
+  all three path-bearing OAuth/OIDC metadata locations are exercised in order.
+  Resource mismatch, exact issuer mismatch, missing S256 and unsupported public
+  client authentication refuse before code exchange. Pre-registration cannot be
+  reused across issuers. Hosted client metadata binds exact document identity,
+  response/grant type and loopback address/path while permitting port changes;
+  only its validator is fixture-qualified, not a real hosted HTTPS document.
+- **Callback/failure recovery:** missing/changed state, duplicate parameters,
+  malformed percent encoding/UTF-8, missing required issuer and differently
+  cased/default-port/slash issuer strings refuse without token HTTP. Error
+  callbacks validate issuer first and never expose remote descriptions. Optional
+  issuer omission works only when not advertised as required. A controlled clock
+  expires the attempt after five minutes. Each exchange consumes the attempt.
+- **Tokens and Stop:** revoked refresh reports a fresh-sign-in action; malformed
+  tokens, invalid expiry, unsupported token types, oversized refresh values,
+  unexpected explicit scopes and token redirects preserve the old token object.
+  When resource metadata omits scopes, sign-in omits the scope parameter and
+  accepts the server's returned default scopes; this is distinct from silently
+  adding authority to an explicit scope request.
+  Cancellation before dispatch produces zero requests. Stop after a confirmed
+  refresh dispatch returns without replay and retains prior local tokens. The
+  server may already have rotated them: preservation is not a guarantee that the
+  old refresh remains usable, so the host must offer fresh sign-in.
+- **Network/privacy bounds:** one 30-second phase deadline; twelve requests,
+  32 KiB per JSON response and 128 KiB cumulative bytes. Controlled in-flight
+  timeout, cumulative byte/request exhaustion, malformed/oversized bodies and
+  redirect refusal pass without silent fallback/retry. Mixed-case JSON media
+  types are accepted. HTTP authorization is restricted to an HTTP loopback MCP
+  resource; external resources require HTTPS. Shared transport still bypasses
+  proxies for explicit loopback. All authentication header fields are retained
+  within a bound, including a Basic challenge preceding Bearer. Invalid,
+  oversized or known-secret-bearing fields fail parsing through a nonsecret
+  sentinel instead of selecting another field. OAuth failures contain static
+  recovery text; token/attempt containers implement neither Debug nor Serialize.
+- **Checks:** final MCP **48 passed**, including eleven OAuth cases and the new
+  combined-challenge case, plus doc tests. MCP/bridge all-target Clippy passes
+  with warnings denied: `D:/Temp/dolores-eh09-oauth-protocol-verified.log`.
+  The five existing bridge MCP review/save/reuse/rotation/Stop cases pass:
+  `D:/Temp/dolores-eh09-oauth-protocol-final.log`. The final-source normal Windows
+  x64 build passes using the configured VS18 fallback:
+  `D:/Temp/dolores-eh09-oauth-protocol-build.log`. No launch/render is required
+  for this internal layer; no available foreground authentication choice changes.
+  Documentation/link, staged diff and publication checks pass.
+- **Remaining acceptance:** native browser/callback lifetime, real vault binding,
+  atomic rotation/refresh ownership and failed-save recovery, rendered Sign in /
+  Stop / expired-login controls and their normal model/tool journey are required
+  next. Connected changed-catalog/malformed-SSE recovery and EH09.5 lifecycle
+  cleanup remain open. No real credentials, user history or third-party login
+  were used. Fixtures do not establish real-service/model reliability. H21 stays
+  deferred.

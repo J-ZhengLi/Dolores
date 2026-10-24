@@ -143,6 +143,15 @@ decision changes.
   controls under Access, and tool connections under Connections. Open skill
   management through Settings. Retain named navigation to Files, Source Control,
   Terminal and Scheduled tasks alongside Home.
+- Connections keeps Local program and Remote endpoint setup in the same bounded
+  inspector, with fixed actions and reachable Stop. Keep bearer values masked and
+  separate from names/URLs. Loading saved data does not contact a server or claim
+  current health; Inspect/Recheck displays the latest inspection result. Filter
+  reviewed tools locally, retain selections across filtering and keep the selected
+  count in Enable. Failed inspection/saving retains the usable saved connection
+  and an actionable error. Remote approvals display the exact endpoint and
+  arguments without claiming a local program launch. See the
+  [MCP contract](design/mcp-connection.md).
 - Dropdowns stay within the viewport and flip above their trigger near the bottom
   edge. They dismiss on outside interaction or Escape, support arrow keys and
   Enter, and return focus to the trigger after selection or Escape. Keep the

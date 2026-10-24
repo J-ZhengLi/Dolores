@@ -161,6 +161,7 @@ struct Engine {
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
     mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
+    mcp_remote_review: Arc<Mutex<Option<mcp::RemoteReview>>>,
     mcp_credentials: Arc<dyn CredentialStore>,
     desktop_access: desktop_control::Grants,
     computer_ownership: computer::Ownership,
@@ -609,6 +610,15 @@ enum Command {
         token: String,
         names: Vec<String>,
     },
+    InspectRemoteMcp {
+        id: u64,
+        session: String,
+        remote: dolores_core::McpRemoteTarget,
+        #[serde(default, rename = "connectionId")]
+        connection_id: String,
+        #[serde(default)]
+        bearer: Option<String>,
+    },
     DisableMcp {
         session: String,
         #[serde(default = "dolores_core::legacy_mcp_id", rename = "connectionId")]
@@ -990,6 +1000,7 @@ impl Engine {
             memory_review: Arc::new(Mutex::new(None)),
             summary_review: Arc::new(Mutex::new(None)),
             mcp_review: Arc::new(Mutex::new(None)),
+            mcp_remote_review: Arc::new(Mutex::new(None)),
             mcp_credentials: credentials,
             desktop_access: Mutex::new(Default::default()),
             desktop_boot_ms: desktop_control::now_millis(),
@@ -1585,6 +1596,13 @@ impl Engine {
                 token,
                 names,
             } => self.enable_mcp(&session, &token, names),
+            Command::InspectRemoteMcp {
+                id,
+                session,
+                remote,
+                connection_id,
+                bearer,
+            } => self.inspect_remote_mcp(&mut active, id, session, connection_id, remote, bearer),
             Command::DisableMcp {
                 session,
                 connection_id,

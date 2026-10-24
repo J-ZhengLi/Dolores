@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+mod remote;
+pub use remote::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -122,7 +124,10 @@ pub struct McpConnection {
     pub id: String,
     pub revision: u32,
     pub enabled: bool,
-    pub launch: McpLaunch,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch: Option<McpLaunch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote: Option<McpRemoteTarget>,
     pub fingerprints: Vec<McpFingerprint>,
     pub protocol_version: String,
     pub server_name: String,
@@ -136,7 +141,51 @@ pub struct McpConnection {
 }
 impl McpConnection {
     pub fn validate(&self) -> Result<(), String> {
-        self.launch.validate()?;
+        match (&self.launch, &self.remote) {
+            (Some(launch), None) => {
+                launch.validate()?;
+                if !matches!(
+                    self.protocol_version.as_str(),
+                    "2025-11-25" | "2025-06-18" | "2025-03-26" | "2024-11-05"
+                ) || self.fingerprints.is_empty()
+                    || self.fingerprints.len() > 33
+                    || self.fingerprints[0].path != launch.executable
+                    || self.fingerprints.iter().any(|f| {
+                        !std::path::Path::new(&f.path).is_absolute()
+                            || f.path.len() > 32768
+                            || f.path.contains('\0')
+                            || f.sha256.len() != 64
+                            || !f.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+                    })
+                {
+                    return Err("Saved local MCP launch or fingerprints are invalid. Inspect the server again.".into());
+                }
+            }
+            (None, Some(remote)) => {
+                remote.validate()?;
+                if self.id == "legacy"
+                    || !self.fingerprints.is_empty()
+                    || !matches!(
+                        self.protocol_version.as_str(),
+                        "2026-07-28" | "2025-11-25" | "2025-06-18" | "2025-03-26"
+                    )
+                {
+                    return Err("Saved remote MCP identity or protocol is invalid. Inspect the endpoint again.".into());
+                }
+                let names = self
+                    .credentials
+                    .iter()
+                    .map(|b| b.name.as_str())
+                    .collect::<Vec<_>>();
+                if match remote.authentication {
+                    McpRemoteAuthentication::None => !names.is_empty(),
+                    McpRemoteAuthentication::Bearer => names != [MCP_REMOTE_BEARER],
+                } {
+                    return Err("Saved remote MCP authentication does not match its credential references. Connect again.".into());
+                }
+            }
+            _ => return Err("Choose exactly one local MCP launch or remote endpoint.".into()),
+        }
         validate_mcp_credential_names(
             &self
                 .credentials
@@ -171,25 +220,11 @@ impl McpConnection {
             || self.revision == 0
             || self.tools.is_empty()
             || self.tools.len() > 2
-            || !matches!(
-                self.protocol_version.as_str(),
-                "2025-11-25" | "2025-06-18" | "2025-03-26" | "2024-11-05"
-            )
             || self.server_name.is_empty()
             || self.server_name.len() > 128
             || self.server_version.len() > 128
             || self.server_name.chars().any(char::is_control)
             || self.server_version.chars().any(char::is_control)
-            || self.fingerprints.is_empty()
-            || self.fingerprints.len() > 33
-            || self.fingerprints[0].path != self.launch.executable
-            || self.fingerprints.iter().any(|f| {
-                !std::path::Path::new(&f.path).is_absolute()
-                    || f.path.len() > 32768
-                    || f.path.contains('\0')
-                    || f.sha256.len() != 64
-                    || !f.sha256.bytes().all(|b| b.is_ascii_hexdigit())
-            })
             || self
                 .tools
                 .iter()
@@ -208,11 +243,44 @@ impl McpConnection {
         if !self.enabled {
             return vec![];
         }
-        self.tools.iter().enumerate().map(|(index, tool)| crate::ToolSpec {
-            name: if self.id == "legacy" { format!("mcp_tool_{}", index + 1) } else { format!("mcp_tool_{}_{}", self.id.replace('-', ""), index + 1) },
-            description: format!("External MCP tool {} from {}. Requires approval and starts the reviewed server. {}", tool.name, self.launch.label, tool.description),
-            parameters: tool.input_schema.clone(),
-        }).collect()
+        self.tools
+            .iter()
+            .enumerate()
+            .map(|(index, tool)| crate::ToolSpec {
+                name: if self.id == "legacy" {
+                    format!("mcp_tool_{}", index + 1)
+                } else {
+                    format!("mcp_tool_{}_{}", self.id.replace('-', ""), index + 1)
+                },
+                description: format!(
+                    "External MCP tool {} from {}. Requires approval and {}. {}",
+                    tool.name,
+                    self.label(),
+                    if self.remote.is_some() {
+                        "contacts the reviewed endpoint"
+                    } else {
+                        "starts the reviewed server"
+                    },
+                    tool.description
+                ),
+                parameters: tool.input_schema.clone(),
+            })
+            .collect()
+    }
+    pub fn local_launch(&self) -> Result<&McpLaunch, String> {
+        if self.remote.is_some() {
+            return Err("This is a remote MCP endpoint, not a local executable.".into());
+        }
+        self.launch
+            .as_ref()
+            .ok_or_else(|| "The local MCP launch is missing. Inspect the server again.".into())
+    }
+    pub fn label(&self) -> &str {
+        self.remote
+            .as_ref()
+            .map(|r| r.label.as_str())
+            .or_else(|| self.launch.as_ref().map(|l| l.label.as_str()))
+            .unwrap_or("MCP connection")
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -228,6 +296,8 @@ pub struct McpCallPreview {
     pub credential_names: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub isolation: Option<crate::CommandIsolationPreview>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_endpoint: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

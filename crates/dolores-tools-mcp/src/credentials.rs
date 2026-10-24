@@ -163,7 +163,7 @@ pub fn resolve(
         let stored: StoredCredential = serde_json::from_str(&raw).map_err(|_| VAULT_ERROR)?;
         if stored.connection_id != connection.id
             || stored.root != root.to_string_lossy()
-            || stored.launch != connection.launch
+            || &stored.launch != connection.local_launch()?
             || stored.fingerprints != connection.fingerprints
             || stored.name != binding.name
         {
@@ -172,6 +172,6 @@ pub fn resolve(
         values.push((binding.name.clone(), stored.value));
     }
     let credentials = Credentials::new(values)?;
-    credentials.validate_launch(&connection.launch)?;
+    credentials.validate_launch(connection.local_launch()?)?;
     Ok(credentials)
 }

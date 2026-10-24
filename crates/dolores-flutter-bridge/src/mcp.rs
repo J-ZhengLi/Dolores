@@ -10,6 +10,8 @@ use std::{
 };
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+mod remote;
+pub(super) use remote::RemoteReview;
 
 const STALE: &str = "MCP review expired or changed. Inspect and review the server again.";
 pub(super) struct McpReview {
@@ -33,12 +35,17 @@ impl Engine {
     }
     pub(super) fn clear_mcp_review(&self) -> Result<(), String> {
         self.mcp_review.lock().map_err(|_| STALE)?.take();
+        self.mcp_remote_review.lock().map_err(|_| STALE)?.take();
         Ok(())
     }
     pub(super) fn discard_mcp_review(&self, token: &str) -> Result<Value, String> {
         let mut slot = self.mcp_review.lock().map_err(|_| STALE)?;
         if slot.as_ref().is_some_and(|r| r.token == token) {
             slot.take();
+        }
+        let mut remote = self.mcp_remote_review.lock().map_err(|_| STALE)?;
+        if remote.as_ref().is_some_and(|r| r.token == token) {
+            remote.take();
         }
         Ok(Value::Null)
     }
@@ -76,6 +83,9 @@ impl Engine {
         }
         let all = self.store.mcp_connections(&root)?;
         let previous = all.iter().find(|c| c.id == connection_id).cloned();
+        if previous.as_ref().is_some_and(|c| c.remote.is_some()) {
+            return Err("Choose a local connection or add a new program connection.".into());
+        }
         if previous.is_none() && all.len() >= dolores_core::MAX_MCP_CONNECTIONS {
             return Err("This folder already has four MCP connections. Forget a saved server before adding another.".into());
         }
@@ -103,8 +113,8 @@ impl Engine {
                     let reuse = inputs.iter().filter(|i| i.value.is_none()).map(|i| i.name.clone()).collect::<Vec<_>>();
                     let existing = if reuse.is_empty() { Credentials::empty() } else {
                         let mut saved = saved.ok_or(credentials::VAULT_ERROR)?;
-                        if saved.launch != launch { return Err("MCP launch changed. Enter the key again before inspecting this program.".into()); }
-                        dolores_tools_mcp::verify_launch(Path::new(&check_root), &inspection_for(&saved), &token_cancel)?;
+                        if saved.local_launch()? != &launch { return Err("MCP launch changed. Enter the key again before inspecting this program.".into()); }
+                        dolores_tools_mcp::verify_launch(Path::new(&check_root), &inspection_for(&saved)?, &token_cancel)?;
                         saved.credentials.retain(|b| reuse.contains(&b.name));
                         credentials::resolve(Path::new(&check_root), &saved, vault.as_ref())?
                     };
@@ -142,6 +152,15 @@ impl Engine {
         token: &str,
         names: Vec<String>,
     ) -> Result<Value, String> {
+        let remote = self
+            .mcp_remote_review
+            .lock()
+            .map_err(|_| STALE)?
+            .as_ref()
+            .is_some_and(|r| r.token == token);
+        if remote {
+            return self.enable_remote_mcp(session, token, names);
+        }
         let mut slot = self.mcp_review.lock().map_err(|_| STALE)?;
         let review = slot.as_ref().ok_or(STALE)?;
         if review.token != token
@@ -189,7 +208,8 @@ impl Engine {
             id: review.connection_id.clone(),
             revision: 1,
             enabled: true,
-            launch: review.inspection.launch.clone(),
+            launch: Some(review.inspection.launch.clone()),
+            remote: None,
             fingerprints: review.inspection.fingerprints.clone(),
             protocol_version: review.inspection.protocol_version.clone(),
             server_name: review.inspection.server_name.clone(),
@@ -198,22 +218,6 @@ impl Engine {
             credentials: vec![],
             retired_credentials: vec![],
         };
-        dolores_core::check_mcp_capacity(&self.store.mcp_connections(&review.root)?, &proposed)?;
-        // Keep old opaque references until Forget; cleanup failures remain retryable.
-        let mut retired = review
-            .previous
-            .as_ref()
-            .map(|p| p.retired_credentials.clone())
-            .unwrap_or_default();
-        retired.retain(|id| self.mcp_credentials.delete(id).is_err());
-        if let Some(previous) = &review.previous {
-            retired.extend(previous.credentials.iter().map(|b| b.credential_id.clone()));
-        }
-        retired.sort();
-        retired.dedup();
-        if retired.len() > 32 {
-            return Err("MCP credential cleanup is pending. Unlock secure storage and retry, or Forget this connection first.".into());
-        }
         let mut prepared = vec![];
         for name in review.credentials.names() {
             let id = uuid::Uuid::new_v4().to_string();
@@ -232,52 +236,79 @@ impl Engine {
                 encoded,
             ));
         }
-        let mut bindings: Vec<McpCredentialBinding> = vec![];
+        let result = self.persist_mcp_review(
+            &review.root,
+            review.previous.as_ref(),
+            review.created,
+            proposed,
+            prepared,
+        )?;
+        slot.take();
+        Ok(result)
+    }
+    fn persist_mcp_review(
+        &self,
+        root: &str,
+        previous: Option<&McpConnection>,
+        created: Instant,
+        mut value: McpConnection,
+        prepared: Vec<(McpCredentialBinding, String)>,
+    ) -> Result<Value, String> {
+        value.credentials = prepared
+            .iter()
+            .map(|(binding, _)| binding.clone())
+            .collect();
+        value.validate()?;
+        dolores_core::check_mcp_capacity(&self.store.mcp_connections(root)?, &value)?;
+        if created.elapsed() > Duration::from_secs(300) {
+            return Err(STALE.into());
+        }
+        let mut retired = previous
+            .map(|p| p.retired_credentials.clone())
+            .unwrap_or_default();
+        retired.retain(|id| self.mcp_credentials.delete(id).is_err());
+        if let Some(previous) = previous {
+            retired.extend(previous.credentials.iter().map(|b| b.credential_id.clone()));
+        }
+        retired.sort();
+        retired.dedup();
+        if retired.len() > 32 {
+            return Err("MCP credential cleanup is pending. Unlock secure storage and retry, or Forget this connection first.".into());
+        }
+        value.retired_credentials = retired;
+        value.validate()?;
+        let mut written: Vec<String> = vec![];
         for (binding, encoded) in prepared {
-            let id = &binding.credential_id;
-            if self.mcp_credentials.write(id, &encoded).is_err() {
-                let mut cleanup_failed = self.mcp_credentials.delete(id).is_err();
-                for binding in &bindings {
-                    cleanup_failed |= self.mcp_credentials.delete(&binding.credential_id).is_err();
+            if self
+                .mcp_credentials
+                .write(&binding.credential_id, &encoded)
+                .is_err()
+            {
+                let mut failed = self.mcp_credentials.delete(&binding.credential_id).is_err();
+                for id in written {
+                    failed |= self.mcp_credentials.delete(&id).is_err();
                 }
-                if cleanup_failed {
+                if failed {
                     return Err("MCP credentials were not saved and secure storage cleanup failed. Unlock storage before retrying; unused vault entries may remain.".into());
                 }
                 return Err(credentials::VAULT_ERROR.into());
             }
-            bindings.push(binding);
+            written.push(binding.credential_id);
         }
-        let value = McpConnection {
-            id: review.connection_id.clone(),
-            revision: 1,
-            enabled: true,
-            launch: review.inspection.launch.clone(),
-            fingerprints: review.inspection.fingerprints.clone(),
-            protocol_version: review.inspection.protocol_version.clone(),
-            server_name: review.inspection.server_name.clone(),
-            server_version: review.inspection.server_version.clone(),
-            tools,
-            credentials: bindings,
-            retired_credentials: retired,
-        };
-        let persistence = if review.created.elapsed() > Duration::from_secs(300) {
+        let persistence = if created.elapsed() > Duration::from_secs(300) {
             Err(STALE.into())
         } else {
-            self.store.save_mcp_connection(
-                &review.root,
-                &value,
-                review.previous.as_ref().map(|c| c.revision),
-            )
+            self.store
+                .save_mcp_connection(root, &value, previous.map(|c| c.revision))
         };
         let saved = match persistence {
             Ok(saved) => saved,
             Err(error) => {
-                let failed = value
-                    .credentials
-                    .iter()
-                    .filter(|b| self.mcp_credentials.delete(&b.credential_id).is_err())
-                    .count();
-                if failed > 0 {
+                let mut failed = false;
+                for id in written {
+                    failed |= self.mcp_credentials.delete(&id).is_err();
+                }
+                if failed {
                     return Err("MCP configuration was not saved and secure storage cleanup failed. Unlock storage before retrying; unused vault entries may remain.".into());
                 }
                 return Err(error);
@@ -287,10 +318,9 @@ impl Engine {
         for id in &saved.retired_credentials {
             cleanup_pending |= self.mcp_credentials.delete(id).is_err();
         }
-        slot.take();
         let mut result = json!(saved);
         if cleanup_pending {
-            result["warning"] = json!("Tools enabled, but old credential cleanup is pending. Unlock storage and use Forget or inspect and enable again to retry.");
+            result["warning"]=json!("Tools enabled, but old credential cleanup is pending. Unlock storage and use Forget or inspect and enable again to retry.");
         }
         Ok(result)
     }
@@ -309,6 +339,15 @@ impl Engine {
             review.take();
         }
         drop(review);
+        {
+            let mut remote = self.mcp_remote_review.lock().map_err(|_| STALE)?;
+            if remote
+                .as_ref()
+                .is_some_and(|r| r.connection_id == connection_id)
+            {
+                remote.take();
+            }
+        }
         let root = self.mcp_root(session)?;
         let saved = self
             .store
@@ -354,15 +393,15 @@ impl Engine {
     }
 }
 
-fn inspection_for(connection: &McpConnection) -> Inspection {
-    Inspection {
-        launch: connection.launch.clone(),
+fn inspection_for(connection: &McpConnection) -> Result<Inspection, String> {
+    Ok(Inspection {
+        launch: connection.local_launch()?.clone(),
         fingerprints: connection.fingerprints.clone(),
         protocol_version: connection.protocol_version.clone(),
         server_name: connection.server_name.clone(),
         server_version: connection.server_version.clone(),
         tools: connection.tools.clone(),
-    }
+    })
 }
 
 #[cfg(test)]

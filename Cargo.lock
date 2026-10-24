@@ -665,6 +665,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
+ "url",
  "uuid",
 ]
 
@@ -838,14 +839,17 @@ name = "dolores-tools-mcp"
 version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "dolores-core",
  "dolores-tools-command",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
  "tempfile",
  "tokio",
  "tokio-util",
+ "uuid",
 ]
 
 [[package]]
