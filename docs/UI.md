@@ -72,6 +72,22 @@ decision changes.
 
 ## Layout and navigation
 
+- Keep **Attention** reachable across workspace pages. Windows notifications are
+  opt-in and carry generic status plus an opaque local target; show task titles
+  only inside Dolores. Distinguish unread/seen from accepted, suppressed, failed
+  or uncertain delivery. Opening a notice navigates to the exact current task or
+  its retained run evidence and never answers or approves. Defer a native click
+  while a modal has unsaved work. Keep errors and Refresh reachable in the fixed
+  Attention footer, with preferences and event identifiers disclosed on demand.
+
+- Offer **Search conversations** in the chat sidebar and Ctrl+K when no modal is
+  open. Search saved text locally, show bounded excerpts and exact conversation
+  actions, and keep additional workspace/pin filters collapsed initially. Pinning
+  orders search results first. Archive/unarchive changes organization only;
+  active owners, drafts, goals and queued input remain available. Keep search
+  errors and recovery actions in the fixed footer, retain previous results on
+  failure, and replace result pages rather than accumulating all history.
+
 - Put Home, Scheduled, Files, Source Control, Terminal and Settings in
   one centered floating bottom dock. Overlay it without reserving workspace
   height or resizing content. Hide after inactivity/pointer departure; reveal at

@@ -7,6 +7,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Add opt-in Windows task notifications and an in-app Attention list for saved completion, failure, review and question events. Clicks open the current task or retained evidence; delivery errors preserve the task and its decision.
+
+- Search saved conversation titles and messages, pin important chats, and archive or restore conversations without stopping tasks or clearing their drafts and queued input.
+
 - Let edited prompt branches use a reviewed managed worktree, retaining source staging, dirty files and historical receipts. Failed attachment keeps the checkout and edited draft for retry.
 
 - Remove the duplicate Library dock button; skill management remains available in Settings → Skills.

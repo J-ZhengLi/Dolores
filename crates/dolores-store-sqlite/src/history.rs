@@ -96,7 +96,8 @@ impl SqliteStore {
                 "updated_at DESC,id ASC",
             )
         };
-        let mut statement = snapshot.prepare(&format!("SELECT id,title,updated_at FROM sessions WHERE {predicate} ORDER BY {order} LIMIT ?3")).map_err(storage_error)?;
+        let visible = "NOT EXISTS(SELECT 1 FROM history_organization o WHERE o.session=sessions.id AND o.archived=1)";
+        let mut statement = snapshot.prepare(&format!("SELECT id,title,updated_at FROM sessions WHERE {visible} AND {predicate} ORDER BY {order} LIMIT ?3")).map_err(storage_error)?;
         let mut items = statement
             .query_map(
                 params![
@@ -119,12 +120,12 @@ impl SqliteStore {
             items.reverse();
         }
         let has_older = if let Some(last) = items.last() {
-            snapshot.query_row("SELECT EXISTS(SELECT 1 FROM sessions WHERE updated_at<?1 OR (updated_at=?1 AND id>?2))", params![last.updated_at,last.id], |row| row.get(0)).map_err(storage_error)?
+            snapshot.query_row(&format!("SELECT EXISTS(SELECT 1 FROM sessions WHERE {visible} AND (updated_at<?1 OR (updated_at=?1 AND id>?2)))"), params![last.updated_at,last.id], |row| row.get(0)).map_err(storage_error)?
         } else {
             false
         };
         let has_newer = if let Some(first) = items.first() {
-            snapshot.query_row("SELECT EXISTS(SELECT 1 FROM sessions WHERE updated_at>?1 OR (updated_at=?1 AND id<?2))", params![first.updated_at,first.id], |row| row.get(0)).map_err(storage_error)?
+            snapshot.query_row(&format!("SELECT EXISTS(SELECT 1 FROM sessions WHERE {visible} AND (updated_at>?1 OR (updated_at=?1 AND id<?2)))"), params![first.updated_at,first.id], |row| row.get(0)).map_err(storage_error)?
         } else {
             cursor.is_some()
         };

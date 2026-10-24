@@ -34,16 +34,22 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 46;
+pub const SCHEMA_VERSION: i64 = 48;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
 mod adaptation;
 mod attachments;
+mod attention;
+#[cfg(test)]
+mod attention_tests;
 mod companionship;
 mod drafts;
 mod experience;
 mod history_evidence;
+mod history_search;
+#[cfg(test)]
+mod history_search_tests;
 mod knowledge;
 #[cfg(test)]
 mod message_timestamp_tests;
@@ -286,6 +292,12 @@ impl SqliteStore {
                 CREATE TABLE IF NOT EXISTS prompt_branch_attachments(session TEXT NOT NULL REFERENCES prompt_branches(session) ON DELETE CASCADE,digest TEXT NOT NULL,reference TEXT NOT NULL CHECK(length(CAST(reference AS BLOB))<=1024),PRIMARY KEY(session,digest));
                 PRAGMA user_version=46;COMMIT;").map_err(storage_error)?;
         }
+        if version < 47 {
+            history_search::migrate(&connection)?;
+        }
+        if version < 48 {
+            attention::migrate(&connection)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -296,6 +308,37 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn attention(
+        &self,
+        request: &dolores_core::attention::Request,
+    ) -> Result<serde_json::Value, String> {
+        attention::call(self, request)
+    }
+    fn recover_attention(&self) -> Result<(), String> {
+        attention::recover(self)
+    }
+    fn search_history(
+        &self,
+        query: &dolores_core::history_search::Query,
+    ) -> Result<dolores_core::history_search::Page, String> {
+        history_search::search(self, query)
+    }
+    fn history_organization(
+        &self,
+        session: &str,
+    ) -> Result<dolores_core::history_search::Organization, String> {
+        history_search::read(self, session)
+    }
+    fn organize_history(
+        &self,
+        session: &str,
+        edit: &dolores_core::history_search::Organization,
+    ) -> Result<dolores_core::history_search::Organization, String> {
+        history_search::edit(self, session, edit)
+    }
+    fn rebuild_history_search(&self) -> Result<(), String> {
+        history_search::rebuild(self)
+    }
     fn prompt_branch_target(
         &self,
         parent: &str,

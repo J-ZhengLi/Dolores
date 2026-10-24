@@ -8,6 +8,7 @@ import 'history_test.dart' show HistoryBridge;
 
 class RunBridge extends HistoryBridge {
   bool inspectionFailed = false;
+  String? requested;
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
     if (command['command'] == 'runs') {
@@ -23,6 +24,7 @@ class RunBridge extends HistoryBridge {
       ];
     }
     if (command['command'] == 'runEvents') {
+      requested = command['runId'] as String;
       expect(command['session'], 'chat');
       return [
         {
@@ -38,6 +40,27 @@ class RunBridge extends HistoryBridge {
 }
 
 void main() {
+  testWidgets(
+    'attention target opens exact retained evidence outside the recent twenty runs',
+    (t) async {
+      final b = RunBridge();
+      final c = ChatController(b)
+        ..session = 'chat'
+        ..busy = true;
+      await t.pumpWidget(
+        MaterialApp(
+          home: RunHistoryInspector(chat: c, initialRun: 'older-retained-run'),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(b.requested, 'older-retained-run');
+      expect(find.text('Selected run: older-retained-run'), findsOneWidget);
+      expect(find.text('2. restart · interrupted'), findsOneWidget);
+      expect(c.busy, true);
+      await t.pumpWidget(const SizedBox());
+      c.dispose();
+    },
+  );
   testWidgets(
     'compact run inspection works during execution and explains uncertainty',
     (tester) async {

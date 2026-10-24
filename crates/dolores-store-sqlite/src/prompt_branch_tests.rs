@@ -482,7 +482,7 @@ fn version_45_migrates_without_losing_history_and_unicode_snapshot_pages_and_cap
         .unwrap()
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 46);
+    assert_eq!(version, crate::SCHEMA_VERSION);
     assert_eq!(store.saved_draft("legacy").unwrap(), "Retain legacy draft");
     assert_eq!(store.messages("legacy").unwrap().len(), 4);
     let request = Create {

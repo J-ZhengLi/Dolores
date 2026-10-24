@@ -4,15 +4,19 @@ import 'chat.dart';
 import 'inspector.dart';
 import 'command_sessions.dart';
 
-Future<void> showRunHistory(BuildContext context, ChatController chat) =>
-    showDialog<void>(
-      context: context,
-      builder: (_) => RunHistoryInspector(chat: chat),
-    );
+Future<void> showRunHistory(
+  BuildContext context,
+  ChatController chat, {
+  String? run,
+}) => showDialog<void>(
+  context: context,
+  builder: (_) => RunHistoryInspector(chat: chat, initialRun: run),
+);
 
 class RunHistoryInspector extends StatefulWidget {
   final ChatController chat;
-  const RunHistoryInspector({super.key, required this.chat});
+  final String? initialRun;
+  const RunHistoryInspector({super.key, required this.chat, this.initialRun});
   @override
   State<RunHistoryInspector> createState() => _RunHistoryInspectorState();
 }
@@ -46,6 +50,7 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
           events = [];
           selected = null;
         });
+        if (widget.initialRun != null) await select(widget.initialRun!);
       }
     } catch (failure) {
       if (mounted) {
@@ -134,6 +139,8 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),
                 if (selected != null) const Divider(),
+                if (selected != null && widget.initialRun != null)
+                  SelectableText('Selected run: $selected'),
                 if (selected != null && widget.chat.commandSessionsAvailable)
                   TextButton.icon(
                     onPressed: pending

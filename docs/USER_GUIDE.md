@@ -41,6 +41,39 @@ an over-limit selection before opening; no text is silently clipped. A side chat
 retains up to 32 return receipts. If that allowance or the parent's eight pending
 inputs is full, inspect existing work or continue in a new discussion.
 
+Use **Search conversations** in the sidebar, or Ctrl+K, to find exact text in
+saved titles and messages. Choose current, archived or all conversations; **More
+filters** narrows by workspace, working folder or pinned chats. Pinned results
+appear first. **Open conversation** opens its saved identity without sending a
+message. **Next results** replaces the page; **Search** returns to the first page.
+
+**Archive** hides a conversation from Recents while retaining its transcript,
+draft, goal and queued input. A running task continues under its existing owner.
+Find it with the archived filter and choose **Unarchive** to restore it. Deletion
+remains a separate action. Search runs locally and never sends your query or
+history to a provider. Failed searches keep prior results and typed text;
+**Rebuild search** repairs its derived index without changing saved messages.
+Queries allow 256 bytes and 50 results per page. Search has a one-second
+allowance; narrow the text/folder if it is reached. Rebuild has a 30-second
+allowance and retains the prior index on failure. Finish or stop running tasks
+before rebuilding; it never cancels a task for you.
+
+Open **Attention** above the workspace to inspect saved completion, failure,
+review and question events. Turn on **Windows task notifications** there if you
+want native alerts, then choose which event kinds to include. They run while
+Dolores is open or in the tray. Notifications contain generic status; task titles,
+prompts, answers and file paths stay inside the app. Windows can suppress an alert.
+Delivery accepted does not confirm that it was displayed or read.
+
+**Open task or evidence** navigates to the exact conversation. A current pending
+review or question stays available for your explicit response. An older notice
+opens its saved run evidence; it cannot approve an expired request or repeat an
+operation. A native click during an open dialog is deferred until that dialog is
+closed. Drafts and active tasks remain in place. Failed, suppressed or uncertain
+native delivery keeps the in-app entry; an uncertain handoff is never resent
+automatically. Refresh Attention after a local save error. Attention retains the
+latest 256 entries in 50-entry pages; older evidence remains in task run history.
+
 Use **Edit in a new branch** on a saved user message to revise an older prompt.
 The editor previews which earlier exchanges will enter the new chat. Choose
 **Share current folder**, **Managed worktree**, or **No working folder** and optionally include the

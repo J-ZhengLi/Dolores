@@ -37,8 +37,45 @@ DoloresAvailability::DoloresAvailability(HWND window,flutter::BinaryMessenger* m
     else if(call.method_name()=="restore"){Restore();result->Success();}
     else {result->NotImplemented();}
   });
+  attention_=std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(messenger,"dolores/attention",&flutter::StandardMethodCodec::GetInstance());
+  attention_->SetMethodCallHandler([this](const auto& call,auto result){
+    if(call.method_name()=="status"){result->Success(flutter::EncodableValue(true));return;}
+    if(call.method_name()!="show"){result->NotImplemented();return;}
+    const auto* args=std::get_if<flutter::EncodableMap>(call.arguments());
+    auto field=[args](const char* key)->std::string{
+      if(!args)return {};auto found=args->find(flutter::EncodableValue(key));
+      if(found==args->end())return {};const auto* text=std::get_if<std::string>(&found->second);return text?*text:std::string{};
+    };
+    const auto id=field("id"),kind=field("kind");
+    if(id.size()!=36 || id.find_first_not_of("0123456789abcdef-")!=std::string::npos){result->Error("invalid_target","Choose a retained Attention entry.");return;}
+    const wchar_t* text=nullptr;
+    if(kind=="completed")text=L"A task finished. Open Dolores to inspect its saved result.";
+    else if(kind=="failed")text=L"A task needs attention. Open Dolores to inspect its saved progress.";
+    else if(kind=="approval")text=L"A task is waiting for review. Open Dolores to inspect the current decision.";
+    else if(kind=="question")text=L"A task has a question. Open Dolores to inspect the current question.";
+    else{result->Error("invalid_kind","Choose a supported Attention entry.");return;}
+    QUERY_USER_NOTIFICATION_STATE state=QUNS_NOT_PRESENT;
+    if(FAILED(SHQueryUserNotificationState(&state))){result->Success(flutter::EncodableValue("failed"));return;}
+    if(state!=QUNS_ACCEPTS_NOTIFICATIONS){result->Success(flutter::EncodableValue("suppressed"));return;}
+    // No transcript/title/path reaches the Windows notification surface.
+    // Each icon keeps an immutable token so an old click cannot target a newer task.
+    if(notices_.size()>=8){result->Success(flutter::EncodableValue("failed"));return;}
+    NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=next_notice_++;
+    data.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;data.uCallbackMessage=kDoloresAttention;
+    data.hIcon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(IDI_APP_ICON));
+    wcscpy_s(data.szTip,L"Dolores task attention");
+    if(!Shell_NotifyIconW(NIM_ADD,&data)){result->Success(flutter::EncodableValue("failed"));return;}
+    data.uFlags=NIF_INFO|NIF_REALTIME;data.dwInfoFlags=NIIF_INFO|NIIF_RESPECT_QUIET_TIME;
+    wcscpy_s(data.szInfoTitle,L"Dolores");wcscpy_s(data.szInfo,text);
+    if(!Shell_NotifyIconW(NIM_MODIFY,&data)){Shell_NotifyIconW(NIM_DELETE,&data);result->Success(flutter::EncodableValue("failed"));return;}
+    notices_[data.uID]=id;
+    // Accepted by the Shell API does not prove visible display or a user read.
+    result->Success(flutter::EncodableValue("accepted"));
+  });
 }
 DoloresAvailability::~DoloresAvailability(){
+  attention_->SetMethodCallHandler(nullptr);
+  for(const auto& notice:notices_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=notice.first;Shell_NotifyIconW(NIM_DELETE,&data);}
   channel_->SetMethodCallHandler(nullptr);
   if(icon_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);}
 }
@@ -51,11 +88,19 @@ void DoloresAvailability::Restore(){
   if(icon_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);icon_=false;}
   channel_->InvokeMethod("restored",std::make_unique<flutter::EncodableValue>());
 }
-bool DoloresAvailability::Handle(UINT message,LPARAM lparam){
+bool DoloresAvailability::Handle(UINT message,WPARAM wparam,LPARAM lparam){
+  if(message==kDoloresAttention){
+    const auto found=notices_.find(static_cast<UINT>(wparam));if(found==notices_.end())return true;
+    const bool clicked=lparam==NIN_BALLOONUSERCLICK || lparam==WM_LBUTTONUP || lparam==WM_LBUTTONDBLCLK;
+    if(clicked || lparam==NIN_BALLOONTIMEOUT || lparam==NIN_BALLOONHIDE){
+      const auto id=found->second;NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=found->first;Shell_NotifyIconW(NIM_DELETE,&data);notices_.erase(found);
+      if(clicked){Restore();attention_->InvokeMethod("opened",std::make_unique<flutter::EncodableValue>(id));}
+    }return true;
+  }
   if(message==kDoloresQuit){Restore();channel_->InvokeMethod("quit",std::make_unique<flutter::EncodableValue>());return true;}
   if(message==kDoloresRestore){Restore();return true;}
   static const UINT taskbar=RegisterWindowMessageW(L"TaskbarCreated");
-  if(message==taskbar && icon_){icon_=false;if(!Hide())Restore();return true;}
+  if(message==taskbar){notices_.clear();if(icon_){icon_=false;if(!Hide())Restore();}return true;}
   if(message!=kDoloresTray)return false;
   if(lparam==WM_LBUTTONUP || lparam==WM_LBUTTONDBLCLK){Restore();}
   else if(lparam==WM_RBUTTONUP){

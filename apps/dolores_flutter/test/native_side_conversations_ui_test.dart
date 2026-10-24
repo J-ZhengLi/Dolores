@@ -291,6 +291,10 @@ void main() {
               'passed': true,
             }),
           );
+      await t.pumpWidget(const SizedBox());
+      host.dispose();
+      host = null;
+      await t.pump(const Duration(seconds: 2));
       expect(t.takeException(), isNull);
     },
     skip: Platform.environment['DOLORES_AUDIT_LIBRARY'] == null,

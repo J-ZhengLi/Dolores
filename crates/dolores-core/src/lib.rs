@@ -344,18 +344,45 @@ pub use harness_repair::{RepairFile, RepairWorkspace};
 mod repair_evaluation;
 pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 
+pub mod attention;
 pub mod command_sessions;
 pub mod companionship;
 pub mod context_recovery;
 #[cfg(test)]
 mod context_recovery_tests;
 pub mod goal;
+pub mod history_search;
 pub mod planning;
 pub mod prompt_branches;
 pub mod review_findings;
 pub mod scheduling;
 pub mod side_conversations;
 pub trait SessionStore: Send + Sync {
+    fn attention(&self, _: &attention::Request) -> Result<serde_json::Value, String> {
+        Err("Task attention is unavailable. Open the task to inspect its current state.".into())
+    }
+    fn recover_attention(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn search_history(&self, _: &history_search::Query) -> Result<history_search::Page, String> {
+        Err(
+            "History search is unavailable in this store. Saved conversations remain available."
+                .into(),
+        )
+    }
+    fn history_organization(&self, _: &str) -> Result<history_search::Organization, String> {
+        Ok(Default::default())
+    }
+    fn organize_history(
+        &self,
+        _: &str,
+        _: &history_search::Organization,
+    ) -> Result<history_search::Organization, String> {
+        Err("History organization is unavailable in this store.".into())
+    }
+    fn rebuild_history_search(&self) -> Result<(), String> {
+        Err("History search rebuild is unavailable in this store.".into())
+    }
     fn prompt_branch_target(
         &self,
         _: &str,

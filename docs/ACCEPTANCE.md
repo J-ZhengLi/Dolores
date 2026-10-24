@@ -7358,6 +7358,102 @@ No model credentials, provider request, native interaction or profile mutation
 is needed. Existing published tags are retained: rerunning the old alpha tag
 still checks its old code; release the corrected commit under a new version tag.
 
+## EH08 task attention and notifications - October 24
+
+Seven focused attention storage tests pass within the full 108 core
+and 119 SQLite suites (plus seven/five integration tests): opt-out/dedup,
+stale decisions, delayed-question suppression, failed save rollback independent
+of completed task results, claimed/uncertain delivery, real reopen/migration,
+preference revision checks and bounded retention/paging. Existing runs are
+baselined on migration rather than notifying about old history. Source cursors
+are committed with derived notices; failed saves retain the cursor for retry.
+Claims are one-use; restart marks unfinished handoffs uncertain without resend.
+
+The bridge question fixture passes: opening resolves only the currently waiting
+question and cannot answer it, approve a tool, restart work or revive an older
+decision after a later request. Attention/AppHost/workspace widget checks pass.
+Full Flutter passes 592 tests with seventeen opt-in native skips. Seven focused
+Attention/run-history tests include direct navigation to a retained run outside
+the recent twenty and disposal during pending native availability. The latter
+first reproduced a notification sent after disposal; the fix prevents later
+claims/timers while preserving a handoff receipt already in flight.
+Opening a retained entry also updates the unread badge only after the Seen save
+succeeds; its focused regression first reproduced the stale badge and now passes.
+
+The final normal Windows build passes with the compiled notification adapter.
+The owned native diagnostic at output/native-attention/20261024-final/
+compiles the actual runner/channel code with injected Shell outcomes and checks
+quiet-time suppression, failed add/modify, immutable identities, distinct
+question/review notices, exact click routing, duplicate callback refusal and
+timeout cleanup. Actual OS notification policy query and owned icon registration/
+removal also pass. No balloon is sent by this diagnostic; it does not establish
+visible display or a physical click. Windows acceptance is reported separately
+from API handoff, and in-app entries remain available on suppressed/failed or
+uncertain delivery. The first rendered/native live-question run reached completed
+evidence but timed out on a fixture wait outside real asynchronous execution;
+its database retains one question and completion, with no duplicate effects.
+That diagnostic is not a passed native journey. The corrected journey passes at
+output/native-ui/attention-20261024-cleanup/: a live question opens without an
+answer, its explicit answer completes with exactly two provider requests, an old
+question notice opens completed evidence, and another chat's Unicode draft
+remains. The fixture pumps asynchronous dialog completion and disposes its owner
+before Flutter's timer invariant; earlier wait/cleanup failures remain diagnostic.
+The combined rerun exposed the same older fixture cleanup omission in branch and
+side-chat tests, and a history fixture that sent its next message before the
+previous refresh released `changing`. Their assertions now wait for admission
+and dispose their owned hosts before Flutter checks timers; no task deadline or
+production retry policy was expanded.
+
+Final compact Light/Dark captures at output/design/eh08-attention-qualified/
+were inspected; failed polling retains its entries and a reachable Refresh action.
+Formatting, Flutter analysis and warnings-denied Clippy pass. This is local
+Windows/native-boundary qualification, not a clean-machine release, a physical
+notification display/click check, or general real-model reliability.
+Complete Rust suites pass 108 core/248 bridge/119 SQLite tests, one existing
+ignored bridge test, and seven/five core/SQLite integration tests.
+The final normal build including the unread-badge fix passes. Five combined
+native UI journeys pass in 21 seconds at output/native-ui/eh08-20261024-admission/:
+attention, history search, edited-prompt branches, linked side chats and queue/
+steering. The history fixture now waits for `changing` to release before Send;
+branch/side owners are disposed explicitly. No user profile or external model
+was used. EH08.2/EH08.3 pass the declared local gates with the display/physical
+click and release qualification limits above retained explicitly.
+
+## EH08 history search and organization - October 24
+
+EH08.1 passes its declared gates. Six focused SQLite cases cover literal
+English/Chinese/punctuation and short Unicode queries, tied 111-result paging,
+query-bound cursors, workspace filters, pin/archive/restore, stale/failed saves,
+atomic failed-turn indexing, older-profile backfill and interrupted search/index
+rebuild. Draft, goal and queued input remain unchanged. Full suites pass 108
+core/112 SQLite tests plus seven/five integration tests. The focused host case
+confirms active ownership survives archive and refuses rebuild until idle.
+
+Five search widgets pass, including Ctrl+K/modal preservation, page replacement,
+exact navigation, failed rebuild/stale edits and compact Light/Dark layouts.
+Full Flutter passes 587 tests with sixteen opt-in native skips. Formatting,
+analysis and warnings-denied Clippy pass. Light search and Dark recovery captures
+under output/design/eh08-search-final/ were inspected. Fixture render fonts
+lack the Chinese sample glyphs; these captures qualify layout, not Windows CJK.
+
+The final normal Windows build passes. Four combined native journeys pass in
+18 seconds at output/native-ui/history-search-20261024-admission/: history,
+edited branches, linked side chats and queue/steer. History uses three public
+loopback provider requests, finds Chinese text in a saved answer, pins and
+archives/restores the exact chat, preserves drafts/input, and archives/restores
+an independently running owner without cancelling it. Rebuild refuses while
+that response is owned, then succeeds after completion; the same saved answer
+remains searchable. No user profile, external model or physical desktop used.
+Earlier diagnostics corrected the fixture server's UTF-8 charset and ensured
+an active task had saved searchable history; those failures are not acceptance.
+
+The 1,000-turn public corpus finishes three indexed/short Unicode searches in
+about 2 ms locally. The host command worker uses a one-second SQLite search
+budget; rebuild/backfill has 30 seconds. Rebuild is idle-only and holds admission
+until complete, preserving prior index/history on interruption. These fixtures
+do not qualify arbitrary huge profiles or disk pressure. Windows notifications
+and stale-click routing were subsequently delivered in EH08.2/EH08.3 above.
+
 ## EH07 managed-worktree prompt branches - October 24
 
 Eight focused SQLite prompt-branch cases pass, including stale revision,

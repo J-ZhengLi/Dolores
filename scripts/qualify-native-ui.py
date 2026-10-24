@@ -32,6 +32,8 @@ def main():
         'side-conversations': ('test/native_side_conversations_ui_test.dart', 'side-conversations-receipt.json'),
         'prompt-branches': ('test/native_prompt_branches_ui_test.dart', 'prompt-branches-receipt.json'),
         'managed-prompt-branches': ('test/native_managed_prompt_branches_ui_test.dart', 'prompt-managed-branches-receipt.json'),
+        'history-search': ('test/native_history_search_ui_test.dart', 'history-search-receipt.json'),
+        'attention': ('test/native_attention_ui_test.dart', 'attention-receipt.json'),
     }
     parser.add_argument('--case', action='append', choices=cases, help='Run selected journeys; default: all.')
     args = parser.parse_args()

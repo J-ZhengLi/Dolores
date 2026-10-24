@@ -4,6 +4,7 @@ mod adaptation;
 mod adaptation_tests;
 mod approval;
 mod attachments;
+mod attention;
 mod automatic_memory;
 mod browser;
 mod changes;
@@ -32,6 +33,7 @@ mod export;
 mod git_process;
 mod goals;
 mod harness_repair;
+mod history_search;
 mod instructions;
 mod introspection;
 mod knowledge;
@@ -224,6 +226,12 @@ enum Command {
     SideConversation {
         session: String,
         request: side_conversations::Request,
+    },
+    Attention {
+        request: dolores_core::attention::Request,
+    },
+    History {
+        request: history_search::Request,
     },
     PromptBranch {
         session: String,
@@ -936,6 +944,9 @@ impl Engine {
         store.recover_goals()?;
         store.recover_command_sessions()?;
         store.recover_worktrees()?;
+        // Attention delivery is not an execution prerequisite. Claimed records
+        // remain non-replayable even if recovery cannot update their label.
+        let _ = store.recover_attention();
         let _ = store.recover_mod_activations();
         {
             let _entered = runtime.enter();
@@ -1024,6 +1035,10 @@ impl Engine {
                     | Command::Goal { .. }
                     | Command::Planning { .. }
                     | Command::ReferencePreview { .. }
+                    | Command::History {
+                        request: history_search::Request::Search { .. }
+                            | history_search::Request::Organization { .. },
+                    }
                     | Command::PromptBranch {
                         request: prompt_branches::Request::Info
                             | prompt_branches::Request::Preview { .. }
@@ -1049,6 +1064,16 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::Attention{request}=>return self.attention_call(request,&active),
+            Command::History{request}=>{
+                if matches!(request,history_search::Request::Rebuild) {
+                    if active.is_some() {return Err("Finish or stop running tasks before rebuilding search. The current index, history and task owners remain available.".into());}
+                    // Keep admission closed through idle-only index maintenance;
+                    // no response can start behind its database lock.
+                    return self.history_call(request);
+                }
+                drop(active);return self.history_call(request);
+            },
             Command::Worktrees {session,request}=>return self.worktree_call(&session,request,&active),
             Command::PromptBranch {session,request}=>return self.prompt_branch_call(&session,request,&active),
             Command::SessionControl {session,request}=>{drop(active);return self.command_session_call(&session,request);},
@@ -1687,7 +1712,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"sideConversations":true,"promptBranches":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"sideConversations":true,"promptBranches":true,"historySearch":true,"attention":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),

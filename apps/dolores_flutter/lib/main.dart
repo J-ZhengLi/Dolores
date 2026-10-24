@@ -7,10 +7,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 
 import 'bridge.dart';
 import 'chat.dart';
+import 'history_search.dart';
 import 'composer_controller.dart';
 import 'reply_content.dart';
 import 'message_frame.dart';
@@ -92,35 +94,50 @@ class DoloresApp extends StatelessWidget {
             'dark' => ThemeMode.dark,
             _ => ThemeMode.system,
           },
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          disableAnimations:
-              MediaQuery.of(context).disableAnimations ||
-              (host?.visible ?? chat).reducedMotion.value,
-        ),
-        child: RepaintBoundary(
-          key: captureKey,
-          child: desktopFrame
-              ? DesktopFrame(
-                  onTogglePanel: host?.togglePanel,
-                  onBeforeClose: host?.requestClose,
-                  onOpenSettings: () async {
-                    final navigator = GlobalObjectKey<NavigatorState>(
-                      host ?? chat,
-                    ).currentState;
-                    // Keep the current modal/review and its unsaved work in place.
-                    if (navigator == null || navigator.canPop()) return;
-                    final settingsContext = navigator.overlay?.context;
-                    if (settingsContext != null) {
-                      await showSettings(
-                        settingsContext,
-                        host?.visible ?? chat,
-                      );
-                    }
-                  },
-                  child: child!,
-                )
-              : child!,
+      builder: (context, child) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+            final navigator = GlobalObjectKey<NavigatorState>(host ?? chat)
+                .currentState;
+            final owner = host?.visible ?? chat;
+            if (navigator != null &&
+                !navigator.canPop() &&
+                owner.historySearchAvailable) {
+              final overlay = navigator.overlay?.context;
+              if (overlay != null) unawaited(showHistorySearch(overlay, owner));
+            }
+          },
+        },
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            disableAnimations:
+                MediaQuery.of(context).disableAnimations ||
+                (host?.visible ?? chat).reducedMotion.value,
+          ),
+          child: RepaintBoundary(
+            key: captureKey,
+            child: desktopFrame
+                ? DesktopFrame(
+                    onTogglePanel: host?.togglePanel,
+                    onBeforeClose: host?.requestClose,
+                    onOpenSettings: () async {
+                      final navigator = GlobalObjectKey<NavigatorState>(
+                        host ?? chat,
+                      ).currentState;
+                      // Keep the current modal/review and its unsaved work in place.
+                      if (navigator == null || navigator.canPop()) return;
+                      final settingsContext = navigator.overlay?.context;
+                      if (settingsContext != null) {
+                        await showSettings(
+                          settingsContext,
+                          host?.visible ?? chat,
+                        );
+                      }
+                    },
+                    child: child!,
+                  )
+                : child!,
+          ),
         ),
       ),
       home: host == null

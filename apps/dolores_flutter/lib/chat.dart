@@ -87,6 +87,8 @@ class ChatController extends ChangeNotifier {
   String? sideConversationError;
   bool sideConversationsAvailable = false;
   bool promptBranchesAvailable = false;
+  bool historySearchAvailable = false;
+  bool attentionAvailable = false;
   Map<String, dynamic>? promptBranch;
   String? promptBranchError;
 
@@ -1248,6 +1250,8 @@ class ChatController extends ChangeNotifier {
     worktreesAvailable = state['worktrees'] == true;
     sideConversationsAvailable = state['sideConversations'] == true;
     promptBranchesAvailable = state['promptBranches'] == true;
+    historySearchAvailable = state['historySearch'] == true;
+    attentionAvailable = state['attention'] == true;
     goalsAvailable = state['goals'] == true;
     planningAvailable = state['planning'] == true;
     attachmentsAvailable = state['attachments'] == true;

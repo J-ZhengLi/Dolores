@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
 import 'chat.dart';
+import 'history_search.dart';
 import 'theme.dart';
 
 class ChatSidebar extends StatefulWidget {
@@ -194,32 +195,42 @@ class _ChatSidebarState extends State<ChatSidebar> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (widget.showBrand) Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 0, 16),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.all_inclusive_rounded,
-                      size: 27,
-                      color: p.accent,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Dolores',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -.8,
-                          color: p.text,
+              if (widget.showBrand)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 0, 16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.all_inclusive_rounded,
+                        size: 27,
+                        color: p.accent,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Dolores',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -.8,
+                            color: p.text,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              if (chat.historySearchAvailable)
+                TextButton.icon(
+                  key: const Key('search-conversations'),
+                  onPressed: chat.loading || chat.changing
+                      ? null
+                      : () => showHistorySearch(context, chat),
+                  icon: const Icon(Icons.search, size: 18),
+                  label: const Text('Search conversations'),
+                ),
               Row(
                 children: [
                   Expanded(

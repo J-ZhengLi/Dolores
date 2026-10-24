@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'attention_host.dart';
+
 import 'package:flutter/foundation.dart';
 
 import 'chat.dart';
@@ -15,6 +17,16 @@ import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier {
+  Future<bool> Function(Map<String, dynamic>)? presentAttention;
+  final AttentionWindow? attentionWindow;
+  late final attention = AttentionHost(
+    initial.bridge,
+    window: attentionWindow,
+    onOpen: (target) async {
+      if (presentAttention == null) return false;
+      return presentAttention!(target);
+    },
+  );
   final _scheduledOwners = <ChatController>{};
   bool quitting = false;
   Future<void> Function()? destroyWindow;
@@ -215,7 +227,7 @@ class AppHost extends ChangeNotifier {
   }
 
   static const maxOwners = 8;
-  AppHost(this.initial) {
+  AppHost(this.initial, {this.attentionWindow}) {
     git.afterReviewSubmission = (session) async {
       final owner = owners.where((c) => c.session == session).firstOrNull;
       if (owner != null) {
@@ -267,6 +279,7 @@ class AppHost extends ChangeNotifier {
     visible = initial;
     _appearance = initial.appearance;
     _add(initial);
+    if (initial.attentionAvailable) attention.observe('startup');
     unawaited(scheduled.refresh());
     unawaited(companion.refresh());
     unawaited(background.refresh());
@@ -321,6 +334,16 @@ class AppHost extends ChangeNotifier {
   }
 
   void _changed() {
+    if (initial.attentionAvailable) {
+      attention.observe(
+        owners
+            .map(
+              (c) =>
+                  '${c.session}:${c.busy}:${c.toolApproval?['callId']}:${c.userQuestion?['callId']}',
+            )
+            .join('|'),
+      );
+    }
     if (owners.any((c) => _settings[c] != c.settingsRevision)) {
       for (final c in owners) {
         _settings[c] = c.settingsRevision;
@@ -483,6 +506,7 @@ class AppHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    attention.dispose();
     scheduled.dispose();
     background.dispose();
     companion.dispose();

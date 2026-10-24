@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'attention_panel.dart';
+import 'run_history.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -73,6 +76,48 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
     host.addListener(changed);
     host.closeReview = requestClose;
+    host.presentAttention = (target) async {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
+      await host.visible.checkpointDraft();
+      final session = target['notice']['session'] as String;
+      await host.select(session);
+      if (host.visible.session != session) {
+        throw StateError(
+          host.error ?? 'The target conversation is unavailable.',
+        );
+      }
+      if (!mounted) return false;
+      selectPage(WorkspacePage.home);
+      if (target['liveDecision'] != true) {
+        await showDialog<void>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Saved task evidence'),
+            content: SelectableText(
+              'This notification refers to a saved event. Current run state: ${target['currentState']}.\nRun ${target['notice']['run']} · event ${target['notice']['sequence']}\n${target['note']}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('Open conversation'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(c);
+                  await showRunHistory(
+                    context,
+                    host.visible,
+                    run: target['notice']['run'] as String,
+                  );
+                },
+                child: const Text('Inspect run history'),
+              ),
+            ],
+          ),
+        );
+      }
+      return true;
+    };
     host.repositoryNavigation = (path) async {
       setState(() => page = WorkspacePage.sourceControl);
       await host.git.bind(host.visible.session, host.projectRoot);
@@ -173,6 +218,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     HardwareKeyboard.instance.removeHandler(handleDockShortcut);
     panelFocus.dispose();
     host.closeReview = null;
+    host.presentAttention = null;
     host.repositoryNavigation = null;
     host.removeListener(changed);
     super.dispose();
@@ -515,6 +561,29 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                         child: const Text('Dismiss'),
                       ),
                     ],
+                  ),
+                if (host.visible.attentionAvailable)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: AnimatedBuilder(
+                      animation: host.attention,
+                      builder: (context, _) => TextButton.icon(
+                        key: const Key('task-attention'),
+                        onPressed: () => showAttention(context, host.attention),
+                        icon: Badge(
+                          isLabelVisible:
+                              host.attention.unread > 0 ||
+                              host.attention.error != null,
+                          label: Text(
+                            host.attention.error != null
+                                ? '!'
+                                : '${host.attention.unread}',
+                          ),
+                          child: const Icon(Icons.notifications_none, size: 18),
+                        ),
+                        label: const Text('Attention'),
+                      ),
+                    ),
                   ),
                 if (host.tasks.isNotEmpty)
                   SizedBox(
