@@ -357,6 +357,7 @@ pub mod prompt_branches;
 pub mod review_findings;
 pub mod scheduling;
 pub mod side_conversations;
+pub mod skill_packages;
 pub trait SessionStore: Send + Sync {
     fn attention(&self, _: &attention::Request) -> Result<serde_json::Value, String> {
         Err("Task attention is unavailable. Open the task to inspect its current state.".into())
@@ -941,6 +942,38 @@ pub trait SessionStore: Send + Sync {
     }
     fn global_skills(&self) -> Result<Vec<ProjectSkill>, String> {
         Ok(vec![])
+    }
+    fn installed_skill_packages(&self, _: &str) -> Result<Vec<skill_packages::Installed>, String> {
+        Ok(vec![])
+    }
+    fn retain_skill_package(&self, _: &str, _: &skill_packages::Installed) -> Result<(), String> {
+        Err("Package storage is unavailable.".into())
+    }
+    fn forget_skill_package(&self, _: &str, _: &str) -> Result<(), String> {
+        Err("Package storage is unavailable.".into())
+    }
+    fn forget_skill_package_version(
+        &self,
+        _: &str,
+        _: &str,
+        _: u32,
+        _: u32,
+        _: &str,
+    ) -> Result<ProjectSkill, String> {
+        Err("Forgetting older package activations is unavailable in this store. Current skills and files remain.".into())
+    }
+    fn skill_package_referenced(&self, _: &str) -> Result<bool, String> {
+        Err("Package references are unavailable. Retained files were preserved.".into())
+    }
+    fn activate_skill_package(
+        &self,
+        _: &str,
+        _: &SkillDocument,
+        _: &skill_packages::Snapshot,
+        _: Option<u32>,
+        _: Option<u32>,
+    ) -> Result<ProjectSkill, String> {
+        Err("Package activation is unavailable.".into())
     }
     fn activate_global_skill(
         &self,

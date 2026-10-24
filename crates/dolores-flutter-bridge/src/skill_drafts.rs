@@ -83,6 +83,7 @@ fn candidate_skills(
         revision: 1,
         enabled: true,
         versions: vec![dolores_core::SkillVersion {
+            package: None,
             version: 1,
             reviewed_at: 0,
             document: draft.clone(),

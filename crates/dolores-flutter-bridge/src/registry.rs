@@ -145,6 +145,16 @@ impl Engine {
             vec![],
         )?;
         add(
+            "skills/packages",
+            true,
+            self.workspace_directory
+                .as_ref()
+                .and_then(|p| p.parent())
+                .is_some(),
+            vec!["verified-selected-package-read".into()],
+            vec!["read_skill_resource".into()],
+        )?;
+        add(
             "learning/preferences",
             self.store.automatic_memory_policy()?.enabled,
             configured,

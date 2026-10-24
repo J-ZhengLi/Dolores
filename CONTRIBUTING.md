@@ -44,6 +44,16 @@ submits selected feedback through the ordinary queue, applies one reviewed
 exact-text tool edit, preserves the source draft/index and resolves the finding
 against a later comparison. It establishes the rendered/native bridge flow,
 not real-model reliability or physical Windows pointer/keyboard behavior.
+The `--case skill-packages` journey installs public ZIP fixtures in Project and
+Global scope, activates/updates/rolls back through rendered controls, exports exact
+archives after payload damage, selects the snapshot with `/`, and sends verified
+text and binary metadata through normal reviewed tools to a loopback provider.
+Chooser paths are injected; this case does not qualify physical file dialogs or
+real-model reliability. It disables only its own fixture activations afterward.
+It also reaches five distinct installed packages, refuses a sixth, then confirms
+forgetting an older activation and removing its unused installation. Both scopes
+retry and activate the sixth package while preserving the current fifth package
+throughout recovery; source ZIPs and the skill record are retained.
 The initial case covers workspace instruction review/stale-source recovery and
 Memory Off/Forget and conversation deletion with retained files/other chats. A
 second serial case covers scheduled failure, explicit Run now and confirmed

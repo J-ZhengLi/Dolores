@@ -8,6 +8,7 @@ import 'chat.dart';
 import 'inspector.dart';
 import 'skill_draft.dart';
 import 'theme.dart';
+import 'skill_packages.dart';
 
 Future<void> showSkills(
   BuildContext context,
@@ -48,6 +49,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   Map<String, dynamic>? catalog, review;
   String? error, notice;
   bool busy = false;
+  bool packages = false;
   late String scope;
   final _scroll = ScrollController();
   Future<dynamic> _call(
@@ -218,6 +220,18 @@ class _SkillsInspectorState extends State<SkillsInspector> {
 
   @override
   Widget build(BuildContext context) {
+    if (packages) {
+      return SkillPackages(
+        bridge: widget.bridge,
+        session: widget.session,
+        initialScope: scope,
+        hasProject: widget.hasProject,
+        onBack: () {
+          setState(() => packages = false);
+          _list();
+        },
+      );
+    }
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     final document = review?['document'] as Map?;
     final items = catalog?['items'] as List? ?? [];
@@ -276,7 +290,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     title: const Text('Limits and resources'),
                     children: [
                       Text(
-                        'Active skills use saved versions. File changes wait for a new review. Project skills override active global skills with the same name. Up to 3 active skills and 8 KiB per scope; 5 recent versions per skill. References and scripts require approved tools within the working folder; global resources outside it are unavailable.',
+                        'Active skills use saved versions. File changes wait for a new review. Project skills override active global skills with the same name. Up to 3 active skills and 8 KiB per scope; 5 recent versions per skill. Installed packages offer verified resource reads, including global packages. Other references and script execution require separately approved tools.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                     ],
@@ -462,6 +476,14 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                 runSpacing: 8,
                 children: [
                   if (review == null) ...[
+                    TextButton.icon(
+                      key: const Key('skill-packages'),
+                      onPressed: busy
+                          ? null
+                          : () => setState(() => packages = true),
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      label: const Text('Packages'),
+                    ),
                     TextButton.icon(
                       key: const Key('import-skill'),
                       onPressed: busy ? null : () => _create(true),

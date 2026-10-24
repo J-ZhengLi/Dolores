@@ -298,9 +298,12 @@ class ContextInspector extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           HelpLabel(
-            help: 'Latest uncovered complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved; summary coverage is counted separately from turns left out. Token counts are approximate; your provider may count differently.',
+            help:
+                'Latest uncovered complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved; summary coverage is counted separately from turns left out. Token counts are approximate; your provider may count differently.',
             child: Text(
-              limit == null ? 'Set a context window in Models' : 'How context is selected',
+              limit == null
+                  ? 'Set a context window in Models'
+                  : 'How context is selected',
               style: TextStyle(color: p.muted, fontSize: 12),
             ),
           ),
@@ -348,6 +351,23 @@ class ContextInspector extends StatelessWidget {
               ],
               color: colors[0],
             ),
+          for (final skill in report['skills'] as List? ?? [])
+            if (skill['package'] is Map)
+              ExpansionTile(
+                title: Text('${skill['name']} · package resources'),
+                subtitle: Text(
+                  skill['scope'] == 'global' ? 'All projects' : 'This project',
+                ),
+                childrenPadding: const EdgeInsets.all(12),
+                children: [
+                  const Text(
+                    'Verified reads use this selected snapshot. Assets stay outside the prompt; scripts require separate execution permission.',
+                  ),
+                  SelectableText(
+                    'Archive: ${skill['package']['id']}\nContent: ${skill['package']['contentDigest']}\nResource base: ${skill['package']['root']}',
+                  ),
+                ],
+              ),
           if (report['sessionSummary'] is Map)
             _ContextGroup(
               label: 'Session summary',

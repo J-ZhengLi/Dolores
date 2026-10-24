@@ -807,7 +807,15 @@ class ChatController extends ChangeNotifier {
       steer,
       text,
       selectedSkills
-          .map((s) => [s['scope'], s['name'], s['revision'], s['version']])
+          .map(
+            (s) => [
+              s['scope'],
+              s['name'],
+              s['revision'],
+              s['version'],
+              s['packageId'],
+            ],
+          )
           .toList(),
     ]);
     if (_inputSubmissionId == null || _inputSubmissionText != submission) {

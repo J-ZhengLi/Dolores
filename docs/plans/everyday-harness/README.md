@@ -19,7 +19,7 @@ deferred. Historical roadmap milestone numbers are independent.
 | [EH06](eh06.md) | managed task worktrees | H09 | EH03, EH05 | Complete; bounded Windows lifecycle qualified | `42419c3` and EH06 delivery notes |
 | [EH07](eh07.md) | review, side conversations, and edited prompts | H10, H11, H14 | EH04, EH06 | Complete; review, side chats and explicit shared/managed edited branches verified | See EH07 delivery notes |
 | [EH08](eh08.md) | history and attention | H12, H13 | EH03, EH07 | Complete; search, organization and retained attention under declared Windows bounds | `b71fe68` and EH08 delivery notes |
-| [EH09](eh09.md) | workflows, connectors, hooks, and subagents | H15, H18, H19, H20 | EH04, EH05, EH08 | Pending | — |
+| [EH09](eh09.md) | workflows, connectors, hooks, and subagents | H15, H18, H19, H20 | EH04, EH05, EH08 | In progress; EH09.1 complete, remote MCP next | See EH09 delivery notes |
 | [EH10](eh10.md) | integrated qualification and release readiness | Cross-feature acceptance | EH01–EH09 | Pending | — |
 
 ## Working policy

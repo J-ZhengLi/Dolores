@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 iana-time-zone = "0.1"
 async-trait.workspace = true
 tempfile = "3"
+cap-std = "4"
 dolores-core = { path = "../dolores-core" }
 dolores-native-update = { path = "../dolores-native-update" }
 dolores-mod-runtime = { path = "../dolores-mod-runtime" }

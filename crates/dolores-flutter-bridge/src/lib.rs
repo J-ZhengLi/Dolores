@@ -65,6 +65,7 @@ mod scheduling;
 mod settings;
 mod side_conversations;
 mod skill_drafts;
+pub mod skill_packages;
 mod skills;
 mod source_control;
 mod subagents;
@@ -109,6 +110,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    skill_resources: Option<Arc<skill_packages::resources::Reader>>,
     command_sessions: Option<Arc<command_sessions::Live>>,
     plan_execution: bool,
     planning: dolores_core::planning::PlanningState,
@@ -153,6 +155,7 @@ struct Engine {
     revert: Mutex<Option<changes::PendingRevert>>,
     instruction_review: Mutex<Option<instructions::PendingInstructions>>,
     skill_review: Mutex<Option<skills::SkillReview>>,
+    package_review: Mutex<Option<skill_packages::Review>>,
     skill_draft_review: Arc<Mutex<Option<skill_drafts::DraftReview>>>,
     global_skills_directory: Option<PathBuf>,
     memory_review: Arc<Mutex<Option<memory_suggestions::MemoryReview>>>,
@@ -229,6 +232,13 @@ enum Command {
     },
     Attention {
         request: dolores_core::attention::Request,
+    },
+    SkillPackages {
+        #[serde(default)]
+        session: String,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
+        request: skill_packages::Request,
     },
     History {
         request: history_search::Request,
@@ -974,6 +984,7 @@ impl Engine {
             revert: Mutex::new(None),
             instruction_review: Mutex::new(None),
             skill_review: Mutex::new(None),
+            package_review: Mutex::new(None),
             skill_draft_review: Arc::new(Mutex::new(None)),
             global_skills_directory: None,
             memory_review: Arc::new(Mutex::new(None)),
@@ -1064,6 +1075,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::SkillPackages{session,scope,request}=>return self.package_call(&session,scope,request,&active),
             Command::Attention{request}=>return self.attention_call(request,&active),
             Command::History{request}=>{
                 if matches!(request,history_search::Request::Rebuild) {
@@ -1806,6 +1818,17 @@ impl Engine {
                 } else {
                     vec![]
                 };
+                if self
+                    .workspace_directory
+                    .as_ref()
+                    .and_then(|p| p.parent())
+                    .is_some()
+                    && dolores_core::effective_skills(&skills)
+                        .iter()
+                        .any(|s| s.current().package.is_some())
+                {
+                    specs.push(skill_packages::resources::spec());
+                }
                 if tools {
                     specs.push(dolores_tools_command::command_spec());
                     if cfg!(windows) {
@@ -2523,6 +2546,25 @@ impl Engine {
                 } else {
                     None
                 };
+                let package_candidates = if let Some(o) = &scheduled {
+                    o.snapshot.skill.clone().into_iter().collect()
+                } else {
+                    skills::for_session(self.store.as_ref(), session.as_deref())?
+                };
+                let skill_resources = self
+                    .workspace_directory
+                    .as_ref()
+                    .and_then(|p| p.parent())
+                    .filter(|_| {
+                        desktop_capture.is_none()
+                            && dolores_core::effective_skills(&package_candidates)
+                                .iter()
+                                .any(|s| s.current().package.is_some())
+                    })
+                    .map(|profile| Arc::new(skill_packages::resources::Reader::new(profile)));
+                if let Some(reader) = &skill_resources {
+                    tools.push(reader.clone());
+                }
                 if planning_state.planning {
                     tools.retain(|t| dolores_core::planning::inspection_tool(&t.spec().name));
                 }
@@ -2769,6 +2811,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            skill_resources,
                             command_sessions:command_owner.clone(),
                             plan_execution,
                             planning: planning_state,
@@ -2880,6 +2923,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        skill_resources,
         command_sessions,
         plan_execution,
         planning,
@@ -3017,6 +3061,9 @@ async fn execute(
     }
     let (context, skill_sources) =
         dolores_core::prepare_selected_skill_context(context, &skills, &selected_skills)?;
+    if let Some(reader) = &skill_resources {
+        reader.bind(&skill_sources)?;
+    }
     let knowledge_facts = knowledge::facts(store.as_ref(), &session)?;
     let context = dolores_core::knowledge_context(context, &knowledge_facts)?;
     let mut context = dolores_core::prepare_summary_context(context, session_summary.as_ref())?;
@@ -3194,6 +3241,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                skill_resources,
                 command_sessions,
                 plan_execution,
                 planning,
@@ -3834,6 +3882,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    skill_resources: None,
                     command_sessions: None,
                     plan_execution: false,
                     planning: Default::default(),
@@ -4227,6 +4276,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            skill_resources: None,
             command_sessions: None,
             plan_execution: false,
             planning: Default::default(),

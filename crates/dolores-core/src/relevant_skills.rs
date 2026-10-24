@@ -83,6 +83,7 @@ mod tests {
             revision: 1,
             enabled: true,
             versions: vec![SkillVersion {
+                package: None,
                 version: 1,
                 reviewed_at: 0,
                 rollback_from: None,
@@ -128,6 +129,7 @@ mod tests {
             revision: 1,
             enabled: true,
             versions: vec![SkillVersion {
+                package: None,
                 version: 1,
                 reviewed_at: 0,
                 rollback_from: None,

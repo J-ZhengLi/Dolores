@@ -7358,6 +7358,67 @@ No model credentials, provider request, native interaction or profile mutation
 is needed. Existing published tags are retained: rerunning the old alpha tag
 still checks its old code; release the corrected commit under a new version tag.
 
+## EH09 retained package backend - October 25
+
+The backend separates installation from activation. Additive SQLite schema 49
+retains scoped package records; legacy skill versions omit package metadata.
+Complete bundles live under the locked profile, with exact source ZIP, host
+receipt and payload files/directories. Publication uses held directory
+capabilities, refuses links/replacement and precedes catalogue saving. A failed
+save leaves the same complete bundle for explicit retry without enabling it.
+Scope, session, canonical cache and saved catalogue/skill revision bind reviews.
+
+Thirteen focused package tests pass: two core archive-contract tests, eight
+bridge archive/Windows-host cases and three SQLite cases. They exercise exact
+binary/Unicode resources and empty directories, same-bundle retry after failed
+registration, version activation/rollback and reopen, changed-resource refusal
+through both package and legacy Skills activation, export without overwrite,
+expired/wrong-session reviews, live-owner refusal without cancellation, native
+junction/existing-destination refusal, five-version/sixty-bundle limits, and v48
+migration retaining skills and drafts. Partial removal preserves the source ZIP
+and receipt. An interrupted staging fixture needs explicit original-ZIP reimport,
+then removes only its verified complete/prefix bytes without unregistering the
+recovered installation. Changed or unknown bytes remain for manual inspection.
+
+Package archive identity is also part of composer selection and submission
+deduplication. A forgotten/re-added name with identical text/revision/version
+cannot substitute another package. The core regression and seventeen composer/
+instruction widgets pass; stale chip inspection retains the draft and shows the
+selection as unavailable. Full suites pass 111 core, 256 bridge (one existing
+ignored test), 122 SQLite and seven/five core/SQLite integration tests. Analysis,
+warnings-denied Clippy, formatting and the normal Windows build pass.
+Queue/steering and live/stale Attention native UI regressions pass together in
+eight seconds at output/native-ui/eh09-packages-backend-20261025/ against that
+normal build. These regressions preserve their drafts, ownership and saved work;
+they do not establish the still-pending package management UI journey.
+
+This is backend and native filesystem qualification. Package management controls,
+rendered Project/Global journeys and a model's bounded resource-reading tool are
+still required for EH09.1. No source collection, user profile, provider credential,
+dependency installation, external model or physical desktop was used. Existing
+command/MCP and child permissions are unchanged.
+
+## EH09 skill package archive admission - October 24
+
+Core skill-package contracts and the bridge ZIP
+inspector preserve exact SKILL.md, script/reference bytes and binary assets,
+compute archive and deterministic content/resource digests, and inspect bounded
+declarative provenance/version/dependency metadata. The inspector has no file
+publication, activation, network, dependency installation or script execution.
+Its limits and next integration slices are recorded in the EH09 task file.
+
+Six focused tests pass: portable paths and metadata, complete scripts/references/
+binary resources and hashes, escaping/case/file-directory collisions, truncated
+ZIPs, expanded-byte limits, malformed manifests, symlinks and excessive file
+catalogues. Five existing bridge skill review/export tests pass, including stale
+activation, scoped global/project behavior and retargeted directory refusal.
+Warnings-denied Clippy, formatting and the normal Windows build pass. No
+rendered/native user-flow acceptance is claimed for this internal slice.
+
+This slice does not yet add a package UI or a usable installed-resource flow.
+Reviewed publication, failed-update recovery, retained rollback/export and
+context resource integration remain required before EH09.1 can be checked.
+
 ## EH08 task attention and notifications - October 24
 
 Seven focused attention storage tests pass within the full 108 core
@@ -7491,3 +7552,174 @@ or whole-volume resource-pressure reliability claim is made. The complete
 two-thread Rust regression gate passes 108 core, 246 bridge and 106 SQLite
 tests, plus seven core and five SQLite integration tests (one existing bridge
 case ignored). EH07.4 is complete within these declared Windows bounds.
+# EH09 package controls - October 25
+
+Scope: the Settings → Skills → Packages inspector, using the existing reviewed
+package commands. This slice establishes rendered/widget interaction and a normal
+Windows compilation gate; it does not establish the connected native bridge or
+model/resource journey. EH09.1 remains open.
+
+- **Basic flows:** deterministic fixtures exercise both Project and Global import,
+  inspection, installation without activation, explicit activation, a second
+  version, identity-bound saved-version rollback and original-ZIP export. Global
+  management opens without a chat or provider. Repeated ordinary activation of
+  the already active package is disabled. Scope changes cancel the old review,
+  keep import name/path and never activate a package in the new scope.
+- **Recovery:** a failed catalogue save retains the same Install token for retry
+  and leaves active versions alone. A stale activation retains the review and
+  export; Refresh cancels it and reloads the catalogue. Export overwrite failure
+  leaves an explicit retry. A damaged-payload fixture refuses ordinary inspection,
+  then opens retained-original inspection and exports the original ZIP. Removal
+  requires confirmation; Keep retains the installation. Pending installation
+  disables duplicate publication and navigation. The backend's previously
+  qualified byte/receipt checks remain the authority for these commands.
+- **Checks:** package, existing Skills and Settings suites pass **28 tests**:
+  `D:/Temp/dolores-eh09-package-controls-widgets2.log`. The initial combined command
+  named a nonexistent `settings_window_test.dart`; it was corrected to
+  `settings_test.dart` and the combined suite rerun successfully. Focused Flutter
+  analysis reports no issues. Document/link checks pass. The normal Windows x64
+  build through `python scripts/desktop.py build` passes:
+  `D:/Temp/dolores-eh09-package-controls-build.log`. The helper used the configured
+  Visual Studio 18 fallback after Flutter's initial toolchain detection refusal.
+  Publication and staged-whitespace checks also pass before commit.
+- **Rendered UX:** inspected six saved **390 × 740** Light/Dark import, update and
+  stale-activation recovery images under `output/eh09-package-controls/`.
+  Instructions/files/origin/dependencies/identity use progressive disclosure;
+  errors and wrapping recovery actions remain in a fixed footer. Reproduce with
+  `flutter test test/skill_packages_test.dart --dart-define=DESIGN_RENDER_DIR=<absolute-output>`.
+- **Remaining gates:** native file dialogs, embedded Settings interaction against
+  the real bridge, Project/Global persisted rollback/export, verified bounded
+  package-resource tool reads and normal provider requests remain subsequent
+  EH09.1 acceptance. No live provider, user's history/settings or physical desktop
+  was used, and no model-reliability claim is made.
+# EH09 verified package resources - October 25
+
+Scope: per-run `read_skill_resource`, package identity in prepared context and
+preview, registry/planning/logged-approval integration, and the connected normal
+Windows package/composer/tool fixture. H18 remains open for the capacity recovery
+gap below; EH09.2–EH09.5 and EH10 are not implied complete.
+
+- **Authority and reads:** bind only the exact prepared `SkillSource` packages,
+  including scope and archive identity. Compaction can rebind the same snapshot,
+  not substitute another one. Project overrides, inactive/unrelated packages,
+  wrong identities and portable-path escapes are refused. List returns paged
+  metadata; UTF-8 reads provide byte-offset continuation. Binary resources return
+  metadata only. Requests accept at most 4 KiB and return requested 1–16 KiB JSON
+  pages including escaping/metadata, capped by the normal tool allowance. Complete
+  receipt/ZIP/payload checks precede preparation and invocation; requested bytes
+  are re-read and hashed through the owned capability before sharing. No script,
+  dependency, command or MCP execution is added. Existing folder grants do not
+  grant package reads. Normal Review/Full Access, permission revision checks,
+  budgets, cancellation and retained tool receipts apply. Children gain no tool.
+- **Deterministic failures/recovery:** four reader tests cover selected scope and
+  package substitution, missing/escaping paths and unknown/oversized arguments,
+  UTF-8 plus heavily escaped text pagination, list continuation, binary metadata,
+  changed bytes between preparation and invocation, cancelled dispatch and a
+  tampered target. Changed data shares no bytes; original ZIP recovery remains
+  usable. Restoring exact fixture bytes allows an explicit read retry. Registry
+  pinning and read-only planning classification are also checked.
+- **Checks:** full core **111**, its integration **7**, and bridge **260 passed,
+  one existing ignored** (`D:/Temp/dolores-eh09-resource-rust.log`). Four focused
+  reader tests pass again after the final target-label adjustment. One attempted
+  parallel relink was refused while the earlier Windows test executable was
+  running; waiting for that exact suite to finish and retrying passed without
+  stopping it. Clippy with warnings denied passes
+  (`D:/Temp/dolores-eh09-resource-clippy.log`). Package/Skills/context suites pass
+  **29 tests**, with the opt-in native case correctly skipped in ordinary runs
+  (`D:/Temp/dolores-eh09-resource-widgets.log`). Focused Flutter analysis is clean.
+  The normal Windows x64 build passes
+  (`D:/Temp/dolores-eh09-resource-build.log`), using the configured VS18 fallback.
+- **Connected native bridge/rendered controls:**
+  `output/native-ui/eh09-package-resources-20261025-final/` retains the successful
+  test log and `skill-packages-receipt.json`. Both Project and Global flows import
+  complete public ZIPs with text/script/binary/empty-directory resources, install
+  without activation, explicitly activate/update, restore saved v1 as activation
+  v3, and export byte-identical original ZIPs. Damaging v2's payload refuses normal
+  inspection; retained-original inspection/export stays usable and v1 remains the
+  selected version. `/` chooses the exact reviewed skill; preview and persisted
+  reply metadata retain its package ID. A public loopback provider receives the
+  list, v1 reference text and binary metadata through **three approved read calls
+  and four model requests per scope** (six reads/eight requests total). All saved
+  tool receipts have status `read`; changed bytes and v2 reference content never
+  reach the provider. Only fixture activations are disabled after checking.
+- **Fixture repairs:** the first native attempt selected Plan mode because
+  `/review` also matches its description; the fixture now selects the exact skill
+  row. The second inspected cleared transient tool records after save; the final
+  assertion instead verifies the three persisted successful tool receipts through
+  the normal messages API. Earlier failed evidence remains alongside the final
+  profile. Neither failure required a product-code workaround.
+- **Rendered UX:** compact 390 × 740 Light/Dark package-resource context disclosure
+  images under `output/eh09-package-resources/` were inspected. Archive/content
+  identity and resource base wrap inside the scrolling body; Close stays fixed.
+  Existing package import/update/recovery renders and checks continue to pass.
+- **Remaining gates:** source audit found that five installed versions can all be
+  protected by the five saved activations. A sixth distinct install is refused,
+  and direct removal offers forgetting the whole skill. EH09.1
+  stays open until reviewed recovery preserves the current active version and
+  qualifies a sixth update. EH09.5 must audit pinned scheduled-package retention
+  and child/lifecycle ownership. Chooser paths in this fixture are injected;
+  physical file dialogs, real-model reliability and other platforms remain
+  unqualified. No user provider configuration/history or private transcript was
+  used. Fixture evidence does not establish general model reliability.
+# EH09 package capacity recovery - October 25
+
+Scope: explicitly forget an older package activation without forgetting the
+skill, its current version or its resources. The existing five installed
+versions/name, twelve names/scope and sixty physical bundles/profile limits are
+unchanged. No migration, silent eviction, tool grant or script execution is added.
+
+- **Reproduction:** `five_activated_installations_refuse_a_sixth_without_clearing_the_current_version`
+  first passed against the earlier behavior: five distinct installations and
+  activations protected all five packages; a sixth install and direct removal
+  refused while the current v5 stayed intact. This established the capacity path
+  before adding recovery. The earlier UI's direct removal guidance offered
+  forgetting the whole skill; the new route releases a reviewed older activation.
+- **Recovery contract:** `ForgetVersion` binds the existing review token's
+  session, scope/root, saved revision and exact package/version. One SQLite
+  transaction removes only a noncurrent matching activation and advances revision.
+  Current version, enablement, surviving version numbers/rollback provenance,
+  installations, files and drafts stay intact. Current, missing/mismatched and
+  stale versions refuse. An active owner refuses without cancellation. A failed
+  save retains the old state/review for explicit retry. Forgotten activations do
+  not themselves remove package registrations or files; Remove remains a separate
+  confirmed action with the existing reference and verified-byte guards.
+- **Store/bridge evidence:** both scopes preserve current v5 through injected
+  save failure, old-activation retirement, installation removal and retry of the
+  sixth already-published archive, then activate v6 without renumbering survivors.
+  Reopen retains both scope records. The bridge case additionally checks current
+  and wrong-package refusal, active-owner preservation, stale review after another
+  retention change, and a damaged older payload. Retained-original review can
+  retire its activation; removal refuses changed bytes and keeps them inspectable
+  while the freed registration permits the sixth install. Explicit restoration of
+  exact fixture bytes then allows verified cleanup. The current package/draft
+  stays unchanged until explicit activation of the sixth package.
+- **Checks:** full core **111**, bridge **261 passed / one existing ignored**, and
+  SQLite **124**, plus their **7/5** integration checks pass:
+  `D:/Temp/dolores-eh09-capacity-rust.log`. Clippy with warnings denied and focused
+  Flutter analysis pass. Package/Skills/Settings widgets pass **30 tests**:
+  `D:/Temp/dolores-eh09-capacity-widgets.log`. The normal Windows x64 build passes
+  (`D:/Temp/dolores-eh09-capacity-build.log`), using the configured VS18 fallback.
+- **Rendered UX:** four compact **390 × 740** Light/Dark confirmation and failed
+  save renders under `output/eh09-package-capacity/` were inspected. The dialog
+  states exactly which old activation is forgotten and which current version is
+  kept. Keep version cancels without mutation; the current version has no Forget
+  action. Failure keeps the version/review and recovery controls reachable.
+- **Connected normal bridge:**
+  `output/native-ui/eh09-package-capacity-20261025/skill-packages-receipt.json`
+  and its passing log cover both Project and Global controls. In addition to the
+  prior package import/export/rollback/resource-provider journey, each scope
+  installs five distinct packages, observes the sixth-install refusal, confirms
+  forgetting the older v3 activation of package 1, removes that unused
+  installation, and retries/activates package 6. Because the earlier journey had
+  rolled back once, package 5 is saved activation v6 and package 6 becomes v7.
+  Package 5's current identity and reference bytes remain intact throughout
+  recovery. The retained skill is never forgotten. All six reviewed resource
+  calls/eight loopback provider requests still pass; only fixture activations
+  are disabled afterward.
+- **Bounds and remaining work:** EH09.1 is complete under the archive/backend,
+  controls, resource and capacity acceptance records. EH09.2–EH09.5 and EH10 stay
+  open, including pinned scheduled-package and child/lifecycle retention audits.
+  Native chooser paths are injected, physical chooser dialogs and general
+  real-model reliability remain unqualified, and other platforms need separate
+  qualification. No user configuration/history, credentials or private transcript
+  was used. These fixture passes do not establish real-model competence.

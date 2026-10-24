@@ -65,6 +65,7 @@ pub fn workflow_command(d: &SkillDocument) -> Option<String> {
 }
 pub fn limited_repair(b: &ProjectSkill, c: &SkillDocument) -> bool {
     b.scope == SkillScope::Project
+        && b.current().package.is_none()
         && b.enabled
         && workflow_command(&b.current().document).is_some_and(|old| old != "node verify.cjs")
         && c == &check_workflow("node verify.cjs").expect("host constant")

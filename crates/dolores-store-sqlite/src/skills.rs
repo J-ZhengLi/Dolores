@@ -62,7 +62,7 @@ impl SqliteStore {
         revision: Option<u32>,
         rollback: Option<u32>,
     ) -> Result<ProjectSkill, String> {
-        self.activate_skill_reviewed(root, document, revision, rollback, None)
+        self.activate_skill_reviewed(root, document, revision, rollback, None, None)
     }
     pub(super) fn promote_reviewed_skill(
         &self,
@@ -85,15 +85,17 @@ impl SqliteStore {
             previous.map(|s| s.revision),
             None,
             Some(promotion),
+            None,
         )
     }
-    fn activate_skill_reviewed(
+    pub(super) fn activate_skill_reviewed(
         &self,
         root: &str,
         document: &SkillDocument,
         revision: Option<u32>,
         rollback: Option<u32>,
         promotion: Option<&dolores_core::SkillPromotion>,
+        package: Option<&dolores_core::skill_packages::Snapshot>,
     ) -> Result<ProjectSkill, String> {
         validate_root(root)?;
         document.validate()?;
@@ -145,19 +147,40 @@ impl SqliteStore {
         }
         let skills = read(&transaction, root)?;
         let previous = skills.iter().find(|s| s.name == document.name);
+        let package = package.cloned().or_else(|| {
+            rollback.and_then(|v| {
+                previous?
+                    .versions
+                    .iter()
+                    .find(|old| old.version == v)?
+                    .package
+                    .clone()
+            })
+        });
+        if let Some(package) = &package {
+            package.validate()?;
+            let retained=super::skill_packages::read_record(&transaction,root,&document.name,&package.id)?.ok_or("The installed package is no longer registered. Reinstall it before activating this version.")?;
+            if retained.package != *package || retained.document != *document {
+                return Err(
+                    "Package bytes or metadata changed. Inspect its retained version again.".into(),
+                );
+            }
+        }
         if previous.map(|s| s.revision) != revision {
             return Err(changed());
         }
         if let Some(version) = rollback {
             if previous
                 .and_then(|s| s.versions.iter().find(|v| v.version == version))
-                .map(|v| &v.document)
-                != Some(document)
+                .map(|v| (&v.document, &v.package))
+                != Some((document, &package))
             {
                 return Err(changed());
             }
         }
-        if previous.is_some_and(|s| s.enabled && &s.current().document == document) {
+        if previous.is_some_and(|s| {
+            s.enabled && &s.current().document == document && s.current().package == package
+        }) {
             return Err("This exact skill version is already active.".into());
         }
         if previous.is_none() && skills.len() >= MAX_SAVED_SKILLS {
@@ -190,6 +213,7 @@ impl SqliteStore {
                 .and_then(|v| v.evaluation.clone())
         });
         versions.push(SkillVersion {
+            package,
             evaluation,
             version,
             reviewed_at: now(),

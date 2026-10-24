@@ -104,6 +104,7 @@ async fn slow_review_outlives_response_timeout_without_losing_the_file_or_turn()
             store,
             Arc::new(Model),
             TurnRequest {
+                skill_resources: None,
                 command_sessions: None,
                 plan_execution: false,
                 planning: Default::default(),
@@ -175,6 +176,7 @@ async fn a_stalled_model_saves_a_paused_turn_without_executing_incomplete_tools(
         store.clone(),
         Arc::new(StalledModel),
         TurnRequest {
+            skill_resources: None,
             command_sessions: None,
             plan_execution: false,
             planning: Default::default(),

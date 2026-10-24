@@ -8,6 +8,7 @@ use std::{
 };
 
 pub(super) struct SkillReview {
+    package: Option<dolores_core::skill_packages::Snapshot>,
     token: String,
     session: String,
     root: String,
@@ -53,7 +54,7 @@ impl Engine {
             .into_iter()
             .find(|s| s.name == name);
         let token = uuid::Uuid::new_v4().to_string();
-        let response = json!({"scope":scope,"token":token,"document":document,"enabled":saved.as_ref().is_some_and(|s|s.enabled),"revision":saved.as_ref().map(|s|s.revision),"versions":[],"reviewVersion":null,"alreadyActive":saved.as_ref().is_some_and(|s|s.enabled && s.current().document==document),"sourceMatches":false,"imported":true});
+        let response = json!({"scope":scope,"token":token,"document":document,"enabled":saved.as_ref().is_some_and(|s|s.enabled),"revision":saved.as_ref().map(|s|s.revision),"versions":[],"reviewVersion":null,"alreadyActive":saved.as_ref().is_some_and(|s|s.enabled && s.current().document==document && s.current().package.is_none()),"sourceMatches":false,"imported":true});
         *self
             .skill_review
             .lock()
@@ -67,6 +68,7 @@ impl Engine {
             saved,
             rollback: None,
             imported: true,
+            package: None,
             created: Instant::now(),
         });
         Ok(response)
@@ -189,7 +191,16 @@ impl Engine {
             .and_then(|v| v.evaluation.as_ref());
         let versions:Vec<_> = saved.iter().flat_map(|s| &s.versions).map(|v| json!({"version":v.version,"reviewedAt":v.reviewed_at,"rollbackFrom":v.rollback_from})).collect();
         let generated = evaluation.is_some();
-        let response = json!({"scope":scope,"token":token,"document":document,"evaluation":evaluation,"generated":generated,"enabled":saved.as_ref().is_some_and(|s| s.enabled),"revision":saved.as_ref().map(|s| s.revision),"activeVersion":saved.as_ref().map(|s| s.current().version),"versions":versions,"reviewVersion":version,"sourceMatches":current.as_ref().ok()==Some(&document),"alreadyActive":saved.as_ref().is_some_and(|s| s.enabled && s.current().document==document),"problem":if generated {None} else {current.err()}});
+        let package = version.and_then(|number| {
+            saved
+                .as_ref()?
+                .versions
+                .iter()
+                .find(|v| v.version == number)?
+                .package
+                .clone()
+        });
+        let response = json!({"scope":scope,"token":token,"document":document,"evaluation":evaluation,"generated":generated,"package":package,"enabled":saved.as_ref().is_some_and(|s| s.enabled),"revision":saved.as_ref().map(|s| s.revision),"activeVersion":saved.as_ref().map(|s| s.current().version),"versions":versions,"reviewVersion":version,"sourceMatches":current.as_ref().ok()==Some(&document),"alreadyActive":saved.as_ref().is_some_and(|s| s.enabled && s.current().document==document && s.current().package==package),"problem":if generated {None} else {current.err()}});
         *self
             .skill_review
             .lock()
@@ -203,6 +214,7 @@ impl Engine {
             saved,
             rollback: version,
             imported: false,
+            package,
             created: Instant::now(),
         });
         Ok(response)
@@ -242,6 +254,18 @@ impl Engine {
             );
         }
         let revision = review.saved.as_ref().map(|s| s.revision);
+        if let Some(package) = &review.package {
+            self.verify_skill_package(&review.document, package)?;
+            let root = if review.scope == SkillScope::Global {
+                dolores_core::skill_packages::GLOBAL_ROOT
+            } else {
+                &review.root
+            };
+            return self
+                .store
+                .activate_skill_package(root, &review.document, package, revision, review.rollback)
+                .map(|v| json!(v));
+        }
         let value = match review.scope {
             SkillScope::Project => self.store.activate_project_skill(
                 &review.root,

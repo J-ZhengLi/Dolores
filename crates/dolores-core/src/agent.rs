@@ -1205,6 +1205,7 @@ pub async fn run_agent_with_shared_budget(
                                         | "desktop_control"
                                         | "computer"
                                         | "inspect_harness"
+                                        | "read_skill_resource"
                                         | "harness_repair"
                                         | "test_harness_repair"
                                         | "build_harness_repair"
@@ -1292,7 +1293,7 @@ pub async fn run_agent_with_shared_budget(
                         match plugin.invoke(&request, cancel.clone()).await {
                             Ok(content) => (
                                 request.target,
-                                if request.name == "read_text_file" {
+                                if matches!(request.name.as_str(), "read_text_file" | "read_skill_resource") {
                                     "read"
                                 } else if request.name == "edit_text_file" {
                                     "edited"
@@ -1328,7 +1329,7 @@ pub async fn run_agent_with_shared_budget(
                                     "Subagent batch could not complete. Inspect Run history and Changes before continuing; completed file changes remain. Only one batch is allowed per run.".into()
                                 } else if request.name == "request_user_input" {
                                     "Question could not complete. Ask a fresh question if clarification is still needed; saved progress remains.".into()
-                                } else if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control" | "computer") {
+                                } else if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control" | "computer" | "read_skill_resource") {
                                     error
                                 } else if request.name == "inspect_desktop_capture" {
                                     "Selected screenshot is missing or changed. Open Settings → Computer use, capture again and explicitly share it. Nothing was retried.".into()

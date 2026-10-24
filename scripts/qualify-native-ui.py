@@ -9,6 +9,8 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
+import json
+import zipfile
 
 import desktop
 
@@ -34,6 +36,7 @@ def main():
         'managed-prompt-branches': ('test/native_managed_prompt_branches_ui_test.dart', 'prompt-managed-branches-receipt.json'),
         'history-search': ('test/native_history_search_ui_test.dart', 'history-search-receipt.json'),
         'attention': ('test/native_attention_ui_test.dart', 'attention-receipt.json'),
+        'skill-packages': ('test/native_skill_packages_ui_test.dart', 'skill-packages-receipt.json'),
     }
     parser.add_argument('--case', action='append', choices=cases, help='Run selected journeys; default: all.')
     args = parser.parse_args()
@@ -51,6 +54,15 @@ def main():
                DOLORES_AUDIT_LIBRARY=str(desktop.executable().parent / 'dolores_flutter_bridge.dll'),
                FLUTTER_SUPPRESS_ANALYTICS='true', DART_SUPPRESS_ANALYTICS='true')
     selected = list(dict.fromkeys(args.case or cases))
+    if 'skill-packages' in selected:
+        for version in range(1, 7):
+            with zipfile.ZipFile(base / f'review-v{version}.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr('SKILL.md', '---\nname: review\ndescription: Review public code\n---\nRead references/check.md. Never execute scripts during package installation.\n')
+                archive.writestr('dolores-package.json', json.dumps({'schema': 1, 'version': f'{version}.0', 'origin': 'public loopback fixture', 'dependencies': [{'name': 'python', 'requirement': 'inspection only; never install'}]}))
+                archive.writestr('references/check.md', f'PUBLIC_PACKAGE_V{version}\nVerify the dock 世界.\n')
+                archive.writestr('scripts/check.py', "raise RuntimeError('must never execute during package management')\n")
+                archive.writestr('assets/image.bin', b'\x00\xff\x01')
+                archive.writestr('assets/empty/', b'')
     command = [desktop.flutter_path(args.flutter_sdk), '--no-version-check',
                'test', '--no-pub', '--concurrency=1',
                *(cases[name][0] for name in selected)]

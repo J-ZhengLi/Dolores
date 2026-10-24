@@ -2,7 +2,7 @@
 
 Date: 2026-10-21 (Asia/Shanghai)
 
-Status: implementation authorized 2026-10-21; EH00–EH08 complete; EH09–EH10 pending.
+Status: implementation authorized 2026-10-21; EH00–EH08 complete; EH09 in progress; EH10 pending.
 Executable task lists and current status live in the
 [batch index](../plans/everyday-harness/README.md).
 

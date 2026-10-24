@@ -26,6 +26,7 @@ class CommandsBridge extends QueueBridge {
   bool failCatalogue = false;
   List<Map<String, dynamic>> selections = [];
   bool failSelection = false;
+  String? packageId;
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
     if (command['command'] == 'createSession') {
@@ -59,7 +60,10 @@ class CommandsBridge extends QueueBridge {
         ],
         'skills': [
           {
-            'selection': reference,
+            'selection': {
+              ...reference,
+              if (packageId != null) 'packageId': packageId,
+            },
             'description': 'Structure exports',
             'text': 'EXACT_PUBLIC_SNAPSHOT',
           },
@@ -215,6 +219,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(chat.selectedSkills, isEmpty);
       expect(chat.draft, 'Please help\n');
+    },
+  );
+  testWidgets(
+    'package reference keeps its archive identity and stale inspection never substitutes another package',
+    (tester) async {
+      final first = List.filled(64, 'a').join();
+      final second = List.filled(64, 'b').join();
+      final bridge = CommandsBridge()..packageId = first;
+      final chat = await mount(tester, bridge);
+      await tester.enterText(
+        find.byKey(const Key('composer-field-0')),
+        'Keep my thought\n/precise',
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(bridge.selections.single['packageId'], first);
+      bridge.packageId = second;
+      await chat.refreshCommands();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Inspect reviewed skill'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('This selection has changed'), findsOneWidget);
+      expect(find.textContaining('EXACT_PUBLIC_SNAPSHOT'), findsNothing);
+      expect(chat.draft, 'Keep my thought\n');
+      expect(bridge.starts, 0);
     },
   );
   testWidgets(

@@ -35,6 +35,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, Arc<SqliteStore>, String) {
         .unwrap();
     let mut context = ContextSummary::from_messages(&[], Some(0));
     context.skills.push(SkillSource {
+        package: None,
         scope: SkillScope::Project,
         name: skill.name.clone(),
         source: "fixture".into(),

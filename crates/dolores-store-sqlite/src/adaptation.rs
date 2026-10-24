@@ -159,6 +159,7 @@ impl SqliteStore {
             .checked_add(1)
             .ok_or("Skill revision exhausted.")?;
         skill.versions.push(SkillVersion {
+            package: baseline.current().package.clone(),
             version: previous.checked_add(1).ok_or("Skill version exhausted.")?,
             reviewed_at: super::now(),
             document: baseline.current().document.clone(),
@@ -300,6 +301,7 @@ impl SqliteStore {
             .checked_add(1)
             .ok_or("Skill revision exhausted.")?;
         skill.versions.push(SkillVersion {
+            package: None,
             evaluation: None,
             version,
             reviewed_at: super::now(),

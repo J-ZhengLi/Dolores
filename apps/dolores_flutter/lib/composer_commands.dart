@@ -279,6 +279,7 @@ class ComposerCommandsState extends State<ComposerCommands> {
             'name',
             'revision',
             'version',
+            'packageId',
           ].every((k) => s['selection'][k] == reference[k]),
         )
         .firstOrNull;

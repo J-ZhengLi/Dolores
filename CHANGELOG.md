@@ -21,6 +21,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Manage complete skill ZIP packages in Settings → Skills → Packages. Review instructions, resources, declared dependencies and versions, install separately from activation, restore saved versions and export the original archive. Retained-data recovery preserves changed files.
+- Read selected package references through a verified, bounded tool, including Global packages outside the working folder. Inspect package identity in context preview; binary assets return metadata, and scripts retain separate execution permissions.
+- Free package-version capacity by forgetting a reviewed older activation while keeping the current skill and its resources. Remove the unused installation separately, then retry the new package without clearing the skill.
+
 - Edit a saved prompt in a separate conversation branch, choose its folder and shared context, and inspect the retained original transcript and tool receipts without rolling files back or replaying earlier actions.
 - Ask about selected message text in an independent side chat, return to its parent, and queue or steer a selected conclusion without replacing either draft or the original task.
 - Comment on diff lines, queue or steer selected review feedback, and retain its delivery and separately verified resolution with the original source location.

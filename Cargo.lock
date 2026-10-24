@@ -697,6 +697,7 @@ version = "0.0.1-alpha"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
+ "cap-std",
  "directories",
  "dolores-core",
  "dolores-credentials",

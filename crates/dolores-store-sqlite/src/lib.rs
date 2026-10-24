@@ -24,6 +24,7 @@ mod model_details;
 mod planning;
 mod scheduling;
 mod side_conversations;
+mod skill_packages;
 mod skills;
 mod summaries;
 mod workspace;
@@ -34,7 +35,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 48;
+pub const SCHEMA_VERSION: i64 = 49;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -297,6 +298,9 @@ impl SqliteStore {
         }
         if version < 48 {
             attention::migrate(&connection)?;
+        }
+        if version < 49 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS skill_packages(root TEXT NOT NULL,name TEXT NOT NULL,id TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=524288),PRIMARY KEY(root,name,id)); CREATE INDEX IF NOT EXISTS skill_package_identity ON skill_packages(id); PRAGMA user_version=49; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -1036,6 +1040,45 @@ impl SessionStore for SqliteStore {
     }
     fn global_skills(&self) -> Result<Vec<dolores_core::ProjectSkill>, String> {
         self.read_skills(skills::GLOBAL_ROOT)
+    }
+    fn installed_skill_packages(
+        &self,
+        root: &str,
+    ) -> Result<Vec<dolores_core::skill_packages::Installed>, String> {
+        self.package_list(root)
+    }
+    fn retain_skill_package(
+        &self,
+        root: &str,
+        record: &dolores_core::skill_packages::Installed,
+    ) -> Result<(), String> {
+        self.package_retain(root, record)
+    }
+    fn forget_skill_package(&self, root: &str, id: &str) -> Result<(), String> {
+        self.package_forget(root, id)
+    }
+    fn forget_skill_package_version(
+        &self,
+        root: &str,
+        name: &str,
+        revision: u32,
+        version: u32,
+        id: &str,
+    ) -> Result<dolores_core::ProjectSkill, String> {
+        self.package_forget_version(root, name, revision, version, id)
+    }
+    fn skill_package_referenced(&self, id: &str) -> Result<bool, String> {
+        self.package_referenced(id)
+    }
+    fn activate_skill_package(
+        &self,
+        root: &str,
+        document: &dolores_core::SkillDocument,
+        package: &dolores_core::skill_packages::Snapshot,
+        revision: Option<u32>,
+        rollback: Option<u32>,
+    ) -> Result<dolores_core::ProjectSkill, String> {
+        self.package_activate(root, document, package, revision, rollback)
     }
     fn activate_global_skill(
         &self,

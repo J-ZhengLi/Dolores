@@ -59,7 +59,11 @@ impl PlanningState {
 pub fn inspection_tool(name: &str) -> bool {
     matches!(
         name,
-        "read_text_file" | "list_folder" | "search_text" | "request_user_input"
+        "read_text_file"
+            | "list_folder"
+            | "search_text"
+            | "read_skill_resource"
+            | "request_user_input"
     )
 }
 pub fn prepare(mut messages: Vec<Message>, state: &PlanningState) -> Result<Vec<Message>, String> {
