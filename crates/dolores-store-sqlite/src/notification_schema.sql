@@ -1,0 +1,10 @@
+BEGIN IMMEDIATE;
+ALTER TABLE attention_notices RENAME TO attention_legacy;
+CREATE TABLE attention_notices(id TEXT PRIMARY KEY,session TEXT REFERENCES sessions(id) ON DELETE CASCADE,run TEXT REFERENCES runs(id) ON DELETE CASCADE,sequence INTEGER NOT NULL,kind TEXT NOT NULL,created_at INTEGER NOT NULL,seen INTEGER NOT NULL DEFAULT 0,delivery TEXT NOT NULL,title TEXT,details TEXT,severity TEXT,source_key TEXT,UNIQUE(run,sequence));
+INSERT INTO attention_notices(id,session,run,sequence,kind,created_at,seen,delivery) SELECT id,session,run,sequence,kind,created_at,seen,delivery FROM attention_legacy;
+DROP TABLE attention_legacy;
+CREATE INDEX attention_notice_delivery ON attention_notices(delivery,seen);
+CREATE INDEX attention_notice_source ON attention_notices(source_key,created_at);
+CREATE TABLE IF NOT EXISTS desktop_close_preferences(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL);
+PRAGMA user_version=51;
+COMMIT;

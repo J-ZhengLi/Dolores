@@ -31,6 +31,105 @@ fn enable(s: &SqliteStore) {
 }
 const RUN: &str = "11111111-1111-4111-8111-111111111111";
 #[test]
+fn version_50_notice_migration_preserves_identity_policy_cursor_and_delivery_claim() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("upgrade.db");
+    let store = SqliteStore::open(&path).unwrap();
+    store.create("task").unwrap();
+    enable(&store);
+    begin(&store, RUN);
+    store
+        .append_run_event(
+            RUN,
+            1,
+            Some(dolores_core::RunState::Completed),
+            "finished",
+            &json!({}),
+        )
+        .unwrap();
+    let page = poll(&store);
+    let id = page["items"][0]["id"].as_str().unwrap().to_owned();
+    store.attention(&Request::Claim { id: id.clone() }).unwrap();
+    store.lock().unwrap().execute_batch("BEGIN;
+      ALTER TABLE attention_notices RENAME TO new_notices;
+      CREATE TABLE attention_notices(id TEXT PRIMARY KEY,session TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,run TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,sequence INTEGER NOT NULL,kind TEXT NOT NULL,created_at INTEGER NOT NULL,seen INTEGER NOT NULL DEFAULT 0,delivery TEXT NOT NULL,UNIQUE(run,sequence));
+      INSERT INTO attention_notices SELECT id,session,run,sequence,kind,created_at,seen,delivery FROM new_notices;
+      DROP TABLE new_notices;DROP TABLE desktop_close_preferences;
+      PRAGMA user_version=50;COMMIT;").unwrap();
+    drop(store);
+    let store = SqliteStore::open(&path).unwrap();
+    store.recover_attention().unwrap();
+    let page = poll(&store);
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(page["items"][0]["id"], id);
+    assert_eq!(page["items"][0]["delivery"], "uncertain");
+    assert_eq!(page["preferences"]["enabled"], true);
+    assert!(store.attention(&Request::Claim { id }).unwrap().is_null());
+    assert_eq!(
+        store.close_preferences().unwrap().behavior,
+        dolores_core::desktop_preferences::CloseBehavior::Ask
+    );
+    assert_eq!(
+        store.runs("task").unwrap()[0].state,
+        dolores_core::RunState::Completed
+    );
+}
+#[test]
+fn app_notifications_coalesce_bound_history_and_retain_results_across_restart() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("notices.db");
+    let store = SqliteStore::open(&path).unwrap();
+    store.create("task").unwrap();
+    store.commit_turn("task", "question", "answer").unwrap();
+    store.save_draft("task", "keep draft").unwrap();
+    let post = |source: &str| Request::Post {
+        source: source.into(),
+        title: "Model settings saved".into(),
+        details: "Your configuration was saved.".into(),
+        severity: "success".into(),
+    };
+    let first = store.attention(&post("model")).unwrap();
+    assert_eq!(store.attention(&post("model")).unwrap()["id"], first["id"]);
+    assert_eq!(poll(&store)["unread"], 1);
+    store
+        .attention(&Request::Seen {
+            id: first["id"].as_str().unwrap().into(),
+        })
+        .unwrap();
+    store.attention(&post("other")).unwrap();
+    store.attention(&Request::ClearRead).unwrap();
+    assert_eq!(poll(&store)["unread"], 1);
+    assert_eq!(store.saved_draft("task").unwrap(), "keep draft");
+    let mut close = store.close_preferences().unwrap();
+    assert_eq!(
+        close.behavior,
+        dolores_core::desktop_preferences::CloseBehavior::Ask
+    );
+    close.behavior = dolores_core::desktop_preferences::CloseBehavior::Tray;
+    let saved = store.save_close_preferences(&close).unwrap();
+    assert!(store.save_close_preferences(&close).is_err());
+    drop(store);
+    let store = SqliteStore::open(&path).unwrap();
+    assert_eq!(store.close_preferences().unwrap(), saved);
+    assert_eq!(poll(&store)["unread"], 1);
+    assert_eq!(
+        store
+            .messages_page("task", None, false, 80)
+            .unwrap()
+            .items
+            .len(),
+        2
+    );
+    for n in 0..120 {
+        store.attention(&post(&format!("source-{n}"))).unwrap();
+    }
+    assert_eq!(poll(&store)["unread"], 100);
+    store.attention(&Request::SeenAll).unwrap();
+    store.attention(&Request::ClearRead).unwrap();
+    assert!(poll(&store)["items"].as_array().unwrap().is_empty());
+    assert_eq!(store.saved_draft("task").unwrap(), "keep draft");
+}
+#[test]
 fn actual_restart_retains_uncertain_handoff_and_migration_skips_old_notifications() {
     let d = tempfile::tempdir().unwrap();
     let path = d.path().join("attention.db");

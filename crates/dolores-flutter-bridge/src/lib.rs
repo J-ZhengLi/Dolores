@@ -272,6 +272,10 @@ enum Command {
         session: String,
         id: u64,
     },
+    ClosePreferences,
+    SaveClosePreferences {
+        preferences: dolores_core::desktop_preferences::ClosePreferences,
+    },
     BackgroundPolicy,
     SetBackgroundPolicy {
         enabled: bool,
@@ -1177,6 +1181,8 @@ impl Engine {
                 if matches!(edit,dolores_core::harness_task::InputEdit::Resume{..}) && active.has_session(&session) {return Err("Wait for the stopped run to finish before resuming.".into());}
                 return Ok(json!(self.store.edit_task_inputs(&session,&edit)?));
             },
+            Command::ClosePreferences=>return Ok(json!(self.store.close_preferences()?)),
+            Command::SaveClosePreferences {preferences}=>return Ok(json!(self.store.save_close_preferences(&preferences)?)),
             Command::BackgroundPolicy=>return Ok(json!(self.store.background_policy()?)),
             Command::SetBackgroundPolicy{enabled,revision}=>{if enabled && !cfg!(windows){return Err("Background scheduling is unavailable on this platform.".into());}return Ok(json!(self.store.set_background_policy(enabled,revision)?));},
             Command::CompanionState=>{drop(active);return self.companion_view();},

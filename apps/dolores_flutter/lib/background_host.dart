@@ -73,9 +73,6 @@ class BackgroundHost extends ChangeNotifier {
     try {
       policy = await bridge.call({'command': 'backgroundPolicy'}) as Map;
       supported = await window.available();
-      if (!enabled && hidden) {
-        await disableHidden();
-      }
       error = null;
     } catch (e) {
       error = '$e';
@@ -86,31 +83,21 @@ class BackgroundHost extends ChangeNotifier {
     }
   }
 
-  Future<bool> closeToTray(Future<bool> Function() prepare) async {
-    if (!enabled || pending) return false;
-    pending = true;
-    notifyListeners();
+  Future<bool> minimize() async {
     try {
-      if (!await prepare()) return false;
-      await window.hide();
+      if (!await window.available()) return false;
+      await window.hide().timeout(const Duration(milliseconds: 500));
       hidden = true;
       error = null;
+      notifyListeners();
       return true;
-    } catch (e) {
-      error = '$e Keep Dolores open and try again.';
-      await restored();
+    } catch (_) {
+      error = 'Could not create the tray icon. Dolores remains open.';
+      try {
+        await window.restore().timeout(const Duration(milliseconds: 500));
+      } catch (_) {}
+      notifyListeners();
       return false;
-    } finally {
-      pending = false;
-      if (!_closed) notifyListeners();
-    }
-  }
-
-  Future<void> disableHidden() async {
-    if (hidden) {
-      await window.restore();
-      hidden = false;
-      await restored();
     }
   }
 

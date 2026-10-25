@@ -38,7 +38,7 @@ headings. Review each addition for general applicability even when checks pass.
 - Align headings, labels, controls and action rows to shared edges. Use a 4 px
   spacing scale, consistent row heights and optical centering for icon/text pairs.
   Keep title-bar branding compact and show it once per main layout.
-  Put icon-only search and the Attention bell before Settings in that title bar.
+  Put icon-only search and the Notifications bell before Settings in that title bar.
   Search opens with a single input; results appear as the user types.
 - Reserve sidebars for the current task's content. Floating navigation overlays
   the workspace without reserving height; it remains discoverable and keeps
@@ -126,12 +126,16 @@ headings. Review each addition for general applicability even when checks pass.
 - Anchor dropdowns to their triggers, fit them inside the viewport, and flip them
   near an edge. Use the shared `AppDropdown` for select fields; match rounded
   trigger and menu corners with inset rounded option rows. Use a compact anchored
-  menu for Attention. Support outside dismissal, Escape, arrow keys and Enter; restore
+  menu for Notifications. Support outside dismissal, Escape, arrow keys and Enter; restore
   focus to the trigger. Contain focus within modal windows.
 - Keep app-level notices in compact floating surfaces below the title bar; they
   must not reserve layout height. Keep errors dismissible and details accessible.
-- App Close hides immediately and never waits for a dialog, busy state or successful
-  save. Attempt recovery within a fixed deadline; preserve existing saved data.
+- Close follows the saved Ask/Quit/Tray preference. Ask allows Cancel and Remember
+  my choice. After a choice, hide/quit promptly with bounded recovery; never let a
+  busy action or failed save veto Quit. Confirm tray availability before hiding.
+- Use the shared notification overlay for app feedback: fixed compact size,
+  width-then-height entry/details, retained history, named dismissal and reduced
+  motion. Keep field validation at the decision point.
 - Make pending work visible, prevent duplicate actions and keep Stop reachable.
   Viewing evidence or refreshing status leaves external actions unchanged.
 - Keep text selectable, code horizontally scrollable and Copy faithful to the

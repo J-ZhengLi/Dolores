@@ -10,6 +10,7 @@ mod changes;
 mod command_sessions;
 mod comparison;
 mod composer_skills;
+mod desktop_preferences;
 mod experimental;
 mod feedback;
 mod generation_profiles;
@@ -35,7 +36,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 50;
+pub const SCHEMA_VERSION: i64 = 51;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -305,6 +306,11 @@ impl SqliteStore {
         }
         if version < 50 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS lifecycle_hooks(root TEXT PRIMARY KEY,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=32768)); PRAGMA user_version=50; COMMIT;").map_err(storage_error)?;
+        }
+        if version < 51 {
+            connection
+                .execute_batch(include_str!("notification_schema.sql"))
+                .map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -622,6 +628,17 @@ impl SessionStore for SqliteStore {
     }
     fn recover_task_inputs(&self) -> Result<(), String> {
         task_inputs::recover(&mut *self.lock()?)
+    }
+    fn close_preferences(
+        &self,
+    ) -> Result<dolores_core::desktop_preferences::ClosePreferences, String> {
+        self.read_close_preferences()
+    }
+    fn save_close_preferences(
+        &self,
+        value: &dolores_core::desktop_preferences::ClosePreferences,
+    ) -> Result<dolores_core::desktop_preferences::ClosePreferences, String> {
+        self.write_close_preferences(value)
     }
     fn background_policy(&self) -> Result<dolores_core::scheduling::BackgroundPolicy, String> {
         scheduling::background(&*self.lock()?)

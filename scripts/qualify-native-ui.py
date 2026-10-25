@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--flutter-sdk', type=Path)
     cases = {
         'close': ('test/native_close_ui_test.dart', 'close-receipt.json'),
+        'notifications': ('test/native_notifications_ui_test.dart', 'notifications-receipt.json'),
         'local': ('test/native_local_ui_test.dart', 'receipt.json'),
         'scheduled': ('test/native_scheduled_ui_test.dart', 'schedule-receipt.json'),
         'stop': ('test/native_stop_ui_test.dart', 'stop-receipt.json'),

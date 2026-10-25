@@ -1,6 +1,6 @@
 # Everyday usability reset
 
-Status: approved. Batch A delivered; Batch B is next, in a separate commit. EH10 remains pending behind this user-requested work.
+Status: complete within the declared Windows/fixture boundary. Batch A and Batch B delivered separately. EH10 remains pending behind this user-requested work.
 
 ## Outcome and agreed scope
 
@@ -192,4 +192,18 @@ model execution limits remain owned by their current contracts.
   request or browser launch. Evidence: `output/usability-a-native-final/receipt.json`.
   Browser setup unit failures/cancellation and compact Light/Dark renders cover
   their declared local boundary; general website reliability remains outside it.
-- Batch B: pending implementation under this approved design.
+- Batch B: animated compact/details toasts, retained Notifications history, General
+  controls and independent Ask/Quit/Tray choices delivered. Normal build, native
+  save/reopen, rendered controls against the Rust bridge and normal-app hidden
+  schedule/restore/Quit checks pass. Evidence and physical-input/capture limitations
+  are recorded in [qualification](../qualification/usability-reset.md). EH10 remains
+  pending; no broader architecture audit or live-model work was started.
+
+## Further findings
+
+The current scope resolves duplicate creation paths, contradictory learning
+defaults, a status-only setup page, shifting feedback and coupled close/background
+controls. A whole-app journey audit remains a separate follow-up. The retained
+legacy `prepareQuit(keepScheduled: ...)` recovery branch can be retired when its
+older recovery fixtures move to the independent minimize flow; ordinary Close no
+longer uses it. No additional platform or workflow framework was introduced.

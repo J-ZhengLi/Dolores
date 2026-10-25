@@ -7,9 +7,11 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Present app feedback through compact animated toasts and retained Notifications history. Move Windows alert controls to General and add remembered Ask/Quit/Tray close choices; minimizing preserves current work independently of scheduled background settings.
+
 - Reuse empty chats on repeated New chat/project actions, enable memory defaults while preserving saved choices, and provide an explicit in-app Browser setup action with progress, cancellation and prerequisite detection.
 
-- Move conversation search to an icon in the title bar with a single search field and live results. Float notices above the workspace without moving content. Close the window immediately and perform bounded best-effort recovery, even during failed saves, busy actions or open reviews.
+- Move conversation search to an icon in the title bar with a single search field and live results. Float notices above the workspace without moving content. After the selected Quit/Tray action, hide promptly and perform bounded best-effort recovery, even during failed saves, busy actions or open reviews.
 - Merge Attention into the title bar as a bell with a compact dropdown. Unify select menus and rounded surfaces, use neutral white and gray colors, and move extended explanations into contextual help.
 
 - Refine the floating dock and selection highlights with translucent glass, reflective edges, soft depth, fluid spring travel and subtle press feedback. Keep crisp labels, reduced-motion/high-contrast fallbacks and Windows support.

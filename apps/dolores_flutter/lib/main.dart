@@ -1,3 +1,5 @@
+import 'close_behavior.dart';
+import 'notification_toast.dart';
 import 'attention_panel.dart';
 import 'access_selector.dart';
 import 'memory.dart';
@@ -117,63 +119,78 @@ class DoloresApp extends StatelessWidget {
           ),
           child: RepaintBoundary(
             key: captureKey,
-            child: desktopFrame
-                ? DesktopFrame(
-                    search: AnimatedBuilder(
-                      animation: host ?? chat,
-                      builder: (_, _) =>
-                          (host?.visible ?? chat).historySearchAvailable
-                          ? HistorySearchButton(
-                              chat: host?.visible ?? chat,
-                              onPressed: () {
-                                final navigator =
-                                    GlobalObjectKey<NavigatorState>(
-                                      host ?? chat,
-                                    ).currentState;
-                                if (navigator == null || navigator.canPop()) {
-                                  return;
-                                }
-                                final searchContext =
-                                    navigator.overlay?.context;
-                                if (searchContext != null) {
-                                  unawaited(
-                                    showHistorySearch(
-                                      searchContext,
-                                      host?.visible ?? chat,
-                                    ),
-                                  );
-                                }
-                              },
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    attention: host == null
-                        ? null
-                        : AnimatedBuilder(
-                            animation: host!,
-                            builder: (_, _) => host!.visible.attentionAvailable
-                                ? AttentionButton(host: host!.attention)
-                                : const SizedBox.shrink(),
-                          ),
-                    onTogglePanel: host?.togglePanel,
-                    onBeforeClose: host?.requestClose,
-                    onOpenSettings: () async {
-                      final navigator = GlobalObjectKey<NavigatorState>(
-                        host ?? chat,
-                      ).currentState;
-                      // Keep the current modal/review and its unsaved work in place.
-                      if (navigator == null || navigator.canPop()) return;
-                      final settingsContext = navigator.overlay?.context;
-                      if (settingsContext != null) {
-                        await showSettings(
-                          settingsContext,
-                          host?.visible ?? chat,
-                        );
-                      }
-                    },
-                    child: child!,
-                  )
-                : child!,
+            child: NotificationOverlay(
+              host: host?.attention,
+              top: desktopFrame ? 42 : 10,
+              child: desktopFrame
+                  ? DesktopFrame(
+                      search: AnimatedBuilder(
+                        animation: host ?? chat,
+                        builder: (_, _) =>
+                            (host?.visible ?? chat).historySearchAvailable
+                            ? HistorySearchButton(
+                                chat: host?.visible ?? chat,
+                                onPressed: () {
+                                  final navigator =
+                                      GlobalObjectKey<NavigatorState>(
+                                        host ?? chat,
+                                      ).currentState;
+                                  if (navigator == null || navigator.canPop()) {
+                                    return;
+                                  }
+                                  final searchContext =
+                                      navigator.overlay?.context;
+                                  if (searchContext != null) {
+                                    unawaited(
+                                      showHistorySearch(
+                                        searchContext,
+                                        host?.visible ?? chat,
+                                      ),
+                                    );
+                                  }
+                                },
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      attention: host == null
+                          ? null
+                          : AnimatedBuilder(
+                              animation: host!,
+                              builder: (_, _) =>
+                                  host!.visible.attentionAvailable
+                                  ? AttentionButton(host: host!.attention)
+                                  : const SizedBox.shrink(),
+                            ),
+                      onTogglePanel: host?.togglePanel,
+                      onRequestClose: host == null
+                          ? null
+                          : () async {
+                              final navigator = GlobalObjectKey<NavigatorState>(
+                                host ?? chat,
+                              ).currentState;
+                              final context = navigator?.overlay?.context;
+                              if (context != null) {
+                                await closeDolores(context, host!);
+                              }
+                            },
+                      onOpenSettings: () async {
+                        final navigator = GlobalObjectKey<NavigatorState>(
+                          host ?? chat,
+                        ).currentState;
+                        // Keep the current modal/review and its unsaved work in place.
+                        if (navigator == null || navigator.canPop()) return;
+                        final settingsContext = navigator.overlay?.context;
+                        if (settingsContext != null) {
+                          await showSettings(
+                            settingsContext,
+                            host?.visible ?? chat,
+                          );
+                        }
+                      },
+                      child: child!,
+                    )
+                  : child!,
+            ),
           ),
         ),
       ),

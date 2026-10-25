@@ -1,3 +1,4 @@
+import 'general_notifications.dart';
 import 'app_dropdown.dart';
 import 'learning.dart';
 import 'tools_home.dart';
@@ -26,7 +27,6 @@ import 'advanced_home.dart';
 import 'native_repairs.dart';
 import 'experimental_settings.dart';
 import 'companionship_settings.dart';
-import 'background_settings.dart';
 import 'glass_navigation.dart';
 import 'page_transition.dart';
 
@@ -118,7 +118,9 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
     };
 
 class _SettingsWindowState extends State<SettingsWindow> {
-  late SettingsCategory selected = widget.initial;
+  late SettingsCategory selected = widget.initial == SettingsCategory.background
+      ? SettingsCategory.appearance
+      : widget.initial;
   late ModelsPage modelPage = widget.modelsPage;
   final panels = <String, Widget>{};
   final locks = <String, ValueNotifier<bool>>{};
@@ -171,22 +173,16 @@ class _SettingsWindowState extends State<SettingsWindow> {
       'request default generation output timeout reasoning',
     ),
     (
-      'Theme',
+      'Appearance and behavior',
       SettingsCategory.appearance,
       ModelsPage.connection,
-      'appearance system light dark',
+      'appearance system light dark notifications windows closing tray background scheduled',
     ),
     (
       'Experimental',
       SettingsCategory.experimental,
       ModelsPage.connection,
       'multiple window keep awake prevent windows locked',
-    ),
-    (
-      'Background tasks',
-      SettingsCategory.background,
-      ModelsPage.connection,
-      'scheduled tray quit awake',
     ),
     (
       'Connection & models',
@@ -379,7 +375,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
-    SettingsCategory.background => BackgroundSettings(chat: widget.chat),
+    SettingsCategory.background => AppearanceSettings(chat: widget.chat),
     SettingsCategory.companionship => CompanionshipSettings(chat: widget.chat),
     SettingsCategory.experimental => ExperimentalSettings(chat: widget.chat),
     SettingsCategory.nativeRepairs => NativeRepairs(
@@ -776,7 +772,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
   @override
   Widget build(BuildContext context) => EmbeddedSettingsFrame(
     title: 'General',
-    subtitle: 'Choose how Dolores looks',
+    subtitle: 'Appearance, notifications and closing behavior',
     pending: SettingsEmbedding.of(context)!.pending,
     canClose: !pending,
     child: ListView(
@@ -847,6 +843,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           value: !widget.chat.reducedMotion.value,
           onChanged: pending ? null : motion,
         ),
+        GeneralNotifications(chat: widget.chat),
         if (pending) const LinearProgressIndicator(),
       ],
     ),

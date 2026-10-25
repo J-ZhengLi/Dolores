@@ -19,6 +19,7 @@ import 'package:path/path.dart' as paths;
 class AppHost extends ChangeNotifier {
   Future<bool> Function(Map<String, dynamic>)? presentAttention;
   final AttentionWindow? attentionWindow;
+  final AvailabilityWindow? availabilityWindow;
   late final attention = AttentionHost(
     initial.bridge,
     window: attentionWindow,
@@ -43,9 +44,11 @@ class AppHost extends ChangeNotifier {
 
   late final background = BackgroundHost(
     initial.bridge,
+    window: availabilityWindow,
     restored: () async {
+      attention.setQuiet(false);
       await companion.refresh();
-      await scheduled.refresh();
+      await scheduled.resume();
     },
     quit: requestQuit,
   );
@@ -102,21 +105,14 @@ class AppHost extends ChangeNotifier {
   bool? _reducedMotion;
   final _running = <ChatController>{};
   final _themes = <ChatController, VoidCallback>{};
-  Future<bool> Function()? closeReview;
   Future<void> Function(String path)? repositoryNavigation;
-  Future<bool> requestClose() async =>
-      await closeReview?.call() ?? await prepareQuit(saveFiles: false);
-  Future<void> closeToTray({required bool saveFiles}) async {
-    error = null;
-    final hidden = await background.closeToTray(
-      () => prepareQuit(saveFiles: saveFiles, keepScheduled: true),
-    );
-    if (!hidden) {
-      error ??=
-          background.error ??
-          'Could not close to tray. Keep Dolores open and try again.';
-    }
-    notifyListeners();
+  Future<bool> requestClose() => prepareQuit(saveFiles: false);
+  Future<bool> minimizeToTray() async {
+    if (!await background.minimize()) return false;
+    attention.setQuiet(true);
+    companion.suspend();
+    if (!background.enabled) scheduled.suspend();
+    return true;
   }
 
   Future<void> prepareNativeRestart(ChatController caller) async {
@@ -226,7 +222,7 @@ class AppHost extends ChangeNotifier {
   }
 
   static const maxOwners = 8;
-  AppHost(this.initial, {this.attentionWindow}) {
+  AppHost(this.initial, {this.attentionWindow, this.availabilityWindow}) {
     git.afterReviewSubmission = (session) async {
       final owner = owners.where((c) => c.session == session).firstOrNull;
       if (owner != null) {
@@ -284,6 +280,8 @@ class AppHost extends ChangeNotifier {
     unawaited(background.refresh());
   }
   void _add(ChatController owner) {
+    owner.notifications = attention;
+    owner.backgroundHost = background;
     owner.onNavigateConversation = (id) async {
       await select(id);
       if (visible.session != id) {

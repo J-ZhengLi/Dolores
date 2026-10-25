@@ -27,6 +27,7 @@ qualification report only when a task depends on that evidence.
 | Workspace, files, Git or terminal | [Workspace](design/developer-workspace.md), [Documents](design/editor-documents.md), [Git](design/source-control.md), [Terminal](design/terminal-language-services.md) |
 | Conversations, planning, goals or history | Selected task via [harness batches](plans/everyday-harness/README.md) |
 | Settings or model/context controls | [Scoped settings](design/scoped-settings.md), [Generation profiles](design/model-generation-profiles.md), [Context](design/token-context.md) |
+| Notifications, General or close/tray behavior | [Notifications](design/notifications.md) |
 | Memory, skills or connections | [Memory](design/automatic-memory.md), [Skills](design/project-skills.md), [MCP](design/mcp-connection.md) |
 | Search, browser, computer or subagents | [Search](design/web-search.md), [Browser](design/browser-use.md), [Computer](design/computer-use.md), [Subagents](design/subagents.md) |
 | Scheduling or companionship | [Scheduling](design/chat-scheduling.md), [Closed UI](design/closed-ui-scheduling.md), [Companionship](design/companionship.md) |

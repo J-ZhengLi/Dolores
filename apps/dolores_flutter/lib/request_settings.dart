@@ -36,7 +36,7 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
   final _scroll = ScrollController();
   late final TextEditingController tokens, timeout;
   bool saving = false;
-  String? failure, notice;
+  String? failure;
   late String endpoint, model;
   String reasoning = 'providerDefault';
   bool inherited = false;
@@ -90,7 +90,6 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
     setState(() {
       saving = true;
       failure = null;
-      notice = null;
     });
     try {
       final settings = {
@@ -112,7 +111,11 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
         if (SettingsEmbedding.of(context) == null) {
           Navigator.pop(context);
         } else {
-          setState(() => notice = 'Response settings saved.');
+          widget.chat.notice(
+            'response-settings',
+            'Response settings saved',
+            'Your response preferences were saved.',
+          );
         }
       }
     } catch (error) {
@@ -290,7 +293,6 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                   const Text(
                     'Save to remove this model’s override and use the application defaults.',
                   ),
-                if (notice != null) Text(notice!),
               ],
             ),
           ),
@@ -311,7 +313,11 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                           selectedSettings['reasoning'] as String? ??
                           'providerDefault';
                       failure = null;
-                      notice = 'Response settings reloaded.';
+                      widget.chat.notice(
+                        'response-settings',
+                        'Settings reloaded',
+                        'The saved response settings are shown.',
+                      );
                       savedDraft = draftValue;
                     }),
               child: const Text('Reload response settings'),

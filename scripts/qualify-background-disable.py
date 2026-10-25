@@ -6,7 +6,7 @@ import desktop
 
 p=argparse.ArgumentParser();p.add_argument('--directory',type=Path,required=True);p.add_argument('--initialize',action='store_true');a=p.parse_args();root=a.directory.resolve();assert root.is_relative_to(ROOT/'output')
 if a.initialize:
-    h=NativeHost(root);h.call('bootstrap');policy=h.call('backgroundPolicy');h.call('setBackgroundPolicy',enabled=False,revision=policy['revision']);h.close();sys.exit(0)
+    h=NativeHost(root);h.call('bootstrap');policy=h.call('backgroundPolicy');h.call('setBackgroundPolicy',enabled=False,revision=policy['revision']);close=h.call('closePreferences');h.call('saveClosePreferences',preferences={**close,'behavior':'quit'});h.close();sys.exit(0)
 subprocess.run([sys.executable,__file__,'--directory',str(root),'--initialize'],check=True,capture_output=True)
 record=root/'disable-owner.json';app=None
 try:

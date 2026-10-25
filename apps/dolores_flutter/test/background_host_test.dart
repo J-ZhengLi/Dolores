@@ -58,7 +58,7 @@ void main() {
         },
       );
       await h.refresh();
-      expect(await h.closeToTray(() async => true), true);
+      expect(await h.minimize(), true);
       expect(h.hidden, true);
       expect(w.hides, 1);
       await w.event!('restored');
@@ -70,7 +70,7 @@ void main() {
       h.dispose();
     },
   );
-  test('Blocked recovery and failed tray preserve visible ownership', () async {
+  test('Failed tray preserves visible ownership', () async {
     final b = BackgroundBridge(), w = TestWindow();
     var resumed = 0;
     final h = BackgroundHost(
@@ -82,17 +82,15 @@ void main() {
       quit: () async {},
     );
     await h.refresh();
-    expect(await h.closeToTray(() async => false), false);
-    expect(w.hides, 0);
     w.fail = true;
-    expect(await h.closeToTray(() async => true), false);
+    expect(await h.minimize(), false);
     expect(h.hidden, false);
-    expect(h.error, contains('Keep Dolores open'));
+    expect(h.error, contains('remains open'));
     expect(resumed, 1);
     h.dispose();
   });
   test(
-    'Turning off a hidden worker restores its UI and preserves policy',
+    'Tray minimization is independent of scheduled background work',
     () async {
       final b = BackgroundBridge(), w = TestWindow();
       final h = BackgroundHost(
@@ -102,12 +100,14 @@ void main() {
         quit: () async {},
       );
       await h.refresh();
-      await h.closeToTray(() async => true);
+      await h.minimize();
       b.policy = {'enabled': false, 'revision': 3};
       await h.refresh();
       expect(h.enabled, false);
+      expect(h.hidden, true);
+      expect(w.opens, 0);
+      await w.restore();
       expect(h.hidden, false);
-      expect(w.opens, 1);
       h.dispose();
     },
   );

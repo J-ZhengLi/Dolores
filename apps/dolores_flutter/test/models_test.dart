@@ -110,10 +110,7 @@ void main() {
         await remove('other');
         expect(chat.configured, isFalse);
         expect(chat.enabledModels, isEmpty);
-        expect(
-          find.text('Connection & models'),
-          findsOneWidget,
-        );
+        expect(find.text('Connection & models'), findsOneWidget);
         expect(find.byKey(const Key('model-menu-other')), findsNothing);
         expect(chat.draft, 'Keep my question');
         expect(tester.takeException(), isNull);
@@ -215,7 +212,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(bridge.details['contextWindowTokens'], 65536);
         expect(bridge.details['imageInput'], true);
-        expect(find.textContaining('Saved. Reopen'), findsOneWidget);
+        expect(find.textContaining('Saved. Reopen'), findsNothing);
+        expect(find.text('Saved'), findsNothing);
         expect(chat.draft, 'Unrelated draft');
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

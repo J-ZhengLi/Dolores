@@ -30,9 +30,11 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Notice> {
     };
     Ok(Notice {
         id: r.get(0)?,
-        title: None,
-        session: r.get(1)?,
-        run: r.get(2)?,
+        title: r.get(9)?,
+        details: r.get(10)?,
+        severity: r.get(11)?,
+        session: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+        run: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
         sequence: r.get(3)?,
         kind: parse(&kind)?,
         created_at: r.get(5)?,
@@ -48,7 +50,7 @@ fn inspect(c: &Connection, id: &str) -> Result<Notice, String> {
             "Attention target is invalid. Open Attention and choose a retained entry.".into(),
         );
     }
-    c.query_row("SELECT id,session,run,sequence,kind,created_at,seen,delivery FROM attention_notices WHERE id=?1",[id],row).optional().map_err(storage_error)?.ok_or("This attention entry is no longer retained. Search the conversation or inspect its run history; no decision was applied.".into())
+    c.query_row("SELECT id,session,run,sequence,kind,created_at,seen,delivery,rowid,title,details,severity FROM attention_notices WHERE id=?1",[id],row).optional().map_err(storage_error)?.ok_or("This attention entry is no longer retained. Search the conversation or inspect its run history; no decision was applied.".into())
 }
 fn label<T: serde::Serialize>(v: T) -> Result<String, String> {
     Ok(serde_json::to_value(v)
@@ -102,7 +104,7 @@ fn collect(c: &Connection) -> Result<bool, String> {
     }
     // Keep 256 newest attention entries. Source cursors prevent pruned notices
     // from returning; the underlying run evidence remains available.
-    let removed=c.execute("DELETE FROM attention_notices WHERE rowid NOT IN (SELECT rowid FROM attention_notices ORDER BY rowid DESC LIMIT 256)",[]).map_err(storage_error)?;
+    let removed=c.execute("DELETE FROM attention_notices WHERE kind!='app' AND rowid NOT IN (SELECT rowid FROM attention_notices WHERE kind!='app' ORDER BY rowid DESC LIMIT 256)",[]).map_err(storage_error)?;
     if removed > 0 {
         c.execute("INSERT INTO attention_preferences(id,data,omitted) VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET omitted=omitted+excluded.omitted",params![serde_json::to_string(&preferences).map_err(storage_error)?,removed]).map_err(storage_error)?;
     }
@@ -124,6 +126,45 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(storage_error)?;
     let result = match request {
+        Request::Post {
+            source,
+            title,
+            details,
+            severity,
+        } => {
+            if source.is_empty()
+                || source.len() > 80
+                || !source
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+                || title.trim().is_empty()
+                || title.len() > 160
+                || details.len() > 4096
+                || title.chars().any(char::is_control)
+                || details.contains('\0')
+                || !["info", "success", "warning", "error"].contains(&severity.as_str())
+                || dolores_core::credential_like(title)
+                || dolores_core::credential_like(details)
+            {
+                return Err(
+                    "Notification content is invalid. Keep a brief nonsecret summary.".into(),
+                );
+            }
+            let recent:Option<String>=tx.query_row("SELECT id FROM attention_notices WHERE kind='app' AND source_key=?1 AND created_at>?2 ORDER BY rowid DESC LIMIT 1",params![source,now()-5000],|r|r.get(0)).optional().map_err(storage_error)?;
+            let id = recent.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            tx.execute("INSERT INTO attention_notices(id,sequence,kind,created_at,seen,delivery,title,details,severity,source_key) VALUES(?1,0,'app',?2,0,'suppressed',?3,?4,?5,?6) ON CONFLICT(id) DO UPDATE SET created_at=excluded.created_at,seen=0,title=excluded.title,details=excluded.details,severity=excluded.severity",params![id,now(),title,details,severity,source]).map_err(storage_error)?;
+            tx.execute("DELETE FROM attention_notices WHERE kind='app' AND rowid NOT IN(SELECT rowid FROM attention_notices WHERE kind='app' ORDER BY created_at DESC,rowid DESC LIMIT 100)",[]).map_err(storage_error)?;
+            json!(inspect(&tx, &id)?)
+        }
+        Request::ClearRead => {
+            tx.execute("DELETE FROM attention_notices WHERE seen=1", [])
+                .map_err(storage_error)?;
+            Value::Null
+        }
+        Request::SeenAll => {
+            tx.execute("UPDATE attention_notices SET seen=1,delivery=CASE WHEN delivery='pending' THEN 'suppressed' ELSE delivery END",[]).map_err(storage_error)?;
+            Value::Null
+        }
         Request::Preferences => json!(prefs(&tx)?),
         Request::SavePreferences { preferences } => {
             // Advance cursors under the old policy before changing opt-in.
@@ -155,7 +196,7 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
                 return Err("Attention page is invalid. Refresh from the beginning.".into());
             }
             let more_sources = collect(&tx)?;
-            let mut st=tx.prepare("SELECT id,session,run,sequence,kind,created_at,seen,delivery,rowid FROM attention_notices WHERE (?1 IS NULL OR rowid<?1) ORDER BY rowid DESC LIMIT 51").map_err(storage_error)?;
+            let mut st=tx.prepare("SELECT id,session,run,sequence,kind,created_at,seen,delivery,rowid,title,details,severity FROM attention_notices WHERE (?1 IS NULL OR rowid<?1) ORDER BY rowid DESC LIMIT 51").map_err(storage_error)?;
             let mut rows = st
                 .query_map([cursor], |r| Ok((row(r)?, r.get::<_, i64>(8)?)))
                 .map_err(storage_error)?
@@ -164,6 +205,9 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
             let more = rows.len() > 50;
             rows.truncate(50);
             for (notice, _) in &mut rows {
+                if notice.kind == Kind::App {
+                    continue;
+                }
                 notice.title = tx
                     .query_row(
                         "SELECT substr(title,1,160) FROM sessions WHERE id=?1",
@@ -187,7 +231,7 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
                 .optional()
                 .map_err(storage_error)?
                 .unwrap_or(0);
-            let mut pending=tx.prepare("SELECT id,session,run,sequence,kind,created_at,seen,delivery FROM attention_notices WHERE delivery='pending' AND seen=0 ORDER BY rowid LIMIT 2").map_err(storage_error)?;
+            let mut pending=tx.prepare("SELECT id,session,run,sequence,kind,created_at,seen,delivery,rowid,title,details,severity FROM attention_notices WHERE delivery='pending' AND seen=0 ORDER BY rowid LIMIT 2").map_err(storage_error)?;
             let pending_delivery = pending
                 .query_map([], row)
                 .map_err(storage_error)?
@@ -199,12 +243,22 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
                 next_cursor,
                 more_sources,
                 omitted,
+                unread: tx
+                    .query_row(
+                        "SELECT count(*) FROM attention_notices WHERE seen=0",
+                        [],
+                        |r| r.get(0)
+                    )
+                    .map_err(storage_error)?,
                 pending_delivery
             })
         }
         Request::Inspect { id } => json!(inspect(&tx, id)?),
         Request::Resolve { id } => {
             let notice = inspect(&tx, id)?;
+            if notice.kind == Kind::App {
+                return Err("Open this notification's details in Notifications.".into());
+            }
             let state: String = tx
                 .query_row(
                     "SELECT json_extract(data,'$.state') FROM runs WHERE id=?1 AND thread=?2",

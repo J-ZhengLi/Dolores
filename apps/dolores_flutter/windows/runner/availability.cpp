@@ -80,7 +80,7 @@ DoloresAvailability::~DoloresAvailability(){
   if(icon_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=1;Shell_NotifyIconW(NIM_DELETE,&data);}
 }
 bool DoloresAvailability::Hide(){
-  if(!icon_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=1;data.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;data.uCallbackMessage=kDoloresTray;data.hIcon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(IDI_APP_ICON));wcscpy_s(data.szTip,L"Dolores — scheduled tasks");if(!Shell_NotifyIconW(NIM_ADD,&data))return false;icon_=true;}
+  if(!icon_){NOTIFYICONDATAW data{};data.cbSize=sizeof(data);data.hWnd=window_;data.uID=1;data.uFlags=NIF_ICON|NIF_MESSAGE|NIF_TIP;data.uCallbackMessage=kDoloresTray;data.hIcon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(IDI_APP_ICON));wcscpy_s(data.szTip,L"Dolores");if(!Shell_NotifyIconW(NIM_ADD,&data))return false;icon_=true;}
   ShowWindow(window_,SW_HIDE);return true;
 }
 void DoloresAvailability::Restore(){
@@ -97,7 +97,7 @@ bool DoloresAvailability::Handle(UINT message,WPARAM wparam,LPARAM lparam){
       if(clicked){Restore();attention_->InvokeMethod("opened",std::make_unique<flutter::EncodableValue>(id));}
     }return true;
   }
-  if(message==kDoloresQuit){Restore();channel_->InvokeMethod("quit",std::make_unique<flutter::EncodableValue>());return true;}
+  if(message==kDoloresQuit){channel_->InvokeMethod("quit",std::make_unique<flutter::EncodableValue>());return true;}
   if(message==kDoloresRestore){Restore();return true;}
   static const UINT taskbar=RegisterWindowMessageW(L"TaskbarCreated");
   if(message==taskbar){notices_.clear();if(icon_){icon_=false;if(!Hide())Restore();}return true;}
@@ -106,7 +106,7 @@ bool DoloresAvailability::Handle(UINT message,WPARAM wparam,LPARAM lparam){
   else if(lparam==WM_RBUTTONUP){
     HMENU menu=CreatePopupMenu();AppendMenuW(menu,MF_STRING,1,L"Open Dolores");AppendMenuW(menu,MF_STRING,2,L"Quit Dolores");POINT point{};GetCursorPos(&point);SetForegroundWindow(window_);
     const auto action=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_NONOTIFY|TPM_RIGHTBUTTON,point.x,point.y,0,window_,nullptr);DestroyMenu(menu);
-    if(action){Restore();if(action==2)channel_->InvokeMethod("quit",std::make_unique<flutter::EncodableValue>());}
+    if(action==1){Restore();}else if(action==2){channel_->InvokeMethod("quit",std::make_unique<flutter::EncodableValue>());}
     PostMessageW(window_,WM_NULL,0,0);
   }return true;
 }

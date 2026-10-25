@@ -22,6 +22,16 @@ class SettingsBridge extends BackgroundBridge {
   }
   @override
   Future<dynamic> call(Map<String, dynamic> c) async {
+    if (c['command'] == 'attention') {
+      if (c['request']['action'] == 'poll') {
+        return {
+          'preferences': {'revision': 0, 'enabled': false},
+          'items': [],
+          'unread': 0,
+          'pendingDelivery': [],
+        };
+      }
+    }
     if (c['command'] == 'setBackgroundPolicy') {
       if (fail) throw StateError('Save failed. Refresh and try again.');
       expect(c['revision'], policy['revision']);
@@ -33,7 +43,7 @@ class SettingsBridge extends BackgroundBridge {
 }
 
 void main() {
-  testWidgets('Tray failure falls back to quitting instead of blocking Close', (
+  testWidgets('Tray failure keeps Dolores visible and leaves work available', (
     t,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
@@ -55,10 +65,10 @@ void main() {
     await t.pumpWidget(DoloresApp(chat: chat, host: host));
     await t.pumpAndSettle();
     expect(host.background.enabled, true);
-    expect(await host.requestClose(), true);
+    expect(await host.minimizeToTray(), false);
     await t.pumpAndSettle();
     expect(host.background.hidden, false);
-    expect(find.textContaining('Keep Dolores open'), findsOneWidget);
+    expect(host.background.error, contains('remains open'));
     await t.pumpWidget(const SizedBox());
     host.dispose();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -108,6 +118,7 @@ void main() {
           );
           final b = SettingsBridge();
           final tested = ChatController(b)..loading = false;
+          final host = AppHost(tested);
           final key = GlobalKey();
           await t.pumpWidget(
             MaterialApp(
@@ -132,7 +143,13 @@ void main() {
           );
           await t.pumpAndSettle();
           expect(t.takeException(), isNull);
-          expect(find.text('Run tasks in background'), findsOneWidget);
+          await t.scrollUntilVisible(
+            find.byKey(const Key('general-background')),
+            200,
+            scrollable: find.byType(Scrollable).last,
+          );
+          await t.pumpAndSettle();
+          expect(find.text('Continue scheduled tasks in tray'), findsOneWidget);
           expect(find.textContaining('computer must be awake'), findsNothing);
           if (output != null) {
             final boundary =
@@ -151,19 +168,22 @@ void main() {
             });
           }
           b.fail = true;
-          await t.tap(find.byKey(const Key('background-enabled')));
+          await t.tap(find.byKey(const Key('general-background')));
           await t.pumpAndSettle();
           expect(b.policy['enabled'], false);
-          expect(find.textContaining('Save failed'), findsOneWidget);
+          expect(
+            find.textContaining('Could not save background scheduling'),
+            findsOneWidget,
+          );
           b.fail = false;
-          await t.tap(find.byKey(const Key('background-enabled')));
+          await t.tap(find.byKey(const Key('general-background')));
           await t.pumpAndSettle();
           expect(b.policy['enabled'], true);
-          await t.tap(find.byKey(const Key('background-enabled')));
+          await t.tap(find.byKey(const Key('general-background')));
           await t.pumpAndSettle();
           expect(b.policy['enabled'], false);
           await t.pumpWidget(const SizedBox());
-          tested.dispose();
+          host.dispose();
           debugDefaultTargetPlatformOverride = null;
         },
       );

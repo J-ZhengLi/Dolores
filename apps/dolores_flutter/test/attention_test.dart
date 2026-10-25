@@ -212,7 +212,8 @@ void main() {
         );
         await t.pumpAndSettle();
         await capture(t, key, 'attention-${dark ? 'dark' : 'light'}');
-        expect(find.text('Windows notifications'), findsOneWidget);
+        expect(find.text('Windows notifications'), findsNothing);
+        expect(find.text('Notifications'), findsOneWidget);
         await t.scrollUntilVisible(
           find.byKey(ValueKey('attention-open-${b.notices.single['id']}')),
           200,

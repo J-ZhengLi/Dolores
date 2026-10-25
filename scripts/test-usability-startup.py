@@ -28,7 +28,11 @@ try:
         assert not host.call('memories')['automaticPolicy']['enabled']
         knowledge=host.call('projectKnowledge',session=saved['empty'])
         assert not knowledge['learning'] and not knowledge['shareFeedback']
-        receipt=json.loads((directory/'receipt.json').read_text(encoding='utf-8'));receipt['restartPreservedChoicesAndChats']=True
+        assert host.call('closePreferences')['behavior']=='tray'
+        notice=host.call('attention',request={'action':'inspect','id':saved['notice']})
+        assert notice['title']=='Model settings saved' and not notice['seen']
+
+        receipt=json.loads((directory/'receipt.json').read_text(encoding='utf-8'));receipt['restartPreservedChoicesAndChats']=True;receipt['notificationAndCloseChoiceRetained']=True
         (directory/'receipt.json').write_text(json.dumps(receipt,indent=2),encoding='utf-8')
     else:
         project=directory/'project';project.mkdir()
@@ -50,6 +54,10 @@ try:
             assert status['phase']=='ready',status
             assert host.call('browserSettings')['available']
             installed=True
-        (directory/'state.json').write_text(json.dumps({'draft':first,'empty':second}),encoding='utf-8')
+        notice=host.call('attention',request={'action':'post','source':'model-settings','title':'Model settings saved','details':'Public fixture configuration saved.','severity':'success'})
+        assert host.call('attention',request={'action':'poll'})['unread']==1
+        close=host.call('closePreferences');assert close['behavior']=='ask'
+        host.call('saveClosePreferences',preferences={**close,'behavior':'tray'})
+        (directory/'state.json').write_text(json.dumps({'draft':first,'empty':second,'notice':notice['id']}),encoding='utf-8')
         (directory/'receipt.json').write_text(json.dumps({'emptySessionReuse':True,'draftPreserved':True,'defaultLearningEnabled':True,'savedOffPreserved':True,'browserAdapterInstalled':installed,'modelRequests':0,'browserLaunches':0},indent=2),encoding='utf-8')
 finally:host.close()

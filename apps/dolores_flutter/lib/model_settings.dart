@@ -52,7 +52,7 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
   late bool remember =
       widget.chat.rememberConnection || widget.chat.model.isEmpty;
   bool saving = false;
-  String? error, notice;
+  String? error;
   bool fetching = false, manual = false;
   bool clearKey = false;
   late String? contextModel = widget.chat.model.isEmpty
@@ -149,7 +149,6 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
     setState(() {
       saving = true;
       error = null;
-      notice = null;
     });
     try {
       final contexts = <String, int?>{};
@@ -189,7 +188,11 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
             saving = false;
             keyInput.clear();
             clearKey = false;
-            notice = 'Connection saved.';
+            widget.chat.notice(
+              'model-connection',
+              'Connection saved',
+              'Your connection and model choices were saved.',
+            );
             savedDraft = draftValue;
           });
           widget.onSaved?.call();
@@ -221,7 +224,11 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
         } else {
           setState(() {
             saving = false;
-            notice = 'Saved connection forgotten.';
+            widget.chat.notice(
+              'model-connection',
+              'Connection forgotten',
+              'The saved connection was removed. Your conversations remain.',
+            );
           });
         }
       }
@@ -261,11 +268,6 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                 'Use an OpenAI-compatible local or hosted API.',
                 style: TextStyle(fontSize: 13),
               ),
-              if (notice != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(notice!),
-                ),
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),

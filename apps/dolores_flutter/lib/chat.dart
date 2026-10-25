@@ -1,3 +1,6 @@
+import 'attention_host.dart';
+import 'background_host.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -73,6 +76,19 @@ class ChatController extends ChangeNotifier {
       error = '$e';
       _notify();
     }
+  }
+
+  AttentionHost? notifications;
+  BackgroundHost? backgroundHost;
+  void notice(
+    String source,
+    String title,
+    String details, {
+    String severity = 'success',
+  }) {
+    unawaited(
+      notifications?.publish(source, title, details, severity: severity),
+    );
   }
 
   final ChatBridge bridge;

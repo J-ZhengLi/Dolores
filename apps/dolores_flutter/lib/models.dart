@@ -161,7 +161,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
       timeout = TextEditingController();
   late final endpoint = widget.chat.baseUrl;
   Map<String, dynamic>? expected;
-  String? savedDraft, error, notice;
+  String? savedDraft, error;
   bool images = false, custom = false, pending = false;
   String reasoning = 'providerDefault';
   String get draft => jsonEncode([
@@ -245,7 +245,6 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
     setState(() {
       pending = true;
       error = null;
-      notice = null;
     });
     try {
       final value = (await widget.chat.bridge.call({
@@ -268,7 +267,11 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
       setState(() {
         expected = value;
         savedDraft = draft;
-        notice = 'Saved';
+        widget.chat.notice(
+          'model-settings',
+          'Model settings saved',
+          'Your model configuration was saved.',
+        );
       });
       // The acknowledgement is durable. A failed refresh must not report a failed save.
       try {
@@ -277,8 +280,12 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
       } catch (_) {
         if (mounted) {
           setState(
-            () => notice =
-                'Saved. Reopen settings to refresh the displayed model list.',
+            () => widget.chat.notice(
+              'model-settings',
+              'Settings saved',
+              'Reopen settings to refresh the displayed model list.',
+              severity: 'warning',
+            ),
           );
         }
       }
@@ -345,7 +352,7 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                           color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-                    if (notice != null) Text(notice!),
+
                     FieldLabel(
                       label: 'Context window (tokens)',
                       help: 'Blank uses 128K',

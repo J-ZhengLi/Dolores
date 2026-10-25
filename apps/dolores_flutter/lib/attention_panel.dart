@@ -57,7 +57,7 @@ class _AttentionButtonState extends State<AttentionButton> {
       builder: (context, controller, _) => IconButton(
         key: const Key('task-attention'),
         focusNode: focus,
-        tooltip: 'Attention',
+        tooltip: 'Notifications',
         constraints: const BoxConstraints.tightFor(width: 46, height: 32),
         padding: EdgeInsets.zero,
         onPressed: () =>
@@ -70,6 +70,13 @@ class _AttentionButtonState extends State<AttentionButton> {
       ),
     ),
   );
+}
+
+String noticeTime(BuildContext context, Map notice) {
+  final value = notice['createdAt'];
+  if (value is! int) return '';
+  final date = DateTime.fromMillisecondsSinceEpoch(value).toLocal();
+  return '${date.month}/${date.day} · ${TimeOfDay.fromDateTime(date).format(context)}';
 }
 
 class AttentionPanel extends StatefulWidget {
@@ -112,7 +119,7 @@ class _AttentionPanelState extends State<AttentionPanel> {
               child: HelpLabel(
                 help: 'Task updates and requests appear here. Opening an update takes you to the task; it does not approve or answer it.',
                 child: Text(
-                  'Attention',
+                  'Notifications',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -128,49 +135,15 @@ class _AttentionPanelState extends State<AttentionPanel> {
           child: ListView(
             primary: false,
             children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const HelpLabel(
-                  help: 'Notifications show only task status, without chat content or file names. Dolores must be open or in the tray. Windows may hide notifications; delivery does not mean they were read.',
-                  child: Text('Windows notifications'),
-                ),
-                value: host.preferences['enabled'] == true,
-                onChanged: host.pending
-                    ? null
-                    : (v) => host.save({...host.preferences, 'enabled': v}),
-              ),
-              if (host.preferences['enabled'] == true)
-                ExpansionTile(
-                  title: const Text('Notify about'),
-                  children: [
-                    for (final kind in [
-                      'completed',
-                      'failed',
-                      'approval',
-                      'question',
-                    ])
-                      CheckboxListTile(
-                        title: Text(attentionLabel(kind)),
-                        value: host.preferences[kind] == true,
-                        onChanged: host.pending
-                            ? null
-                            : (v) => host.save({...host.preferences, kind: v}),
-                      ),
-                  ],
-                ),
-              if (!host.supported)
-                const Text(
-                  'Windows notifications unavailable. Updates still appear here.',
-                ),
               if (host.omitted > 0)
-                Text('${host.omitted} older updates are in task history.'),
+                Text('${host.omitted} older task updates are in task history.'),
               if (host.items.isEmpty && !host.pending)
                 const Text('You’re all caught up.'),
               for (final n in host.items)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: ListTile(
-                    key: Key('attention-open-${n['id']}'),
+                    key: Key('notification-details-${n['id']}'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -185,28 +158,24 @@ class _AttentionPanelState extends State<AttentionPanel> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: n['title'] == null
-                        ? null
-                        : Text(attentionLabel(n['kind'] as String)),
-                    trailing: n['seen'] == true
+                    subtitle: Text(
+                      '${n['kind'] == 'app' ? '' : '${attentionLabel(n['kind'] as String)} · '}${noticeTime(context, n)}',
+                    ),
+                    trailing: n['kind'] == 'app'
                         ? null
                         : IconButton(
-                            tooltip: 'Mark seen',
-                            icon: const Icon(Icons.done, size: 18),
-                            onPressed: host.pending
-                                ? null
-                                : () => host.seen(n['id'] as String),
+                            key: Key('attention-open-${n['id']}'),
+                            tooltip: 'Open task',
+                            icon: const Icon(Icons.arrow_outward, size: 18),
+                            onPressed: () async {
+                              widget.onClose?.call();
+                              await host.open(n['id'] as String);
+                            },
                           ),
-                    onTap: host.pending
-                        ? null
-                        : () async {
-                            if (widget.onClose != null) {
-                              widget.onClose!();
-                            } else {
-                              Navigator.pop(context);
-                            }
-                            await host.open(n['id'] as String);
-                          },
+                    onTap: () {
+                      widget.onClose?.call();
+                      host.showDetails(n);
+                    },
                   ),
                 ),
             ],
@@ -228,8 +197,17 @@ class _AttentionPanelState extends State<AttentionPanel> {
           spacing: 8,
           children: [
             TextButton(
+              onPressed: host.pending ? null : () => host.manage('seenAll'),
+              child: const Text('Mark all read'),
+            ),
+            TextButton(
+              onPressed: host.pending ? null : () => host.manage('clearRead'),
+              child: const Text('Clear read'),
+            ),
+            IconButton(
+              tooltip: 'Refresh notifications',
               onPressed: host.pending ? null : () => host.refresh(),
-              child: const Text('Refresh'),
+              icon: const Icon(Icons.refresh, size: 18),
             ),
             if (host.cursor != null)
               TextButton(

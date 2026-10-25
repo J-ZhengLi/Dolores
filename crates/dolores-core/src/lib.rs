@@ -78,6 +78,7 @@ pub use summary::*;
 pub use token_context::*;
 pub use workspace::{Project, SessionWorkspace, WorkspaceKind};
 
+pub mod desktop_preferences;
 mod experimental;
 pub use experimental::ExperimentalPreferences;
 
@@ -573,6 +574,15 @@ pub trait SessionStore: Send + Sync {
     }
     fn recover_task_inputs(&self) -> Result<(), String> {
         Ok(())
+    }
+    fn close_preferences(&self) -> Result<desktop_preferences::ClosePreferences, String> {
+        Ok(Default::default())
+    }
+    fn save_close_preferences(
+        &self,
+        _: &desktop_preferences::ClosePreferences,
+    ) -> Result<desktop_preferences::ClosePreferences, String> {
+        Err("Close preference storage unavailable.".into())
     }
     fn background_policy(&self) -> Result<scheduling::BackgroundPolicy, String> {
         Ok(Default::default())

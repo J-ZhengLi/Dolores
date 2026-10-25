@@ -430,3 +430,17 @@ readiness and optional technical details. `browserSetup {action}` accepts `start
 `status` or `cancel`; status never installs. The dedicated setup job is bounded,
 owned by the application and cancelled on shutdown. `browserPrerequisite {kind}`
 accepts only `node` or `browser` and opens its fixed official download page.
+
+## App notifications and close preferences
+
+The existing `attention` command additionally accepts `post {source,title,details,
+severity}`, `seenAll` and `clearRead`. Post persists a nonsecret app notice (title
+160 bytes, details 4 KiB; info/success/warning/error), coalescing the same source
+within five seconds. It never delivers a Windows notification or creates a task.
+Poll includes total `unread`; details/severity are optional on legacy task notices.
+Existing claim, finish, resolve and stale-decision rules remain intact.
+
+`closePreferences` returns `{revision,behavior}`; `saveClosePreferences {preferences}`
+uses revision checks. Behavior is `ask` (default), `quit` or `tray`. It is independent
+of `backgroundPolicy`. SQLite migration 51 retains prior notices, delivery claims,
+cursors and saved background/notification policies.

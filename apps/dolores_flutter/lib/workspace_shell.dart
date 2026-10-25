@@ -78,7 +78,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       unawaited(host.terminals.enter(host.visible.session));
     }
     host.addListener(changed);
-    host.closeReview = requestClose;
     host.presentAttention = (target) async {
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
       await host.visible.checkpointDraft();
@@ -137,14 +136,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     };
   }
 
-  Future<bool> requestClose() async {
-    if (host.background.enabled && !host.quitting) {
-      await host.closeToTray(saveFiles: false);
-      if (host.background.hidden) return false;
-    }
-    return host.prepareQuit(saveFiles: false);
-  }
-
   void changed() {
     if (page == WorkspacePage.sourceControl &&
         (GitHost.rootKey(host.git.selected?.root ?? '') !=
@@ -164,7 +155,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(handleDockShortcut);
     panelFocus.dispose();
-    host.closeReview = null;
     host.presentAttention = null;
     host.repositoryNavigation = null;
     host.removeListener(changed);
@@ -641,6 +631,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                     420,
                   ),
                   child: FloatingNotice(
+                    title: 'Workspace needs attention',
+                    severity: 'warning',
                     message: host.error!,
                     onDismiss: () => setState(() => host.error = null),
                   ),

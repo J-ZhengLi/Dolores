@@ -47,6 +47,7 @@ class DesktopFrame extends StatefulWidget {
   final VoidCallback? onTogglePanel;
   final Future<void> Function()? onOpenSettings;
   final Future<bool> Function()? onBeforeClose;
+  final Future<void> Function()? onRequestClose;
   const DesktopFrame({
     super.key,
     required this.child,
@@ -55,6 +56,7 @@ class DesktopFrame extends StatefulWidget {
     this.onTogglePanel,
     this.onOpenSettings,
     this.onBeforeClose,
+    this.onRequestClose,
   });
 
   @override
@@ -72,7 +74,7 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
   void initState() {
     super.initState();
     windowManager.addListener(this);
-    if (widget.onBeforeClose != null) {
+    if (widget.onBeforeClose != null || widget.onRequestClose != null) {
       unawaited(
         perform(
           'protect Close for recovery',
@@ -86,11 +88,14 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
   @override
   void didUpdateWidget(covariant DesktopFrame oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((oldWidget.onBeforeClose == null) != (widget.onBeforeClose == null)) {
+    if ((oldWidget.onBeforeClose != null || oldWidget.onRequestClose != null) !=
+        (widget.onBeforeClose != null || widget.onRequestClose != null)) {
       unawaited(
         perform(
           'protect Close for recovery',
-          () => windowManager.setPreventClose(widget.onBeforeClose != null),
+          () => windowManager.setPreventClose(
+            widget.onBeforeClose != null || widget.onRequestClose != null,
+          ),
         ),
       );
     }
@@ -156,6 +161,18 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
   Future<void> closeWindow() async {
     if (closing) return;
     closing = true;
+    if (widget.onRequestClose != null) {
+      try {
+        await widget.onRequestClose!();
+      } catch (_) {
+        if (mounted) {
+          setState(() => failure = 'Could not close Dolores. Try again.');
+        }
+      } finally {
+        closing = false;
+      }
+      return;
+    }
     // Closing the window is immediate. Persistence is best effort, never a veto.
     try {
       await windowManager.hide().timeout(const Duration(milliseconds: 250));
@@ -217,7 +234,9 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
 
   @override
   void onWindowClose() {
-    if (widget.onBeforeClose != null) unawaited(closeWindow());
+    if (widget.onBeforeClose != null || widget.onRequestClose != null) {
+      unawaited(closeWindow());
+    }
   }
 
   Widget control(String label, IconData icon, VoidCallback action, Palette p) =>
@@ -335,6 +354,8 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
                     420,
                   ),
                   child: FloatingNotice(
+                    title: 'Window needs attention',
+                    severity: 'warning',
                     message: failure!,
                     onRetry: pending ? null : retry,
                     onDismiss: () => setState(() {

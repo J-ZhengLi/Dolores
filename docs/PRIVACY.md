@@ -144,3 +144,10 @@ untrusted evidence; they cannot grant tool authority. Screenshot analysis does
 not run automatic memory/skill reflection. Saved tools and ordinary exports hold
 references/digests instead of image bytes. Shared images cannot be retracted by
 removing local evidence. Provider retention is governed by that provider's policy.
+
+Notification history is local unencrypted SQLite data: up to 100 ordinary app
+notices and the existing 256 task notices. Expiry/dismissal retains it; Clear read
+removes notices without deleting task evidence. Ordinary summaries/details are
+bounded and excluded from model context and native Windows alerts. Live Retry
+callbacks are process-local and never replayed after restart. Close preferences
+are local nonsecret data and do not enable scheduled background work or startup.

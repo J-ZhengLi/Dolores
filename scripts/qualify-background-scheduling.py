@@ -89,6 +89,7 @@ if a.initialize:
     if a.live_source:prompt+='; return CLOSED-UI-REPORT and two short lines as your chat reply. The whole report belongs in this conversation.'
     h.call('start',id=1,session=source,input=prompt);done,_=h.finish(1,seconds=20);assert not done.get('error'),done
     h.call('saveDraft',session=source,text='RETAINED-HOME-DRAFT');h.call('setBackgroundPolicy',enabled=True,revision=1)
+    close=h.call('closePreferences');h.call('saveClosePreferences',preferences={**close,'behavior':'tray'})
     with sqlite3.connect(directory/'data/dolores.db') as db:
         task=json.loads(db.execute('SELECT data FROM scheduled_tasks').fetchone()[0]);task['nextDue']=int(time.time())+35;db.execute('UPDATE scheduled_tasks SET data=?',(json.dumps(task),))
     (directory/'source.json').write_text(json.dumps({'source':source,'task':task['id'],'due':task['nextDue']}));h.close();sys.exit(0)

@@ -58,21 +58,22 @@ closes search. **More results** shows the next bounded page. Search runs locally
 and never sends your query or history to a provider. Failed searches keep your
 query; press Enter to retry. Queries allow 256 bytes and 50 results per page.
 
-Click the **Attention** bell in the title bar, just left of Settings, to inspect saved completion, failure,
-review and question updates in a dropdown. Turn on **Windows notifications** there if you
-want native alerts, then choose which event kinds to include. They run while
-Dolores is open or in the tray. Notifications contain generic status; task titles,
-prompts, answers and file paths stay inside the app. Windows can suppress an alert.
-Delivery accepted does not confirm that it was displayed or read.
+Click the **Notifications** bell in the title bar to read saved app updates and
+task attention. Toasts appear briefly without moving the workspace; click for
+scrollable details, swipe upward or use Dismiss to hide them. Expired and dismissed
+notices remain in the bell. Opening details marks read; Mark all read and Clear
+read manage notification history without deleting task results or decisions.
+The latest 100 app updates and 256 task updates are retained.
 
-Clicking an update navigates to the exact conversation. A current pending
-review or question stays available for your explicit response. An older notice
-opens its saved run evidence; it cannot approve an expired request or repeat an
-operation. A native click during an open dialog is deferred until that dialog is
-closed. Drafts and active tasks remain in place. Failed, suppressed or uncertain
-native delivery keeps the in-app entry; an uncertain handoff is never resent
-automatically. Refresh Attention after a local save error. Attention retains the
-latest 256 entries in 50-entry pages; older evidence remains in task run history.
+**Open task** navigates to the current conversation or retained run evidence. It
+never approves a review, answers a question or repeats an operation. A native click
+while a dialog is open is deferred; close that dialog and use Open pending task.
+
+Turn on **Settings > General > Windows notifications** for native task alerts and
+choose their event kinds there. They contain generic status, without task titles,
+chat content or paths. Windows can suppress alerts; accepted delivery does not
+prove display or reading. Failed or uncertain delivery keeps the in-app entry,
+and an uncertain handoff is never resent automatically.
 
 Use **Edit in a new branch** on a saved user message to revise an older prompt.
 The editor previews which earlier exchanges will enter the new chat. Choose
@@ -244,8 +245,9 @@ with Pause, Resume, Skip next, Run now, Stop and Delete. Ask in the original cha
 to change a task. Ambiguous or unsupported model replies may require clarification.
 Tool actions still need approval; creating a task does not grant future access.
 
-Tasks normally run while Dolores is open. On Windows, turn on **Settings →
-General → Background tasks → Run tasks in background** to close it to the tray.
+Tasks normally run while Dolores is open. On Windows, enable **Settings > General >
+Continue scheduled tasks in tray** to allow new scheduled work while minimized.
+The Close chooser separately offers **Minimize to system tray**.
 Open Dolores from the tray or launch it again to restore the same window and see
 results. Tray **Quit Dolores** stops it. Your computer must be awake and connected;
 Dolores does not start with Windows or wake it. After interruption, inspect the
@@ -724,9 +726,13 @@ feature has a small tested scope, described in [acceptance](ACCEPTANCE.md).
 
 ## Closing the app
 
-Close hides the window immediately, including when Settings or another review is
-open. With Background tasks enabled, Dolores stays in the tray; Quit exits it.
-Otherwise, Dolores attempts to save chat drafts, private file recovery and layout,
-then stops tasks and exits. These attempts are bounded and cannot veto Close.
-Unsaved source files are not silently saved. If storage fails or a checkpoint
-stalls, recent unsaved changes may not be recoverable; existing saved data remains.
+Close initially offers **Close the app**, **Minimize to system tray**, **Remember
+my choice**, and **Cancel**. Change or reset the remembered choice in **Settings >
+General > When closing Dolores**. Minimize keeps current tasks and terminals running
+in the same process. A tray failure leaves Dolores visible with an explicit Quit
+option. Tray Open or launching Dolores again restores that profile's window.
+
+Close the app and tray Quit stop owned work, attempt bounded draft/file-recovery
+checkpoints and exit. Open Settings/reviews do not veto that choice. Unsaved source
+files are not silently saved. If storage fails or a checkpoint stalls, recent
+unsaved changes may not be recoverable; existing saved data remains.

@@ -8,22 +8,23 @@ duplicate profile/vault owner. The tray is the chosen local worker's visible
 ownership indicator. This is a same-owner availability implementation of milestone
 24, with no claim that its Flutter engine has been removed from memory.
 
-- Off by default, one `Run tasks in background` setting. Close hides the window
-  immediately. Recovery attempts have a fixed deadline and cannot veto Close,
-  including during an open review, pending action or storage failure. A tray-hide
-  failure falls back to quitting rather than leaving the window open.
-- Ordinary foreground runs/PTYs receive bounded stop attempts on Close;
-  scheduled owners continue in the tray with their immutable snapshots. Companionship stays
-  quiet while hidden. No desktop notification or automatic effect approval.
+- Settings > General separates When closing Dolores (Ask/Quit/Tray) from
+  Continue scheduled tasks in tray (Off by default; saved values retained).
+  [Notifications and Close](notifications.md) owns the chooser and recovery flow.
+  Tray availability is confirmed before hiding; a failure leaves the app visible.
+- Minimize preserves current foreground runs/PTYs in the same owner. New scheduled
+  dispatch while hidden requires the background policy; scheduled snapshots and
+  approval rules remain unchanged. Companionship stays quiet while hidden.
+  Desktop task notifications remain separately opt-in; no automatic effect approval.
 - Tray Open and another launch for the same canonical profile restore that same
   window/owner. Distinct profiles retain independent owners. Windows mutex/window
   identity precedes engine initialization; the existing database lock remains the
   final single-owner guard. Crash releases OS ownership; the next deliberate
   launch reconciles saved interrupted claims without replaying uncertain effects.
 - Tray Quit performs bounded best-effort recovery, then shuts down the scheduler
-  and owned processes without reopening a review. Turning background mode Off prevents
-  subsequent hide-to-tray; normal app-open scheduling remains available. Disabling
-  from a restored UI preserves results and stops background ownership.
+  and owned processes without reopening a review or restoring the hidden window.
+  Turning background scheduling Off prevents new hidden scheduled dispatch;
+  minimizing current work remains available. App-open scheduling is unchanged.
 - No sign-in/startup installation is performed. The user must open Dolores once;
   Quit, sleep, power-off and offline availability remain explicit limits. No OS
   wake/lock bypass, scheduled Windows task, cloud service or security-policy edit.

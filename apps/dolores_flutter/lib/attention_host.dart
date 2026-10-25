@@ -47,6 +47,7 @@ String attentionLabel(String kind) => switch (kind) {
   'failed' => 'Task needs attention',
   'approval' => 'Review requested',
   'question' => 'Question asked',
+  'app' => 'Dolores',
   _ => 'Task attention',
 };
 
@@ -69,7 +70,142 @@ class AttentionHost extends ChangeNotifier {
   int omitted = 0;
   String signature = '';
   Timer? timer;
-  int get unread => items.where((n) => n['seen'] != true).length;
+  int? totalUnread;
+  int get unread => totalUnread ?? items.where((n) => n['seen'] != true).length;
+  final startedAt = DateTime.now().millisecondsSinceEpoch;
+  final presented = <String>{};
+  final queue = <Map<String, dynamic>>[];
+  final actions = <String, VoidCallback>{};
+  final dismissals = <String, VoidCallback>{};
+  void discardCallbacks(String id) {
+    actions.remove(id);
+    dismissals.remove(id);
+  }
+
+  void _callbacks(String id, VoidCallback? action, VoidCallback? dismiss) {
+    if (action != null) actions[id] = action;
+    if (dismiss != null) dismissals[id] = dismiss;
+    while (actions.length > 128) {
+      actions.remove(actions.keys.first);
+    }
+    while (dismissals.length > 128) {
+      dismissals.remove(dismissals.keys.first);
+    }
+  }
+
+  Map<String, dynamic>? toast;
+  bool detailsOpen = false;
+  bool quiet = false;
+  void setQuiet(bool value) {
+    quiet = value;
+    if (value) {
+      queue.clear();
+      toast = null;
+      detailsOpen = false;
+    }
+    if (!closed) notifyListeners();
+  }
+
+  void enqueue(Map<String, dynamic> notice) {
+    if (closed || quiet) return;
+    final identity = '${notice['id']}:${notice['createdAt']}';
+    if (!presented.add(identity)) return;
+    while (presented.length > 512) {
+      presented.remove(presented.first);
+    }
+    if (toast?['id'] == notice['id']) {
+      toast = notice;
+      notifyListeners();
+      return;
+    }
+    queue.removeWhere((n) => n['id'] == notice['id']);
+    if (toast == null) {
+      toast = notice;
+      detailsOpen = false;
+    } else {
+      if (queue.length >= 4) queue.removeAt(0);
+      queue.add(notice);
+    }
+    notifyListeners();
+  }
+
+  void dismissToast() {
+    final id = toast?['id'] as String?;
+    if (id != null) dismissals.remove(id)?.call();
+    toast = queue.isEmpty ? null : queue.removeAt(0);
+    detailsOpen = false;
+    if (!closed) notifyListeners();
+  }
+
+  void showDetails(Map<String, dynamic> notice) {
+    queue.removeWhere((n) => n['id'] == notice['id']);
+    if (toast != null && toast!['id'] != notice['id'] && queue.length < 4) {
+      queue.insert(0, toast!);
+    }
+    toast = Map.of(notice);
+    detailsOpen = true;
+    unawaited(seen(notice['id'] as String));
+    notifyListeners();
+  }
+
+  Future<String?> publish(
+    String source,
+    String title,
+    String details, {
+    String severity = 'success',
+    VoidCallback? onRetry,
+    VoidCallback? onDismiss,
+  }) async {
+    if (closed) return null;
+    try {
+      final notice = Map<String, dynamic>.from(
+        await call({
+          'action': 'post',
+          'source': source,
+          'title': title,
+          'details': details,
+          'severity': severity,
+        }) as Map,
+      );
+      if (closed) return null;
+      final old = items.where((n) => n['id'] == notice['id']).firstOrNull;
+      if (old == null || old['seen'] == true) totalUnread = unread + 1;
+      items.removeWhere((n) => n['id'] == notice['id']);
+      items.insert(0, notice);
+      _callbacks(notice['id'] as String, onRetry, onDismiss);
+      enqueue(notice);
+      notifyListeners();
+      await refresh();
+      return notice['id'] as String;
+    } catch (_) {
+      if (closed) return null;
+      final id = 'local-${DateTime.now().microsecondsSinceEpoch}';
+      _callbacks(id, onRetry, onDismiss);
+      enqueue({
+        'id': id,
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'kind': 'app',
+        'title': title,
+        'details':
+            '$details\nNotification history could not be saved. This notice is available in this window.',
+        'severity': 'warning',
+        'seen': true,
+        'localOnly': true,
+      });
+      return id;
+    }
+  }
+
+  Future<void> manage(String action) async {
+    try {
+      await call({'action': action});
+      await refresh();
+    } catch (_) {
+      error = 'Could not update notification history. Try again.';
+      if (!closed) notifyListeners();
+    }
+  }
+
   AttentionHost(this.bridge, {AttentionWindow? window, required this.onOpen})
     : window = window ?? NativeAttentionWindow() {
     this.window.listen(open);
@@ -97,6 +233,12 @@ class AttentionHost extends ChangeNotifier {
       items = (page['items'] as List)
           .map((n) => Map<String, dynamic>.from(n as Map))
           .toList();
+      totalUnread = page['unread'] as int?;
+      for (final notice in items.where(
+        (n) => n['seen'] != true && (n['createdAt'] as int? ?? 0) >= startedAt,
+      )) {
+        enqueue(notice);
+      }
       cursor = page['nextCursor'] as int?;
       omitted = page['omitted'] as int? ?? 0;
       error = null;
@@ -202,6 +344,9 @@ class AttentionHost extends ChangeNotifier {
       } else {
         deferred = null;
         final seen = await call({'action': 'seen', 'id': id}) as Map;
+        if (target['notice']['seen'] != true) {
+          totalUnread = (unread - 1).clamp(0, 100000);
+        }
         for (final item in items.where((n) => n['id'] == id)) {
           item['seen'] = seen['seen'];
           item['delivery'] = seen['delivery'];
@@ -217,11 +362,22 @@ class AttentionHost extends ChangeNotifier {
   }
 
   Future<void> seen(String id) async {
+    if (id.startsWith('local-')) return;
     try {
-      await call({'action': 'seen', 'id': id});
-      await refresh();
-    } catch (e) {
-      error = '$e';
+      final acknowledged = await call({'action': 'seen', 'id': id}) as Map;
+      if (closed) return;
+      final old = items.where((n) => n['id'] == id).firstOrNull;
+      if (old != null && old['seen'] != true) {
+        totalUnread = (unread - 1).clamp(0, 100000);
+      }
+      for (final item in items.where((n) => n['id'] == id)) {
+        item['seen'] = acknowledged['seen'];
+        item['delivery'] = acknowledged['delivery'];
+      }
+      if (toast?['id'] == id) toast!['seen'] = true;
+      notifyListeners();
+    } catch (_) {
+      error = 'Could not mark this notification read. Try again.';
       if (!closed) notifyListeners();
     }
   }
@@ -230,6 +386,10 @@ class AttentionHost extends ChangeNotifier {
   void dispose() {
     closed = true;
     timer?.cancel();
+    actions.clear();
+    dismissals.clear();
+    queue.clear();
+    toast = null;
     window.dispose();
     super.dispose();
   }

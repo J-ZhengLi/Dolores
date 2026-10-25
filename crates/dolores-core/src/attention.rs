@@ -8,6 +8,7 @@ pub enum Kind {
     Failed,
     Approval,
     Question,
+    App,
 }
 impl Kind {
     pub fn from_event(kind: &str, state: &str) -> Option<Self> {
@@ -52,6 +53,7 @@ impl Preferences {
                 Kind::Failed => self.failed,
                 Kind::Approval => self.approval,
                 Kind::Question => self.question,
+                Kind::App => false,
             }
     }
 }
@@ -71,6 +73,10 @@ pub struct Notice {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub severity: Option<String>,
     pub session: String,
     pub run: String,
     pub sequence: u32,
@@ -87,17 +93,41 @@ pub struct Page {
     pub next_cursor: Option<i64>,
     pub more_sources: bool,
     pub omitted: u64,
+    pub unread: u64,
     pub pending_delivery: Vec<Notice>,
 }
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
 pub enum Request {
-    Poll { cursor: Option<i64> },
+    Post {
+        source: String,
+        title: String,
+        details: String,
+        severity: String,
+    },
+    ClearRead,
+    SeenAll,
+    Poll {
+        cursor: Option<i64>,
+    },
     Preferences,
-    SavePreferences { preferences: Preferences },
-    Inspect { id: String },
-    Resolve { id: String },
-    Seen { id: String },
-    Claim { id: String },
-    Finish { id: String, delivery: Delivery },
+    SavePreferences {
+        preferences: Preferences,
+    },
+    Inspect {
+        id: String,
+    },
+    Resolve {
+        id: String,
+    },
+    Seen {
+        id: String,
+    },
+    Claim {
+        id: String,
+    },
+    Finish {
+        id: String,
+        delivery: Delivery,
+    },
 }
