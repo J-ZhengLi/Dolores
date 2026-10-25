@@ -101,6 +101,8 @@ String toolResultText(dynamic record) {
         'Next: ${DateTime.fromMillisecondsSinceEpoch((scheduled['nextRun'] as num).toInt() * 1000).toLocal().toString().substring(0, 16)}',
       if (scheduled['model'] != null) 'Model: ${scheduled['model']}',
       'Skill: ${scheduled['skill'] ?? 'None'}',
+      if (scheduled['lifecycleHooks'] is num && scheduled['lifecycleHooks'] > 0)
+        'Lifecycle hooks: ${scheduled['lifecycleHooks']} reviewed',
       'Project: ${scheduled['project'] ?? 'No project'}',
       'Results: ${scheduled['destination'] ?? 'Scheduled → Results'}',
       if (scheduled['availability'] != null) '${scheduled['availability']}',

@@ -171,11 +171,16 @@ pub struct ScheduledTask {
     pub deleted: bool,
     pub preferences: crate::ConnectionPreferences,
     pub skill: Option<crate::ProjectSkill>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hooks: Option<crate::lifecycle_hooks::Configuration>,
     pub effective: crate::EffectiveSettings,
 }
 impl ScheduledTask {
     pub fn validate(&self) -> Result<(), String> {
         self.rule.validate()?;
+        if let Some(hooks) = &self.hooks {
+            hooks.validate()?;
+        }
         if self.id.is_empty()
             || self.revision == 0
             || self.source_key.is_empty()

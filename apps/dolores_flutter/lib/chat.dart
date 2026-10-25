@@ -2119,6 +2119,13 @@ class ChatController extends ChangeNotifier {
             _record(
               'Hook ${receipt['hook']} · ${receipt['status']} · ${receipt['message']}',
             );
+          case 'connectorCleanup':
+            if (event['receipt'] is Map &&
+                event['receipt']['confirmed'] != true) {
+              _record(
+                'Remote session cleanup was not confirmed. Inspect the connection and completed effects; do not repeat the tool for cleanup.',
+              );
+            }
           case 'done':
             for (final child in subagents) {
               if (['queued', 'running'].contains(child['status'])) {

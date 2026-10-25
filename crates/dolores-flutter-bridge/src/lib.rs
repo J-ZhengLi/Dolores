@@ -2383,6 +2383,28 @@ impl Engine {
                     effective.task.check_segment(source.segments)?;
                 }
                 let _entered = self.runtime.enter();
+                if let Some(occurrence) = &scheduled {
+                    if let Some(pinned) = &occurrence.snapshot.hooks {
+                        let current = occurrence
+                            .snapshot
+                            .workspace
+                            .root
+                            .as_deref()
+                            .map(|root| {
+                                let canonical = PathBuf::from(root)
+                                    .canonicalize()
+                                    .map_err(|_| "Scheduled hook folder unavailable.")?;
+                                self.store.lifecycle_hooks(
+                                    canonical.to_str().ok_or("Unsupported scheduled folder.")?,
+                                )
+                            })
+                            .transpose()?
+                            .unwrap_or_default();
+                        if &current != pinned {
+                            return Err("Scheduled lifecycle hooks changed or were disabled. Review the current hook settings and recreate this scheduled task to accept a fresh snapshot. No task work started; nothing was replayed.".into());
+                        }
+                    }
+                }
                 let mut provider = if let Some(o) = &scheduled {
                     self.connection
                         .lock()
@@ -2426,6 +2448,7 @@ impl Engine {
                 let run_id = uuid::Uuid::new_v4().to_string();
                 let cancel = CancellationToken::new();
                 let mut supervised_commands = None;
+                let remote_cleanup = Arc::new(dolores_tools_mcp::remote::CleanupOwner::default());
                 let mut tools = workspace
                     .map(|root| {
                         let journal = Arc::new(dolores_core::WorkspaceJournal {
@@ -2472,12 +2495,21 @@ impl Engine {
                         for connection in self.store.mcp_connections(
                             root.to_str().ok_or("Working folder path needs Unicode.")?,
                         )? {
-                            plugins.extend(dolores_tools_mcp::plugins_with_host(
-                                &root,
-                                connection,
-                                self.mcp_credentials.clone(),
-                                self.mcp_execution_host(),
-                            )?);
+                            if connection.remote.is_some() {
+                                plugins.extend(dolores_tools_mcp::remote::plugins_owned(
+                                    root.clone(),
+                                    connection,
+                                    Some(self.mcp_credentials.clone()),
+                                    remote_cleanup.clone(),
+                                )?);
+                            } else {
+                                plugins.extend(dolores_tools_mcp::plugins_with_host(
+                                    &root,
+                                    connection,
+                                    self.mcp_credentials.clone(),
+                                    self.mcp_execution_host(),
+                                )?);
+                            }
                         }
                         Ok::<_, String>(plugins)
                     })
@@ -2801,6 +2833,7 @@ impl Engine {
                 let approval: Arc<dyn dolores_core::ToolApproval> =
                     if scheduled.is_none() && desktop_capture.is_none() {
                         Arc::new(task_inputs::SteeringApproval {
+                            resources: skill_resources.clone(),
                             claimed: Mutex::new(vec![]),
                             inner: approval,
                             store: self.store.clone(),
@@ -2830,21 +2863,32 @@ impl Engine {
                         provider: recovery_provider,
                         log: log.clone(),
                     });
-                let hooks = if planning_state.planning
-                    || scheduling::for_run(self.store.as_ref(), session.as_deref(), id)?.is_some()
-                {
+                let hooks = if planning_state.planning {
                     None
                 } else {
                     let root = self.store.workspace(session.as_deref().unwrap())?.root;
-                    if root.is_some() {
-                        lifecycle_hooks::Runtime::for_session(
-                            self.store.as_ref(),
-                            session.as_deref().unwrap(),
-                            log.clone(),
-                            approval.clone(),
-                            output.clone(),
-                            id,
-                        )?
+                    if let Some(root) = root {
+                        if let Some(occurrence) = &scheduled {
+                            lifecycle_hooks::Runtime::new(
+                                PathBuf::from(root)
+                                    .canonicalize()
+                                    .map_err(|_| "Scheduled hook folder unavailable.")?,
+                                occurrence.snapshot.hooks.clone().unwrap_or_default(),
+                                log.clone(),
+                                approval.clone(),
+                                output.clone(),
+                                id,
+                            )?
+                        } else {
+                            lifecycle_hooks::Runtime::for_session(
+                                self.store.as_ref(),
+                                session.as_deref().unwrap(),
+                                log.clone(),
+                                approval.clone(),
+                                output.clone(),
+                                id,
+                            )?
+                        }
                     } else {
                         None
                     }
@@ -2952,6 +2996,11 @@ impl Engine {
                     let child_evidence_error = if let Some(delegation) = &delegation {
                         delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
                     } else { None };
+                    let mut remote_evidence_error=None;
+                    for receipt in remote_cleanup.finish().await {
+                        if let Err(error)=log.record(None,"mcpCleanup",receipt.clone()).await {remote_evidence_error=Some(error);}
+                        let _=output.try_send(json!({"type":"connectorCleanup","id":id,"receipt":receipt}));
+                    }
                     child_registry.lock().unwrap_or_else(|e|e.into_inner()).remove(&id);
                     let pause_reason = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).map(|p|p.reason);
                     let paused = pause_reason.is_some();
@@ -2973,7 +3022,7 @@ impl Engine {
                         } else { None }
                     } else { None };
                     let state=if result.is_ok() && command_evidence_error.is_none() {if paused {dolores_core::RunState::Paused} else {dolores_core::RunState::Completed}} else if result.as_ref().err().is_some_and(|e| e == &stopped()) {dolores_core::RunState::Cancelled} else {dolores_core::RunState::Failed};
-                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"pauseReason":pause_reason,"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
+                    let evidence_error=log.record(Some(state),"finished",json!({"savedTurn":result.is_ok(),"pauseReason":pause_reason,"message":result.as_ref().err(),"childEvidenceWarning":child_evidence_error,"connectorEvidenceWarning":remote_evidence_error,"finishedAtMs":desktop_control::now_millis()})).await.err();
                     let goal_warning=if let Some(b)=&finishing_goal {
                         let progress=goals::made_progress(b);
                         match progress {Ok(progress)=>store.finish_goal(&b.session,&b.id,&b.run,result.is_ok()&&!paused&&!cancel.is_cancelled()&&child_evidence_error.is_none()&&command_evidence_error.is_none()&&evidence_error.is_none(),progress).err(),Err(e)=>Some(e)}
@@ -2992,7 +3041,7 @@ impl Engine {
                         event["recovery"] = json!({"kind":"desktop","retryable":false,"guidance":"Computer use stopped or failed. The original goal and action receipts remain in Settings → Computer use. Input may already have occurred; inspect the selected window, capture it again, and explicitly reconcile before continuing. No input or approval was replayed."});
                     }
                     event["runId"]=json!(log.id);
-                    let evidence_error = evidence_error.or(child_evidence_error).or(command_evidence_error).or(goal_warning).or(plan_warning);
+                    let evidence_error = evidence_error.or(child_evidence_error).or(remote_evidence_error).or(command_evidence_error).or(goal_warning).or(plan_warning);
                     if let Some(error)=evidence_error {event["evidenceWarning"]=json!(format!("{error} Inspect run history and Changes before retrying."));}
                     let _ = output.send(event).await;
                 });
@@ -3449,9 +3498,28 @@ async fn execute(
         } else {
             dolores_core::SharedTaskBudget::new(task)
         });
+        let approval: Arc<dyn dolores_core::ToolApproval> = if let Some(hooks) = &hooks {
+            tools = tools
+                .into_iter()
+                .map(|inner| {
+                    Arc::new(lifecycle_hooks::HookedTool {
+                        inner,
+                        hooks: hooks.clone(),
+                    }) as Arc<dyn dolores_core::ToolPlugin>
+                })
+                .collect();
+            Arc::new(lifecycle_hooks::HookedApproval {
+                inner: approval,
+                hooks: hooks.clone(),
+            })
+        } else {
+            approval
+        };
         if let (Some(delegation), Some(log)) = (&delegation, &log) {
             delegation.bind(subagents::RuntimeContext {
                 provider: provider.clone(),
+                hooks: hooks.clone(),
+                resources: skill_resources.clone(),
                 context: context.clone(),
                 tools: tools
                     .iter()
@@ -3476,23 +3544,6 @@ async fn execute(
                 client_id: id,
             })?;
         }
-        let approval: Arc<dyn dolores_core::ToolApproval> = if let Some(hooks) = &hooks {
-            tools = tools
-                .into_iter()
-                .map(|inner| {
-                    Arc::new(lifecycle_hooks::HookedTool {
-                        inner,
-                        hooks: hooks.clone(),
-                    }) as Arc<dyn dolores_core::ToolPlugin>
-                })
-                .collect();
-            Arc::new(lifecycle_hooks::HookedApproval {
-                inner: approval,
-                hooks: hooks.clone(),
-            })
-        } else {
-            approval
-        };
         let progress = Arc::new(Mutex::new(task_execution::Progress::default()));
         let work_cancel = cancel.child_token();
         let _cleanup = task_execution::CancelOnDrop(work_cancel.clone());

@@ -1000,7 +1000,7 @@ impl Engine {
                         if self.store.skill_package_referenced(&r.package.package.id)? {
                             slot.take();
                             return Ok(
-                                json!({"registrationRemoved":true,"filesRetained":true,"note":"Another scope or retained skill version still uses this bundle."}),
+                                json!({"registrationRemoved":true,"filesRetained":true,"note":"A saved skill, queued instruction, scheduled task or active occurrence still uses this bundle. Cancel the input or delete the future task and finish its active run before removing retained files."}),
                             );
                         }
                         cache.remove(&r.entry).map_err(|e|format!("{e} This scoped registration was removed; retained data remains at {}. Retry Remove from this review or inspect retained data again.",cache.root.join(&r.entry).display()))?;

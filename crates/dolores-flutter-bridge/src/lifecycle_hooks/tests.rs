@@ -165,6 +165,43 @@ fn review_pins_script_and_failed_save_stale_identity_and_disable_recover() {
 }
 
 struct Allow;
+#[tokio::test]
+async fn child_hook_receipts_share_serial_execution_and_parent_allowance() {
+    let (directory, store, root) = store_fixture();
+    std::fs::write(directory.path().join("hook.cjs"),"const fs=require('fs');const lock=fs.openSync('hook.lock','wx');setTimeout(()=>{fs.closeSync(lock);fs.unlinkSync('hook.lock');console.log(JSON.stringify({allow:true,message:'PUBLIC_SERIAL'}));},10);").unwrap();
+    let saved = inspect(Path::new(&root), hook(Event::BeforeTool, Mode::Blocking)).unwrap();
+    let (hooks, _events, run) = runtime(store.clone(), &root, vec![saved]);
+    for _ in 0..12 {
+        let (a, b) = tokio::join!(
+            hooks.fire_owned(
+                Event::BeforeTool,
+                Some("read_text_file"),
+                None,
+                Some("first"),
+                CancellationToken::new()
+            ),
+            hooks.fire_owned(
+                Event::BeforeTool,
+                Some("read_text_file"),
+                None,
+                Some("second"),
+                CancellationToken::new()
+            )
+        );
+        a.unwrap();
+        b.unwrap();
+    }
+    assert!(hooks
+        .fire(Event::BeforeTool, None, None, CancellationToken::new())
+        .await
+        .is_err());
+    let events = store.run_events("work", &run).unwrap();
+    assert_eq!(events.iter().filter(|e| e.kind == "hookIntent").count(), 24);
+    assert!(events
+        .iter()
+        .filter(|e| e.kind == "hookIntent")
+        .all(|e| e.data["childId"].is_string()));
+}
 #[async_trait::async_trait]
 impl ToolApproval for Allow {
     async fn authorize(&self, _: &ToolRequest, _: CancellationToken) -> Result<bool, String> {

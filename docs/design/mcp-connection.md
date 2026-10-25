@@ -188,3 +188,18 @@ flow; third-party compatibility and real-model reliability remain separate.
 `scripts/mock-mcp.mjs` is a synthetic local stdio diagnostic, never installed or launched by normal startup. Rust tests exercise framing, negotiation, pagination, unsupported server requests, approval binding, changed files/metadata, cancellation, time/output limits, text-only results, `isError` and descendant cleanup. Store/bridge tests cover scope, revisions, expiry, stale state, failed writes and replay. Flutter tests exercise compact light/dark review, selection, explicit enable/disable/forget, Stop and approval controls.
 
 `scripts/test-mcp.py save --directory <fresh-output-directory>` and then `restore` in a separate process exercise the bundled FFI, SQLite, actual child server and loopback model fixture. They verify preview/send parity, Deny without startup, exact invocation, tool errors, Stop without partial history, restart without startup and retained provenance/export. Add `--credentials` to both stages to exercise masked setup, actual native-vault save/rotation, restart reuse, changed-launch refusal and credential-free model/history/export/database text. On Windows an independent credential-existence probe verifies rotation and Forget remove the actual entries without reading their blobs. No live provider quota is used. `scripts/test-mcp-multiple.py save --directory <fresh-output-directory>` then `restore` exercises two same-named echo tools through real FFI/SQLite/stdio and a loopback provider. It checks capacity refusal followed by sibling Disable and same-review Enable, independent aliases/provenance, one server crashing while another completes, Forget and restart without startup. The Windows smoke entry also drives rendered multi-server inspection and enable/disable/forget; these are controller/widget checks, not OS pointer/IME acceptance. Third-party server compatibility, macOS/Linux runtime, persistent cross-call sessions and OAuth and representative low-end measurements remain open.
+
+### Session cleanup ownership
+
+Each transient legacy session has one cleanup-only DELETE, including after
+failed initialization, cancellation, deadlines and dropped invocation futures.
+Cleanup has an independent two-second ceiling and cannot call a tool, refresh a
+credential or retry effects. Normal task owners join their cleanup jobs before
+terminal run evidence, retaining mcpCleanup receipts and warnings when termination
+is unsupported or unconfirmed. A 404 confirms the session is already gone; 405
+records unsupported termination rather than claiming the server released it.
+A returned tool result survives cleanup failure. Never repeat a tool to clean up
+its session. Stateless modern connections have no session to delete. Abrupt
+process loss cannot confirm remote cleanup; submitted external effects may remain.
+Inspection-only clients also attempt bounded cleanup on drop; interrupted
+inspection does not establish that a server-side effect/session was undone.

@@ -391,3 +391,29 @@ bind monitorSession/monitorMessage/monitorTrialId; automatic restore requires a
 complete matching regressed trial and unchanged activation/policy. Startup marks
 pending events/monitoring interrupted, never eligible/replayed. All originating
 chat receipts are included in the project Learning view when still retained.
+
+## Workflow lifecycle ownership (EH09.5)
+
+Parent and child tool wrappers share the reviewed hook runtime, serialized
+24-call/30-second allowance and run journal. Child hook intent/results add
+`childId`; hook script input remains the bounded schema-1 event/tool/outcome
+object. A child's frozen `read_skill_resource` uses ordinary parent authorization
+and its existing cumulative tool cap. Safe-boundary steering can extend the
+parent reader to at most three selected package bindings, never replace a bound
+skill/scope, and never widen a preexisting child reader.
+
+`ScheduledTask.hooks` is an optional additive configuration snapshot. Absent
+legacy data executes no hooks. Creation receipts add `lifecycleHooks` (count);
+current configuration must still equal the pin before occurrence admission.
+Changed/disabled configurations refuse without model work. Scheduled task and
+active-occurrence package pins, plus unresolved task-input pins, retain physical
+bundles after scoped catalogue/activation removal. Terminal history alone is not
+an execution pin.
+
+Transient remote clients finalize one cleanup-only DELETE independently of the
+cancelled operation, at most two seconds. Primary run owners join those jobs
+before terminal evidence. `mcpCleanup` events retain connection identity,
+`confirmed`, `status` (confirmed/unsupported/unconfirmed), and `toolReplayed:false`;
+no session ID or credential is journaled. `connectorCleanup` UI events surface
+unconfirmed status without completing a run or clearing a pending decision.
+Returned results remain intact and cleanup never replays a tool.

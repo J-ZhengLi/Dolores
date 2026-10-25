@@ -64,6 +64,83 @@ fn common(request: &Request) -> Reply {
         _ => panic!("unexpected fixture request"),
     }
 }
+#[tokio::test]
+async fn owned_legacy_cleanup_survives_cancel_drop_and_open_failure_without_replay() {
+    for mode in 0..3 {
+        let mut fixture=Fixture::new(move |r,index| {
+            if r.verb=="DELETE" {return reply(204,"application/json","");}
+            if index==0 {
+                let mut response=rpc(r,json!({"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"Public fixture","version":"1"}}));
+                if let Reply::Data{headers,..}=&mut response {headers.push(("Mcp-Session-Id","public-session".into()));}
+                return response;
+            }
+            if index==1 {return if mode==2 {Reply::Hold}else{reply(202,"application/json","")};}
+            if r.body["method"]=="notifications/cancelled" {return reply(202,"application/json","");}
+            if r.body["method"]=="tools/call" {return Reply::Hold;}
+            common(r)
+        }).await;
+        let owner = Arc::new(CleanupOwner::default());
+        let mut connection = configured(&fixture);
+        connection.protocol_version = "2025-11-25".into();
+        let directory = tempfile::tempdir().unwrap();
+        let plugin = plugins_owned(directory.path().into(), connection, None, owner.clone())
+            .unwrap()
+            .remove(0);
+        let request = prepared(&plugin, "owned");
+        let cancel = CancellationToken::new();
+        let token = cancel.clone();
+        let task = tokio::spawn(async move { plugin.invoke(&request, token).await });
+        for _ in 0..if mode == 2 { 2 } else { 4 } {
+            fixture.arrived().await;
+        }
+        if mode == 0 {
+            cancel.cancel();
+            assert!(task.await.unwrap().is_err());
+        } else {
+            task.abort();
+            let _ = task.await;
+        }
+        let receipts = tokio::time::timeout(Duration::from_secs(3), owner.finish())
+            .await
+            .unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0]["confirmed"], true);
+        let seen = fixture.requests();
+        assert_eq!(seen.iter().filter(|r| r.verb == "DELETE").count(), 1);
+        assert_eq!(
+            seen.iter()
+                .filter(|r| r.body["method"] == "tools/call")
+                .count(),
+            usize::from(mode != 2)
+        );
+        assert!(!json!(receipts).to_string().contains("public-session"));
+    }
+}
+#[tokio::test]
+async fn owned_cleanup_timeout_is_bounded_and_does_not_erase_a_returned_result() {
+    let fixture=Fixture::new(|r,index| {
+        if index==0 {let mut response=rpc(r,json!({"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"Public fixture","version":"1"}}));if let Reply::Data{headers,..}=&mut response {headers.push(("Mcp-Session-Id","public-session".into()));}return response;}
+        if index==1 {return reply(202,"application/json","");}
+        if r.verb=="DELETE" {Reply::Hold}else{common(r)}
+    }).await;
+    let owner = Arc::new(CleanupOwner::default());
+    let mut connection = configured(&fixture);
+    connection.protocol_version = "2025-11-25".into();
+    let directory = tempfile::tempdir().unwrap();
+    let plugin = plugins_owned(directory.path().into(), connection, None, owner.clone())
+        .unwrap()
+        .remove(0);
+    let start = Instant::now();
+    let result = plugin
+        .invoke(&prepared(&plugin, "done"), CancellationToken::new())
+        .await
+        .unwrap();
+    assert!(start.elapsed() < Duration::from_secs(4));
+    let result: Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(result["text"], "done");
+    assert!(result["cleanupWarning"].is_string());
+    assert_eq!(owner.finish().await[0]["confirmed"], false);
+}
 struct Fixture {
     url: String,
     task: JoinHandle<()>,

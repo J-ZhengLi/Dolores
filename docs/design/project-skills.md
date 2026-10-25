@@ -86,3 +86,24 @@ do not grant reads from package storage. Script execution and dependency
 installation retain their separate command authority. Planning may inspect
 resources; children do not gain this tool in this slice. Scheduled/child lifecycle
 integration remains tracked by EH09.5.
+
+## Lifecycle ownership
+
+Removing a scoped registration preserves physical resources referenced by
+nondeleted scheduled tasks (including paused tasks), active occurrences and
+unresolved queued/steering inputs. This includes an occurrence's old snapshot
+after its task changes or is deleted. Cancel the input or delete future recurrence
+and finish the active occurrence before removing retained files. Terminal history
+alone is not a runnable owner and does not pin bytes forever; its immutable receipt
+remains inspectable after release. An unacknowledged uncertain input keeps its pin.
+
+A safe-boundary steering input first resolves its exact reviewed skill selections.
+It can add selected resources to the parent's run binding, up to three distinct
+packages for the run, but cannot replace an existing skill/scope binding. A failed
+or stale selection remains recoverable instead of substituting a current package.
+A child freezes its own copy of selected package sources when it is created;
+later parent steering cannot widen that child's resource access. Child resource
+reads use normal parent permission checks and count toward its existing cumulative
+four file-operation allowance. They never execute scripts or grant command/MCP
+access. Compaction retains these host bindings rather than rebuilding authority
+from model-authored summaries.

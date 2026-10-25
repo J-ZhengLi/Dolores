@@ -24,7 +24,9 @@ may remain after failure/Stop; intent without a result requires inspection and
 never authorizes replay. Post-hook evidence errors cannot erase the original
 tool/turn result. Raw output, receipts and renders remain in ignored output/.
 
-Planning runs exclude command hooks. Scheduled and child hook/budget integration
-stays in EH09.5; broader combined restart/migration journeys remain EH10. H21 remote
+Planning runs exclude command hooks. EH09.5 qualifies shared child hook/budget
+ownership and frozen scheduled hook admission, including refusal after Disable.
+See [combined lifecycle qualification](harness-lifecycle.md). Broader native input,
+migration and real-model journeys remain EH10. H21 remote
 supervision stays deferred. Earlier native failure evidence retains its original
 boundary; the plain/canonical path mismatch is fixed and regression-tested.

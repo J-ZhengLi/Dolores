@@ -405,6 +405,8 @@ fn runtime(
     ];
     (
         RuntimeContext {
+            hooks: None,
+            resources: None,
             provider,
             context,
             tools: dolores_tools_fs::folder_tools(directory).unwrap(),

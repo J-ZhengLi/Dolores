@@ -16,6 +16,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 struct RemotePlugin {
+    owner: Option<Arc<super::CleanupOwner>>,
     root: PathBuf,
     connection: McpConnection,
     index: usize,
@@ -27,6 +28,14 @@ pub(crate) fn plugins(
     connection: McpConnection,
     vault: Option<Arc<dyn CredentialStore>>,
 ) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
+    plugins_owned(root, connection, vault, None)
+}
+pub(crate) fn plugins_owned(
+    root: PathBuf,
+    connection: McpConnection,
+    vault: Option<Arc<dyn CredentialStore>>,
+    owner: Option<Arc<super::CleanupOwner>>,
+) -> Result<Vec<Arc<dyn ToolPlugin>>, String> {
     connection.validate()?;
     if connection.remote.is_none() {
         return Err("Choose a reviewed remote MCP endpoint.".into());
@@ -34,6 +43,7 @@ pub(crate) fn plugins(
     Ok((0..connection.tools.len())
         .map(|index| {
             Arc::new(RemotePlugin {
+                owner: owner.clone(),
                 root: root.clone(),
                 connection: connection.clone(),
                 index,
@@ -164,12 +174,15 @@ impl ToolPlugin for RemotePlugin {
             .remote
             .as_ref()
             .ok_or("Remote MCP target is missing.")?;
-        let mut client = RemoteClient::open(
+        let mut client = RemoteClient::open_owned(
             &target.endpoint,
             credential.as_ref().map(|c| c.expose()),
             Some(&self.connection.protocol_version),
             cancel.clone(),
             deadline,
+            self.owner
+                .as_ref()
+                .map(|owner| (owner.clone(), self.connection.id.clone())),
         )
         .await
         .map_err(|e| e.to_string())?;

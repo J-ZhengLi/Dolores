@@ -44,7 +44,8 @@ follow-ups, bounded reports/context pages, shared exhaustion and dropped models.
 Core child tests cover recovery classification and latest-report ownership;
 Flutter child tests cover read failure, paging, pending Close and stale status.
 
-EH09.5 still owns goal/queue/context lifecycle integration, child hook coverage,
-pinned scheduled package retention and connector cleanup. Live provider/model
+EH09.5 qualifies goal/queue/resource ownership, child hooks, scheduled package
+pins and bounded connector cleanup in the [combined fixture](harness-lifecycle.md).
+Live provider/model
 reliability remains unqualified. No child command/MCP capability, recursive
 delegation, persistent child worker or H21 remote control is admitted here.

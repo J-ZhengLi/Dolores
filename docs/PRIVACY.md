@@ -42,6 +42,13 @@ scopes, reports, usage and bounded child tool/commentary evidence remain in loca
 parent run records, including after a later parent failure. Completed delegation
 receipts also appear in saved conversations and exports. Inspect these before
 sharing; reports can contain approved file content.
+Approved selected package resources may also be shared with a child through its
+frozen reader. Later parent steering cannot add resources to an existing child.
+Reviewed project hooks receive only the host event/tool/outcome categories,
+including child events; hook output stays in local evidence rather than model
+context. Remote cleanup uses the existing endpoint/session/credential only to
+request termination, with a two-second limit after Stop; no tool effect is retried.
+
 Optional child models use the same configured connection and are frozen from
 enabled choices at parent admission. Follow-ups share the new instruction and
 that child's bounded report/tool checkpoint with its frozen model. Prepared

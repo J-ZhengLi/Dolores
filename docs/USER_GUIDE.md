@@ -439,6 +439,24 @@ model, permissions and remaining four-call/four-file allowance. Exhausted limits
 or an ended parent require reviewing saved progress; they cannot be reset by a
 follow-up. After the parent ends, saved context pages remain in Earlier tasks.
 
+Selected package references can also be read by a child through the frozen
+package reader; these reads count toward its four-file-operation allowance.
+Parent steering can add a selected package for the parent, but it cannot widen
+an existing child's resources. Reviewed project hooks apply to child file and
+resource actions under the parent's shared hook allowance.
+
+New scheduled tasks record the currently reviewed hooks and disclose their count.
+Changing or disabling those hooks refuses a future occurrence until you review
+settings and recreate the task. Older schedules without a hook snapshot run none.
+Removing a package may keep its files while a scheduled task, active occurrence or
+unresolved queued instruction still references them. Cancel the input or delete
+future recurrence and finish active work before removing that retained bundle.
+
+Remote session cleanup may continue for up to two seconds after Stop. It only
+tries to end the existing session; it never repeats a tool call. Unconfirmed or
+unsupported cleanup is recorded in Earlier tasks. Inspect completed external
+effects before another call; cleanup failure does not undo them.
+
 ## Search and read public sources
 
 Project and temporary chats have web search and public page reading available

@@ -33,8 +33,21 @@ Events: `taskStart`, `beforeTool`, `afterTool`, `beforeCompaction`, `taskComplet
 The pre-events support `blocking` or `observe`; post-events support observe only.
 Task start means an admitted foreground primary run, including explicit continuation,
 not opening history or replaying interrupted work. Completion observes a saved
-turn, not proof that its goal/acceptance criteria succeeded. Child/scheduled
-integration remains EH09.5; this brick does not expand child capabilities.
+turn, not proof that its goal/acceptance criteria succeeded. Children share the
+parent's reviewed runtime and allowance. Child start, scoped file/resource tools
+and settled reports emit the corresponding events, attributed by child ID in
+host receipts. Hook commands are host-owned reviewed project policy; they do not
+give a child a command tool or widen its project file scope. Hook invocations are
+serialized across the parent and children; cancellation also interrupts a child
+waiting for that serialization slot.
+
+New scheduled tasks snapshot the reviewed hook configuration at creation and
+disclose the count in their confirmation. At occurrence admission the current
+project configuration must still match; changed or disabled hooks refuse before
+model work. Review settings and recreate the task to accept a fresh snapshot.
+Legacy tasks without a hook snapshot run none, even if hooks are enabled later.
+Pinned top-level scripts and executable identities are still checked before each
+hook dispatch. Task creation and package installation never execute package scripts.
 Planning runs do not execute command hooks because their tools are inspection-only.
 
 ## Results, limits and recovery

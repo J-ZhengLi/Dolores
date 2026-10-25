@@ -12,10 +12,27 @@ use tokio_util::sync::CancellationToken;
 pub(crate) mod approved;
 pub mod credentials;
 mod headers;
+mod lifecycle;
 pub mod oauth;
 #[cfg(test)]
 mod tests;
 mod wire;
+pub use lifecycle::CleanupOwner;
+pub fn plugins_owned(
+    root: std::path::PathBuf,
+    connection: dolores_core::McpConnection,
+    vault: Option<std::sync::Arc<dyn dolores_core::CredentialStore>>,
+    owner: std::sync::Arc<CleanupOwner>,
+) -> Result<Vec<std::sync::Arc<dyn dolores_core::ToolPlugin>>, String> {
+    connection.validate()?;
+    if !connection.enabled {
+        return Ok(vec![]);
+    }
+    let root = root
+        .canonicalize()
+        .map_err(|_| "Working folder unavailable.")?;
+    approved::plugins_owned(root, connection, vault, Some(owner))
+}
 
 const FRAME: usize = 64 * 1024;
 const WIRE: usize = 256 * 1024;
@@ -145,6 +162,7 @@ pub struct ExcludedTool {
 
 /// One inspection/invocation lifetime. Does not retry or persist a remote session.
 pub struct RemoteClient {
+    cleanup_owner: Option<(std::sync::Arc<CleanupOwner>, String)>,
     client: Client,
     url: Url,
     bearer: Option<String>,
@@ -230,6 +248,16 @@ impl RemoteClient {
         cancel: CancellationToken,
         deadline: Instant,
     ) -> Result<Self, Failure> {
+        Self::open_owned(url, bearer, pinned, cancel, deadline, None).await
+    }
+    async fn open_owned(
+        url: &str,
+        bearer: Option<&str>,
+        pinned: Option<&str>,
+        cancel: CancellationToken,
+        deadline: Instant,
+        cleanup_owner: Option<(std::sync::Arc<CleanupOwner>, String)>,
+    ) -> Result<Self, Failure> {
         let url = endpoint(url)?;
         if bearer.is_some_and(|s| {
             s.is_empty()
@@ -245,6 +273,7 @@ impl RemoteClient {
         }
         let client = http_client(&url, Client::builder())?;
         let mut this = Self {
+            cleanup_owner,
             client,
             url,
             bearer: bearer.map(str::to_owned),
@@ -724,35 +753,23 @@ impl RemoteClient {
         result
     }
     pub async fn close(&mut self) -> Result<(), Failure> {
-        if self.session.is_some() {
-            self.check_active()?;
-        }
         let Some(session) = self.session.take() else {
             return Ok(());
         };
-        if self.cancel.is_cancelled() {
-            return Err(fail(Kind::Cancelled));
-        }
-        let mut session_header =
-            HeaderValue::from_str(&session).map_err(|_| fail(Kind::Protocol))?;
-        session_header.set_sensitive(true);
-        let mut request = self
-            .client
-            .delete(self.url.clone())
-            .header("mcp-session-id", session_header)
-            .header("mcp-protocol-version", &self.protocol);
-        if let Some(token) = &self.bearer {
-            request = request.bearer_auth(token);
-        }
-        let response = tokio::select! {_=self.cancel.cancelled()=>return Err(fail(Kind::Cancelled)),_=tokio::time::sleep_until(self.deadline)=>return Err(fail(Kind::Deadline)),r=request.send()=>r.map_err(|_|fail(Kind::Network))?};
-        if response.status() == 405 {
-            return Ok(());
-        }
-        self.status(&response)?;
-        if response.status().is_success() {
+        if !matches!(
+            lifecycle::start(self, session).wait().await,
+            lifecycle::Outcome::Unconfirmed
+        ) {
             Ok(())
         } else {
-            Err(fail(Kind::Http(response.status().as_u16())))
+            Err(fail(Kind::Network))
+        }
+    }
+}
+impl Drop for RemoteClient {
+    fn drop(&mut self) {
+        if let Some(session) = self.session.take() {
+            lifecycle::start(self, session);
         }
     }
 }

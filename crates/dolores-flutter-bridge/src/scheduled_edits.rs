@@ -247,6 +247,7 @@ mod tests {
                     deleted: false,
                     preferences: Default::default(),
                     skill: None,
+                    hooks: None,
                     effective: dolores_core::inspect_settings(
                         Default::default(),
                         "test",

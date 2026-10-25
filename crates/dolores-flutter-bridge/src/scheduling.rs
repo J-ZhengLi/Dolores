@@ -155,6 +155,19 @@ impl ScheduleTool {
             deleted: false,
             preferences,
             skill,
+            hooks: self
+                .store
+                .workspace(&self.session)?
+                .root
+                .as_deref()
+                .map(|root| {
+                    let canonical = PathBuf::from(root)
+                        .canonicalize()
+                        .map_err(|_| "Scheduled hook folder unavailable.")?;
+                    self.store
+                        .lifecycle_hooks(canonical.to_str().ok_or("Unsupported scheduled folder.")?)
+                })
+                .transpose()?,
             effective,
         })
     }
@@ -218,7 +231,7 @@ impl ToolPlugin for ScheduleTool {
     }
 }
 pub(super) fn receipt(task: &ScheduledTask, background: bool) -> Value {
-    json!({"task":task.id,"revision":task.revision,"schedule":task.rule.describe(),"nextRun":task.next_due,"timezone":task.rule.zone,"project":task.workspace.root,"skill":task.skill.as_ref().map(|s|s.name.clone()),"model":task.preferences.model,"destination":"Scheduled → Results","availability":if background{"While Dolores is open or in the tray"}else{"While Dolores is open"},"paused":task.paused,"deleted":task.deleted})
+    json!({"task":task.id,"revision":task.revision,"schedule":task.rule.describe(),"nextRun":task.next_due,"timezone":task.rule.zone,"project":task.workspace.root,"skill":task.skill.as_ref().map(|s|s.name.clone()),"lifecycleHooks":task.hooks.as_ref().map_or(0,|h|h.hooks.len()),"model":task.preferences.model,"destination":"Scheduled → Results","availability":if background{"While Dolores is open or in the tray"}else{"While Dolores is open"},"paused":task.paused,"deleted":task.deleted})
 }
 pub(super) fn model_settings(
     store: &dyn SessionStore,

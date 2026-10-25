@@ -66,6 +66,61 @@ pub(crate) struct Reader {
     sources: Mutex<Option<Vec<SkillSource>>>,
 }
 impl Reader {
+    pub(crate) fn snapshot(&self) -> Result<Vec<SkillSource>, String> {
+        Ok(self
+            .sources
+            .lock()
+            .map_err(|_| "Selected packages unavailable.")?
+            .clone()
+            .unwrap_or_default())
+    }
+    pub(crate) fn fork(&self) -> Result<Self, String> {
+        let sources = self
+            .sources
+            .lock()
+            .map_err(|_| "Selected packages unavailable.")?
+            .clone();
+        Ok(Self {
+            profile: self.profile.clone(),
+            sources: Mutex::new(sources),
+        })
+    }
+    pub(crate) fn steering(
+        &self,
+        skills: &[dolores_core::ProjectSkill],
+        apply: bool,
+    ) -> Result<(), String> {
+        let (_, sources) = dolores_core::prepare_skill_context(
+            dolores_core::preview_context(vec![], "Reviewed steering skills")?,
+            skills,
+        )?;
+        let mut slot = self
+            .sources
+            .lock()
+            .map_err(|_| "Selected packages unavailable.")?;
+        let mut combined = slot.clone().ok_or(
+            "Run resource binding is not ready. Keep the instruction and retry explicitly.",
+        )?;
+        for source in sources.into_iter().filter(|s| s.package.is_some()) {
+            if let Some(old) = combined
+                .iter()
+                .find(|s| s.name == source.name && s.scope == source.scope)
+            {
+                if old != &source {
+                    return Err("Steering cannot replace a package already bound to this run. Keep progress and submit a fresh instruction.".into());
+                }
+            } else {
+                combined.push(source);
+            }
+        }
+        if combined.len() > dolores_core::MAX_ACTIVE_SKILLS {
+            return Err("This run already binds three skill packages. Keep the instruction and start a fresh run for another package.".into());
+        }
+        if apply {
+            *slot = Some(combined);
+        }
+        Ok(())
+    }
     pub(crate) fn new(profile: &Path) -> Self {
         Self {
             profile: profile.into(),
@@ -273,6 +328,39 @@ mod tests {
         io::{Cursor, Write},
         sync::Arc,
     };
+    #[tokio::test]
+    async fn steering_extends_parent_but_never_an_existing_child_resource_snapshot() {
+        let profile = tempfile::tempdir().unwrap();
+        let p = install(profile.path(), "PUBLIC_STEERED_RESOURCE");
+        let parent = Reader::new(profile.path());
+        parent.bind(&[]).unwrap();
+        let child_before = parent.fork().unwrap();
+        parent
+            .steering(&[skill(&p, SkillScope::Global)], false)
+            .unwrap();
+        assert!(invoke(&parent, &query(&p, SkillScope::Global, None))
+            .await
+            .is_err());
+        parent
+            .steering(&[skill(&p, SkillScope::Global)], true)
+            .unwrap();
+        let child_after = parent.fork().unwrap();
+        assert!(invoke(&child_before, &query(&p, SkillScope::Global, None))
+            .await
+            .is_err());
+        assert!(invoke(
+            &child_after,
+            &query(&p, SkillScope::Global, Some("references/check.md"))
+        )
+        .await
+        .unwrap()
+        .contains("PUBLIC_STEERED_RESOURCE"));
+        let other = install(profile.path(), "PUBLIC_CHANGED_RESOURCE");
+        assert!(parent
+            .steering(&[skill(&other, SkillScope::Global)], true)
+            .unwrap_err()
+            .contains("replace"));
+    }
     fn install(profile: &Path, text: &str) -> Installed {
         let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
         let options = zip::write::SimpleFileOptions::default()

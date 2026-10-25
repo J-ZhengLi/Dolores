@@ -111,3 +111,19 @@ and [system IANA timezone](https://docs.rs/iana-time-zone/latest/iana_time_zone/
 
 Excluded: manual task creation UI, holidays by inference, arbitrary cron syntax,
 silent model fallback, auto-email/publication, OS wake, cloud or closed-UI worker.
+
+## Retained workflow authority
+
+Scheduled tasks keep their exact selected skill package alive independently of
+later activations or forgotten skill versions. Execution still refuses a changed
+or disabled source skill until the task is explicitly updated; retaining bytes
+does not silently accept a newer version. Active occurrences also retain
+their original package when the task changes or is deleted. Deleting recurrence
+and finishing the occurrence releases that execution pin; terminal historical
+receipts do not authorize replay or retain every package indefinitely.
+
+New schedules also pin the currently reviewed project hooks and report their
+count. Changed/disabled hook configuration refuses a future occurrence before
+model work, requiring review and task recreation; it cannot silently adopt new
+scripts or retain revoked authority. Old schedules without a hook snapshot run
+none. Pinned scripts still undergo their normal identity and permission checks.

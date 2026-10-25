@@ -26,7 +26,10 @@ and hosted metadata choices have protocol/foreground coverage; the connected
 browser fixture uses compatible native dynamic registration. No hosted Dolores
 client metadata document is published or assumed.
 
-EH09.5 retains uncertain remote-session cleanup after failed setup/drop/Stop and
-integration with goals, queues, schedules and child lifecycles. H21 remote task
+EH09.5 qualifies bounded legacy-session cleanup after failed setup/drop/Stop,
+including joined primary-run receipts and uncertainty when termination is not
+confirmed or supported. The [combined lifecycle fixture](harness-lifecycle.md)
+covers goal/queue/scheduled/child ownership with a public legacy connector.
+Abrupt process loss still cannot establish server-side cleanup. H21 remote task
 supervision stays deferred. Raw receipts and renders remain under ignored output/;
 routine reruns do not expand this qualification boundary.

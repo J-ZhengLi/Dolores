@@ -14,7 +14,7 @@ operations per child cumulatively across follow-ups, further restricted by the s
 call stays reserved for the parent report. Delegation itself spends a tool
 operation. Defaults remain unchanged: small allowances may pause a batch.
 
-Only scoped file tools are available to children. Their grants are the parent's
+Scoped project file tools and frozen selected package reads are available to children. Their grants are the parent's
 current grants intersected with child scope and read-only restrictions. In Review
 mode, allowing the batch does not approve later file operations. Decisions are
 serialized and identify the child. Full access still respects child scope.
@@ -80,6 +80,13 @@ remain inspectable. Reports always retain `verified: false`; accepting a claim
 requires independent parent file/tool evidence. The latest explicit report can
 resolve that child's old pause, without resolving a sibling's outstanding pause.
 
-Goal/queue/context lifecycle integration, hook coverage for children and scheduled
-package retention belong to EH09.5. This slice adds no child command/MCP access,
-cross-provider routing, recursive delegation, persistent workers or remote control.
+EH09.5 connects these children to the same goal ledger and reviewed hook runtime
+as their parent. Children cannot claim or acknowledge parent steering inputs.
+Before parent work resumes, child reports and completed effects remain linked to
+the owning run; compaction preserves host budget and resource bindings. Frozen
+selected packages may be read with read_skill_resource under ordinary parent
+authorization and the same four-file-operation cap. Later steering cannot add a
+package to an existing child. The reviewed host hooks keep their own shared
+24-call/30-second allowance; scripts are not a capability callable by the child.
+No child command/MCP access, cross-provider routing, recursive delegation,
+persistent workers or remote control is introduced.

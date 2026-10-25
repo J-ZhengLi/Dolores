@@ -92,6 +92,8 @@ fn short(text: &str, max: usize) -> String {
     text[..end].into()
 }
 pub(super) struct RuntimeContext {
+    pub hooks: Option<Arc<crate::lifecycle_hooks::Runtime>>,
+    pub resources: Option<Arc<crate::skill_packages::resources::Reader>>,
     pub provider: Arc<dyn ModelProvider>,
     pub context: Vec<Message>,
     pub tools: Vec<Arc<dyn ToolPlugin>>,
@@ -115,6 +117,7 @@ impl dolores_core::BudgetLedger for ChildLedger {
     }
 }
 struct Child {
+    resources: Option<Arc<crate::skill_packages::resources::Reader>>,
     task: ChildTask,
     model: String,
     provider: Arc<dyn ModelProvider>,
@@ -346,7 +349,7 @@ impl DelegateTasks {
         let mut receipt = json!({"parentRunId":rt.log.id,"childId":id,"goal":task.goal,"scope":task.scope,
             "readOnly":task.read_only,"model":control.model,"followUps":control.followups.load(std::sync::atomic::Ordering::SeqCst),"status":"running","verified":false});
         self.state(rt, receipt.clone(), &cancel).await?;
-        let plugins: Vec<Arc<dyn ToolPlugin>> = rt
+        let mut plugins: Vec<Arc<dyn ToolPlugin>> = rt
             .tools
             .iter()
             .filter(|p| {
@@ -370,6 +373,28 @@ impl DelegateTasks {
                 }) as Arc<dyn ToolPlugin>
             })
             .collect();
+        if let Some(resources) = &control.resources {
+            let inner: Arc<dyn ToolPlugin> = Arc::new(crate::run_journal::LoggedTool {
+                inner: resources.clone(),
+                log: rt.log.clone(),
+                policy: None,
+            });
+            let inner = if let Some(hooks) = &rt.hooks {
+                Arc::new(crate::lifecycle_hooks::HookedTool {
+                    inner,
+                    hooks: hooks.clone(),
+                }) as Arc<dyn ToolPlugin>
+            } else {
+                inner
+            };
+            plugins.push(Arc::new(ChildResource {
+                inner,
+                child: format!(
+                    "{id}.{}",
+                    control.followups.load(std::sync::atomic::Ordering::SeqCst)
+                ),
+            }));
+        }
         let budget = TaskBudget {
             model_calls: Some(rt.budget.model_limit().min(4)),
             tool_calls: Some(rt.budget.tool_limit().min(4)),
@@ -382,6 +407,9 @@ impl DelegateTasks {
         system.push_str("\nA file scope does not allow listing or searching its parent directory, including '.'. Use the assigned direct file path. Do not spend steps locating a file whose exact path was supplied. The parent owns cross-file integration and command verification.");
         if !task.read_only {
             system.push_str("\nFor a requested new file, propose create_text_file directly; its host preview checks occupancy and never replaces an existing file. If occupied, read that same file before editing.");
+        }
+        if let Some(resources) = &control.resources {
+            system.push_str(&format!("\nFrozen selected package resources: {}. Use read_skill_resource for these exact skill/scope/packageId snapshots; it counts toward your cumulative file-operation limit. Package reads do not widen project paths or authorize scripts, commands or MCP.",serde_json::to_string(&resources.snapshot()?).map_err(|_|"Child package snapshot unavailable.")?));
         }
         let original = rt.context.last().map(|m| m.content.as_str()).unwrap_or("");
         let initial = vec![Message{role:Role::System, content:system,parts:vec![]},
@@ -429,17 +457,31 @@ impl DelegateTasks {
             ),
         };
         let (events, mut receiver) = mpsc::channel(32);
-        let run = dolores_core::run_agent_with_shared_budget(
-            control.provider.as_ref(),
-            context,
-            &plugins,
-            &approval,
-            events,
-            cancel.clone(),
-            budget,
-            control.budget.clone(),
-            true,
-        );
+        let run = async {
+            if let Some(hooks) = &rt.hooks {
+                hooks
+                    .fire_owned(
+                        dolores_core::lifecycle_hooks::Event::TaskStart,
+                        None,
+                        None,
+                        Some(&id),
+                        cancel.clone(),
+                    )
+                    .await?;
+            }
+            dolores_core::run_agent_with_shared_budget(
+                control.provider.as_ref(),
+                context,
+                &plugins,
+                &approval,
+                events,
+                cancel.clone(),
+                budget,
+                control.budget.clone(),
+                true,
+            )
+            .await
+        };
         let mut run = Box::pin(run);
         let mut text = ChildText::default();
         let result = loop {
@@ -503,6 +545,17 @@ impl DelegateTasks {
             receipt["truncated"] = json!(true);
         }
         self.state(rt, receipt.clone(), &parent_cancel).await?;
+        if let Some(hooks) = &rt.hooks {
+            hooks
+                .observe_owned(
+                    dolores_core::lifecycle_hooks::Event::TaskComplete,
+                    None,
+                    receipt["status"].as_str(),
+                    Some(&id),
+                    parent_cancel.clone(),
+                )
+                .await;
+        }
         Ok(receipt)
     }
 }
@@ -766,6 +819,11 @@ impl ToolPlugin for DelegateTasks {
                 .insert(
                     id.clone(),
                     Arc::new(Child {
+                        resources: rt
+                            .resources
+                            .as_ref()
+                            .map(|r| r.fork().map(Arc::new))
+                            .transpose()?,
                         task: task.clone(),
                         model,
                         provider,
@@ -807,6 +865,41 @@ struct ScopedTool {
     inner: Arc<dyn ToolPlugin>,
     scope: String,
     child: String,
+}
+struct ChildResource {
+    inner: Arc<dyn ToolPlugin>,
+    child: String,
+}
+#[async_trait]
+impl ToolPlugin for ChildResource {
+    fn spec(&self) -> ToolSpec {
+        self.inner.spec()
+    }
+    fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+        let mut call = call.clone();
+        let raw = call.id.clone();
+        if raw.len() > 80 {
+            return Err("Child call identity exceeds its limit.".into());
+        }
+        call.id = format!("child.{}.{}", self.child, raw);
+        let mut request = self.inner.prepare(&call)?;
+        request.call_id = raw;
+        Ok(request)
+    }
+    fn discard(&self, request: &ToolRequest) {
+        let mut r = request.clone();
+        r.call_id = format!("child.{}.{}", self.child, r.call_id);
+        self.inner.discard(&r);
+    }
+    async fn invoke(
+        &self,
+        request: &ToolRequest,
+        cancel: CancellationToken,
+    ) -> Result<String, String> {
+        let mut r = request.clone();
+        r.call_id = format!("child.{}.{}", self.child, r.call_id);
+        self.inner.invoke(&r, cancel).await
+    }
 }
 impl ScopedTool {
     fn namespaced(&self, request: &ToolRequest) -> ToolRequest {

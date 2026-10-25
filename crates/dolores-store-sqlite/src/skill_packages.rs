@@ -35,6 +35,12 @@ pub(super) fn read_record(
 fn version_ref(c: &Connection, root: Option<&str>, id: &str) -> Result<bool, String> {
     c.query_row("SELECT EXISTS(SELECT 1 FROM project_skills s,json_each(s.data,'$.versions') v WHERE (?1 IS NULL OR s.root=?1) AND json_extract(v.value,'$.package.id')=?2)",params![root,id],|r|r.get(0)).map_err(storage_error)
 }
+fn execution_ref(c: &Connection, id: &str) -> Result<bool, String> {
+    // Retain runnable snapshots, not terminal history that cannot dispatch work.
+    c.query_row("SELECT EXISTS(SELECT 1 FROM scheduled_tasks WHERE json_extract(data,'$.deleted')=0 AND json_extract(data,'$.skill.versions[0].package.id')=?1)
+        OR EXISTS(SELECT 1 FROM scheduled_occurrences WHERE json_extract(data,'$.state') IN ('claimed','queued','running','waitingForApproval') AND json_extract(data,'$.snapshot.skill.versions[0].package.id')=?1)
+        OR EXISTS(SELECT 1 FROM task_inputs i,json_each(i.data,'$.selectedSkills') s WHERE (i.state IN ('pending','delivering') OR (i.state='uncertain' AND COALESCE(json_extract(i.data,'$.inspected'),0)=0)) AND json_extract(s.value,'$.packageId')=?1)", [id], |r|r.get(0)).map_err(storage_error)
+}
 // Keep package operations in the store's existing mutex/transaction boundary.
 impl SqliteStore {
     pub(super) fn package_list(&self, root: &str) -> Result<Vec<Installed>, String> {
@@ -180,7 +186,7 @@ impl SqliteStore {
                 |r| r.get(0),
             )
             .map_err(storage_error)?;
-        Ok(installed || version_ref(&c, None, id)?)
+        Ok(installed || version_ref(&c, None, id)? || execution_ref(&c, id)?)
     }
     pub(super) fn package_activate(
         &self,
@@ -202,6 +208,109 @@ mod tests {
         SkillDocument,
     };
     use sha2::{Digest, Sha256};
+    #[test]
+    fn scheduled_and_queued_pins_survive_scope_forget_reopen_and_release_only_when_unrunnable() {
+        use dolores_core::{scheduling::*, ProjectSkill, SessionStore, SkillScope, SkillVersion};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("state.db");
+        let s = SqliteStore::open(&path).unwrap();
+        s.create("task").unwrap();
+        let p = package(directory.path(), 1);
+        let root = skills::GLOBAL_ROOT;
+        s.retain_skill_package(root, &p).unwrap();
+        let skill = ProjectSkill {
+            scope: SkillScope::Global,
+            name: "review".into(),
+            revision: 1,
+            enabled: true,
+            versions: vec![SkillVersion {
+                version: 1,
+                reviewed_at: 1,
+                document: p.document.clone(),
+                package: Some(p.package.clone()),
+                evaluation: None,
+                rollback_from: None,
+            }],
+        };
+        let task = ScheduledTask {
+            id: "schedule".into(),
+            revision: 1,
+            source_session: "task".into(),
+            source_key: "public-exchange".into(),
+            title: "Report".into(),
+            prompt: "Use review".into(),
+            workspace: Default::default(),
+            rule: ScheduleRule {
+                kind: "daily".into(),
+                time: "09:00".into(),
+                date: None,
+                weekdays: vec![],
+                zone: "UTC".into(),
+            },
+            next_due: Some(100),
+            paused: false,
+            deleted: false,
+            preferences: Default::default(),
+            skill: Some(skill),
+            hooks: None,
+            effective: dolores_core::inspect_settings(Default::default(), "fixture", None, &[])
+                .unwrap(),
+        };
+        let task = s.save_scheduled_task(&task, None).unwrap();
+        let mut occurrence = s
+            .claim_scheduled_occurrence(&task.id, task.revision, 100, true)
+            .unwrap()
+            .unwrap();
+        let mut task = s.scheduled_tasks().unwrap().remove(0);
+        task.deleted = true;
+        s.save_scheduled_task(&task, Some(task.revision)).unwrap();
+        s.forget_skill_package(root, &p.package.id).unwrap();
+        assert!(s.skill_package_referenced(&p.package.id).unwrap());
+        drop(s);
+        let s = SqliteStore::open(&path).unwrap();
+        assert!(s.skill_package_referenced(&p.package.id).unwrap());
+        occurrence.state = "cancelled".into();
+        s.update_scheduled_occurrence(&occurrence, "claimed")
+            .unwrap();
+        assert!(!s.skill_package_referenced(&p.package.id).unwrap());
+        s.retain_skill_package(root, &p).unwrap();
+        s.activate_skill_package(root, &p.document, &p.package, None, None)
+            .unwrap();
+        s.save_composer_skills(
+            "task",
+            &[dolores_core::SkillSelection {
+                package_id: Some(p.package.id.clone()),
+                scope: SkillScope::Global,
+                name: "review".into(),
+                revision: 1,
+                version: 1,
+            }],
+        )
+        .unwrap();
+        let inputs = s
+            .edit_task_inputs(
+                "task",
+                &dolores_core::harness_task::InputEdit::Enqueue {
+                    id: "queued".into(),
+                    text: "Use exact review".into(),
+                    mode: dolores_core::harness_task::InputMode::Queue,
+                },
+            )
+            .unwrap();
+        s.forget_global_skill("review", 1).unwrap();
+        s.forget_skill_package(root, &p.package.id).unwrap();
+        assert!(s.skill_package_referenced(&p.package.id).unwrap());
+        s.edit_task_inputs(
+            "task",
+            &dolores_core::harness_task::InputEdit::Cancel {
+                id: "queued".into(),
+                revision: inputs.entries[0].revision,
+            },
+        )
+        .unwrap();
+        assert!(!s.skill_package_referenced(&p.package.id).unwrap());
+        assert_eq!(s.scheduled_occurrences(&task.id).unwrap().len(), 1);
+    }
     fn package(folder: &Path, n: usize) -> Installed {
         let document = SkillDocument {
             name: "review".into(),

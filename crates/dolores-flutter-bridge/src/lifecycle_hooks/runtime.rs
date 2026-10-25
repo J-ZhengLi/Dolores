@@ -9,6 +9,7 @@ pub(crate) struct Runtime {
     output: tokio::sync::mpsc::Sender<Value>,
     id: u64,
     allowance: Mutex<(usize, u64)>,
+    serial: tokio::sync::Mutex<()>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -50,6 +51,7 @@ impl Runtime {
             output,
             id,
             allowance: Mutex::new((0, 0)),
+            serial: tokio::sync::Mutex::new(()),
         })))
     }
     async fn receipt(
@@ -59,8 +61,9 @@ impl Runtime {
         status: &str,
         message: &str,
         command: Option<Value>,
+        child: Option<&str>,
     ) -> Result<(), String> {
-        let data = json!({"hook":hook.hook.name,"event":event,"mode":hook.hook.mode,"revision":self.configuration.revision,"scriptSha256":hook.script_sha256,"status":status,"message":message,"commandOutcome":command,"untrusted":true});
+        let data = json!({"hook":hook.hook.name,"event":event,"mode":hook.hook.mode,"revision":self.configuration.revision,"scriptSha256":hook.script_sha256,"status":status,"message":message,"commandOutcome":command,"childId":child,"untrusted":true});
         self.log.record(None, "hookResult", data.clone()).await?;
         self.output
             .try_send(json!({"type":"hookReceipt","id":self.id,"receipt":data}))
@@ -74,6 +77,17 @@ impl Runtime {
         outcome: Option<&str>,
         cancel: CancellationToken,
     ) -> Result<(), String> {
+        self.fire_owned(event, tool, outcome, None, cancel).await
+    }
+    pub async fn fire_owned(
+        &self,
+        event: Event,
+        tool: Option<&str>,
+        outcome: Option<&str>,
+        child: Option<&str>,
+        cancel: CancellationToken,
+    ) -> Result<(), String> {
+        let _serial = tokio::select! {biased;_=cancel.cancelled()=>return Err(crate::stopped()),guard=self.serial.lock()=>guard};
         for hook in self
             .configuration
             .hooks
@@ -108,8 +122,14 @@ impl Runtime {
             };
             let mut command = None;
             let result = if permitted {
-                self.invoke(hook, event, tool, outcome, cancel.clone(), &mut command)
-                    .await
+                self.invoke(
+                    hook,
+                    event,
+                    (tool, outcome, child),
+                    cancel.clone(),
+                    &mut command,
+                )
+                .await
             } else {
                 Err("Run hook allowance reached (24 calls / 30 seconds). Inspect hooks before explicit retry.".into())
             };
@@ -122,7 +142,8 @@ impl Runtime {
             };
             // Post-effect evidence failures must never erase the original result.
             // Retain a live warning if durable recording fails; caller preserves it.
-            self.receipt(hook, event, status, &message, command).await?;
+            self.receipt(hook, event, status, &message, command, child)
+                .await?;
             if hook.hook.mode == Mode::Blocking && (result.is_err() || status == "blocked") {
                 return Err(format!("Lifecycle hook '{}' refused this action. Inspect Run history and Settings → Advanced → Lifecycle hooks; review or disable it before an explicit retry. Hook effects may remain.",hook.hook.name));
             }
@@ -134,11 +155,11 @@ impl Runtime {
         &self,
         hook: &ReviewedHook,
         event: Event,
-        tool: Option<&str>,
-        outcome: Option<&str>,
+        details: (Option<&str>, Option<&str>, Option<&str>),
         cancel: CancellationToken,
         command: &mut Option<Value>,
     ) -> Result<Reply, String> {
+        let (tool, outcome, child) = details;
         if script_hash(&self.root, &hook.hook)? != hook.script_sha256 {
             return Err("Hook script changed. Review exact bytes again or disable it.".into());
         }
@@ -155,7 +176,7 @@ impl Runtime {
             runner.discard(&request);
             return Err("Hook runtime changed. Review again or disable it.".into());
         }
-        self.log.record(None,"hookIntent",json!({"hook":hook.hook.name,"event":event,"revision":self.configuration.revision,"reviewed":hook,"certainty":"Effects unknown until hookResult; never replay on reopen."})).await?;
+        self.log.record(None,"hookIntent",json!({"hook":hook.hook.name,"event":event,"revision":self.configuration.revision,"reviewed":hook,"childId":child,"certainty":"Effects unknown until hookResult; never replay on reopen."})).await?;
         self.approval.recheck(&request, cancel.clone()).await?;
         let raw = runner.invoke(&request, cancel).await?;
         let value: Value =
@@ -194,7 +215,17 @@ impl Runtime {
         outcome: Option<&str>,
         cancel: CancellationToken,
     ) {
-        if let Err(error) = self.fire(event, tool, outcome, cancel).await {
+        self.observe_owned(event, tool, outcome, None, cancel).await;
+    }
+    pub async fn observe_owned(
+        &self,
+        event: Event,
+        tool: Option<&str>,
+        outcome: Option<&str>,
+        child: Option<&str>,
+        cancel: CancellationToken,
+    ) {
+        if let Err(error) = self.fire_owned(event, tool, outcome, child, cancel).await {
             let _=self.output.try_send(json!({"type":"hookReceipt","id":self.id,"receipt":{"hook":"Host","status":"error","message":error,"untrusted":true}}));
         }
     }
@@ -224,7 +255,13 @@ impl ToolPlugin for HookedTool {
     ) -> Result<String, String> {
         if let Err(error) = self
             .hooks
-            .fire(Event::BeforeTool, Some(&request.name), None, cancel.clone())
+            .fire_owned(
+                Event::BeforeTool,
+                Some(&request.name),
+                None,
+                child_id(request),
+                cancel.clone(),
+            )
             .await
         {
             self.inner.discard(request);
@@ -232,15 +269,22 @@ impl ToolPlugin for HookedTool {
         }
         let result = self.inner.invoke(request, cancel.clone()).await;
         self.hooks
-            .observe(
+            .observe_owned(
                 Event::AfterTool,
                 Some(&request.name),
                 Some(if result.is_ok() { "returned" } else { "error" }),
+                child_id(request),
                 cancel,
             )
             .await;
         result
     }
+}
+fn child_id(request: &ToolRequest) -> Option<&str> {
+    request
+        .call_id
+        .strip_prefix("child.")
+        .and_then(|id| id.split('.').next())
 }
 pub(crate) struct HookedApproval {
     pub inner: Arc<dyn ToolApproval>,
