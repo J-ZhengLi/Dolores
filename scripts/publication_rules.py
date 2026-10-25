@@ -25,7 +25,7 @@ def sanitize(path, value):
     text = re.sub(r'[A-Za-z]:[\\/]+Workspace[\\/]+project_dolores', '<repository>', text, flags=re.I)
     text = re.sub(r'[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s\"\x27`<>]+', '<user-home>', text, flags=re.I)
     if path.endswith('.md'):
-        text = text.replace('developer-workspace-handoff.md', 'developer-workspace-planning.md')
+        text = text.replace('developer-workspace-handoff.md', 'developer-workspace.md')
         text = re.sub(r'^@[^\n]*RTK\.md[^\n]*\n?', '', text, flags=re.M)
         text = re.sub(r'\[([^\]]+)\]\((?:\.\./)*HANDOFF\.md(?:#[^)]*)?\)',
                       lambda m: '[roadmap](' + ('../' if path.startswith('docs/') and path.count('/') > 1 else '') + 'ROADMAP.md)', text)

@@ -18,7 +18,8 @@ This file owns reusable design guidance. Change it when a principle applies to
 multiple kinds of surface. For feature workflows, exact destinations, shortcuts
 and state rules, find the owning specification through the [documentation
 index](README.md). Put rationale in that specification, delivery notes in the
-changelog, and exercised checks/gaps in [acceptance](ACCEPTANCE.md).
+changelog. Report routine checks in the task response/CI; update a qualification
+record only when its acceptance boundary changes.
 
 Keep the guide within 180 lines. The documentation check enforces that budget,
 routes feature-specific references away from this file and rejects dated section
@@ -140,5 +141,6 @@ Before finishing, inspect the changed surface and answer each applicable questio
 - Can keyboard and compact-window users complete the task and recover their work?
 
 Use saved renders for appearance and focused interaction checks for behavior.
-Record evidence and remaining native/performance gaps in acceptance, outside this
-guide. A smooth fixture animation alone does not establish native frame timing.
+Report checks/gaps in the task response. Update the owning qualification record
+when its boundary changes. A smooth fixture animation alone does not establish
+native frame timing.

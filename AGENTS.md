@@ -1,15 +1,35 @@
-# Dolores project guidance
+# Working on Dolores
 
-For each implemented brick, verify the basic flow and add one or two realistic edge-case tests when applicable. Choose failures that users can encounter: exhausted output/context/tool budgets, interruption, stale configuration, unavailable tools, or malformed provider responses. Verify the recovery UX as well as the failure: preserve usable work, explain the actual limit, and provide an actionable next step. Document what was exercised and any remaining acceptance gaps in `docs/ACCEPTANCE.md`.
+1. Inspect Git status and the affected code. Preserve unrelated work.
+2. Read only the documentation needed for the task, using the routes below.
+   Search headings/terms and read matching sections; expand when a dependency
+   or contradiction requires it.
+3. Implement the requested scope. Verify the basic flow and relevant realistic
+   failure/recovery cases, preserving drafts/results and actionable errors.
+4. Report changed behavior, checks and remaining gaps in the task response.
+   Commit completed work in English; follow an explicitly requested batch boundary.
 
-When a limit causes real tasks to fail, trace its effect before changing defaults. Prefer bounded, explicit continuation and useful recovery over silent retries or unbounded execution. Keep changes scoped to the current brick and commit each completed brick.
+| Task | Read when needed |
+| --- | --- |
+| UI layout, controls, wording or motion | `docs/UI.md` |
+| Build, launch or test commands | `CONTRIBUTING.md` |
+| Packaging, CI or release | Relevant sections of `docs/RELEASING.md` |
+| Feature behavior or invariants | Matching specification via `docs/README.md` |
+| Planning or continuing a batch | `docs/ROADMAP.md`, then the selected batch |
+| Acceptance/release claims | Matching qualification record via `docs/ACCEPTANCE.md` |
 
-Write commit subjects and bodies in English.
+Update the owning document when behavior, a contract or an acceptance boundary
+changes. Routine test runs belong in the task response/CI, with raw evidence in
+ignored `output/`; they do not require a tracked diary or duplicate plan/spec edits.
+Historical evidence is opt-in through `docs/IMPLEMENTATION_HISTORY.md`.
 
-When a build or launch is needed, use `python scripts/desktop.py build` and `python scripts/desktop.py launch`. Windows x64 is the supported release target; other platforms need separate qualification.
+Choose checks proportional to the change: document checks for documentation,
+focused tests for code, saved renders for appearance. Build when compilation or
+packaging needs verification; launch for relevant native integration or a requested
+preview. Use `python scripts/desktop.py build` / `launch`. Preserve user profiles;
+replace only an owned preview. Windows x64 is the supported release target.
 
-Choose verification that matches the change. Do not build, launch or visually inspect the desktop after every task. Documentation-only work needs document/link checks; runtime changes need focused tests and a normal build when compilation or packaging is affected. For UX changes, prefer saved renders/screenshots inspected with `view_image`; use the computer-use skill only when an interaction or native behavior needs it. Launch for a relevant integration check or when the user asks to see the app. Preserve provider configuration/history and replace only an owned preview process. Diagnostic evidence must be labeled; it does not establish normal-app behavior.
-
-Automated checks use deterministic fixtures and require no provider credentials. For an optional live check, explicitly choose an available model suited to the case, bound prompts and token usage, and preserve existing settings/history. Keep credentials and private transcripts out of artifacts. A fixture pass alone does not establish real-model reliability.
-
-For desktop pages, layouts, controls, wording or motion, read `docs/UI.md` as reusable design guidance. Put feature workflows and rationale in the owning `docs/design/` specification, sequencing in plans, and verification in `docs/ACCEPTANCE.md`; update UI.md only for a cross-surface design principle. For builds, CI or releases, read `CONTRIBUTING.md` and `docs/RELEASING.md`. Optional local indexing and command helpers are conveniences, not prerequisites for contributors.
+Automated tests use credential-free fixtures. Live checks need a suitable explicit
+model, bounded usage and isolated data. Keep private transcripts/credentials out of
+artifacts. Distinguish fixture, native and live-model evidence. Trace failing limits
+before changing defaults; keep retries and continuation bounded.

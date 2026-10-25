@@ -139,5 +139,5 @@ check; four independent skill trials then tied, retaining the baseline. Useful
 automatic improvement and live regression restoration remain open. The frozen
 computer-use corpus still has failures. [Learning](learning-followup.md),
 [computer use](computer-use.md) and [idle resources](idle-resources.md) retain the
-actual results; [remaining work](remaining-work.md) lists open gates. Original
+actual results; [remaining work](../ACCEPTANCE.md) lists open gates. Original
 provider, selected model and all 37 profile tables remain unchanged.

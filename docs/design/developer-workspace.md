@@ -10,8 +10,7 @@ The finalized design uses **developer-pages variant B** with the amendments belo
 
 ## Navigation and page layout
 
-The shared shell follows [desktop interaction requirements](desktop-interactions.md),
-with shared appearance guided by [UI.md](../UI.md): primary navigation occupies a compact
+Shared appearance follows [UI.md](../UI.md); primary navigation occupies a compact
 centered bottom dock with Home, Scheduled, Files, Source Control, Terminal
 and Settings. Skill management lives in Settings. The dock floats above the workspace
 without reserving height. It hides after inactivity/pointer departure and reveals

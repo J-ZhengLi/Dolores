@@ -26,6 +26,12 @@ class PublicationTests(unittest.TestCase):
         self.assertTrue(excluded('docs/design/developer-workspace-handoff.md'))
         self.assertFalse(excluded('docs/UI.md'))
 
+    def test_retired_workspace_handoff_routes_to_current_specification(self):
+        result=sanitize('docs/design/example.md',
+                        b'[workspace](developer-workspace-handoff.md)')
+        self.assertIn(b'](developer-workspace.md)',result)
+        self.assertTrue((ROOT/'docs/design/developer-workspace.md').is_file())
+
     def test_live_checks_refuse_implicit_model_before_creating_output(self):
         ROOT.joinpath('output').mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=ROOT / 'output') as temp:

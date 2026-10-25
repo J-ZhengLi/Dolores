@@ -289,4 +289,5 @@ keyboard/focus and long/error text. Use deterministic unavailable/stale/denied
 fixtures plus bounded explicitly selected available-model live checks when behavior needs
 a model. Keep model quality separate from UI/host contract passes. Preserve provider
 configuration, selected model, history, explicit access policies, memory/skill
-versions and local evidence. Commit each brick and record gaps in acceptance.
+versions and local evidence. Report routine checks in the task result/CI; update
+the owning qualification record when its acceptance boundary changes.

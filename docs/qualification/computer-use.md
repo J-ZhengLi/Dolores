@@ -37,7 +37,7 @@ seconds, one segment. Model/tool allowances were 6/6 for draft, 12/12 for save,
 4/4 for visual inspection. No ordinary defaults were increased, no automatic
 fallback model was used, and no failed criterion was relaxed. These are individual
 bounded attempts, not a reliability percentage. The separate successful 14.2
-DeepSeek save-once probe remains recorded in [acceptance](../ACCEPTANCE.md#brick-142--scoped-windows-desktop-input);
+DeepSeek save-once probe remains recorded in [acceptance](../IMPLEMENTATION_HISTORY.md#acceptance-records);
 the current failure shows that success is not yet consistent.
 
 ## Failure and recovery evidence

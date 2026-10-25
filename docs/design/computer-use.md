@@ -105,7 +105,8 @@ Full access mode implies permission to capture arbitrary windows. Model ability,
 provider projection, target availability and native capture success are separate
 facts. Test unsupported vision, missing/oversized captures, stale target identity,
 Stop/deadline, backward-readable receipts and restart, plus one live synthetic
-window observation. Record hardware/model/platform gaps honestly in acceptance.
+window observation. Report hardware/model/platform gaps in the task result; update
+the computer-use qualification record when that boundary changes.
 
 ## Accessibility targets in ordinary chat
 
@@ -147,7 +148,8 @@ See Microsoft's [UI Automation testing guidance](https://learn.microsoft.com/en-
 Run `python scripts/test-computer-targets.py --directory <absolute-output-path>`
 after a normal desktop build to exercise a separate public Win32 form, changed-control
 refusal and recovery. This deterministic fixture does not establish model
-competence; live model results remain separately recorded in acceptance.
+competence; live model results belong in the matching qualification record when
+they change its acceptance boundary.
 
 ## Scoped desktop input (14.2)
 

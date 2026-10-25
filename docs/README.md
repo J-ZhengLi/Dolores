@@ -1,46 +1,40 @@
-# Documentation
+# Documentation by task
 
-| You want to… | Start here |
+Read one matching entry, then follow only the relevant section's references.
+Existing code/tests are the source of current implementation detail. The presence
+of a document is not a reason to load it or update it for every task.
+
+| Task | Owner |
 | --- | --- |
-| Connect a model, choose a project, use tools or recover work | [User guide](USER_GUIDE.md) |
-| Build, test, package or contribute | [Contributor guide](../CONTRIBUTING.md) |
-| Understand components, limits and trust | [Architecture](ARCHITECTURE.md) |
-| Review the target self-evolving harness design | [Architecture specification](design/evolving-harness-architecture.md) |
-| Understand questioning, personality and automatic adaptation policy | [Dolores behavior](design/dolores-behavior.md) |
-| Design a clean, consistent page, control or animation | [UI design guidelines](UI.md) |
-| Change workspace navigation, settings placement or conversation interactions | [Desktop interaction requirements](design/desktop-interactions.md) |
-| Work on Flutter/Rust integration | [Bridge contract](flutter/flutter-api.md) |
-| Understand stored/shared information | [Privacy](PRIVACY.md) |
-| Inspect Windows bundled licenses and prerequisites | [Dependency notices](DEPENDENCIES.md) |
-| Check what was actually verified | [Acceptance](ACCEPTANCE.md) |
-| Review priorities, dependencies and acceptance gates | [Roadmap](ROADMAP.md) |
-| Review proposed everyday harness gaps compared with Codex | [Agent harness gap analysis](research/agent-harness-gap-analysis.md) |
-| Implement everyday harness controls in dependency order | [Umbrella implementation plan](design/everyday-harness-implementation-plan.md) |
-| Execute and track each harness batch | [Batch task lists](plans/everyday-harness/README.md) |
-| Review the proposed integrated editor/Git/terminal workspace | [Developer workspace specification](design/developer-workspace.md) |
-| Continue implementation in a fresh development chat | [roadmap](ROADMAP.md) |
-| Review the planned harness self-repair workflow | [Self-repair specification](design/harness-self-repair.md) |
-| See completed bricks and historical scope | [Implementation history](IMPLEMENTATION_HISTORY.md) |
+| Use Dolores or recover work | [User guide](USER_GUIDE.md) |
+| Build, test or contribute | [Contributor guide](../CONTRIBUTING.md) |
+| Package or release | [Release procedure](RELEASING.md) |
+| Understand current components/trust | [Architecture](ARCHITECTURE.md) |
+| Change layout, wording, controls or motion | [UI design guidelines](UI.md) |
+| Choose or continue implementation work | [Current roadmap](ROADMAP.md), then the selected batch |
+| Evaluate support/qualification claims | [Current acceptance limits](ACCEPTANCE.md) |
+| Trace old decisions or dated results | [History lookup](IMPLEMENTATION_HISTORY.md) |
+| Change Rust/Flutter commands and ownership | [Bridge contract](flutter/flutter-api.md) |
+| Change data sharing/retention | [Privacy](PRIVACY.md) |
 
-`design/` contains implementation contracts and feature invariants. Brick labels connect decisions to the roadmap; it is not the product getting-started guide. `research/` holds dated source research and trials, including earlier alternatives. ACCEPTANCE retains historical evidence with its original boundary; newer sections describe later behavior.
+## Feature references
 
-## Selected design references
+Read the specification for invariants, its tests/code for implementation, and a
+qualification report only when a task depends on that evidence.
 
-- [Bounded subagents](design/subagents.md) explains file ownership, inherited permissions, shared budgets and cancellation.
-- [Browser use](design/browser-use.md) explains the optional runtime, fresh profiles, reviewed actions, local captures and cleanup.
-- [Computer use](design/computer-use.md) explains selected-window capture, explicit screenshot/model sharing and the planned desktop-input boundary.
+| Area | Relevant specification |
+| --- | --- |
+| Workspace, files, Git or terminal | [Workspace](design/developer-workspace.md), [Documents](design/editor-documents.md), [Git](design/source-control.md), [Terminal](design/terminal-language-services.md) |
+| Conversations, planning, goals or history | Selected task via [harness batches](plans/everyday-harness/README.md) |
+| Settings or model/context controls | [Scoped settings](design/scoped-settings.md), [Generation profiles](design/model-generation-profiles.md), [Context](design/token-context.md) |
+| Memory, skills or connections | [Memory](design/automatic-memory.md), [Skills](design/project-skills.md), [MCP](design/mcp-connection.md) |
+| Search, browser, computer or subagents | [Search](design/web-search.md), [Browser](design/browser-use.md), [Computer](design/computer-use.md), [Subagents](design/subagents.md) |
+| Scheduling or companionship | [Scheduling](design/chat-scheduling.md), [Closed UI](design/closed-ui-scheduling.md), [Companionship](design/companionship.md) |
+| Recovery, permissions or ownership | [Recovery](design/long-task-recovery.md), [Permissions](design/task-permissions.md), [Ownership](design/run-ownership.md) |
+| Harness architecture changes | [Target architecture](design/evolving-harness-architecture.md), [Behavior](design/dolores-behavior.md), [Self-repair](design/harness-self-repair.md) |
 
-- [Attachment snapshots](design/attachments.md) explains supported formats, explicit image capability, sharing, export and retention.
-
-- [Task access and revocation](design/task-permissions.md) explains review, selected grants, full access and the real execution boundary.
-
-- [Task budgets and fixed baselines](design/task-budgets.md) describes scoped allowances, continuation accounting and observable task criteria.
-
-- [Evolving harness specification](design/evolving-harness-architecture.md), [behavior policy](design/dolores-behavior.md), [vision discussion](design/dolores-vision-discussion.md) and [DSH/Claude research](research/evolving-harnesses.md). These are target/design references, not current feature acceptance.
-- [Working sessions](design/working-sessions.md), [change journal](design/change-journal.md) and [commands](design/approved-commands.md).
-- [Automatic preferences](design/automatic-memory.md), [skills](design/project-skills.md) and [MCP](design/mcp-connection.md).
-- [Recovery](design/long-task-recovery.md), [generation profiles](design/model-generation-profiles.md) and [coding repair](design/coding-validation-repair.md).
-- [Run ownership](design/run-ownership.md), [extension registry](design/extension-registry.md) and [scoped settings](design/scoped-settings.md).
-- [Task feedback](design/task-feedback.md), [comparisons](design/context-comparisons.md) and [regressions](design/regression-runner.md).
-- [Windows portable preview](design/windows-portable.md).
-- [Executable recovery mods](design/executable-mods.md) explains the restricted runtime, fixed tests, activation and rollback boundary.
+Other specifications remain under `design/`, qualification records under
+`qualification/`, and dated investigations under `research/`; locate them by name
+or heading when needed. A design target or historical observation is not current
+feature acceptance. Keep one owner per meaning; link to it instead of repeating
+its checklist, decisions or test transcript in another document.

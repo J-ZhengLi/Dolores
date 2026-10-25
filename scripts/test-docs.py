@@ -29,4 +29,33 @@ class UiGuideScopeTests(unittest.TestCase):
         self.assertTrue(self.check_text('# UI guide\n'+'A feature detail.\n'*180))
 
 
+class WorkflowScopeTests(unittest.TestCase):
+    def fixture(self, root):
+        for name in docs.ENTRY_WORD_LIMITS:
+            path=root/name
+            path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text('# Entry\n',encoding='utf-8')
+
+    def test_current_entry_points_are_bounded(self):
+        self.assertEqual(docs.workflow_issues(docs.ROOT),[])
+
+    def test_diary_append_is_rejected_even_with_valid_links(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            self.fixture(root)
+            for heading in ('## UI pass — October 25','## Checked 2026-10-25'):
+                (root/'docs/ACCEPTANCE.md').write_text(heading,encoding='utf-8')
+                self.assertIn('current limitations',docs.workflow_issues(root)[0]['issue'])
+
+    def test_growth_fails_then_focused_summary_recovers(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            self.fixture(root)
+            path=root/'docs/ACCEPTANCE.md'
+            path.write_text('detail ' * 701,encoding='utf-8')
+            self.assertIn('700 words',docs.workflow_issues(root)[0]['issue'])
+            path.write_text('# Current limits\nModel reliability remains bounded.\n',encoding='utf-8')
+            self.assertEqual(docs.workflow_issues(root),[])
+
+
 if __name__=='__main__': unittest.main()

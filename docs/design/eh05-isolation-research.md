@@ -20,7 +20,7 @@ must remain distinct; this note does not infer the baseline failure's cause.
 documented registryRead runtime capability for direct Node commands and reviewed
 MCP servers on Windows. The later transport, crash, offline-build, native UI,
 MCP save/restart and paired network evidence is recorded in
-[ACCEPTANCE](../ACCEPTANCE.md#eh05-command-sessions-and-isolation--october-22-complete).
+[ACCEPTANCE](../IMPLEMENTATION_HISTORY.md#acceptance-records).
 The recommendation below preserves the earlier research checkpoint. Other
 runtimes remain unsupported in isolated mode; Node children must inherit stdio.
 No network-enabling capability is offered by this initial mode.

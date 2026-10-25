@@ -99,7 +99,9 @@ local SSE and isolated data. It covers qualifying activation, pinned guidance
 on output exhaustion, active-run conflicts, capability/import refusal, changed
 source health rollback with full audit, ordinary chat afterward, Stop/partial
 retention and separate-process restart without replay. Runtime tests cover
-fuel exhaustion. Live results and measurements are recorded in acceptance.
+fuel exhaustion. Historical live results/measurements remain recoverable through
+the [history index](../IMPLEMENTATION_HISTORY.md#acceptance-records); record a new
+qualification summary only when its acceptance boundary changes.
 
 This envelope supports only guidance, not broader agent/context/UI replacement.
 Windows native execution is exercised; other-OS, representative low-end,

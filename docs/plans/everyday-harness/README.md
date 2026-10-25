@@ -24,10 +24,12 @@ deferred. Historical roadmap milestone numbers are independent.
 
 ## Working policy
 
-Before a batch, recheck Git status, relevant source, UI contracts and acceptance
-gaps. Record exact files and design decisions in its task file. Keep task evidence
-in ACCEPTANCE; raw local receipts belong under ignored output/. Use public fixture
-inputs and isolated data. No credentials are needed for deterministic checks.
+Before a batch, inspect Git status, affected source and the matching feature
+contract. Read UI.md for UI changes and a qualification record when its boundary
+matters. Keep current task status and material scope decisions here/in the selected
+batch; report routine checks in the task result/CI. Update qualification only when
+its acceptance boundary changes. Raw receipts stay in ignored output/. Use public
+fixtures and isolated data; deterministic checks need no credentials.
 
 The commit unit is the batch, as requested. A batch may contain several small
 tasks; do not combine a later batch into its commit or label incomplete acceptance

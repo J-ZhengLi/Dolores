@@ -1,281 +1,106 @@
 # Contributing to Dolores
 
-The default desktop app is Flutter with a bundled Rust bridge. Start with [architecture](docs/ARCHITECTURE.md), [UI design guidelines](docs/UI.md) and repository `AGENTS.md`. Keep scope small, preserve unrelated edits, record failure/recovery checks in [acceptance](docs/ACCEPTANCE.md), and commit each completed brick. Generated output, credentials and private transcripts stay out of Git.
-
-UI.md owns reusable guidance for hierarchy, layout, wording, material and motion.
-Maintain feature workflows and rationale in the owning design specification,
-delivery sequencing in plans, and results in acceptance. A feature implementation
-does not require a UI.md entry when the shared guidance already covers it.
+Start with `AGENTS.md` and the affected code. Read only the matching documentation
+from [the index](docs/README.md). Product behavior belongs in the user guide,
+invariants/rationale in the owning feature specification, shared appearance in
+UI.md, and active scope in the selected plan. Report routine verification in the
+task response/CI; update qualification documentation when its boundary changes.
+The documentation check enforces compact entry-point budgets and keeps dated
+test diaries out of the current acceptance index.
 
 ## Prerequisites and normal Windows build
 
-- Rust stable, including rustfmt and Clippy.
-- Flutter **3.47.5 / Dart 3.13.4**, matching the app constraints.
-- Visual Studio C++ desktop tools, Windows SDK and CMake; see [Windows setup](https://docs.flutter.dev/platform-integration/windows/setup).
-- Python **3.11+** for verification/packaging scripts.
-
-Node is optional development tooling, absent from the Flutter app. Browser fixtures and the optional browser adapter need Node ≥22.12 (24 recommended). Build and launch use Python directly; no root npm/pnpm install is needed. Browser dependencies and their npm lockfile belong under `adapters/browser/`.
+Use Rust stable MSVC, Python 3.11+, Visual Studio C++ desktop tools/Windows SDK,
+CMake and **Flutter 3.47.5 / Dart 3.13.4**, matching the pinned CI revision.
+Node is optional tooling for the browser adapter; its dependencies and lockfile
+stay under `adapters/browser/`, not the Flutter application.
 
 From the repository root:
 
-```text
+```powershell
 python scripts/desktop.py build --flutter-sdk C:/path/to/flutter
 python scripts/desktop.py launch
 ```
 
-The helper uses `--flutter-sdk`, `FLUTTER_SDK`, ignored `output/toolchains/flutter`, or PATH. It builds/copies the Rust bridge, prepares plugin junctions without symlink privileges and assembles the normal release. If Visual Studio lacks CMake, pass `--cmake C:/path/to/cmake.exe` and, when needed, the installed `--generator`. It does not enable Developer Mode or patch Flutter.
+The helper finds the SDK through `--flutter-sdk`, `FLUTTER_SDK`, ignored
+`output/toolchains/flutter`, or PATH. It builds/copies the Rust bridge and plugins
+and assembles the normal release. Use `--cmake` / `--generator` for the installed
+Windows toolchain. It does not patch Flutter or require Developer Mode.
 
-Close your owned preview before rebuilding locked files. Keep the complete `apps/dolores_flutter/build/windows/x64/runner/Release/` directory. For an isolated launch, pass `--data-directory` with an absolute ignored output directory; this does not migrate another directory's vault keys/history. `launch --pid-file <absolute-output-record> --replace-owned` replaces only a preview whose PID, executable and creation time match. Other processes are retained. Window presence is checked separately from native visual verification.
-
-Release builds remap Rust source paths and keep Flutter debug symbols under a fresh ignored `output/release-symbols/` directory. Retain matching symbols privately when investigating crashes. The helper temporarily aliases Flutter's generated registrant to a stable package URI and restores the generated package configuration afterward. See [build privacy details](docs/design/windows-portable.md).
+Keep the complete `apps/dolores_flutter/build/windows/x64/runner/Release/` bundle.
+Serialize builds sharing these artifacts. Close only an owned preview before
+rebuilding locked files. For isolated integration, `launch --data-directory`
+uses a fresh absolute directory under ignored `output/`. `--pid-file` with
+`--replace-owned` validates PID, executable and creation time before replacement.
+Preserve real profiles and matching private symbols in `output/release-symbols/`.
 
 ## Checks and recovery
 
+Choose checks for the changed surface; stop after the relevant checks pass unless
+another change or unresolved failure justifies repetition. Keep successful output
+concise and inspect failure detail from logs.
+
+| Change | Relevant verification |
+| --- | --- |
+| Documentation/workflow | `python scripts/check-docs.py`; `python scripts/test-docs.py` when changing doc checks |
+| Rust logic | Focused crate/tests, formatting and relevant Clippy targets |
+| Flutter logic | Focused `flutter test --no-pub`; `flutter analyze --no-pub` |
+| Appearance/motion | Saved affected Light/Dark/compact renders; relevant interaction/recovery tests |
+| Native integration/packaging | Normal helper build and the matching isolated native journey |
+| Release | [Release procedure](docs/RELEASING.md) and full local CI |
+
+Rust commands run from the root; Flutter commands run in `apps/dolores_flutter/`.
+After a normal build prepares dependencies, no provider credentials are needed for
+deterministic tests. Add realistic failure/recovery coverage when applicable.
+Distinguish fixture, physical-input, performance and live-model qualification.
+
+For credential-free rendered controls connected to the Rust bridge:
+
 ```powershell
-python -I -B scripts/check-docs.py
-python -I -B scripts/run-regressions.py --help
-python -I -B scripts/run-regressions.py --flutter-sdk C:/path/to/flutter
+python scripts/qualify-native-ui.py --help
+python scripts/qualify-native-ui.py --case local
+python scripts/run-regressions.py --help
 ```
 
-The Windows runner builds/checks the normal app and runs eight isolated save/restart fixture pairs. Logs/reports stay under fresh `output/regressions/` data. It stops on failure; inspect the log, fix the cause and explicitly start a new run. `--case` selects pairs; `--native-only` skips build/static/widgets and makes no freshness claim. See [scope](docs/design/regression-runner.md).
-
-For focused changes, run relevant Rust/Flutter tests. After the normal build prepares dependencies, run `flutter analyze --no-pub` and `flutter test --no-pub` in the app directory. A fixture pass does not establish model competence. Authorized live probes use isolated data and bounded prompts, preserving user settings. Record real failures as failures.
-
-For rendered controls connected to the real Rust bridge, run
-`python scripts/qualify-native-ui.py` after a normal Windows build. It uses a
-fresh `output/native-ui/` profile, a public loopback response and no credentials.
-The `--case review-findings` journey captures a verified diff-line finding,
-submits selected feedback through the ordinary queue, applies one reviewed
-exact-text tool edit, preserves the source draft/index and resolves the finding
-against a later comparison. It establishes the rendered/native bridge flow,
-not real-model reliability or physical Windows pointer/keyboard behavior.
-The `--case skill-packages` journey installs public ZIP fixtures in Project and
-Global scope, activates/updates/rolls back through rendered controls, exports exact
-archives after payload damage, selects the snapshot with `/`, and sends verified
-text and binary metadata through normal reviewed tools to a loopback provider.
-Chooser paths are injected; this case does not qualify physical file dialogs or
-real-model reliability. It disables only its own fixture activations afterward.
-It also reaches five distinct installed packages, refuses a sixth, then confirms
-forgetting an older activation and removing its unused installation. Both scopes
-retry and activate the sixth package while preserving the current fifth package
-throughout recovery; source ZIPs and the skill record are retained.
-The initial case covers workspace instruction review/stale-source recovery and
-Memory Off/Forget and conversation deletion with retained files/other chats. A
-second serial case covers scheduled failure, explicit Run now and confirmed
-deletion retaining source/results/files. A third covers Stop after a completed
-file effect, retained receipts, protected drafts and explicit recovery without
-automatic replay. A fourth case queues and reorders follow-ups, steers a live
-generation, prevents its superseded file operation and retains newer unsent text.
-The same journey chooses a reviewed skill through `/` and verifies its exact
-snapshot in preview, normal, queued and steered provider requests.
-A fifth journey saves and explicitly starts a goal, creates one public artifact,
-continues into a second segment, reads it back and records receipt-linked
-completion under the same cumulative budget. A sixth selects context, requests a
-forbidden command during planning, accepts a concrete plan and explicitly starts
-its linked goal with normal tool review. Logs and receipts remain in that
-profile. A seventh journey sends again after an IME commit, checks the always-on
-summary explanation and removes the active and final models without losing chat
-history or an unsent draft. It saves rendered review images in the same profile.
-Ordinary widget runs skip these opt-in cases. This does not qualify
-native pointer/IME/dialog behavior or real-model reliability.
-
-An eighth native journey starts a task-owned command through its rendered review,
-sends exact Unicode stdin, interrupts it and reopens saved output after owner
-release while retaining the conversation draft. Command controls never reattach
-a PID or replay a saved operation. This fixture uses native account permissions;
-it does not qualify the separate Windows isolation backend.
-
-The `worktrees` journey creates a separate checkout through rendered chat actions,
-refuses stale repository configuration, opens the new chat and retains the source
-draft, dirty file and index. It then refuses a selected transfer conflict,
-explicitly resolves the public destination fixture, reviews again and transfers
-the chosen change while preserving staging. It uses a public Git fixture without
-a model. The same rendered journey then archives only the owned checkout and
-restores its saved file, ignored binary data, empty folder and original staging.
-It does not qualify physical keyboard/pointer behavior or general model skill.
-
-The `isolated-commands` journey uses the same rendered controls with explicit
-Windows isolation. It checks reviewed roots, actual sibling-write/TCP denial,
-Unicode stdin, interruption, cleanup and reopened saved output. This fixture
-does not establish DNS/LAN/external network coverage or physical input behavior.
-
-The `--case mcp-remote` journey uses rendered Connections and approval controls
-with the normal bridge and public loopback MCP/model fixtures. It inspects and
-enables a remote target, verifies masked-key reuse/rotation and auth failure,
-keeps filtered selections, stops an inspection and checks one approved tool's
-actual public marker and saved receipt. It excludes keys from provider messages
-and disables only its fixture connection afterward. No physical input or
-real-model reliability is claimed.
-
-For an authorized live Memory check, run
-`python scripts/qualify-native-memory-live.py --source <profile-dolores.db>
---model <enabled-model-id> --reasoning <supported-reasoning-mode>
---directory <fresh-output-directory>`. It uses two public chat prompts, rendered
-Memory/composer controls and the normal bridge. Only connection configuration is
-read from the source; the credential stays in memory, history is not copied and
-source-profile digests must remain unchanged. Each extraction retains exact
-source evidence. This is opt-in and ordinary tests require no credentials.
-
-Async deadline tests should use a paused Tokio clock and establish the blocked
-queue/provider phase before advancing time. Keep provider inactivity, legacy
-fallback, delivery expiry and Stop assertions separate; do not race equal real
-timers or infer completion from a short sleep. Both CI entry points run
-`python scripts/check-rust-timing.py` after workspace tests: 20 repetitions of
-the three bridge deadline cases with two concurrent processes, failing on any
-failure or missing cases, without retry. For stronger local contention, use
-`--repeat 100 --jobs 8`. This is a focused regression gate, not proof that all
-other timing tests are deterministic.
-
-Flutter controller tests should advance a controlled widget clock or await an
-explicit completion signal before asserting restored state. A short real sleep
-does not establish that Stop, polling or a save has completed. Verify pending
-action refusal as well as recovery after the terminal event.
-
-MCP inspection shares its real 30-second deadline across executable hashing,
-server startup and protocol discovery. Bridge review/credential tests begin at
-the reviewed-state boundary with small real files: changed-byte refusal, locked
-storage, failed saving and explicit recovery do not depend on Node starting
-within that deadline. The MCP crate retains real Node stdio coverage. Test
-profiles optimize both SHA-256 and the MCP caller that instantiates its generic
-digest code. Both CI workflows repeat the three bridge MCP cases eight times
-with four concurrent processes, plus four real Node protocol cases with two
-concurrent processes, using software SHA-256 so a developer CPU's acceleration
-cannot hide that path.
-Workspace tests use four threads on both hosted and local runs. No failed run is
-retried automatically and production deadlines are unchanged.
-
-Language-server tests observe the initialization allowance plus the request
-allowance before their outer watchdog fires; a first request can validly exceed
-ten seconds. Both remain 15 seconds in production. The repeat gate also runs
-the four language cases twice in two concurrent processes, including delayed
-initialization/response, a real request timeout, malformed output and explicit
-restart recovery with unsaved Unicode text. Run
-`python scripts/check-rust-timing.py --suite language --repeat 6 --jobs 2`
-for focused local qualification. Missing cases and any failed repetition fail
-the gate without retry.
+Select the relevant case from the helper rather than loading every journey's
+history. `--native-only` checks reuse a build and make no source-freshness claim.
+Use isolated public data; private transcripts, keys and raw captures stay ignored.
+Optional live checks explicitly select a suitable available model and bound usage.
 
 ## Run Windows CI locally
 
-Use Python 3.13, Node 24, Rust 1.95.0 with rustfmt/Clippy and the pinned Flutter
-checkout. These commands require no GitHub token, push or tag:
-
 ```powershell
 python scripts/local-ci.py checks
-python scripts/local-ci.py release --generator "Visual Studio 18 2026"
+python scripts/local-ci.py release --generator "<installed CMake generator>"
 ```
 
-`checks` runs the shared Checks entry point. `release` runs full checks, the
-normal build, native fixtures, verified payload, installer compilation and the
-isolated uninstall fixture. Select your installed generator (GitHub uses Visual
-Studio 17 2022); pass `--cmake` or `--flutter-sdk` when needed. Each run creates a
-fresh directory under `output/local-ci/` with step logs, `RESULT.json` and, for a
-successful release run, `pipeline/installer/` assets. It uses an isolated Python
-environment for the pinned history-audit dependency and stops on any failure.
-The tool restricts itself and children to four CPUs; use `--cpus 2` for stronger
-contention. This runs CI on your Windows host with existing compiler caches; it
-does not recreate the hosted Windows Server 2025 image or upload/publish assets.
-Changing CPU affinity does not affect other applications.
-
-Installer verification waits until the entire owned installation directory is
-removed before reinstalling. Inno's first process can exit while its temporary
-process still removes the old uninstaller; app-file removal alone is not a
-completion signal. The fixture uses its unique current-user uninstall
-registration and validates that executable stays inside its owned directory.
-It requires the exact refusal exit code. Release verification also runs a
-diagnostic small-payload `--rapid-reinstall` case to expose cleanup overlap on
-fast hosts. That fixture installer is never a release asset. Native fixture
-logs/results are retained as `dolores-installer-verification` Actions artifacts
-even when verification fails; product installer upload/publication still requires
-success.
-
-For a focused MCP stress check, run
-`python scripts/check-rust-timing.py --suite mcp --software-hash --repeat 16 --jobs 16`.
-Use the shared pipeline for overall qualification; this filter checks only MCP.
-
-`scripts/check-docs.py` checks local Markdown file/heading links, including design/research docs; it does not verify external URLs or facts. Keep product controls in the [user guide](docs/USER_GUIDE.md), build details here, invariants in `docs/design/`, evidence in ACCEPTANCE and future scope in ROADMAP. README should help a first-time reader.
+The shared pipeline matches hosted checks, uses fresh ignored output and stops on
+failure. Checks do not package; release additionally builds, exercises native
+fixtures and verifies the installer. Local success does not establish hosted or
+clean-machine acceptance. Consult helper `--help` for focused options; retain raw
+logs for failures rather than copying them into tracked documentation.
 
 ## Windows portable preview
 
-After the normal build:
-
-```powershell
-python -I -B scripts/test-package-windows.py
-python -I -B scripts/test-windows-launcher.py
-python -I -B scripts/collect-windows-notices.py --flutter-sdk C:/path/to/flutter --directory C:/path/to/repository/output/releases/notices
-python -I -B scripts/package-windows.py --notices C:/path/to/repository/output/releases/notices --directory C:/path/to/repository/output/releases/preview
-```
-
-Choose fresh output. Notice collection uses locally prepared locked Rust/Dart dependencies and the matching Flutter SDK, without downloads. Python 3.11+ is required. It retains full notices, versioned source references, corresponding MPL source and a conservative dependency inventory. Packaging refuses missing/stale notice collections when the runtime or locked inputs differ. Recollect after rebuilding or changing dependencies. See [dependency scope](docs/DEPENDENCIES.md).
-
-The packager accepts reviewed runtime paths, checks required files/x64 binaries, and refuses unexpected files/links, embedded local build paths or existing destinations. It adds user guidance, licenses, a startup helper and per-file hashes, verifies the ZIP, then writes a ZIP SHA-256 sidecar. It packages an existing build and does not claim source/build freshness. Rebuild the normal entry point beforehand.
-
-`--verify C:/path/to/package.zip` checks integrity and notice/bundle binding, not publisher identity or runtime behavior. Destination machines need Microsoft's C++ x64 runtime; system DLLs are not copied. `Start-Dolores.cmd --check` checks file presence without launching. Signing, clean-machine and resource/input testing remain release gates. See [contract](docs/design/windows-portable.md).
+After a normal build, collect matching dependency notices and package into fresh
+directories with `scripts/collect-windows-notices.py` and
+`scripts/package-windows.py` (see `--help`). Packaging refuses missing/stale
+notices, unexpected runtime files and existing output. It verifies integrity and
+notice binding, not publisher identity. Destination hosts need the Microsoft C++
+x64 runtime. See [dependency notices](docs/DEPENDENCIES.md) and the
+[portable contract](docs/design/windows-portable.md).
 
 ## Cross-platform and diagnostics
 
-The infinity logo source is `assets/dolores.svg`, the original rounded Material Icons outline used by Flutter. To regenerate platform assets, install development-only Pillow (`python -m pip install Pillow`), run `python -I -B scripts/generate-icons.py`, then `python -I -B scripts/generate-icons.py --check`. This updates maintained platform icons; Flutter keeps its original `Icons.all_inclusive_rounded`. Preserve the upstream icon license. Normal builds do not need Pillow.
+Windows x64 is the supported release target; macOS/Linux definitions await native
+qualification. Diagnostic entry points and test fixtures are not the normal app.
+Measure release startup/resources with `python scripts/measure-desktop.py --help`,
+recording host/cache/window conditions. Preserve failed results and original gates.
 
-GitHub Actions runs source/fixture checks on branch pushes and pull requests,
-without compiling or packaging the native release. Tag/manual release runs build
-and package **Windows x64** installers, retaining downloadable Actions artifacts;
-tags create a draft GitHub release with reviewed notes/checksums. See
-[releasing](docs/RELEASING.md), [installers](docs/design/installers.md) and
-[changelog](CHANGELOG.md). macOS PKG/Linux DEB commands are experimental and require
-native qualification before release CI. Linux needs GTK/toolchain, D-Bus and a
-running Secret Service; macOS needs its desktop toolchain and signing. Retired
-Iced and Tauri/Svelte shells are not maintained.
+The infinity logo source is `assets/dolores.svg`. Icon regeneration uses the
+development-only Pillow dependency and `scripts/generate-icons.py --check`; normal
+builds do not need Pillow. Keep upstream icon licensing.
 
-CI pins Flutter 3.47.5, Rust 1.95.0 and its actions. Its deterministic checks use no
-model keys or private profiles. The SDK checkout includes release tags: a shallow
-commit-only checkout can report `0.0.0-unknown` despite matching the pinned commit.
-CI checks the SDK revision and version before compiling. After fetching missing
-tags, use a fresh SDK checkout/cache and rerun rather than retaining unknown
-version metadata. To run the same entry points locally, set
-`FLUTTER_SDK`, install `.github/requirements-ci.txt`, then use
-`python scripts/ci-windows.py check` for ordinary checks. For release qualification,
-use `python scripts/ci-windows.py check --full --generator "<installed CMake generator>"`,
-then `python scripts/ci-windows.py package`, `python scripts/setup-inno.py` and
-`python scripts/installer.py windows --archive <verified-payload.zip> --directory
-<fresh-absolute-output-directory>`. The ZIP is retained as an internal audited
-installer payload. Fresh output is required. For a local retry,
-pass the same `--directory <absolute-path-under-output>` to both commands, choosing
-a new directory so the failed run's evidence is retained. Node 24 is needed
-for fixtures; the optional browser adapter is installed separately and excluded
-from the installer. The complete payload includes the native update launcher,
-changelog and dependency notices. Signing and clean-machine acceptance remain open.
-
-Optional live helpers require an explicitly chosen enabled `--model`; the tray
-helper uses `--live-model` with `--live-source`. Memory/scheduling helpers accept
-an optional `--secondary-model`; reasoning overrides are explicit. Existing
-named-model qualification reports are historical observations, not contributor
-requirements. RTK, CodeGraph and session handoffs are optional local tooling.
-
-`python scripts/desktop.py build` assembles Flutter for the current host. The bridge belongs beside the Windows EXE, in Linux `lib/`, or macOS `Contents/Frameworks/`. See [Flutter module notes](apps/dolores_flutter/README.md). No alternative desktop shell is maintained.
-
-Diagnostic entry points use `build --diagnostic smoke`, `restart` or `history`. Rebuild without that option before handing the app to a user or packaging it. Data/generated keys stay isolated. Diagnostics do not establish physical keyboard/IME acceptance. Native vault tests are opt-in and create/delete only their own entry.
-
-After a normal build, `python scripts/test-history-evidence.py --directory
-<fresh-absolute-path-under-output>` executes two reviewed public print commands
-with a loopback provider, then checks their saved success/failure receipts in a
-separate process. The follow-up must use history without repeating the command.
-For an optional live follow-up, add `--source <original-profile-dolores.db>
---model <enabled-model-id>`. Only connection configuration is copied; credentials
-stay in memory and original-profile table digests must remain unchanged. This is
-background integration evidence, not native interaction qualification.
-
-After a normal Windows build, `python scripts/test-scoped-settings.py` verifies actual HTTP allowances, scope inheritance, frozen runs and changed-window recovery against an isolated local fixture. It needs no model key and releases the child host before removing its temporary data. This does not replace bounded real-model task checks.
-
-For executable recovery mods, run the following in separate processes after a
-normal Windows build, replacing the example with a new absolute directory under
-the repository's `output/` folder:
-
-```powershell
-python scripts/test-mods.py save --directory D:/path/to/project_dolores/output/mod-check
-python scripts/test-mods.py reopen --directory D:/path/to/project_dolores/output/mod-check
-```
-
-The synthetic local provider needs no key and exercises output/Stop recovery,
-activation, health rollback and durable restart. Never point this fixture at your
-normal data directory. Live model competence is a separate acceptance check.
-
-Measure normal release builds with `python scripts/measure-desktop.py --help`, recording hardware, cache state, DPI/window size and startup separately. Shared working-set pages can be counted repeatedly. Keep raw results ignored; publish aggregate observations with their boundary.
+Before committing, run `git diff --check` and `python scripts/check-publication.py`.
+Use explicit file staging and English commit messages. Update the changelog only
+for user-visible behavior changes. Push/publish only when requested.

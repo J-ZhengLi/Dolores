@@ -227,4 +227,4 @@ bare remotes, never the user's real repository or hosted publication.
 Primary references: [status](https://git-scm.com/docs/git-status),
 [diff](https://git-scm.com/docs/git-diff), [stash](https://git-scm.com/docs/git-stash),
 [push](https://git-scm.com/docs/git-push). Implementation and actual checks are
-recorded per brick in [acceptance](../ACCEPTANCE.md).
+retained in the [historical evidence](../IMPLEMENTATION_HISTORY.md#acceptance-records).

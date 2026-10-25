@@ -228,7 +228,7 @@ The provisional 150-MiB idle working-set and two-second cold-start goals on a 2-
 
 The normal Windows helper assembles Flutter/Rust/plugins with generated junctions where symlink privileges are unavailable. The regression runner is development tooling: selected isolated save/restart checks, stage deadlines, retained failure reports and explicit scope. Windows portable packaging accepts reviewed runtime paths, preserves assets/notices and adds hashes/user guidance; it is an unsigned local preview with separate prerequisites and release gates.
 
-See [contributor guide](../CONTRIBUTING.md), [roadmap](ROADMAP.md), [design references](README.md#selected-design-references), and dated [architecture research](research/architecture-options.md) for implementation details/history and alternatives.
+See [contributor guide](../CONTRIBUTING.md), [roadmap](ROADMAP.md), [feature references](README.md#feature-references), and dated [architecture research](research/architecture-options.md) for implementation details/history and alternatives.
 
 ## Selected-window observation
 

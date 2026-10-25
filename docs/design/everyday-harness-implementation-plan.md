@@ -344,9 +344,10 @@ IME, process, window, notification, or OS boundaries need them. Use
 needed, following contributor/release guidance.
 
 Optional live checks explicitly select a suitable available model, bounded
-prompts and usage, and isolated output. Record fixture, rendered/native,
-live-model, resource, and platform evidence separately in
-[ACCEPTANCE.md](../ACCEPTANCE.md). Fixtures do not prove general model reliability.
+prompts and usage, and isolated output. Distinguish fixture, rendered/native,
+live-model, resource and platform results in the task response/CI. Update the
+owning qualification record when its acceptance boundary changes; ordinary runs
+do not require an acceptance entry. Fixtures do not prove general model reliability.
 
 **Umbrella exit:** all H01–H20 have implementation and the declared acceptance
 evidence, or a clearly recorded unresolved gate. An unresolved required gate
@@ -355,10 +356,10 @@ block completion because it is explicitly deferred.
 
 ## Change tracking and next action
 
-Every brick records its design decisions, files, basic flow, failure/recovery
-checks, evidence paths, remaining gaps, and English commit. Update this plan's
-batch statuses and acceptance records as actual work progresses. Preserve old
-evidence as historical rather than rewriting it into a pass.
+Keep the selected batch checklist and task index current. Record material scope
+decisions once in their owning specification; report routine checks/gaps in the
+task response/CI. This umbrella defines cross-batch scope and dependencies rather
+than mirroring each delivery. Historical failures retain their original boundary.
 
 Continue from the [batch task index](../plans/everyday-harness/README.md).
 EH00 owns the [frozen contracts](everyday-harness-contracts.md), source audit,

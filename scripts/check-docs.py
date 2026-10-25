@@ -6,6 +6,16 @@ from urllib.parse import unquote, urlsplit
 
 ROOT=Path(__file__).resolve().parents[1]
 
+# Entry points are routers/current summaries, not growing delivery ledgers.
+ENTRY_WORD_LIMITS = {
+    'AGENTS.md': 350,
+    'CONTRIBUTING.md': 900,
+    'docs/README.md': 500,
+    'docs/ACCEPTANCE.md': 700,
+    'docs/ROADMAP.md': 500,
+    'docs/IMPLEMENTATION_HISTORY.md': 400,
+}
+
 def plain_lines(path):
     fence=None
     for number,line in enumerate(path.read_text(encoding='utf-8-sig').splitlines(),1):
@@ -41,6 +51,25 @@ def ui_guide_issues(path):
     return issues
 
 
+def workflow_issues(root):
+    issues=[]
+    for name,limit in ENTRY_WORD_LIMITS.items():
+        path=root/name
+        if not path.exists():
+            issues.append({'file':name,'line':1,'issue':'Missing documentation entry point'})
+            continue
+        if len(path.read_text(encoding='utf-8-sig').split()) > limit:
+            issues.append({'file':name,'line':1,'issue':f'Entry point exceeds {limit} words; keep current routing/limits here and use its owning record for detail'})
+    path=root/'docs/ACCEPTANCE.md'
+    if path.exists():
+        for number,line in plain_lines(path):
+            if re.match(r'^#{1,6}\s',line) and re.search(
+                r'\b20\d{2}[-/]\d{2}[-/]\d{2}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\b', line, re.I
+            ):
+                issues.append({'file':'docs/ACCEPTANCE.md','line':number,'issue':'Acceptance is a current limitations index; report dated runs in task results/CI'})
+    return issues
+
+
 def main():
     paths=sorted([ROOT/'README.md',*ROOT.glob('README_*.md'),ROOT/'CONTRIBUTING.md',ROOT/'apps/dolores_flutter/README.md',*(ROOT/'docs').rglob('*.md')])
     failures=[];checked=0;external=0
@@ -56,6 +85,7 @@ def main():
                 elif parts.fragment and dest.suffix=='.md' and unquote(parts.fragment) not in anchors(dest): issue='missing heading'
                 if issue: failures.append({'file':str(path.relative_to(ROOT)),'line':number,'target':target,'issue':issue})
     failures.extend({'file':'docs/UI.md',**issue} for issue in ui_guide_issues(ROOT/'docs/UI.md'))
+    failures.extend(workflow_issues(ROOT))
     print(json.dumps({'ok':not failures,'documents':len(paths),'localLinks':checked,'externalLinksNotChecked':external,'failures':failures},indent=2))
     return bool(failures)
 
