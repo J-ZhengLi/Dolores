@@ -1,3 +1,4 @@
+import 'package:dolores_flutter/app_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
@@ -112,7 +113,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(bridge.policy, accessPolicy('fullAccess'));
           expect(find.byType(CheckboxListTile), findsNothing);
-          expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+          expect(find.byType(AppDropdown<String>), findsNothing);
           expect(find.text('Save access'), findsNothing);
           chat.busy = true;
           await tester.pumpWidget(app());

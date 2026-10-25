@@ -9,18 +9,19 @@ ownership indicator. This is a same-owner availability implementation of milesto
 24, with no claim that its Flutter engine has been removed from memory.
 
 - Off by default, one `Run tasks in background` setting. Close hides the window
-  only after a tray icon exists and local recovery is saved. Failed preparation
-  leaves the UI open. Existing file/terminal recovery and Git review gates apply.
-- Ordinary foreground runs/PTYs are stopped on Close after the normal review;
-  scheduled owners continue with their immutable snapshots. Companionship stays
+  immediately. Recovery attempts have a fixed deadline and cannot veto Close,
+  including during an open review, pending action or storage failure. A tray-hide
+  failure falls back to quitting rather than leaving the window open.
+- Ordinary foreground runs/PTYs receive bounded stop attempts on Close;
+  scheduled owners continue in the tray with their immutable snapshots. Companionship stays
   quiet while hidden. No desktop notification or automatic effect approval.
 - Tray Open and another launch for the same canonical profile restore that same
   window/owner. Distinct profiles retain independent owners. Windows mutex/window
   identity precedes engine initialization; the existing database lock remains the
   final single-owner guard. Crash releases OS ownership; the next deliberate
   launch reconciles saved interrupted claims without replaying uncertain effects.
-- Tray Quit restores the UI for its normal saved-work/Stop review, then shuts
-  down the scheduler and owned processes. Turning background mode Off prevents
+- Tray Quit performs bounded best-effort recovery, then shuts down the scheduler
+  and owned processes without reopening a review. Turning background mode Off prevents
   subsequent hide-to-tray; normal app-open scheduling remains available. Disabling
   from a restored UI preserves results and stops background ownership.
 - No sign-in/startup installation is performed. The user must open Dolores once;
@@ -49,7 +50,7 @@ Model, output, context, execution and approval allowances remain unchanged. A
 Fixture clocks prove dispatch, late skips and owner recovery. A normal packaged
 awake-host case must hide the UI, execute one public scheduled result, restore the
 same process and retain that result/draft. Duplicate launch, stale owner/crash,
-blocked hide/save, offline request and waiting approval are separate cases. No
+failed hide/save, offline request and waiting approval are separate cases. No
 automatic retry or wake promise. Native protocol checks are labeled distinctly
 from physical tray clicks and human feedback; neither compilation nor a hidden
 diagnostic window alone satisfies the normal-app execution criterion.

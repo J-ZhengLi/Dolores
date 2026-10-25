@@ -61,16 +61,15 @@ class InspectorFrame extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                        HelpLabel(
+                          help: subtitle,
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          subtitle,
-                          style: TextStyle(fontSize: 12, color: p.muted),
                         ),
                       ],
                     ),

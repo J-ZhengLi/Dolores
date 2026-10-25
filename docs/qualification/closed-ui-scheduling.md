@@ -20,9 +20,12 @@ interpretation or OS wake evidence.
 - Background Off followed by ordinary Close exited cleanly and released profile
   ownership. This preserves completed results; disabling does not erase tasks or
   prevent normal app-open scheduling.
-- An in-flight list refresh now settles before Close. A bounded two-second wait
-  prevents dispatch/close overlap; a blocked operation leaves the UI open for retry.
-  File recovery failure/retry and scheduler suspension regressions pass.
+- Close now hides immediately and gives recovery a fixed deadline. A pending
+  operation, failed file/chat checkpoint or open review cannot veto the close.
+  Scheduler suspension is cleared when the process remains in the tray even if
+  persistence uses that deadline. Deterministic regression coverage and a real Rust/SQLite write-lock fixture
+  establish this failure policy; the earlier normal packaged execution evidence does not
+  establish every stalled-storage/native tray combination.
 
 Two real failures were repaired before acceptance: the full packaged catalog has
 15 built-ins, exceeding its older 14-entry bound; and default derived-window

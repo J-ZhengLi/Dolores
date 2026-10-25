@@ -41,31 +41,21 @@ an over-limit selection before opening; no text is silently clipped. A side chat
 retains up to 32 return receipts. If that allowance or the parent's eight pending
 inputs is full, inspect existing work or continue in a new discussion.
 
-Use **Search conversations** in the sidebar, or Ctrl+K, to find exact text in
-saved titles and messages. Choose current, archived or all conversations; **More
-filters** narrows by workspace, working folder or pinned chats. Pinned results
-appear first. **Open conversation** opens its saved identity without sending a
-message. **Next results** replaces the page; **Search** returns to the first page.
+Click the search icon in the title bar, or press Ctrl+K, to search saved titles
+and messages. Type to see matching chats, including archived conversations. Click
+a result to open it, or use the arrow keys and Enter. Escape or an outside click
+closes search. **More results** shows the next bounded page. Search runs locally
+and never sends your query or history to a provider. Failed searches keep your
+query; press Enter to retry. Queries allow 256 bytes and 50 results per page.
 
-**Archive** hides a conversation from Recents while retaining its transcript,
-draft, goal and queued input. A running task continues under its existing owner.
-Find it with the archived filter and choose **Unarchive** to restore it. Deletion
-remains a separate action. Search runs locally and never sends your query or
-history to a provider. Failed searches keep prior results and typed text;
-**Rebuild search** repairs its derived index without changing saved messages.
-Queries allow 256 bytes and 50 results per page. Search has a one-second
-allowance; narrow the text/folder if it is reached. Rebuild has a 30-second
-allowance and retains the prior index on failure. Finish or stop running tasks
-before rebuilding; it never cancels a task for you.
-
-Open **Attention** above the workspace to inspect saved completion, failure,
-review and question events. Turn on **Windows task notifications** there if you
+Click the **Attention** bell in the title bar, just left of Settings, to inspect saved completion, failure,
+review and question updates in a dropdown. Turn on **Windows notifications** there if you
 want native alerts, then choose which event kinds to include. They run while
 Dolores is open or in the tray. Notifications contain generic status; task titles,
 prompts, answers and file paths stay inside the app. Windows can suppress an alert.
 Delivery accepted does not confirm that it was displayed or read.
 
-**Open task or evidence** navigates to the exact conversation. A current pending
+Clicking an update navigates to the exact conversation. A current pending
 review or question stays available for your explicit response. An older notice
 opens its saved run evidence; it cannot approve an expired request or repeat an
 operation. A native click during an open dialog is deferred until that dialog is
@@ -700,3 +690,12 @@ confirms restoration and quarantine, and remains available with a full audit.
 Restart reconciles interrupted activation without replaying it. Failed mod health
 restores the retained baseline; ordinary chat remains available. This experimental
 feature has a small tested scope, described in [acceptance](ACCEPTANCE.md).
+
+## Closing the app
+
+Close hides the window immediately, including when Settings or another review is
+open. With Background tasks enabled, Dolores stays in the tray; Quit exits it.
+Otherwise, Dolores attempts to save chat drafts, private file recovery and layout,
+then stops tasks and exits. These attempts are bounded and cannot veto Close.
+Unsaved source files are not silently saved. If storage fails or a checkpoint
+stalls, recent unsaved changes may not be recoverable; existing saved data remains.

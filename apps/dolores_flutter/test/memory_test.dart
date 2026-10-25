@@ -1,3 +1,5 @@
+import 'package:dolores_flutter/app_dropdown.dart';
+
 import 'dart:async';
 
 import 'package:dolores_flutter/bridge.dart';
@@ -239,7 +241,7 @@ void main() {
       await open(tester, bridge);
       await tester.tap(find.byKey(const Key('new-memory')));
       await tester.pumpAndSettle();
-      final picker = tester.widget<DropdownButtonFormField<String>>(
+      final picker = tester.widget<AppDropdown<String>>(
         find.byKey(const Key('memory-scope-all')),
       );
       expect(picker.initialValue, 'all');
@@ -286,7 +288,7 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('edit-memory-manual')));
       await tester.pumpAndSettle();
-      final picker = tester.widget<DropdownButtonFormField<String>>(
+      final picker = tester.widget<AppDropdown<String>>(
         find.byKey(const Key('memory-scope-folder')),
       );
       expect(picker.onChanged, isNull);

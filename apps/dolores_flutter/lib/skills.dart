@@ -1,3 +1,4 @@
+import 'help_tip.dart';
 import 'skill_create.dart';
 
 import 'package:flutter/material.dart';
@@ -289,9 +290,12 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     tilePadding: EdgeInsets.zero,
                     title: const Text('Limits and resources'),
                     children: [
-                      Text(
-                        'Active skills use saved versions. File changes wait for a new review. Project skills override active global skills with the same name. Up to 3 active skills and 8 KiB per scope; 5 recent versions per skill. Installed packages offer verified resource reads, including global packages. Other references and script execution require separately approved tools.',
-                        style: TextStyle(color: p.muted, fontSize: 12),
+                      HelpLabel(
+                        help: 'Active skills use saved versions. File changes wait for a new review. Project skills override active global skills with the same name. Up to 3 active skills and 8 KiB per scope; 5 recent versions per skill. Installed packages offer verified resource reads, including global packages. Other references and script execution require separately approved tools.',
+                        child: Text(
+                          'Skills use reviewed, saved versions. Review file changes before activating them.',
+                          style: TextStyle(color: p.muted, fontSize: 12),
+                        ),
                       ),
                     ],
                   ),

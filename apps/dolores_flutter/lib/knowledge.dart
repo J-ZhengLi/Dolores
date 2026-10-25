@@ -1,5 +1,7 @@
+import 'app_dropdown.dart';
 import 'help_tip.dart';
 import 'form_field_layout.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -230,14 +232,16 @@ class _KnowledgeState extends State<KnowledgeInspector> {
                   TextButton.icon(
                     icon: const Icon(Icons.create_new_folder_outlined),
                     label: const Text('Start working session'),
-                    onPressed: pending ? null : () async {
-                      try {
-                        await widget.chat.prepareWindowSharing();
-                        if (mounted && available) await load();
-                      } catch (e) {
-                        if (mounted) setState(() => error = '$e');
-                      }
-                    },
+                    onPressed: pending
+                        ? null
+                        : () async {
+                            try {
+                              await widget.chat.prepareWindowSharing();
+                              if (mounted && available) await load();
+                            } catch (e) {
+                              if (mounted) setState(() => error = '$e');
+                            }
+                          },
                   ),
                 if (error != null) SelectableText(error!),
                 if (report != null) ...[
@@ -274,7 +278,10 @@ class _KnowledgeState extends State<KnowledgeInspector> {
                   ExpansionTile(
                     title: const Text('Learning details'),
                     children: [
-                      HelpLabel(help: 'File observations become stale when their source changes. Other observations expire after seven days. A declared script is not a tested command. Corrections are protected; knowledge never grants tool access.', child: const Text('How knowledge stays current')),
+                      HelpLabel(
+                        help: 'File observations become stale when their source changes. Other observations expire after seven days. A declared script is not a tested command. Corrections are protected; knowledge never grants tool access.',
+                        child: const Text('How knowledge stays current'),
+                      ),
                     ],
                   ),
                   if ('${report!['notice'] ?? ''}'.isNotEmpty)
@@ -302,9 +309,8 @@ class _KnowledgeState extends State<KnowledgeInspector> {
                         decoration: const InputDecoration(),
                       ),
                     ),
-                    DropdownButtonFormField<String>(
+                    AppDropdown<String>(
                       initialValue: kind,
-                      isExpanded: true,
                       items: [
                         for (final k in ['command', 'structure', 'convention'])
                           DropdownMenuItem(value: k, child: Text(k)),

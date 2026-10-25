@@ -1,3 +1,4 @@
+import 'app_dropdown.dart';
 import 'help_tip.dart';
 import 'form_field_layout.dart';
 import 'mcp_import.dart';
@@ -609,30 +610,24 @@ class _McpInspectorState extends State<McpInspector> {
     const SizedBox(height: 12),
     FieldLabel(
       label: 'Authentication',
-      child: InputDecorator(
-        decoration: const InputDecoration(),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            key: const Key('mcp-auth'),
-            value: _auth,
-            isExpanded: true,
-            items: const [
-              DropdownMenuItem(value: 'none', child: Text('No authentication')),
-              DropdownMenuItem(value: 'bearer', child: Text('Bearer key')),
-              DropdownMenuItem(
-                value: 'oauth',
-                child: Text('Browser sign-in (OAuth)'),
-              ),
-            ],
-            onChanged: _busy
-                ? null
-                : (value) {
-                    _auth = value ?? 'none';
-                    if (_auth != 'bearer') _bearer.clear();
-                    _edited();
-                  },
+      child: AppDropdown<String>(
+        key: const Key('mcp-auth'),
+        initialValue: _auth,
+        items: const [
+          DropdownMenuItem(value: 'none', child: Text('No authentication')),
+          DropdownMenuItem(value: 'bearer', child: Text('Bearer key')),
+          DropdownMenuItem(
+            value: 'oauth',
+            child: Text('Browser sign-in (OAuth)'),
           ),
-        ),
+        ],
+        onChanged: _busy
+            ? null
+            : (value) {
+                _auth = value ?? 'none';
+                if (_auth != 'bearer') _bearer.clear();
+                _edited();
+              },
       ),
     ),
     if (_auth == 'oauth') ...[
@@ -819,32 +814,26 @@ class _McpInspectorState extends State<McpInspector> {
                     const SizedBox(height: 16),
                     FieldLabel(
                       label: 'Connection type',
-                      child: InputDecorator(
-                        decoration: const InputDecoration(),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<bool>(
-                            key: const Key('mcp-transport'),
-                            value: _remote,
-                            isExpanded: true,
-                            items: const [
-                              DropdownMenuItem(
-                                value: false,
-                                child: Text('Local program'),
-                              ),
-                              DropdownMenuItem(
-                                value: true,
-                                child: Text('Remote endpoint'),
-                              ),
-                            ],
-                            onChanged: _busy || _connection != null
-                                ? null
-                                : (value) {
-                                    _remote = value == true;
-                                    if (!_remote) _bearer.clear();
-                                    _edited();
-                                  },
+                      child: AppDropdown<bool>(
+                        key: const Key('mcp-transport'),
+                        initialValue: _remote,
+                        items: const [
+                          DropdownMenuItem(
+                            value: false,
+                            child: Text('Local program'),
                           ),
-                        ),
+                          DropdownMenuItem(
+                            value: true,
+                            child: Text('Remote endpoint'),
+                          ),
+                        ],
+                        onChanged: _busy || _connection != null
+                            ? null
+                            : (value) {
+                                _remote = value == true;
+                                if (!_remote) _bearer.clear();
+                                _edited();
+                              },
                       ),
                     ),
                     const SizedBox(height: 12),

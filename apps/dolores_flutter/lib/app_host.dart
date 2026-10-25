@@ -104,7 +104,8 @@ class AppHost extends ChangeNotifier {
   final _themes = <ChatController, VoidCallback>{};
   Future<bool> Function()? closeReview;
   Future<void> Function(String path)? repositoryNavigation;
-  Future<bool> requestClose() async => await closeReview?.call() ?? false;
+  Future<bool> requestClose() async =>
+      await closeReview?.call() ?? await prepareQuit(saveFiles: false);
   Future<void> closeToTray({required bool saveFiles}) async {
     error = null;
     final hidden = await background.closeToTray(
@@ -141,78 +142,76 @@ class AppHost extends ChangeNotifier {
     bool keepScheduled = false,
   }) async {
     scheduled.suspend();
-    try {
+    final deadline = DateTime.now().add(const Duration(milliseconds: 1600));
+    final failures = <String>[];
+    Future<void> attempt(Future<dynamic> Function() operation) async {
+      final remaining = deadline.difference(DateTime.now());
+      if (remaining <= Duration.zero) return;
       try {
-        await scheduled.quiesce();
-      } on TimeoutException {
-        throw StateError(
-          'A scheduled task is starting. Try closing again in a moment.',
+        final result = await operation().timeout(
+          remaining < const Duration(milliseconds: 300)
+              ? remaining
+              : const Duration(milliseconds: 300),
         );
+        if (result == false) {
+          failures.add('Some recovery data could not be saved.');
+        }
+      } catch (e) {
+        failures.add('$e');
       }
-      if (git.workspaces.values.any(
-        (w) => w.reviewOpen != null || w.commitDraft.isNotEmpty,
-      )) {
-        throw StateError(
-          'Finish the Git action and commit or clear its message before closing. The commit draft remains.',
-        );
-      }
-      if (git.workspaces.values.any((w) => w.busy)) {
-        throw StateError(
-          'Stop or finish the Source Control operation before closing.',
-        );
-      }
-      if (owners.any((c) => c.changing || c.loading)) {
-        throw StateError('Finish the current operation before closing.');
-      }
+    }
+
+    // A failed checkpoint must not prevent the remaining owners from saving.
+    await attempt(scheduled.quiesce);
+    // A loading/switching owner may not have restored its saved draft yet.
+    // Never replace that saved value with an uninitialized editor on Close.
+    for (final c in owners.where((c) => !c.loading && !c.changing).toList()) {
+      await attempt(c.checkpointDraft);
+    }
+    for (final w in files.workspaces.values.toList()) {
       if (saveFiles) {
-        for (final d in files.documents.values.where((d) => d.dirty).toList()) {
-          if (!await files.save(files.workspaces[d.project]!, d)) {
-            throw StateError(
-              'A file could not be saved. Its edits remain open.',
-            );
-          }
+        for (final d
+            in files.documents.values
+                .where((d) => d.project == w.project && d.dirty)
+                .toList()) {
+          await attempt(() => files.save(w, d));
         }
       }
-      for (final w in files.workspaces.values) {
+      await attempt(() async {
         if (!await files.checkpoint(w)) {
-          throw StateError(w.recoveryError ?? 'Private recovery failed.');
+          throw StateError(w.recoveryError ?? 'Recovery could not be saved.');
         }
+      });
+      await attempt(() async {
         await files.persistLayout(w);
         if (w.layoutError != null) throw StateError(w.layoutError!);
-      }
-      for (final c in owners) {
-        await c.checkpointDraft();
-      }
-      await terminals.checkpoint();
-      await languages.stop();
-      for (final terminal in terminals.live.toList()) {
-        if (!await terminals.stop(terminal)) {
-          throw StateError(
-            'A terminal could not stop. Retained output remains; retry closing.',
-          );
-        }
-      }
-      for (final c
-          in tasks
-              .where((c) => !keepScheduled || !_scheduledOwners.contains(c))
-              .toList()) {
-        await c.stop();
-      }
-      scheduled.suspend();
-      companion.suspend();
-      if (keepScheduled) {
-        await scheduled.resume();
-        return true;
-      }
-      await initial.bridge.close();
-      return true;
-    } catch (e) {
-      unawaited(scheduled.resume());
-      unawaited(companion.refresh());
-      error = '$e Keep Dolores open and retry.';
-      notifyListeners();
-      return false;
+      });
     }
+    await attempt(terminals.checkpoint);
+    await attempt(languages.stop);
+    for (final terminal in terminals.live.toList()) {
+      await attempt(() => terminals.stop(terminal));
+    }
+    for (final c
+        in tasks
+            .where((c) => !keepScheduled || !_scheduledOwners.contains(c))
+            .toList()) {
+      await attempt(c.stop);
+    }
+    companion.suspend();
+    if (keepScheduled) {
+      // Resume even when persistence exhausted the close deadline. This clears
+      // suspension immediately; the refresh already owns its error handling.
+      unawaited(scheduled.resume());
+    } else {
+      await attempt(initial.bridge.close);
+    }
+    // Surface recovery failures if this process stays in the tray, without
+    // reopening the window or changing the user's close decision.
+    if (failures.isNotEmpty) {
+      error = 'Some recent changes could not be saved. ${failures.first}';
+    }
+    return true;
   }
 
   void togglePanel() {

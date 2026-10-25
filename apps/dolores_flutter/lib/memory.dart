@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
 import 'settings_frame.dart';
 
@@ -470,10 +472,12 @@ class _MemoryInspectorState extends State<MemoryInspector> {
             if (error != null)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 100),
-                child: SingleChildScrollView(child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Text(error!, style: TextStyle(color: p.errorText)),
-                )),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Text(error!, style: TextStyle(color: p.errorText)),
+                  ),
+                ),
               ),
             Expanded(
               child: ListView(
@@ -556,13 +560,15 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                       ),
                     FieldLabel(
                       label: 'Use in',
-                      child: DropdownButtonFormField<String>(
+                      child: AppDropdown<String>(
                         key: ValueKey('memory-scope-$scope'),
                         initialValue: scope,
-                        isExpanded: true,
                         decoration: const InputDecoration(),
                         items: [
-                          const DropdownMenuItem(value: 'all', child: Text('All chats')),
+                          const DropdownMenuItem(
+                            value: 'all',
+                            child: Text('All chats'),
+                          ),
                           if (folderAvailable)
                             const DropdownMenuItem(
                               value: 'folder',
@@ -582,7 +588,9 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                         controller: title,
                         enabled: !busy,
                         maxLength: 80,
-                        decoration: const InputDecoration(hintText: 'Response style'),
+                        decoration: const InputDecoration(
+                          hintText: 'Response style',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -667,8 +675,11 @@ class _MemoryInspectorState extends State<MemoryInspector> {
                         'Suggested by ${suggestions!['model']}',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      const Text(
-                        'Review and edit each draft before saving. Suggestions can be wrong; the source quote does not prove the wording is accurate. Saving retains the quote locally and in reply details and exports, even after deleting the source chat.',
+                      const HelpLabel(
+                        help: 'Review and edit each draft before saving. Suggestions can be wrong; the source quote does not prove the wording is accurate. Saving retains the quote locally and in reply details and exports, even after deleting the source chat.',
+                        child: Text(
+                          'Review suggestions before saving. Source quotes stay in saved details and exports.',
+                        ),
                       ),
                       if ((suggestions!['items'] as List).isEmpty)
                         const Text(

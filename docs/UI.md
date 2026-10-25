@@ -38,6 +38,8 @@ headings. Review each addition for general applicability even when checks pass.
 - Align headings, labels, controls and action rows to shared edges. Use a 4 px
   spacing scale, consistent row heights and optical centering for icon/text pairs.
   Keep title-bar branding compact and show it once per main layout.
+  Put icon-only search and the Attention bell before Settings in that title bar.
+  Search opens with a single input; results appear as the user types.
 - Reserve sidebars for the current task's content. Floating navigation overlays
   the workspace without reserving height; it remains discoverable and keeps
   underlying controls reachable when hidden.
@@ -65,8 +67,8 @@ headings. Review each addition for general applicability even when checks pass.
 
 ## Color, typography and surfaces
 
-- **Frost & Graphite:** cool blue-white Light surfaces, neutral graphite Dark
-  surfaces, slate actions and crisp text. Support System, Light and Dark appearance.
+- **White & Graphite:** neutral white Light surfaces, soft gray sidebars, graphite
+  Dark surfaces and charcoal actions. Avoid blue surface tints. Support System, Light and Dark appearance.
   Semantic tokens in the theme own exact values; use them consistently.
 - Keep reading, editing and evidence surfaces quiet and legible. Use glass for
   floating navigation and selection, giving those controls a distinct material.
@@ -83,7 +85,7 @@ headings. Review each addition for general applicability even when checks pass.
   backdrop, directional reflective edge, subtle inner shade and a grounded shadow.
   The effect should read as shaped glass rather than a flat white/gray pill.
 - Keep the dock's outer material quieter than its selected lens. Let underlying
-  content influence the tint without competing with labels. Use cool reflections
+  content influence the tint without competing with labels. Use neutral white reflections
   in Light and restrained neutral reflections in Dark.
 - Draw one selected lens behind stationary icons and labels. Keep the text sharp;
   the lens carries the moving reflection and depth. A small stretch along travel
@@ -122,8 +124,14 @@ headings. Review each addition for general applicability even when checks pass.
 - Provide semantic names, selected states, visible keyboard focus, sufficient
   contrast and comfortable targets. Keep native editing and IME composition.
 - Anchor dropdowns to their triggers, fit them inside the viewport, and flip them
-  near an edge. Support outside dismissal, Escape, arrow keys and Enter; restore
+  near an edge. Use the shared `AppDropdown` for select fields; match rounded
+  trigger and menu corners with inset rounded option rows. Use a compact anchored
+  menu for Attention. Support outside dismissal, Escape, arrow keys and Enter; restore
   focus to the trigger. Contain focus within modal windows.
+- Keep app-level notices in compact floating surfaces below the title bar; they
+  must not reserve layout height. Keep errors dismissible and details accessible.
+- App Close hides immediately and never waits for a dialog, busy state or successful
+  save. Attempt recovery within a fixed deadline; preserve existing saved data.
 - Make pending work visible, prevent duplicate actions and keep Stop reachable.
   Viewing evidence or refreshing status leaves external actions unchanged.
 - Keep text selectable, code horizontally scrollable and Copy faithful to the

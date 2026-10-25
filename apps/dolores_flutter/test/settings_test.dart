@@ -1,3 +1,5 @@
+import 'package:dolores_flutter/app_dropdown.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -83,10 +85,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<DropdownButton<SettingsSection>>(
-              find.byWidgetPredicate(
-                (w) => w is DropdownButton<SettingsSection>,
-              ),
+            .widget<AppDropdown<SettingsSection>>(
+              find.byWidgetPredicate((w) => w is AppDropdown<SettingsSection>),
             )
             .items!
             .length,

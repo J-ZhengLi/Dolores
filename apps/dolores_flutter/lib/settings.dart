@@ -1,3 +1,4 @@
+import 'app_dropdown.dart';
 import 'learning.dart';
 import 'tools_home.dart';
 
@@ -550,7 +551,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                     16,
                                     0,
                                   ),
-                                  child: DropdownButtonFormField<int>(
+                                  child: AppDropdown<int>(
                                     key: ValueKey(
                                       'settings-page-${section.name}-${selected.name}-${modelPage.name}',
                                     ),
@@ -561,7 +562,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
                                                   SettingsCategory.models ||
                                               d.$3 == modelPage),
                                     ),
-                                    isExpanded: true,
+
                                     decoration: const InputDecoration(
                                       isDense: true,
                                     ),
@@ -624,12 +625,11 @@ class _SettingsWindowState extends State<SettingsWindow> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(12),
-                              child: DropdownButtonFormField<SettingsSection>(
+                              child: AppDropdown<SettingsSection>(
                                 key: ValueKey(
                                   'settings-category-${section.name}',
                                 ),
                                 initialValue: section,
-                                isExpanded: true,
                                 decoration: const InputDecoration(
                                   isDense: true,
                                 ),

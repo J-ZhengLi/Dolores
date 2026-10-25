@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -121,8 +123,11 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'After interruption, inspect Changes and external effects before retrying. Operations are never replayed automatically. Older chats have no invented run records.',
+                const HelpLabel(
+                  help: 'After interruption, inspect Changes and external effects before retrying. Operations are never replayed automatically. Older chats have no invented run records.',
+                  child: Text(
+                    'Check changes and external actions before retrying.',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (error != null) SelectableText(error!),

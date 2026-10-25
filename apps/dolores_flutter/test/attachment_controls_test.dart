@@ -1,3 +1,4 @@
+import 'package:dolores_flutter/app_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
@@ -215,9 +216,9 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(AppDropdown<String>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('vision-model').last);
+      await tester.tap(find.widgetWithText(MenuItemButton, 'vision-model'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('model-image-input')));
       await tester.pumpAndSettle();

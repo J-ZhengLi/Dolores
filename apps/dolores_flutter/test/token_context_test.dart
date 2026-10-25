@@ -1,3 +1,4 @@
+import 'package:dolores_flutter/app_dropdown.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
 import 'package:dolores_flutter/model_settings.dart';
@@ -67,11 +68,11 @@ void main() {
         await tester.ensureVisible(window);
         expect(tester.widget<TextField>(window).controller!.text, '32768');
         await tester.enterText(window, '65536');
-        final dropdown = find.byType(DropdownButtonFormField<String>);
+        final dropdown = find.byType(AppDropdown<String>);
         await tester.ensureVisible(dropdown);
         await tester.tap(dropdown);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('faster').last);
+        await tester.tap(find.widgetWithText(MenuItemButton, 'faster'));
         await tester.pumpAndSettle();
         expect(tester.widget<TextField>(window).controller!.text, '8192');
         await tester.enterText(window, '1.5');

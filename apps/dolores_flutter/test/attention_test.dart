@@ -212,9 +212,9 @@ void main() {
         );
         await t.pumpAndSettle();
         await capture(t, key, 'attention-${dark ? 'dark' : 'light'}');
-        expect(find.text('Windows task notifications'), findsOneWidget);
+        expect(find.text('Windows notifications'), findsOneWidget);
         await t.scrollUntilVisible(
-          find.text('Open task or evidence'),
+          find.byKey(ValueKey('attention-open-${b.notices.single['id']}')),
           200,
           scrollable: find.byType(Scrollable).first,
         );

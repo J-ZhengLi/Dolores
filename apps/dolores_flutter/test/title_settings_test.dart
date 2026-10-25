@@ -6,13 +6,29 @@ import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
 import 'package:dolores_flutter/settings.dart';
 import 'package:dolores_flutter/workspace_dock.dart';
+import 'package:dolores_flutter/floating_notice.dart';
+import 'package:dolores_flutter/history_search.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'frost_design_test.dart' show DesignBridge, capture, viewport;
+import 'attention_test.dart' show AttentionBridge, NoticeWindow;
 import 'support/render_fonts.dart';
+
+class TitleBridge extends DesignBridge {
+  final attention = AttentionBridge();
+  TitleBridge() {
+    attention.prefs['enabled'] = false;
+    attention.notices.single['seen'] = true;
+  }
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) =>
+      command['command'] == 'attention'
+      ? attention.call(command)
+      : super.call(command);
+}
 
 void main() {
   setUp(() {
@@ -35,13 +51,16 @@ void main() {
     testWidgets(
       'title Settings stays visible beside Minimize with the dock hidden ($mode)',
       (t) async {
+        debugDisableShadows = false;
         viewport(t, const Size(1100, 800));
         await t.runAsync(loadReviewFonts);
-        final chat = ChatController(DesignBridge())
+        final chat = ChatController(TitleBridge())
           ..loading = false
           ..configured = true
+          ..attentionAvailable = true
+          ..historySearchAvailable = true
           ..draft = 'Keep this unfinished message';
-        final host = AppHost(chat);
+        final host = AppHost(chat, attentionWindow: NoticeWindow());
         final key = GlobalKey();
         await t.pumpWidget(
           DoloresApp(
@@ -57,6 +76,31 @@ void main() {
         await t.pumpAndSettle();
         expect(find.byKey(const Key('dock-reveal')), findsOneWidget);
         final gear = find.byKey(const Key('window-settings'));
+        final bell = find.byKey(const Key('task-attention'));
+        final search = find.byKey(const Key('search-conversations'));
+        expect(t.getRect(bell).right, t.getRect(gear).left);
+        expect(t.getRect(search).right, t.getRect(bell).left);
+        expect(find.text('Search conversations'), findsNothing);
+        final contentBefore = t.getRect(
+          find.byKey(const Key('composer-field-0')),
+        );
+        host.error = 'Could not save local conversation data. Try again.';
+        host.notifyListeners();
+        await t.pumpAndSettle();
+        expect(find.byType(FloatingNotice), findsOneWidget);
+        expect(
+          t.getRect(find.byKey(const Key('composer-field-0'))),
+          contentBefore,
+        );
+        await capture(t, key, 'floating-notice-${mode.name}');
+        await t.tap(find.byTooltip('Dismiss'));
+        await t.pumpAndSettle();
+        await t.tap(search);
+        await t.pumpAndSettle();
+        expect(find.byType(HistorySearch), findsOneWidget);
+        await capture(t, key, 'title-search-${mode.name}');
+        await t.sendKeyEvent(LogicalKeyboardKey.escape);
+        await t.pumpAndSettle();
         expect(gear.hitTestable(), findsOneWidget);
         expect(
           t.getRect(gear).right,
@@ -88,6 +132,7 @@ void main() {
           t.getRect(find.byKey(const Key('window-minimize'))).left,
         );
         await capture(t, key, 'title-settings-compact-${mode.name}');
+        debugDisableShadows = true;
         expect(t.takeException(), isNull);
         await t.pumpWidget(const SizedBox());
         host.dispose();

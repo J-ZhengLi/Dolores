@@ -25,21 +25,21 @@ AnimationStyle surfaceAnimation(BuildContext context) =>
 class Palette {
   final bool dark;
   const Palette(this.dark);
-  Color get bg => Color(dark ? 0xff1b1b1b : 0xfff5f8fc);
-  Color get sidebar => Color(dark ? 0xff222222 : 0xffe5edf8);
+  Color get bg => Color(dark ? 0xff1b1b1b : 0xfffafafa);
+  Color get sidebar => Color(dark ? 0xff222222 : 0xfff3f3f2);
   Color get surface => Color(dark ? 0xff262626 : 0xffffffff);
-  Color get text => Color(dark ? 0xffefefef : 0xff253044);
-  Color get muted => Color(dark ? 0xffa6a6a6 : 0xff68778b);
-  Color get border => Color(dark ? 0xff3b3b3b : 0xffdce4ef);
-  Color get accent => Color(dark ? 0xffe2e2e2 : 0xff35475f);
-  Color get soft => Color(dark ? 0xff353535 : 0xffe4edf8);
+  Color get text => Color(dark ? 0xffefefef : 0xff292929);
+  Color get muted => Color(dark ? 0xffa6a6a6 : 0xff70706e);
+  Color get border => Color(dark ? 0xff3b3b3b : 0xffe3e3e0);
+  Color get accent => Color(dark ? 0xffe2e2e2 : 0xff454744);
+  Color get soft => Color(dark ? 0xff353535 : 0xffeeefec);
   BoxDecoration get sidebarDecoration => BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: dark
           ? [sidebar, sidebar]
-          : const [Color(0xffedf4fd), Color(0xffe0eafa), Color(0xffe8f0fb)],
+          : const [Color(0xfff7f7f6), Color(0xfff1f1ef), Color(0xfff5f5f3)],
     ),
   );
   Color get errorSurface => Color(dark ? 0xff3b262b : 0xfffbecec);
@@ -76,6 +76,10 @@ ThemeData doloresTheme(bool dark) {
           outline: p.muted,
           outlineVariant: p.border,
           surfaceContainerHighest: p.soft,
+          surfaceContainer: p.bg,
+          surfaceContainerLow: p.surface,
+          surfaceContainerHigh: p.soft,
+          surfaceTint: Colors.transparent,
         ),
     textTheme: TextTheme(
       bodyMedium: TextStyle(fontSize: 14, height: 1.55, color: p.text),
@@ -106,6 +110,46 @@ ThemeData doloresTheme(bool dark) {
         side: BorderSide(color: p.border),
       ),
       textStyle: TextStyle(fontSize: 13, color: p.text),
+    ),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(p.surface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(6),
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: p.border),
+          ),
+        ),
+      ),
+    ),
+    menuButtonTheme: MenuButtonThemeData(
+      style: ButtonStyle(
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontSize: 13, fontFamily: 'Segoe UI'),
+        ),
+        minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: p.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: p.border),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        side: BorderSide(color: p.border),
+      ),
     ),
     tooltipTheme: const TooltipThemeData(
       waitDuration: Duration(milliseconds: 600),

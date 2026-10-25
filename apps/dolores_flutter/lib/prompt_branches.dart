@@ -1,3 +1,6 @@
+import 'help_tip.dart';
+import 'app_dropdown.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -267,13 +270,13 @@ class _PromptBranchEditorState extends State<PromptBranchEditor> {
                         const SizedBox(height: 12),
                         FieldLabel(
                           label: 'Working folder',
-                          child: DropdownButtonFormField<String>(
+                          child: AppDropdown<String>(
                             key: const Key('branch-folder'),
                             initialValue: folder,
                             hint: const Text(
                               'Choose where this branch will work',
                             ),
-                            isExpanded: true,
+
                             items: [
                               if (p['workspace']['root'] != null)
                                 const DropdownMenuItem(
@@ -511,8 +514,9 @@ class _BranchArchiveState extends State<BranchArchive> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'This local snapshot is not added wholesale to model context. Earlier effects remain historical; inspect current files before rerunning.',
+          const HelpLabel(
+            help: 'This local snapshot is not added wholesale to model context. Earlier effects remain historical; inspect current files before rerunning.',
+            child: Text('Check current files before rerunning earlier steps.'),
           ),
           if (page != null)
             Text(

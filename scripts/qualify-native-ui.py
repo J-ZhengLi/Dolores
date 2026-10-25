@@ -22,6 +22,7 @@ def main():
     parser.add_argument('--directory', type=Path)
     parser.add_argument('--flutter-sdk', type=Path)
     cases = {
+        'close': ('test/native_close_ui_test.dart', 'close-receipt.json'),
         'local': ('test/native_local_ui_test.dart', 'receipt.json'),
         'scheduled': ('test/native_scheduled_ui_test.dart', 'schedule-receipt.json'),
         'stop': ('test/native_stop_ui_test.dart', 'stop-receipt.json'),
@@ -53,6 +54,7 @@ def main():
         parser.error('The directory already exists. Prior evidence was retained.')
     base.mkdir(parents=True)
     env = dict(os.environ, DOLORES_DATA_DIR=str(base / 'data'),
+               DOLORES_TEST_PYTHON=sys.executable,
                DOLORES_GLOBAL_SKILLS_DIR=str(base / 'skills'),
                DOLORES_AUDIT_LIBRARY=str(desktop.executable().parent / 'dolores_flutter_bridge.dll'),
                FLUTTER_SUPPRESS_ANALYTICS='true', DART_SUPPRESS_ANALYTICS='true')

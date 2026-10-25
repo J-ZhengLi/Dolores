@@ -1,4 +1,6 @@
+import 'help_tip.dart';
 import 'form_field_layout.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -293,10 +295,14 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
             if (draft?['warning'] is String && result == null)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 100),
-                child: SingleChildScrollView(child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Text('Correct the draft before evaluation: ${draft!['warning']}'),
-                )),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Text(
+                      'Correct the draft before evaluation: ${draft!['warning']}',
+                    ),
+                  ),
+                ),
               ),
             Expanded(
               child: ListView(
@@ -345,8 +351,11 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Starts with your model settings. Changes apply to this draft only. A larger allowance may use more tokens; it does not increase the 8 KiB skill limit.',
+                    const HelpLabel(
+                      help: 'Starts with your model settings. Changes apply to this draft only. A larger allowance may use more tokens; it does not increase the 8 KiB skill limit.',
+                      child: Text(
+                        'These model settings apply to this draft only.',
+                      ),
                     ),
                     if (examples.isEmpty && !busy)
                       const Text(
@@ -432,12 +441,18 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                       'Response tests',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    const Text(
-                      'Each prompt runs twice: current skills, then this draft. Other active skills stay the same. No chat history, memories, folder instructions or tools are included. Exact checks are case-sensitive and measure these responses only.',
+                    const HelpLabel(
+                      help: 'Each prompt runs twice: current skills, then this draft. Other active skills stay the same. No chat history, memories, folder instructions or tools are included. Exact checks are case-sensitive and measure these responses only.',
+                      child: Text(
+                        'Compare current skills with this draft using the same prompts.',
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '1–3 tests · up to 6 requests, 512 output tokens and 10 seconds each. Your model connection and context-window setting apply. Provider usage may vary.',
+                    const HelpLabel(
+                      help: '1–3 tests · up to 6 requests, 512 output tokens and 10 seconds each. Your model connection and context-window setting apply. Provider usage may vary.',
+                      child: Text(
+                        'Up to six paid requests. Provider usage may vary.',
+                      ),
                     ),
                     for (var i = 0; i < trials.length; i++)
                       Card(

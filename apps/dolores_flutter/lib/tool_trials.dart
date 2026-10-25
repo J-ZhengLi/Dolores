@@ -1,3 +1,4 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
 
 import 'dart:async';
@@ -206,7 +207,7 @@ class _ToolTrialsState extends State<ToolTrialsInspector> {
                     ),
                   FieldLabel(
                     label: 'Baseline project skill',
-                    child: DropdownButtonFormField<String>(
+                    child: AppDropdown<String>(
                       initialValue: name,
                       decoration: const InputDecoration(),
                       items: [

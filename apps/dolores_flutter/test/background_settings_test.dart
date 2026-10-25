@@ -33,7 +33,7 @@ class SettingsBridge extends BackgroundBridge {
 }
 
 void main() {
-  testWidgets('Tray failure stays visible with a recovery message on Home', (
+  testWidgets('Tray failure falls back to quitting instead of blocking Close', (
     t,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
@@ -55,7 +55,7 @@ void main() {
     await t.pumpWidget(DoloresApp(chat: chat, host: host));
     await t.pumpAndSettle();
     expect(host.background.enabled, true);
-    expect(await host.requestClose(), false);
+    expect(await host.requestClose(), true);
     await t.pumpAndSettle();
     expect(host.background.hidden, false);
     expect(find.textContaining('Keep Dolores open'), findsOneWidget);

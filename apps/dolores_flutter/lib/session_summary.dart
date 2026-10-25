@@ -1,4 +1,6 @@
+import 'help_tip.dart';
 import 'form_field_layout.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -300,8 +302,11 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                     ExpansionTile(
                       title: const Text('Summary details'),
                       children: [
-                        const Text(
-                          'Automatic compaction makes one bounded request. Failures keep your draft; full history stays local. Review turns before sending their contents for a manual summary.',
+                        const HelpLabel(
+                          help: 'Automatic compaction makes one bounded request. Failures keep your draft; full history stays local. Review turns before sending their contents for a manual summary.',
+                          child: Text(
+                            'Failed summaries keep your draft and full chat history.',
+                          ),
                         ),
                         if (saved != null)
                           SelectableText(

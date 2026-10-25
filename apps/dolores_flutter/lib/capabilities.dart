@@ -1,4 +1,6 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 
@@ -179,7 +181,7 @@ class _CapabilitiesInspectorState extends State<CapabilitiesInspector> {
                         ),
                         FieldLabel(
                           label: 'Source component',
-                          child: DropdownButtonFormField<String>(
+                          child: AppDropdown<String>(
                             initialValue: selected,
                             decoration: const InputDecoration(),
                             items: [

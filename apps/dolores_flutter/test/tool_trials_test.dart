@@ -1,3 +1,4 @@
+import 'package:dolores_flutter/app_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/bridge.dart';
@@ -51,7 +52,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(AppDropdown<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('check').last);
       await tester.pumpAndSettle();

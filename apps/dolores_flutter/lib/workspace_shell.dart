@@ -1,3 +1,6 @@
+import 'floating_notice.dart';
+import 'history_search.dart';
+
 import 'dart:async';
 
 import 'attention_panel.dart';
@@ -135,67 +138,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<bool> requestClose() async {
-    if (ModalRoute.of(context)?.isCurrent == false) {
-      await showDialog<void>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: const Text('Finish the open review'),
-          content: const Text(
-            'Close settings or the current review before closing Dolores.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: const Text('Keep open'),
-            ),
-          ],
-        ),
-      );
-      return false;
+    if (host.background.enabled && !host.quitting) {
+      await host.closeToTray(saveFiles: false);
+      if (host.background.hidden) return false;
     }
-    final tray = host.background.enabled && !host.quitting;
-    final dirty = host.files.documents.values.where((d) => d.dirty).length;
-    final tasks = host.tasks.length;
-    final terminals = host.terminals.live.length;
-    if (dirty == 0 && tasks == 0 && terminals == 0) {
-      if (tray) {
-        await host.closeToTray(saveFiles: false);
-        return false;
-      }
-      return host.prepareQuit(saveFiles: false);
-    }
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tray ? 'Close to tray?' : 'Close Dolores?'),
-        content: Text(
-          tray
-              ? 'Scheduled tasks will continue. Other tasks and terminals stop; unsaved files keep private recovery.'
-              : '$dirty unsaved files, $tasks running or queued tasks and $terminals live terminals. Closing stops tasks and terminal processes. Private recovery preserves unsaved edits without saving source files.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Keep open'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'recover'),
-            child: const Text('Keep recovery and close'),
-          ),
-          if (dirty > 0)
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'save'),
-              child: const Text('Save files and close'),
-            ),
-        ],
-      ),
-    );
-    if (choice == null || !mounted) return false;
-    if (tray) {
-      await host.closeToTray(saveFiles: choice == 'save');
-      return false;
-    }
-    return host.prepareQuit(saveFiles: choice == 'save');
+    return host.prepareQuit(saveFiles: false);
   }
 
   void changed() {
@@ -550,39 +497,21 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                   SizedBox(
                     width: double.infinity,
                     height: 32,
-                    child: WindowTitle(onTogglePanel: host.togglePanel),
-                  ),
-                if (host.error != null)
-                  MaterialBanner(
-                    content: Text(host.error!),
-                    actions: [
-                      TextButton(
-                        onPressed: () => setState(() => host.error = null),
-                        child: const Text('Dismiss'),
-                      ),
-                    ],
-                  ),
-                if (host.visible.attentionAvailable)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: AnimatedBuilder(
-                      animation: host.attention,
-                      builder: (context, _) => TextButton.icon(
-                        key: const Key('task-attention'),
-                        onPressed: () => showAttention(context, host.attention),
-                        icon: Badge(
-                          isLabelVisible:
-                              host.attention.unread > 0 ||
-                              host.attention.error != null,
-                          label: Text(
-                            host.attention.error != null
-                                ? '!'
-                                : '${host.attention.unread}',
-                          ),
-                          child: const Icon(Icons.notifications_none, size: 18),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: WindowTitle(onTogglePanel: host.togglePanel),
                         ),
-                        label: const Text('Attention'),
-                      ),
+                        if (host.visible.historySearchAvailable)
+                          HistorySearchButton(chat: host.visible),
+                        if (host.visible.attentionAvailable)
+                          AttentionButton(host: host.attention),
+                        IconButton(
+                          tooltip: 'Settings',
+                          onPressed: settings,
+                          icon: const Icon(Icons.settings_outlined, size: 17),
+                        ),
+                      ],
                     ),
                   ),
                 if (host.tasks.isNotEmpty)
@@ -702,6 +631,21 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               ],
             ),
             Positioned(left: 0, right: 0, bottom: 0, child: dock()),
+            if (host.error != null)
+              Positioned(
+                top: widget.nativeTitleBar ? 8 : 40,
+                right: 16,
+                child: SizedBox(
+                  width: (MediaQuery.sizeOf(context).width - 32).clamp(
+                    200,
+                    420,
+                  ),
+                  child: FloatingNotice(
+                    message: host.error!,
+                    onDismiss: () => setState(() => host.error = null),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

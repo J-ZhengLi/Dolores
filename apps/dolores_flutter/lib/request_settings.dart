@@ -1,5 +1,7 @@
+import 'app_dropdown.dart';
 import 'help_tip.dart';
 import 'form_field_layout.dart';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -154,10 +156,9 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                 if (model.isNotEmpty) ...[
                   FieldLabel(
                     label: 'Model',
-                    child: DropdownButtonFormField<String>(
+                    child: AppDropdown<String>(
                       key: const Key('generation-model'),
                       initialValue: model,
-                      isExpanded: true,
                       decoration: const InputDecoration(),
                       items: {...widget.chat.enabledModels, model}
                           .map(
@@ -174,10 +175,14 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                                 model = value!;
                                 inherited = false;
                                 tokens.text =
-                                    selectedSettings['maxOutputTokens']?.toString() ?? '';
-                                timeout.text = '${selectedSettings['timeoutSeconds']}';
+                                    selectedSettings['maxOutputTokens']
+                                        ?.toString() ??
+                                    '';
+                                timeout.text =
+                                    '${selectedSettings['timeoutSeconds']}';
                                 reasoning =
-                                    selectedSettings['reasoning'] as String? ?? 'providerDefault';
+                                    selectedSettings['reasoning'] as String? ??
+                                    'providerDefault';
                                 failure = null;
                               });
                             },
@@ -221,10 +226,9 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                 const SizedBox(height: 20),
                 FieldLabel(
                   label: 'Reasoning control',
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdown<String>(
                     key: ValueKey('reasoning-$model-$reasoning'),
                     initialValue: reasoning,
-                    isExpanded: true,
                     decoration: const InputDecoration(),
                     items: const [
                       DropdownMenuItem(
@@ -235,8 +239,14 @@ class _RequestSettingsDialogState extends State<RequestSettingsDialog> {
                         value: 'deepseekThinkingOff',
                         child: Text('DeepSeek · thinking off'),
                       ),
-                      DropdownMenuItem(value: 'glmLow', child: Text('GLM · low effort')),
-                      DropdownMenuItem(value: 'openaiLow', child: Text('OpenAI · low effort')),
+                      DropdownMenuItem(
+                        value: 'glmLow',
+                        child: Text('GLM · low effort'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'openaiLow',
+                        child: Text('OpenAI · low effort'),
+                      ),
                       DropdownMenuItem(
                         value: 'openaiMedium',
                         child: Text('OpenAI · medium effort'),

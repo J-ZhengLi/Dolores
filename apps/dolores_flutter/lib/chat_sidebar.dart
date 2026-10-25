@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
 import 'chat.dart';
-import 'history_search.dart';
 import 'theme.dart';
 
 class ChatSidebar extends StatefulWidget {
@@ -221,15 +220,6 @@ class _ChatSidebarState extends State<ChatSidebar> {
                       ),
                     ],
                   ),
-                ),
-              if (chat.historySearchAvailable)
-                TextButton.icon(
-                  key: const Key('search-conversations'),
-                  onPressed: chat.loading || chat.changing
-                      ? null
-                      : () => showHistorySearch(context, chat),
-                  icon: const Icon(Icons.search, size: 18),
-                  label: const Text('Search conversations'),
                 ),
               Row(
                 children: [

@@ -31,7 +31,9 @@ Report ordinary checks in the task response/CI; retain raw logs under ignored
 `output/`. Historical runs, counts and failed attempts remain recoverable through
 the [history index](IMPLEMENTATION_HISTORY.md#acceptance-records).
 
-One reported conversation-storage/Close failure was deferred during UI work. It
-remains unqualified unless a later focused investigation establishes its outcome;
-passing UI renders do not close it. Native GPU frame timing for the glass effects
-also remains unmeasured.
+The reported Close blockage is covered by focused storage-failure, pending-action,
+open-review and stalled-checkpoint regressions: Close hides immediately and recovery
+cannot veto it. The original profile's underlying storage failure has not been
+reproduced; this is a close-policy fix, not a claim that storage is infallible.
+See [UX qualification](qualification/everyday-ux.md#window-close-boundary).
+Native GPU frame timing for the glass effects remains unmeasured.

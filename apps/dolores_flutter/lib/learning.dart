@@ -1,3 +1,4 @@
+import 'help_tip.dart';
 import 'form_field_layout.dart';
 
 import 'dart:convert';
@@ -201,9 +202,7 @@ class _LearningState extends State<LearningInspector> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Reflect on saved task evidence'),
-                    subtitle: const Text(
-                      'Off by default. Inspect eligible task evidence locally.',
-                    ),
+                    subtitle: const Text('Review saved task updates'),
                     value: state['enabled'] == true,
                     onChanged: pending ? null : (v) => policy(enabled: v),
                   ),
@@ -228,14 +227,23 @@ class _LearningState extends State<LearningInspector> {
                   const SettingsDetails(
                     title: 'How learning works',
                     children: [
-                      Text(
-                        'Off by default. Inspect one relevant saved event once; private notes are used only locally when separately eligible. Automatic activation is experimental; live improvement acceptance is pending. Only the exact host config-check-v1 workflow qualifies. Unknown instruction impact, global skills and new authority require review. Passing tests alone is not permission.',
+                      HelpLabel(
+                        help: 'Learning reviews saved task evidence locally. Tests share only skill snapshots and disposable examples with your model. Automatic activation is experimental and limited to supported project repairs; other changes require review.',
+                        child: Text(
+                          'Learning uses saved task updates. Automatic activation is experimental.',
+                        ),
                       ),
-                      Text(
-                        'One proposed command repair can use four isolated cases: at most 20 model calls, 32 tool operations and 120 seconds total, 1024 output tokens per call. Only skill snapshots and disposable fixtures go to the configured provider. Original replies and baseline snapshots remain. No model-authored JSON draft, global rewrite or process execution is enabled.',
+                      HelpLabel(
+                        help: 'One proposed command repair can use four isolated cases: at most 20 model calls, 32 tool operations and 120 seconds total, 1024 output tokens per call. Only skill snapshots and disposable fixtures go to the configured provider. Original replies and baseline snapshots remain. No model-authored JSON draft, global rewrite or process execution is enabled.',
+                        child: Text(
+                          'Tests use isolated examples and your selected model.',
+                        ),
                       ),
-                      Text(
-                        'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate reviews in Settings → Skills remain available.',
+                      HelpLabel(
+                        help: 'After a matching failure of an activated workflow, one additional fixed comparison can check regression. Incomplete checks retain the current skill and do not retry. A confirmed regression restores and quarantines the candidate under the same automatic policy. Quarantine prevents automatic reactivation; deliberate reviews in Settings → Skills remain available.',
+                        child: Text(
+                          'Failed checks keep your current skill. Confirmed regressions restore the previous version.',
+                        ),
                       ),
                     ],
                   ),
@@ -248,8 +256,11 @@ class _LearningState extends State<LearningInspector> {
                       key: const Key('learning-workflow-details'),
                       title: 'Create a check workflow',
                       children: [
-                        const Text(
-                          'Optional supported workflow: enable the top-level config.json flag and run one project check. Review its command before creating the saved project skill. This does not grant command permission.',
+                        const HelpLabel(
+                          help: 'Optional supported workflow: enable the top-level config.json flag and run one project check. Review its command before creating the saved project skill. This does not grant command permission.',
+                          child: Text(
+                            'Try a project configuration check. Review the command first.',
+                          ),
                         ),
                         const SizedBox(height: 16),
                         FieldLabel(

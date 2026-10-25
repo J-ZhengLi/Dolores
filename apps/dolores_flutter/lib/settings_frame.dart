@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -153,15 +155,16 @@ class _EmbeddedSettingsFrameState extends State<EmbeddedSettingsFrame> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
-            if (widget.subtitle.isNotEmpty &&
-                MediaQuery.sizeOf(context).width >= 640) ...[
-              const SizedBox(height: 4),
-              Text(
-                widget.subtitle,
-                style: Theme.of(context).textTheme.bodySmall,
+            if (widget.subtitle.isEmpty)
+              Text(widget.title, style: Theme.of(context).textTheme.titleLarge)
+            else
+              HelpLabel(
+                help: widget.subtitle,
+                child: Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
-            ],
           ],
         ),
       ),

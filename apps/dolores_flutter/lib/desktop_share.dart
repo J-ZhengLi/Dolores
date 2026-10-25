@@ -1,4 +1,6 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -168,7 +170,8 @@ class _WindowSharingState extends State<WindowSharing> {
       if (control) {
         final existing = state?['access'] as Map?;
         final sameTarget =
-            existing?['enabled'] == true && existing?['target'] is Map &&
+            existing?['enabled'] == true &&
+            existing?['target'] is Map &&
             existing!['target']['handle'] == target!['handle'] &&
             existing['target']['pid'] == target!['pid'] &&
             existing['target']['title'] == target!['title'];
@@ -288,10 +291,9 @@ class _WindowSharingState extends State<WindowSharing> {
                   const SizedBox(height: 16),
                   FieldLabel(
                     label: 'Model',
-                    child: DropdownButtonFormField<String>(
+                    child: AppDropdown<String>(
                       key: const Key('share-window-model'),
                       initialValue: model,
-                      isExpanded: true,
                       decoration: const InputDecoration(),
                       items: [
                         for (final value in widget.chat.enabledModels)
@@ -300,7 +302,9 @@ class _WindowSharingState extends State<WindowSharing> {
                             child: Text(value, overflow: TextOverflow.ellipsis),
                           ),
                       ],
-                      onChanged: pending ? null : (v) => setState(() => model = v),
+                      onChanged: pending
+                          ? null
+                          : (v) => setState(() => model = v),
                     ),
                   ),
                   const SizedBox(height: 8),

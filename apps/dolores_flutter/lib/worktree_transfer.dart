@@ -1,3 +1,5 @@
+import 'app_dropdown.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -302,10 +304,9 @@ class _WorktreeTransferInspectorState extends State<WorktreeTransferInspector> {
             ],
             detail('Source folder', widget.record['root']),
             if (receipt == null) ...[
-              DropdownButtonFormField<String>(
+              AppDropdown<String>(
                 key: ValueKey(destination),
                 initialValue: destination,
-                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Destination chat',
                 ),

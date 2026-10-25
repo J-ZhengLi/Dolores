@@ -1,4 +1,7 @@
+import 'help_tip.dart';
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -215,10 +218,9 @@ class _ModsState extends State<ModsInspector> {
                   const SizedBox(height: 12),
                   FieldLabel(
                     label: 'Recovery case',
-                    child: DropdownButtonFormField<int>(
+                    child: AppDropdown<int>(
                       initialValue: category,
                       decoration: const InputDecoration(),
-                      isExpanded: true,
                       items: [
                         for (final entry in {
                           0: 'Unknown',
@@ -228,7 +230,10 @@ class _ModsState extends State<ModsInspector> {
                           4: 'Access denied',
                           5: 'Interrupted task',
                         }.entries)
-                          DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                          DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ),
                       ],
                       onChanged: pending
                           ? null
@@ -268,11 +273,17 @@ class _ModsState extends State<ModsInspector> {
                   const SettingsDetails(
                     title: 'Sharing & test limits',
                     children: [
-                      Text(
-                        'The host keeps permissions, credentials, budgets and tests. No arbitrary native or UI code runs. Automatic activation requires strict improvement on six fixed ABI 1 cases and does not enable general self-modification.',
+                      HelpLabel(
+                        help: 'The host keeps permissions, credentials, budgets and tests. No arbitrary native or UI code runs. Automatic activation requires strict improvement on six fixed ABI 1 cases and does not enable general self-modification.',
+                        child: Text(
+                          'Repairs must pass the built-in checks before activation.',
+                        ),
                       ),
-                      Text(
-                        'Draft a repair shares only the current mod source with your selected model. One request, up to 1024 output tokens and 30 seconds. Partial or malformed drafts remain editable and cannot activate.',
+                      HelpLabel(
+                        help: 'Draft a repair shares only the current mod source with your selected model. One request, up to 1024 output tokens and 30 seconds. Partial or malformed drafts remain editable and cannot activate.',
+                        child: Text(
+                          'Drafting sends this mod’s source to your model. You can edit the result.',
+                        ),
                       ),
                     ],
                   ),
@@ -293,9 +304,13 @@ class _ModsState extends State<ModsInspector> {
                           minLines: 4,
                           maxLines: 9,
                           maxLength: 8192,
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                          ),
                           decoration: const InputDecoration(
-                            hintText: '(module (func (export "recovery_hint") …))',
+                            hintText:
+                                '(module (func (export "recovery_hint") …))',
                           ),
                         ),
                       ),

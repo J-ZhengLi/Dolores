@@ -1,3 +1,4 @@
+import 'package:dolores_flutter/app_dropdown.dart';
 import 'package:dolores_flutter/capabilities.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/theme.dart';
@@ -112,8 +113,8 @@ void main() {
       await tester.ensureVisible(find.text('Browse matching source'));
       await tester.tap(find.text('Browse matching source'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.ensureVisible(find.byType(AppDropdown<String>));
+      await tester.tap(find.byType(AppDropdown<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('core').last);
       await tester.pumpAndSettle();

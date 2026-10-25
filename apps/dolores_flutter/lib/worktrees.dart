@@ -1,3 +1,5 @@
+import 'app_dropdown.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -530,7 +532,7 @@ class _WorktreesInspectorState extends State<WorktreesInspector> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
+              AppDropdown<String>(
                 initialValue: setup,
                 decoration: const InputDecoration(labelText: 'Setup'),
                 items: const [

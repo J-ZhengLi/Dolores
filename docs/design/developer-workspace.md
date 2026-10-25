@@ -130,8 +130,10 @@ disposable local bare remotes. Human Git actions do not expand model grants.
 Use real PTY input/output, ANSI, resize, bounded scrollback, copy/paste and Ctrl+C
 (copy selected text, otherwise interrupt). Terminal tabs split independently from
 files. Visiting Home does not spawn shells. Output sharing explicitly targets a
-chat. Moving/hiding terminals preserves owners; busy close/final quit offers Keep
-open/Stop and close. Reap descendants or report stopped/unknown honestly. Cold
+chat. Moving/hiding terminals preserves owners. Closing an individual live terminal
+asks before stopping it; app Close hides immediately and performs bounded best-effort
+recovery and shutdown without a save/review veto. Reap descendants or retain honest
+stopped/unknown status. Cold
 restart restores a tab/display, not a dead shell. Human/model shells stay separate.
 
 First LSP families remain TypeScript/JavaScript and Rust. Lazy project/language

@@ -1,3 +1,5 @@
+import 'floating_notice.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -41,12 +43,15 @@ Future<bool> initializeDesktopFrame() async {
 /// Lives above the Navigator, so window controls also work with dialogs open.
 class DesktopFrame extends StatefulWidget {
   final Widget child;
+  final Widget? attention, search;
   final VoidCallback? onTogglePanel;
   final Future<void> Function()? onOpenSettings;
   final Future<bool> Function()? onBeforeClose;
   const DesktopFrame({
     super.key,
     required this.child,
+    this.attention,
+    this.search,
     this.onTogglePanel,
     this.onOpenSettings,
     this.onBeforeClose,
@@ -57,7 +62,7 @@ class DesktopFrame extends StatefulWidget {
 }
 
 class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
-  bool maximized = false, pending = false, closePrepared = false;
+  bool maximized = false, pending = false, closing = false;
   bool settingsOpen = false;
   final settingsFocus = FocusNode();
   String? failure;
@@ -149,12 +154,36 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
   }
 
   Future<void> closeWindow() async {
-    if (widget.onBeforeClose == null) {
-      await windowManager.close();
-      return;
+    if (closing) return;
+    closing = true;
+    // Closing the window is immediate. Persistence is best effort, never a veto.
+    try {
+      await windowManager.hide().timeout(const Duration(milliseconds: 250));
+    } catch (_) {
+      /* A native close below remains available if hiding fails. */
     }
-    if (!closePrepared) closePrepared = await widget.onBeforeClose!();
-    if (closePrepared) await windowManager.destroy();
+    var quit = true;
+    try {
+      quit = await (widget.onBeforeClose?.call() ?? Future.value(true)).timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (_) {
+      /* Failed or stalled recovery must not trap the window. */
+    }
+    if (quit) {
+      try {
+        if (widget.onBeforeClose == null) {
+          await windowManager.close();
+        } else {
+          await windowManager.destroy();
+        }
+      } catch (_) {
+        // Fall back to the native close path if the custom destroy call fails.
+        await windowManager.setPreventClose(false);
+        await windowManager.close();
+      }
+    }
+    closing = false;
   }
 
   Future<void> openSettings() async {
@@ -188,7 +217,7 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
 
   @override
   void onWindowClose() {
-    if (widget.onBeforeClose != null) unawaited(perform('close', closeWindow));
+    if (widget.onBeforeClose != null) unawaited(closeWindow());
   }
 
   Widget control(String label, IconData icon, VoidCallback action, Palette p) =>
@@ -200,7 +229,9 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
           child: TextButton(
             key: Key('window-${label.toLowerCase()}'),
             focusNode: label == 'Settings' ? settingsFocus : null,
-            onPressed: pending || (label == 'Settings' && settingsOpen)
+            onPressed:
+                (label != 'Close' && pending) ||
+                    (label == 'Settings' && settingsOpen)
                 ? null
                 : action,
             style: ButtonStyle(
@@ -234,90 +265,85 @@ class _DesktopFrameState extends State<DesktopFrame> with WindowListener {
     return Overlay.wrap(
       child: Material(
         color: p.bg,
-        child: Column(
+        child: Stack(
           children: [
-            SizedBox(
-              key: const Key('desktop-title-bar'),
-              height: 32,
-              child: Row(
-                children: [
-                  // macOS keeps its native traffic lights at the upper left.
-                  if (mac) const SizedBox(width: 80),
-                  Expanded(
-                    child: GestureDetector(
-                      key: const Key('window-drag-area'),
-                      behavior: HitTestBehavior.opaque,
-                      onPanStart: (_) =>
-                          perform('move', windowManager.startDragging),
-                      onDoubleTap: () => perform('resize', toggleMaximize),
-                      onSecondaryTap:
-                          defaultTargetPlatform == TargetPlatform.windows
-                          ? () => perform(
-                              'show the menu for',
-                              windowManager.popUpWindowMenu,
-                            )
-                          : null,
-                      child: WindowTitle(onTogglePanel: widget.onTogglePanel),
-                    ),
+            Column(
+              children: [
+                SizedBox(
+                  key: const Key('desktop-title-bar'),
+                  height: 32,
+                  child: Row(
+                    children: [
+                      // macOS keeps its native traffic lights at the upper left.
+                      if (mac) const SizedBox(width: 80),
+                      Expanded(
+                        child: GestureDetector(
+                          key: const Key('window-drag-area'),
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: (_) =>
+                              perform('move', windowManager.startDragging),
+                          onDoubleTap: () => perform('resize', toggleMaximize),
+                          onSecondaryTap:
+                              defaultTargetPlatform == TargetPlatform.windows
+                              ? () => perform(
+                                  'show the menu for',
+                                  windowManager.popUpWindowMenu,
+                                )
+                              : null,
+                          child: WindowTitle(
+                            onTogglePanel: widget.onTogglePanel,
+                          ),
+                        ),
+                      ),
+                      if (widget.search != null) widget.search!,
+                      if (widget.attention != null) widget.attention!,
+                      if (widget.onOpenSettings != null)
+                        control(
+                          'Settings',
+                          Icons.settings_outlined,
+                          openSettings,
+                          p,
+                        ),
+                      if (!mac) ...[
+                        control(
+                          'Minimize',
+                          Icons.remove,
+                          () => perform('minimize', windowManager.minimize),
+                          p,
+                        ),
+                        control(
+                          maximized ? 'Restore' : 'Maximize',
+                          maximized ? Icons.filter_none : Icons.crop_square,
+                          () => perform('resize', toggleMaximize),
+                          p,
+                        ),
+                        control('Close', Icons.close, closeWindow, p),
+                      ],
+                    ],
                   ),
-                  if (widget.onOpenSettings != null)
-                    control(
-                      'Settings',
-                      Icons.settings_outlined,
-                      openSettings,
-                      p,
-                    ),
-                  if (!mac) ...[
-                    control(
-                      'Minimize',
-                      Icons.remove,
-                      () => perform('minimize', windowManager.minimize),
-                      p,
-                    ),
-                    control(
-                      maximized ? 'Restore' : 'Maximize',
-                      maximized ? Icons.filter_none : Icons.crop_square,
-                      () => perform('resize', toggleMaximize),
-                      p,
-                    ),
-                    control(
-                      'Close',
-                      Icons.close,
-                      () => perform('close', closeWindow),
-                      p,
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                Expanded(child: widget.child),
+              ],
             ),
             if (failure != null)
-              Container(
-                color: p.errorSurface,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        failure!,
-                        style: TextStyle(color: p.errorText),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: pending ? null : retry,
-                      child: const Text('Retry'),
-                    ),
-                    IconButton(
-                      tooltip: 'Dismiss window error',
-                      icon: const Icon(Icons.close, size: 16),
-                      onPressed: () => setState(() {
-                        failure = null;
-                        retry = null;
-                      }),
-                    ),
-                  ],
+              Positioned(
+                top: 40,
+                right: 16,
+                child: SizedBox(
+                  width: (MediaQuery.sizeOf(context).width - 32).clamp(
+                    200,
+                    420,
+                  ),
+                  child: FloatingNotice(
+                    message: failure!,
+                    onRetry: pending ? null : retry,
+                    onDismiss: () => setState(() {
+                      failure = null;
+                      retry = null;
+                    }),
+                  ),
                 ),
               ),
-            Expanded(child: widget.child),
           ],
         ),
       ),

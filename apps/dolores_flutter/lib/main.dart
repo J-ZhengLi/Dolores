@@ -1,3 +1,4 @@
+import 'attention_panel.dart';
 import 'access_selector.dart';
 import 'memory.dart';
 import 'chat_details.dart';
@@ -118,6 +119,42 @@ class DoloresApp extends StatelessWidget {
             key: captureKey,
             child: desktopFrame
                 ? DesktopFrame(
+                    search: AnimatedBuilder(
+                      animation: host ?? chat,
+                      builder: (_, _) =>
+                          (host?.visible ?? chat).historySearchAvailable
+                          ? HistorySearchButton(
+                              chat: host?.visible ?? chat,
+                              onPressed: () {
+                                final navigator =
+                                    GlobalObjectKey<NavigatorState>(
+                                      host ?? chat,
+                                    ).currentState;
+                                if (navigator == null || navigator.canPop()) {
+                                  return;
+                                }
+                                final searchContext =
+                                    navigator.overlay?.context;
+                                if (searchContext != null) {
+                                  unawaited(
+                                    showHistorySearch(
+                                      searchContext,
+                                      host?.visible ?? chat,
+                                    ),
+                                  );
+                                }
+                              },
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    attention: host == null
+                        ? null
+                        : AnimatedBuilder(
+                            animation: host!,
+                            builder: (_, _) => host!.visible.attentionAvailable
+                                ? AttentionButton(host: host!.attention)
+                                : const SizedBox.shrink(),
+                          ),
                     onTogglePanel: host?.togglePanel,
                     onBeforeClose: host?.requestClose,
                     onOpenSettings: () async {

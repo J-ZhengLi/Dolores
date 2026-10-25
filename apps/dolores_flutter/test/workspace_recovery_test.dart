@@ -8,10 +8,17 @@ import 'package:dolores_flutter/file_workspace.dart';
 import 'editor_test.dart' show EditingBridge;
 
 class RecoveryBridge extends EditingBridge {
-  bool failCheckpoint = false;
+  bool failCheckpoint = false, failDraft = false;
+  int draftAttempts = 0;
   int checkpoints = 0;
   @override
   Future<dynamic> call(Map<String, dynamic> cmd) async {
+    if (cmd['command'] == 'saveDraft') {
+      draftAttempts++;
+      if (failDraft) {
+        throw StateError('Could not read or save local conversation data.');
+      }
+    }
     if (cmd['command'] == 'editor' &&
         cmd['request']['action'] == 'checkpoint') {
       checkpoints++;
@@ -22,8 +29,43 @@ class RecoveryBridge extends EditingBridge {
 }
 
 void main() {
+  testWidgets('conversation storage failure cannot veto Close', (t) async {
+    final bridge = RecoveryBridge()..failDraft = true;
+    final chat = ChatController(bridge)
+      ..loading = false
+      ..session = 'A';
+    final host = AppHost(chat);
+    await t.pumpWidget(DoloresApp(chat: chat, host: host));
+    await t.pump(const Duration(milliseconds: 300));
+    expect(await host.requestClose(), true);
+    expect(bridge.draftAttempts, 1);
+    expect(
+      host.error,
+      contains('Could not read or save local conversation data'),
+    );
+    expect(find.text('Finish the open review'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+    host.dispose();
+  });
+  testWidgets('Close never checkpoints an unfinished conversation load', (
+    t,
+  ) async {
+    final bridge = RecoveryBridge()..failDraft = true;
+    final chat = ChatController(bridge)
+      ..loading = true
+      ..session = 'A';
+    final host = AppHost(chat);
+    expect(await host.requestClose(), true);
+    expect(
+      bridge.draftAttempts,
+      0,
+      reason: 'Keep the saved draft until the editor has loaded.',
+    );
+    host.dispose();
+  });
+
   testWidgets(
-    'one settled edit checkpoints once; failed recovery blocks quit and explicit retry preserves source',
+    'one settled edit checkpoints once; failed recovery cannot veto quit or overwrite source',
     (t) async {
       final bridge = RecoveryBridge();
       final chat = ChatController(bridge)..loading = false;
@@ -47,7 +89,7 @@ void main() {
       await t.pump();
       expect(bridge.checkpoints, 1);
       bridge.failCheckpoint = true;
-      expect(await host.prepareQuit(saveFiles: false), false);
+      expect(await host.prepareQuit(saveFiles: false), true);
       expect(host.error, contains('Recovery storage unavailable'));
       expect(d.text, 'mine saved');
       expect(d.dirty, true);
@@ -60,7 +102,7 @@ void main() {
     },
   );
   testWidgets(
-    'quit review cancellation and failed Save leave the file open; global theme follows cached conversations',
+    'Close skips open dialogs and unsaved-file prompts; global theme follows cached conversations',
     (t) async {
       t.view.physicalSize = const Size(1000, 700);
       t.view.devicePixelRatio = 1;
@@ -77,17 +119,17 @@ void main() {
       await host.files.flush(d);
       await t.pumpWidget(DoloresApp(chat: chat, host: host));
       await t.pumpAndSettle();
-      final cancelled = host.requestClose();
-      await t.pumpAndSettle();
-      await t.tap(find.text('Keep open'));
-      await t.pumpAndSettle();
-      expect(await cancelled, false);
       bridge.failSave = true;
-      final failed = host.requestClose();
+      // An open review and source-save failure cannot veto the close decision.
+      final context = t.element(find.byType(Scaffold).first);
+      showDialog<void>(
+        context: context,
+        builder: (_) => const AlertDialog(title: Text('Open review')),
+      );
       await t.pumpAndSettle();
-      await t.tap(find.text('Save files and close'));
-      await t.pumpAndSettle();
-      expect(await failed, false);
+      expect(await host.requestClose(), true);
+      expect(find.text('Close Dolores?'), findsNothing);
+      expect(find.text('Finish the open review'), findsNothing);
       expect(d.closed, false);
       expect(d.text, 'draft saved');
       await host.select('B');

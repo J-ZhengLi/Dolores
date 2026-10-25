@@ -1,4 +1,7 @@
+import 'help_tip.dart';
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -342,10 +345,12 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
         if (sources.isNotEmpty)
           FieldLabel(
             label: 'Copy a saved memory / skill version',
-            child: DropdownButtonFormField<String>(
+            child: AppDropdown<String>(
               key: ValueKey('${base ? 'baseline' : 'candidate'}-$source'),
-              initialValue: sources.any((v) => v['source'] == source) ? source : null,
-              isExpanded: true,
+              initialValue: sources.any((v) => v['source'] == source)
+                  ? source
+                  : null,
+
               decoration: const InputDecoration(),
               items: sources
                   .map(
@@ -362,7 +367,9 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
               onChanged: busy
                   ? null
                   : (id) {
-                      final value = sources.firstWhere((v) => v['source'] == id);
+                      final value = sources.firstWhere(
+                        (v) => v['source'] == id,
+                      );
                       setState(() {
                         if (base) {
                           baselineSource = id;
@@ -513,11 +520,15 @@ class _ComparisonInspectorState extends State<ComparisonInspector> {
                   const SettingsDetails(
                     title: 'Comparison details',
                     children: [
-                      Text(
-                        'Compare two memory / skill instruction snapshots with the same model and 1–3 tests. Up to six paid responses. Chat history, other active instructions and tools are excluded. Selected text and responses are saved locally and included in chat exports.',
+                      HelpLabel(
+                        help: 'Compare two memory / skill instruction snapshots with the same model and 1–3 tests. Up to six paid responses. Chat history, other active instructions and tools are excluded. Selected text and responses are saved locally and included in chat exports.',
+                        child: Text(
+                          'Compare two versions with up to six paid responses. Results are saved locally.',
+                        ),
                       ),
-                      Text(
-                        'Exact snippet checks measure these responses only; they do not establish general task quality, statistical improvement or permission to activate a change.',
+                      HelpLabel(
+                        help: 'Exact snippet checks measure these responses only; they do not establish general task quality, statistical improvement or permission to activate a change.',
+                        child: Text('Checks apply to these responses only.'),
                       ),
                     ],
                   ),

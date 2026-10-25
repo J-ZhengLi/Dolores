@@ -74,48 +74,60 @@ void main() {
   }
 
   testWidgets(
-    'OS Close and title Close share review and preserve the window on cancellation',
+    'Close hides immediately even if recovery fails or a window action is pending',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      var allow = false, reviews = 0;
+      final checkpoint = Completer<bool>();
       await tester.pumpWidget(
         MaterialApp(
           builder: (_, child) => DesktopFrame(
-            onBeforeClose: () async {
-              reviews++;
-              return allow;
-            },
+            onBeforeClose: () => checkpoint.future,
             child: child!,
           ),
           home: const Scaffold(body: Text('retained draft')),
         ),
       );
       await tester.pumpAndSettle();
-      expect(calls.where((c) => c.method == 'setPreventClose'), hasLength(1));
-      for (final listener in windowManager.listeners.toList()) {
-        listener.onWindowClose();
-      }
-      await tester.pumpAndSettle();
-      expect(reviews, 1);
-      expect(calls.where((c) => c.method == 'destroy'), isEmpty);
-      expect(find.text('retained draft'), findsOneWidget);
-      allow = true;
-      failDestroy = true;
+      pendingMaximize = Completer<void>();
+      await tester.tap(find.byKey(const Key('window-maximize')));
+      await tester.pump();
       await tester.tap(find.byKey(const Key('window-close')));
+      await tester.pump();
+      expect(calls.where((c) => c.method == 'hide'), hasLength(1));
+      checkpoint.completeError(StateError('Local data unavailable'));
       await tester.pumpAndSettle();
-      expect(reviews, 2);
       expect(calls.where((c) => c.method == 'destroy'), hasLength(1));
-      expect(find.text('Could not close the window.'), findsOneWidget);
-      failDestroy = false;
-      await tester.tap(find.text('Retry'));
+      pendingMaximize!.complete();
       await tester.pumpAndSettle();
-      expect(reviews, 2);
-      expect(calls.where((c) => c.method == 'destroy'), hasLength(2));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       debugDefaultTargetPlatformOverride = null;
     },
   );
+
+  testWidgets('OS Close has a bounded checkpoint deadline', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    final checkpoint = Completer<bool>();
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (_, child) =>
+            DesktopFrame(onBeforeClose: () => checkpoint.future, child: child!),
+        home: const Scaffold(body: Text('retained draft')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final listener in windowManager.listeners.toList()) {
+      listener.onWindowClose();
+    }
+    await tester.pump();
+    expect(calls.where((c) => c.method == 'hide'), hasLength(1));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'destroy'), hasLength(1));
+    checkpoint.complete(true);
+    await tester.pumpWidget(const SizedBox());
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets(
     'The real app keeps its draft and window controls through theme and dialog changes',
@@ -149,43 +161,42 @@ void main() {
     },
   );
 
-  testWidgets(
-    'The title strip keeps the app name in light and dark themes',
-    (tester) async {
-      for (final dark in [false, true]) {
-        await mount(tester, dark: dark);
-        expect(
-          tester
-              .widget<Material>(
-                find
-                    .ancestor(
-                      of: find.byKey(const Key('desktop-title-bar')),
-                      matching: find.byType(Material),
-                    )
-                    .first,
-              )
-              .color,
-          Palette(dark).bg,
-        );
-        expect(find.text('Dolores'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: find.byKey(const Key('window-drag-area')),
-            matching: find.byWidgetPredicate(
-              (widget) => widget is Container && widget.color != null,
-            ),
+  testWidgets('The title strip keeps the app name in light and dark themes', (
+    tester,
+  ) async {
+    for (final dark in [false, true]) {
+      await mount(tester, dark: dark);
+      expect(
+        tester
+            .widget<Material>(
+              find
+                  .ancestor(
+                    of: find.byKey(const Key('desktop-title-bar')),
+                    matching: find.byType(Material),
+                  )
+                  .first,
+            )
+            .color,
+        Palette(dark).bg,
+      );
+      expect(find.text('Dolores'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('window-drag-area')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Container && widget.color != null,
           ),
-          findsNothing,
-        );
-        expect(find.byTooltip('Minimize'), findsOneWidget);
-        expect(find.byTooltip('Maximize'), findsOneWidget);
-        expect(find.byTooltip('Close'), findsOneWidget);
-      }
-      await tester.pumpWidget(const SizedBox());
-      expect(windowManager.hasListeners, isFalse);
-      debugDefaultTargetPlatformOverride = null;
-    },
-  );
+        ),
+        findsNothing,
+      );
+      expect(find.byTooltip('Minimize'), findsOneWidget);
+      expect(find.byTooltip('Maximize'), findsOneWidget);
+      expect(find.byTooltip('Close'), findsOneWidget);
+    }
+    await tester.pumpWidget(const SizedBox());
+    expect(windowManager.hasListeners, isFalse);
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('OS maximize events and double click switch to Restore', (
     tester,

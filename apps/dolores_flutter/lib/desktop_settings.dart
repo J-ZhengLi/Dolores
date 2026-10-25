@@ -1,5 +1,7 @@
+import 'app_dropdown.dart';
 import 'help_tip.dart';
 import 'form_field_layout.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -277,10 +279,12 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
               const SizedBox(height: 20),
               FieldLabel(
                 label: 'Window to observe',
-                child: DropdownButtonFormField<int>(
+                child: AppDropdown<int>(
                   key: ValueKey(windows),
-                  initialValue: target == null ? null : windows.indexOf(target!),
-                  isExpanded: true,
+                  initialValue: target == null
+                      ? null
+                      : windows.indexOf(target!),
+
                   decoration: const InputDecoration(),
                   items: [
                     for (var i = 0; i < windows.length; i++)
@@ -294,7 +298,9 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                   ],
                   onChanged: pending
                       ? null
-                      : (i) => setState(() => target = i == null ? null : windows[i]),
+                      : (i) => setState(
+                          () => target = i == null ? null : windows[i],
+                        ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -324,13 +330,15 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 const SizedBox(height: 16),
                 FieldLabel(
                   label: 'Saved screenshots in this chat',
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdown<String>(
                     key: ValueKey('${capture?['id']}-${report!['captures']}'),
                     initialValue:
-                        (report!['captures'] as List).any((c) => c['id'] == capture?['id'])
+                        (report!['captures'] as List).any(
+                          (c) => c['id'] == capture?['id'],
+                        )
                         ? (capture?['id'] as String?)
                         : null,
-                    isExpanded: true,
+
                     decoration: const InputDecoration(),
                     items: [
                       for (final c in report!['captures'] as List)
@@ -345,9 +353,9 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                     onChanged: pending
                         ? null
                         : (id) => preview(
-                            (report!['captures'] as List).cast<Map>().firstWhere(
-                              (c) => c['id'] == id,
-                            ),
+                            (report!['captures'] as List)
+                                .cast<Map>()
+                                .firstWhere((c) => c['id'] == id),
                           ),
                   ),
                 ),
@@ -435,7 +443,12 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              HelpLabel(help: 'Off by default. Access applies only to this chat and the captured window for 15 minutes; it ends on app restart. File permissions and Full access do not enable it. Input can affect files or services through that application; this is not an OS sandbox.', child: const Text('Access lasts 15 minutes and can affect the selected app.')),
+              HelpLabel(
+                help: 'Off by default. Access applies only to this chat and the captured window for 15 minutes; it ends on app restart. File permissions and Full access do not enable it. Input can affect files or services through that application; this is not an OS sandbox.',
+                child: const Text(
+                  'Access lasts 15 minutes and can affect the selected app.',
+                ),
+              ),
               if (access?['enabled'] == true) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -449,7 +462,10 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Allow input to this captured window'),
-                subtitle: HelpLabel(help: 'Capture again if the window moved, resized, or changed focus. After input, Dolores must observe before acting again.', child: const Text('Capture again after the window changes.')),
+                subtitle: HelpLabel(
+                  help: 'Capture again if the window moved, resized, or changed focus. After input, Dolores must observe before acting again.',
+                  child: const Text('Capture again after the window changes.'),
+                ),
                 value: consent,
                 onChanged: pending || widget.chat.busy || capture == null
                     ? null
@@ -458,7 +474,10 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Cover ordinary typing and navigation'),
-                subtitle: HelpLabel(help: 'Clicks, drags, submission and deletion keys still need review. Even typing can trigger application effects; use only trusted local forms.', child: const Text('Clicks and submission still need review.')),
+                subtitle: HelpLabel(
+                  help: 'Clicks, drags, submission and deletion keys still need review. Even typing can trigger application effects; use only trusted local forms.',
+                  child: const Text('Clicks and submission still need review.'),
+                ),
                 value: automatic,
                 onChanged: pending || widget.chat.busy
                     ? null
@@ -477,10 +496,9 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
               const SizedBox(height: 20),
               FieldLabel(
                 label: 'Model for this screenshot',
-                child: DropdownButtonFormField<String>(
+                child: AppDropdown<String>(
                   key: ValueKey(model),
                   initialValue: model,
-                  isExpanded: true,
                   decoration: const InputDecoration(),
                   items: [
                     for (final m in (report?['models'] as List? ?? []))
@@ -489,7 +507,9 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                         child: Text(m, overflow: TextOverflow.ellipsis),
                       ),
                   ],
-                  onChanged: pending ? null : (value) => setState(() => model = value),
+                  onChanged: pending
+                      ? null
+                      : (value) => setState(() => model = value),
                 ),
               ),
               if (model == null)
@@ -507,7 +527,12 @@ class _DesktopSettingsState extends State<DesktopSettingsInspector> {
                 ),
               ),
               const SizedBox(height: 12),
-              HelpLabel(help: 'Analyze sends this saved screenshot and prepared chat context to the selected provider. It uses this chat’s task limits and records the selected model in run history. Your ordinary chat model stays unchanged. Screen content cannot grant access or instruct Dolores.', child: const Text('Analyze sends this screenshot to the selected provider.')),
+              HelpLabel(
+                help: 'Analyze sends this saved screenshot and prepared chat context to the selected provider. It uses this chat’s task limits and records the selected model in run history. Your ordinary chat model stays unchanged. Screen content cannot grant access or instruct Dolores.',
+                child: const Text(
+                  'Analyze sends this screenshot to the selected provider.',
+                ),
+              ),
             ],
           ),
         ),

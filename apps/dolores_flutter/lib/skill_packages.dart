@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -474,8 +476,11 @@ class _SkillPackagesState extends State<SkillPackages> {
                   ]),
                 ],
                 details('Package format and limits', const [
-                  Text(
-                    'ZIP with SKILL.md at its root, plus scripts, references and assets. Optional dolores-package.json declares schema, version, origin and dependencies. ZIP: 4 MiB; expanded: 2 MiB; resource: 512 KiB; SKILL.md: 8 KiB; 64 files. Portable relative paths only. Five installed versions per skill, twelve names per scope and sixty retained bundles per profile. Remove unused installations when full.',
+                  HelpLabel(
+                    help: 'ZIP with SKILL.md at its root, plus scripts, references and assets. Optional dolores-package.json declares schema, version, origin and dependencies. ZIP: 4 MiB; expanded: 2 MiB; resource: 512 KiB; SKILL.md: 8 KiB; 64 files. Portable relative paths only. Five installed versions per skill, twelve names per scope and sixty retained bundles per profile. Remove unused installations when full.',
+                    child: Text(
+                      'Choose a skill ZIP with SKILL.md at its root. Maximum ZIP size: 4 MiB.',
+                    ),
                   ),
                 ]),
                 if (error != null)

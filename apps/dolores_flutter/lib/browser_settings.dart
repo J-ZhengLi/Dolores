@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -99,8 +101,11 @@ class _BrowserSettingsState extends State<BrowserSettingsInspector> {
               ExpansionTile(
                 title: const Text('Privacy and limits'),
                 children: [
-                  const Text(
-                    'A fresh profile is used for each run. Only the selected origin loads; no saved passwords, file uploads, downloads or popups. Screenshots stay local. Page text is shared with your model. Side chats have no tools.',
+                  const HelpLabel(
+                    help: 'A fresh profile is used for each run. Only the selected origin loads; no saved passwords, file uploads, downloads or popups. Screenshots stay local. Page text is shared with your model. Side chats have no tools.',
+                    child: Text(
+                      'Each run uses a fresh browser. Page text is shared with your model.',
+                    ),
                   ),
                 ],
               ),

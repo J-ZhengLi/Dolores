@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -164,8 +166,9 @@ class _NativeRepairsState extends State<NativeRepairs> {
                       'Native repairs could not be loaded. Refresh inspects saved state without repeating an operation.',
                     ),
                   if (state != null && builds.isEmpty)
-                    const Text(
-                      'No native builds retained. Ask Dolores to inspect, propose and test a repair first. A qualified trial can then receive a separately reviewed release build.',
+                    const HelpLabel(
+                      help: 'No native builds retained. Ask Dolores to inspect, propose and test a repair first. A qualified trial can then receive a separately reviewed release build.',
+                      child: Text('No repair builds yet.'),
                     ),
                   for (final b in builds)
                     Card(

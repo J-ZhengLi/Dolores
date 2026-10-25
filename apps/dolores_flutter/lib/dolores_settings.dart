@@ -1,4 +1,6 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
@@ -306,7 +308,7 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                           ),
                         FieldLabel(
                           label: 'Apply to',
-                          child: DropdownButtonFormField<String>(
+                          child: AppDropdown<String>(
                             key: const Key('settings-scope'),
                             initialValue: scope,
                             decoration: const InputDecoration(),
@@ -322,7 +324,10 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                 : (value) async {
                                     if (savedDraft != null &&
                                         draftValue != savedDraft &&
-                                        !await resolveSettingsDraft(context, save: saveDraft)) {
+                                        !await resolveSettingsDraft(
+                                          context,
+                                          save: saveDraft,
+                                        )) {
                                       return;
                                     }
                                     if (!mounted) return;
@@ -392,7 +397,10 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                   enabled: !locked,
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    hintText: field.$1 == calls || field.$1 == tools ? 'Automatic' : null,
+                                    hintText:
+                                        field.$1 == calls || field.$1 == tools
+                                        ? 'Automatic'
+                                        : null,
                                   ),
                                 ),
                               ),
@@ -429,7 +437,9 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                                 controller: output,
                                 enabled: !locked,
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(hintText: 'Provider default'),
+                                decoration: const InputDecoration(
+                                  hintText: 'Provider default',
+                                ),
                               ),
                             ),
                             FieldLabel(
@@ -461,18 +471,26 @@ class _DoloresSettingsInspectorState extends State<DoloresSettingsInspector> {
                             interaction) ...[
                           FieldLabel(
                             label: 'Explanation style',
-                            child: DropdownButtonFormField<String>(
+                            child: AppDropdown<String>(
                               key: ValueKey('discussion-$scope-$discussion'),
                               initialValue: discussion,
                               decoration: const InputDecoration(),
                               items: const [
                                 DropdownMenuItem(
                                   value: 'discuss',
-                                  child: Text('Discuss before substantial work'),
+                                  child: Text(
+                                    'Discuss before substantial work',
+                                  ),
                                 ),
-                                DropdownMenuItem(value: 'brief', child: Text('Keep explanations brief')),
+                                DropdownMenuItem(
+                                  value: 'brief',
+                                  child: Text('Keep explanations brief'),
+                                ),
                               ],
-                              onChanged: locked ? null : (value) => setState(() => discussion = value!),
+                              onChanged: locked
+                                  ? null
+                                  : (value) =>
+                                        setState(() => discussion = value!),
                             ),
                           ),
                           CheckboxListTile(

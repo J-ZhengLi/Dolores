@@ -1,3 +1,5 @@
+import 'help_tip.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -107,8 +109,11 @@ class _LanguageSetupState extends State<LanguageSetup> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Install verified tools into Dolores’s private profile. Node.js is required for TypeScript. Language servers run with your account’s permissions. Files stay editable if setup fails.',
+            const HelpLabel(
+              help: 'Install verified tools into Dolores’s private profile. Node.js is required for TypeScript. Language servers run with your account’s permissions. Files stay editable if setup fails.',
+              child: Text(
+                'Install language tools for Dolores. Your files stay editable if setup fails.',
+              ),
             ),
             const SizedBox(height: 12),
             if (info != null) Text(info!['note'].toString()),

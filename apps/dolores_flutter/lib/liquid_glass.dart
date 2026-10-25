@@ -30,7 +30,7 @@ class LiquidGlass extends StatelessWidget {
     final shape = BorderRadius.circular(radius);
     final body = p.dark
         ? (lens ? const Color(0xff53575d) : p.sidebar)
-        : (lens ? Colors.white : const Color(0xffe8f0fa));
+        : (lens ? Colors.white : const Color(0xfff2f2ef));
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
@@ -38,7 +38,7 @@ class LiquidGlass extends StatelessWidget {
             ? null
             : [
                 BoxShadow(
-                  color: (p.dark ? Colors.black : const Color(0xff6682a3))
+                  color: (p.dark ? Colors.black : const Color(0xff777870))
                       .withValues(alpha: p.dark ? .18 : .10),
                   blurRadius: lens ? 9 : 20,
                   offset: Offset(0, lens ? 2 : 6),
@@ -116,7 +116,7 @@ class _GlassRim extends CustomPainter {
       colors: [
         Colors.white.withValues(alpha: dark ? .48 : .96),
         Colors.white.withValues(alpha: dark ? .12 : .32),
-        const Color(0xff7892b1).withValues(alpha: dark ? .18 : .30),
+        const Color(0xff92948c).withValues(alpha: dark ? .18 : .30),
         Colors.white.withValues(alpha: dark ? .24 : .80),
       ],
     ).createShader(rect);

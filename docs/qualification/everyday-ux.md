@@ -141,3 +141,28 @@ computer-use corpus still has failures. [Learning](learning-followup.md),
 [computer use](computer-use.md) and [idle resources](idle-resources.md) retain the
 actual results; [remaining work](../ACCEPTANCE.md) lists open gates. Original
 provider, selected model and all 37 profile tables remain unchanged.
+
+## Window Close boundary
+
+The prior flow disabled Close during another window action and made native closure
+conditional on an open-review gate and successful checkpoints. The current flow
+hides immediately, attempts draft/file/layout recovery and shutdown within a fixed
+deadline, and never vetoes Close for a save failure or an open review. Background
+mode can retain the hidden owner; tray failure falls back to quitting. Explicit
+file Save and editor dismissal retain their separate validation behavior.
+
+`desktop_frame_test.dart` covers native-call dispatch during a pending action,
+a throwing checkpoint and a checkpoint that never completes. The real AppHost
+path in `workspace_recovery_test.dart` covers the reported conversation-storage
+error, loading state, file-recovery failure and an open modal. These are
+credential-free fixture claims. They do not diagnose the original private profile's
+storage failure or guarantee persistence of edits that could not be checkpointed.
+
+The maintained `python scripts/qualify-native-ui.py --case close` also exercises
+AppHost against the normal release's Rust/SQLite bridge while a separate process
+holds a real SQLite write transaction. Close returns within the fixed deadline,
+reports checkpoint failure, preserves the prior saved draft and leaves SQLite
+integrity intact. This case uses no model or private profile. It establishes native
+bridge/storage contention behavior, not physical Windows close latency. The rebuilt
+normal window launched in a disposable profile, but native screenshot capture timed
+out on both attempts; appearance evidence remains saved Flutter renders.

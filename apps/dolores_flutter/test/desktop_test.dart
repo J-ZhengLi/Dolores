@@ -1,3 +1,5 @@
+import 'package:dolores_flutter/app_dropdown.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -180,7 +182,7 @@ void main() {
         await tester.pumpAndSettle();
         final snapshots = find.descendant(
           of: find.widgetWithText(FieldLabel, 'Saved screenshots in this chat'),
-          matching: find.byType(DropdownButtonFormField<String>),
+          matching: find.byType(AppDropdown<String>),
         );
         await tester.scrollUntilVisible(snapshots, 180);
         await Scrollable.ensureVisible(

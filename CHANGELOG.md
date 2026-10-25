@@ -7,6 +7,9 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Move conversation search to an icon in the title bar with a single search field and live results. Float notices above the workspace without moving content. Close the window immediately and perform bounded best-effort recovery, even during failed saves, busy actions or open reviews.
+- Merge Attention into the title bar as a bell with a compact dropdown. Unify select menus and rounded surfaces, use neutral white and gray colors, and move extended explanations into contextual help.
+
 - Refine the floating dock and selection highlights with translucent glass, reflective edges, soft depth, fluid spring travel and subtle press feedback. Keep crisp labels, reduced-motion/high-contrast fallbacks and Windows support.
 
 - Add opt-in Windows task notifications and an in-app Attention list for saved completion, failure, review and question events. Clicks open the current task or retained evidence; delivery errors preserve the task and its decision.

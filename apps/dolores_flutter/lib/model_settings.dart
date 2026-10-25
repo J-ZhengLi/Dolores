@@ -1,4 +1,6 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -279,14 +281,14 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                 const SizedBox(height: 12),
                 FieldLabel(
                   label: 'Model settings',
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdown<String>(
                     key: ValueKey(
                       'context-model-${selected.contains(contextModel) ? contextModel : selected.first}',
                     ),
                     initialValue: selected.contains(contextModel)
                         ? contextModel
                         : selected.first,
-                    isExpanded: true,
+
                     decoration: const InputDecoration(),
                     items: [
                       for (final id in selected)
@@ -295,7 +297,9 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                           child: Text(id, overflow: TextOverflow.ellipsis),
                         ),
                     ],
-                    onChanged: working ? null : (id) => setState(() => contextModel = id),
+                    onChanged: working
+                        ? null
+                        : (id) => setState(() => contextModel = id),
                   ),
                 ),
                 if (widget.chat.attachmentsAvailable && selected.isNotEmpty)
@@ -329,7 +333,9 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                   child: TextField(
                     key: const Key('context-window'),
                     controller: contextInput(
-                      selected.contains(contextModel) ? contextModel! : selected.first,
+                      selected.contains(contextModel)
+                          ? contextModel!
+                          : selected.first,
                     ),
                     enabled: !working,
                     keyboardType: TextInputType.number,
@@ -350,7 +356,9 @@ class _ConnectionDialogState extends State<ConnectionDialog> {
                   controller: url,
                   enabled: !working,
                   onChanged: endpointChanged,
-                  decoration: const InputDecoration(hintText: 'http://localhost:11434/v1'),
+                  decoration: const InputDecoration(
+                    hintText: 'http://localhost:11434/v1',
+                  ),
                 ),
               ),
               const SizedBox(height: 18),

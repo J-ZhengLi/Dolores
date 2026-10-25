@@ -1,4 +1,6 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -137,12 +139,12 @@ class _CompanionshipSettingsState extends State<CompanionshipSettings> {
                   const SizedBox(height: 16),
                   FieldLabel(
                     label: 'Model',
-                    child: DropdownButtonFormField<String>(
+                    child: AppDropdown<String>(
                       key: const Key('companion-model'),
                       initialValue: models.contains(policy!['model'])
                           ? policy!['model'] as String
                           : null,
-                      isExpanded: true,
+
                       decoration: const InputDecoration(),
                       hint: const Text('Choose a model'),
                       items: [

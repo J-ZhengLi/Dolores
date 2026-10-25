@@ -121,39 +121,10 @@ Future<void> show(
   await t.pumpAndSettle();
 }
 
-Future<void> tap(WidgetTester t, String label) async {
-  if (find.text(label).evaluate().isEmpty) {
-    await t.scrollUntilVisible(
-      find.text(label),
-      200,
-      scrollable: find
-          .descendant(
-            of: find.byType(ListView).last,
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
-  }
-  await t.ensureVisible(find.text(label).last);
-  await t.pump();
-  await t.tap(find.text(label).last);
-  await t.pumpAndSettle();
-}
-
-Future<void> archiveFilter(WidgetTester t, String label) async {
-  await t.drag(find.byType(ListView).last, const Offset(0, 1500));
-  await t.pumpAndSettle();
-  await t.ensureVisible(find.byKey(const Key('history-archive-filter')));
-  await t.tap(find.byKey(const Key('history-archive-filter')));
-  await t.pumpAndSettle();
-  await t.tap(find.text(label).last);
-  await t.pumpAndSettle();
-}
-
 void main() {
   setUpAll(loadReviewFonts);
   testWidgets(
-    'Ctrl K opens local history once and leaves an existing modal in place',
+    'Ctrl K opens a single compact search without replacing another modal',
     (t) async {
       final b = SearchBridge();
       final c = ChatController(b)
@@ -174,162 +145,118 @@ void main() {
       expect(find.byType(HistorySearch), findsOneWidget);
       await shortcut();
       expect(find.byType(HistorySearch), findsOneWidget);
+      expect(find.byType(TextField), findsNWidgets(2)); // Composer plus search.
       expect(b.calls.where((v) => v['command'] == 'start'), isEmpty);
-      await t.pumpWidget(const SizedBox());
-      c.dispose();
-    },
-  );
-  testWidgets(
-    'history result paging replaces the page and Search returns to the first page',
-    (t) async {
-      final b = SearchBridge()..paged = true;
-      final c = ChatController(b)
-        ..loading = false
-        ..session = 'parent';
-      await show(t, c);
-      await tap(t, 'Next results');
-      expect(find.text('Second retained task'), findsOneWidget);
-      expect(find.text('First retained task'), findsNothing);
-      expect(
-        find.text('1 conversation on this page · pinned first'),
-        findsOneWidget,
-      );
-      await tap(t, 'Search');
-      expect(find.text('First retained task'), findsOneWidget);
-      await t.pumpWidget(const SizedBox());
-      c.dispose();
-    },
-  );
-  testWidgets(
-    'search pin archive and restore preserve draft and open exact conversation without running a model',
-    (t) async {
-      final b = SearchBridge();
-      final c = ChatController(b)
-        ..loading = false
-        ..session = 'parent'
-        ..draft = 'Keep parent draft';
-      String? opened;
-      c.onNavigateConversation = (id) async {
-        opened = id;
-      };
-      await show(t, c);
-      await t.enterText(find.byKey(const Key('history-search-text')), '中文预算');
-      await tap(t, 'Search');
-      await tap(t, 'Pin');
-      expect(b.pinned, true);
-      await tap(t, 'Archive');
-      expect(find.text('Retained task 世界'), findsNothing);
-      expect(c.draft, 'Keep parent draft');
-      await archiveFilter(t, 'Archived conversations');
-      await tap(t, 'Search');
-      expect(find.text('Retained task 世界'), findsOneWidget);
-      await tap(t, 'Unarchive');
-      expect(b.archived, false);
-      await archiveFilter(t, 'All conversations');
-      await tap(t, 'Search');
-      await tap(t, 'Open conversation');
-      expect(opened, 'saved');
-      expect(c.session, 'parent');
-      expect(c.draft, 'Keep parent draft');
-      expect(b.calls.where((v) => v['command'] == 'start'), isEmpty);
-      expect(
-        b.calls.where((v) => v['command'] == 'saveDraft').last['text'],
-        'Keep parent draft',
-      );
-      await t.pumpWidget(const SizedBox());
-      c.dispose();
-    },
-  );
-  testWidgets(
-    'stale organization and failed rebuild retain search text and previous results for explicit recovery',
-    (t) async {
-      final b = SearchBridge();
-      final c = ChatController(b)
-        ..loading = false
-        ..session = 'parent'
-        ..draft = 'Keep draft';
-      await show(t, c);
-      b.failEdit = true;
-      await tap(t, 'Archive');
-      expect(find.textContaining('Organization changed.'), findsOneWidget);
-      expect(find.text('Retained task 世界'), findsOneWidget);
-      expect(b.archived, false);
-      await t.drag(find.byType(ListView).last, const Offset(0, 1500));
+      await t.sendKeyEvent(LogicalKeyboardKey.escape);
       await t.pumpAndSettle();
-      await t.enterText(find.byKey(const Key('history-search-text')), '中文预算');
-      b.failSearch = true;
-      await tap(t, 'Search');
-      expect(find.textContaining('Local index unavailable.'), findsOneWidget);
-      await t.scrollUntilVisible(
-        find.text('Retained task 世界'),
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byType(ListView).last,
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      expect(find.text('Retained task 世界'), findsOneWidget);
-      b.failRebuild = true;
-      await tap(t, 'Rebuild search');
-      expect(find.textContaining('rebuild unavailable.'), findsOneWidget);
-      await t.drag(find.byType(ListView).last, const Offset(0, 1500));
-      await t.pumpAndSettle();
-      expect(
-        t
-            .widget<TextField>(find.byKey(const Key('history-search-text')))
-            .controller!
-            .text,
-        '中文预算',
-      );
-      b.failRebuild = false;
-      await tap(t, 'Rebuild search');
-      expect(b.rebuilds, 2);
-      expect(find.textContaining('unavailable.'), findsNothing);
-      b.failEdit = false;
-      await tap(t, 'Archive');
-      expect(b.archived, true);
-      expect(c.draft, 'Keep draft');
+      expect(find.byType(HistorySearch), findsNothing);
       await t.pumpWidget(const SizedBox());
       c.dispose();
     },
   );
-  testWidgets(
-    'compact history filters results and recovery fit Light and Dark',
-    (t) async {
-      viewport(t, const Size(390, 740));
-      for (final dark in [false, true]) {
-        final b = SearchBridge();
-        final c = ChatController(b)
-          ..loading = false
-          ..session = 'parent'
-          ..workspaceRoot = 'C:/public-project';
-        final key = GlobalKey();
-        await show(t, c, dark: dark, key: key);
-        await capture(t, key, 'history-search-${dark ? 'dark' : 'light'}');
-        await t.scrollUntilVisible(
-          find.text('Open conversation'),
-          200,
-          scrollable: find
-              .descendant(
-                of: find.byType(ListView).last,
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        );
-        await t.pumpAndSettle();
-        await capture(t, key, 'history-results-${dark ? 'dark' : 'light'}');
-        expect(t.takeException(), isNull);
-        b.failEdit = true;
-        await tap(t, 'Archive');
-        await t.ensureVisible(find.textContaining('Organization changed.'));
-        await t.pumpAndSettle();
-        await capture(t, key, 'history-recovery-${dark ? 'dark' : 'light'}');
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-        c.dispose();
-      }
-    },
-  );
+
+  for (final dark in [false, true]) {
+    for (final width in [390.0, 1100.0]) {
+      testWidgets(
+        'search starts as one input and opens a saved result ($dark, $width)',
+        (t) async {
+          debugDisableShadows = false;
+          viewport(t, Size(width, 740));
+          final b = SearchBridge();
+          final c = ChatController(b)
+            ..loading = false
+            ..session = 'parent'
+            ..draft = 'Keep parent draft';
+          String? opened;
+          c.onNavigateConversation = (id) async => opened = id;
+          final key = GlobalKey();
+          await show(t, c, dark: dark, key: key);
+          expect(find.byType(TextField), findsOneWidget);
+          expect(find.text('More filters'), findsNothing);
+          expect(find.text('Rebuild search'), findsNothing);
+          expect(b.calls.where((v) => v['command'] == 'history'), isEmpty);
+          expect(t.getSize(find.byType(HistorySearch)).height, lessThan(100));
+          await capture(
+            t,
+            key,
+            'search-empty-${dark ? 'dark' : 'light'}-$width',
+          );
+          await t.enterText(
+            find.byKey(const Key('history-search-text')),
+            'saved',
+          );
+          await t.pump(const Duration(milliseconds: 300));
+          await t.pumpAndSettle();
+          expect(find.text('Retained task 世界'), findsOneWidget);
+          expect(
+            b.calls.lastWhere(
+              (v) => v['command'] == 'history',
+            )['request']['query']['filter']['archive'],
+            'all',
+          );
+          await capture(
+            t,
+            key,
+            'search-results-${dark ? 'dark' : 'light'}-$width',
+          );
+          await t.tap(find.byKey(const Key('history-result-saved')));
+          await t.pumpAndSettle();
+          expect(opened, 'saved');
+          expect(c.draft, 'Keep parent draft');
+          expect(b.calls.where((v) => v['command'] == 'start'), isEmpty);
+          expect(find.byType(HistorySearch), findsNothing);
+          debugDisableShadows = true;
+          expect(t.takeException(), isNull);
+          await t.pumpWidget(const SizedBox());
+          c.dispose();
+        },
+      );
+    }
+  }
+
+  testWidgets('failed search preserves the query and retries with Enter', (
+    t,
+  ) async {
+    final b = SearchBridge()..failSearch = true;
+    final c = ChatController(b)..loading = false;
+    await show(t, c);
+    await t.enterText(find.byKey(const Key('history-search-text')), 'budget');
+    await t.pump(const Duration(milliseconds: 300));
+    await t.pumpAndSettle();
+    expect(
+      find.text('Search unavailable. Press Enter to retry.'),
+      findsOneWidget,
+    );
+    expect(
+      t.widget<TextField>(find.byType(TextField)).controller!.text,
+      'budget',
+    );
+    b.failSearch = false;
+    await t.testTextInput.receiveAction(TextInputAction.done);
+    await t.pumpAndSettle();
+    expect(find.text('Retained task 世界'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+
+  testWidgets('search paging is bounded and typing returns to the first page', (
+    t,
+  ) async {
+    final b = SearchBridge()..paged = true;
+    final c = ChatController(b)..loading = false;
+    await show(t, c);
+    await t.enterText(find.byType(TextField), 'saved');
+    await t.pump(const Duration(milliseconds: 300));
+    await t.pumpAndSettle();
+    await t.tap(find.text('More results'));
+    await t.pumpAndSettle();
+    expect(find.text('Second retained task'), findsOneWidget);
+    expect(find.text('First retained task'), findsNothing);
+    await t.enterText(find.byType(TextField), 'new');
+    await t.pump(const Duration(milliseconds: 300));
+    await t.pumpAndSettle();
+    expect(find.text('First retained task'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    c.dispose();
+  });
 }

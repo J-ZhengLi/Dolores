@@ -1,3 +1,4 @@
+import 'app_dropdown.dart';
 import 'form_field_layout.dart';
 import 'help_tip.dart';
 
@@ -319,7 +320,8 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                       child: Text(
                         widget.model,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                     IconButton(
@@ -415,9 +417,8 @@ class _ModelDetailsEditorState extends State<ModelDetailsEditor> {
                           const SizedBox(height: 12),
                           FieldLabel(
                             label: 'Reasoning',
-                            child: DropdownButtonFormField<String>(
+                            child: AppDropdown<String>(
                               initialValue: reasoning,
-                              isExpanded: true,
                               decoration: const InputDecoration(),
                               items: [
                                 for (final r in [
