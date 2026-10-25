@@ -7,7 +7,8 @@
 | Understand components, limits and trust | [Architecture](ARCHITECTURE.md) |
 | Review the target self-evolving harness design | [Architecture specification](design/evolving-harness-architecture.md) |
 | Understand questioning, personality and automatic adaptation policy | [Dolores behavior](design/dolores-behavior.md) |
-| Change the UI consistently | [UI contract](UI.md) |
+| Design a clean, consistent page, control or animation | [UI design guidelines](UI.md) |
+| Change workspace navigation, settings placement or conversation interactions | [Desktop interaction requirements](design/desktop-interactions.md) |
 | Work on Flutter/Rust integration | [Bridge contract](flutter/flutter-api.md) |
 | Understand stored/shared information | [Privacy](PRIVACY.md) |
 | Inspect Windows bundled licenses and prerequisites | [Dependency notices](DEPENDENCIES.md) |

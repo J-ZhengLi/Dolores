@@ -1,6 +1,11 @@
 # Contributing to Dolores
 
-The default desktop app is Flutter with a bundled Rust bridge. Start with [architecture](docs/ARCHITECTURE.md), [UI contract](docs/UI.md) and repository `AGENTS.md`. Keep scope small, preserve unrelated edits, record failure/recovery checks in [acceptance](docs/ACCEPTANCE.md), and commit each completed brick. Generated output, credentials and private transcripts stay out of Git.
+The default desktop app is Flutter with a bundled Rust bridge. Start with [architecture](docs/ARCHITECTURE.md), [UI design guidelines](docs/UI.md) and repository `AGENTS.md`. Keep scope small, preserve unrelated edits, record failure/recovery checks in [acceptance](docs/ACCEPTANCE.md), and commit each completed brick. Generated output, credentials and private transcripts stay out of Git.
+
+UI.md owns reusable guidance for hierarchy, layout, wording, material and motion.
+Maintain feature workflows and rationale in the owning design specification,
+delivery sequencing in plans, and results in acceptance. A feature implementation
+does not require a UI.md entry when the shared guidance already covers it.
 
 ## Prerequisites and normal Windows build
 

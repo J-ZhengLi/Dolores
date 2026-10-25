@@ -7,6 +7,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Refine the floating dock and selection highlights with translucent glass, reflective edges, soft depth, fluid spring travel and subtle press feedback. Keep crisp labels, reduced-motion/high-contrast fallbacks and Windows support.
+
 - Add opt-in Windows task notifications and an in-app Attention list for saved completion, failure, review and question events. Clicks open the current task or retained evidence; delivery errors preserve the task and its decision.
 
 - Search saved conversation titles and messages, pin important chats, and archive or restore conversations without stopping tasks or clearing their drafts and queued input.

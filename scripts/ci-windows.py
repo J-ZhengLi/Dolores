@@ -50,6 +50,7 @@ def check(generator='Visual Studio 17 2022', cmake=None, full=False):
     release.check(tag=tag())
     run([sys.executable, ROOT / 'scripts/check-publication.py'])
     run([sys.executable, ROOT / 'scripts/check-docs.py'])
+    run([sys.executable, ROOT / 'scripts/test-docs.py'])
     for name in ('test-ci-windows.py', 'test-local-ci.py', 'test-rust-timing.py', 'test-publication.py', 'test-release.py', 'test-installer.py', 'test-installer-lifecycle.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py'):
         run([sys.executable, ROOT / 'scripts' / name])
     run(['cargo', 'fmt', '--all', '--check'])

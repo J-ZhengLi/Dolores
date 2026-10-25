@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// Shared visual contract: docs/UI.md. Update both when deliberately restyling.
+// Semantic tokens implement docs/UI.md guidance. Feature workflows live in docs/design/.
 abstract final class UiTokens {
   static const sidebarWidth = 252.0;
   static const sidebarMinWidth = 220.0;

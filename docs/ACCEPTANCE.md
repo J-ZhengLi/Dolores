@@ -1,5 +1,59 @@
 # Dolores acceptance — 2026-10-08
 
+## Portable glass and motion refinement — October 25
+
+The bottom dock and navigation selections share a Flutter-painted glass material:
+translucent tint, directional reflective rim, inset shade and localized shadow.
+The dock uses one clipped active backdrop blur; its selected lens reuses that
+backdrop without a second active blur. Labels/icons remain crisp. Settings uses
+the same lens material. No Apple-native plugin or new dependency was added.
+
+Selection travel uses a damped spring and carries current position and velocity
+into interrupted/rapid changes. A bounded stretch follows travel and returns to
+the resting shape. Press/cancel feedback compresses only the visual child; hit
+areas remain stationary. Dock reveal/dismissal uses eased travel with a shorter
+fade, preserving edge/tap/keyboard reveal, auto-hide, focus and draft ownership.
+High contrast disables blur; reduced motion also removes travel/stretch/scaling.
+
+Full Flutter tests pass: 611 passed, 19 opt-in cases skipped. Analyzer reports no
+issues. Four added cases cover rapid reversal, resize during travel, enabling
+reduced motion mid-flight, cancelled mouse presses, contrast fallback and busy
+content in both themes. Existing tests cover draft retention, menus, Settings,
+hidden-dock input/focus, keyboard reveal and compact layouts. The layout probe
+still records zero navigation-parent layouts over 20 animation frames.
+
+Saved synthetic renders in `output/glass-refinement/` were inspected for Light,
+Dark, compact drawer, Settings and dock glass over busy content, including a
+mid-travel lens. These establish fixture appearance and interactions, not native
+GPU frame timing, physical assistive-technology behavior or Apple parity.
+
+The normal Windows x64 helper build passes. Its `main` build identity and compiled
+artifact freshness were checked after the final visual edits. The user profile
+was not launched or modified for this verification. Documentation and tracked-file
+publication checks pass.
+
+## Shared UI guidance scope — October 25
+
+Git history shows feature workflow paragraphs accumulating in UI.md alongside
+shared presentation guidance: history search, notifications, prompt branches and
+MCP connection setup. The old introduction called it a contract and linked to
+inline feature contracts; the agent entry point did not distinguish design
+principles from feature documentation. Link checking accepted that growth.
+
+UI.md now contains reusable design/review guidance (144 lines, previously 299),
+including portable glass and motion. Existing feature interaction requirements
+were retained in `docs/design/desktop-interactions.md`, reached through the docs
+index. Agent/contributor pointers name the separate owners for principles,
+workflows, rationale, plans and verification; exact palette values remain in the
+theme. The documentation check enforces a 180-line budget and routes feature
+references and dated section headings away from UI.md. This is a structural
+guardrail; reviewing whether a rule is reusable remains necessary.
+
+Three scope regression tests and five CI-helper tests pass. The old guide
+produces eight scope findings under the new check; the current guide passes.
+All 125 documents and 547 local links pass. No UI behavior changed in this
+documentation brick.
+
 ## Terminal startup and dock cleanup — October 23
 
 The reported Windows PowerShell startup error was reproduced using the actual

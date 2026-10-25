@@ -10,9 +10,10 @@ The finalized design uses **developer-pages variant B** with the amendments belo
 
 ## Navigation and page layout
 
-The shared shell follows [UI.md](../UI.md): primary navigation occupies a compact
-centered bottom dock with Home, Scheduled, Files, Source Control, Terminal, Library
-and Settings. Library opens skill management. The dock floats above the workspace
+The shared shell follows [desktop interaction requirements](desktop-interactions.md),
+with shared appearance guided by [UI.md](../UI.md): primary navigation occupies a compact
+centered bottom dock with Home, Scheduled, Files, Source Control, Terminal
+and Settings. Skill management lives in Settings. The dock floats above the workspace
 without reserving height. It hides after inactivity/pointer departure and reveals
 from the bottom edge, its tap handle or Ctrl+Alt+D; pointer hover and keyboard
 navigation keep it visible. Escape dismisses it. Wide windows show icons and labels; compact

@@ -1,299 +1,144 @@
-# UI design guide
+# UI design guidelines
 
-Apply this contract when changing desktop appearance, layout, wording or
-interaction. **Frost & Graphite** means cool blue-white Light surfaces, neutral
-graphite Dark surfaces, glass selection highlights and gentle spring motion.
-Design for general users: concise labels, compact contextual controls and deeper
-features available through progressive disclosure.
+Use this guide when designing or changing a page, layout, control, wording or
+animation. Aim for a calm, precise interface that makes the next action obvious
+and keeps deeper features easy to discover. Design for people using Dolores,
+without requiring them to understand its implementation.
 
-## Apply this contract
+## Use and maintain this guide
 
-1. Identify the affected surfaces and read the matching
-   [feature contract](#feature-contracts). Use this guide for shared presentation
-   and interaction; use the feature contract for behavior and limits.
-2. Apply the relevant rules below through shared components and
-   [theme.dart](../apps/dolores_flutter/lib/theme.dart). Each changed surface must
-   retain its feature behavior and recovery actions.
-3. Run the applicable [verification](#verification). Record exercised flows and
-   remaining gaps in [ACCEPTANCE.md](ACCEPTANCE.md); distinguish design intent
-   from verified native behavior.
+1. Identify the user's task and primary action. Sketch the information hierarchy
+   before adding controls or explanatory copy.
+2. Apply the relevant guidance below. Reuse shared components and semantic tokens
+   from [the theme](../apps/dolores_flutter/lib/theme.dart).
+3. Review the result at wide and compact widths, in Light and Dark, with long
+   content, keyboard focus and reduced motion. Retain usable work and recovery.
 
-Maintain reusable rules here, feature behavior in [design specifications](design/),
-and delivery sequencing in [ROADMAP.md](ROADMAP.md). Edit the owning rule when a
-decision changes.
+This file owns reusable design guidance. Change it when a principle applies to
+multiple kinds of surface. For feature workflows, exact destinations, shortcuts
+and state rules, find the owning specification through the [documentation
+index](README.md). Put rationale in that specification, delivery notes in the
+changelog, and exercised checks/gaps in [acceptance](ACCEPTANCE.md).
 
-## Visual style
+Keep the guide within 180 lines. The documentation check enforces that budget,
+routes feature-specific references away from this file and rejects dated section
+headings. Review each addition for general applicability even when checks pass.
 
-- Support System, Light and Dark appearance. Use a pale ice-blue sidebar and
-  slate actions in Light mode; use neutral graphite in Dark mode. Build hierarchy
-  with spacing, typography, subtle borders and surface depth.
-- Centralize semantic colors, typography and dimensions in the shared theme.
-  Align its tokens with these target palette anchors; derive accessible hover,
-  focus, disabled and status variants there:
+## Hierarchy and space
 
-  | Role | Light | Dark |
-  | --- | --- | --- |
-  | Canvas | `#F5F8FC` | `#1B1B1B` |
-  | Raised surface | `#FFFFFF` | `#262626` |
-  | Sidebar base | `#E5EDF8` | `#222222` |
-  | Primary text | `#253044` | `#EFEFEF` |
-  | Secondary text | `#68778B` | `#A6A6A6` |
-  | Border | `#DCE4EF` | `#3B3B3B` |
-  | Primary action | `#35475F` | `#E2E2E2` |
-  | Soft emphasis | `#E4EDF8` | `#353535` |
+- Give each surface one clear purpose and one visually primary action. Group
+  related controls together; show secondary actions in a contextual menu.
+- Establish hierarchy with whitespace, alignment, type weight and surface depth.
+  Use a short heading only when it helps orient the user. A new card or border
+  should separate meaningful groups rather than decorate every row.
+- Choose the smallest comfortable surface: an anchored dropdown for short
+  choices, a centered window for settings, and a resizable panel for substantial
+  tools. Keep the main workspace stable while these surfaces open.
+- Align headings, labels, controls and action rows to shared edges. Use a 4 px
+  spacing scale, consistent row heights and optical centering for icon/text pairs.
+  Keep title-bar branding compact and show it once per main layout.
+- Reserve sidebars for the current task's content. Floating navigation overlays
+  the workspace without reserving height; it remains discoverable and keeps
+  underlying controls reachable when hidden.
+- At compact widths, wrap rows, reduce navigation to named icons, and use bounded
+  scrolling with reachable action footers. Long content and text scaling must
+  retain both the primary action and a clear way back.
 
-- Use system fonts and the existing monospace family for code. Follow the 4 px
-  spacing scale, generous whitespace, roughly 8–16 px radii for controls/cards
-  and 18–24 px for the composer/settings window. Cap prose width for readability.
-- Preserve the Material infinity mark (`Icons.all_inclusive_rounded`) and the
-  Dolores name. Show the brand once per main layout. Reuse existing Material icons.
-- Use uniform borders on status cards. Reserve translucent glass and blur for
-  selection and floating controls; keep reading, editing and evidence surfaces
-  stable and legible. Small illustrations may support empty states or project
-  identity.
+## Wording and progressive disclosure
 
-## Glass selection
+- Start with the useful content or control. Use a familiar, short name; add at
+  most one brief supporting sentence when it changes the user's decision.
+- Put extended explanations behind a nearby help icon that works on hover,
+  keyboard focus and tap. Keep the layout stationary when help opens. Reuse
+  `HelpTip` / `HelpLabel` for consistent presentation.
+- Put technical settings, provenance, receipts and breakdowns in optional details.
+  Lead summaries with the outcome and a few aligned values, then disclose evidence.
+- Keep errors, validation, meaningful limits and sharing consequences visible at
+  the decision point. Give a specific next action and preserve the user's input.
+- Label fields above their filled controls using `FieldLabel`. Align switch rows
+  and disclosure rows with surrounding fields; keep labels clear of input borders.
+- Use an icon alone only for a familiar action with a semantic name and hover/focus
+  hint. Avoid repeating the same meaning as a heading, badge, subtitle and paragraph.
+- Review every visible sentence: retain it if it helps identify, decide, act or
+  recover. Move background explanation into help; remove repeated instructions.
 
-- Use a shared Liquid Glass-inspired highlight behind the selected primary
-  navigation row and settings category. Combine a translucent cool fill, soft
-  backdrop blur, a fine reflective rim and a restrained shadow. A subtle ice-blue
-  sidebar gradient can make the material visible without adding visual noise.
-- Keep labels and icons crisp above the glass. In Dark mode, use a low-opacity
-  light rim and graphite translucency. Selection must remain distinguishable
-  without relying on color alone.
-- Move one highlight between entries from its current rendered position, using
-  the motion rules below. Keep hit targets and text stationary.
-- The glass owns the selection fill. Suppress Material hover/splash fills in
-  glass navigation; use a fine outline for hover and a stronger keyboard focus
-  outline so interaction never adds a competing gray block.
-- Choose the rendering technique to meet native performance requirements.
-  Provide an opaque selected surface when transparency is reduced or blur is
-  unavailable or too costly.
+## Color, typography and surfaces
 
-## Layout and navigation
+- **Frost & Graphite:** cool blue-white Light surfaces, neutral graphite Dark
+  surfaces, slate actions and crisp text. Support System, Light and Dark appearance.
+  Semantic tokens in the theme own exact values; use them consistently.
+- Keep reading, editing and evidence surfaces quiet and legible. Use glass for
+  floating navigation and selection, giving those controls a distinct material.
+- Use system typography and the shared monospace family for code. Limit prose
+  width and use weight/size sparingly. Align numeric summaries for scanning.
+- Use roughly 8–16 px radii for ordinary controls and 18–24 px for larger floating
+  surfaces. Match curvature within a group; keep shadows soft and localized.
+- Reuse the existing icon family. Keep icon weight, visual size and spacing
+  consistent; preserve the infinity mark and Dolores name.
 
-- Keep **Attention** reachable across workspace pages. Windows notifications are
-  opt-in and carry generic status plus an opaque local target; show task titles
-  only inside Dolores. Distinguish unread/seen from accepted, suppressed, failed
-  or uncertain delivery. Opening a notice navigates to the exact current task or
-  its retained run evidence and never answers or approves. Defer a native click
-  while a modal has unsaved work. Keep errors and Refresh reachable in the fixed
-  Attention footer, with preferences and event identifiers disclosed on demand.
+## Liquid Glass material
 
-- Offer **Search conversations** in the chat sidebar and Ctrl+K when no modal is
-  open. Search saved text locally, show bounded excerpts and exact conversation
-  actions, and keep additional workspace/pin filters collapsed initially. Pinning
-  orders search results first. Archive/unarchive changes organization only;
-  active owners, drafts, goals and queued input remain available. Keep search
-  errors and recovery actions in the fixed footer, retain previous results on
-  failure, and replace result pages rather than accumulating all history.
+- Take inspiration from native Apple controls: a translucent body, softly blurred
+  backdrop, directional reflective edge, subtle inner shade and a grounded shadow.
+  The effect should read as shaped glass rather than a flat white/gray pill.
+- Keep the dock's outer material quieter than its selected lens. Let underlying
+  content influence the tint without competing with labels. Use cool reflections
+  in Light and restrained neutral reflections in Dark.
+- Draw one selected lens behind stationary icons and labels. Keep the text sharp;
+  the lens carries the moving reflection and depth. A small stretch along travel
+  can suggest fluidity, returning to the normal shape at rest.
+- Selection owns the fill. Show hover with a subtle rim and keyboard focus with a
+  clear outline. Press feedback is a small compression; each state stays readable
+  when combined with selection and without relying on color alone.
+- Bound blur to the glass shape. Reuse the shared material across dock and
+  selection so edges, tint and fallback stay consistent. Avoid stacking multiple
+  expensive backdrop filters for one surface.
+- Use portable Flutter painting/compositing on Windows. Native-only demos are
+  visual references, not platform guarantees. High contrast and reduced-motion
+  modes use a stable, opaque selected surface with a clear border.
 
-- Put Home, Scheduled, Files, Source Control, Terminal and Settings in
-  one centered floating bottom dock. Overlay it without reserving workspace
-  height or resizing content. Hide after inactivity/pointer departure; reveal at
-  the bottom edge, by tapping its handle or with Ctrl+Alt+D. Keep it visible while
-  hovered or navigating it by keyboard. Escape dismisses it. Hidden controls must
-  not intercept input. Use icon-and-label items at wide widths and icons with
-  hover/focus names and semantic labels at compact widths.
-- Keep the infinity mark and Dolores name in the shared title bar on every page.
-  Place the sidebar toggle immediately right of the title. Share one centered
-  header layout across native and fallback frames: 18 px logo, compact title
-  line height, 16 px toggle glyph inside a 32 px click target. Use a thin rounded
-  window outline with a narrow left pane for its icon;
-  preserve its tooltip, semantic name, native dragging and window controls.
-- Keep a named Settings gear immediately left of Minimize in the custom Windows
-  title bar, available while the navigation dock is hidden. Open the existing
-  General/Theme settings window, avoid stacking it over an open review and restore
-  keyboard focus when it closes. The dock reveal's accessible name identifies the
-  navigation dock and its destinations so it cannot be mistaken for a sidebar toggle.
-- Reserve the sidebar for the current feature, starting near the top: project
-  chats and recents on Home, files on Files, repository controls on Source Control,
-  and relevant task/terminal controls on their pages. Home centers a short
-  invitation and composer, followed by useful projects and recent work.
-- Group related controls near the content they affect. Prefer one contextual
-  overflow menu to scattered secondary actions or permanent action bars.
-- Saved message selections offer **Ask about this** and, in linked side chats,
-  **Bring to parent task**. Review an editable excerpt in a bounded dialog before
-  opening or sharing. Opening a side chat or returning to its parent sends
-  nothing. Keep parent navigation and the frozen excerpt visible in the side
-  chat; disclose return receipts and source details on demand. An unavailable
-  parent retains the excerpt and explains why return is disabled.
-- Saved user messages offer **Edit in a new branch**. Preview the edited text,
-  optional prompt attachments/context and explicit folder choice before opening
-  an unsent independent draft. Keep original-chat navigation and a paged receipt
-  archive available in that branch. Explain that files remain current and earlier
-  actions are historical. Stale previews retain edits for refresh; failed saves
-  retain their identity for retry without overwriting a newer branch draft.
-  The managed-worktree choice reuses explicit base review and creation, then
-  returns an empty Ready target to the editor without sending or navigating.
-  Show the selected folder and reviewed commit. Explain that source staging and
-  dirty files stay in the source checkout and that a failed attachment retains
-  the worktree for inspection and same-target retry.
-- Choose the smallest surface that comfortably fits the task:
+## Motion and feedback
 
-  | Task | Surface |
-  | --- | --- |
-  | Composer attachment, model or access choice | Compact dropdown anchored to its trigger; current choice and brief decision context |
-  | General, Models, Memory, Access, Connections or Advanced settings | One centered floating window with category navigation and one content area |
-  | Task review, activity or substantial workspace tool | Contextual side panel with resize/collapse controls and keyboard alternatives |
+- Make feedback immediate and settling gentle. Use approximately 120–180 ms for
+  hover/press, 220–300 ms for surface entry/exit and 320–420 ms for selection travel.
+  Use a restrained spring or eased settling; motion serves orientation.
+- Retarget from the current rendered position on rapid input. Keep click targets
+  and surrounding content stationary; animate paint transforms and opacity.
+- Give floating navigation a short upward reveal and a softer downward dismissal.
+  Hover and keyboard use keep it available; hidden navigation releases input and
+  focus. Reversing a reveal should continue smoothly from its current position.
+- Fade/slightly slide page content, preserving its draft ownership. Animate a
+  window's entrance when it opens; category changes keep the window in place.
+- Respect the OS and saved app reduced-motion preference. Remove travel, stretch
+  and press scaling while retaining immediate state feedback. Animation runs only
+  during interaction or meaningful active progress; resting controls stay still.
 
-- Route broader configuration through an explicit dropdown link to the relevant
-  settings category. Keep short choices in dropdowns rather than side panels.
-- Keep Personalization and Companionship reachable under General, permission
-  controls under Access, and tool connections under Connections. Open skill
-  management through Settings. Retain named navigation to Files, Source Control,
-  Terminal and Scheduled tasks alongside Home.
-- Connections keeps Local program and Remote endpoint setup in the same bounded
-  inspector, with fixed actions and reachable Stop. Keep bearer values masked and
-  separate from names/URLs. Loading saved data does not contact a server or claim
-  current health; Inspect/Recheck displays the latest inspection result. Filter
-  reviewed tools locally, retain selections across filtering and keep the selected
-  count in Enable. Failed inspection/saving retains the usable saved connection
-  and an actionable error. Remote approvals display the exact endpoint and
-  arguments without claiming a local program launch. See the
-  [MCP contract](design/mcp-connection.md).
-- Dropdowns stay within the viewport and flip above their trigger near the bottom
-  edge. They dismiss on outside interaction or Escape, support arrow keys and
-  Enter, and return focus to the trigger after selection or Escape. Keep the
-  surrounding workspace usable.
-- The settings window has a clear close action, bounded scrolling, keyboard focus
-  containment and focus restoration. Category changes update its content in place.
-- Preserve panel contents when hiding or resizing. At compact widths, wrap
-  controls and use drawers or section selectors for substantial workspace tools.
-- At compact widths, let settings occupy the available viewport and adapt its
-  category navigation. Keep short dropdowns anchored and bounded. Use a scrolling
-  body with a reachable, wrapping action footer for long forms and reviews.
-  Keep primary actions reachable without clipping or layout jumps. Reuse the
-  settings window or relevant inspector for deeper forms.
+## Interaction and accessibility
 
-## Wording and settings
+- Preserve drafts, selection, scroll position and usable results through navigation
+  and failures. Failed saves retain edits and expose retry; unsaved dismissal
+  offers a clear choice to save, discard or keep editing.
+- Provide semantic names, selected states, visible keyboard focus, sufficient
+  contrast and comfortable targets. Keep native editing and IME composition.
+- Anchor dropdowns to their triggers, fit them inside the viewport, and flip them
+  near an edge. Support outside dismissal, Escape, arrow keys and Enter; restore
+  focus to the trigger. Contain focus within modal windows.
+- Make pending work visible, prevent duplicate actions and keep Stop reachable.
+  Viewing evidence or refreshing status leaves external actions unchanged.
+- Keep text selectable, code horizontally scrollable and Copy faithful to the
+  complete source. Offer named keyboard/menu alternatives to dragging.
 
-- Use `FieldLabel` for external labels above filled inputs; never cut a label
-  into the field border. Align labels, fields, switches and disclosure rows to
-  common edges, with consistent gaps and wrapping at compact widths.
-- Lead with a short, familiar name and its control. Add at most one brief
-  supporting sentence when it helps the user decide. Empty states and success
-  notices should also be short and actionable.
-- Use progressive disclosure for deeper features, sources, history, usage and
-  technical details. Keep them reachable through contextual menus, searchable
-  settings or optional details. Put performance gates, backend implementation
-  notes and qualification results in documentation.
-- Put longer setting explanations behind a circled question-mark icon beside
-  the label (`Icons.help_outline`). Show its wrapped hint on hover or keyboard
-  focus, and make it accessible on touch without changing the setting or moving
-  the layout. Keep the explanation available to assistive technology.
-- Reuse `HelpTip` and `HelpLabel` for floating help. Keep validation and sharing
-  consequences visible; disclose supporting explanations without hiding recovery.
-- Run details lead with model and per-call input/output/total metrics. Put
-  token breakdowns, request settings and context sources in expandable sections.
-  Keep local context estimates separate from provider usage; never infer missing
-  counts or a run total from partial per-call data.
-- Interleave public agent progress and compact tool rows in the conversation,
-  followed by the final answer. Expand a row for receipts, screenshots or diffs;
-  keep provider thinking separate. Preserve saved ordering when available and
-  identify older activity whose exact interleaving was not recorded.
-- Keep essential availability, errors and consequences visible in plain language.
-  Use wording such as “Not available yet” or “Couldn't save. Try again.” Explain
-  the effect and next action; put supporting evidence in optional details.
-- Prefer one direct choice per setting and persist it after a successful save.
-  Keep the last saved value visible if saving fails.
+## Design review
 
-## Motion
+Before finishing, inspect the changed surface and answer each applicable question:
 
-- Use modest spring settling: slight button compression on press, natural release
-  and subtle card lift on hover. Keep text and surrounding layout stable.
-- Use approximately 150–220 ms for hover and dropdown feedback, 200–300 ms for
-  press/release, and 350–450 ms for navigation highlight travel and window or
-  panel transitions. Treat these as tuning ranges, with a small overshoot only
-  where it helps convey movement.
-- Animate position, scale and opacity. New input retargets movement from its
-  current rendered state and takes effect immediately. Animate a window entrance
-  only when opening it; field and category changes keep the window stationary.
-- Fade and slightly slide page content over about 240 ms when changing workspace
-  pages or settings categories. Retain existing draft ownership and exclude
-  outgoing/hidden content from input, focus and semantics. Move the glass with
-  a paint transform so animation ticks do not relayout the navigation stack.
-- Respect both the OS reduced-motion preference and an in-app motion preference.
-  Persist the in-app choice and apply it across conversations; failed saves retain
-  the last acknowledged choice. OS reduced motion takes precedence.
-  Reduced motion removes travel, bounce and scale effects while preserving clear
-  immediate state feedback. Repeating animation is limited to meaningful active
-  progress, with a readable static alternative.
+- Is the primary action obvious, with useful content visible before explanation?
+- Are edges, row rhythm, icon sizes and spacing consistent with nearby surfaces?
+- Are long explanations disclosed while errors and decision consequences remain visible?
+- Is glass legible over busy content, in both themes and its opaque fallback?
+- Do rapid input, interrupted motion and reduced motion leave a clear selected state?
+- Can keyboard and compact-window users complete the task and recover their work?
 
-## Interaction and recovery
-
-- In conversations, the first deliberate upward scroll stops following new
-  output, including small wheel/trackpad movements near the bottom. Streaming,
-  late rendering and status updates preserve that reading position. Returning
-  to the bottom or choosing the latest page resumes following.
-- Preserve drafts, selection and usable results across navigation, dropdown
-  choices, settings changes and failures. Failed saves retain edits; dismissing
-  unsaved changes offers Save / Discard / Keep editing.
-- Prevent duplicate actions while work is pending. Keep relevant progress and Stop
-  reachable. Close and Escape follow the same pending-work and draft protections.
-- Show actual states and outcomes. Distinguish saved from unsaved, partial from
-  complete, and uncertain effects from verified success.
-- Give failures a specific recovery action beside the affected content. Viewing
-  evidence or pressing Refresh must not silently repeat an external action.
-- Treat a deliberate action as the decision when another review adds no useful
-  choice. Preserve validation and recovery at that decision point.
-- Reviews show the concrete target, effect and sharing consequence before the
-  decision. Keep full selectable evidence in a bounded scroll area and decision
-  buttons reachable below it. Keep secrets masked.
-- Keep ordinary text selectable and code/diffs readable with independent
-  horizontal scrolling. Preserve complete source text when offering Copy.
-
-## Accessibility
-
-- Provide semantic names, visible keyboard focus, sufficient contrast and usable
-  pointer targets. Icon-only actions need understandable hover/focus hints.
-- Provide keyboard/menu alternatives to dragging. Preserve native text editing,
-  selection and IME composition.
-
-## Verification
-
-Complete each applicable check for the changed surfaces. Record any unexercised
-native behavior as an acceptance gap.
-
-| Changed area | Completion criterion |
-| --- | --- |
-| Documentation | Local links resolve; rules are self-contained and internally consistent |
-| Appearance/layout | Saved renders inspected in affected Light, Dark and compact layouts, including long labels/content and glass contrast/fallback |
-| Motion | Rapid repeated input retargets correctly; reduced motion gives immediate readable state feedback |
-| Dropdowns/settings | Edge placement, keyboard navigation/dismissal, focus restoration and draft retention exercised |
-| Stateful actions | Pending, failed and recovery paths exercised; usable work retained and next action available |
-
-Use native interaction checks where focus, input or rendering depends on native
-behavior. Build and launch only when the change requires that evidence.
-
-## Feature contracts
-
-- **Managed worktrees:** expose Worktrees from chat actions and the working-folder
-  menu. Require an explicit base and a review of the source, destination and exact
-  commit before creation. Show setup choices without running repository scripts.
-  Keep the source draft and use a separate Open chat action. Retained records and
-  recovery paths remain inspectable even when their chats are absent from recent
-  history. Status checks never repeat creation; failures bring their recovery
-  message into view. Transfer controls compare saved files, require selection and
-  an explicit destination/patch review, and keep Apply disabled on conflict.
-  Expose retained versions and a copyable recovery folder; status polling or
-  reopening an uncertain receipt never repeats publication. See
-  [EH06](plans/everyday-harness/eh06.md) for lifecycle gates.
-  Archive and Restore use separate reviews showing the owned folder, original
-  folder kept, snapshot identity and retained archive path. Save the source draft
-  before applying either action. Interrupted lifecycle work exposes inspection
-  and explicit continuation; it never automatically removes or restores files.
-
-Read the matching specification when changing:
-
-- **Workspace navigation, file tabs or splits:** [Developer workspace](design/developer-workspace.md).
-- **Source Control or Git diffs:** [Source Control](design/source-control.md).
-  Provide accessible line comments and retained findings with separate Queue,
-  Steer and verified-resolution actions. Keep original excerpts readable when
-  locations change; status recovery must never duplicate a repair instruction.
-- **Terminal or language services:** [Terminal and language services](design/terminal-language-services.md).
-- **Conversation or settings organization:** [UX simplification](design/ux-simplification.md).
-- **Automatic memory:** [Automatic memory](design/automatic-memory.md).
-
-For other feature behavior and limits, read the corresponding contract under
-[design specifications](design/).
+Use saved renders for appearance and focused interaction checks for behavior.
+Record evidence and remaining native/performance gaps in acceptance, outside this
+guide. A smooth fixture animation alone does not establish native frame timing.

@@ -12,4 +12,4 @@ Choose verification that matches the change. Do not build, launch or visually in
 
 Automated checks use deterministic fixtures and require no provider credentials. For an optional live check, explicitly choose an available model suited to the case, bound prompts and token usage, and preserve existing settings/history. Keep credentials and private transcripts out of artifacts. A fixture pass alone does not establish real-model reliability.
 
-Follow `docs/UI.md` for desktop UI changes. For builds, CI or releases, read `CONTRIBUTING.md` and `docs/RELEASING.md`. Optional local indexing and command helpers are conveniences, not prerequisites for contributors.
+For desktop pages, layouts, controls, wording or motion, read `docs/UI.md` as reusable design guidance. Put feature workflows and rationale in the owning `docs/design/` specification, sequencing in plans, and verification in `docs/ACCEPTANCE.md`; update UI.md only for a cross-surface design principle. For builds, CI or releases, read `CONTRIBUTING.md` and `docs/RELEASING.md`. Optional local indexing and command helpers are conveniences, not prerequisites for contributors.

@@ -26,6 +26,21 @@ def anchors(path):
         result.add(slug+('-'+str(count) if count else ''))
     return result
 
+def ui_guide_issues(path):
+    """Keep the shared guide small; route feature/evidence detail to its owner."""
+    issues=[]
+    if len(path.read_text(encoding='utf-8-sig').splitlines()) > 180:
+        issues.append({'line':1,'issue':'UI guide exceeds 180 lines; disclose feature detail through docs/README.md'})
+    for number,line in plain_lines(path):
+        if re.match(r'^#{1,6}\s',line) and re.search(r'\b20\d{2}[-/]\d{2}[-/]\d{2}\b',line):
+            issues.append({'line':number,'issue':'Dated UI sections belong in design rationale or acceptance'})
+        for target in re.findall(r'\]\(([^\s)]+)',line):
+            part=urlsplit(target).path
+            if part.startswith(('design/','plans/','qualification/','research/')) and part.endswith('.md'):
+                issues.append({'line':number,'target':target,'issue':'Route feature-specific references through docs/README.md; UI.md owns shared principles'})
+    return issues
+
+
 def main():
     paths=sorted([ROOT/'README.md',*ROOT.glob('README_*.md'),ROOT/'CONTRIBUTING.md',ROOT/'apps/dolores_flutter/README.md',*(ROOT/'docs').rglob('*.md')])
     failures=[];checked=0;external=0
@@ -40,6 +55,7 @@ def main():
                 if not dest.is_relative_to(ROOT) or not dest.exists(): issue='missing/outside repository target'
                 elif parts.fragment and dest.suffix=='.md' and unquote(parts.fragment) not in anchors(dest): issue='missing heading'
                 if issue: failures.append({'file':str(path.relative_to(ROOT)),'line':number,'target':target,'issue':issue})
+    failures.extend({'file':'docs/UI.md',**issue} for issue in ui_guide_issues(ROOT/'docs/UI.md'))
     print(json.dumps({'ok':not failures,'documents':len(paths),'localLinks':checked,'externalLinksNotChecked':external,'failures':failures},indent=2))
     return bool(failures)
 

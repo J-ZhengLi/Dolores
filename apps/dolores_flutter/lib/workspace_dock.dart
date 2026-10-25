@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'glass_navigation.dart';
+import 'liquid_glass.dart';
 import 'theme.dart';
 
 class DockItem {
@@ -83,7 +84,7 @@ class WorkspaceDockState extends State<WorkspaceDock> {
         MediaQuery.accessibleNavigationOf(context);
     final duration = reduced
         ? Duration.zero
-        : const Duration(milliseconds: 220);
+        : const Duration(milliseconds: 280);
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
     return SizedBox(
       height: 88 + MediaQuery.paddingOf(context).bottom,
@@ -93,10 +94,12 @@ class WorkspaceDockState extends State<WorkspaceDock> {
           AnimatedSlide(
             offset: visible ? Offset.zero : const Offset(0, 1.15),
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: const Cubic(.16, 1, .3, 1),
             child: AnimatedOpacity(
               opacity: visible ? 1 : 0,
-              duration: duration,
+              duration: reduced
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
               child: IgnorePointer(
                 ignoring: !visible,
                 child: ExcludeSemantics(
@@ -231,7 +234,6 @@ class _DockSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = Palette(Theme.of(context).brightness == Brightness.dark);
     return SafeArea(
       top: false,
       child: LayoutBuilder(
@@ -247,56 +249,53 @@ class _DockSurface extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
             child: Center(
               heightFactor: 1,
-              child: Container(
+              child: LiquidGlass(
                 key: const Key('workspace-dock'),
-                padding: const EdgeInsets.fromLTRB(6, 6, 2, 2),
-                decoration: p.sidebarDecoration.copyWith(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: p.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: p.dark ? .16 : .05),
-                      blurRadius: 16,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: GlassNavigation(
-                  axis: Axis.horizontal,
-                  selected: selected,
-                  rowHeight: extent,
-                  crossAxisExtent: labels ? 56 : 48,
-                  children: [
-                    for (final item in items)
-                      Tooltip(
-                        message: item.label,
-                        child: TextButton(
-                          key: item.key,
-                          focusNode: identical(item, items.first)
-                              ? firstItemFocus
-                              : null,
-                          onPressed: item.onPressed,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            minimumSize: Size.zero,
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(item.icon, size: 20),
-                              if (labels) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.label,
-                                  maxLines: 1,
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
+                radius: 24,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 6, 4, 4),
+                  child: GlassNavigation(
+                    blur: false,
+                    axis: Axis.horizontal,
+                    selected: selected,
+                    rowHeight: extent,
+                    crossAxisExtent: labels ? 56 : 48,
+                    children: [
+                      for (final item in items)
+                        Tooltip(
+                          message: item.label,
+                          child: TextButton(
+                            key: item.key,
+                            focusNode: identical(item, items.first)
+                                ? firstItemFocus
+                                : null,
+                            onPressed: item.onPressed,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(item.icon, size: 20),
+                                if (labels) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    item.label,
+                                    maxLines: 1,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall,
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

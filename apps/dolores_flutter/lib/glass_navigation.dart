@@ -1,8 +1,9 @@
-import 'dart:ui' show ImageFilter;
+import 'package:flutter/physics.dart';
 
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'liquid_glass.dart';
 
 /// A single moving selection surface. Labels and hit targets remain stationary.
 class GlassNavigation extends StatelessWidget {
@@ -11,6 +12,7 @@ class GlassNavigation extends StatelessWidget {
   final double rowHeight;
   final Axis axis;
   final double crossAxisExtent;
+  final bool blur;
   const GlassNavigation({
     super.key,
     required this.selected,
@@ -18,12 +20,12 @@ class GlassNavigation extends StatelessWidget {
     this.rowHeight = 48,
     this.axis = Axis.vertical,
     this.crossAxisExtent = 56,
+    this.blur = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final p = Palette(Theme.of(context).brightness == Brightness.dark);
     final reduce = media.disableAnimations || media.accessibleNavigation;
     final theme = Theme.of(context);
     final horizontal = axis == Axis.horizontal;
@@ -59,61 +61,18 @@ class GlassNavigation extends StatelessWidget {
               right: horizontal ? null : 0,
               width: horizontal ? rowHeight - 4 : null,
               height: horizontal ? crossAxisExtent - 4 : rowHeight - 4,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(end: selected * rowHeight),
-                duration: reduce
-                    ? Duration.zero
-                    : const Duration(milliseconds: 360),
-                curve: const Cubic(.2, .8, .25, 1.05),
-                builder: (context, offset, child) => Transform.translate(
-                  offset: horizontal ? Offset(offset, 0) : Offset(0, offset),
-                  child: child,
-                ),
+              child: _TravelingLens(
+                target: selected * rowHeight,
+                extent: rowHeight,
+                maximum: (children.length - 1) * rowHeight,
+                horizontal: horizontal,
+                reduce: reduce,
                 child: IgnorePointer(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: BackdropFilter(
-                      key: const Key('glass-selection-position'),
-                      enabled: !media.highContrast && !reduce,
-                      filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: media.highContrast || reduce ? p.soft : null,
-                          gradient: media.highContrast || reduce
-                              ? null
-                              : LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: p.dark
-                                      ? const [
-                                          Color(0x25ffffff),
-                                          Color(0x0affffff),
-                                          Color(0x18ffffff),
-                                        ]
-                                      : const [
-                                          Color(0xcfffffff),
-                                          Color(0x55edf6ff),
-                                          Color(0xaaffffff),
-                                        ],
-                                ),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: media.highContrast
-                                ? p.text
-                                : Colors.white.withValues(
-                                    alpha: p.dark ? .18 : .85,
-                                  ),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: p.accent.withValues(alpha: .07),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  child: LiquidGlass(
+                    lens: true,
+                    blur: blur,
+                    filterKey: const Key('glass-selection-position'),
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -144,6 +103,83 @@ class GlassNavigation extends StatelessWidget {
   }
 }
 
+/// Retarget both position and velocity; only paint changes during travel.
+class _TravelingLens extends StatefulWidget {
+  final double target, extent, maximum;
+  final bool horizontal, reduce;
+  final Widget child;
+  const _TravelingLens({
+    required this.target,
+    required this.extent,
+    required this.maximum,
+    required this.horizontal,
+    required this.reduce,
+    required this.child,
+  });
+
+  @override
+  State<_TravelingLens> createState() => _TravelingLensState();
+}
+
+class _TravelingLensState extends State<_TravelingLens>
+    with SingleTickerProviderStateMixin {
+  late final motion = AnimationController.unbounded(
+    vsync: this,
+    value: widget.target,
+  );
+
+  @override
+  void didUpdateWidget(_TravelingLens oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.reduce ||
+        oldWidget.horizontal != widget.horizontal ||
+        oldWidget.extent != widget.extent) {
+      motion.value = widget.target;
+    } else if (oldWidget.target != widget.target) {
+      motion.animateWith(
+        SpringSimulation(
+          SpringDescription.withDampingRatio(
+            mass: 1,
+            stiffness: 480,
+            ratio: .86,
+          ),
+          motion.value,
+          widget.target,
+          motion.velocity,
+          snapToEnd: true,
+          tolerance: const Tolerance(distance: .1, velocity: 1),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    motion.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: motion,
+    child: widget.child,
+    builder: (context, child) {
+      final position = motion.value.clamp(0.0, widget.maximum);
+      final stretch = widget.reduce
+          ? 0.0
+          : (motion.velocity.abs() / widget.extent * .012).clamp(0.0, .065);
+      return Transform.translate(
+        offset: widget.horizontal ? Offset(position, 0) : Offset(0, position),
+        child: Transform.scale(
+          scaleX: widget.horizontal ? 1 + stretch : 1 - stretch * .35,
+          scaleY: widget.horizontal ? 1 - stretch * .35 : 1 + stretch,
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 /// Hover is a fine outline; the moving glass is the only selection fill.
 class _NavigationFeedback extends StatefulWidget {
   final Widget child;
@@ -153,10 +189,13 @@ class _NavigationFeedback extends StatefulWidget {
 }
 
 class _NavigationFeedbackState extends State<_NavigationFeedback> {
-  bool hovered = false, focused = false;
+  bool hovered = false, focused = false, pressed = false;
   @override
   Widget build(BuildContext context) {
     final p = Palette(Theme.of(context).brightness == Brightness.dark);
+    final reduced =
+        MediaQuery.disableAnimationsOf(context) ||
+        MediaQuery.accessibleNavigationOf(context);
     return MouseRegion(
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
@@ -166,7 +205,7 @@ class _NavigationFeedbackState extends State<_NavigationFeedback> {
         onFocusChange: (value) => setState(() => focused = value),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: focused
                   ? p.accent
@@ -176,7 +215,19 @@ class _NavigationFeedbackState extends State<_NavigationFeedback> {
               width: focused ? 2 : 1,
             ),
           ),
-          child: widget.child,
+          child: Listener(
+            onPointerDown: (_) => setState(() => pressed = true),
+            onPointerUp: (_) => setState(() => pressed = false),
+            onPointerCancel: (_) => setState(() => pressed = false),
+            child: AnimatedScale(
+              scale: pressed && !reduced ? .97 : 1,
+              duration: reduced
+                  ? Duration.zero
+                  : const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              child: widget.child,
+            ),
+          ),
         ),
       ),
     );
