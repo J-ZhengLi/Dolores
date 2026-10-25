@@ -1,3 +1,12 @@
+import 'support/render_fonts.dart';
+
+import 'package:dolores_flutter/theme.dart';
+
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -15,12 +24,17 @@ class BrowserBridge implements ChatBridge {
   Future<void> close() async {}
   int captures = 0;
   bool fail = true;
+  bool ready = false;
+  String phase = '';
+  Map prerequisites = {'nodeReady': true, 'browserReady': true};
   @override
   Future<dynamic> call(Map<String, dynamic> value) async {
     commands.add(Map.of(value));
     if (value['command'] == 'browserSettings') {
       return {
-        'available': false,
+        'available': ready,
+        'prerequisites': prerequisites,
+        'setupState': {'phase': phase},
         'reason': 'Install the optional adapter.',
         'adapter': 'Pinned runtime',
         'profile': 'Fresh profile',
@@ -28,6 +42,18 @@ class BrowserBridge implements ChatBridge {
         'setup': 'Browser setup in the user guide',
       };
     }
+    if (value['command'] == 'browserSetup') {
+      phase = value['action'] == 'start'
+          ? 'installing'
+          : value['action'] == 'cancel'
+          ? 'stopped'
+          : phase;
+      return {
+        'phase': phase,
+        'note': phase == 'stopped' ? 'Setup cancelled. Try again.' : '',
+      };
+    }
+    if (value['command'] == 'browserPrerequisite') return null;
     if (value['command'] == 'browserCapture' ||
         value['command'] == 'desktopPreview') {
       captures++;
@@ -41,6 +67,7 @@ class BrowserBridge implements ChatBridge {
 }
 
 void main() {
+  setUpAll(loadReviewFonts);
   for (final name in ['browser', 'inspect_desktop_capture']) {
     testWidgets(
       'missing $name capture stays readable inside its saved receipt',
@@ -132,23 +159,69 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final chat = ChatController(BrowserBridge());
+      final renderKey = GlobalKey();
       addTearDown(chat.dispose);
       for (final brightness in Brightness.values) {
         await tester.pumpWidget(
           MaterialApp(
-            theme: ThemeData(brightness: brightness),
-            home: BrowserSettingsInspector(chat: chat),
+            theme: doloresTheme(brightness == Brightness.dark),
+            home: RepaintBoundary(
+              key: renderKey,
+              child: BrowserSettingsInspector(chat: chat),
+            ),
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Needs setup'), findsOneWidget);
-        await tester.tap(find.text('Setup'));
-        await tester.pumpAndSettle();
-        expect(find.text('Install the optional adapter.'), findsOneWidget);
-        await tester.tap(find.text('Refresh'));
+        expect(find.text('Set up Browser'), findsOneWidget);
+        expect(find.text('Set up browser'), findsOneWidget);
+        expect(find.text('Install the optional adapter.'), findsNothing);
+        await tester.tap(find.text('Check again'));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        final output = Platform.environment['DOLORES_RENDER_DIR'];
+        if (output != null) {
+          await tester.runAsync(() async {
+            final image =
+                await (renderKey.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final data = await image.toByteData(format: ui.ImageByteFormat.png);
+            image.dispose();
+            final file = File('$output/browser-${brightness.name}.png');
+            await file.parent.create(recursive: true);
+            await file.writeAsBytes(data!.buffer.asUint8List());
+          });
+        }
       }
+    },
+  );
+  testWidgets(
+    'explicit setup can be cancelled and retried; missing prerequisites have actions',
+    (t) async {
+      final bridge = BrowserBridge();
+      final chat = ChatController(bridge);
+      await t.pumpWidget(
+        MaterialApp(home: BrowserSettingsInspector(chat: chat)),
+      );
+      await t.pumpAndSettle();
+      await t.tap(find.text('Set up browser'));
+      await t.pump();
+      expect(find.text('Setting up browser…'), findsOneWidget);
+      await t.tap(find.text('Cancel setup'));
+      await t.pumpAndSettle();
+      expect(find.text('Setup cancelled. Try again.'), findsOneWidget);
+      expect(find.text('Set up browser'), findsOneWidget);
+      bridge.prerequisites = {'nodeReady': false, 'browserReady': false};
+      await t.tap(find.text('Check again'));
+      await t.pumpAndSettle();
+      expect(find.text('Install Node.js'), findsOneWidget);
+      expect(find.text('Install Microsoft Edge'), findsOneWidget);
+      await t.tap(find.text('Download').first);
+      await t.pump();
+      expect(bridge.commands.last['command'], 'browserPrerequisite');
+      expect(bridge.commands.last['kind'], 'node');
+      await t.pumpWidget(const SizedBox());
+      chat.dispose();
     },
   );
   testWidgets(

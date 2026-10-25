@@ -1,11 +1,15 @@
 # On-demand browser — brick 11.3
 
 Dolores uses a compiled Rust tool and a supervised Node/Playwright worker.
-Playwright is optional; an installed Edge (Windows) or Chrome (Linux/macOS)
-supplies Chromium. There is no browser download, idle service, extension or
-connection to an existing user browser. The adapter lives beside the desktop
-executable in `browser-adapter`, with Node available on PATH. Missing dependencies
-produce setup guidance in Settings → Browser rather than starting an installer.
+Playwright is optional; Settings > Browser detects Node.js/npm and installed
+Edge on Windows, then offers Set up browser. This explicit action installs the
+pinned adapter into versioned app-managed local storage, without Python, a source
+checkout or administrator access. Missing prerequisites have official download
+actions and Check again. Setup is staged, verified and cancellable, with a
+90-second process deadline; failures retain working installations and unrelated
+files. No package lifecycle scripts or browser download runs. Existing packaged
+adapters and explicit developer adapter overrides remain supported. Browser
+versions, limits and capture folders live in optional Details.
 
 Each parent run owns one browser, one nonpersistent context and one page. First
 use launches a visible browser with a fresh profile; no cookies, storage state,

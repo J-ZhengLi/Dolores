@@ -465,17 +465,55 @@ class AppHost extends ChangeNotifier {
     }
   }
 
-  Future<void> newConversation({String? kind, String? projectRoot}) async {
+  Future<void> newConversation({String? kind, String? projectRoot}) =>
+      _openConversation(
+        kind ?? 'temporary',
+        projectRoot ?? (kind == 'project' ? visible.workspaceRoot : null),
+      );
+
+  Future<void> _openConversation(String kind, String? root) async {
     if (selecting) return;
     selecting = true;
     error = null;
     notifyListeners();
     try {
-      final next = await _create();
-      next.workspaceRoot =
-          projectRoot ?? (kind == 'project' ? visible.workspaceRoot : null);
-      next.workspaceKind = kind ?? 'temporary';
-      next.newChat(kind: kind);
+      final excluded = owners
+          .where(
+            (c) =>
+                c.busy ||
+                c.loading ||
+                c.changing ||
+                c.draft.isNotEmpty ||
+                c.attachments.isNotEmpty ||
+                c.pendingParts.isNotEmpty ||
+                c.messages.isNotEmpty ||
+                c.goal != null ||
+                (c.planning['revision'] as int? ?? 0) > 0 ||
+                c.commandInputDrafts.values.any((v) => v.isNotEmpty) ||
+                c.sideConversation != null ||
+                c.promptBranch != null,
+          )
+          .map((c) => c.session)
+          .whereType<String>()
+          .toList();
+      final result = await initial.bridge.call({
+        'command': 'openSession',
+        'kind': kind,
+        if (kind == 'project') 'path': root,
+        'excluded': excluded,
+      }) as Map;
+      final id = result['session']['id'] as String;
+      var next = owners.where((c) => c.session == id).firstOrNull;
+      if (next == null) {
+        next = await _create();
+        await next.select(id);
+        if (next.session != id) {
+          throw StateError(
+            next.error ?? 'Chat could not be opened. Try again.',
+          );
+        }
+      }
+      await next.refreshConversationList();
       visible = next;
     } catch (e) {
       error = '$e';
@@ -485,23 +523,7 @@ class AppHost extends ChangeNotifier {
     }
   }
 
-  Future<void> openProject(String root) async {
-    if (selecting) return;
-    selecting = true;
-    error = null;
-    notifyListeners();
-    try {
-      final next = await _create();
-      await next.openProject(root);
-      if (next.error != null) throw StateError(next.error!);
-      visible = next;
-    } catch (e) {
-      error = '$e';
-    } finally {
-      selecting = false;
-      notifyListeners();
-    }
-  }
+  Future<void> openProject(String root) => _openConversation('project', root);
 
   @override
   void dispose() {

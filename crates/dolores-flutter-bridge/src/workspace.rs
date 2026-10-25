@@ -34,6 +34,25 @@ impl Engine {
         kind: WorkspaceKind,
         path: Option<PathBuf>,
     ) -> Result<Value, String> {
+        self.working_session(kind, path, None)
+    }
+    pub(super) fn open_working_session(
+        &self,
+        kind: WorkspaceKind,
+        path: Option<PathBuf>,
+        excluded: &[String],
+    ) -> Result<Value, String> {
+        if excluded.len() > 8 {
+            return Err("Too many open conversation owners.".into());
+        }
+        self.working_session(kind, path, Some(excluded))
+    }
+    fn working_session(
+        &self,
+        kind: WorkspaceKind,
+        path: Option<PathBuf>,
+        excluded: Option<&[String]>,
+    ) -> Result<Value, String> {
         let id = uuid::Uuid::new_v4().to_string();
         let mut created_folder = None;
         let root = match kind {
@@ -65,8 +84,22 @@ impl Engine {
             }
         };
         let workspace = SessionWorkspace { kind, root };
-        match self.store.create_workspace_session(&id, &workspace) {
-            Ok(session) => Ok(json!({"session":session,"workspace":workspace})),
+        let result = match excluded {
+            Some(excluded) => self
+                .store
+                .open_empty_workspace_session(&id, &workspace, excluded),
+            None => self.store.create_workspace_session(&id, &workspace),
+        };
+        match result {
+            Ok(session) => {
+                if session.id != id {
+                    if let Some(folder) = created_folder {
+                        let _ = std::fs::remove_dir(folder);
+                    }
+                }
+                let workspace = self.store.workspace(&session.id)?;
+                Ok(json!({"session":session,"workspace":workspace}))
+            }
             Err(error) => {
                 // Only our just-created, empty folder. Never recursively delete workspace data.
                 if let Some(folder) = created_folder {

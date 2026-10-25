@@ -139,6 +139,7 @@ struct Engine {
     child_runs:
         Arc<Mutex<std::collections::BTreeMap<u64, std::sync::Weak<subagents::DelegateTasks>>>>,
     hook_review: Mutex<Option<lifecycle_hooks::Review>>,
+    browser_setup: Arc<Mutex<browser::Setup>>,
     #[cfg(windows)]
     isolation_host: Option<Arc<dolores_tools_command::isolation::Host>>,
     isolation_error: Mutex<Option<String>>,
@@ -487,6 +488,12 @@ enum Command {
         inferred: bool,
     },
     BrowserSettings,
+    BrowserSetup {
+        action: browser::SetupAction,
+    },
+    BrowserPrerequisite {
+        kind: browser::Prerequisite,
+    },
     BrowserCapture {
         capture: String,
     },
@@ -821,6 +828,12 @@ enum Command {
         token: String,
     },
     Bootstrap,
+    OpenSession {
+        kind: dolores_core::WorkspaceKind,
+        path: Option<PathBuf>,
+        #[serde(default)]
+        excluded: Vec<String>,
+    },
     CreateSession {
         kind: dolores_core::WorkspaceKind,
         path: Option<PathBuf>,
@@ -988,6 +1001,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            browser_setup: Arc::new(Mutex::new(browser::Setup::default())),
             child_runs: Arc::new(Mutex::new(Default::default())),
             hook_review: Mutex::new(None),
             #[cfg(windows)]
@@ -1216,6 +1230,8 @@ impl Engine {
             Command::ProjectKnowledge {session} => return self.project_knowledge(&session),
             Command::TrialSources {session} => return self.trial_sources(&session),
             Command::LearningState {session} => return self.learning_view(&session),
+            Command::BrowserSetup {action} => return self.browser_setup_action(action),
+            Command::BrowserPrerequisite {kind} => return browser::open_prerequisite(kind),
             Command::BrowserSettings => return self.browser_settings(),
             Command::DesktopRevoke { session } => {
                 let result=self.desktop_revoke(&session)?;
@@ -1306,6 +1322,7 @@ impl Engine {
                 return Ok(Value::Null);
             }
             Command::Shutdown => {
+                if let Ok(setup)=self.browser_setup.lock() {setup.cancel.cancel();}
                 self.companion.stop();
                 self.memory_maintenance.stop(true);
                 self.languages.lock().map_err(|_| "Language state is unavailable.")?.stop_all()?;
@@ -1334,6 +1351,7 @@ impl Engine {
                     | Command::StartPlan { .. }
                     | Command::Bootstrap
                     | Command::CreateSession { .. }
+                    | Command::OpenSession { .. }
                     | Command::Context { .. }
             )
         {
@@ -1780,6 +1798,11 @@ impl Engine {
                     json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"sideConversations":true,"promptBranches":true,"historySearch":true,"attention":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
+            Command::OpenSession {
+                kind,
+                path,
+                excluded,
+            } => self.open_working_session(kind, path, &excluded),
             Command::CreateSession { kind, path } => self.create_working_session(kind, path),
             Command::Workspace { session } => Ok(json!(self.store.workspace(&session)?)),
             Command::SessionsPage { cursor, newer } => self.session_page(cursor, newer),

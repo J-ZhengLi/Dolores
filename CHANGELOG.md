@@ -7,6 +7,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Changed
 
+- Reuse empty chats on repeated New chat/project actions, enable memory defaults while preserving saved choices, and provide an explicit in-app Browser setup action with progress, cancellation and prerequisite detection.
+
 - Move conversation search to an icon in the title bar with a single search field and live results. Float notices above the workspace without moving content. Close the window immediately and perform bounded best-effort recovery, even during failed saves, busy actions or open reviews.
 - Merge Attention into the title bar as a bell with a compact dropdown. Unify select menus and rounded surfaces, use neutral white and gray colors, and move extended explanations into contextual help.
 

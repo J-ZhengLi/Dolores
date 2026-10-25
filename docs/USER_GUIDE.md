@@ -504,19 +504,11 @@ one; this does not repeat the action or send an image to the model.
 
 ### Browser setup
 
-This optional feature needs Node 20 or newer and an installed Edge on Windows,
-or Chrome on Linux/macOS. It does not download a browser. From a source checkout,
-install the pinned adapter next to your built desktop executable:
-
-```text
-python scripts/install-browser-adapter.py
-```
-
-The Python command also selects the executable's adapter directory on Linux/macOS.
-Use `--destination <directory>` for a separate installation. Failed downloads leave
-the target unchanged; existing unrelated or incomplete directories are retained.
-Restart Dolores
-if you installed Node while it was open, then use **Refresh** in Browser settings.
+Open **Settings > Browser**. If Node.js or Microsoft Edge is missing, use its
+**Download** action, finish installing it, then **Check again**. Choose **Set up
+browser** to install Dolores's browser adapter; progress, Cancel and retry stay
+in the app. This does not install a browser or import your saved logins. No Python
+or source checkout is needed. Details shows technical limits and local folders.
 Runtime readiness does not verify that every website or model can use it.
 Screenshots stay in the local folder shown in Browser settings after the run.
 At 128 saved captures, remove older images there or use page text inspection;

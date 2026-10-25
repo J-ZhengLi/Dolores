@@ -417,3 +417,16 @@ before terminal evidence. `mcpCleanup` events retain connection identity,
 no session ID or credential is journaled. `connectorCleanup` UI events surface
 unconfirmed status without completing a run or clearing a pending decision.
 Returned results remain intact and cleanup never replays a tool.
+
+## Empty chats and Browser setup
+
+`openSession {kind,path?,excluded?}` atomically opens an eligible empty saved chat
+or creates one, returning `{session,workspace}`. Up to eight excluded owner IDs
+protect unsaved in-memory work. `createSession` retains explicit creation semantics
+for first-send ownership and linked/internal flows.
+
+`browserSettings` includes `prerequisites`, `setupState` and `setupFolder` beside
+readiness and optional technical details. `browserSetup {action}` accepts `start`,
+`status` or `cancel`; status never installs. The dedicated setup job is bounded,
+owned by the application and cancelled on shutdown. `browserPrerequisite {kind}`
+accepts only `node` or `browser` and opens its fixed official download page.

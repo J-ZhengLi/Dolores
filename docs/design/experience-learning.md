@@ -5,9 +5,10 @@ skill adaptation in four separately verified bricks. It extends existing memory
 and skill snapshots rather than changing task permissions or model settings.
 
 12.1 stores at most 12 project facts, each at most 512 UTF-8 bytes, with source,
-observed/inferred/manual status, revision, time and protection. Learning starts
-disabled per working folder. Enabling it permits bounded reuse of approved tool
-receipts; feedback-note sharing is a separate disabled-by-default choice. Facts
+observed/inferred/manual status, revision, time and protection. Learning and feedback-note eligibility default to enabled for working folders
+without a saved policy; existing saved choices remain unchanged. Receipt learning
+permits bounded reuse of approved tool receipts. Feedback-note eligibility remains
+a separate switch and does not start reflection. Facts
 from files bind their digest and become stale when the direct source changes or
 disappears. Command observations expire after seven days and are observations,
 not authorization. Manual corrections are protected from automatic replacement.

@@ -59,6 +59,14 @@ impl SqliteStore {
         id: &str,
         workspace: &SessionWorkspace,
     ) -> Result<Session, String> {
+        self.save_workspace_session_reusing(id, workspace, None)
+    }
+    pub(super) fn save_workspace_session_reusing(
+        &self,
+        id: &str,
+        workspace: &SessionWorkspace,
+        excluded: Option<&[String]>,
+    ) -> Result<Session, String> {
         let kind = match workspace.kind {
             WorkspaceKind::Project => "project",
             WorkspaceKind::Temporary => "temporary",
@@ -79,6 +87,48 @@ impl SqliteStore {
         };
         let mut connection = self.lock()?;
         let tx = connection.transaction().map_err(storage_error)?;
+        if let Some(excluded) = excluded {
+            let mut statement = tx.prepare("SELECT s.id,s.title,s.updated_at,w.root FROM sessions s JOIN session_workspaces w ON w.session_id=s.id
+                WHERE w.kind=?1 AND (?1!='project' OR w.root=?2 COLLATE NOCASE)
+                AND NOT EXISTS(SELECT 1 FROM messages WHERE session_id=s.id)
+                AND NOT EXISTS(SELECT 1 FROM session_drafts WHERE session_id=s.id AND length(text)>0)
+                AND NOT EXISTS(SELECT 1 FROM draft_attachments WHERE session_id=s.id AND data!='[]')
+                AND NOT EXISTS(SELECT 1 FROM file_changes WHERE session_id=s.id)
+                AND NOT EXISTS(SELECT 1 FROM runs WHERE thread=s.id)
+                AND NOT EXISTS(SELECT 1 FROM task_inputs WHERE session=s.id)
+                AND NOT EXISTS(SELECT 1 FROM planning WHERE session=s.id)
+                AND NOT EXISTS(SELECT 1 FROM goals WHERE session=s.id)
+                AND NOT EXISTS(SELECT 1 FROM prompt_branches WHERE session=s.id)
+                AND NOT EXISTS(SELECT 1 FROM thread_context WHERE session_id=s.id AND origin IS NOT NULL)
+                ORDER BY s.updated_at DESC,s.id DESC").map_err(storage_error)?;
+            let rows = statement
+                .query_map(params![kind, workspace.root], |r| {
+                    Ok((
+                        Session {
+                            id: r.get(0)?,
+                            title: r.get(1)?,
+                            updated_at: r.get(2)?,
+                        },
+                        r.get::<_, Option<String>>(3)?,
+                    ))
+                })
+                .map_err(storage_error)?;
+            for row in rows {
+                let (candidate, root) = row.map_err(storage_error)?;
+                if workspace.kind == WorkspaceKind::Temporary
+                    && !root.as_ref().is_some_and(|root| {
+                        std::fs::read_dir(root)
+                            .ok()
+                            .is_some_and(|mut files| files.next().is_none())
+                    })
+                {
+                    continue;
+                }
+                if !excluded.contains(&candidate.id) {
+                    return Ok(candidate);
+                }
+            }
+        }
         tx.execute(
             "INSERT INTO sessions(id,title,updated_at) VALUES(?1,?2,?3)",
             params![id, title, session.updated_at],
@@ -107,6 +157,86 @@ impl SqliteStore {
 mod tests {
     use super::*;
     use dolores_core::{ExportFormat, SessionStore};
+    #[test]
+    fn open_empty_is_idempotent_and_retains_drafts_context_and_other_projects_after_restart() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = directory.path().join("state.db");
+        let workspace = SessionWorkspace {
+            kind: WorkspaceKind::Project,
+            root: Some(directory.path().to_string_lossy().into_owned()),
+        };
+        {
+            let store = SqliteStore::open(&db).unwrap();
+            let first = store
+                .open_empty_workspace_session("first", &workspace, &[])
+                .unwrap();
+            assert_eq!(
+                store
+                    .open_empty_workspace_session("retry", &workspace, &[])
+                    .unwrap()
+                    .id,
+                first.id
+            );
+            store.save_draft("first", "keep my draft").unwrap();
+            assert_eq!(
+                store
+                    .open_empty_workspace_session("second", &workspace, &[])
+                    .unwrap()
+                    .id,
+                "second"
+            );
+            assert_eq!(
+                store
+                    .open_empty_workspace_session("third", &workspace, &["second".into()])
+                    .unwrap()
+                    .id,
+                "third"
+            );
+            store.commit_turn("third", "question", "answer").unwrap();
+            store
+                .lock()
+                .unwrap()
+                .execute(
+                    "INSERT INTO planning(session,data) VALUES('second','{}')",
+                    [],
+                )
+                .unwrap();
+        }
+        let store = SqliteStore::open(&db).unwrap();
+        assert_eq!(store.saved_draft("first").unwrap(), "keep my draft");
+        assert_eq!(
+            store
+                .open_empty_workspace_session("fourth", &workspace, &[])
+                .unwrap()
+                .id,
+            "fourth"
+        );
+        assert_eq!(
+            store
+                .open_empty_workspace_session("lost-response", &workspace, &[])
+                .unwrap()
+                .id,
+            "fourth"
+        );
+        let other = SessionWorkspace {
+            kind: WorkspaceKind::Project,
+            root: Some(
+                directory
+                    .path()
+                    .join("other")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        };
+        assert_eq!(
+            store
+                .open_empty_workspace_session("other", &other, &[])
+                .unwrap()
+                .id,
+            "other"
+        );
+        assert_eq!(store.sessions_page(None, false, 50).unwrap().items.len(), 5);
+    }
     #[test]
     fn working_folder_is_atomic_private_per_session_and_survives_restart() {
         let directory = tempfile::tempdir().unwrap();

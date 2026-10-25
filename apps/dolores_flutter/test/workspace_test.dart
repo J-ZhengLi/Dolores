@@ -17,10 +17,25 @@ class WorkspaceBridge extends ToolBridge {
   Completer<void>? creating;
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
-    if (command['command'] == 'createSession') {
+    if (command['command'] == 'createSession' ||
+        command['command'] == 'openSession') {
       commands.add(command);
       if (creating != null) await creating!.future;
       if (failCreate) throw StateError('Working folder is unavailable.');
+      if (command['command'] == 'openSession') {
+        final existing = rows
+            .where(
+              (r) =>
+                  r['workspace']['kind'] == command['kind'] &&
+                  (command['kind'] != 'project' ||
+                      r['workspace']['root'] == command['path']) &&
+                  !(command['excluded'] as List? ?? []).contains(r['id']),
+            )
+            .firstOrNull;
+        if (existing != null) {
+          return {'session': existing, 'workspace': existing['workspace']};
+        }
+      }
       final id = 'session-${++next}';
       final kind = command['kind'];
       final root = kind == 'side' ? null : command['path'] ?? 'C:/managed/$id';

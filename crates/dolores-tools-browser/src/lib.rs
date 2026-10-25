@@ -1,3 +1,4 @@
+pub mod setup;
 use async_trait::async_trait;
 use dolores_core::{ToolCall, ToolPlugin, ToolRequest, ToolSpec};
 use dolores_tools_command::process;
@@ -107,8 +108,12 @@ pub struct BrowserRuntime {
 impl BrowserRuntime {
     /// Host configuration only; model arguments cannot select an executable/module.
     pub fn discover(captures: PathBuf) -> Result<Self, String> {
+        Self::discover_with(captures, None)
+    }
+    pub fn discover_with(captures: PathBuf, managed: Option<PathBuf>) -> Result<Self, String> {
         let adapter = match std::env::var_os("DOLORES_BROWSER_ADAPTER_DIR") {
             Some(v) => PathBuf::from(v),
+            None if managed.as_ref().is_some_and(|p| setup::valid_adapter(p)) => managed.unwrap(),
             None => std::env::current_exe()
                 .map_err(|_| RECOVERY)?
                 .parent()
@@ -132,16 +137,10 @@ impl BrowserRuntime {
                     .into(),
             );
         }
-        let filename = if cfg!(windows) { "node.exe" } else { "node" };
-        let node = std::env::var_os("PATH")
-            .into_iter()
-            .flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>())
-            .filter(|p| p.is_absolute())
-            .map(|p| p.join(filename))
-            .find(|p| p.is_file())
-            .ok_or("Browser needs Node on PATH. See Settings → Browser.")?
-            .canonicalize()
-            .map_err(|_| RECOVERY)?;
+        let (node, _) = setup::node_tools()?;
+        if !setup::browser_installed() {
+            return Err("Install Microsoft Edge, then check Browser settings again.".into());
+        }
         Ok(Self {
             adapter,
             node,

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeState {
     pub revision: u32,
@@ -32,6 +32,18 @@ pub struct KnowledgeSource {
     pub quote: String,
     pub path: Option<String>,
     pub digest: Option<String>,
+}
+impl Default for KnowledgeState {
+    fn default() -> Self {
+        Self {
+            revision: 0,
+            learning: true,
+            share_feedback: true,
+            facts: vec![],
+            last_message: 0,
+            notice: String::new(),
+        }
+    }
 }
 impl KnowledgeState {
     pub fn validate(&self) -> Result<(), String> {

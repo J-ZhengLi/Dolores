@@ -1136,6 +1136,14 @@ pub trait SessionStore: Send + Sync {
     fn create_workspace_session(&self, _: &str, _: &SessionWorkspace) -> Result<Session, String> {
         Err("This storage plugin does not support working folders.".into())
     }
+    fn open_empty_workspace_session(
+        &self,
+        _: &str,
+        _: &SessionWorkspace,
+        _: &[String],
+    ) -> Result<Session, String> {
+        Err("This storage plugin does not support opening an empty chat.".into())
+    }
     fn create_worktree(&self, _: &worktrees::ManagedWorktree) -> Result<Session, String> {
         Err("This storage plugin does not support managed worktrees.".into())
     }

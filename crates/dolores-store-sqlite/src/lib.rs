@@ -1321,6 +1321,14 @@ impl SessionStore for SqliteStore {
     ) -> Result<Session, String> {
         self.save_workspace_session(id, workspace)
     }
+    fn open_empty_workspace_session(
+        &self,
+        id: &str,
+        workspace: &dolores_core::SessionWorkspace,
+        excluded: &[String],
+    ) -> Result<Session, String> {
+        self.save_workspace_session_reusing(id, workspace, Some(excluded))
+    }
     fn request_settings(&self) -> Result<RequestSettings, String> {
         let data: Option<String> = self
             .lock()?

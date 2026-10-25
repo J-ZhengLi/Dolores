@@ -408,7 +408,16 @@ class ChatController extends ChangeNotifier {
     _notify();
     try {
       final result = await bridge.call({
-        'command': 'createSession',
+        'command': 'openSession',
+        'excluded': [
+          if (session != null &&
+              (draft.isNotEmpty ||
+                  attachments.isNotEmpty ||
+                  messages.isNotEmpty ||
+                  goal != null ||
+                  (planning['revision'] as int? ?? 0) > 0))
+            session,
+        ],
         'kind': 'project',
         'path': root,
       });

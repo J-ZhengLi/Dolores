@@ -224,3 +224,11 @@ Primary component references retained as candidates:
 [LSP](https://github.com/microsoft/language-server-protocol),
 [Flutter windowing](https://flutter.dev/blog/desktop-windowing-apis),
 [desktop_multi_window](https://github.com/Devolutions/desktop_multi_window).
+
+## Empty chat reuse
+
+New chat and project actions open the newest eligible empty chat of that kind and
+canonical project root. An atomic open-or-create operation prevents duplicate
+records across rapid clicks or retries and works after restart. Saved messages,
+drafts, attachments, runs, queued input, plans and linked context prevent reuse;
+open unsaved work is excluded as well. Existing duplicate history is retained.

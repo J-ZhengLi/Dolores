@@ -50,19 +50,20 @@ impl SqliteStore {
 mod tests {
     use super::*;
     #[test]
-    fn opt_in_revision_failed_write_and_restart_preserve_knowledge() {
+    fn enabled_defaults_saved_off_and_failed_write_survive_restart() {
         let folder = tempfile::tempdir().unwrap();
         let path = folder.path().join("state.db");
         let root = folder.path().to_str().unwrap();
         let store = SqliteStore::open(&path).unwrap();
         let mut state = store.knowledge(root).unwrap();
-        assert!(!state.learning && !state.share_feedback);
-        state.learning = true;
+        assert!(state.learning && state.share_feedback);
+        state.learning = false;
+        state.share_feedback = false;
         let saved = store.save_knowledge(root, 0, &state).unwrap();
         assert!(store.save_knowledge(root, 0, &state).is_err());
         store.lock().unwrap().execute_batch("CREATE TRIGGER reject_knowledge BEFORE UPDATE ON project_knowledge BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
         let mut changed = saved.clone();
-        changed.learning = false;
+        changed.learning = true;
         assert!(store.save_knowledge(root, 1, &changed).is_err());
         assert_eq!(store.knowledge(root).unwrap(), saved);
         drop(store);

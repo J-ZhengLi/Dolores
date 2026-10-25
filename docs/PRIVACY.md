@@ -98,7 +98,8 @@ from that folder. At most four current facts (4 KiB total) enter next-message
 context. Direct source files are rechecked locally; no background scanning or
 extra learning request is made. Conservative secret checks are not a guarantee
 that all sensitive text can be detected: inspect facts before enabling reuse.
-Feedback sharing is independently off by default and currently only records
+Receipt learning and feedback eligibility default to On where no policy is saved;
+existing saved Off choices remain Off. Feedback eligibility currently only records
 eligibility for milestone 12 reflection; ordinary task feedback remains local.
 
 Skill learning is a separate off-by-default project policy. Its bounded trials

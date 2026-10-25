@@ -1,71 +1,124 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/app_host.dart';
 import 'package:dolores_flutter/chat.dart';
+
 import 'workspace_test.dart' show WorkspaceBridge;
 
 class HostBridge extends WorkspaceBridge {
-  int closed=0;
-  @override Future<void> close() async { closed++; }
-  @override Future<dynamic> call(Map<String,dynamic> command) async {
-    if(command['command']=='workspace' && !roots.containsKey(command['session'])) {
+  int closed = 0;
+  @override
+  Future<void> close() async {
+    closed++;
+  }
+
+  @override
+  Future<dynamic> call(Map<String, dynamic> command) async {
+    if (command['command'] == 'workspace' &&
+        !roots.containsKey(command['session'])) {
       throw StateError('Conversation is unavailable.');
     }
-    if(command['command']=='poll') return <Map<String,dynamic>>[];
+    if (command['command'] == 'poll') return <Map<String, dynamic>>[];
     return super.call(command);
   }
 }
 
 void main() {
+  test('repeated and concurrent new/project clicks reuse empty owners and preserve unsaved drafts', () async {
+    final bridge = HostBridge();
+    final first = ChatController(bridge)
+      ..loading = false
+      ..draft = 'keep this initial draft';
+    final host = AppHost(first);
+    await Future.wait(List.generate(12, (_) => host.openProject('C:/project')));
+    final project = host.visible;
+    await host.openProject('C:/project');
+    expect(identical(project, host.visible), true);
+    expect(bridge.rows.length, 1);
+    project.draft = 'unsaved project draft';
+    await host.openProject('C:/project');
+    expect(host.visible, isNot(same(project)));
+    expect(project.draft, 'unsaved project draft');
+    await host.newConversation(kind: 'temporary');
+    final temporary = host.visible;
+    await host.newConversation(kind: 'temporary');
+    expect(host.visible, same(temporary));
+    await host.openProject('C:/project');
+    expect(bridge.rows.length, 3);
+    expect(first.draft, 'keep this initial draft');
+    host.dispose();
+  });
   test('switching conversations retains running owner draft and project without reopening the bridge', () async {
     final bridge = HostBridge();
-    bridge.roots['A'] = {'kind':'project','root':'C:/project-A'};
-    bridge.roots['B'] = {'kind':'project','root':'C:/project-B'};
-    final first = ChatController(bridge)..loading=false..session='A'
-      ..workspaceRoot='C:/project-A'..workspaceKind='project'..busy=true..draft='retained A';
+    bridge.roots['A'] = {'kind': 'project', 'root': 'C:/project-A'};
+    bridge.roots['B'] = {'kind': 'project', 'root': 'C:/project-B'};
+    final first = ChatController(bridge)
+      ..loading = false
+      ..session = 'A'
+      ..workspaceRoot = 'C:/project-A'
+      ..workspaceKind = 'project'
+      ..busy = true
+      ..draft = 'retained A';
     final host = AppHost(first);
     await host.select('B');
-    expect(host.visible.session,'B');
-    expect(host.projectRoot,'C:/project-B');
-    expect(first.busy,true); expect(first.draft,'retained A');
-    host.visible.draft='retained B';
+    expect(host.visible.session, 'B');
+    expect(host.projectRoot, 'C:/project-B');
+    expect(first.busy, true);
+    expect(first.draft, 'retained A');
+    host.visible.draft = 'retained B';
     await host.select('A');
-    expect(identical(host.visible, first),true);
-    await host.select('B'); expect(host.visible.draft,'retained B');
+    expect(identical(host.visible, first), true);
+    await host.select('B');
+    expect(host.visible.draft, 'retained B');
     host.dispose();
-    expect(bridge.closed,1);
+    expect(bridge.closed, 1);
   });
   test('failed selection retains the current project and an unbound chat clears it', () async {
-    final bridge=HostBridge();
-    bridge.roots['side']={'kind':'side','root':null};
-    final first=ChatController(bridge)..loading=false..session='A'
-      ..workspaceRoot='C:/project-A'..workspaceKind='project'..draft='usable work';
-    final host=AppHost(first);
+    final bridge = HostBridge();
+    bridge.roots['side'] = {'kind': 'side', 'root': null};
+    final first = ChatController(bridge)
+      ..loading = false
+      ..session = 'A'
+      ..workspaceRoot = 'C:/project-A'
+      ..workspaceKind = 'project'
+      ..draft = 'usable work';
+    final host = AppHost(first);
     await host.select('side');
-    expect(host.projectRoot,isNull);
-    final before=host.visible;
+    expect(host.projectRoot, isNull);
+    final before = host.visible;
     await host.select('missing');
-    expect(identical(host.visible,before),true);
-    expect(host.error,contains('unavailable'));
-    expect(first.draft,'usable work');
-    expect(host.tasks,isEmpty);
+    expect(identical(host.visible, before), true);
+    expect(host.error, contains('unavailable'));
+    expect(first.draft, 'usable work');
+    expect(host.tasks, isEmpty);
     host.dispose();
   });
   test('two conversation owners use distinct run IDs and Stop targets only its owner', () async {
-    final bridge=HostBridge();
-    bridge.roots['A']={'kind':'project','root':'C:/A'};
-    bridge.roots['B']={'kind':'project','root':'C:/B'};
-    final first=ChatController(bridge)..loading=false..configured=true..session='A'
-      ..workspaceRoot='C:/A'..workspaceKind='project'..draft='A request';
-    final host=AppHost(first);
+    final bridge = HostBridge();
+    bridge.roots['A'] = {'kind': 'project', 'root': 'C:/A'};
+    bridge.roots['B'] = {'kind': 'project', 'root': 'C:/B'};
+    final first = ChatController(bridge)
+      ..loading = false
+      ..configured = true
+      ..session = 'A'
+      ..workspaceRoot = 'C:/A'
+      ..workspaceKind = 'project'
+      ..draft = 'A request';
+    final host = AppHost(first);
     await first.send();
     await host.select('B');
-    host.visible.draft='B request';
+    host.visible.draft = 'B request';
     await host.visible.send();
-    final starts=bridge.commands.where((c)=>c['command']=='start').toList();
-    expect(starts.length,2); expect(starts[0]['id'],isNot(starts[1]['id']));
+    final starts = bridge.commands
+        .where((c) => c['command'] == 'start')
+        .toList();
+    expect(starts.length, 2);
+    expect(starts[0]['id'], isNot(starts[1]['id']));
     await first.stop();
-    expect(bridge.commands.lastWhere((c)=>c['command']=='cancel')['id'],starts.first['id']);
-    expect(host.visible.busy,true);
+    expect(
+      bridge.commands.lastWhere((c) => c['command'] == 'cancel')['id'],
+      starts.first['id'],
+    );
+    expect(host.visible.busy, true);
     host.dispose();
   });
 }
