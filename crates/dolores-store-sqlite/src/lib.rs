@@ -35,7 +35,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 49;
+pub const SCHEMA_VERSION: i64 = 50;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -52,6 +52,7 @@ mod history_search;
 #[cfg(test)]
 mod history_search_tests;
 mod knowledge;
+mod lifecycle_hooks;
 #[cfg(test)]
 mod message_timestamp_tests;
 mod mods;
@@ -302,6 +303,9 @@ impl SqliteStore {
         if version < 49 {
             connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS skill_packages(root TEXT NOT NULL,name TEXT NOT NULL,id TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=524288),PRIMARY KEY(root,name,id)); CREATE INDEX IF NOT EXISTS skill_package_identity ON skill_packages(id); PRAGMA user_version=49; COMMIT;").map_err(storage_error)?;
         }
+        if version < 50 {
+            connection.execute_batch("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS lifecycle_hooks(root TEXT PRIMARY KEY,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=32768)); PRAGMA user_version=50; COMMIT;").map_err(storage_error)?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -312,6 +316,19 @@ impl SqliteStore {
 }
 
 impl SessionStore for SqliteStore {
+    fn lifecycle_hooks(
+        &self,
+        root: &str,
+    ) -> Result<dolores_core::lifecycle_hooks::Configuration, String> {
+        lifecycle_hooks::read(&*self.lock()?, root)
+    }
+    fn save_lifecycle_hooks(
+        &self,
+        root: &str,
+        value: &dolores_core::lifecycle_hooks::Configuration,
+    ) -> Result<dolores_core::lifecycle_hooks::Configuration, String> {
+        lifecycle_hooks::save(&mut *self.lock()?, root, value)
+    }
     fn attention(
         &self,
         request: &dolores_core::attention::Request,

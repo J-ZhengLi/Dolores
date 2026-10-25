@@ -22,6 +22,7 @@ mod runs;
 pub use runs::*;
 mod registry;
 pub use registry::*;
+pub mod lifecycle_hooks;
 mod mods;
 pub use mods::*;
 mod task_budget;
@@ -359,6 +360,16 @@ pub mod scheduling;
 pub mod side_conversations;
 pub mod skill_packages;
 pub trait SessionStore: Send + Sync {
+    fn lifecycle_hooks(&self, _: &str) -> Result<lifecycle_hooks::Configuration, String> {
+        Ok(Default::default())
+    }
+    fn save_lifecycle_hooks(
+        &self,
+        _: &str,
+        _: &lifecycle_hooks::Configuration,
+    ) -> Result<lifecycle_hooks::Configuration, String> {
+        Err("Lifecycle hooks are unavailable in this store.".into())
+    }
     fn attention(&self, _: &attention::Request) -> Result<serde_json::Value, String> {
         Err("Task attention is unavailable. Open the task to inspect its current state.".into())
     }

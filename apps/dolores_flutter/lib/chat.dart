@@ -2090,6 +2090,11 @@ class ChatController extends ChangeNotifier {
             );
           case 'modHint':
             _record('Recovery guidance · ${event['card']['text']}');
+          case 'hookReceipt':
+            final receipt = event['receipt'] as Map;
+            _record(
+              'Hook ${receipt['hook']} · ${receipt['status']} · ${receipt['message']}',
+            );
           case 'done':
             for (final child in subagents) {
               if (['queued', 'running'].contains(child['status'])) {

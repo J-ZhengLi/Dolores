@@ -14,6 +14,16 @@ motion, Personalization and Companionship; tool setup is under Connections.
 Turning Gentle motion off removes travel and bounce. Your device’s reduced-motion
 preference also takes precedence, even when Gentle motion is on.
 
+**Settings → Advanced → Lifecycle hooks** runs reviewed project scripts at task
+boundaries. Add a named Node/Python script, select its event and behavior, review
+the script and exact command, then **Enable reviewed hooks**. A required check
+can refuse task start, a tool or compaction; an observation reports its outcome
+without denying the action. Errors and bounded command diagnostics stay in Run
+history. Changed scripts need fresh review; **Disable all** recovers even if a
+script is missing. These scripts run with your account permissions and may leave
+effects after Stop. Planning, scheduled runs and children do not run these hooks.
+See [hook limits and output format](design/lifecycle-hooks.md) before writing one.
+
 Type `/` at the start of a plain line to filter commands and enabled, reviewed
 skills. Use Up/Down and Enter or Tab to choose; Escape dismisses the picker and
 keeps the text. Paths and fenced code keep normal editing, and IME composition

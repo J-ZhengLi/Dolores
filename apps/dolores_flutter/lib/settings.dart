@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'chat.dart';
 import 'dolores_settings.dart';
 import 'mcp.dart';
+import 'lifecycle_hooks.dart';
 import 'models.dart';
 import 'request_settings.dart';
 import 'settings_frame.dart';
@@ -48,6 +49,7 @@ enum SettingsCategory {
   skillTesting,
   skillLearning,
   mods,
+  hooks,
   permissions,
   limits,
   comparisons,
@@ -105,6 +107,7 @@ SettingsSection sectionFor(SettingsCategory category, ModelsPage page) =>
       SettingsCategory.advancedHome ||
       SettingsCategory.nativeRepairs ||
       SettingsCategory.mods ||
+      SettingsCategory.hooks ||
       SettingsCategory.limits ||
       SettingsCategory.skillTesting ||
       SettingsCategory.skillLearning ||
@@ -288,6 +291,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
       'mods source tests restore',
     ),
     (
+      'Lifecycle hooks',
+      SettingsCategory.hooks,
+      ModelsPage.connection,
+      'project scripts blocking checks observation events',
+    ),
+    (
       'Native repairs',
       SettingsCategory.nativeRepairs,
       ModelsPage.connection,
@@ -457,6 +466,15 @@ class _SettingsWindowState extends State<SettingsWindow> {
               'Select a working chat to configure its permissions. Side chats have no tool access.',
             )
           : TaskPermissionsInspector(chat: widget.chat),
+    SettingsCategory.hooks =>
+      widget.chat.session == null || widget.chat.workspaceRoot == null
+          ? unavailable(
+              'Open a working chat to configure project lifecycle hooks.',
+            )
+          : LifecycleHooksInspector(
+              bridge: widget.chat.bridge,
+              session: widget.chat.session!,
+            ),
   };
   @override
   Widget build(BuildContext context) {

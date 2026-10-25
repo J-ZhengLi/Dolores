@@ -43,6 +43,7 @@ class AdvancedHome extends StatelessWidget {
           ],
         ),
         entry('Harness extensions', Icons.extension_outlined, 'mods'),
+        entry('Lifecycle hooks', Icons.rule_outlined, 'hooks'),
         ExpansionTile(
           title: const Text('Diagnostics & storage'),
           leading: const Icon(Icons.build_outlined),

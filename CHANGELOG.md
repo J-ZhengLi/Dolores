@@ -26,6 +26,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
+- Configure reviewed project lifecycle scripts in Settings → Advanced → Lifecycle hooks. Required checks can refuse task/tool/compaction actions; observations retain failures without losing completed work. Script changes need fresh review, output stays outside model context, and Disable all provides recovery.
 - Connect remote MCP endpoints in Settings → Connections with bearer keys or Windows browser sign-in (OAuth), explicit inspection and searchable tool selection. Logins use the native vault with bounded refresh and explicit recovery after interruption; per-call approval shows the exact endpoint. Loading settings makes no network request.
 - Manage complete skill ZIP packages in Settings → Skills → Packages. Review instructions, resources, declared dependencies and versions, install separately from activation, restore saved versions and export the original archive. Retained-data recovery preserves changed files.
 - Read selected package references through a verified, bounded tool, including Global packages outside the working folder. Inspect package identity in context preview; binary assets return metadata, and scripts retain separate execution permissions.

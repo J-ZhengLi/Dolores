@@ -11,7 +11,8 @@ Records are bounded observations, not a claim that an old pass qualifies new cod
 
 | Area | Scope and remaining boundary | Owning record |
 | --- | --- | --- |
-| Current harness work | EH00–EH08 and EH09.1–EH09.2 delivered within declared bounds; EH09.3–EH09.5 and EH10 remain open. | [Current batches](plans/everyday-harness/README.md) |
+| Current harness work | EH00–EH08 and EH09.1–EH09.3 delivered within declared bounds; EH09.4–EH09.5 and EH10 remain open. | [Current batches](plans/everyday-harness/README.md) |
+| Lifecycle hooks | Reviewed project scripts, blocking pre-events and observational post-events pass bounded Windows fixtures. Scheduled/child integration, other platforms and physical input remain separate. | [Hooks](qualification/lifecycle-hooks.md) |
 | Remote MCP | Windows browser sign-in/vault/refresh and connected recovery pass public loopback fixtures. Third-party login/model reliability, other platforms and broader session cleanup remain separate. | [Remote MCP](qualification/mcp-remote.md) |
 | Computer use | Windows controls and guards exist; frozen live journeys still contain failures. Arbitrary-app/model reliability remains unaccepted. | [Computer use](qualification/computer-use.md) |
 | Native UX/input | Rendered interactions are covered; physical keyboard/IME, assistive technology and a complete native interaction matrix remain open. | [Deferred audit cases](qualification/first-user-audit.md#method-and-status), [UX](qualification/everyday-ux.md) |

@@ -39,6 +39,7 @@ mod introspection;
 mod knowledge;
 mod language;
 mod language_tools;
+mod lifecycle_hooks;
 mod mcp;
 mod memory;
 mod memory_maintenance;
@@ -110,6 +111,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    hooks: Option<Arc<lifecycle_hooks::Runtime>>,
     skill_resources: Option<Arc<skill_packages::resources::Reader>>,
     command_sessions: Option<Arc<command_sessions::Live>>,
     plan_execution: bool,
@@ -134,6 +136,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    hook_review: Mutex<Option<lifecycle_hooks::Review>>,
     #[cfg(windows)]
     isolation_host: Option<Arc<dolores_tools_command::isolation::Host>>,
     isolation_error: Mutex<Option<String>>,
@@ -620,6 +623,10 @@ enum Command {
         #[serde(flatten)]
         authentication: mcp::RemoteInput,
     },
+    LifecycleHooks {
+        session: String,
+        request: lifecycle_hooks::Request,
+    },
     DisableMcp {
         session: String,
         #[serde(default = "dolores_core::legacy_mcp_id", rename = "connectionId")]
@@ -974,6 +981,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            hook_review: Mutex::new(None),
             #[cfg(windows)]
             isolation_host: None,
             isolation_error: Mutex::new(None),
@@ -1088,6 +1096,7 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::LifecycleHooks {session,request}=>return self.hooks_call(&session,request,&active),
             Command::SkillPackages{session,scope,request}=>return self.package_call(&session,scope,request,&active),
             Command::Attention{request}=>return self.attention_call(request,&active),
             Command::History{request}=>{
@@ -2779,6 +2788,25 @@ impl Engine {
                         provider: recovery_provider,
                         log: log.clone(),
                     });
+                let hooks = if planning_state.planning
+                    || scheduling::for_run(self.store.as_ref(), session.as_deref(), id)?.is_some()
+                {
+                    None
+                } else {
+                    let root = self.store.workspace(session.as_deref().unwrap())?.root;
+                    if root.is_some() {
+                        lifecycle_hooks::Runtime::for_session(
+                            self.store.as_ref(),
+                            session.as_deref().unwrap(),
+                            log.clone(),
+                            approval.clone(),
+                            output.clone(),
+                            id,
+                        )?
+                    } else {
+                        None
+                    }
+                };
                 if let (Some(g), Some(b)) = (&goal_start, &goal_binding) {
                     self.store
                         .claim_goal(&b.session, &b.id, g.revision, &b.run)?;
@@ -2838,6 +2866,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            hooks,
                             skill_resources,
                             command_sessions:command_owner.clone(),
                             plan_execution,
@@ -2950,6 +2979,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        hooks,
         skill_resources,
         command_sessions,
         plan_execution,
@@ -3029,6 +3059,18 @@ async fn execute(
     let prior = continuation
         .map(|source_id| continuation::source(store.as_ref(), &session, source_id))
         .transpose()?;
+    if !compacted {
+        if let Some(hooks) = &hooks {
+            hooks
+                .fire(
+                    dolores_core::lifecycle_hooks::Event::TaskStart,
+                    None,
+                    None,
+                    cancel.clone(),
+                )
+                .await?;
+        }
+    }
     let mut context =
         dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
     if scheduling_metadata {
@@ -3170,6 +3212,16 @@ async fn execute(
     );
     let omitted = uncovered.saturating_sub((context.len().saturating_sub(2) / 2) as u64);
     if omitted > 0 && store.auto_compact(&session)? {
+        if let Some(hooks) = &hooks {
+            hooks
+                .fire(
+                    dolores_core::lifecycle_hooks::Event::BeforeCompaction,
+                    None,
+                    None,
+                    cancel.clone(),
+                )
+                .await?;
+        }
         if compacted {
             return Err("Compaction preserved a valid summary but this window still omits history. Review Session summary, shorten context or increase the model window before sending again.".into());
         }
@@ -3268,6 +3320,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                hooks,
                 skill_resources,
                 command_sessions,
                 plan_execution,
@@ -3372,6 +3425,23 @@ async fn execute(
                 client_id: id,
             })?;
         }
+        let approval: Arc<dyn dolores_core::ToolApproval> = if let Some(hooks) = &hooks {
+            tools = tools
+                .into_iter()
+                .map(|inner| {
+                    Arc::new(lifecycle_hooks::HookedTool {
+                        inner,
+                        hooks: hooks.clone(),
+                    }) as Arc<dyn dolores_core::ToolPlugin>
+                })
+                .collect();
+            Arc::new(lifecycle_hooks::HookedApproval {
+                inner: approval,
+                hooks: hooks.clone(),
+            })
+        } else {
+            approval
+        };
         let progress = Arc::new(Mutex::new(task_execution::Progress::default()));
         let work_cancel = cancel.child_token();
         let _cleanup = task_execution::CancelOnDrop(work_cancel.clone());
@@ -3519,6 +3589,16 @@ async fn execute(
             }
         })
         .await?;
+        if let Some(hooks) = &hooks {
+            hooks
+                .observe(
+                    dolores_core::lifecycle_hooks::Event::TaskComplete,
+                    None,
+                    Some(if pause.is_some() { "paused" } else { "saved" }),
+                    cancel.clone(),
+                )
+                .await;
+        }
         return Ok(reply.answer);
     }
     // The adapter deadline alone cannot run while this host awaits a full UI
@@ -3593,6 +3673,16 @@ async fn execute(
         }
     })
     .await?;
+    if let Some(hooks) = &hooks {
+        hooks
+            .observe(
+                dolores_core::lifecycle_hooks::Event::TaskComplete,
+                None,
+                Some("saved"),
+                cancel,
+            )
+            .await;
+    }
     Ok(answer.answer)
 }
 fn stopped() -> String {
@@ -3909,6 +3999,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    hooks: None,
                     skill_resources: None,
                     command_sessions: None,
                     plan_execution: false,
@@ -4303,6 +4394,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            hooks: None,
             skill_resources: None,
             command_sessions: None,
             plan_execution: false,
