@@ -26,19 +26,23 @@ class NotificationOverlay extends StatelessWidget {
       ? child
       : NotificationScope(
           host: host!,
-          child: Stack(
-            children: [
-              Positioned.fill(child: child),
-              Positioned(
-                top: top,
-                left: 16,
-                right: 16,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: NotificationToast(host: host!),
+          // This layer also sits above Navigator in MaterialApp.builder.
+          // Its tooltips need a full-window overlay ancestor of their own.
+          child: Overlay.wrap(
+            child: Stack(
+              children: [
+                Positioned.fill(child: child),
+                Positioned(
+                  top: top,
+                  left: 16,
+                  right: 16,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: NotificationToast(host: host!),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
 }

@@ -54,6 +54,8 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Keep notifications visible when hovering their close button by giving floating tooltips their own app overlay.
+
 - Keep subfolder chats in the same managed worktree on one run queue, and refuse conflicting worktree management when another checkout shares its Git repository. Changed checkout registrations require a fresh creation review.
 - Retain earlier failed-command receipts when a later repair reuses the same tool-call ID.
 - Start Windows PowerShell terminals successfully instead of exiting with a `System.Net.ServicePointManager` initialization error.

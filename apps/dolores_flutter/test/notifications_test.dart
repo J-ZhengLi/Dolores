@@ -7,6 +7,8 @@ import 'background_host_test.dart' as availability show TestWindow;
 
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +102,113 @@ Future<void> captureToast(WidgetTester t, GlobalKey key, String name) async {
 
 void main() {
   setUpAll(loadReviewFonts);
+  for (final dark in [false, true]) {
+    for (final expanded in [false, true]) {
+      final mode =
+          '${dark ? 'dark' : 'light'}-${expanded ? 'details' : 'compact'}';
+      testWidgets('close tooltip preserves notification content ($mode)', (
+        t,
+      ) async {
+        t.view.physicalSize = const Size(800, 600);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
+        final host = AttentionHost(
+          NotificationBridge(),
+          window: NoticeWindow(),
+          onOpen: (_) async => true,
+        );
+        final key = GlobalKey();
+        await t.pumpWidget(
+          MaterialApp(
+            theme: doloresTheme(dark),
+            // Match production: notifications wrap Navigator rather than living
+            // inside a route, so they cannot borrow Navigator's tooltip overlay.
+            builder: (context, child) => RepaintBoundary(
+              key: key,
+              child: NotificationOverlay(host: host, child: child!),
+            ),
+            home: const Scaffold(
+              body: Center(child: Text('Background stays visible.')),
+            ),
+          ),
+        );
+        await host.publish(
+          'hover',
+          'Model settings saved',
+          'Your model configuration was saved.',
+        );
+        await t.pumpAndSettle();
+        if (expanded) {
+          await t.tap(find.byKey(const Key('notification-toast-open')));
+          await t.pumpAndSettle();
+        }
+        final surface = t.getRect(
+          find.byKey(const Key('notification-toast-surface')),
+        );
+        final pointer = await t.createGesture(kind: PointerDeviceKind.mouse);
+        await pointer.addPointer(location: surface.center);
+        // Settle the compact card's normal hover fill before isolating the
+        // close button's tooltip and hover effect.
+        await t.pumpAndSettle();
+        Future<ui.Image> snapshot() =>
+            (key.currentContext!.findRenderObject() as RenderRepaintBoundary)
+                .toImage();
+        final before = (await t.runAsync(snapshot))!;
+        final beforeData = (await t.runAsync(
+          () => before.toByteData(format: ui.ImageByteFormat.rawRgba),
+        ))!;
+        await pointer.moveTo(
+          t.getCenter(find.byTooltip('Dismiss notification')),
+        );
+        await t.pump(const Duration(milliseconds: 700));
+        await t.pump(const Duration(milliseconds: 200));
+        expect(find.text('Dismiss notification'), findsOneWidget);
+        expect(t.takeException(), isNull);
+        await captureToast(t, key, 'close-hover-$mode');
+        final after = (await t.runAsync(snapshot))!;
+        final afterData = (await t.runAsync(
+          () => after.toByteData(format: ui.ImageByteFormat.rawRgba),
+        ))!;
+        var changed = 0;
+        // Exclude the close button and its tooltip, and compare the rest of the
+        // surface: hovering must never replace it with an error placeholder.
+        for (
+          var y = surface.top.toInt() + (expanded ? 110 : 16);
+          y < surface.bottom.toInt() - 16;
+          y++
+        ) {
+          for (
+            var x = surface.left.toInt() + 20;
+            x < surface.right.toInt() - 120;
+            x++
+          ) {
+            final at = (y * before.width + x) * 4;
+            for (var c = 0; c < 4; c++) {
+              if (beforeData.getUint8(at + c) != afterData.getUint8(at + c)) {
+                changed++;
+                break;
+              }
+            }
+          }
+        }
+        before.dispose();
+        after.dispose();
+        expect(
+          changed,
+          0,
+          reason: 'Hover feedback must not cover notification content.',
+        );
+        await t.tap(find.byTooltip('Dismiss notification'));
+        await t.pumpAndSettle();
+        expect(host.toast, isNull);
+        expect(host.items, hasLength(1));
+        await pointer.removePointer();
+        await t.pumpWidget(const SizedBox());
+        host.dispose();
+      });
+    }
+  }
   testWidgets(
     'toast expands width then height, keeps content fixed, and exposes bounded details',
     (t) async {
