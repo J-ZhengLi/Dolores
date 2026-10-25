@@ -56,12 +56,11 @@ jobs:
           fetch-depth: 0
           path: .ci/flutter
           persist-credentials: false
-      - name: Set up pinned Rust
+      - name: Prepare active Rust toolchain
         shell: pwsh
         run: |
-          rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy,rust-docs
+          rustup component add rustfmt clippy rust-docs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          rustup default 1.95.0
       - name: Restore dependency and compiler caches
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -71,29 +70,78 @@ jobs:
             target
             .ci/flutter/bin/cache
             ~/AppData/Local/Pub/Cache
-          key: windows-2025-rust-1.95.0-flutter-3.47.5-${{ hashFiles('Cargo.lock', 'apps/dolores_flutter/pubspec.lock') }}
+          key: windows-2025-rust-active-flutter-3.47.5-${{ hashFiles('Cargo.lock', 'apps/dolores_flutter/pubspec.lock') }}
       - name: Check, build and exercise normal Windows app
-        run: python scripts/ci-windows.py check --full
+        shell: pwsh
+        run: |
+          foreach ($script in @('check-publication.py', 'check-docs.py', 'test-docs.py', 'test-publication.py', 'test-release.py', 'test-installer.py', 'test-installer-lifecycle.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py')) {
+            python "scripts/$script"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          cargo fmt --all --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --workspace --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm --prefix adapters/browser ci --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test adapters/browser/worker.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-browser-installer.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/desktop.py build --flutter-sdk "$env:FLUTTER_SDK"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Flutter and native checks
+        working-directory: apps/dolores_flutter
+        shell: pwsh
+        run: |
+          & "$env:FLUTTER_SDK/bin/flutter.bat" analyze --no-pub
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:FLUTTER_SDK/bin/flutter.bat" test --no-pub
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ../../scripts/run-regressions.py --native-only --directory "$env:GITHUB_WORKSPACE/output/release/regressions" --flutter-sdk "$env:FLUTTER_SDK"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Assemble verified installer payload
-        run: python scripts/ci-windows.py package
+        shell: pwsh
+        run: |
+          python scripts/package-windows.py --stage-runtime "$env:GITHUB_WORKSPACE/output/release/runtime"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/collect-windows-notices.py --bundle "$env:GITHUB_WORKSPACE/output/release/runtime" --flutter-sdk "$env:FLUTTER_SDK" --directory "$env:GITHUB_WORKSPACE/output/release/notices"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/package-windows.py --bundle "$env:GITHUB_WORKSPACE/output/release/runtime" --notices "$env:GITHUB_WORKSPACE/output/release/notices" --directory "$env:GITHUB_WORKSPACE/output/release/package"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Extract reviewed release notes
+        shell: python
+        run: |
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          import release
+          root = Path.cwd()
+          tag = os.environ.get('GITHUB_REF_NAME') if os.environ.get('GITHUB_REF_TYPE') == 'tag' else None
+          version = release.check(tag=tag)
+          entries = release.sections((root / 'CHANGELOG.md').read_text(encoding='utf-8'))
+          selected = version if tag or (version in entries and not entries['Unreleased'][1]) else 'Unreleased'
+          (root / 'output/release/package/RELEASE-NOTES.md').write_text(release.notes(root, selected), encoding='utf-8')
       - name: Prepare pinned installer compiler
         run: python scripts/setup-inno.py
       - name: Build Windows installer
         shell: pwsh
         run: |
-          $payload = @(Get-ChildItem -LiteralPath output/ci-windows/package -Filter '*.zip')
+          $payload = @(Get-ChildItem -LiteralPath output/release/package -Filter '*.zip')
           if ($payload.Count -ne 1) { throw 'Expected one verified payload.' }
-          python scripts/installer.py windows --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer"
+          python scripts/installer.py windows --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/release/installer"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Copy-Item -LiteralPath output/ci-windows/package/RELEASE-NOTES.md -Destination output/ci-windows/installer/RELEASE-NOTES.md
+          Copy-Item -LiteralPath output/release/package/RELEASE-NOTES.md -Destination output/release/installer/RELEASE-NOTES.md
       - name: Verify isolated installer and uninstall recovery
         shell: pwsh
         run: |
-          $payload = @(Get-ChildItem -LiteralPath output/ci-windows/package -Filter '*.zip')
+          $payload = @(Get-ChildItem -LiteralPath output/release/package -Filter '*.zip')
           if ($payload.Count -ne 1) { throw 'Expected one verified payload.' }
-          python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer-fixture"
+          python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/release/installer-fixture"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/ci-windows/installer-fixture-rapid" --rapid-reinstall
+          python scripts/test-installer-native.py --archive $payload[0].FullName --directory "$env:GITHUB_WORKSPACE/output/release/installer-fixture-rapid" --rapid-reinstall
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain installer verification evidence
         if: always()
@@ -101,10 +149,10 @@ jobs:
         with:
           name: dolores-installer-verification
           path: |
-            output/ci-windows/installer-fixture/*.log
-            output/ci-windows/installer-fixture/RESULT.json
-            output/ci-windows/installer-fixture-rapid/*.log
-            output/ci-windows/installer-fixture-rapid/RESULT.json
+            output/release/installer-fixture/*.log
+            output/release/installer-fixture/RESULT.json
+            output/release/installer-fixture-rapid/*.log
+            output/release/installer-fixture-rapid/RESULT.json
           if-no-files-found: warn
           retention-days: 14
       - name: Retain installer and checksum
@@ -112,9 +160,9 @@ jobs:
         with:
           name: dolores-windows-x64-installer
           path: |
-            output/ci-windows/installer/*-setup.exe
-            output/ci-windows/installer/*.sha256
-            output/ci-windows/installer/RELEASE-NOTES.md
+            output/release/installer/*-setup.exe
+            output/release/installer/*.sha256
+            output/release/installer/RELEASE-NOTES.md
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

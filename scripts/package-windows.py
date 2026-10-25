@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import struct
 import zipfile
+import shutil
 import release
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -204,15 +205,37 @@ def package(bundle, directory, notice_directory):
         # This exact owned temporary file stays within the checked fresh output directory.
         pending.unlink(missing_ok=True)
 
+def stage_runtime(bundle, directory):
+    output=(ROOT/'output').resolve()
+    if not directory.is_absolute() or directory.resolve()==output or not directory.resolve().is_relative_to(output):
+        raise ValueError('Choose a fresh absolute runtime directory strictly beneath output/.')
+    if directory.exists(): raise ValueError('Runtime destination exists; use a fresh directory.')
+    if is_link(bundle): raise ValueError('Build links cannot enter a release.')
+    for path in bundle.rglob('*'):
+        relative=path.relative_to(bundle).as_posix()
+        if is_link(path): raise ValueError('Build links cannot enter a release.')
+        if path.is_file() and relative not in RUNTIME and not relative.startswith('browser-adapter/'):
+            raise ValueError('Unexpected build member: '+relative)
+    if not all((bundle/name).is_file() for name in RUNTIME): raise ValueError('Build runtime is incomplete. Rebuild the normal app.')
+    directory.mkdir(parents=True)
+    for name in sorted(RUNTIME):
+        target=directory/name; target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copyfile(bundle/name,target)
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     group=parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--directory',type=Path,help='Fresh absolute output destination; normal bundle only.')
     group.add_argument('--verify',type=Path,help='Verify a ZIP without extracting or executing it.')
+    group.add_argument('--stage-runtime',type=Path,help='Copy the normal build runtime allowlist to a fresh absolute directory under output/.')
+    parser.add_argument('--bundle',type=Path,default=BUNDLE,help='Runtime directory to package; defaults to the normal Windows build.')
     parser.add_argument('--notices',type=Path,help='Notice collection directory bound to this bundle and locked dependencies.')
     args=parser.parse_args()
     try:
-        if args.verify:
+        if args.stage_runtime:
+            stage_runtime(BUNDLE,args.stage_runtime)
+            print(json.dumps({'ok':True,'runtime':str(args.stage_runtime),'files':len(RUNTIME)}))
+        elif args.verify:
             manifest=verify_archive(args.verify)
             print(json.dumps({'ok':True,'files':len(manifest['files']),'platform':manifest['platform']}))
         else:
@@ -220,8 +243,8 @@ def main():
             if os.name!='nt': raise ValueError('Windows packaging must run on Windows.')
             if not args.directory.is_absolute(): raise ValueError('Use an absolute output directory.')
             # Check the lexical bundle path before resolving links.
-            if is_link(BUNDLE): raise ValueError('Bundle links are not allowed.')
-            path=package(BUNDLE,args.directory,args.notices)
+            if is_link(args.bundle): raise ValueError('Bundle links are not allowed.')
+            path=package(args.bundle,args.directory,args.notices)
             print(json.dumps({'ok':True,'archive':str(path),'bytes':path.stat().st_size,'files':len(RUNTIME|DOCUMENTS)}))
     except (OSError, ValueError, zipfile.BadZipFile, KeyError, TypeError) as error:
         parser.exit(1,'Package refused: '+str(error)+'\n')

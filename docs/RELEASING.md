@@ -48,11 +48,12 @@ exact version's notes; no notes are generated from commit messages or a model.
 Failed checks stop packaging/release creation; correct the inputs and use a new
 workflow run rather than reusing stale artifacts. Existing published tags are retained.
 
-Before pushing, run `python scripts/local-ci.py checks`, or
-`python scripts/local-ci.py release --generator "<installed CMake generator>"`
-to produce and exercise the installer locally. Logs and assets remain under a
-fresh `output/local-ci/` directory. No tag or GitHub write is involved. See
-[local prerequisites and limits](../CONTRIBUTING.md#run-windows-ci-locally).
+Before pushing, run the relevant direct checks from
+[Contributing](../CONTRIBUTING.md#checks-and-recovery) using the active toolchain.
+For a local installer, build with `desktop.py`, collect notices and package with
+the dedicated tools described in [installer assembly](design/installers.md).
+Keep logs and artifacts under a fresh `output/` directory; no local CI replica
+or matching hosted toolchain is required.
 For hosted packaging without retagging, choose **Release installers → Run
 workflow** and select the branch containing the fix. A branch manual run retains
 the downloadable installer artifact and does not create a GitHub release.
@@ -100,7 +101,8 @@ checks. [GitHub permissions](https://docs.github.com/en/actions/reference/workfl
 and [Flutter Windows prerequisites](https://docs.flutter.dev/platform-integration/windows/setup)
 describe the upstream requirements.
 
-Checks use pinned Rust/Flutter and shared dependency/compiler caches. They run
+Checks use the runner's active Rust toolchain, the selected Flutter SDK and shared
+dependency/compiler caches. They run
 formatting, Clippy, Rust/browser/script tests, Flutter analysis and widget tests
 without a native release build, notice collection or installer compilation.
 Only tag/manual release runs perform the normal Windows release build and native

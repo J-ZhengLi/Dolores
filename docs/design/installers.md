@@ -37,8 +37,10 @@ earlier artifacts. Build with `desktop.py build` first; `setup-inno.py` installs
 the hash-pinned build-only compiler under ignored output.
 
 ```text
-python scripts/ci-windows.py check --full
-python scripts/ci-windows.py package
+python scripts/desktop.py build
+python scripts/package-windows.py --stage-runtime <fresh-absolute-runtime-directory>
+python scripts/collect-windows-notices.py --bundle <runtime-directory> --flutter-sdk <sdk> --directory <fresh-notices-directory>
+python scripts/package-windows.py --bundle <runtime-directory> --notices <notices-directory> --directory <fresh-package-directory>
 python scripts/setup-inno.py
 python scripts/installer.py windows --archive <verified-payload.zip> --directory <fresh-absolute-output-directory>
 ```

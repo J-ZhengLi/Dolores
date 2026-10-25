@@ -15,6 +15,21 @@ spec=importlib.util.spec_from_file_location('packaging',Path(__file__).with_name
 packaging=importlib.util.module_from_spec(spec);spec.loader.exec_module(packaging)
 
 class PackageTests(unittest.TestCase):
+    def test_runtime_staging_excludes_optional_adapter_and_preserves_sources(self):
+        with tempfile.TemporaryDirectory(dir=packaging.ROOT/'output') as temp:
+            directory=Path(temp);bundle=self.fixture(directory)
+            adapter=bundle/'browser-adapter/worker.cjs';adapter.parent.mkdir();adapter.write_text('public optional fixture')
+            target=directory/'runtime'
+            packaging.stage_runtime(bundle,target)
+            self.assertEqual({p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()},packaging.RUNTIME)
+            self.assertTrue(adapter.is_file())
+            with self.assertRaisesRegex(ValueError,'exists'): packaging.stage_runtime(bundle,target)
+            unexpected=bundle/'private.db';unexpected.write_text('public refusal fixture')
+            refused=directory/'refused'
+            with self.assertRaisesRegex(ValueError,'Unexpected'): packaging.stage_runtime(bundle,refused)
+            self.assertFalse(refused.exists())
+            self.assertTrue(unexpected.is_file())
+
     def test_private_path_across_stream_chunks(self):
         for path in (packaging.ROOT,Path.home()):
             for encoding in ('utf-8','utf-16-le'):

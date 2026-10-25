@@ -46,12 +46,11 @@ jobs:
           fetch-depth: 0
           path: .ci/flutter
           persist-credentials: false
-      - name: Set up pinned Rust
+      - name: Prepare active Rust toolchain
         shell: pwsh
         run: |
-          rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy,rust-docs
+          rustup component add rustfmt clippy
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          rustup default 1.95.0
       - name: Restore dependency and compiler caches
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -61,6 +60,41 @@ jobs:
             target
             .ci/flutter/bin/cache
             ~/AppData/Local/Pub/Cache
-          key: windows-2025-rust-1.95.0-flutter-3.47.5-${{ hashFiles('Cargo.lock', 'apps/dolores_flutter/pubspec.lock') }}
+          key: windows-2025-rust-active-flutter-3.47.5-${{ hashFiles('Cargo.lock', 'apps/dolores_flutter/pubspec.lock') }}
       - name: Check source and deterministic fixtures
-        run: python scripts/ci-windows.py check
+        shell: pwsh
+        run: |
+          python scripts/release.py check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($script in @('check-publication.py', 'check-docs.py', 'test-docs.py', 'test-publication.py', 'test-release.py', 'test-installer.py', 'test-installer-lifecycle.py', 'test-package-windows.py', 'test-windows-launcher.py', 'test-regression-runner.py')) {
+            python "scripts/$script"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Rust checks
+        shell: pwsh
+        run: |
+          cargo fmt --all --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --workspace --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Browser fixtures
+        shell: pwsh
+        run: |
+          npm --prefix adapters/browser ci --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test adapters/browser/worker.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-browser-installer.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Flutter checks
+        working-directory: apps/dolores_flutter
+        shell: pwsh
+        run: |
+          & "$env:FLUTTER_SDK/bin/flutter.bat" pub get
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:FLUTTER_SDK/bin/flutter.bat" analyze --no-pub
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:FLUTTER_SDK/bin/flutter.bat" test --no-pub
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

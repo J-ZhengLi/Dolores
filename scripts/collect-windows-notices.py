@@ -212,11 +212,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--flutter-sdk', type=Path, default=ROOT/'output/toolchains/flutter')
     parser.add_argument('--directory', type=Path, required=True)
+    parser.add_argument('--bundle', type=Path, default=ROOT/'apps/dolores_flutter/build/windows/x64/runner/Release')
     args = parser.parse_args()
     try:
         if not args.directory.is_absolute(): raise ValueError('Use an absolute output directory.')
-        inventory = collect(args.flutter_sdk, args.directory,
-                            ROOT/'apps/dolores_flutter/build/windows/x64/runner/Release')
+        inventory = collect(args.flutter_sdk, args.directory, args.bundle)
         print(json.dumps({'ok': True, 'components': len(inventory['components']), 'liveRequests': 0}))
     except (OSError, ValueError, KeyError, UnicodeError, StopIteration) as error:
         parser.exit(1, 'Notices refused: '+str(error)+'\n')

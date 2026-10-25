@@ -10,8 +10,9 @@ test diaries out of the current acceptance index.
 
 ## Prerequisites and normal Windows build
 
-Use Rust stable MSVC, Python 3.11+, Visual Studio C++ desktop tools/Windows SDK,
-CMake and **Flutter 3.47.5 / Dart 3.13.4**, matching the pinned CI revision.
+Use Rust stable MSVC, Python 3.11+, Visual Studio C++ desktop
+tools/Windows SDK, CMake and a Flutter SDK compatible with the app's pubspec.
+Flutter 3.47.5 / Dart 3.13.4 is the currently recorded build baseline.
 Node is optional tooling for the browser adapter; its dependencies and lockfile
 stay under `adapters/browser/`, not the Flutter application.
 
@@ -47,7 +48,7 @@ concise and inspect failure detail from logs.
 | Flutter logic | Focused `flutter test --no-pub`; `flutter analyze --no-pub` |
 | Appearance/motion | Saved affected Light/Dark/compact renders; relevant interaction/recovery tests |
 | Native integration/packaging | Normal helper build and the matching isolated native journey |
-| Release | [Release procedure](docs/RELEASING.md) and full local CI |
+| Release | [Release procedure](docs/RELEASING.md), normal build and installer verification |
 
 Rust commands run from the root; Flutter commands run in `apps/dolores_flutter/`.
 After a normal build prepares dependencies, no provider credentials are needed for
@@ -66,19 +67,6 @@ Select the relevant case from the helper rather than loading every journey's
 history. `--native-only` checks reuse a build and make no source-freshness claim.
 Use isolated public data; private transcripts, keys and raw captures stay ignored.
 Optional live checks explicitly select a suitable available model and bound usage.
-
-## Run Windows CI locally
-
-```powershell
-python scripts/local-ci.py checks
-python scripts/local-ci.py release --generator "<installed CMake generator>"
-```
-
-The shared pipeline matches hosted checks, uses fresh ignored output and stops on
-failure. Checks do not package; release additionally builds, exercises native
-fixtures and verifies the installer. Local success does not establish hosted or
-clean-machine acceptance. Consult helper `--help` for focused options; retain raw
-logs for failures rather than copying them into tracked documentation.
 
 ## Windows portable preview
 
