@@ -180,6 +180,7 @@ impl McpConnection {
                 if match remote.authentication {
                     McpRemoteAuthentication::None => !names.is_empty(),
                     McpRemoteAuthentication::Bearer => names != [MCP_REMOTE_BEARER],
+                    McpRemoteAuthentication::Oauth => names != [MCP_REMOTE_OAUTH],
                 } {
                     return Err("Saved remote MCP authentication does not match its credential references. Connect again.".into());
                 }

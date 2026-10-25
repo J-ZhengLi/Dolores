@@ -10,7 +10,11 @@ use std::{
 };
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+mod browser;
 mod remote;
+pub(crate) use browser::open as open_browser;
+pub(crate) type BrowserOpener = Arc<dyn Fn(&str) -> Result<(), String> + Send + Sync>;
+pub(crate) use remote::RemoteInput;
 pub(super) use remote::RemoteReview;
 
 const STALE: &str = "MCP review expired or changed. Inspect and review the server again.";

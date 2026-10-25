@@ -1,7 +1,9 @@
 """Exercise rendered Flutter controls against the normal native Rust bridge.
 
-Uses fresh output/ data and a public loopback provider fixture. Does not inspect
-or control the Windows desktop, access credentials or call an external model.
+Uses fresh output/ data and public loopback provider fixtures. Does not inspect
+or control the Windows desktop, use personal credentials or call an external
+model. MCP qualification uses generated native-vault entries and opens its local
+OAuth authorization fixture in the default browser.
 """
 import argparse
 import os
@@ -67,6 +69,9 @@ def main():
     command = [desktop.flutter_path(args.flutter_sdk), '--no-version-check',
                'test', '--no-pub', '--concurrency=1',
                *(cases[name][0] for name in selected)]
+    if 'mcp-remote' in selected:
+        # Separate suites own separate FFI engines; Shutdown is terminal.
+        command.append('test/native_mcp_oauth_ui_test.dart')
     with (base / 'test.log').open('w', encoding='utf-8') as log:
         child = subprocess.Popen(command, cwd=desktop.APP, env=env,
                                  stdout=log, stderr=subprocess.STDOUT)
@@ -80,7 +85,10 @@ def main():
             print(f'Native UI qualification timed out. Evidence retained at {base}.')
             return 1
     print((base / 'test.log').read_text(encoding='utf-8')[-2400:])
-    if status or not all((base / cases[name][1]).is_file() for name in selected):
+    required = [base / cases[name][1] for name in selected]
+    if 'mcp-remote' in selected:
+        required.append(base / 'mcp-remote-oauth-receipt.json')
+    if status or not all(path.is_file() for path in required):
         print(f'Qualification incomplete. Evidence retained at {base}.')
         return 1
     print(f'Native bridge/rendered UI passed ({", ".join(selected)}); evidence: {base}')

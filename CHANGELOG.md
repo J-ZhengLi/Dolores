@@ -23,7 +23,7 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Added
 
-- Connect remote MCP endpoints in Settings → Connections with optional bearer keys, explicit inspection, searchable tool selection and recoverable key rotation. Per-call approval shows the exact endpoint; loading settings makes no network request.
+- Connect remote MCP endpoints in Settings → Connections with bearer keys or Windows browser sign-in (OAuth), explicit inspection and searchable tool selection. Logins use the native vault with bounded refresh and explicit recovery after interruption; per-call approval shows the exact endpoint. Loading settings makes no network request.
 - Manage complete skill ZIP packages in Settings → Skills → Packages. Review instructions, resources, declared dependencies and versions, install separately from activation, restore saved versions and export the original archive. Retained-data recovery preserves changed files.
 - Read selected package references through a verified, bounded tool, including Global packages outside the working folder. Inspect package identity in context preview; binary assets return metadata, and scripts retain separate execution permissions.
 - Free package-version capacity by forgetting a reviewed older activation while keeping the current skill and its resources. Remove the unused installation separately, then retry the new package without clearing the skill.
@@ -62,11 +62,11 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 - Installer checks wait for complete cleanup before reinstalling and retain logs when verification fails.
 - Windows language-server checks allow bounded slow startup and verify timeout recovery without losing unsaved text.
 - Windows build checks no longer intermittently fail when testing a stalled chat stream.
-- Windows checks cover MCP recovery under software hashing and constrained workloads; checks and installer qualification can run locally without pushing or tagging.
+- Dedicated checks and installer tools run directly with the active toolchain, without a local CI replica, toolchain-version enforcement, pushing or tagging.
 
 ### Known limitations
 
-- Remote MCP OAuth sign-in/refresh and broader connected recovery qualification remain in progress. No cross-call remote session or background subscription is provided.
+- Remote MCP browser sign-in and recovery are qualified with public Windows fixtures; third-party login/model reliability and broader lifecycle cleanup remain separate. No cross-call remote session or background subscription is provided.
 - Isolated Node child processes must inherit stdio; Node-created child pipes can stall until the host deadline or Stop. Other runtimes, human terminals, browser helpers and native repair builds retain their existing native execution mode.
 
 ## [0.0.1-alpha] - 2026-10-13

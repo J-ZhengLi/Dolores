@@ -539,7 +539,15 @@ Working models can request folder listing, literal search, text reads and file c
 
 **Changes** retains file before/after snapshots independently of the final reply. Select a record, **Review revert**, inspect the reverse diff, then **Revert once**; a recorded creation offers **Remove once**. Changed files require another review. **Needs check** indicates an uncertain receipt to inspect. Applied files can remain after Stop or a later model failure. Command and MCP effects are outside this journal.
 
-Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Native commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable installed local servers under **Settings → External tools**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
+Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Native commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable servers under **Settings → Connections**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
+
+For a remote endpoint on Windows, choose **Browser sign-in (OAuth)** and **Sign in**.
+Complete the login in your default browser, return to review the tools, then
+**Enable** to save the login securely. **Recheck connection** uses the saved login;
+**Sign in again** recovers an expired, revoked or interrupted login. Stop keeps
+the previous saved connection. If the server needs a registered public client ID
+or offers multiple issuers, enter the intended registration under **Sign-in options**.
+See [connection setup and limits](design/mcp-connection.md#available-remote-controls).
 
 Open **Commands** from Activity or Earlier tasks to inspect a task-owned process,
 read incremental output, send exact input, close stdin, interrupt or close its

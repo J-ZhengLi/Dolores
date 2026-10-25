@@ -21,8 +21,10 @@ impl BearerCredential {
     pub fn validate_target(&self, target: &McpRemoteTarget) -> Result<(), String> {
         target.validate()?;
         let url = dolores_core::validate_mcp_endpoint(&target.endpoint)?;
-        if target.authentication != McpRemoteAuthentication::Bearer
-            || target.label.contains(&self.0)
+        if !matches!(
+            target.authentication,
+            McpRemoteAuthentication::Bearer | McpRemoteAuthentication::Oauth
+        ) || target.label.contains(&self.0)
             || url.as_str().contains(&self.0)
             || url
                 .query_pairs()
@@ -39,6 +41,9 @@ impl BearerCredential {
         target: &McpRemoteTarget,
     ) -> Result<String, String> {
         self.validate_target(target)?;
+        if target.authentication != McpRemoteAuthentication::Bearer {
+            return Err(VAULT_ERROR.into());
+        }
         if connection_id == "legacy" || !dolores_core::valid_mcp_id(connection_id) {
             return Err("Remote MCP connection identity is invalid.".into());
         }
@@ -69,7 +74,7 @@ enum StoredRemote {
         value: String,
     },
 }
-fn canonical_root(root: &Path) -> Result<String, String> {
+pub(crate) fn canonical_root(root: &Path) -> Result<String, String> {
     let root = root
         .canonicalize()
         .map_err(|_| "Working folder is unavailable.")?;

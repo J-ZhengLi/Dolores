@@ -172,13 +172,13 @@ impl PendingAuthorization {
 /// Secret token result. Persistence and transport integration must remain inside
 /// the MCP credential boundary; this type has no plaintext accessors or derives.
 pub struct Tokens {
-    access: String,
-    refresh: Option<String>,
-    expires_at: Option<u64>,
-    scopes: Vec<String>,
-    issuer: String,
-    resource: String,
-    client_id: String,
+    pub(super) access: String,
+    pub(super) refresh: Option<String>,
+    pub(super) expires_at: Option<u64>,
+    pub(super) scopes: Vec<String>,
+    pub(super) issuer: String,
+    pub(super) resource: String,
+    pub(super) client_id: String,
 }
 fn token(value: &Value) -> Result<String> {
     value

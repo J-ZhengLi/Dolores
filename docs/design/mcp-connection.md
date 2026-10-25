@@ -74,9 +74,13 @@ token exchange/refresh. It follows the current
 [discovery requirements](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/authorization-server-discovery),
 [registration choices](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration)
 and [authorization security requirements](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations).
-This is an internal protocol API, not an available Settings authentication option.
-Native browser/callback ownership, secure token persistence and foreground login
-recovery still require implementation and connected Windows qualification.
+On Windows, Connections also offers **Browser sign-in (OAuth)**. **Sign in**
+discovers the resource's challenged or well-known metadata and opens the default
+external browser. One foreground attempt owns a dynamic IPv4 loopback callback
+listener for at most five minutes. It accepts at most eight bounded requests,
+with a three-second read deadline per request, exact callback path/Host and state/
+issuer validation. Stop, disposal and shutdown release the listener; late replies
+cannot save or enable a connection. Callback pages contain only static text.
 
 Discovery checks the resource and exact issuer identity, supports challenged
 metadata and well-known fallback, and requires advertised S256/public-client
@@ -97,14 +101,28 @@ duplicate parameters and exact decoded issuer are checked before success or
 error handling. Authorization and token requests carry the resource identifier.
 Tokens and raw authorization errors have no diagnostic serialization. A failed
 refresh preserves the prior in-memory tokens without replaying an MCP tool;
-it cannot undo a rotation already performed by the server. The next host/vault
-brick must persist a successful rotation before making it active and offer fresh
-sign-in after an uncertain or revoked refresh. No plaintext fallback is allowed.
+it cannot undo a rotation already performed by the server. Token persistence
+stays inside the MCP credential boundary and native vault, bound to canonical
+folder, connection, exact target, issuer, resource, public client and purpose.
+SQLite contains only opaque credential references; browser URLs, callback data
+and token values never enter foreground responses, history or model context.
+Vault payloads retain the existing 16 KiB bound; native storage may impose a
+smaller limit and returns an actionable refusal without plaintext fallback.
+
+Credential resolution and refresh serialize per saved credential. Before a
+refresh request, save a durable pending marker; save the rotated tokens before
+using them. A crash, cancelled/revoked refresh or failed rotation save retains
+inspectable login uncertainty and requires **Sign in again**. Nothing repeats a
+dispatched refresh or business tool to recover output. A successful refresh can
+remain saved after Stop; it does not enable a new catalog or broaden approval.
+Refresh uses the retained protected-resource metadata address, exact issuer,
+client and token endpoint. Changed metadata requires fresh sign-in. Config edits
+use the existing foreground owner/CAS boundary; distributed atomicity is not claimed.
 
 ### Available remote controls
 
 Choose **Add connection → Remote endpoint**, enter a connection name and its MCP
-URL, then choose **No authentication** or **Bearer key**. Keep a key in the masked
+URL, then choose **No authentication**, **Bearer key** or **Browser sign-in (OAuth)**. Keep a key in the masked
 field, never the name or URL. Use **Inspect endpoint** to contact it and review
 its bounded tool catalog. Inspection sends the key to that endpoint but does not
 save it or enable a tool. Search filters names/descriptions locally; selected
@@ -134,6 +152,18 @@ Both transports share the vault-write/configuration-CAS recovery path: failed
 saves preserve the review and old connection, while successful rotation retires
 the old key. Disable/Forget retain the existing recoverable cleanup behavior.
 
+For OAuth, Sign in produces the same tool review; **Enable** separately saves the
+login and selected catalog. Failed Enable retains the review for explicit retry.
+**Recheck connection** reuses the saved login and refreshes it once if expiring,
+before any tool call. It never opens a browser automatically. **Sign in again**
+starts a fresh grant and retains the old saved configuration until Enable succeeds.
+Sign-in options accept an exact issuer and supplied public client ID, or a real
+hosted client metadata URL; otherwise compatible dynamic registration is used.
+Multiple advertised issuers require an explicit choice. Supplied registration
+values must be entered again for fresh sign-in; no hosted Dolores URL is invented.
+Sign-in itself neither enables tools nor changes their permissions. Other
+platforms have no native browser sign-in qualification.
+
 Remote bearer records bind the canonical folder, connection identity, exact
 target and credential purpose. Values allow at most 4 KiB of visible ASCII;
 canonical root bindings allow 4 KiB of UTF-8 and vault payloads 16 KiB. Task access
@@ -147,7 +177,7 @@ Successful bounded results can carry a cleanup warning if session deletion is
 unconfirmed; output failures explain possible remaining effects and ask for
 inspection instead of repeating an operation for its output.
 
-OAuth sign-in/refresh and broader lifecycle qualification remain required by
+Connected OAuth qualification and broader lifecycle integration are tracked by
 [EH09](../plans/everyday-harness/eh09.md). Bearer setup does not complete H19.
 Dropping a client, failed initialization or Stop does not guarantee deletion of a
 remote legacy session. The native fixture qualifies the declared public-loopback

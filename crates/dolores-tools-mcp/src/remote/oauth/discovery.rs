@@ -10,6 +10,7 @@ pub struct ResourceMetadata {
     pub(super) issuers: Vec<String>,
     pub(super) scopes: Vec<String>,
     pub(super) local: bool,
+    pub(super) metadata_url: String,
 }
 impl ResourceMetadata {
     pub fn resource(&self) -> &str {
@@ -102,6 +103,55 @@ fn endpoint(value: &Value, name: &str, local: bool) -> Result<Url> {
 }
 
 impl Operation {
+    /// Explicit foreground discovery may use the protected endpoint's challenge
+    /// to locate metadata outside the well-known path. This GET never invokes a
+    /// business tool and never sends an old login to a changed endpoint.
+    pub async fn discover_mcp_resource(&mut self, resource: &str) -> Result<ResourceMetadata> {
+        self.active()?;
+        let url = oauth_url(resource, true)?;
+        if self.requests >= 12 {
+            return Err(Failure(Kind::Limit));
+        }
+        self.requests += 1;
+        let read = async {
+            let response = Self::client(&url)?
+                .get(url)
+                .send()
+                .await
+                .map_err(|_| Failure(Kind::Network))?;
+            if response.status().is_redirection() {
+                return Err(Failure(Kind::Redirect));
+            }
+            let mut challenge = String::new();
+            if matches!(response.status().as_u16(), 401 | 403) {
+                for value in response
+                    .headers()
+                    .get_all(reqwest::header::WWW_AUTHENTICATE)
+                {
+                    let value = value.to_str().map_err(|_| Failure(Kind::Challenge))?;
+                    if challenge.len() + value.len() + 2 > 8192 {
+                        return Err(Failure(Kind::Limit));
+                    }
+                    if !challenge.is_empty() {
+                        challenge.push_str(", ");
+                    }
+                    challenge.push_str(value);
+                }
+            }
+            Ok(challenge)
+        };
+        let challenge = tokio::select! {
+            biased;
+            _=self.cancel.cancelled()=>return Err(Failure(Kind::Cancelled)),
+            _=tokio::time::sleep_until(self.deadline)=>return Err(Failure(Kind::Deadline)),
+            result=read=>result?,
+        };
+        self.discover_resource(
+            resource,
+            (!challenge.is_empty()).then_some(challenge.as_str()),
+        )
+        .await
+    }
     pub async fn discover_resource(
         &mut self,
         resource: &str,
@@ -126,7 +176,7 @@ impl Operation {
                 vec![scoped, root]
             }
         };
-        let value = self.first_metadata(&urls).await?;
+        let (value, metadata_url) = self.first_metadata_at(&urls).await?;
         let identified = oauth_url(
             value["resource"].as_str().ok_or(Failure(Kind::Resource))?,
             local,
@@ -151,13 +201,17 @@ impl Operation {
             issuers,
             scopes: challenge.scopes.unwrap_or(metadata_scopes(&value)?),
             local,
+            metadata_url: metadata_url.to_string(),
         })
     }
     async fn first_metadata(&mut self, urls: &[Url]) -> Result<Value> {
+        self.first_metadata_at(urls).await.map(|(value, _)| value)
+    }
+    async fn first_metadata_at(&mut self, urls: &[Url]) -> Result<(Value, Url)> {
         for url in urls {
             match self.get(url).await {
                 Err(Failure(Kind::Http(404 | 405))) => continue,
-                value => return value,
+                value => return value.map(|value| (value, url.clone())),
             }
         }
         Err(Failure(Kind::Metadata))

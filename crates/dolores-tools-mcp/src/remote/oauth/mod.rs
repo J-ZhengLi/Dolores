@@ -1,13 +1,16 @@
-//! OAuth protocol boundary for a host-owned, explicit MCP sign-in.
+//! OAuth boundary for a host-owned, explicit MCP sign-in.
 //!
-//! This module does not open browsers, persist tokens or dispatch business tools.
-//! The host must separately own those lifetimes and bind any saved credentials.
+//! The host opens the browser and owns foreground authority. Callback handling
+//! and bound vault records remain here; no operation dispatches business tools.
+mod callback;
 mod challenge;
 mod discovery;
 mod grant;
 #[cfg(test)]
 mod tests;
+pub mod vault;
 
+pub use callback::LoopbackCallback;
 pub use discovery::{
     AuthorizationServer, ClientConfiguration, PreRegisteredClient, RegisteredClient,
     ResourceMetadata,

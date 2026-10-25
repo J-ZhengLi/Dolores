@@ -1,11 +1,27 @@
 use super::*;
-use dolores_core::{McpRemoteAuthentication, McpRemoteTarget, McpTool, MCP_REMOTE_BEARER};
+use dolores_core::{
+    McpRemoteAuthentication, McpRemoteTarget, McpTool, MCP_REMOTE_BEARER, MCP_REMOTE_OAUTH,
+};
 use dolores_tools_mcp::remote::{
     credentials::{resolve_bearer, BearerCredential},
+    oauth::{
+        self,
+        vault::{OAuthCredential, SignInConfiguration},
+        LoopbackCallback, PendingAuthorization,
+    },
     RemoteClient,
 };
 #[cfg(test)]
 mod tests;
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RemoteInput {
+    #[serde(default)]
+    pub bearer: Option<String>,
+    #[serde(default)]
+    pub sign_in: Option<SignInConfiguration>,
+}
 
 pub(crate) struct RemoteReview {
     pub(super) token: String,
@@ -16,6 +32,7 @@ pub(crate) struct RemoteReview {
     created: Instant,
     target: McpRemoteTarget,
     credential: Option<BearerCredential>,
+    oauth: Option<OAuthCredential>,
     protocol: String,
     server_name: String,
     server_version: String,
@@ -29,9 +46,18 @@ impl Engine {
         session: String,
         connection_id: String,
         target: McpRemoteTarget,
-        bearer: Option<String>,
+        input: RemoteInput,
     ) -> Result<Value, String> {
+        let RemoteInput { bearer, sign_in } = input;
         target.validate()?;
+        if let Some(config) = &sign_in {
+            config.validate()?;
+        }
+        if (target.authentication != McpRemoteAuthentication::Oauth && sign_in.is_some())
+            || (target.authentication != McpRemoteAuthentication::Bearer && bearer.is_some())
+        {
+            return Err("Choose authentication fields matching this connection.".into());
+        }
         let root = self.mcp_root(&session)?;
         let connection_id = if connection_id.is_empty() {
             uuid::Uuid::new_v4().to_string()
@@ -69,9 +95,30 @@ impl Engine {
             self.mcp_credentials.clone(),
             self.mcp_remote_review.clone(),
         );
+        let browser = self.mcp_browser.clone();
         self.runtime.spawn(async move {
             let result=async {
                 let (saved,check_root,check_target)=(previous.clone(),root.clone(),target.clone());
+                let oauth=if target.authentication==McpRemoteAuthentication::Oauth {
+                    if let Some(configuration)=sign_in {
+                        let listener=LoopbackCallback::bind().await.map_err(|e|e.to_string())?;
+                        let mut operation=oauth::Operation::new(cancel.clone());
+                        let resource=operation.discover_mcp_resource(&target.endpoint).await.map_err(|e|e.to_string())?;
+                        let issuer=configuration.issuer.as_deref().or_else(||(resource.issuers().len()==1).then(||resource.issuers()[0].as_str())).ok_or("This endpoint advertises multiple sign-in issuers. Enter the intended issuer in Sign-in options.")?;
+                        let server=operation.discover_server(&resource,issuer).await.map_err(|e|e.to_string())?;
+                        let client=operation.register_client(&server,listener.redirect_uri(),&configuration.client_configuration()).await.map_err(|e|e.to_string())?;
+                        let pending=PendingAuthorization::new(server.clone(),client.clone()).map_err(|e|e.to_string())?;
+                        if cancel.is_cancelled(){return Err("MCP sign-in stopped. Nothing was saved.".into());}
+                        // Browser launch is host-owned; the URL never crosses a DTO.
+                        browser(pending.authorization_url())?;
+                        let tokens=listener.complete(pending,cancel.clone()).await.map_err(|e|e.to_string())?;
+                        Some(OAuthCredential::new(&resource,&server,&client,tokens)?)
+                    } else {
+                        let saved=previous.clone().ok_or("Use Sign in to connect this endpoint first.")?;
+                        if saved.remote.as_ref()!=Some(&target){return Err("Remote login target changed. Use Sign in again before inspecting.".into());}
+                        Some(oauth::vault::resolve(Path::new(&root).to_path_buf(),saved,vault.clone(),cancel.clone()).await?)
+                    }
+                } else {None};
                 let deadline=tokio::time::Instant::now()+Duration::from_secs(30);
                 let credential=tokio::select! {
                     biased;
@@ -79,6 +126,7 @@ impl Engine {
                     _=tokio::time::sleep_until(deadline)=>return Err("MCP inspection exceeded its 30-second limit. The saved connection is unchanged; inspect again explicitly.".into()),
                     result=crate::blocking(move||match check_target.authentication {
                     McpRemoteAuthentication::None=>Ok(None),
+                    McpRemoteAuthentication::Oauth=>Ok(None),
                     McpRemoteAuthentication::Bearer=>{
                         let credential=if let Some(value)=bearer{BearerCredential::new(value)?}else{
                             let saved=saved.ok_or(credentials::VAULT_ERROR)?;
@@ -90,7 +138,8 @@ impl Engine {
                     })=>result?,
                 };
                 if cancel.is_cancelled(){return Err("MCP inspection stopped. Nothing was saved.".into());}
-                let mut client=RemoteClient::connect_target_until(&target,credential.as_ref(),None,cancel.clone(),deadline).await.map_err(|e|e.to_string())?;
+                let mut client=if let Some(login)=&oauth { login.connect(&target,None,cancel.clone(),deadline).await? }
+                    else { RemoteClient::connect_target_until(&target,credential.as_ref(),None,cancel.clone(),deadline).await.map_err(|e|e.to_string())? };
                 let discovered=client.list_tools().await;
                 let server=client.server().clone();
                 let excluded=client.excluded.iter().map(|t|json!({"name":t.name,"reason":t.reason})).collect::<Vec<_>>();
@@ -101,10 +150,11 @@ impl Engine {
                 let token=uuid::Uuid::new_v4().to_string();
                 let name=server.name.unwrap_or_else(||target.label.clone());let version=server.version.unwrap_or_default();
                 let mut response=json!({"token":token,"connectionId":connection_id,"remote":target,"tools":tools,"serverName":name,"serverVersion":version,"protocolVersion":server.protocol_version,"excludedTools":excluded});
+                if oauth.as_ref().is_some_and(|c|c.contains_secret(&response)){return Err("MCP metadata contains login credentials. Ask the server owner to fix it, then Sign in again.".into());}
                 if cleanup.is_err(){response["warning"]=json!("Tools inspected, but remote session cleanup was not confirmed. Inspect connection health; do not repeat a tool call for cleanup.");}
                 let mut review=slot.lock().map_err(|_|STALE)?;
                 if cancel.is_cancelled(){return Err("MCP inspection stopped. Nothing was saved.".into());}
-                *review=Some(RemoteReview{token,connection_id,session,root,previous,created:Instant::now(),target,credential,protocol:server.protocol_version,server_name:name,server_version:version,tools});
+                *review=Some(RemoteReview{token,connection_id,session,root,previous,created:Instant::now(),target,credential,oauth,protocol:server.protocol_version,server_name:name,server_version:version,tools});
                 Ok::<_,String>(response)
             }.await;
             let event=match result{Ok(value)=>json!({"type":"done","id":id,"mcpInspection":value}),Err(error)=>json!({"type":"done","id":id,"error":error})};
@@ -156,6 +206,18 @@ impl Engine {
             vec![(
                 McpCredentialBinding {
                     name: MCP_REMOTE_BEARER.into(),
+                    credential_id: uuid::Uuid::new_v4().to_string(),
+                },
+                credential.encoded_for(
+                    Path::new(&review.root),
+                    &review.connection_id,
+                    &review.target,
+                )?,
+            )]
+        } else if let Some(credential) = &review.oauth {
+            vec![(
+                McpCredentialBinding {
+                    name: MCP_REMOTE_OAUTH.into(),
                     credential_id: uuid::Uuid::new_v4().to_string(),
                 },
                 credential.encoded_for(

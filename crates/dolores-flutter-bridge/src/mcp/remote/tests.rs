@@ -24,6 +24,7 @@ impl Server {
     fn new(key: Option<&str>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/mcp", listener.local_addr().unwrap());
+        let base = url.trim_end_matches("/mcp").to_owned();
         let stop = Arc::new(AtomicBool::new(false));
         let hold = Arc::new(AtomicBool::new(false));
         let key = Arc::new(Mutex::new(key.map(str::to_owned)));
@@ -41,6 +42,7 @@ impl Server {
                 let mut reader = std::io::BufReader::new(&mut stream);
                 let mut line = String::new();
                 reader.read_line(&mut line).unwrap();
+                let path = line.split_whitespace().nth(1).unwrap_or("").to_owned();
                 let mut headers = BTreeMap::new();
                 loop {
                     line.clear();
@@ -58,6 +60,22 @@ impl Server {
                 assert!(count < 64 * 1024);
                 let mut body = vec![0; count];
                 reader.read_exact(&mut body).unwrap();
+                if path == "/mcp" && body.is_empty() {
+                    let _=stream.write_all(format!("HTTP/1.1 401 Fixture\r\nWWW-Authenticate: Bearer resource_metadata=\"{base}/resource-metadata\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes());
+                    continue;
+                }
+                if path != "/mcp" {
+                    let response=match path.as_str() {
+                        "/resource-metadata"=>json!({"resource":format!("{base}/mcp"),"authorization_servers":[format!("{base}/issuer")]}),
+                        "/.well-known/oauth-authorization-server/issuer"=>json!({"issuer":format!("{base}/issuer"),"authorization_endpoint":format!("{base}/authorize"),"token_endpoint":format!("{base}/token"),"registration_endpoint":format!("{base}/register"),"response_types_supported":["code"],"token_endpoint_auth_methods_supported":["none"],"code_challenge_methods_supported":["S256"],"authorization_response_iss_parameter_supported":true}),
+                        "/register"=>json!({"client_id":"public-native-client","token_endpoint_auth_method":"none","redirect_uris":serde_json::from_slice::<Value>(&body).unwrap()["redirect_uris"]}),
+                        "/token"=>json!({"token_type":"Bearer","access_token":"public-oauth-access","refresh_token":"public-oauth-refresh","expires_in":3600}),
+                        _=>panic!("unexpected public OAuth fixture path"),
+                    }.to_string();
+                    let head=format!("HTTP/1.1 200 Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len());
+                    let _ = stream.write_all(head.as_bytes());
+                    continue;
+                }
                 let request: Value = serde_json::from_slice(&body).unwrap();
                 sender.send(request.clone()).ok();
                 if held.load(SeqCst) {
@@ -76,6 +94,9 @@ impl Server {
                         }
                         "tools/list" => {
                             json!({"resultType":"complete","tools":[{"name":"echo","description":"Public echo","inputSchema":{"type":"object"}}]})
+                        }
+                        "tools/call" => {
+                            json!({"resultType":"complete","content":[{"type":"text","text":"PUBLIC_OAUTH_RESULT"}]})
                         }
                         _ => panic!("inspection must not invoke a tool"),
                     };
@@ -186,6 +207,145 @@ fn enable(engine: &Engine, review: &Value) -> Result<Value, String> {
         engine,
         json!({"command":"enableMcp","session":"work","token":review["token"],"names":["echo"]}),
     )
+}
+
+fn fixture_browser(url: &str) -> Result<(), String> {
+    let authorization = url::Url::parse(url).unwrap();
+    let fields: std::collections::BTreeMap<_, _> = authorization
+        .query_pairs()
+        .map(|(k, v)| (k.into_owned(), v.into_owned()))
+        .collect();
+    let mut callback = url::Url::parse(&fields["redirect_uri"]).unwrap();
+    let mut issuer = authorization.clone();
+    issuer.set_path("/issuer");
+    issuer.set_query(None);
+    callback
+        .query_pairs_mut()
+        .append_pair("state", &fields["state"])
+        .append_pair("iss", issuer.as_str())
+        .append_pair("code", "public-code");
+    thread::spawn(move || {
+        let mut socket = TcpStream::connect(("127.0.0.1", callback.port().unwrap())).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let request = format!(
+            "GET {}?{} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n",
+            callback.path(),
+            callback.query().unwrap(),
+            callback.port().unwrap()
+        );
+        socket.write_all(request.as_bytes()).unwrap();
+        let mut response = String::new();
+        socket.read_to_string(&mut response).ok();
+    });
+    Ok(())
+}
+
+#[test]
+fn oauth_sign_in_review_vault_save_retry_reopen_and_approved_call() {
+    let server = Server::new(Some("public-oauth-access"));
+    let (directory, store, vault, mut engine, root) = setup();
+    engine.mcp_browser = Arc::new(fixture_browser);
+    let mut target = server.target();
+    target.authentication = McpRemoteAuthentication::Oauth;
+    call(
+        &engine,
+        json!({"command":"inspectRemoteMcp","id":41,"session":"work","remote":target,"signIn":{}}),
+    )
+    .unwrap();
+    let response = done(&engine, 41);
+    assert!(response.get("error").is_none(), "{response}");
+    let review = &response["mcpInspection"];
+    assert!(!response.to_string().contains("public-oauth-access"));
+    assert!(!response.to_string().contains("public-oauth-refresh"));
+    assert!(store.mcp_connections(&root).unwrap().is_empty());
+    assert!(vault.values.lock().unwrap().is_empty());
+    let db = rusqlite::Connection::open(directory.path().join("fixture.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER refuse_oauth BEFORE INSERT ON mcp_connections BEGIN SELECT RAISE(ABORT,'public fixture'); END;").unwrap();
+    assert!(enable(&engine, review).is_err());
+    assert!(engine.mcp_remote_review.lock().unwrap().is_some());
+    assert!(vault.values.lock().unwrap().is_empty());
+    db.execute_batch("DROP TRIGGER refuse_oauth").unwrap();
+    vault.locked.store(true, SeqCst);
+    assert!(enable(&engine, review).is_err());
+    vault.locked.store(false, SeqCst);
+    let saved = enable(&engine, review).unwrap();
+    assert_eq!(saved["credentials"][0]["name"], "MCP_OAUTH_GRANT");
+    let raw: String = db
+        .query_row("SELECT data FROM mcp_connections", [], |row| row.get(0))
+        .unwrap();
+    assert!(!raw.contains("public-oauth-access"));
+    assert!(!raw.contains("public-oauth-refresh"));
+    let id = saved["id"].as_str().unwrap();
+    call(&engine,json!({"command":"inspectRemoteMcp","id":42,"session":"work","connectionId":id,"remote":target})).unwrap();
+    let recheck = done(&engine, 42);
+    assert!(recheck.get("error").is_none(), "{recheck}");
+    // A restarted owner reuses the secure login without opening a browser.
+    let reopened = Engine::new(store.clone(), vault.clone()).unwrap();
+    let saved = store.mcp_connection_by_id(&root, id).unwrap().unwrap();
+    let plugin =
+        dolores_tools_mcp::plugins_with_credentials(Path::new(&root), saved.clone(), vault.clone())
+            .unwrap()
+            .remove(0);
+    let request = plugin
+        .prepare(&dolores_core::ToolCall {
+            id: "oauth-call".into(),
+            name: plugin.spec().name,
+            arguments: "{}".into(),
+        })
+        .unwrap();
+    let result = reopened
+        .runtime
+        .block_on(plugin.invoke(&request, CancellationToken::new()))
+        .unwrap();
+    assert!(result.contains("PUBLIC_OAUTH_RESULT"));
+    vault.locked.store(true, SeqCst);
+    call(&reopened,json!({"command":"inspectRemoteMcp","id":43,"session":"work","connectionId":id,"remote":target})).unwrap();
+    assert!(done(&reopened, 43)["error"]
+        .as_str()
+        .unwrap()
+        .contains("Unlock"));
+    vault.locked.store(false, SeqCst);
+    assert_eq!(store.mcp_connection_by_id(&root, id).unwrap(), Some(saved));
+}
+
+#[test]
+fn oauth_browser_failure_stop_and_stale_issuer_preserve_the_previous_connection() {
+    let server = Server::new(Some("public-oauth-access"));
+    let (_directory, store, _vault, mut engine, root) = setup();
+    let mut target = server.target();
+    target.authentication = McpRemoteAuthentication::Oauth;
+    engine.mcp_browser = Arc::new(|_| Err("Public browser failure. Try Sign in again.".into()));
+    call(
+        &engine,
+        json!({"command":"inspectRemoteMcp","id":51,"session":"work","remote":target,"signIn":{}}),
+    )
+    .unwrap();
+    assert!(done(&engine, 51)["error"]
+        .as_str()
+        .unwrap()
+        .contains("browser failure"));
+    call(&engine,json!({"command":"inspectRemoteMcp","id":52,"session":"work","remote":target,"signIn":{"issuer":"https://wrong.example.test"}})).unwrap();
+    assert!(done(&engine, 52)["error"]
+        .as_str()
+        .unwrap()
+        .contains("issuer"));
+    let (sender, receiver) = signal::channel();
+    engine.mcp_browser = Arc::new(move |_| {
+        sender.send(()).unwrap();
+        Ok(())
+    });
+    call(
+        &engine,
+        json!({"command":"inspectRemoteMcp","id":53,"session":"work","remote":target,"signIn":{}}),
+    )
+    .unwrap();
+    receiver.recv_timeout(Duration::from_secs(5)).unwrap();
+    call(&engine, json!({"command":"cancel","id":53})).unwrap();
+    assert!(done(&engine, 53).get("error").is_some());
+    assert!(engine.mcp_remote_review.lock().unwrap().is_none());
+    assert!(store.mcp_connections(&root).unwrap().is_empty());
 }
 
 #[test]

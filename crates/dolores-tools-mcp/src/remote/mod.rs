@@ -190,7 +190,11 @@ impl RemoteClient {
         target.validate().map_err(|_| fail(Kind::Endpoint))?;
         match (target.authentication, credential) {
             (dolores_core::McpRemoteAuthentication::None, None) => {}
-            (dolores_core::McpRemoteAuthentication::Bearer, Some(key)) => key
+            (
+                dolores_core::McpRemoteAuthentication::Bearer
+                | dolores_core::McpRemoteAuthentication::Oauth,
+                Some(key),
+            ) => key
                 .validate_target(target)
                 .map_err(|_| fail(Kind::Credential))?,
             _ => return Err(fail(Kind::Credential)),

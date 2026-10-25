@@ -162,6 +162,7 @@ struct Engine {
     summary_review: Arc<Mutex<Option<summaries::SummaryReview>>>,
     mcp_review: Arc<Mutex<Option<mcp::McpReview>>>,
     mcp_remote_review: Arc<Mutex<Option<mcp::RemoteReview>>>,
+    mcp_browser: mcp::BrowserOpener,
     mcp_credentials: Arc<dyn CredentialStore>,
     desktop_access: desktop_control::Grants,
     computer_ownership: computer::Ownership,
@@ -616,8 +617,8 @@ enum Command {
         remote: dolores_core::McpRemoteTarget,
         #[serde(default, rename = "connectionId")]
         connection_id: String,
-        #[serde(default)]
-        bearer: Option<String>,
+        #[serde(flatten)]
+        authentication: mcp::RemoteInput,
     },
     DisableMcp {
         session: String,
@@ -1001,6 +1002,7 @@ impl Engine {
             summary_review: Arc::new(Mutex::new(None)),
             mcp_review: Arc::new(Mutex::new(None)),
             mcp_remote_review: Arc::new(Mutex::new(None)),
+            mcp_browser: Arc::new(mcp::open_browser),
             mcp_credentials: credentials,
             desktop_access: Mutex::new(Default::default()),
             desktop_boot_ms: desktop_control::now_millis(),
@@ -1601,8 +1603,15 @@ impl Engine {
                 session,
                 remote,
                 connection_id,
-                bearer,
-            } => self.inspect_remote_mcp(&mut active, id, session, connection_id, remote, bearer),
+                authentication,
+            } => self.inspect_remote_mcp(
+                &mut active,
+                id,
+                session,
+                connection_id,
+                remote,
+                authentication,
+            ),
             Command::DisableMcp {
                 session,
                 connection_id,

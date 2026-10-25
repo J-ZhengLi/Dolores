@@ -128,17 +128,36 @@ impl ToolPlugin for RemotePlugin {
             self.connection.clone(),
             self.vault.clone(),
         );
-        let credential = tokio::select! {
-            biased;
-            _=cancel.cancelled()=>return Err(super::fail(super::Kind::Cancelled).to_string()),
-            _=tokio::time::sleep_until(deadline)=>return Err(super::fail(super::Kind::Deadline).to_string()),
-            result=async move { tokio::task::spawn_blocking(move||{
-                if root.canonicalize().ok().as_ref()!=Some(&root){return Err("Working folder changed. Review the MCP connection again.".into());}
-                match connection.remote.as_ref().ok_or("Remote MCP target is missing.")?.authentication {
-                    McpRemoteAuthentication::None=>Ok(None),
-                    McpRemoteAuthentication::Bearer=>credentials::resolve_bearer(&root,&connection,vault.as_ref().ok_or(crate::credentials::VAULT_ERROR)?.as_ref()).map(Some),
-                }
-            }).await }=>result.map_err(|_|"MCP credential worker failed.")??,
+        let oauth = if connection
+            .remote
+            .as_ref()
+            .is_some_and(|t| t.authentication == McpRemoteAuthentication::Oauth)
+        {
+            Some(tokio::select! {
+                biased;
+                _=cancel.cancelled()=>return Err(super::fail(super::Kind::Cancelled).to_string()),
+                _=tokio::time::sleep_until(deadline)=>return Err(super::fail(super::Kind::Deadline).to_string()),
+                result=super::oauth::vault::resolve(root.clone(),connection.clone(),vault.clone().ok_or(crate::credentials::VAULT_ERROR)?,cancel.clone())=>result?,
+            })
+        } else {
+            None
+        };
+        let credential = if let Some(credential) = &oauth {
+            Some(credential.bearer()?)
+        } else {
+            tokio::select! {
+                biased;
+                _=cancel.cancelled()=>return Err(super::fail(super::Kind::Cancelled).to_string()),
+                _=tokio::time::sleep_until(deadline)=>return Err(super::fail(super::Kind::Deadline).to_string()),
+                result=async move { tokio::task::spawn_blocking(move||{
+                    if root.canonicalize().ok().as_ref()!=Some(&root){return Err("Working folder changed. Review the MCP connection again.".into());}
+                    match connection.remote.as_ref().ok_or("Remote MCP target is missing.")?.authentication {
+                        McpRemoteAuthentication::None=>Ok(None),
+                        McpRemoteAuthentication::Bearer=>credentials::resolve_bearer(&root,&connection,vault.as_ref().ok_or(crate::credentials::VAULT_ERROR)?.as_ref()).map(Some),
+                        McpRemoteAuthentication::Oauth=>Err("Use Sign in again in Connections.".into()),
+                    }
+                }).await }=>result.map_err(|_|"MCP credential worker failed.")??,
+            }
         };
         let target = self
             .connection
@@ -156,6 +175,7 @@ impl ToolPlugin for RemotePlugin {
         .map_err(|e| e.to_string())?;
         let outcome=async {
             let catalog=client.list_tools().await.map_err(|e|e.to_string())?;
+            if oauth.as_ref().is_some_and(|c|c.contains_secret(&json!(catalog))) { return Err("MCP metadata contains login credentials. Ask the server owner to fix it, then Sign in again.".into()); }
             let server=client.server();
             if server.name.as_deref().unwrap_or(&target.label)!=self.connection.server_name || server.version.as_deref().unwrap_or("")!=self.connection.server_version
                 || self.connection.tools.iter().any(|t|!catalog.contains(t)) {
@@ -163,6 +183,7 @@ impl ToolPlugin for RemotePlugin {
             }
             let arguments=serde_json::from_str(&plan.mcp.ok_or("MCP approval has no arguments.")?.arguments).map_err(|_|"MCP arguments are invalid.")?;
             let result=client.call_tool(&self.connection.tools[self.index],arguments).await.map_err(dispatched_error)?;
+            if oauth.as_ref().is_some_and(|c|c.contains_secret(&result)) { return Err(dispatched_error("MCP output contained login credentials and was withheld.")); }
             let (text,is_error)=crate::text_content(&result).map_err(dispatched_error)?;
             Ok::<_,String>(json!({"text":text,"isError":is_error}))
         }.await;

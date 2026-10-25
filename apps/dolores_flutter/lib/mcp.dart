@@ -62,8 +62,11 @@ class _McpInspectorState extends State<McpInspector> {
     _program.text,
     _remote,
     _endpoint.text,
-    _bearerAuth,
+    _auth,
     _bearer.text,
+    _issuer.text,
+    _clientId.text,
+    _clientDocument.text,
     _isolated,
     _readonlyRoots.text,
     _args.map((a) => a.text).toList(),
@@ -118,7 +121,15 @@ class _McpInspectorState extends State<McpInspector> {
   final _endpoint = TextEditingController(),
       _bearer = TextEditingController(),
       _toolSearch = TextEditingController();
-  bool _remote = false, _bearerAuth = false, _checkingRemote = false;
+  final _issuer = TextEditingController(),
+      _clientId = TextEditingController(),
+      _clientDocument = TextEditingController();
+  String _auth = 'none';
+  bool _remote = false, _checkingRemote = false;
+  bool get _reuseOAuth =>
+      _connection?['remote']?['authentication'] == 'oauth' &&
+      _connection?['remote']?['label'] == _name.text.trim() &&
+      _connection?['remote']?['endpoint'] == _endpoint.text.trim();
   String _health = 'Not checked';
   bool get _reuseBearer {
     final target = _connection?['remote'] as Map?;
@@ -252,7 +263,10 @@ class _McpInspectorState extends State<McpInspector> {
       _directory = result['directory'] as String? ?? '';
       _remote = target != null;
       _endpoint.text = target?['endpoint'] as String? ?? '';
-      _bearerAuth = target?['authentication'] == 'bearer';
+      _auth = target?['authentication'] as String? ?? 'none';
+      _issuer.clear();
+      _clientId.clear();
+      _clientDocument.clear();
       _bearer.clear();
       _toolSearch.clear();
       _health = 'Not checked';
@@ -307,7 +321,7 @@ class _McpInspectorState extends State<McpInspector> {
   });
   Future<void> _inspect() async {
     if (_remote) {
-      await _inspectApproved();
+      await _inspectApproved(signIn: _auth == 'oauth' && !_reuseOAuth);
       return;
     }
     final allowed = await showDialog<bool>(
@@ -360,7 +374,7 @@ class _McpInspectorState extends State<McpInspector> {
     await _inspectApproved();
   }
 
-  Future<void> _inspectApproved() => _act(() async {
+  Future<void> _inspectApproved({bool signIn = false}) => _act(() async {
     if (_name.text.trim().isEmpty ||
         (_remote
             ? _endpoint.text.trim().isEmpty
@@ -377,7 +391,11 @@ class _McpInspectorState extends State<McpInspector> {
     _stopping = false;
     setState(() => _run = id);
     _checkingRemote = _remote;
-    if (_remote) setState(() => _health = 'Checking…');
+    if (_remote) {
+      setState(
+        () => _health = signIn ? 'Waiting for browser sign-in…' : 'Checking…',
+      );
+    }
     await _call(
       _remote ? 'inspectRemoteMcp' : 'inspectMcp',
       _remote
@@ -387,9 +405,18 @@ class _McpInspectorState extends State<McpInspector> {
               'remote': {
                 'label': _name.text.trim(),
                 'endpoint': _endpoint.text.trim(),
-                'authentication': _bearerAuth ? 'bearer' : 'none',
+                'authentication': _auth,
               },
-              if (_bearerAuth)
+              if (signIn)
+                'signIn': {
+                  if (_issuer.text.trim().isNotEmpty)
+                    'issuer': _issuer.text.trim(),
+                  if (_clientId.text.trim().isNotEmpty)
+                    'clientId': _clientId.text.trim(),
+                  if (_clientDocument.text.trim().isNotEmpty)
+                    'metadataDocument': _clientDocument.text.trim(),
+                },
+              if (_auth == 'bearer')
                 'bearer': _bearer.text.isEmpty && _reuseBearer
                     ? null
                     : _bearer.text,
@@ -417,14 +444,22 @@ class _McpInspectorState extends State<McpInspector> {
               },
             },
     );
-    final deadline = DateTime.now().add(const Duration(seconds: 35));
+    final deadline = DateTime.now().add(
+      Duration(
+        seconds: signIn
+            ? 340
+            : _remote && _auth == 'oauth'
+            ? 65
+            : 35,
+      ),
+    );
     while (DateTime.now().isBefore(deadline)) {
       final events = await _call('poll', {'id': id}) as List;
       for (final event in events) {
         if (event['type'] != 'done') continue;
         if (event['error'] != null) throw event['error'] as String;
         final review = (event['mcpInspection'] as Map).cast<String, dynamic>();
-        if (_stopping) {
+        if (_stopping || !mounted) {
           await _call('discardMcpReview', {'token': review['token']});
           throw 'Inspection stopped. Nothing was saved.';
         }
@@ -528,6 +563,10 @@ class _McpInspectorState extends State<McpInspector> {
   });
   @override
   void dispose() {
+    final run = _run;
+    if (run != null) {
+      unawaited(_call('cancel', {'id': run}).catchError((_) => null));
+    }
     final token = _review?['token'];
     if (token != null) {
       unawaited(
@@ -541,6 +580,9 @@ class _McpInspectorState extends State<McpInspector> {
     _bearer.clear();
     _bearer.dispose();
     _toolSearch.dispose();
+    _issuer.dispose();
+    _clientId.dispose();
+    _clientDocument.dispose();
     for (final arg in _args) {
       arg.dispose();
     }
@@ -570,26 +612,74 @@ class _McpInspectorState extends State<McpInspector> {
       child: InputDecorator(
         decoration: const InputDecoration(),
         child: DropdownButtonHideUnderline(
-          child: DropdownButton<bool>(
+          child: DropdownButton<String>(
             key: const Key('mcp-auth'),
-            value: _bearerAuth,
+            value: _auth,
             isExpanded: true,
             items: const [
-              DropdownMenuItem(value: false, child: Text('No authentication')),
-              DropdownMenuItem(value: true, child: Text('Bearer key')),
+              DropdownMenuItem(value: 'none', child: Text('No authentication')),
+              DropdownMenuItem(value: 'bearer', child: Text('Bearer key')),
+              DropdownMenuItem(
+                value: 'oauth',
+                child: Text('Browser sign-in (OAuth)'),
+              ),
             ],
             onChanged: _busy
                 ? null
                 : (value) {
-                    _bearerAuth = value == true;
-                    if (!_bearerAuth) _bearer.clear();
+                    _auth = value ?? 'none';
+                    if (_auth != 'bearer') _bearer.clear();
                     _edited();
                   },
           ),
         ),
       ),
     ),
-    if (_bearerAuth) ...[
+    if (_auth == 'oauth') ...[
+      const SizedBox(height: 8),
+      const Text(
+        'Sign in opens your browser. Enable saves the reviewed login securely.',
+      ),
+      ExpansionTile(
+        key: const Key('mcp-oauth-options'),
+        tilePadding: EdgeInsets.zero,
+        title: const Text('Sign-in options'),
+        children: [
+          const Text(
+            'Leave blank for automatic registration with a single issuer. For a supplied client ID, enter its exact issuer again when starting a fresh sign-in.',
+          ),
+          for (final field in [
+            ('mcp-oauth-issuer', 'Issuer URL (optional)', _issuer),
+            (
+              'mcp-oauth-client',
+              'Registered public client ID (optional)',
+              _clientId,
+            ),
+            (
+              'mcp-oauth-document',
+              'Hosted client metadata URL (optional)',
+              _clientDocument,
+            ),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: FieldLabel(
+                label: field.$2,
+                child: TextField(
+                  key: Key(field.$1),
+                  controller: field.$3,
+                  enabled: !_busy,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  onChanged: (_) => _edited(),
+                  decoration: const InputDecoration(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ],
+    if (_auth == 'bearer') ...[
       const SizedBox(height: 12),
       FieldLabel(
         label: 'Bearer key',
@@ -1124,12 +1214,22 @@ class _McpInspectorState extends State<McpInspector> {
                         : _inspect,
                     child: Text(
                       _remote
-                          ? (_connection == null
+                          ? (_auth == 'oauth' && !_reuseOAuth
+                                ? 'Sign in'
+                                : _connection == null
                                 ? 'Inspect endpoint'
                                 : 'Recheck connection')
                           : 'Inspect server',
                     ),
                   ),
+                  if (_remote && _auth == 'oauth' && _reuseOAuth)
+                    TextButton(
+                      key: const Key('mcp-sign-in'),
+                      onPressed: _busy
+                          ? null
+                          : () => _inspectApproved(signIn: true),
+                      child: const Text('Sign in again'),
+                    ),
                   if (_review != null)
                     FilledButton(
                       key: const Key('mcp-enable'),

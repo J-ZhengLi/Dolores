@@ -2,12 +2,14 @@ use serde::{Deserialize, Serialize};
 
 /// Credential purpose within a remote target, never an environment override.
 pub const MCP_REMOTE_BEARER: &str = "MCP_BEARER_TOKEN";
+pub const MCP_REMOTE_OAUTH: &str = "MCP_OAUTH_GRANT";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum McpRemoteAuthentication {
     None,
     Bearer,
+    Oauth,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -270,6 +270,77 @@ Future<void> press(WidgetTester t, String key, {bool settle = true}) async {
 void main() {
   for (final dark in [false, true]) {
     testWidgets(
+      'OAuth sign-in, failed save, recheck and explicit recovery ${dark ? 'dark' : 'light'}',
+      (t) async {
+        final b = McpBridge();
+        await open(t, b, dark, remote: true);
+        await press(t, 'mcp-auth');
+        await t.tap(find.text('Browser sign-in (OAuth)').last);
+        await t.pumpAndSettle();
+        expect(find.byKey(const Key('mcp-bearer')), findsNothing);
+        await press(t, 'mcp-oauth-options');
+        await fill(t, 'mcp-oauth-issuer', 'https://auth.example.test');
+        await fill(t, 'mcp-oauth-client', 'public-client');
+        await saveReview(t, 'mcp-oauth-options-${dark ? 'dark' : 'light'}');
+        await press(t, 'mcp-inspect');
+        expect(b.inspection!['remote']['authentication'], 'oauth');
+        expect(b.inspection!['signIn'], {
+          'issuer': 'https://auth.example.test',
+          'clientId': 'public-client',
+        });
+        expect(b.inspection!.containsKey('bearer'), false);
+        expect(b.saved, isNull);
+        await press(t, 'mcp-tool-echo');
+        b.failSave = true;
+        await press(t, 'mcp-enable');
+        expect(find.text('Synthetic save failure'), findsOneWidget);
+        expect(b.saved, isNull);
+        b.failSave = false;
+        await press(t, 'mcp-enable');
+        expect(b.saved!['remote']['authentication'], 'oauth');
+        await press(t, 'mcp-inspect');
+        expect(b.inspection!.containsKey('signIn'), false);
+        b.failInspect = 'Login expired. Use Sign in again.';
+        await press(t, 'mcp-inspect');
+        expect(find.text('Login expired. Use Sign in again.'), findsOneWidget);
+        await saveReview(t, 'mcp-oauth-recovery-${dark ? 'dark' : 'light'}');
+        b.failInspect = null;
+        await press(t, 'mcp-sign-in');
+        expect(b.inspection!['signIn'], isEmpty);
+        expect(b.saved!['remote']['authentication'], 'oauth');
+        expect(t.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets('OAuth waiting keeps Stop reachable and retains fields', (
+    t,
+  ) async {
+    final b = McpBridge()..pending = true;
+    await open(t, b, false, remote: true);
+    await press(t, 'mcp-auth');
+    await t.tap(find.text('Browser sign-in (OAuth)').last);
+    await t.pumpAndSettle();
+    await press(t, 'mcp-inspect', settle: false);
+    expect(
+      find.text('Connection status: Waiting for browser sign-in…'),
+      findsOneWidget,
+    );
+    await saveReview(t, 'mcp-oauth-waiting-light');
+    await press(t, 'mcp-stop');
+    expect(b.saved, isNull);
+    expect(b.cancelled, true);
+    await press(t, 'mcp-endpoint');
+    expect(
+      t
+          .widget<TextField>(find.byKey(const Key('mcp-endpoint')))
+          .controller!
+          .text,
+      'https://example.test/mcp',
+    );
+    expect(t.takeException(), isNull);
+  });
+  for (final dark in [false, true]) {
+    testWidgets(
       'Remote connection review, masked key, filter and failed save recovery ${dark ? 'dark' : 'light'}',
       (t) async {
         final b = McpBridge();

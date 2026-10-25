@@ -197,6 +197,364 @@ fn kind<T>(result: Result<T>) -> Kind {
 }
 
 #[tokio::test]
+async fn loopback_listener_refuses_probes_exchanges_once_and_releases_on_stop() {
+    let fixture = Fixture::start(|base, request| match request.path.as_str() {
+        "/token" => {
+            Reply::json(json!({"token_type":"Bearer","access_token":"public-listener-access"}))
+        }
+        _ => route(base, request),
+    })
+    .await;
+    let (mut operation, server) = discover(&fixture).await;
+    let listener = LoopbackCallback::bind().await.unwrap();
+    let client = operation
+        .register_client(
+            &server,
+            listener.redirect_uri(),
+            &ClientConfiguration {
+                pre_registered: Some(PreRegisteredClient {
+                    issuer: server.issuer().into(),
+                    client_id: "public-native-client".into(),
+                }),
+                metadata_document: None,
+            },
+        )
+        .await
+        .unwrap();
+    let pending = PendingAuthorization::new(server.clone(), client).unwrap();
+    let callback = callback(&pending, Some(server.issuer()));
+    let redirect = listener.redirect_uri().to_owned();
+    let task = tokio::spawn(listener.complete(pending, CancellationToken::new()));
+    let http = reqwest::Client::builder().no_proxy().build().unwrap();
+    assert_eq!(
+        http.get(&callback)
+            .header("Host", "wrong.invalid")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    let wrong = callback.replace("state=", "state=wrong");
+    assert_eq!(http.get(wrong).send().await.unwrap().status(), 400);
+    assert_eq!(http.get(&callback).send().await.unwrap().status(), 200);
+    let tokens = task.await.unwrap().unwrap();
+    assert!(tokens.contains_secret(&json!("public-listener-access")));
+    assert!(http.get(&redirect).send().await.is_err());
+    assert_eq!(
+        fixture
+            .seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|r| r.path == "/token")
+            .count(),
+        1
+    );
+
+    let listener = LoopbackCallback::bind().await.unwrap();
+    let redirect = listener.redirect_uri().to_owned();
+    let client = operation
+        .register_client(
+            &server,
+            &redirect,
+            &ClientConfiguration {
+                pre_registered: Some(PreRegisteredClient {
+                    issuer: server.issuer().into(),
+                    client_id: "public-native-client".into(),
+                }),
+                metadata_document: None,
+            },
+        )
+        .await
+        .unwrap();
+    let pending = PendingAuthorization::new(server, client).unwrap();
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    assert_eq!(
+        kind(listener.complete(pending, cancel).await),
+        Kind::Cancelled
+    );
+    assert!(http.get(&redirect).send().await.is_err());
+}
+
+#[tokio::test]
+async fn native_discovery_uses_a_bounded_challenge_and_listener_expiry_dispatches_nothing() {
+    let fixture = Fixture::start(|base, request| match request.path.as_str() {
+        "/mcp" => Reply {
+            status: 401,
+            headers: format!(
+                "WWW-Authenticate: Bearer resource_metadata=\"{base}/custom-resource\"\r\n"
+            ),
+            ..Reply::json(json!({}))
+        },
+        "/custom-resource" => Reply::json(resource(base)),
+        _ => route(base, request),
+    })
+    .await;
+    let mut operation = Operation::new(CancellationToken::new());
+    let resource = operation
+        .discover_mcp_resource(&format!("{}/mcp", fixture.base))
+        .await
+        .unwrap();
+    assert_eq!(
+        resource.metadata_url,
+        format!("{}/custom-resource", fixture.base)
+    );
+    assert_eq!(fixture.seen.lock().unwrap()[0].method, "GET");
+    let server = operation
+        .discover_server(&resource, resource.issuers().first().unwrap())
+        .await
+        .unwrap();
+    let listener = LoopbackCallback::bind().await.unwrap();
+    let client = operation
+        .register_client(
+            &server,
+            listener.redirect_uri(),
+            &ClientConfiguration {
+                pre_registered: Some(PreRegisteredClient {
+                    issuer: server.issuer().into(),
+                    client_id: "public-expiry-client".into(),
+                }),
+                metadata_document: None,
+            },
+        )
+        .await
+        .unwrap();
+    let pending = PendingAuthorization::new(server, client).unwrap();
+    let before = fixture.count();
+    tokio::time::pause();
+    let task = tokio::spawn(listener.complete(pending, CancellationToken::new()));
+    tokio::time::advance(std::time::Duration::from_secs(301)).await;
+    assert_eq!(kind(task.await.unwrap()), Kind::AttemptExpired);
+    assert_eq!(fixture.count(), before);
+}
+
+#[derive(Default)]
+struct OAuthVault {
+    values: Mutex<std::collections::HashMap<String, String>>,
+    writes: AtomicUsize,
+    fail_write: AtomicUsize,
+}
+impl dolores_core::CredentialStore for OAuthVault {
+    fn descriptor(&self) -> dolores_core::PluginDescriptor {
+        dolores_core::PluginDescriptor {
+            id: "public.oauth.fixture",
+            kind: "credentials",
+            api_version: 1,
+        }
+    }
+    fn read(&self, id: &str) -> std::result::Result<Option<String>, String> {
+        Ok(self.values.lock().unwrap().get(id).cloned())
+    }
+    fn write(&self, id: &str, value: &str) -> std::result::Result<(), String> {
+        let count = self.writes.fetch_add(1, Ordering::SeqCst) + 1;
+        if self.fail_write.load(Ordering::SeqCst) == count {
+            return Err("public write refusal".into());
+        }
+        self.values.lock().unwrap().insert(id.into(), value.into());
+        Ok(())
+    }
+    fn delete(&self, id: &str) -> std::result::Result<(), String> {
+        self.values.lock().unwrap().remove(id);
+        Ok(())
+    }
+}
+async fn saved_login(
+    fixture: &Fixture,
+    root: &std::path::Path,
+    vault: &OAuthVault,
+) -> dolores_core::McpConnection {
+    use dolores_core::CredentialStore;
+    let (mut operation, server) = discover(fixture).await;
+    let client = registered(&mut operation, &server).await;
+    let pending = PendingAuthorization::new(server.clone(), client.clone()).unwrap();
+    let response = callback(&pending, Some(server.issuer()));
+    let tokens = pending.complete(&response, &mut operation).await.unwrap();
+    let resource = operation
+        .discover_resource(&format!("{}/mcp", fixture.base), None)
+        .await
+        .unwrap();
+    let credential = vault::OAuthCredential::new(&resource, &server, &client, tokens).unwrap();
+    let connection:dolores_core::McpConnection=serde_json::from_value(json!({
+        "id":uuid::Uuid::new_v4().to_string(),"revision":1,"enabled":true,
+        "remote":{"label":"Public OAuth","endpoint":format!("{}/mcp",fixture.base),"authentication":"oauth"},
+        "fingerprints":[],"protocolVersion":"2026-07-28","serverName":"Public","serverVersion":"1",
+        "tools":[{"name":"echo","description":"Public echo","inputSchema":{"type":"object"}}],
+        "credentials":[{"name":"MCP_OAUTH_GRANT","credentialId":uuid::Uuid::new_v4().to_string()}]
+    })).unwrap();
+    vault
+        .write(
+            &connection.credentials[0].credential_id,
+            &credential
+                .encoded_for(root, &connection.id, connection.remote.as_ref().unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+    connection
+}
+#[tokio::test]
+async fn oauth_vault_rotation_reopen_binding_and_failed_save_refuse_replay() {
+    use dolores_core::CredentialStore;
+    let refreshes = Arc::new(AtomicUsize::new(0));
+    let observed = refreshes.clone();
+    let fixture=Fixture::start(move|base,request|match request.path.as_str(){
+        "/token"=>{
+            if request.form()["grant_type"]=="refresh_token" {
+                observed.fetch_add(1,Ordering::SeqCst);
+                Reply::json(json!({"token_type":"Bearer","access_token":"public-rotated-access","refresh_token":"public-rotated-refresh","expires_in":3600}))
+            } else {Reply::json(json!({"token_type":"Bearer","access_token":"public-initial-access","refresh_token":"public-initial-refresh","expires_in":1}))}
+        },_=>route(base,request)
+    }).await;
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let vault = Arc::new(OAuthVault::default());
+    let connection = saved_login(&fixture, &root, vault.as_ref()).await;
+    let key = &connection.credentials[0].credential_id;
+    let fresh = vault::resolve(
+        root.clone(),
+        connection.clone(),
+        vault.clone(),
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert!(fresh.contains_secret(&json!("public-rotated-refresh")));
+    assert!(!fresh.contains_secret(&json!("public-initial-refresh")));
+    let raw = vault.read(key).unwrap().unwrap();
+    assert!(
+        !serde_json::from_str::<Value>(&raw).unwrap()["refreshPending"]
+            .as_bool()
+            .unwrap()
+    );
+    let before = fixture.count();
+    let _reopened = vault::resolve(
+        root.clone(),
+        connection.clone(),
+        vault.clone(),
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(fixture.count(), before);
+    assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+    for change in ["folder", "connection", "endpoint", "purpose"] {
+        let mut other = connection.clone();
+        let mut other_root = root.clone();
+        match change {
+            "folder" => {
+                other_root = root.join("other");
+                std::fs::create_dir(&other_root).unwrap();
+            }
+            "connection" => other.id = uuid::Uuid::new_v4().to_string(),
+            "endpoint" => other.remote.as_mut().unwrap().endpoint.push_str("/changed"),
+            "purpose" => other.credentials[0].name = "MCP_BEARER_TOKEN".into(),
+            _ => unreachable!(),
+        }
+        assert!(
+            vault::resolve(other_root, other, vault.clone(), CancellationToken::new())
+                .await
+                .is_err()
+        );
+    }
+    assert_eq!(fixture.count(), before);
+    let failing = saved_login(&fixture, &root, vault.as_ref()).await;
+    // Pending marker succeeds; the rotated-token save fails. The marker survives.
+    vault
+        .fail_write
+        .store(vault.writes.load(Ordering::SeqCst) + 2, Ordering::SeqCst);
+    assert!(vault::resolve(
+        root.clone(),
+        failing.clone(),
+        vault.clone(),
+        CancellationToken::new()
+    )
+    .await
+    .is_err());
+    let raw = vault
+        .read(&failing.credentials[0].credential_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&raw).unwrap()["refreshPending"],
+        true
+    );
+    let before = fixture.count();
+    assert!(
+        vault::resolve(root, failing, vault.clone(), CancellationToken::new())
+            .await
+            .err()
+            .unwrap()
+            .contains("Sign in")
+    );
+    assert_eq!(fixture.count(), before);
+}
+
+#[tokio::test]
+async fn oauth_refresh_stop_and_competing_owner_leave_durable_uncertainty() {
+    use dolores_core::CredentialStore;
+    let hold = Arc::new(Notify::new());
+    let held = hold.clone();
+    let fixture=Fixture::start(move|base,request|match request.path.as_str(){
+        "/token"=>{
+            let mut reply=Reply::json(json!({"token_type":"Bearer","access_token":"public-initial-access","refresh_token":"public-refresh","expires_in":1}));
+            if request.form()["grant_type"]=="refresh_token" {reply.hold=Some(held.clone());} reply
+        },_=>route(base,request)
+    }).await;
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let vault = Arc::new(OAuthVault::default());
+    let connection = saved_login(&fixture, &root, vault.as_ref()).await;
+    let cancel = CancellationToken::new();
+    let task = tokio::spawn(vault::resolve(
+        root.clone(),
+        connection.clone(),
+        vault.clone(),
+        cancel.clone(),
+    ));
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while !fixture
+            .seen
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|r| r.path == "/token" && r.form()["grant_type"] == "refresh_token")
+        {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(vault::resolve(
+        root.clone(),
+        connection.clone(),
+        vault.clone(),
+        CancellationToken::new()
+    )
+    .await
+    .err()
+    .unwrap()
+    .contains("already in use"));
+    cancel.cancel();
+    assert!(task.await.unwrap().is_err());
+    let raw = vault
+        .read(&connection.credentials[0].credential_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&raw).unwrap()["refreshPending"],
+        true
+    );
+    let before = fixture.count();
+    assert!(
+        vault::resolve(root, connection, vault, CancellationToken::new())
+            .await
+            .is_err()
+    );
+    assert_eq!(before, fixture.count());
+}
+
+#[tokio::test]
 async fn native_registration_pkce_exchange_rotation_and_revoked_refresh() {
     let exchanges = Arc::new(AtomicUsize::new(0));
     let expected_challenge = Arc::new(Mutex::new(String::new()));
