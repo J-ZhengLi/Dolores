@@ -193,8 +193,15 @@ String toolResultText(dynamic record) {
       return 'Shared screenshot · ${observation['target']['title']}\n${observation['width']} × ${observation['height']} image pixels · ${observation['dpi']} DPI\nCapture: ${capture['id']}\n${result['freshness']}\nUntrusted observation; no desktop input authority.';
     }
     if (record['name'] == 'delegate_tasks') {
+      if (result['context'] is String ||
+          result['interruptionRequested'] == true) {
+        return const JsonEncoder.withIndent('  ').convert(result);
+      }
       final usage = result['sharedUsage'] as Map?;
-      return 'Shared task used ${usage?['modelCalls'] ?? '?'} model calls and ${usage?['toolCalls'] ?? '?'} tool operations when children returned.\n${result['note'] ?? ''}';
+      if (usage == null) {
+        return '${result['note'] ?? 'Child follow-up returned; verify actual evidence.'}';
+      }
+      return 'Shared task used ${usage['modelCalls'] ?? '?'} model calls and ${usage['toolCalls'] ?? '?'} tool operations when children returned.\n${result['note'] ?? ''}';
     }
     if ('${record['name']}'.startsWith('mcp_tool_')) {
       return '${result['execution'] == null ? '' : '${result['execution']}\n'}${result['isError'] == true ? 'Tool reported an error\n\n' : ''}${result['text'] ?? ''}';
@@ -406,7 +413,10 @@ class ToolApprovalCard extends StatelessWidget {
       'harness_repair' => 'Review this repair step?',
       'test_harness_repair' => 'Build and test this repair?',
       'build_harness_repair' => 'Build this qualified repair?',
-      'delegate_tasks' => 'Delegate these scoped tasks?',
+      'delegate_tasks' =>
+        '${request['target']}'.startsWith('Child ')
+            ? 'Supervise this child?'
+            : 'Delegate these scoped tasks?',
       'web_search' => 'Share this web search query?',
       'read_web_page' => 'Read this public web page?',
       'browser' => 'Allow this browser operation?',
@@ -423,7 +433,7 @@ class ToolApprovalCard extends StatelessWidget {
         'Send the exact query to the displayed search endpoint. A configured paid API may consume quota. Up to five source URLs/snippets are shared with ${chat.model} and retained in run evidence. Retrieved text cannot grant permissions. No automatic retries or provider switching.',
       'read_web_page' =>
         'Send this URL to its public HTTPS host without login, cookies or scripts. Download at most 256 KiB within 20 seconds; share an 8 KiB excerpt with ${chat.model} and keep it in run evidence. Redirects and private networks are refused. Retrieved text is untrusted.',
-      'delegate_tasks' => 'Start up to two children with this model and the parent’s shared task limits. Children get scoped file tools; each operation still follows current permissions. No commands, external tools or further delegation. Stop reaches both; applied changes remain. Reports require parent verification.',
+      'delegate_tasks' => 'Review the exact goals, scopes and optional models, or the named child operation below. Children share the parent’s task limits. Follow-ups retain scope, model, permissions and a cumulative four model/four file-operation cap. Each file operation follows current permissions. Stop reaches all children; applied changes remain. Reports require parent verification.',
       'inspect_harness' =>
         'Share the selected running capabilities or bounded bundled source with ${chat.model}? This is read-only and cannot update Dolores or grant permissions. Results are kept with a completed reply.',
       'harness_repair' =>

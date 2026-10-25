@@ -486,6 +486,24 @@ fn child_failure_and_shared_step_limit_have_distinct_recovery_reasons() {
         Some(PauseReason::StepLimit)
     );
 }
+#[test]
+fn explicit_followup_report_supersedes_only_that_childs_old_pause() {
+    let report = |id: &str, status: &str| {
+        serde_json::from_value::<ToolRecord>(serde_json::json!({
+            "callId":"supervision","name":"delegate_tasks","target":id,"status":"completed",
+            "content":serde_json::json!({"children":[{"childId":id,"status":status}]}).to_string()
+        }))
+        .unwrap()
+    };
+    assert_eq!(
+        subagent_pause(&[report("a", "failed"), report("a", "reported")]),
+        None
+    );
+    assert_eq!(
+        subagent_pause(&[report("a", "interrupted"), report("b", "reported")]),
+        Some(PauseReason::SubagentReview)
+    );
+}
 use crate::{PluginDescriptor, Role};
 use serde_json::json;
 use std::sync::{

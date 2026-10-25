@@ -136,6 +136,8 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    child_runs:
+        Arc<Mutex<std::collections::BTreeMap<u64, std::sync::Weak<subagents::DelegateTasks>>>>,
     hook_review: Mutex<Option<lifecycle_hooks::Review>>,
     #[cfg(windows)]
     isolation_host: Option<Arc<dolores_tools_command::isolation::Host>>,
@@ -179,6 +181,11 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    ChildSupervision {
+        session: String,
+        id: u64,
+        request: subagents::Supervision,
+    },
     #[serde(rename = "commandSession")]
     SessionControl {
         session: String,
@@ -981,6 +988,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            child_runs: Arc::new(Mutex::new(Default::default())),
             hook_review: Mutex::new(None),
             #[cfg(windows)]
             isolation_host: None,
@@ -1096,6 +1104,15 @@ impl Engine {
             return Err("The app has shut down. Restart Dolores.".into());
         }
         match command {
+            Command::ChildSupervision{session,id,request}=>{
+                if active.client_id(&session)!=Some(id) {return Err("This parent run has ended or changed. Inspect saved child context and evidence in Run history.".into());}
+                let child=self.child_runs.lock().map_err(|_|"Child supervision unavailable.")?.get(&id).and_then(std::sync::Weak::upgrade).ok_or("Child supervision unavailable for this run.")?;
+                return match request.action.as_str() {
+                    "inspect" if request.message.is_none()=>child.inspect(&request.child_id,request.offset.unwrap_or(0)),
+                    "interrupt" if request.message.is_none() && request.offset.is_none()=>child.interrupt(&request.child_id),
+                    _=>Err("Send child follow-ups through the parent so file ownership and shared task limits stay coordinated.".into()),
+                };
+            },
             Command::LifecycleHooks {session,request}=>return self.hooks_call(&session,request,&active),
             Command::SkillPackages{session,scope,request}=>return self.package_call(&session,scope,request,&active),
             Command::Attention{request}=>return self.attention_call(request,&active),
@@ -2473,8 +2490,37 @@ impl Engine {
                         vec![tool]
                     };
                 }
-                let delegation = (!tools.is_empty() && desktop_capture.is_none())
-                    .then(|| Arc::new(subagents::DelegateTasks::default()));
+                let model = scheduled
+                    .as_ref()
+                    .map(|o| o.snapshot.preferences.model.clone())
+                    .unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
+                let delegation = if !tools.is_empty() && desktop_capture.is_none() {
+                    let connection = self
+                        .connection
+                        .lock()
+                        .map_err(|_| "Connection unavailable.")?;
+                    let mut models = std::collections::BTreeMap::new();
+                    let preferences = self.store.preferences()?;
+                    for enabled in connection.model_choices()? {
+                        if enabled == model {
+                            continue;
+                        }
+                        let prefs = ConnectionPreferences {
+                            model: enabled.clone(),
+                            ..preferences.clone()
+                        };
+                        models.insert(
+                            enabled,
+                            connection.scheduled_provider(&prefs, effective.request)?,
+                        );
+                    }
+                    Some(Arc::new(subagents::DelegateTasks::new(
+                        model.clone(),
+                        models,
+                    )))
+                } else {
+                    None
+                };
                 if let Some(delegation) = &delegation {
                     tools.push(delegation.clone());
                     tools.push(Arc::new(introspection::InspectHarness(
@@ -2542,10 +2588,6 @@ impl Engine {
                 } else {
                     None
                 };
-                let model = scheduled
-                    .as_ref()
-                    .map(|o| o.snapshot.preferences.model.clone())
-                    .unwrap_or(observation_model.unwrap_or(self.store.preferences()?.model));
                 let settings = provider.request_settings();
                 let reflection_provider = if !planning_state.planning
                     && goal_start.is_none()
@@ -2833,6 +2875,13 @@ impl Engine {
                     scope,
                 )?;
                 let memory_maintenance = self.memory_maintenance.clone();
+                if let Some(child) = &delegation {
+                    self.child_runs
+                        .lock()
+                        .map_err(|_| "Child supervision unavailable.")?
+                        .insert(id, Arc::downgrade(child));
+                }
+                let child_registry = self.child_runs.clone();
                 if let Some(owner) = &command_owner {
                     self.command_sessions.register(owner.clone());
                 }
@@ -2903,6 +2952,7 @@ impl Engine {
                     let child_evidence_error = if let Some(delegation) = &delegation {
                         delegation.finish(&log, "Parent run ended before a child report. Inspect saved evidence and Changes; no work was replayed.").await.err()
                     } else { None };
+                    child_registry.lock().unwrap_or_else(|e|e.into_inner()).remove(&id);
                     let pause_reason = learning_session.as_deref().and_then(|session| store.messages_page(session, None, false, 2).ok()).and_then(|page| page.items.into_iter().last()).and_then(|message| message.metadata).and_then(|m| m.paused).map(|p|p.reason);
                     let paused = pause_reason.is_some();
                     if let (Some(input),Some(session))=(&claimed_input,&learning_session) {
@@ -3420,6 +3470,7 @@ async fn execute(
                 approval: approval.clone(),
                 shared: shared.clone(),
                 budget: task,
+                permissions: permissions.clone(),
                 log: log.clone(),
                 output: output.clone(),
                 client_id: id,

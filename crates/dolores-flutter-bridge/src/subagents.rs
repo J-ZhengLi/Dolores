@@ -6,15 +6,18 @@ use dolores_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 pub fn spec() -> ToolSpec {
     ToolSpec {
         name: "delegate_tasks".into(),
-        description: "Run one batch of 1–2 scoped subagents concurrently, using this model and SHARING this task's total model/tool/time limits. Reserve sufficient steps. Each gets a goal, relative file/folder scope and readOnly flag. Writable scopes must not overlap. Children have only scoped file tools, inherited permission checks, no commands/MCP/recursion. The parent waits and must verify reports. Stop cancels the whole batch; applied writes remain. One parent reporting call is reserved.".into(),
-        parameters: json!({"type":"object","properties":{"tasks":{"type":"array","minItems":1,"maxItems":2,"items":{"type":"object","properties":{"goal":{"type":"string","maxLength":512},"scope":{"type":"string","description":"Direct relative file/folder; '.' for root","maxLength":128},"readOnly":{"type":"boolean"}},"required":["goal","scope","readOnly"],"additionalProperties":false}}},"required":["tasks"],"additionalProperties":false}),
+        description: "Run one batch of 1–2 scoped children, SHARING parent model/tool/time limits. Each child has a goal, relative scope, readOnly and optional enabled model (default parent). Writable scopes cannot overlap. Alternatively use childId and action=inspect, followUp (with message), or interrupt. Follow-ups retain identity, context checkpoints, frozen model/scope/permissions and a cumulative 4 model/4 file-operation cap; at most two follow-ups. No commands/MCP/recursion. Parent waits during child work and must independently verify reports using actual file evidence and Changes. Stop cancels all children; completed writes remain. One parent reporting call stays reserved.".into(),
+        parameters: json!({"type":"object","properties":{"tasks":{"type":"array","minItems":1,"maxItems":2,"items":{"type":"object","properties":{"goal":{"type":"string","maxLength":512},"scope":{"type":"string","description":"Direct relative file/folder; '.' for root","maxLength":128},"readOnly":{"type":"boolean"},"model":{"type":"string","maxLength":128}},"required":["goal","scope","readOnly"],"additionalProperties":false}},"childId":{"type":"string","maxLength":64},"action":{"type":"string","enum":["inspect","followUp","interrupt"]},"message":{"type":"string","maxLength":512},"offset":{"type":"integer","minimum":0}},"oneOf":[{"required":["tasks"]},{"required":["childId","action"]}],"additionalProperties":false}),
     }
 }
 #[derive(Clone, Deserialize, Serialize)]
@@ -23,6 +26,8 @@ struct ChildTask {
     goal: String,
     scope: String,
     read_only: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -61,6 +66,9 @@ fn parse(text: &str) -> Result<Plan, String> {
                     .chars()
                     .any(|c| c.is_control() && !matches!(c, '\n' | '\t'))
                 || !valid_scope(&t.scope)
+                || t.model.as_ref().is_some_and(|m| {
+                    m.is_empty() || m.len() > 128 || m.chars().any(char::is_control)
+                })
         })
     {
         return Err("Invalid subagent goal or scope.".into());
@@ -90,20 +98,154 @@ pub(super) struct RuntimeContext {
     pub approval: Arc<dyn ToolApproval>,
     pub shared: Arc<SharedTaskBudget>,
     pub budget: TaskBudget,
+    pub permissions: dolores_core::PermissionPolicy,
     pub log: Arc<RunLog>,
     pub output: mpsc::Sender<Value>,
     pub client_id: u64,
 }
+struct ChildLedger(Arc<SharedTaskBudget>);
+impl dolores_core::BudgetLedger for ChildLedger {
+    fn reserve(&self, models: usize, tools: usize) -> Result<bool, String> {
+        let allowed = (models == 0 || self.0.reserve_model(true))
+            && (tools == 0 || self.0.reserve_tools(tools));
+        if let Some(error) = self.0.error() {
+            return Err(error);
+        }
+        Ok(allowed)
+    }
+}
+struct Child {
+    task: ChildTask,
+    model: String,
+    provider: Arc<dyn ModelProvider>,
+    context: Mutex<Vec<Message>>,
+    budget: Arc<SharedTaskBudget>,
+    running: Mutex<Option<CancellationToken>>,
+    followups: std::sync::atomic::AtomicUsize,
+}
+struct Running(Arc<Child>);
+impl Drop for Running {
+    fn drop(&mut self) {
+        self.0
+            .running
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+    }
+}
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct Supervision {
+    pub child_id: String,
+    pub action: String,
+    pub message: Option<String>,
+    pub offset: Option<usize>,
+}
+impl Supervision {
+    fn parse(text: &str) -> Result<Self, String> {
+        if text.len() > 4096 {
+            return Err("Child request exceeds 4 KiB.".into());
+        }
+        let r: Self = serde_json::from_str(text).map_err(|_| "Invalid child request.")?;
+        if r.child_id.is_empty()
+            || r.child_id.len() > 64
+            || !r.child_id.chars().all(|c| c.is_ascii_alphanumeric())
+            || !matches!(r.action.as_str(), "inspect" | "followUp" | "interrupt")
+            || (r.action != "inspect" && r.offset.is_some())
+            || if r.action == "followUp" {
+                r.message.as_ref().is_none_or(|m| {
+                    m.trim().is_empty()
+                        || m.len() > 512
+                        || m.chars()
+                            .any(|c| c.is_control() && !matches!(c, '\n' | '\t'))
+                })
+            } else {
+                r.message.is_some()
+            }
+        {
+            return Err("Choose inspect, interrupt, or followUp with a 1–512 byte message. Child scope and model cannot change.".into());
+        }
+        Ok(r)
+    }
+}
 #[derive(Default)]
 pub(super) struct DelegateTasks {
-    runtime: Mutex<Option<RuntimeContext>>,
+    runtime: Mutex<Option<Arc<RuntimeContext>>>,
     children: Mutex<Vec<Value>>,
+    controls: Mutex<BTreeMap<String, Arc<Child>>>,
+    pub parent_model: String,
+    pub models: BTreeMap<String, Arc<dyn ModelProvider>>,
     claimed: std::sync::atomic::AtomicBool,
 }
 impl DelegateTasks {
     pub fn bind(&self, runtime: RuntimeContext) -> Result<(), String> {
-        *self.runtime.lock().map_err(|_| "Subagents unavailable.")? = Some(runtime);
+        *self.runtime.lock().map_err(|_| "Subagents unavailable.")? = Some(Arc::new(runtime));
         Ok(())
+    }
+    pub fn new(parent_model: String, models: BTreeMap<String, Arc<dyn ModelProvider>>) -> Self {
+        Self {
+            parent_model,
+            models,
+            ..Default::default()
+        }
+    }
+    pub fn inspect(&self, id: &str, offset: usize) -> Result<Value, String> {
+        let children = self
+            .controls
+            .lock()
+            .map_err(|_| "Child context unavailable.")?;
+        let child = children
+            .get(id)
+            .ok_or("Child is not owned by this parent run.")?;
+        let context = child
+            .context
+            .lock()
+            .map_err(|_| "Child context unavailable.")?;
+        let context_text = context
+            .iter()
+            .map(|message| format!("{:?}:\n{}\n\n", message.role, message.content))
+            .collect::<String>();
+        let report = self
+            .children
+            .lock()
+            .map_err(|_| "Child evidence unavailable.")?
+            .iter()
+            .find(|v| v["childId"] == id)
+            .cloned();
+        if offset > context_text.len() || !context_text.is_char_boundary(offset) {
+            return Err(
+                "Child context page changed or offset is invalid. Inspect again from offset 0."
+                    .into(),
+            );
+        }
+        let mut page = short(&context_text[offset..], 8192);
+        let mut value = json!({"childId":id,"model":child.model,"requestSettings":child.provider.request_settings(),"scope":child.task.scope,"readOnly":child.task.read_only,"usage":child.budget.usage(),"report":report,"context":page,"offset":offset,"contextBytes":context_text.len(),"contextVersion":child.followups.load(std::sync::atomic::Ordering::SeqCst),"contextKind":"Prepared child instructions and bounded report/tool checkpoints; no parent conversation or attachments. Provider tool-loop detail is in child evidence in Run history.","permissions":"Frozen parent admission; file tools intersect scope/readOnly and recheck the live parent grant. No commands/MCP/recursive delegation."});
+        while value.to_string().len() > 14 * 1024 {
+            page = short(&page, page.len() / 2);
+            value["context"] = json!(page);
+        }
+        let end = offset + page.len();
+        value["contextTruncated"] = json!(end < context_text.len());
+        value["nextOffset"] = if end < context_text.len() {
+            json!(end)
+        } else {
+            Value::Null
+        };
+        Ok(value)
+    }
+    pub fn interrupt(&self, id: &str) -> Result<Value, String> {
+        let children = self.controls.lock().map_err(|_| "Child unavailable.")?;
+        let child = children
+            .get(id)
+            .ok_or("Child is not owned by this parent run.")?;
+        let running = child.running.lock().map_err(|_| "Child unavailable.")?;
+        let token = running
+            .as_ref()
+            .ok_or("Child has already settled. Inspect its report; nothing was restarted.")?;
+        token.cancel();
+        Ok(
+            json!({"childId":id,"interruptionRequested":true,"note":"Completed writes remain. Inspect child evidence and Changes before any explicit follow-up."}),
+        )
     }
     async fn state(
         &self,
@@ -139,6 +281,21 @@ impl DelegateTasks {
             .lock()
             .map_err(|_| "Subagents unavailable.")?
             .take();
+        for child in self
+            .controls
+            .lock()
+            .map_err(|_| "Subagents unavailable.")?
+            .values()
+        {
+            if let Some(token) = child
+                .running
+                .lock()
+                .map_err(|_| "Child unavailable.")?
+                .as_ref()
+            {
+                token.cancel();
+            }
+        }
         let unfinished: Vec<_> = {
             let mut children = self
                 .children
@@ -167,8 +324,27 @@ impl DelegateTasks {
         serial: Arc<tokio::sync::Mutex<()>>,
         cancel: CancellationToken,
     ) -> Result<Value, String> {
+        let control = self
+            .controls
+            .lock()
+            .map_err(|_| "Child unavailable.")?
+            .get(&id)
+            .cloned()
+            .ok_or("Child snapshot unavailable.")?;
+        let parent_cancel = cancel;
+        let cancel = parent_cancel.child_token();
+        {
+            let mut running = control.running.lock().map_err(|_| "Child unavailable.")?;
+            if running.is_some() {
+                return Err(
+                    "Child is still running. Wait for its report before following up.".into(),
+                );
+            }
+            *running = Some(cancel.clone());
+        }
+        let _running = Running(control.clone());
         let mut receipt = json!({"parentRunId":rt.log.id,"childId":id,"goal":task.goal,"scope":task.scope,
-            "readOnly":task.read_only,"status":"running","verified":false});
+            "readOnly":task.read_only,"model":control.model,"followUps":control.followups.load(std::sync::atomic::Ordering::SeqCst),"status":"running","verified":false});
         self.state(rt, receipt.clone(), &cancel).await?;
         let plugins: Vec<Arc<dyn ToolPlugin>> = rt
             .tools
@@ -187,7 +363,10 @@ impl DelegateTasks {
                 Arc::new(ScopedTool {
                     inner: p.clone(),
                     scope: task.scope.clone(),
-                    child: id.clone(),
+                    child: format!(
+                        "{id}.{}",
+                        control.followups.load(std::sync::atomic::Ordering::SeqCst)
+                    ),
                 }) as Arc<dyn ToolPlugin>
             })
             .collect();
@@ -205,38 +384,78 @@ impl DelegateTasks {
             system.push_str("\nFor a requested new file, propose create_text_file directly; its host preview checks occupancy and never replaces an existing file. If occupied, read that same file before editing.");
         }
         let original = rt.context.last().map(|m| m.content.as_str()).unwrap_or("");
-        let context = vec![Message{role:Role::System, content:system,parts:vec![]},
+        let initial = vec![Message{role:Role::System, content:system,parts:vec![]},
             Message{role:Role::User, content:format!("Child goal:\n{}\n\nOriginal user request (background, scope still applies):\n{}", task.goal, short(original, 16*1024)),parts:vec![]}];
+        let context = {
+            let mut saved = control
+                .context
+                .lock()
+                .map_err(|_| "Child context unavailable.")?;
+            if saved.is_empty() {
+                let prepared = dolores_core::prepare_permission_context(
+                    dolores_core::prepare_agent_context_with_budget(initial, budget)?,
+                    &rt.permissions,
+                )?;
+                let prepared = dolores_core::prepare_external_tool_context(
+                    prepared,
+                    &plugins.iter().map(|p| p.spec()).collect::<Vec<_>>(),
+                )?;
+                *saved = dolores_core::prepare_response_context(
+                    prepared,
+                    control.provider.request_settings().unwrap_or_default(),
+                )?;
+            }
+            saved.clone()
+        };
+        let mut offset = 0;
+        loop {
+            let mut snapshot = self.inspect(&id, offset)?;
+            snapshot["parentRunId"] = json!(rt.log.id);
+            snapshot["permissionSnapshot"] = json!(rt.permissions);
+            let next = snapshot["nextOffset"].as_u64();
+            rt.log.record(None, "subagentContext", snapshot).await?;
+            if let Some(next) = next {
+                offset = next as usize;
+            } else {
+                break;
+            }
+        }
         let approval = ChildApproval {
             inner: rt.approval.clone(),
             serial,
-            child: id.clone(),
+            child: format!(
+                "{id}.{}",
+                control.followups.load(std::sync::atomic::Ordering::SeqCst)
+            ),
         };
         let (events, mut receiver) = mpsc::channel(32);
         let run = dolores_core::run_agent_with_shared_budget(
-            rt.provider.as_ref(),
+            control.provider.as_ref(),
             context,
             &plugins,
             &approval,
             events,
             cancel.clone(),
             budget,
-            rt.shared.clone(),
+            control.budget.clone(),
             true,
         );
-        tokio::pin!(run);
+        let mut run = Box::pin(run);
         let mut text = ChildText::default();
         let result = loop {
             tokio::select! { biased;
-                _ = cancel.cancelled() => return Err(stopped()),
+                _ = parent_cancel.cancelled() => return Err(stopped()),
+                _ = cancel.cancelled() => break Err(stopped()),
                 result = &mut run => break result,
                 Some(event) = receiver.recv() => text.event(rt, &id, event).await?,
             }
         };
-        while let Some(event) = receiver.recv().await {
+        drop(run);
+        while let Ok(event) = receiver.try_recv() {
             text.event(rt, &id, event).await?;
         }
         text.flush(rt, &id).await?;
+        receipt["observedTools"] = json!(text.tools);
         match result {
             Ok(reply) => {
                 receipt["status"] = json!(if reply.pause.is_some() {
@@ -265,10 +484,15 @@ impl DelegateTasks {
                 rt.log.record(None,"subagentUsage",json!({"childId":id,"parentRunId":rt.log.id,"usageByCall":reply.summary.usage_by_call})).await?;
             }
             Err(error) => {
-                receipt["status"] = json!("failed");
+                receipt["status"] = json!(if cancel.is_cancelled() {
+                    "interrupted"
+                } else {
+                    "failed"
+                });
                 receipt["answer"] = json!(short(&error, 512));
             }
         }
+        receipt["usage"] = json!(control.budget.usage());
         // Bound the encoded report too: provider control characters can expand in JSON.
         while receipt.to_string().len() > 6 * 1024 {
             let answer = receipt["answer"].as_str().unwrap_or("");
@@ -278,7 +502,7 @@ impl DelegateTasks {
             receipt["answer"] = json!(short(answer, answer.len() / 2));
             receipt["truncated"] = json!(true);
         }
-        self.state(rt, receipt.clone(), &cancel).await?;
+        self.state(rt, receipt.clone(), &parent_cancel).await?;
         Ok(receipt)
     }
 }
@@ -287,6 +511,7 @@ struct ChildText {
     number: Option<usize>,
     text: String,
     truncated: bool,
+    tools: Vec<Value>,
 }
 impl ChildText {
     async fn event(
@@ -311,6 +536,9 @@ impl ChildText {
                 Ok(())
             }
             other => {
+                if let AgentEvent::ToolResult { record } = &other {
+                    self.tools.push(json!({"name":record.name,"target":short(&record.target,128),"status":record.status}));
+                }
                 self.flush(rt, id).await?;
                 child_event(rt, id, other).await
             }
@@ -360,18 +588,38 @@ async fn child_event(rt: &RuntimeContext, id: &str, event: AgentEvent) -> Result
 #[async_trait]
 impl ToolPlugin for DelegateTasks {
     fn spec(&self) -> ToolSpec {
-        spec()
+        let mut spec = spec();
+        spec.description.push_str(&format!(
+            " Frozen enabled models: {}. Default parent model: {}.",
+            self.models.keys().cloned().collect::<Vec<_>>().join(", "),
+            self.parent_model
+        ));
+        spec
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         if call.name != "delegate_tasks" {
             return Err("Invalid subagent tool.".into());
         }
-        let plan = parse(&call.arguments)?;
+        let value: Value =
+            serde_json::from_str(&call.arguments).map_err(|_| "Invalid subagent request.")?;
+        let (target, query) = if value.get("childId").is_some() {
+            let r = Supervision::parse(&call.arguments)?;
+            (
+                format!("Child {} · {}", r.child_id, r.action),
+                serde_json::to_string(&r).map_err(|_| "Invalid child request.")?,
+            )
+        } else {
+            let plan = parse(&call.arguments)?;
+            (
+                format!("{} scoped subagent(s)", plan.tasks.len()),
+                serde_json::to_string(&plan).map_err(|_| "Invalid plan.")?,
+            )
+        };
         Ok(ToolRequest {
             call_id: call.id.clone(),
             name: call.name.clone(),
-            target: format!("{} scoped subagent(s)", plan.tasks.len()),
-            query: Some(serde_json::to_string(&plan).map_err(|_| "Invalid plan.")?),
+            target,
+            query: Some(query),
             diff: None,
             command: None,
             mcp: None,
@@ -382,34 +630,154 @@ impl ToolPlugin for DelegateTasks {
         request: &ToolRequest,
         cancel: CancellationToken,
     ) -> Result<String, String> {
-        let plan = parse(request.query.as_deref().ok_or("Missing subagent plan.")?)?;
-        if request.name != "delegate_tasks"
-            || request.target != format!("{} scoped subagent(s)", plan.tasks.len())
-            || request.diff.is_some()
-            || request.command.is_some()
-            || request.mcp.is_some()
-        {
+        let query = request.query.as_deref().ok_or("Missing subagent plan.")?;
+        let prepared = self.prepare(&ToolCall {
+            id: request.call_id.clone(),
+            name: request.name.clone(),
+            arguments: query.into(),
+        })?;
+        if &prepared != request {
             return Err("Subagent proposal changed.".into());
         }
         if cancel.is_cancelled() {
             return Err(stopped());
         }
-        if self.claimed.swap(true, std::sync::atomic::Ordering::SeqCst) {
-            return Err("Only one subagent batch is allowed per run.".into());
-        }
         let rt = self
             .runtime
             .lock()
             .map_err(|_| "Subagents unavailable.")?
-            .take()
+            .clone()
             .ok_or("Subagents not bound to a parent run.")?;
         let serial = Arc::new(tokio::sync::Mutex::new(()));
+        let value: Value = serde_json::from_str(query).map_err(|_| "Invalid child request.")?;
+        if value.get("childId").is_some() {
+            let r = Supervision::parse(query)?;
+            match r.action.as_str() {
+                "inspect" => {
+                    return Ok(self
+                        .inspect(&r.child_id, r.offset.unwrap_or(0))?
+                        .to_string())
+                }
+                "interrupt" => return Ok(self.interrupt(&r.child_id)?.to_string()),
+                _ => {}
+            }
+            let child = self
+                .controls
+                .lock()
+                .map_err(|_| "Child unavailable.")?
+                .get(&r.child_id)
+                .cloned()
+                .ok_or("Child is not owned by this parent run.")?;
+            if child
+                .running
+                .lock()
+                .map_err(|_| "Child unavailable.")?
+                .is_some()
+            {
+                return Err("Wait for the child to settle before following up.".into());
+            }
+            if child.followups.load(std::sync::atomic::Ordering::SeqCst) >= 2 {
+                return Err("This child has used its two follow-ups. Inspect saved progress; nothing was replayed.".into());
+            }
+            let used = child.budget.usage();
+            if used.model_calls >= 4 || used.tool_calls >= 4 {
+                return Err("Child cumulative allowance is exhausted (4 model calls / 4 file operations). Inspect saved work; a follow-up cannot reset it.".into());
+            }
+            // A checkpoint is data, never replayable tool calls. Original scope,
+            // provider and live parent grant checks remain unchanged.
+            let report = self
+                .children
+                .lock()
+                .map_err(|_| "Child evidence unavailable.")?
+                .iter()
+                .find(|v| v["childId"] == r.child_id)
+                .cloned()
+                .ok_or("Child report unavailable.")?;
+            let checkpoint=json!({"untrustedPriorReport":report,"instruction":"Retain completed effects. Re-read affected files before proposing fresh writes; never replay old tool calls."}).to_string();
+            {
+                let mut context = child
+                    .context
+                    .lock()
+                    .map_err(|_| "Child context unavailable.")?;
+                if context.is_empty() {
+                    return Err("Child context unavailable; inspect saved evidence before starting fresh work.".into());
+                }
+                context.push(Message {
+                    role: Role::Assistant,
+                    content: checkpoint,
+                    parts: vec![],
+                });
+                context.push(Message {
+                    role: Role::User,
+                    content: r.message.unwrap(),
+                    parts: vec![],
+                });
+            }
+            child
+                .followups
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            rt.log.record(None,"subagentFollowUp",json!({"childId":r.child_id,"number":child.followups.load(std::sync::atomic::Ordering::SeqCst)})).await?;
+            let result = self
+                .child(&rt, child.task.clone(), r.child_id, serial, cancel)
+                .await?;
+            return Ok(json!({"children":[result],"verified":false,"note":"Independently inspect actual file evidence and Changes before accepting this child report."}).to_string());
+        }
+        let plan = parse(query)?;
+        for task in &plan.tasks {
+            if task
+                .model
+                .as_ref()
+                .is_some_and(|m| m != &self.parent_model && !self.models.contains_key(m))
+            {
+                return Err("Child model was not enabled at parent admission. Choose a frozen enabled model; no fallback was used.".into());
+            }
+        }
+        if self.claimed.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return Err("Only one subagent batch is allowed per run.".into());
+        }
         let mut tasks = plan
             .tasks
             .into_iter()
             .map(|task| (task, uuid::Uuid::new_v4().simple().to_string()))
             .collect::<Vec<_>>();
         for (task, id) in &tasks {
+            let model = task
+                .model
+                .clone()
+                .unwrap_or_else(|| self.parent_model.clone());
+            let provider = if model == self.parent_model {
+                rt.provider.clone()
+            } else {
+                self.models
+                    .get(&model)
+                    .ok_or("Child model unavailable.")?
+                    .clone()
+            };
+            // reserve_model(child=true) retains one local slot, giving exactly
+            // four cumulative attempts; the ledger separately reserves the parent report.
+            let local = TaskBudget {
+                model_calls: Some(5),
+                tool_calls: Some(4),
+                ..rt.budget
+            };
+            self.controls
+                .lock()
+                .map_err(|_| "Child unavailable.")?
+                .insert(
+                    id.clone(),
+                    Arc::new(Child {
+                        task: task.clone(),
+                        model,
+                        provider,
+                        context: Mutex::new(vec![]),
+                        budget: Arc::new(SharedTaskBudget::with_ledger(
+                            local,
+                            Arc::new(ChildLedger(rt.shared.clone())),
+                        )),
+                        running: Mutex::new(None),
+                        followups: 0.into(),
+                    }),
+                );
             self.state(&rt,json!({"parentRunId":rt.log.id,"childId":id,"goal":task.goal,"scope":task.scope,"readOnly":task.read_only,"status":"queued","verified":false}),&cancel).await?;
         }
         let (first, id) = tasks.remove(0);
@@ -455,7 +823,7 @@ impl ToolPlugin for ScopedTool {
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         let args: Value =
             serde_json::from_str(&call.arguments).map_err(|_| "Invalid child file arguments.")?;
-        if call.id.len() > 88
+        if call.id.len() > 80
             || !args["path"]
                 .as_str()
                 .is_some_and(|p| within(&self.scope, p))

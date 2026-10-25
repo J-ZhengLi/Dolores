@@ -310,12 +310,32 @@ replace the matching child, never the parent's text stream. Completed
 `delegate_tasks` tool results contain bounded `children` reports and
 `sharedUsage` attempt counts when the batch returned. Parent `AgentSummary`
 counts/usage remain parent-only; child usage is retained in run events. Child
-file approval IDs use `child.<id>.<call>` and still bind one waiting decision.
+file approval IDs use `child.<id>.<generation>.<call>` and still bind one waiting decision.
 `subagentReview` is an additional backward-readable pause reason; failed/blocked
 children retain reports and require explicit review/continuation. Shared step
 exhaustion uses `stepLimit` for explicit numeric limits or `checkpoint` for
 Automatic resource/context bounds. `noProgress` saves repeated tool-failure
 evidence. None automatically replay work.
+
+`delegate_tasks` also accepts `{childId,action,message?,offset?}` for `inspect`,
+`followUp` and `interrupt`; it cannot mix this form with initial `tasks`.
+Initial children optionally specify a frozen enabled model on the same connection.
+Follow-ups cannot change scope, access or model and share the child's cumulative
+four-model/four-file cap and parent totals. The parent waits during follow-up
+work. Child receipts add `model`, `followUps`, cumulative `usage` and bounded
+`observedTools`, including completed receipts before interruption. `verified`
+remains false. Latest reports supersede old pause state only for the same child.
+
+`childSupervision {session,id,request:{childId,action,offset?}}` is the local
+active-run UI route for `inspect` and `interrupt`. A stale session/run/child fails;
+UI follow-ups go through the parent to preserve file ownership coordination.
+Inspection returns frozen model/settings, scope, usage, report and a context
+page with `offset`, `nextOffset`, `contextBytes`, `contextVersion` and explicit
+truncation. Pages end on UTF-8 boundaries and fit the tool-result allowance.
+Saved `subagentContext` pages include the parent permission snapshot;
+`subagentFollowUp` identifies each explicit generation. They remain in run events
+after the active UI route expires. Context is prepared instructions and bounded
+report checkpoints, not an exact provider transcript or reasoning trace.
 
 Transport/Stop/malformed ordinary responses do not publish an incomplete chat turn; explicit output/step limits can save a paused reply with completed evidence. Continue requires the latest saved source and a fresh bounded run. File/command effects are independent of turn persistence. Feedback/comparison exports remain separate from provider-visible history.
 

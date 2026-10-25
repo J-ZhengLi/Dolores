@@ -1138,7 +1138,7 @@ pub async fn run_agent_with_shared_budget(
                     } else if call.name == "command_session" {
                         command_session_failure(error)
                     } else if call.name == "delegate_tasks" {
-                        "delegate_tasks requires 1–2 tasks with goal (1–512 bytes), scope (direct relative file/folder or '.'), and readOnly (boolean). Writable scopes must not overlap any other child scope. One batch per run; commands, MCP and recursive delegation are unavailable. No child started.".into()
+                        format!("{error} Use tasks (1–2 goals/scopes/readOnly, optional enabled model), or childId plus action=inspect/followUp/interrupt. Only followUp accepts message (1–512 bytes); only inspect accepts a byte offset. Scope, model and permissions cannot change. No additional child work started.")
                     } else if call.name == "inspect_harness" {
                         format!(
                             "{error} Use empty arguments for inventory, action=list/search for navigation, or source with startLine and lineCount (1–2048) for a bounded read. No inspection ran."
@@ -1326,7 +1326,7 @@ pub async fn run_agent_with_shared_budget(
                                         _ => "MCP tool could not complete. Review the server, tool list and limits before trying again; external effects may remain.".into(),
                                     }
                                 } else if request.name == "delegate_tasks" {
-                                    "Subagent batch could not complete. Inspect Run history and Changes before continuing; completed file changes remain. Only one batch is allowed per run.".into()
+                                    format!("{error} Inspect child context, Run history and Changes before continuing; completed file changes remain. One batch and at most two follow-ups per child are allowed per parent run; allowances never reset.")
                                 } else if request.name == "request_user_input" {
                                     "Question could not complete. Ask a fresh question if clarification is still needed; saved progress remains.".into()
                                 } else if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control" | "computer" | "read_skill_resource") {
@@ -1462,13 +1462,19 @@ fn no_progress_reply(summary: AgentSummary) -> AgentReply {
 
 fn subagent_pause(tools: &[ToolRecord]) -> Option<PauseReason> {
     let mut review = false;
-    for tool in tools.iter().filter(|t| t.name == "delegate_tasks") {
+    let mut seen = HashSet::new();
+    for tool in tools.iter().rev().filter(|t| t.name == "delegate_tasks") {
         if tool.status == "error" {
             review = true;
         }
         if let Ok(value) = serde_json::from_str::<Value>(&tool.content) {
             if let Some(children) = value["children"].as_array() {
                 for child in children {
+                    if let Some(id) = child["childId"].as_str() {
+                        if !seen.insert(id.to_owned()) {
+                            continue;
+                        }
+                    }
                     if child["pause"] == "stepLimit" {
                         return Some(PauseReason::StepLimit);
                     }

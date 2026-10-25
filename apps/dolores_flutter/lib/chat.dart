@@ -480,6 +480,30 @@ class ChatController extends ChangeNotifier {
 
   final toolRecords = <Map<String, dynamic>>[];
   final subagents = <Map<String, dynamic>>[];
+  Future<Map<String, dynamic>> superviseChild(
+    String child,
+    String action, {
+    int? offset,
+  }) async {
+    if (!busy || stopping || session == null) {
+      throw StateError(
+        'This parent run has ended. Inspect saved child context and evidence in Run history.',
+      );
+    }
+    final id = _run;
+    final owner = session;
+    final result = await bridge.call({
+      'command': 'childSupervision',
+      'session': owner,
+      'id': id,
+      'request': {'childId': child, 'action': action, 'offset': ?offset},
+    });
+    if (_disposed || id != _run || owner != session) {
+      throw StateError('The parent run changed. Refresh its child evidence.');
+    }
+    return (result as Map).cast<String, dynamic>();
+  }
+
   final modelTexts = <Map<String, dynamic>>[];
   final modelThinking = <Map<String, dynamic>>[];
   bool modelActive = false;

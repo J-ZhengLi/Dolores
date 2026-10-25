@@ -42,6 +42,12 @@ scopes, reports, usage and bounded child tool/commentary evidence remain in loca
 parent run records, including after a later parent failure. Completed delegation
 receipts also appear in saved conversations and exports. Inspect these before
 sharing; reports can contain approved file content.
+Optional child models use the same configured connection and are frozen from
+enabled choices at parent admission. Follow-ups share the new instruction and
+that child's bounded report/tool checkpoint with its frozen model. Prepared
+context pages and the permission snapshot are retained locally in Run history;
+inspection itself sends no model request. These pages may contain project
+instructions and approved request/file text; review them before sharing history.
 
 Selected text/image attachments are immutable local plaintext snapshots, identified by digest and basename. Preview is local; Send shares the included contents with your configured provider. Sent snapshots can be shared again when included in later context. Ordinary conversation exports retain references; the separate attachment export explicitly copies draft/sent bytes. Removing references and cleaning unused snapshots do not securely erase SQLite free pages, backups or export copies. See [attachment boundaries](design/attachments.md).
 

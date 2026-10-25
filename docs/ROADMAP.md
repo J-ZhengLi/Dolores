@@ -9,9 +9,8 @@ user guide/architecture, not in repeated delivery summaries here.
 The [everyday harness batch index](plans/everyday-harness/README.md) is the source
 of truth for batch status. EH00–EH08 have delivered their declared scopes.
 
-- Continue [EH09](plans/everyday-harness/eh09.md): EH09.1–EH09.3 are delivered within
-  declared Windows bounds. Implement EH09.4 child supervision next, then
-  cross-feature lifecycle integration.
+- Continue [EH09](plans/everyday-harness/eh09.md): EH09.1–EH09.4 are delivered within
+  declared Windows bounds. Continue with EH09.5 cross-feature lifecycle integration.
 - After EH09's dependency/acceptance gates, run
   [EH10 integrated qualification](plans/everyday-harness/eh10.md).
 - Read the [umbrella scope](design/everyday-harness-implementation-plan.md) only

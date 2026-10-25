@@ -4,6 +4,193 @@ use dolores_core::{
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+fn supervise(id: &str, action: &str, message: Option<&str>) -> ToolCall {
+    let mut value = json!({"childId":id,"action":action});
+    if let Some(message) = message {
+        value["message"] = json!(message);
+    }
+    ToolCall {
+        id: "supervise".into(),
+        name: "delegate_tasks".into(),
+        arguments: value.to_string(),
+    }
+}
+#[tokio::test]
+async fn followups_keep_identity_frozen_context_and_cumulative_allowance() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("left.txt"), "actual left evidence").unwrap();
+    std::fs::write(dir.path().join("right.txt"), "actual right evidence").unwrap();
+    let provider = fixture(false, false);
+    let (mut rt, store, _events) = runtime(provider.clone(), dir.path(), TaskBudget::default());
+    rt.context[0]
+        .content
+        .push_str(&" public 世界 context".repeat(900));
+    let log = rt.log.clone();
+    let shared = rt.shared.clone();
+    let tool = DelegateTasks::new("parent".into(), BTreeMap::new());
+    tool.bind(rt).unwrap();
+    let report: Value = serde_json::from_str(
+        &tool
+            .invoke(&tool.prepare(&plan()).unwrap(), CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let id = report["children"][0]["childId"].as_str().unwrap();
+    let mut offset = 0;
+    let mut pages = String::new();
+    loop {
+        let page = tool.inspect(id, offset).unwrap();
+        assert!(page.to_string().len() < dolores_core::MAX_TOOL_BYTES);
+        pages.push_str(page["context"].as_str().unwrap());
+        if let Some(next) = page["nextOffset"].as_u64() {
+            offset = next as usize;
+        } else {
+            break;
+        }
+    }
+    assert!(offset > 0);
+    assert!(pages.contains("Read left.txt") && pages.contains("世界"));
+    assert!(pages.starts_with("System:\n") && pages.contains("User:\n"));
+    for expected in [3, 4] {
+        let request = tool
+            .prepare(&supervise(
+                id,
+                "followUp",
+                Some("Clarify observed file evidence; do not repeat effects."),
+            ))
+            .unwrap();
+        let report: Value = serde_json::from_str(
+            &tool
+                .invoke(&request, CancellationToken::new())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        let child = &report["children"][0];
+        assert_eq!(child["childId"], id);
+        assert_eq!(child["model"], "parent");
+        assert_eq!(child["scope"], "left.txt");
+        assert_eq!(child["verified"], false);
+        assert_eq!(child["usage"]["modelCalls"], expected);
+    }
+    assert!(tool
+        .invoke(
+            &tool
+                .prepare(&supervise(id, "followUp", Some("Again")))
+                .unwrap(),
+            CancellationToken::new()
+        )
+        .await
+        .unwrap_err()
+        .contains("two follow-ups"));
+    assert_eq!(shared.usage().model_calls, 6);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 6);
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("left.txt")).unwrap(),
+        "actual left evidence"
+    );
+    let events = store.run_events("chat", &log.id).unwrap();
+    assert_eq!(
+        events
+            .iter()
+            .filter(|e| e.kind == "subagentFollowUp")
+            .count(),
+        2
+    );
+    assert!(
+        events
+            .iter()
+            .filter(|e| e.kind == "subagentContext")
+            .count()
+            > 4
+    );
+    tool.finish(&log, "Parent ended").await.unwrap();
+    assert!(tool
+        .invoke(
+            &tool.prepare(&supervise(id, "inspect", None)).unwrap(),
+            CancellationToken::new()
+        )
+        .await
+        .is_err());
+}
+#[tokio::test]
+async fn selected_model_and_child_interrupt_preserve_sibling_and_parent() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("left.txt"), "left").unwrap();
+    std::fs::write(dir.path().join("right.txt"), "right").unwrap();
+    let main = fixture(false, false);
+    let alternate = fixture(true, false);
+    let (rt, store, mut events) = runtime(main.clone(), dir.path(), TaskBudget::default());
+    let log = rt.log.clone();
+    let tool = DelegateTasks::new(
+        "main".into(),
+        BTreeMap::from([(
+            "alternate".into(),
+            alternate.clone() as Arc<dyn ModelProvider>,
+        )]),
+    );
+    tool.bind(rt).unwrap();
+    let mut call = plan();
+    let mut value: Value = serde_json::from_str(&call.arguments).unwrap();
+    value["tasks"][0]["model"] = json!("unknown");
+    call.arguments = value.to_string();
+    assert!(tool
+        .invoke(&tool.prepare(&call).unwrap(), CancellationToken::new())
+        .await
+        .unwrap_err()
+        .contains("no fallback"));
+    assert!(!tool.claimed.load(Ordering::SeqCst));
+    value["tasks"][0]["model"] = json!("alternate");
+    call.arguments = value.to_string();
+    let request = tool.prepare(&call).unwrap();
+    let parent = CancellationToken::new();
+    let run = tool.invoke(&request, parent.clone());
+    tokio::pin!(run);
+    let id=tokio::time::timeout(std::time::Duration::from_secs(5),async {
+        loop {tokio::select!{
+            result=&mut run=>panic!("Unexpected completion {result:?}"),
+            Some(event)=events.recv()=>if event["child"]["model"]=="alternate" && event["child"]["status"]=="running" {
+                break event["child"]["childId"].as_str().unwrap().to_owned();
+            }
+        }}
+    }).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5),async {
+        while alternate.active.load(Ordering::SeqCst)==0 {
+            tokio::select!{result=&mut run=>panic!("Unexpected completion {result:?}"),_=tokio::task::yield_now()=>{}}
+        }
+    }).await.unwrap();
+    tool.interrupt(&id).unwrap();
+    let report: Value = serde_json::from_str(&run.await.unwrap()).unwrap();
+    assert_eq!(report["children"][0]["status"], "interrupted");
+    assert_eq!(report["children"][1]["status"], "reported");
+    assert_eq!(report["children"][0]["model"], "alternate");
+    assert!(!parent.is_cancelled());
+    assert_eq!(alternate.active.load(Ordering::SeqCst), 0);
+    assert!(tool.interrupt(&id).unwrap_err().contains("already settled"));
+    assert!(tool.inspect("foreignchild", 0).is_err());
+    assert!(store
+        .run_events("chat", &log.id)
+        .unwrap()
+        .iter()
+        .any(|e| e.kind == "subagent" && e.data["status"] == "interrupted"));
+    let mut tampered = tool.prepare(&supervise(&id, "inspect", None)).unwrap();
+    tampered.target = "different child".into();
+    assert!(tool
+        .invoke(&tampered, CancellationToken::new())
+        .await
+        .unwrap_err()
+        .contains("changed"));
+    for extra in ["model", "scope", "permissions", "tasks"] {
+        let mut value: Value =
+            serde_json::from_str(&supervise(&id, "followUp", Some("clarify")).arguments).unwrap();
+        value[extra] = json!("tamper");
+        let mut bad = supervise(&id, "inspect", None);
+        bad.arguments = value.to_string();
+        assert!(tool.prepare(&bad).is_err());
+    }
+}
+
 struct Fixture {
     active: AtomicUsize,
     peak: AtomicUsize,
@@ -224,6 +411,7 @@ fn runtime(
             approval: Arc::new(Allow),
             shared: Arc::new(SharedTaskBudget::new(budget)),
             budget,
+            permissions: Default::default(),
             log: RunLog::new(store.clone(), id),
             output,
             client_id: 1,

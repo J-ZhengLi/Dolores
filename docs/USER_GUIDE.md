@@ -413,20 +413,31 @@ ownership. Review each child's goal, relative file/folder scope and read-only or
 writable access before allowing the batch. Allowing delegation does not approve
 later file actions in Review mode. Side chats have no subagents.
 
-Children share your selected model, prepared instructions, original request,
+Children use your selected model by default. The parent may choose another enabled
+model on the same connection when creating a child; review that choice in the
+batch preview. That model and its request settings remain frozen until the parent
+ends. Children share prepared instructions, original request,
 current permissions and total task allowance. They do not receive the full chat
-or attachments. Each has at most four model calls/four file operations; children
+or attachments. Each has at most four model calls/four file operations including follow-ups; children
 cannot run commands, use external tools or spawn more children. The parent can
-run a separately approved verification command after they return. For a batch
-with two tool-using children, the four-call default may be too small; narrow the
-task or explicitly adjust Task limits, for example eight model calls, before
-sending. Dolores does not raise these settings automatically.
+run a separately approved verification command after they return. Small explicit
+Task limits may leave too little for a batch and parent verification; narrow the
+task or review those limits before sending. Dolores does not raise them automatically.
 
 Expandable progress and saved tool cards show child reports and statuses. A
 report is not proof of success: inspect detailed evidence in **Activity → Earlier tasks** and
 file snapshots in **Changes**. Paused or failed children leave completed work
 intact and offer the parent's explicit Continue flow. **Stop** and **Revoke
 grants** reach both children and queued decisions. Restart never replays them.
+
+While the parent runs, expand a child to **Inspect child context** or **Interrupt
+child**. Context pages show prepared instructions and report checkpoints; detailed
+tool evidence remains in Earlier tasks. Interrupting one child leaves its sibling,
+parent and completed files available. To clarify a settled report, ask the parent
+to follow up with that child by its ID. Up to two follow-ups keep the same scope,
+model, permissions and remaining four-call/four-file allowance. Exhausted limits
+or an ended parent require reviewing saved progress; they cannot be reset by a
+follow-up. After the parent ends, saved context pages remain in Earlier tasks.
 
 ## Search and read public sources
 

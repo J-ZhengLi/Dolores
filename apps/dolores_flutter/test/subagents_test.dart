@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:dolores_flutter/main.dart';
 import 'package:dolores_flutter/tool_activity.dart';
+import 'package:dolores_flutter/subagents.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,6 +19,73 @@ Map<String, dynamic> child(String id, String state) => {
 };
 
 void main() {
+  testWidgets('child inspector retries pages and closes with a pending read', (
+    t,
+  ) async {
+    compact(t);
+    var failRead = true;
+    final pending = Completer<Map<String, dynamic>>();
+    var stall = false;
+    final calls = <String>[];
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SubagentCards(
+              children: [child('owned', 'running')],
+              onSupervise: (id, action, {offset}) async {
+                calls.add('$id:$action:${offset ?? 0}');
+                if (action == 'interrupt') {
+                  throw StateError(
+                    'Child already settled; inspect its report.',
+                  );
+                }
+                if (stall) return pending.future;
+                if (failRead) {
+                  failRead = false;
+                  throw StateError('Read failed; saved child work remains.');
+                }
+                return {
+                  'context': offset == 4 ? 'SECOND_PAGE' : 'FIRST_PAGE',
+                  'nextOffset': offset == 4 ? null : 4,
+                };
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.tap(find.text('Read owned.txt'));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Inspect child context'));
+    await t.tap(find.text('Inspect child context'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('saved child work remains'), findsOneWidget);
+    await t.tap(find.text('Refresh'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('FIRST_PAGE'), findsOneWidget);
+    await t.tap(find.text('Next page'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('SECOND_PAGE'), findsOneWidget);
+    await t.tap(find.text('Previous page'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('FIRST_PAGE'), findsOneWidget);
+    stall = true;
+    await t.tap(find.text('Refresh'));
+    await t.pump();
+    await t.tap(find.text('Close'));
+    await t.pumpAndSettle();
+    expect(find.text('Child context'), findsNothing);
+    pending.complete({'context': 'late result'});
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Interrupt child'));
+    await t.tap(find.text('Interrupt child'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('already settled'), findsOneWidget);
+    expect(calls, contains('owned:inspect:4'));
+    expect(calls.last, 'owned:interrupt:0');
+    expect(t.takeException(), isNull);
+  });
   testWidgets(
     'child events replace status, ignore stale runs and survive Stop until chat switch',
     (tester) async {

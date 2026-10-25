@@ -795,7 +795,19 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ),
-      if (chat.subagents.isNotEmpty) SubagentCards(children: chat.subagents),
+      if (chat.subagents.isNotEmpty)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 200),
+          child: SingleChildScrollView(
+            key: const PageStorageKey('active-child-supervision'),
+            child: SubagentCards(
+              children: chat.subagents,
+              onSupervise: chat.busy && !chat.stopping
+                  ? chat.superviseChild
+                  : null,
+            ),
+          ),
+        ),
       if (chat.busy && chat.activeDesktopTarget != null)
         Container(
           key: const Key('desktop-active-target'),

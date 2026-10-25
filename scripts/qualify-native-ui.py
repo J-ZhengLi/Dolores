@@ -42,6 +42,7 @@ def main():
         'skill-packages': ('test/native_skill_packages_ui_test.dart', 'skill-packages-receipt.json'),
         'mcp-remote': ('test/native_mcp_remote_ui_test.dart', 'mcp-remote-receipt.json'),
         'hooks': ('test/native_hooks_ui_test.dart', 'hooks-receipt.json'),
+        'subagents': ('test/native_subagents_ui_test.dart', 'subagents-receipt.json'),
     }
     parser.add_argument('--case', action='append', choices=cases, help='Run selected journeys; default: all.')
     args = parser.parse_args()
