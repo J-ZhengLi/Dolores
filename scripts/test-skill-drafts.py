@@ -50,11 +50,13 @@ class Fixture(BaseHTTPRequestHandler):
         if mode == 'long': time.sleep(31)
         assert request['model'] == 'fixture'
         if request['messages'][-1]['content'] == 'Review synthetic work':
-            # Human turns expose scheduling and questions; drafting/evaluation must
+            # Human turns expose computer, scheduling and questions; drafting/evaluation must
             # still be tool-free and cannot execute the proposed instructions.
-            assert len(request['tools']) == 3 and request['tool_choice'] == 'auto'
-            assert {t['function']['name'] for t in request['tools']} == {
-                'schedule_task', 'manage_scheduled_task', 'request_user_input'}
+            names = [t['function']['name'] for t in request['tools']]
+            expected = {'schedule_task', 'manage_scheduled_task', 'request_user_input'}
+            if os.name == 'nt':
+                expected |= {'request_desktop_access', 'computer'}
+            assert request['tool_choice'] == 'auto' and len(names) == len(expected) and set(names) == expected, names
         else:
             assert 'tools' not in request and 'tool_choice' not in request
         assert len(request['messages']) == 2

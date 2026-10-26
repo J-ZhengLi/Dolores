@@ -117,6 +117,8 @@ if args.stage == "save":
     try:
         call("configure", preferences={"baseUrl":f"http://127.0.0.1:{server.server_port}/v1","model":"fixture"},apiKey="",rememberConnection=True)
         call("setRequestSettings",settings={"maxOutputTokens":4096,"timeoutSeconds":8})
+        assert call("memories")["automaticPolicy"]["enabled"]
+        set_policy(False)
         assert not call("memories")["automaticPolicy"]["enabled"]
         set_policy(True)
         project = fixture / "project"; project.mkdir()

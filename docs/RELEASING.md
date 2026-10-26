@@ -95,8 +95,10 @@ content or secrets have been identified.
 
 The Checks and Release installers workflows use read-only permissions for
 checks/builds. Only the tag publication job can publish a release; it consumes
-the current run's verified artifact. Fork pull requests use no secrets and no write permission. Actions and
-the Flutter source revision are pinned; update pins deliberately and rerun the
+the current run's verified artifact. Native regression reports and per-stage
+logs are retained as Actions artifacts even when a release check fails. Fork
+pull requests use no secrets and no write permission. Actions and the Flutter
+source revision are pinned; update pins deliberately and rerun the
 checks. [GitHub permissions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)
 and [Flutter Windows prerequisites](https://docs.flutter.dev/platform-integration/windows/setup)
 describe the upstream requirements.

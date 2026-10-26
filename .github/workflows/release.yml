@@ -104,6 +104,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python ../../scripts/run-regressions.py --native-only --directory "$env:GITHUB_WORKSPACE/output/release/regressions" --flutter-sdk "$env:FLUTTER_SDK"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain native regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dolores-native-regressions
+          path: |
+            output/release/regressions/report.json
+            output/release/regressions/report.md
+            output/release/regressions/logs/*.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Assemble verified installer payload
         shell: pwsh
         run: |
