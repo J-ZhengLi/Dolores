@@ -101,6 +101,9 @@ checks. [GitHub permissions](https://docs.github.com/en/actions/reference/workfl
 and [Flutter Windows prerequisites](https://docs.flutter.dev/platform-integration/windows/setup)
 describe the upstream requirements.
 
+Windows jobs set `PYTHONUTF8=1` and `PYTHONIOENCODING=utf-8` so captured
+Flutter output and Unicode paths remain printable through redirected CI logs.
+
 Checks use the runner's active Rust toolchain, the selected Flutter SDK and shared
 dependency/compiler caches. They run
 formatting, Clippy, Rust/browser/script tests, Flutter analysis and widget tests
