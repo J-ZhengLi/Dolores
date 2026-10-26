@@ -491,6 +491,9 @@ mod tests {
         }
     }
     fn start(f: &Fixture) -> String {
+        start_after(f, 0)
+    }
+    fn start_after(f: &Fixture, startup_delay_ms: u64) -> String {
         let tool = f
             .engine
             .extension_registry(Some(&f.live.task))
@@ -502,7 +505,8 @@ mod tests {
             log: f.live.log.clone(),
             policy: Some(f.live.policy.clone()),
         };
-        let request=logged.prepare(&ToolCall {id:"start-public".into(),name:"command_session".into(),arguments:json!({"operation":"start","program":"node","args":["-e","process.stdin.on('data',b=>{process.stdout.write(b);require('fs').appendFileSync('received',b)});console.log('ready')"]}).to_string()}).unwrap();
+        let script = format!("setTimeout(()=>{{process.stdin.on('data',b=>{{process.stdout.write(b);require('fs').appendFileSync('received',b)}});console.log('ready')}},{startup_delay_ms})");
+        let request=logged.prepare(&ToolCall {id:"start-public".into(),name:"command_session".into(),arguments:json!({"operation":"start","program":"node","args":["-e",script],"timeout_seconds":60}).to_string()}).unwrap();
         let value: Value = serde_json::from_str(
             &f.engine
                 .runtime
@@ -525,7 +529,9 @@ mod tests {
             .unwrap()
     }
     fn until(f: &Fixture, id: &str, check: impl Fn(&Value) -> bool) -> Value {
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(6);
+        // Readiness is a handshake, not a six-second Node startup benchmark.
+        // Leave time for input and cleanup inside the fixture's 60-second session.
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(30);
         loop {
             let value = read(f, id);
             if check(&value) {
@@ -538,7 +544,8 @@ mod tests {
     #[test]
     fn human_input_uses_exact_owner_and_persisted_output_survives_handle_release() {
         let f = fixture();
-        let id = start(&f);
+        // Exercise startup slower than the old six-second performance assumption.
+        let id = start_after(&f, 8_000);
         until(&f, &id, |v| v["output"].as_str().unwrap().contains("ready"));
         let wrong = f.engine.call(crate::Command::SessionControl {
             session: "other-chat".into(),
