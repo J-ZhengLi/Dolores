@@ -23,6 +23,8 @@ jobs:
       CARGO_TERM_COLOR: always
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
+      # Native child processes share runner CPU, disk and desktop resources.
+      RUST_TEST_THREADS: '2'
     steps:
       - name: Check out release source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

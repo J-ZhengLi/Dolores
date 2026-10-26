@@ -56,7 +56,9 @@ deterministic tests. Add realistic failure/recovery coverage when applicable.
 Distinguish fixture, physical-input, performance and live-model qualification.
 Windows CI native fixtures use Node 24.22.1; reproduce failures with that exact
 runtime on PATH and Rust 1.99.1. A local Windows pass does not establish behavior
-on the Windows Server 2025 runner. Isolation crash fixtures retain Node/libuv/OS
+on the Windows Server 2025 runner. Windows CI sets `RUST_TEST_THREADS=2`
+to bound competing native child-process fixtures; use that setting when
+reproducing a hosted full-suite run. This keeps every selected test enabled. Isolation crash fixtures retain Node/libuv/OS
 versions, NUL access observations and child launch errors when readiness fails;
 they inherit owned stdio handles rather than requiring restricted-device access.
 
