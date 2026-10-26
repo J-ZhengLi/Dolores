@@ -190,4 +190,4 @@ jobs:
           sha256sum --check *.sha256
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease --latest=false); fi
-          gh release create "$RELEASE_TAG" *-setup.exe *.sha256 --verify-tag --draft "${flags[@]}" --title "Dolores $RELEASE_TAG" --notes-file RELEASE-NOTES.md
+          gh release create "$RELEASE_TAG" *-setup.exe *.sha256 --verify-tag "${flags[@]}" --title "Dolores $RELEASE_TAG" --notes-file RELEASE-NOTES.md

@@ -1,171 +1,97 @@
 # Changelog
 
 User-visible changes are recorded here. Unreleased work has no release date;
-published versions use `MAJOR.MINOR.PATCH` and an ISO date.
+published versions use SemVer and an ISO date.
 
 ## [Unreleased]
 
-### Changed
+## [0.1.0-alpha] - 2026-10-26
 
-- Present app feedback through compact animated toasts and retained Notifications history. Move Windows alert controls to General and add remembered Ask/Quit/Tray close choices; minimizing preserves current work independently of scheduled background settings.
-
-- Reuse empty chats on repeated New chat/project actions, enable memory defaults while preserving saved choices, and provide an explicit in-app Browser setup action with progress, cancellation and prerequisite detection.
-
-- Move conversation search to an icon in the title bar with a single search field and live results. Float notices above the workspace without moving content. After the selected Quit/Tray action, hide promptly and perform bounded best-effort recovery, even during failed saves, busy actions or open reviews.
-- Merge Attention into the title bar as a bell with a compact dropdown. Unify select menus and rounded surfaces, use neutral white and gray colors, and move extended explanations into contextual help.
-
-- Refine the floating dock and selection highlights with translucent glass, reflective edges, soft depth, fluid spring travel and subtle press feedback. Keep crisp labels, reduced-motion/high-contrast fallbacks and Windows support.
-
-- Add opt-in Windows task notifications and an in-app Attention list for saved completion, failure, review and question events. Clicks open the current task or retained evidence; delivery errors preserve the task and its decision.
-
-- Search saved conversation titles and messages, pin important chats, and archive or restore conversations without stopping tasks or clearing their drafts and queued input.
-
-- Let edited prompt branches use a reviewed managed worktree, retaining source staging, dirty files and historical receipts. Failed attachment keeps the checkout and edited draft for retry.
-
-- Remove the duplicate Library dock button; skill management remains available in Settings → Skills.
-- Show tool receipts as compact expandable rows between the agent's progress updates, retaining their order in saved chats instead of appending large cards after the answer.
-- Run ordinary-chat computer actions automatically, including control of Dolores itself, without per-click or per-keystroke prompts. Stop, fresh screenshots, native target checks and task limits remain active.
-- Move primary navigation to a floating bottom dock that hides when unused and reveals from the bottom edge or Ctrl+Alt+D, giving feature sidebars their full height. Keep the Dolores title visible on every page with an outlined sidebar toggle. Smooth page changes, remove competing gray navigation hover fills, and align form labels above their controls. Long explanations open as floating help; run details lead with per-call metrics and keep supporting evidence expandable.
-- Refresh the desktop with cool light and graphite dark surfaces, animated glass navigation, a unified labeled sidebar, and a Home composer with project shortcuts. Settings stays in a centered window; model, attachment and access choices use compact menus. General includes a saved Gentle motion preference that respects reduced motion.
+First public alpha of Dolores. The earlier `0.0.1-alpha` entry was an
+unsuccessful CI trial, never a published release; its changes are included here.
 
 ### Added
 
-- Configure reviewed project lifecycle scripts in Settings → Advanced → Lifecycle hooks. Required checks can refuse task/tool/compaction actions; observations retain failures without losing completed work. Script changes need fresh review, output stays outside model context, and Disable all provides recovery.
-- Connect remote MCP endpoints in Settings → Connections with bearer keys or Windows browser sign-in (OAuth), explicit inspection and searchable tool selection. Logins use the native vault with bounded refresh and explicit recovery after interruption; per-call approval shows the exact endpoint. Loading settings makes no network request.
-- Manage complete skill ZIP packages in Settings → Skills → Packages. Review instructions, resources, declared dependencies and versions, install separately from activation, restore saved versions and export the original archive. Retained-data recovery preserves changed files.
-- Read selected package references through a verified, bounded tool, including Global packages outside the working folder. Inspect package identity in context preview; binary assets return metadata, and scripts retain separate execution permissions.
-- Free package-version capacity by forgetting a reviewed older activation while keeping the current skill and its resources. Remove the unused installation separately, then retry the new package without clearing the skill.
+#### Windows desktop and installation
 
-- Edit a saved prompt in a separate conversation branch, choose its folder and shared context, and inspect the retained original transcript and tool receipts without rolling files back or replaying earlier actions.
-- Ask about selected message text in an independent side chat, return to its parent, and queue or steer a selected conclusion without replacing either draft or the original task.
-- Comment on diff lines, queue or steer selected review feedback, and retain its delivery and separately verified resolution with the original source location.
+- Windows x64 desktop app with local or hosted OpenAI-compatible models, light/dark themes, a floating navigation dock, project shortcuts and searchable Settings.
+- Windows installer with current-user/all-users modes, optional shortcuts, upgrades and an uninstaller that retains local data unless removal is explicitly selected.
+- Tag-driven GitHub releases with a verified installer, SHA-256 checksum and the matching reviewed changelog section as release notes.
+- Experimental macOS PKG and Linux DEB packaging commands for future native qualification.
 
-- Archive managed checkouts after retaining saved and ignored files, staging, empty folders and a recoverable Git snapshot. Restore explicitly, inspect interruptions and preserve unrelated recovery edits.
-- Compare and transfer selected saved changes between a managed worktree and another checkout in the same repository. Review the destination and patch, retain both versions on conflict, and inspect interrupted transfer evidence without replaying it.
-- Create a separate task worktree from a reviewed branch, tag or commit. Inspect retained checkouts and interrupted creation, and open their chats while keeping the original files and draft.
-- Open Settings directly from a gear beside the title-bar window controls, even when the navigation dock is hidden. The dock reveal now announces its destinations, including Settings.
-- Target named controls in Windows apps through capture-bound accessibility IDs, with fresh native checks before clicks and screenshot coordinates when accessibility is unavailable.
-- Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain bounded output and receipts through failure and restart. Saved commands are never reattached or replayed automatically.
-- Request Windows isolation for Node commands and MCP servers with reviewed writable/read-only folders and denied network access. Failed setup never falls back to native execution; incomplete cleanup can be inspected and retried without replaying work.
-- Review plans in an inspection-only mode and explicitly execute an accepted revision. Share bounded, previewed context snapshots with `@`, including scoped files, folders, code, terminal excerpts and chat messages.
-- Save explicit goals with verifiable criteria, inspect progress and continue within cumulative task limits. Context recovery preserves user instructions and operation evidence, with calm capacity estimates and explicit recovery after interruption.
-- Discover host commands and reviewed skills with `/`. Selected skill chips show scope/version, persist with the chat and travel with queued or steered instructions; changed selections retain your draft for recovery.
-- Queue and edit text follow-ups while an ordinary chat task runs, or steer the current task at its next safe boundary. Saved instruction receipts survive interruption; Stop pauses the queue for explicit inspection and resume.
+#### Conversations and task control
 
-### Fixed
+- Markdown messages, streamed replies and ordered expandable tool receipts, including retained failures and recovery results.
+- Search saved conversation titles and messages; pin, archive and restore chats while preserving drafts, queued input and active tasks.
+- Queue and edit follow-ups during a task, or steer the task at its next safe boundary. Stop pauses queued work for explicit inspection and resume.
+- Edit a saved prompt in a separate branch with a chosen folder and shared context, retaining the original transcript and tool receipts.
+- Ask about selected text in an independent side chat and queue or steer a conclusion back to its parent.
+- Clickable clarification answers and a custom-answer field, with automatic continuation after submission.
+- Inspection-only plans, explicit execution of accepted revisions, and saved goals with verifiable criteria and cumulative task limits.
+- Previewed context snapshots through `@` for files, folders, code, terminal excerpts and messages; discover commands and reviewed skills with `/`.
+- Automatic context compaction, useful memory with saved preferences, and explicit recovery that preserves drafts, streamed partial replies and operation evidence.
 
-- Find General appearance controls when searching Settings for “Theme”.
+#### Project workspace and developer tools
 
-- Preserve Unicode output in Windows PowerShell terminals on systems with legacy console code pages.
+- Project folders, split editor tabs, Find/Replace, keyboard save/redo, language tools and an integrated terminal.
+- Git changes, staging, commits, history, side-by-side diffs, stash and revert with conflict recovery that preserves existing work.
+- Diff-line comments with queued or steered feedback and retained delivery/resolution evidence.
+- Create task worktrees from a reviewed branch, tag or commit; compare and transfer selected changes while retaining both versions on conflict.
+- Archive managed worktrees with recoverable Git snapshots, retained staging and ignored files; restore explicitly and inspect interrupted operations.
+- Inspect task-owned command output, send reviewed input, interrupt or close commands, and retain receipts across failures and restarts without replaying commands.
 
-- Keep notifications visible when hovering their close button by giving floating tooltips their own app overlay.
+#### Tools, skills and connections
 
-- Keep subfolder chats in the same managed worktree on one run queue, and refuse conflicting worktree management when another checkout shares its Git repository. Changed checkout registrations require a fresh creation review.
-- Retain earlier failed-command receipts when a later repair reuses the same tool-call ID.
-- Start Windows PowerShell terminals successfully instead of exiting with a `System.Net.ServicePointManager` initialization error.
-- Keep the conversation at the reader's position after even a small upward scroll during or after a reply. Updates resume following only after returning to the bottom, instead of pulling the page back down.
-- Allow ordinary-chat computer use to control Dolores's own window, including theme controls, with exact human review and fresh screenshot verification. Previously its own window was limited to observation.
-- Make computer use available in ordinary side chats without a working folder. These chats previously received scheduling tools but no computer tool; file and shell access stay separate.
-- Use Windows computer tools directly in ordinary working chats: discover and inspect an application, including Dolores itself, without a Settings handoff. Screenshots use the current image-enabled model; input keeps exact in-chat review and fresh verification. HTTP 408/5xx errors now explain provider failures instead of incorrectly blaming tool support.
-- Send recovers when an input method commits unchanged text after focus moves.
-- Models can be removed from their options menu, including the active or final model, while retaining conversations and the saved provider connection.
-- Automatic context compaction is always enabled for new and existing chats. Failed summaries retain drafts and history for explicit recovery.
-- “Fewer messages” preserves Quiet companionship frequency instead of raising it to one message per day.
-- Reusing a saved instruction comparison now retains its output and time limits.
-- Task-limit settings show supported ranges and explain invalid values before saving, while retaining your edits.
-- Installer checks wait for complete cleanup before reinstalling and retain logs when verification fails.
-- Windows language-server checks allow bounded slow startup and verify timeout recovery without losing unsaved text.
-- Windows build checks no longer intermittently fail when testing a stalled chat stream.
-- Dedicated checks and installer tools run directly with the active toolchain, without a local CI replica, toolchain-version enforcement, pushing or tagging.
+- File, command and web tools, plus optional browser and Windows computer use. In-app Browser setup reports prerequisites, progress and cancellation.
+- Windows computer control through fresh screenshots and capture-bound accessibility IDs, including control of Dolores itself; ordinary-chat actions run within the selected access mode and task limits.
+- Review / Auto edit / Full access choices remembered per chat, with file, shell and computer permissions kept separate.
+- Remote MCP endpoints with bearer keys or Windows browser sign-in, explicit inspection, searchable tool selection and exact endpoint approval. Credentials use the native vault; interrupted login has explicit recovery.
+- Complete skill ZIP packages with reviewed instructions, resources, dependencies and versions; separate installation/activation, version restoration and original-archive export.
+- Bounded access to selected package references, including Global packages; binary assets return metadata and scripts retain separate execution permissions.
+- Forget reviewed older skill activations and remove unused installations without clearing the current skill or resources.
+- Reviewed project lifecycle hooks for required checks and observations, retained failure output, fresh review after script changes and a Disable all recovery control.
+- Optional Windows isolation for Node commands and MCP servers with reviewed folder access and denied network access; failed setup refuses native fallback.
 
-### Known limitations
+#### Schedules and notifications
 
-- Remote MCP browser sign-in and recovery are qualified with public Windows fixtures; third-party login/model reliability and broader lifecycle cleanup remain separate. No cross-call remote session or background subscription is provided.
-- Isolated Node child processes must inherit stdio; Node-created child pipes can stall until the host deadline or Stop. Other runtimes, human terminals, browser helpers and native repair builds retain their existing native execution mode.
-
-## [0.0.1-alpha] - 2026-10-13
-
-### Added
-
-- Windows installer with current-user/all-users modes, shortcuts, upgrades and an uninstaller with optional local-data removal.
-- Experimental macOS PKG and Linux DEB packaging commands for later native qualification.
-- Clickable answers and a custom-answer field for agent clarification questions, with automatic continuation after submission.
-- Windows desktop preview with local or hosted OpenAI-compatible models.
-- Reviewed file operations, commands, web tools and optional browser/computer use.
-- Project editor with split tabs, Git changes and diffs, terminal and language tools.
-- Automatic useful memory, chat-created schedules and optional companionship.
-- Optional Windows tray scheduling with reopen and interruption recovery.
-- Windows GitHub Actions packaging with reviewed changelog notes and draft releases.
-
-### Changed
-
-- Commit and pull-request CI runs checks without packaging; tag/manual release runs retain installers and checksums, with reviewed changelog notes on tag releases.
-- One release preparation command aligns Cargo/Flutter/lock versions and dated notes, including alpha prereleases.
-- Git actions run directly from their controls without an extra review dialog; stale-state, unsaved-editor and conflict safeguards remain.
-- User messages render Markdown, including headings, lists, tables and code blocks; Copy message retains the original text.
-- Chat access uses an immediate Review / Auto edit / Full access selector, remembered for the chat without a duration or extra confirmation steps.
-- Companionship frequency uses a Quiet–Chatty slider from 0 to 100 per day, with pacing that follows the selected frequency and hours.
+- Chat-created schedules, optional companionship with a Quiet–Chatty frequency control, and Windows tray scheduling with reopen and interruption recovery.
+- Compact animated toasts and retained Notifications history for completion, failure, review and question events, with optional Windows alerts and links to tasks or evidence.
+- Remembered Ask / Quit / Tray close choices; minimizing preserves current work independently of scheduled background settings.
 
 ### Fixed
 
-- Browser receipts label reviewed operations correctly instead of calling them searches.
-- Skill drafts explain missing test inputs before evaluation, keeping incomplete tests from sending a model request.
-- Windows CI retains Flutter release tags so the pinned SDK resolves dependencies with its correct version.
-- Native-build details keep their own expanded state, and missing screenshot errors stay readable without repeating the original action.
-- External-tool receipts render their reviewed arguments correctly when expanded or reopened.
-- Web page receipts distinguish excerpt positions from search queries and describe partial-page continuation in plain language.
-- Starting a new Git action clears the previous action's success notice, so a refusal cannot appear to have succeeded.
-- Attachment errors distinguish oversized text from unsupported files and offer the appropriate next step without losing the draft.
-- Source Control no longer labels folders without Git as detached HEAD; empty and detached repositories show distinct states.
-- Activated skills match simple singular/plural keywords, so a request to review code can use a skill described for code reviews.
-- Large changes can be committed, discarded or reverted without an unused review diff blocking the action.
-- Stash and revert conflicts explain how to recover while preserving the stash and existing work.
-- Large saved changes can be stashed and restored without fitting their entire diff into a review.
-- Scheduled occurrences execute the saved work instead of repeating setup-only instructions from the original request.
+#### Conversation continuity and recovery
 
-- Image memories supply their display title prefix without discarding otherwise valid captions.
+- Repeated New chat and project actions reuse empty conversations; switching chats preserves newly created conversations, drafts, selected models and reviews.
+- Scrolling up preserves the reading position during replies; Latest messages reaches the final reply after layout settles.
+- Sending recovers after input-method focus changes. Attachment and file errors explain the actual failure and keep drafts and recovery actions available.
+- Earlier failed-command receipts remain available when a repair reuses a tool-call ID. Follow-up chats retain saved tool evidence without replaying earlier actions.
+- Models can be removed while retaining conversations and provider connections. Saved task limits and instruction comparisons preserve their configured ranges, output and time limits.
+- Memory captions, titles and thinking-off responses retain valid content; saved memory and companionship preferences remain respected.
 
-- Two reviewed MCP tools can run together alongside the current built-in tools without exceeding an obsolete catalog limit.
+#### Workspace and tool reliability
 
-- Explicit thinking-off responses handle a stray leading closing marker, allowing valid image memories to be saved and recalled.
+- Git views distinguish non-repositories, empty repositories and detached HEAD; subfolders show the enclosing repository root.
+- Git actions clear stale success notices, refresh history and comparisons after changes, and handle large diffs, commits, stashes and restores without losing retained comparisons or work.
+- Kept editor tabs survive reopening and double-clicks; Find/Replace preserves document selection, and the panel divider supports quick drags and keyboard resizing.
+- Language edits recognize equivalent Windows paths. PowerShell startup and Unicode output work with legacy console code pages.
+- Managed-worktree queues include subfolder chats and refuse conflicting repository operations; changed registrations require fresh review.
+- Computer tools are available in ordinary working chats and side chats without a folder; provider failures report useful errors. Browser, external-tool and web receipts show correct arguments and excerpt locations.
+- Skill matching handles simple singular/plural keywords, incomplete evaluations explain missing inputs before model requests, and selected MCP tools can run alongside built-in tools.
+- Repair-and-verify requests retain the reviewed repair and rerun the failed check; failed screenshots and native-build details keep readable recovery information.
 
-- Companionship respects its chosen model's reasoning setting and tighter response limits.
-- Refresh diff reloads the current Git state after an external edit, while failed reads keep the previous comparison.
-- Large side-by-side Git diffs keep old and new lines together across pages; tabs retain their layout and failed reads preserve the current comparison.
-- Side chats receive instructions for their available tools, avoiding requests for file tools they cannot use.
-- Read-only delegated agents receive file-reading guidance without instructions to create files.
-- Follow-up chats retain recent saved tool evidence, including command output and exit codes, without repeating earlier actions.
-- Git history diff tabs show the short commit ID so revisions of the same file are easy to distinguish.
-- File failures appear once beside their recovery actions, while other file errors remain visible.
-- The file editor saves with Ctrl+S and supports Ctrl+Y alongside Ctrl+Shift+Z for redo.
-- Latest messages reaches the end of the final reply after the history layout settles; scrolling up still keeps your reading position.
-- Earlier tasks labels the configured output limit clearly; Activity points to the current Conversation view for saved exchanges.
-- Chat shows recent tool outcomes and lets you inspect all earlier actions, including failed attempts and recovery results.
-- Rejected file edits show their actual failure reason instead of a misleading invalid-path heading.
-- The side-panel divider responds to quick drags and acquires keyboard focus for Left/Right resizing and Home reset.
-- Context previews include the scheduling tools and response limits sent on ordinary chat requests, without duplicate tool guidance.
-- Agent guidance explains how available commands can read cross-project evidence instead of incorrectly treating every external path as inaccessible.
-- Stopped scheduled tasks point back to Scheduled instead of claiming an empty chat draft was restored.
+#### Scheduling and desktop behavior
 
-- Find and Replace leave the document visible and selectable below the search bar.
-- Long Chinese, Japanese and emoji scheduling requests keep a valid title and their full prompt; save failures report scheduling recovery instead of a folder error.
-- Scheduled task changes show readable updated/paused/deleted confirmations with their saved schedule.
-- Source Control shows the actual repository root and identifies an enclosing repository when the selected project is a subfolder.
-- Settings search finds companionship by Frequency, Quiet or Chatty.
-- Stopping a response retains already streamed text in the Not saved panel, marked partial, while restoring the draft.
-- Repair and verify requests a reviewed repair and reruns the failed check, including when the original request was read-only.
-- Source Control history updates after a commit or another Git action changes the current commit, while retaining readable diffs.
-- Double-clicking a file in Folders keeps its tab; reopening a kept file preserves other preview tabs.
-- Switching back to an earlier chat keeps newly created conversations visible, while preserving drafts, selected models and active reviews.
-- Scheduled runs execute the saved task's work instead of asking to configure the schedule again, and use a pinned skill only when one was selected.
-- Scheduled runs show their pinned project and model in chat and operation reviews, while preserving the current Home conversation.
-- Chat shows a readable schedule as soon as a task is saved, even if the model's reply stalls. Opening Scheduled refreshes newly created tasks.
-- Language edits accept equivalent Windows file paths instead of incorrectly reporting that project files are outside the selected project.
-- Source Control has quick stage/unstage buttons for each file and all changes. Commit includes working changes when nothing is staged, while preserving an existing staged selection.
-- Chat scheduling interprets ordinary requests across languages, uses a disclosed 09:00 local default when time is omitted, and reports scheduling errors accurately.
+- Scheduled runs execute saved work rather than repeating setup, retain their chosen project/model and use a pinned skill only when selected.
+- Scheduling handles multilingual requests and long Unicode prompts, displays readable saved/updated/paused/deleted status, and reports save failures accurately.
+- Quiet companionship and model reasoning preferences remain respected; omitted schedule times use a disclosed 09:00 local default.
+- Settings search finds Theme and companionship frequency controls; hovering a toast close button keeps it visible.
+- Quit and Tray hide promptly and retain bounded recovery during failed saves, busy actions and open reviews.
+- Installer verification waits for complete uninstall cleanup before reinstalling and retains diagnostic logs on failure.
 
 ### Known limitations
 
-- Windows x64 is the release target. Packages are unsigned; other platforms are unqualified.
-- Experimental detached windows remain unavailable after their performance gate failed.
-- Model reliability, physical input/accessibility and low-end performance need further evaluation.
+- This is an alpha release. Windows x64 is the supported release target; installers are unsigned and require the Microsoft C++ x64 runtime. macOS/Linux packages remain experimental and unqualified.
+- Model reliability, physical input/accessibility and low-end performance need further evaluation. Experimental detached windows remain unavailable.
+- Remote MCP sign-in and recovery are covered by public Windows fixtures; third-party login/model reliability and broader lifecycle cleanup remain separate. Cross-call remote sessions and background subscriptions are unavailable.
+- Isolated Node child processes must inherit stdio; child pipes can stall until the deadline or Stop. Other runtimes, human terminals, browser helpers and native repair builds retain native execution.
