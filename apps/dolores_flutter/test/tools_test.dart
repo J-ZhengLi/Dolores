@@ -30,6 +30,7 @@ class ToolBridge implements ChatBridge {
     commands.add(command);
     final id = command['id'];
     switch (command['command']) {
+      case 'openSession':
       case 'createSession':
         return createdWorkspace(command);
       case 'workspace':
@@ -835,7 +836,7 @@ void main() {
     expect(chat.draft, '');
     expect(chat.workspaceKind, 'project');
     expect(
-      bridge.commands.where((c) => c['command'] == 'createSession'),
+      bridge.commands.where((c) => c['command'] == 'openSession'),
       hasLength(1),
     );
     chat.busy = true;

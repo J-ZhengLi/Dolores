@@ -8,8 +8,23 @@ pub(crate) struct Runtime {
     approval: Arc<dyn ToolApproval>,
     output: tokio::sync::mpsc::Sender<Value>,
     id: u64,
-    allowance: Mutex<(usize, u64)>,
+    allowance: Mutex<Allowance>,
     serial: tokio::sync::Mutex<()>,
+}
+#[derive(Default)]
+struct Allowance {
+    calls: usize,
+    seconds: u64,
+}
+impl Allowance {
+    fn reserve(&mut self, seconds: u64) -> bool {
+        if self.calls >= 24 || self.seconds + seconds > 30 {
+            return false;
+        }
+        self.calls += 1;
+        self.seconds += seconds;
+        true
+    }
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -50,7 +65,7 @@ impl Runtime {
             approval,
             output,
             id,
-            allowance: Mutex::new((0, 0)),
+            allowance: Mutex::default(),
             serial: tokio::sync::Mutex::new(()),
         })))
     }
@@ -112,13 +127,7 @@ impl Runtime {
                     .allowance
                     .lock()
                     .map_err(|_| "Hook accounting unavailable.")?;
-                if allowance.0 >= 24 || allowance.1 + hook.hook.timeout_seconds > 30 {
-                    false
-                } else {
-                    allowance.0 += 1;
-                    allowance.1 += hook.hook.timeout_seconds;
-                    true
-                }
+                allowance.reserve(hook.hook.timeout_seconds)
             };
             let mut command = None;
             let result = if permitted {
@@ -322,5 +331,37 @@ impl ToolApproval for HookedApproval {
             .fire(Event::BeforeCompaction, None, None, c.clone())
             .await?;
         self.inner.compact_context(m, c).await
+    }
+}
+
+#[cfg(test)]
+mod allowance_tests {
+    use super::Allowance;
+
+    #[test]
+    fn call_limit_refuses_the_twenty_fifth_reservation_without_spending_more() {
+        let mut allowance = Allowance::default();
+        for expected in 1..=24 {
+            assert!(allowance.reserve(1));
+            assert_eq!(
+                (allowance.calls, allowance.seconds),
+                (expected, expected as u64)
+            );
+        }
+        assert!(!allowance.reserve(1));
+        assert_eq!((allowance.calls, allowance.seconds), (24, 24));
+    }
+
+    #[test]
+    fn deadlines_are_reserved_in_full_and_refusal_preserves_remaining_allowance() {
+        let mut allowance = Allowance::default();
+        assert!(allowance.reserve(10));
+        assert!(allowance.reserve(10));
+        assert!(allowance.reserve(9));
+        assert!(!allowance.reserve(2));
+        assert_eq!((allowance.calls, allowance.seconds), (3, 29));
+        assert!(allowance.reserve(1));
+        assert!(!allowance.reserve(1));
+        assert_eq!((allowance.calls, allowance.seconds), (4, 30));
     }
 }

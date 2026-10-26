@@ -113,7 +113,9 @@ impl Engine {
         let page = self.store.messages_page(session, None, false, 40)?;
         let examples: Vec<_> = page
             .items
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .filter(|p| p[0].role == Role::User && p[1].role == Role::Assistant)
             .map(|p| SkillExample {
                 user_id: p[0].id,

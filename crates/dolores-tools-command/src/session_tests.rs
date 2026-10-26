@@ -152,7 +152,9 @@ async fn until(
     id: &str,
     predicate: impl Fn(&SessionReceipt) -> bool,
 ) -> SessionReceipt {
-    let end = Instant::now() + Duration::from_secs(6);
+    // Include the reviewed command deadline and bounded tree cleanup. Startup
+    // under concurrent native fixtures is not a six-second performance gate.
+    let end = Instant::now() + Duration::from_secs(crate::MAX_COMMAND_SECONDS + 5);
     loop {
         let receipt = tool
             .receipts()

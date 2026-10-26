@@ -173,7 +173,9 @@ fn source(c: &Connection, parent: &str, message: i64) -> Result<Source, String> 
     }
     if messages.len() != count
         || messages
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .any(|p| p[0].role != Role::User || p[1].role != Role::Assistant)
     {
         return Err("Choose a saved user prompt in complete user/assistant history. The original chat remains.".into());
@@ -229,7 +231,9 @@ fn saved(c: &Connection, child: &str) -> Result<Option<Saved>, String> {
         || value.origin.parent_title.len() > 512
         || value
             .messages
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .any(|pair| pair[0].role != Role::User || pair[1].role != Role::Assistant)
         || value
             .origin

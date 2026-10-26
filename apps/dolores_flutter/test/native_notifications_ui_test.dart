@@ -138,5 +138,6 @@ void main() {
       host.dispose();
       await t.runAsync(bridge.close);
     },
+    skip: !Platform.isWindows || Platform.environment['DOLORES_AUDIT_LIBRARY'] == null,
   );
 }

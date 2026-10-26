@@ -54,6 +54,11 @@ Rust commands run from the root; Flutter commands run in `apps/dolores_flutter/`
 After a normal build prepares dependencies, no provider credentials are needed for
 deterministic tests. Add realistic failure/recovery coverage when applicable.
 Distinguish fixture, physical-input, performance and live-model qualification.
+Windows CI native fixtures use Node 24.22.1; reproduce failures with that exact
+runtime on PATH and Rust 1.99.1. A local Windows pass does not establish behavior
+on the Windows Server 2025 runner. Isolation crash fixtures retain Node/libuv/OS
+versions, NUL access observations and child launch errors when readiness fails;
+they inherit owned stdio handles rather than requiring restricted-device access.
 
 For credential-free rendered controls connected to the Rust bridge:
 
@@ -65,6 +70,10 @@ python scripts/run-regressions.py --help
 
 Select the relevant case from the helper rather than loading every journey's
 history. `--native-only` checks reuse a build and make no source-freshness claim.
+The ordinary Flutter suite uses fixture bridges. Native UI tests require the
+helper's explicit `DOLORES_AUDIT_LIBRARY` and isolated data setup; they skip when
+that native library is not selected. Use `--case close` or `--case notifications`
+for the real SQLite close and native notification journeys.
 Use isolated public data; private transcripts, keys and raw captures stay ignored.
 Optional live checks explicitly select a suitable available model and bound usage.
 

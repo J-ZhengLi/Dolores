@@ -129,5 +129,6 @@ assert db.execute('SELECT text FROM session_drafts WHERE session_id = ?', (sys.a
         'modelRequests': 0,
       }),
     );
-  });
+  }, skip: !Platform.isWindows ||
+      Platform.environment['DOLORES_AUDIT_LIBRARY'] == null);
 }

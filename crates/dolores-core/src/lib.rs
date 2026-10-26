@@ -1338,7 +1338,13 @@ pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
     let mut budget = MAX_CONTEXT_BYTES - input.len() - system.content.len();
     // Keep newest complete turns. Never start context with an orphaned assistant reply.
     let mut pairs = Vec::new();
-    for pair in history.chunks_exact(2).rev().take(HISTORY_LIMIT / 2) {
+    for pair in history
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .rev()
+        .take(HISTORY_LIMIT / 2)
+    {
         if pair[0].role != Role::User || pair[1].role != Role::Assistant {
             return Err("Stored conversation has an invalid turn.".into());
         }

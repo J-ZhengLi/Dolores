@@ -17,6 +17,23 @@ working folders with ordinary disk/UNC paths. Windows PowerShell's .NET Framewor
 startup rejects a verbatim executable path returned by canonicalization. Preserve
 Unicode and the existing filtered environment; do not silently change shells or
 inherit additional environment values to recover from this failure.
+Initialize PowerShell console input/output and native-pipeline encoding to UTF-8
+before its interactive prompt. Legacy OEM code pages can replace Unicode with
+question marks before ConPTY produces the UTF-8 stream consumed by the emulator.
+
+Unattended Rust CI verifies PowerShell launch-path normalization, Unicode CWD and
+output, .NET startup and bare executable lookup without PSReadLine. The interactive
+PowerShell PTY fixtures are opt-in native qualification: their minimal cursor-query
+responder is not the app's terminal emulator and can stall during hosted startup.
+Run them explicitly on Windows:
+
+```text
+cargo test -p dolores-flutter-bridge --lib terminal::tests:: -- --ignored --test-threads=1
+```
+
+A pass does not replace a rendered app terminal journey.
+Ordinary CI retains the real PTY resize/input/Stop checks and
+legacy-code-page regression, but does not claim interactive PowerShell acceptance.
 
 Allow eight retained sessions and four groups. Each PTY has a 1 MiB bounded output
 queue; consumer reads at most 64 KiB, emulator keeps at most 5,000 lines. Drain

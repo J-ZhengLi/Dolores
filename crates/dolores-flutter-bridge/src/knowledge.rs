@@ -355,7 +355,7 @@ mod tests {
     use super::*;
     use dolores_core::{AgentSummary, Message, Role, SessionWorkspace, WorkspaceKind};
     #[test]
-    fn approved_manifest_learning_is_opt_in_scoped_fresh_and_manual_protected() {
+    fn approved_manifest_learning_respects_policy_scope_freshness_and_manual_protection() {
         let folder = tempfile::tempdir().unwrap();
         let other = tempfile::tempdir().unwrap();
         let store = SqliteStore::open(&folder.path().join("state.db")).unwrap();
@@ -439,11 +439,15 @@ mod tests {
         store
             .commit_turn_metadata("chat", "Inspect scripts", "Read", &metadata)
             .unwrap();
+        let mut state = store.knowledge(&root).unwrap();
+        assert!(state.learning);
+        state.learning = false;
+        let disabled = store.save_knowledge(&root, state.revision, &state).unwrap();
         learn(&store, "chat").unwrap();
-        assert!(store.knowledge(&root).unwrap().facts.is_empty());
+        assert_eq!(store.knowledge(&root).unwrap(), disabled);
         let mut state = store.knowledge(&root).unwrap();
         state.learning = true;
-        store.save_knowledge(&root, 0, &state).unwrap();
+        store.save_knowledge(&root, state.revision, &state).unwrap();
         learn(&store, "chat").unwrap();
         let mut state = store.knowledge(&root).unwrap();
         assert_eq!(state.facts.len(), 2);

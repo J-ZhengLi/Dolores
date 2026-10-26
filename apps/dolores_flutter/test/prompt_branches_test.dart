@@ -182,10 +182,18 @@ Future<void> show(
 }
 
 Future<void> choose(WidgetTester t, String label) async {
-  await t.ensureVisible(find.byKey(const Key('branch-folder')));
-  await t.tap(find.byKey(const Key('branch-folder')));
+  FocusManager.instance.primaryFocus?.unfocus();
   await t.pumpAndSettle();
-  await t.tap(find.text(label).last);
+  await t.ensureVisible(find.byKey(const Key('branch-folder')));
+  await t.pumpAndSettle();
+  await t.tap(
+    find.descendant(
+      of: find.byKey(const Key('branch-folder')),
+      matching: find.byType(InkWell),
+    ).first,
+  );
+  await t.pumpAndSettle();
+  await t.tap(find.widgetWithText(MenuItemButton, label));
   await t.pumpAndSettle();
 }
 

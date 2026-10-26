@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/models.dart';
 import 'package:dolores_flutter/settings.dart';
+import 'package:dolores_flutter/advanced_home.dart';
 
 import 'models_test.dart' show DetailsBridge;
 import 'settings_test.dart' show HarnessSettingsBridge;
@@ -144,9 +145,18 @@ void main() {
       expect(find.text('Import, create or learn from a chat'), findsOneWidget);
       await tester.tap(find.byKey(const Key('settings-advanced')));
       await tester.pumpAndSettle();
-      expect(find.text('Tuning, testing and troubleshooting'), findsOneWidget);
+      expect(find.byType(AdvancedHome), findsOneWidget);
       expect(find.text('Task limits'), findsWidgets);
       expect(find.text('Compare instructions'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Diagnostics & storage'),
+        100,
+        scrollable: find.descendant(
+          of: find.byType(AdvancedHome),
+          matching: find.byType(Scrollable),
+        ).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Diagnostics & storage'));
       await tester.pumpAndSettle();
       expect(find.text('Compare instructions'), findsOneWidget);

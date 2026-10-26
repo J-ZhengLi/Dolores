@@ -34,7 +34,7 @@ jobs:
       - name: Set up Node for fixtures
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '24'
+          node-version: '24.22.1' # Keep native fixture reproduction on an explicit baseline.
       - name: Install pinned history audit test tool
         run: python -m pip install --require-hashes -r .github/requirements-ci.txt
       - name: Check out pinned Flutter SDK

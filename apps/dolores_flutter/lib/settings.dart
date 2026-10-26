@@ -176,7 +176,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
       'Appearance and behavior',
       SettingsCategory.appearance,
       ModelsPage.connection,
-      'appearance system light dark notifications windows closing tray background scheduled',
+      'appearance theme system light dark notifications windows closing tray background scheduled',
     ),
     (
       'Experimental',

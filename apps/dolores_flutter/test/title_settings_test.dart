@@ -32,6 +32,8 @@ class TitleBridge extends DesignBridge {
 
 void main() {
   setUp(() {
+    final shadows = debugDisableShadows;
+    addTearDown(() => debugDisableShadows = shadows);
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel('window_manager'), (
@@ -93,7 +95,7 @@ void main() {
           contentBefore,
         );
         await capture(t, key, 'floating-notice-${mode.name}');
-        await t.tap(find.byTooltip('Dismiss'));
+        await t.tap(find.byTooltip('Dismiss notification'));
         await t.pumpAndSettle();
         await t.tap(search);
         await t.pumpAndSettle();

@@ -77,7 +77,7 @@ impl SummaryBatch {
             .previous
             .as_ref()
             .map_or(0, |s| s.provenance.covered_through);
-        for pair in self.messages.chunks_exact(2) {
+        for pair in self.messages.as_chunks::<2>().0 {
             if pair[0].role != Role::User
                 || pair[1].role != Role::Assistant
                 || pair[0].id <= last

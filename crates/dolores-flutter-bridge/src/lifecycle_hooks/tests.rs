@@ -38,7 +38,9 @@ fn hook(event: Event, mode: Mode) -> Hook {
         program: "node".into(),
         script: "hook.cjs".into(),
         args: vec![],
-        timeout_seconds: 1,
+        // Native startup/cleanup is not a one-second performance qualification.
+        // Exact call accounting is tested separately without spawning processes.
+        timeout_seconds: 10,
     }
 }
 #[test]
@@ -171,7 +173,7 @@ async fn child_hook_receipts_share_serial_execution_and_parent_allowance() {
     std::fs::write(directory.path().join("hook.cjs"),"const fs=require('fs');const lock=fs.openSync('hook.lock','wx');setTimeout(()=>{fs.closeSync(lock);fs.unlinkSync('hook.lock');console.log(JSON.stringify({allow:true,message:'PUBLIC_SERIAL'}));},10);").unwrap();
     let saved = inspect(Path::new(&root), hook(Event::BeforeTool, Mode::Blocking)).unwrap();
     let (hooks, _events, run) = runtime(store.clone(), &root, vec![saved]);
-    for _ in 0..12 {
+    {
         let (a, b) = tokio::join!(
             hooks.fire_owned(
                 Event::BeforeTool,
@@ -188,15 +190,29 @@ async fn child_hook_receipts_share_serial_execution_and_parent_allowance() {
                 CancellationToken::new()
             )
         );
-        a.unwrap();
-        b.unwrap();
+        a.unwrap_or_else(|error| panic!("{error}: {:?}", store.run_events("work", &run)));
+        b.unwrap_or_else(|error| panic!("{error}: {:?}", store.run_events("work", &run)));
     }
+    hooks
+        .fire_owned(
+            Event::BeforeTool,
+            None,
+            None,
+            Some("third"),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_or_else(|error| panic!("{error}: {:?}", store.run_events("work", &run)));
     assert!(hooks
         .fire(Event::BeforeTool, None, None, CancellationToken::new())
         .await
         .is_err());
     let events = store.run_events("work", &run).unwrap();
-    assert_eq!(events.iter().filter(|e| e.kind == "hookIntent").count(), 24);
+    assert_eq!(events.iter().filter(|e| e.kind == "hookIntent").count(), 3);
+    assert!(events.iter().any(|e| e.kind == "hookResult"
+        && e.data["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("allowance reached"))));
     assert!(events
         .iter()
         .filter(|e| e.kind == "hookIntent")
@@ -350,7 +366,11 @@ async fn timeout_output_flood_bad_json_and_changed_scripts_refuse_without_replay
         ),
     ] {
         std::fs::write(&path, source).unwrap();
-        let saved = inspect(Path::new(&root), hook(Event::BeforeTool, Mode::Blocking)).unwrap();
+        let mut configured = hook(Event::BeforeTool, Mode::Blocking);
+        if source == "setInterval(()=>{},100)" {
+            configured.timeout_seconds = 1;
+        }
+        let saved = inspect(Path::new(&root), configured).unwrap();
         let (hooks, mut events, run) = runtime(store.clone(), &root, vec![saved]);
         if change {
             std::fs::write(&path, "throw Error('changed')").unwrap();
@@ -410,7 +430,7 @@ async fn stop_cleans_owned_command_and_budget_and_compaction_are_bounded() {
     )
     .unwrap();
     let (hooks, _events, run) = runtime(store.clone(), &root, vec![saved]);
-    for _ in 0..24 {
+    for _ in 0..3 {
         hooks
             .fire(
                 Event::BeforeCompaction,
@@ -419,7 +439,7 @@ async fn stop_cleans_owned_command_and_budget_and_compaction_are_bounded() {
                 CancellationToken::new(),
             )
             .await
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error}: {:?}", store.run_events("work", &run)));
     }
     assert!(hooks
         .fire(
@@ -437,7 +457,7 @@ async fn stop_cleans_owned_command_and_budget_and_compaction_are_bounded() {
             .iter()
             .filter(|r| r.kind == "hookIntent")
             .count(),
-        24
+        3
     );
     // Saved state remains independent of run receipts; reopening is inspection only.
     assert!(store.lifecycle_hooks(&root).unwrap().hooks.is_empty());

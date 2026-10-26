@@ -78,7 +78,7 @@ fn supervised_stdio_can_receive_unicode_input_and_stop_while_waiting() {
     let node = resolve(&dir.path().canonicalize().unwrap(), "node").unwrap();
     let (mut child, mut input, mut output, _error) = process::spawn_stdio(
         &node,
-        &["-e".into(), "process.stdin.on('data',b=>{process.stdout.write(b);require('fs').writeFileSync('received',b)})".into()],
+        &["-e".into(), "process.stdin.on('data',b=>{require('fs').writeFileSync('received',b);process.stdout.write(b)})".into()],
         dir.path(),
         &environment(),
     ).unwrap();
@@ -97,7 +97,10 @@ fn supervised_stdio_can_receive_unicode_input_and_stop_while_waiting() {
     }
     assert_eq!(bytes, "public 世界\n".as_bytes());
     assert_eq!(child.try_exit().unwrap(), None);
-    child.stop();
+    assert!(
+        child.stop_checked(),
+        "owned process cleanup must be confirmed"
+    );
     drop(input);
     assert!(child.try_exit().unwrap().is_some());
     assert_eq!(
@@ -277,7 +280,7 @@ async fn stop_and_dropped_invocation_kill_child_and_grandchild_without_late_writ
         let copy = tool.clone();
         let token = cancel.clone();
         let task = tokio::spawn(async move { copy.invoke(&request, token).await });
-        let deadline = Instant::now() + Duration::from_secs(3);
+        let deadline = Instant::now() + Duration::from_secs(MAX_COMMAND_SECONDS);
         while !dir.path().join("started").exists() && Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
@@ -353,18 +356,25 @@ fn oversized_single_and_aggregate_arguments_offer_script_file_recovery() {
 async fn parent_completion_closes_descendants_and_does_not_hang_on_inherited_pipes() {
     let dir = tempfile::tempdir().unwrap();
     let tool = RunCommand::new(dir.path()).unwrap();
-    let child = "setTimeout(()=>require('fs').writeFileSync('late','bad'),1200)";
+    let child = "const fs=require('fs'),parent=process.ppid;const watch=setInterval(()=>{try{process.kill(parent,0)}catch(e){clearInterval(watch);setTimeout(()=>fs.writeFileSync('late','bad'),1200)}},20);fs.writeFileSync('child-ready','ok')";
     let script = format!(
-        "require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'inherit'}});process.stdout.write('parent done');process.exit(0)",
+        "require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'inherit'}});setInterval(()=>{{if(require('fs').existsSync('child-ready')){{process.stdout.write('parent done');process.exit(0)}}}},10)",
         serde_json::to_string(child).unwrap()
     );
-    let started = Instant::now();
-    let result = invoke(&tool, &script).await;
-    assert!(started.elapsed() < Duration::from_secs(2));
+    // Include process startup and scheduling headroom while still catching an
+    // invocation stranded on a descendant's inherited output pipes.
+    let result = tokio::time::timeout(
+        Duration::from_secs(MAX_COMMAND_SECONDS + 2),
+        invoke(&tool, &script),
+    )
+    .await
+    .expect("parent completion must not wait indefinitely for inherited pipes");
     assert_eq!(result["exitCode"], 0);
     assert_eq!(result["stdout"], "parent done");
     assert_eq!(result["outputError"], false);
     assert_eq!(result["truncated"], false);
+    assert_eq!(result["cleanupComplete"], true, "{result}");
+    assert!(dir.path().join("child-ready").exists());
     tokio::time::sleep(Duration::from_millis(1400)).await;
     assert!(!dir.path().join("late").exists());
 }

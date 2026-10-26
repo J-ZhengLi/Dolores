@@ -54,6 +54,10 @@ published versions use `MAJOR.MINOR.PATCH` and an ISO date.
 
 ### Fixed
 
+- Find General appearance controls when searching Settings for “Theme”.
+
+- Preserve Unicode output in Windows PowerShell terminals on systems with legacy console code pages.
+
 - Keep notifications visible when hovering their close button by giving floating tooltips their own app overlay.
 
 - Keep subfolder chats in the same managed worktree on one run queue, and refuse conflicting worktree management when another checkout shares its Git repository. Changed checkout registrations require a fresh creation review.

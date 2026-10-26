@@ -277,6 +277,13 @@ fn crash_worker() {
         std::env::var_os("DOLORES_ISOLATION_CRASH_FIXTURE").expect("owned fixture directory"),
     );
     let work = directory.join("work");
+    // Optional delay belongs only to this ignored fixture entry point. It makes
+    // slow hosted startup reproducible without changing production timeouts.
+    if let Ok(delay) = std::env::var("DOLORES_PUBLIC_CRASH_STARTUP_DELAY_MS") {
+        let delay = delay.parse::<u64>().unwrap();
+        assert!(delay <= 10000);
+        std::thread::sleep(Duration::from_millis(delay));
+    }
     let host = Host::open(&directory.join("state")).unwrap();
     let lease = host.prepare(&node(&work), &work, &[]).unwrap();
     let port: u16 = std::env::var("DOLORES_PUBLIC_CRASH_PORT")
@@ -284,12 +291,19 @@ fn crash_worker() {
         .parse()
         .unwrap();
     let grand = format!(
-        r#"const fs=require('fs'),net=require('net');let denied;try{{fs.readFileSync('../outside');denied=false}}catch(e){{denied=['EPERM','EACCES'].includes(e.code)}}const s=net.createConnection({{host:'127.0.0.1',port:{port}}});let timer;function ready(network){{clearTimeout(timer);s.destroy();fs.writeFileSync('grand-ready',JSON.stringify({{outside:denied,network}}));setTimeout(()=>fs.writeFileSync('late-grand','BAD'),4000)}}s.once('connect',()=>ready('CONNECTED'));s.once('error',e=>ready(e.code));timer=setTimeout(()=>ready('TIMEOUT'),1000);"#
+        r#"const fs=require('fs'),net=require('net');let denied;try{{fs.readFileSync('../outside');denied=false}}catch(e){{denied=['EPERM','EACCES'].includes(e.code)}}const s=net.createConnection({{host:'127.0.0.1',port:{port}}});let timer,settled=false;function ready(network){{if(settled)return;settled=true;clearTimeout(timer);s.destroy();fs.writeFileSync('grand-ready.tmp',JSON.stringify({{outside:denied,network}}));fs.renameSync('grand-ready.tmp','grand-ready');setTimeout(()=>fs.writeFileSync('late-grand','BAD'),4000)}}s.once('connect',()=>ready('CONNECTED'));s.once('error',e=>ready(e.code));timer=setTimeout(()=>ready('TIMEOUT'),1000);"#
     );
-    let code=format!("const fs=require('fs');fs.writeFileSync('root-ready','PUBLIC');require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'ignore'}});setTimeout(()=>fs.writeFileSync('late-root','BAD'),4000);",serde_json::to_string(&grand).unwrap());
-    let (_running, _input, _out, _err) =
+    // Inherit the already-owned handles. Node's ignored stdio opens NUL inside
+    // the restricted process, adding a host device ACL dependency unrelated to
+    // descendant containment. Grandchild stderr joins the captured worker log.
+    // Arm late effects only after readiness, not during cold child startup.
+    let code=format!("const fs=require('fs');const runtime={{node:process.version,uv:process.versions.uv,platform:process.platform,arch:process.arch,os:require('os').release(),stdio:'inherit',nullDevice:{{}}}};for(const mode of ['r','w']){{try{{fs.closeSync(fs.openSync(String.fromCharCode(92,92,46,92)+'NUL',mode));runtime.nullDevice[mode]='allowed'}}catch(e){{runtime.nullDevice[mode]=e.code}}}}fs.writeFileSync('runtime-info',JSON.stringify(runtime));fs.writeFileSync('root-ready','PUBLIC');let child;try{{child=require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'inherit'}});child.on('error',e=>fs.writeFileSync('grand-start-error',String(e)))}}catch(e){{fs.writeFileSync('grand-start-error',String(e));throw e}}const ready=setInterval(()=>{{if(fs.existsSync('grand-ready')){{clearInterval(ready);setTimeout(()=>fs.writeFileSync('late-root','BAD'),4000)}}}},10);",serde_json::to_string(&grand).unwrap());
+    let (_running, _input, _out, mut err) =
         spawn(lease, &["-e".into(), code], &crate::process::environment()).unwrap();
-    std::thread::sleep(Duration::from_secs(20));
+    std::thread::spawn(move || {
+        let _ = std::io::copy(&mut err, &mut std::io::stderr());
+    });
+    std::thread::sleep(Duration::from_secs(60));
     panic!("The parent must hard-kill this owned fixture process");
 }
 
@@ -315,11 +329,13 @@ fn hard_owner_crash_kills_container_descendants_and_recovery_revokes_without_rep
             "DOLORES_PUBLIC_CRASH_PORT",
             listener.local_addr().unwrap().port().to_string(),
         )
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(File::create(temp.path().join("worker-stdout")).unwrap())
+        .stderr(File::create(temp.path().join("worker-stderr")).unwrap())
         .spawn()
         .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(8);
+    // This bounds fixture setup, not hook/command execution. Account for package
+    // preparation and two native launches before injecting the owner crash.
+    let deadline = Instant::now() + Duration::from_secs(crate::MAX_COMMAND_SECONDS);
     while !work.join("grand-ready").exists()
         && Instant::now() < deadline
         && worker.try_wait().unwrap().is_none()
@@ -327,10 +343,28 @@ fn hard_owner_crash_kills_container_descendants_and_recovery_revokes_without_rep
         std::thread::sleep(Duration::from_millis(10));
     }
     let ready = std::fs::read_to_string(work.join("grand-ready")).ok();
-    worker.kill().unwrap();
-    worker.wait().unwrap();
-    let ready: serde_json::Value =
-        serde_json::from_str(ready.as_deref().expect("grandchild receipt before crash")).unwrap();
+    if worker.try_wait().unwrap().is_none() {
+        worker.kill().unwrap();
+    }
+    let status = worker.wait().unwrap();
+    let ready = ready.unwrap_or_else(|| {
+        let diagnostics: Vec<_> = [
+            temp.path().join("worker-stdout"),
+            temp.path().join("worker-stderr"),
+            work.join("runtime-info"),
+            work.join("grand-start-error"),
+        ]
+        .iter()
+        .map(|path| (path.clone(), std::fs::read_to_string(path).ok()))
+        .collect();
+        let cleanup = Host::open(&temp.path().join("state")).and_then(|host| host.recover());
+        panic!("Grandchild not ready before crash: worker={status}, root_ready={}, diagnostics={diagnostics:?}, fixture_cleanup={cleanup:?}", work.join("root-ready").exists());
+    });
+    let ready: serde_json::Value = serde_json::from_str(&ready).unwrap();
+    println!(
+        "Isolation crash fixture runtime: {}",
+        std::fs::read_to_string(work.join("runtime-info")).unwrap()
+    );
     assert_eq!(
         ready,
         serde_json::json!({"outside":true,"network":"EACCES"}),

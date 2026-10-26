@@ -246,6 +246,7 @@ void main() {
           Brightness.dark,
         );
         await tester.ensureVisible(find.byKey(const Key('theme-light')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('theme-light')));
         await tester.pumpAndSettle();
         expect(

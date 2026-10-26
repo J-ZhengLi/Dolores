@@ -136,7 +136,7 @@ void main() {
           expect(panel.bottom, lessThanOrEqualTo(700));
           expect(find.textContaining('Notifications show only'), findsNothing);
           final help = find.descendant(
-            of: find.widgetWithText(HelpLabel, 'Windows notifications'),
+            of: find.widgetWithText(HelpLabel, 'Notifications'),
             matching: find.byType(IconButton),
           );
           final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
@@ -144,7 +144,7 @@ void main() {
           await mouse.moveTo(t.getCenter(help));
           await t.pump(const Duration(milliseconds: 400));
           expect(
-            find.textContaining('Notifications show only'),
+            find.textContaining('Task updates and requests appear here'),
             findsOneWidget,
           );
           await mouse.removePointer();

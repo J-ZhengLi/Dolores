@@ -25,7 +25,7 @@ fn random_secret() -> String {
     // Three OS-random UUIDs retain 366 random bits after fixed version/variant
     // bits, exceeding PKCE's 256-bit entropy recommendation. Encoding is unpadded.
     let mut bytes = [0_u8; 48];
-    for part in bytes.chunks_exact_mut(16) {
+    for part in bytes.as_chunks_mut::<16>().0 {
         part.copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     }
     URL_SAFE_NO_PAD.encode(bytes)

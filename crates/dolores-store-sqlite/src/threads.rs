@@ -53,7 +53,9 @@ impl SqliteStore {
             || !rows.len().is_multiple_of(2)
             || rows.last().unwrap().0 != through
             || rows
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .any(|p| p[0].1 != "user" || p[1].1 != "assistant")
         {
             return Err("Choose a completed assistant turn within the first 100 turns. A fork cannot copy a partial boundary.".into());

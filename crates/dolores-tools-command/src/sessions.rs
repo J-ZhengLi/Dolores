@@ -217,7 +217,7 @@ impl CommandSessions {
     }
     fn reserve(&self) -> Result<Arc<Permit>, String> {
         let take = |n: &AtomicUsize, max| {
-            n.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
+            n.try_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
                 (v < max).then_some(v + 1)
             })
             .is_ok()

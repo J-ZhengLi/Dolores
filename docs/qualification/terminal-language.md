@@ -5,6 +5,11 @@ retained stopped output, explicit selected-output sharing and lazy first-languag
 services. This report separates automated/programmatic evidence from physical
 keyboard, IME, accessibility and sustained resource qualification.
 
+Current CI boundary: interactive PowerShell/PSReadLine PTY fixtures are opt-in
+native checks because their partial terminal responder can stall on hosted runners.
+Unattended launch, Unicode/code-page and real PTY lifecycle checks remain in CI;
+see the [terminal test boundary](../design/terminal-language-services.md).
+
 ## Exercised behavior
 
 The release native corpus opened PowerShell in two separate projects and HOME,

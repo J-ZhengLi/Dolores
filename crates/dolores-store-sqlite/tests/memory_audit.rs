@@ -32,12 +32,15 @@ fn master_choice_and_history_survive_restart_and_atomic_source_index_migration()
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("migration.db");
     let store = SqliteStore::open(&path).unwrap();
-    assert!(!store.automatic_memory_policy().unwrap().enabled);
+    let policy = store.automatic_memory_policy().unwrap();
+    assert!(policy.enabled);
     store.create("migration").unwrap();
     store
         .commit_turn("migration", "Useful original history", "Retained reply")
         .unwrap();
-    let on = store.set_automatic_memory_policy(true, 1).unwrap();
+    let on = store
+        .set_automatic_memory_policy(true, policy.revision)
+        .unwrap();
     drop(store);
     let store = SqliteStore::open(&path).unwrap();
     assert_eq!(store.automatic_memory_policy().unwrap(), on);
