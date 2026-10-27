@@ -342,7 +342,9 @@ async fn long_task_compacts_more_than_twice_and_retains_every_receipt() {
             }
         }
         fn continuation_pressure_percent(&self) -> u64 {
-            if self.0.load(Ordering::SeqCst) == 1 {
+            // Old successful reads are now projected. Keep exercising repeated
+            // genuine protocol pressure, which projections cannot remove.
+            if matches!(self.0.load(Ordering::SeqCst), 1 | 9 | 17 | 25) {
                 100
             } else {
                 0

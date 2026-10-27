@@ -250,7 +250,7 @@ mod tests {
             .contains("updated guidance"));
         assert_eq!(
             context["tools"].as_array().unwrap().len(),
-            13 + usize::from(cfg!(windows))
+            8 + usize::from(cfg!(windows))
         );
         assert_eq!(
             context["tools"]
@@ -260,11 +260,20 @@ mod tests {
                 .any(|t| t["name"] == "command_session"),
             cfg!(windows)
         );
-        assert!(context["tools"]
+        assert!(!context["tools"]
             .as_array()
             .unwrap()
             .iter()
             .any(|s| s["name"] == "delegate_tasks"));
+        assert!(context["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["name"] == "discover_tools"
+                && s["description"]
+                    .as_str()
+                    .unwrap()
+                    .contains("delegate_tasks")));
         assert_eq!(
             context["instructions"]["revision"],
             enabled["provenance"]["revision"]

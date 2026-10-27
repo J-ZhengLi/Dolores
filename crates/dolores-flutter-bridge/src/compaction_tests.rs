@@ -12,6 +12,16 @@ fn in_run_summary_failure_saves_completed_tool_work_instead_of_a_send_error() {
         fn context_window_tokens(&self) -> Option<u32> {
             Some(40000)
         }
+        fn continuation_pressure_percent(&self) -> u64 {
+            // Request previews reduce public read pressure. Force genuine
+            // protocol pressure after one completed effect to test failed
+            // summarization and recovery without depending on wasted context.
+            if self.0.load(Ordering::SeqCst) > 0 {
+                100
+            } else {
+                0
+            }
+        }
         fn descriptor(&self) -> PluginDescriptor {
             PluginDescriptor {
                 id: "fixture",

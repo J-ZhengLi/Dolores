@@ -51,6 +51,25 @@ automatic permission, schema migration or new background service.
 
 ## Checkpoints and continuation evidence
 
+JSON and Markdown conversation exports include each owned run's snapshot and
+ordered journal events, including archived summary/context fragments. They
+also report cumulative known usage from saved message metadata and archived
+agent summaries, with missing/partial usage counts. Cache/reasoning counters
+remain subsets; no missing counter becomes zero. These are recorded subtotals,
+not invoices: unsaved, delegated and auxiliary usage can remain unavailable.
+Fragment reconstruction is bounded and rejects incomplete/malformed records
+with an actionable error. Export reads one SQLite snapshot without changing
+history or the database schema.
+
+During an agent run, only the latest four tool results keep their full payload
+in each model request. Older successful file reads, listings, searches and
+commands above 2 KiB become explicitly labeled bounded historical previews;
+identical older payloads reference a later receipt. Errors and unsuccessful
+commands, other tool types, images, user constraints and call/result identities
+remain intact. Full messages and receipts remain in local run evidence and
+exports. Capacity checks and automatic summarization use this request projection;
+the model can reread targeted source when a preview omits needed detail.
+
 Automatic context compaction can repeat throughout a task; there is no two-summary
 ceiling. Each summary still reserves a model attempt from the existing shared task
 budget. Compaction does not reset usage, re-run effects, change permissions or

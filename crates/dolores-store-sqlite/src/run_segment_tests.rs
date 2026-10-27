@@ -2,7 +2,7 @@ use super::*;
 use dolores_core::{RunSnapshot, RunState, SessionStore};
 use serde_json::json;
 
-fn run() -> RunSnapshot {
+pub(crate) fn run() -> RunSnapshot {
     RunSnapshot {
         parent_run: None,
         segments: 1,

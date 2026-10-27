@@ -1,6 +1,53 @@
 use super::*;
 
 #[test]
+fn built_in_system_instructions_stay_under_one_thousand_estimated_tokens() {
+    let specs = [
+        "read_text_file",
+        "list_folder",
+        "search_text",
+        "edit_text_file",
+        "create_text_file",
+        "run_command",
+        "command_session",
+        "web_search",
+        "read_web_page",
+        "browser",
+        "delegate_tasks",
+        "inspect_harness",
+        "harness_repair",
+        "test_harness_repair",
+        "build_harness_repair",
+        "request_desktop_access",
+        "computer",
+        "inspect_desktop_capture",
+        "schedule_task",
+        "manage_scheduled_task",
+        "request_user_input",
+    ]
+    .map(|name| ToolSpec {
+        name: name.into(),
+        description: String::new(),
+        parameters: json!({}),
+    });
+    let context = prepare_agent_context(crate::preview_context(vec![], "Task").unwrap()).unwrap();
+    let full = prepare_response_context(
+        prepare_external_tool_context(context, &specs).unwrap(),
+        crate::RequestSettings::default(),
+    )
+    .unwrap();
+    let tokens = crate::estimate_text_tokens(&full[0].content);
+    println!(
+        "All-capability built-in system estimate: {tokens} tokens, {} bytes",
+        full[0].content.len()
+    );
+    assert!(
+        tokens < 1000,
+        "Built-in system instructions grew to {tokens} estimated tokens"
+    );
+}
+
+#[test]
 fn computer_context_explains_automatic_window_discovery() {
     let specs = [ToolSpec {
         name: "computer".into(),
@@ -812,7 +859,9 @@ fn tool_guidance_is_idempotent_and_trims_only_complete_old_turns() {
     let prepared = prepare_agent_context(context).unwrap();
     assert_eq!(prepared.len(), 2);
     assert!(prepared[0].content.contains(TOOL_GUIDANCE));
-    assert!(prepared[0].content.ends_with(&budget_note(1, 0)));
+    assert!(prepared[0]
+        .content
+        .ends_with(&stable_budget_note(crate::TaskBudget::default())));
     assert_eq!(prepared[1].content, "Current request");
     let repeated = prepare_agent_context(prepared.clone()).unwrap();
     assert_eq!(repeated[0].content, prepared[0].content);

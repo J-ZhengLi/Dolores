@@ -7,6 +7,7 @@ published versions use SemVer and an ISO date.
 
 ### Changed
 
+- Working chats use compact built-in instructions and load/unload optional tool schemas on demand. Older successful tool evidence is sent as labeled previews while complete receipts remain saved locally.
 - Branch in new chat is available in each completed reply's footer menu, including earlier history, replacing the separate turn picker. The original draft stays with its chat.
 - Automatic long tasks continue through durable internal context/evidence segments without repeatedly requiring Continue. Earlier progress remains inspectable in paged task history; explicit numeric budgets, Stop, questions and real failure recovery remain authoritative.
 - Files and Source Control use the selected Classic sidebar with compact rows, folders before files, filename-first changes and tighter history. Source Control replaces the project/path block with branch and change count, retaining the root in a tooltip and adding a compact Commit button.
@@ -15,6 +16,8 @@ published versions use SemVer and an ISO date.
 
 ### Fixed
 
+- Conversation exports include archived run evidence and cumulative known usage, keeping unreported attempts explicit instead of dropping earlier segments from token totals.
+- Repository search finds text in larger source files and deeper folders, and explains partial coverage instead of silently treating skipped files as fully searched.
 - Recover eligible interrupted tool streams through the complete-response transport after a cancelable wait, keeping the same model/settings and completed tool receipts instead of repeating the broken SSE route.
 
 - Detect installed CodeGraph/RTK for working-chat guidance and resolve supported Windows Node CLI launchers before command review, preserving literal arguments without shell expansion.

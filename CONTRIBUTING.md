@@ -79,6 +79,13 @@ for the real SQLite close and native notification journeys.
 Use isolated public data; private transcripts, keys and raw captures stay ignored.
 Optional live checks explicitly select a suitable available model and bound usage.
 
+For credential-free request-efficiency checks after a normal build, run
+`python scripts/test-token-efficiency.py --directory <fresh absolute output/ path>`.
+It measures prepared instruction/schema sizes and exercises tool load/unload,
+older-result previews, evidence segmentation and standalone export accounting
+through the normal native bridge. Its provider usage is synthetic, not a live
+model cost or quality benchmark.
+
 ## Windows portable preview
 
 After a normal build, collect matching dependency notices and package into fresh

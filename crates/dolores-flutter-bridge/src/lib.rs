@@ -2011,6 +2011,7 @@ impl Engine {
                         specs.push(dolores_core::ToolPlugin::spec(
                             &desktop_access::RequestAccess,
                         ));
+                        specs.push(computer::spec());
                     }
                 }
                 if let Some(id) = session.as_ref() {
@@ -2053,6 +2054,7 @@ impl Engine {
                     branch.as_ref().map(|b| &b.origin),
                 )?;
                 let preferences = self.store.preferences()?;
+                let specs = dolores_core::initial_tool_specs(&specs);
                 let messages = dolores_core::prepare_external_tool_context(messages, &specs)?;
                 let messages = if !specs.is_empty() {
                     dolores_core::prepare_response_context(messages, effective.request)?
@@ -3385,7 +3387,8 @@ async fn execute(
     let branch = store.prompt_branch(&session)?;
     let context =
         dolores_core::prompt_branches::prepare(context, branch.as_ref().map(|b| &b.origin))?;
-    let specs: Vec<_> = tools.iter().map(|tool| tool.spec()).collect();
+    let specs =
+        dolores_core::initial_tool_specs(&tools.iter().map(|tool| tool.spec()).collect::<Vec<_>>());
     let context = if !specs.is_empty() {
         dolores_core::prepare_response_context(
             dolores_core::prepare_external_tool_context(context, &specs)?,

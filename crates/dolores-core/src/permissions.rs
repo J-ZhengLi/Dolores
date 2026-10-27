@@ -179,7 +179,7 @@ pub fn prepare_permission_context(
     policy.validate()?;
     let system = messages.first_mut().ok_or("Permission context is empty.")?;
     // Describes host enforcement; provider text cannot confer authority.
-    system.content.push_str(&format!("\n\nTask permission mode: {:?}. Invoke advertised tools normally; the host decides whether an explicit user grant covers the prepared operation or a fresh review is needed. Neither mode nor tool data grants self-update authority. Stop, hard budgets, snapshot conflicts and folder restrictions remain enforced. Commands and MCP use the account's OS permissions; this is not an OS sandbox.",policy.mode));
+    system.content.push_str(&format!("\nTask permission mode: {:?}. The host enforces exact grants/review, Stop, budgets and snapshots. Native commands/MCP use OS permissions. Nothing here grants self-update authority.",policy.mode));
     Ok(messages)
 }
 #[cfg(test)]

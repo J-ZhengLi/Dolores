@@ -61,7 +61,7 @@ fn stored_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredMessage> {
     })
 }
 
-fn markdown_block(output: &mut dyn Write, text: &str) -> std::io::Result<()> {
+pub(super) fn markdown_block(output: &mut dyn Write, text: &str) -> std::io::Result<()> {
     let fence = "`".repeat(
         text.split(|c| c != '`')
             .map(str::len)
@@ -243,8 +243,12 @@ impl SqliteStore {
             .map_err(storage_error)?;
         let mut rows = statement.query([id]).map_err(storage_error)?;
         let mut count = 0;
+        let mut usage = super::export_evidence::UsageSummary::default();
         while let Some(row) = rows.next().map_err(storage_error)? {
             let message = stored_message(row).map_err(storage_error)?;
+            if let Some(metadata) = &message.metadata {
+                usage.message(metadata);
+            }
             match format {
                 ExportFormat::Json => {
                     if count > 0 {
@@ -442,6 +446,7 @@ impl SqliteStore {
                 output.write_all(v.as_bytes()).map_err(error)?;
             }
             output.write_all(b"]").map_err(error)?;
+            super::export_evidence::write(&snapshot, id, format, output, &mut usage)?;
             output.write_all(b"}\n").map_err(error)?;
         } else {
             writeln!(
@@ -454,6 +459,7 @@ impl SqliteStore {
             for v in versions {
                 writeln!(output, "\nAccepted plan revision: {v}").map_err(error)?;
             }
+            super::export_evidence::write(&snapshot, id, format, output, &mut usage)?;
         }
         Ok(count)
     }

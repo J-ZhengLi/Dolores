@@ -14,6 +14,13 @@ mod feedback;
 pub use comparison::*;
 pub use feedback::*;
 mod agent;
+mod agent_projection;
+mod tool_catalogue;
+#[cfg(test)]
+mod tool_catalogue_tests;
+pub use tool_catalogue::initial_tool_specs;
+#[cfg(test)]
+mod agent_projection_tests;
 mod agent_watchdog;
 #[cfg(test)]
 mod model_retry_tests;

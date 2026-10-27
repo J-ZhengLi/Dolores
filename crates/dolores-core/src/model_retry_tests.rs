@@ -162,6 +162,9 @@ async fn generation_retry_preserves_effects_partial_evidence_and_cumulative_atte
         );
         assert_eq!(reply.summary.tools.len(), 1);
         assert_eq!(reply.pause.is_some(), paused);
+        if paused {
+            assert!(reply.answer.contains("known totals are incomplete"));
+        }
         assert!(reply
             .summary
             .steps

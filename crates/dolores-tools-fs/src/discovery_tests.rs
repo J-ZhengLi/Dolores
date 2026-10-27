@@ -74,7 +74,7 @@ async fn discovery_excludes_secret_generated_binary_and_unsafe_scopes() {
     assert_eq!(listing["entries"].as_array().unwrap().len(), 3);
     let result = execute(tools[2].as_ref(), json!({"path":".","query":"NEEDLE"})).await;
     assert!(result["matches"].as_array().unwrap().is_empty());
-    assert!(result["skippedFiles"].as_u64().unwrap() >= 3);
+    assert!(result["skippedFiles"].as_u64().unwrap() >= 2);
     for path in [
         "../outside",
         "/absolute",
@@ -170,7 +170,7 @@ async fn listing_search_and_long_results_respect_scan_and_output_budgets() {
 async fn scan_stops_at_depth_and_honors_pre_cancelled_operations() {
     let root = tempfile::tempdir().unwrap();
     let mut path = root.path().to_owned();
-    for _ in 0..5 {
+    for _ in 0..MAX_DEPTH + 1 {
         path.push("deep");
         std::fs::create_dir(&path).unwrap();
     }
@@ -190,4 +190,34 @@ async fn scan_stops_at_depth_and_honors_pre_cancelled_operations() {
         cancel.cancel();
         assert!(tool.invoke(&request, cancel).await.is_err());
     }
+}
+
+#[tokio::test]
+async fn search_finds_large_source_and_reports_incomplete_coverage() {
+    let root = tempfile::tempdir().unwrap();
+    let mut path = root.path().to_owned();
+    for _ in 0..6 {
+        path.push("src");
+        std::fs::create_dir(&path).unwrap();
+    }
+    std::fs::write(
+        path.join("client.ts"),
+        format!("{}\nneedle 世界\n", "x".repeat(68_821)),
+    )
+    .unwrap();
+    let tools = folder_tools(root.path()).unwrap();
+    let result = execute(tools[2].as_ref(), json!({"path":".","query":"needle 世界"})).await;
+    assert_eq!(result["matches"].as_array().unwrap().len(), 1);
+    assert_eq!(result["matches"][0]["line"], 2);
+    assert_eq!(result["truncated"], false);
+    std::fs::write(
+        path.join("client.ts"),
+        format!("needle\n{}", "x".repeat(MAX_SEARCH_BYTES)),
+    )
+    .unwrap();
+    let result = execute(tools[2].as_ref(), json!({"path":".","query":"needle"})).await;
+    assert_eq!(result["matches"].as_array().unwrap().len(), 1);
+    assert_eq!(result["truncated"], true);
+    assert_eq!(result["bytesRead"], MAX_SEARCH_BYTES);
+    assert!(result["coverageNote"].as_str().unwrap().contains("partial"));
 }

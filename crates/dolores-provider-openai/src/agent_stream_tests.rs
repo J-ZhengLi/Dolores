@@ -810,10 +810,13 @@ async fn real_http_retry_keeps_completed_calls_and_discards_incomplete_attempts(
         }
     }
     let first = wire(
-        &[delta(
-            json!({"content":"First effect","tool_calls":[call(42,"completed","read_text_file","{}")] }),
-            json!("tool_calls"),
-        )],
+        &[
+            delta(
+                json!({"content":"First effect","tool_calls":[call(42,"completed","read_text_file","{}")] }),
+                json!("tool_calls"),
+            ),
+            json!({"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}),
+        ],
         true,
     );
     let interrupted = wire(
@@ -833,10 +836,10 @@ async fn real_http_retry_keeps_completed_calls_and_discards_incomplete_attempts(
         format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
     };
     let complete = buffered(
-        json!({"choices":[{"message":{"content":"Next effects","tool_calls":next},"finish_reason":"tool_calls"}]}),
+        json!({"choices":[{"message":{"content":"Next effects","tool_calls":next},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":200,"completion_tokens":20,"total_tokens":220}}),
     );
     let finish = buffered(
-        json!({"choices":[{"message":{"content":"Verified complete"},"finish_reason":"stop"}]}),
+        json!({"choices":[{"message":{"content":"Verified complete"},"finish_reason":"stop"}],"usage":{"prompt_tokens":300,"completion_tokens":30,"total_tokens":330}}),
     );
     let (url, server) =
         crate::tests::sequence_server(vec![first, interrupted, complete, finish]).await;
@@ -867,6 +870,25 @@ async fn real_http_retry_keeps_completed_calls_and_discards_incomplete_attempts(
     assert_eq!(result.answer, "Verified complete");
     assert_eq!(result.summary.model_calls, 4);
     assert_eq!(
+        result
+            .summary
+            .usage_by_call
+            .iter()
+            .filter(|u| u.is_none())
+            .count(),
+        1
+    );
+    assert_eq!(
+        result
+            .summary
+            .usage_by_call
+            .iter()
+            .flatten()
+            .map(|u| u.total_tokens.unwrap())
+            .sum::<u64>(),
+        660
+    );
+    assert_eq!(
         effect.0.lock().unwrap().as_slice(),
         [
             "completed",
@@ -890,10 +912,23 @@ async fn real_http_retry_keeps_completed_calls_and_discards_incomplete_attempts(
         .split("\nREQUEST\n")
         .map(|r| serde_json::from_str(r.split("\r\n\r\n").nth(1).unwrap()).unwrap())
         .collect();
+    let evidence = |body: &Value| {
+        body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["role"] != "system")
+            .cloned()
+            .collect::<Vec<_>>()
+    };
     assert_eq!(
-        &bodies[1]["messages"].as_array().unwrap()[1..],
-        &bodies[2]["messages"].as_array().unwrap()[1..],
-        "Only the failed model request is retried"
+        evidence(&bodies[1]),
+        evidence(&bodies[2]),
+        "Only generation is retried; tool/user evidence stays exact"
+    );
+    assert_eq!(
+        bodies[1]["messages"][0], bodies[2]["messages"][0],
+        "System prefix must remain stable during retries"
     );
     assert!(!bodies[2]["messages"].to_string().contains("must-not-run"));
     assert_eq!(bodies[0]["stream"], true);

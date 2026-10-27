@@ -14,6 +14,14 @@ source and call paths before broad searches. Missing/stale indexes retain the
 ordinary file-tool fallback. Detection does not initialize, rebuild or upgrade an
 index, start a service, or import another agent's MCP configuration.
 
+For repository-wide literal searches, prefer the installed index or a reviewed
+`run_command` invocation of `git grep`/`rg`. The built-in `search_text` is a
+bounded fallback: it searches large UTF-8 files within a shared 256-KiB read
+budget, up to 32 levels, 256 entries, 64 files and 30 matches. It explains partial
+coverage and skipped files. Empty partial results never establish absence;
+narrow the scope or switch to repository search instead of repeating the same
+scan. Secret/generated/dependency exclusions and link checks still apply.
+
 RTK guidance directs supported human-readable checks through RTK and uses its
 `proxy` path for exact output or unsupported commands. Structured protocol/JSON
 evidence and explicit raw-output requests remain unfiltered. This is automatic

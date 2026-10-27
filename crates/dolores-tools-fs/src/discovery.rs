@@ -11,7 +11,7 @@ const MAX_SEARCH_ENTRIES: usize = 256;
 const MAX_SEARCH_FILES: usize = 64;
 const MAX_SEARCH_BYTES: usize = 256 * 1024;
 const MAX_MATCHES: usize = 30;
-const MAX_DEPTH: usize = 4;
+const MAX_DEPTH: usize = 32;
 #[cfg(test)]
 #[path = "discovery_tests.rs"]
 mod tests;
@@ -206,10 +206,7 @@ impl Discover {
                         continue;
                     }
                 };
-                if !metadata.is_file()
-                    || metadata.file_type().is_symlink()
-                    || metadata.len() > MAX_TOOL_BYTES as u64
-                {
+                if !metadata.is_file() || metadata.file_type().is_symlink() {
                     skipped_files += 1;
                     continue;
                 }
@@ -232,25 +229,27 @@ impl Discover {
                     skipped_files += 1;
                     continue;
                 }
-                let limit = (MAX_TOOL_BYTES + 1).min(MAX_SEARCH_BYTES - bytes_read);
+                // The result-size limit is not a source-file-size limit. Read a
+                // bounded prefix even from a large file, and disclose coverage.
+                let limit = MAX_SEARCH_BYTES - bytes_read;
                 let mut bytes = vec![];
                 let read = file.take(limit as u64).read_to_end(&mut bytes);
                 bytes_read += bytes.len();
                 checkpoint(cancel)?;
-                if read.is_err() || bytes.len() > MAX_TOOL_BYTES || bytes.contains(&0) {
+                if read.is_err() || bytes.contains(&0) {
                     skipped_files += 1;
                     continue;
                 }
-                // An incomplete read at the aggregate boundary is never searched.
-                if bytes.len() < metadata.len() as usize
-                    || (limit <= MAX_TOOL_BYTES && bytes.len() == limit)
-                {
+                let partial = bytes.len() < metadata.len() as usize;
+                if partial {
                     truncated = true;
-                    skipped_files += 1;
-                    break 'walk;
                 }
-                let text = match String::from_utf8(bytes) {
+                let text = match std::str::from_utf8(&bytes) {
                     Ok(t) => t,
+                    // A scan budget may split the final UTF-8 character.
+                    Err(e) if partial && e.error_len().is_none() => {
+                        std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap()
+                    }
                     Err(_) => {
                         skipped_files += 1;
                         continue;
@@ -281,8 +280,15 @@ impl Discover {
                 break;
             }
         }
+        let note = if truncated {
+            "Search coverage is partial. Do not infer absence from empty matches. Prefer the installed code index or run_command with git grep/rg for repository-wide searches; otherwise narrow the folder. Repeating this scope does not advance a cursor."
+        } else if skipped_files > 0 {
+            "Some files were skipped (binary, invalid UTF-8, links or read failures). Empty matches do not establish absence in skipped files."
+        } else {
+            "Searched eligible text within this scope; excluded paths remain unsearched."
+        };
         Ok(json!({"matches":matches,"inspectedEntries":inspected,"scannedFiles":scanned_files,"attemptedFiles":attempted_files,"skippedFiles":skipped_files,
-            "skippedEntries":skipped_entries,"bytesRead":bytes_read,"truncated":truncated}).to_string())
+            "skippedEntries":skipped_entries,"bytesRead":bytes_read,"truncated":truncated,"coverageNote":note}).to_string())
     }
 }
 
@@ -361,7 +367,7 @@ pub fn discovery_spec(search: bool) -> ToolSpec {
         parameters["required"] = json!(["path", "query"]);
     }
     ToolSpec { name:if search { "search_text" } else { "list_folder" }.into(),parameters,description:if search {
-            "Search bounded UTF-8 text files below an approved relative folder. Requires a separate user decision before scanning/sharing snippets. At most 4 levels, 256 entries, 64 files, 256 KiB read, 16 KiB per file and 30 matches. Results may be partial; full reads need another approval."
+            "Search literal UTF-8 text below a relative folder. For repository-wide search prefer the installed code index or run_command git grep/rg. Reads large files within a shared 256 KiB scan budget, at most 32 levels, 256 entries, 64 files and 30 matches. Check coverageNote/truncated/skippedFiles: empty partial results do not prove absence. Narrow the scope or use repository search rather than repeating a partial scan."
         } else { "List a single approved folder level. Requires user approval before sharing names. At most 512 inspected entries, 100 results and 16 KiB output; excludes links, common secret and generated/dependency paths. Results may be partial." }.into() }
 }
 #[async_trait]

@@ -18,6 +18,29 @@ Live model compatibility, OS input/folder-picker UAT, other platforms, accessibi
 
 Protocol reasoning is bounded at 1 MiB per turn. Retained reasoning and public messages share the selected model input allowance for follow-up checks and compaction pressure. The cache allocation bound follows that allowance with one response of headroom; it is not a fixed 2-MiB context window. UI previews retain the latest 16 KiB with an omission label. Automatic output uses a context-planning reserve of one quarter of the window, capped at 32768 tokens; that reserve is not sent as a generation limit.
 
+## Request efficiency
+
+Catalogues above eight tools initially expose file/command/question tools and
+configured MCP aliases, plus `discover_tools`. Its compact directory names the
+remaining registered capabilities. Loading up to eight exact names exposes
+their schemas on the next model request; it executes no tool and grants no
+permission. Its optional `unload` list removes unused schemas on the next request;
+the stable directory allows reloading them later. A registered tool requested directly by a continuing model remains
+subject to its original argument validation and approval, and becomes visible
+in later requests. Unregistered names remain unavailable. Preview and send share
+the same initial catalogue and token estimate. Smaller catalogues are unchanged.
+
+The first system message retains a stable execution policy. Per-call counters
+and capacity notices follow the request's working evidence as host runtime
+status, rather than rewriting that prefix. This permits prefix reuse; actual
+provider cache hits remain measured separately and are not guaranteed.
+
+Built-in agent instructions target fewer than 1,000 locally estimated tokens,
+including the fully loaded capability guidance. The default project catalogue
+is smaller still. Exact user/project instructions and selected skill snapshots
+are preserved separately in accounting and can exceed that target; they are
+never silently truncated to satisfy the host instruction budget.
+
 ## Generation-only automatic retry
 
 Tool-enabled agent runs can retry adapter-classified recoverable model failures
@@ -45,6 +68,12 @@ usage. Failed calls never enter model context; only earlier completed tool resul
 are retained. No task restart, tool replay, approval reuse or application-restart
 retry is introduced. Tool-free side-chat and strict structured-consumer requests
 retain their existing explicit recovery behavior.
+
+Exhaustion explicitly states that failed-attempt usage was unreported and known
+totals are incomplete. A recovered request retains usage from each successful
+attempt alongside unknown failed attempts; missing usage never becomes zero.
+Client complete-response recovery does not claim to repair a gateway deadline
+that affects both transports.
 
 `modelRetry {number,attempt,delayMs,buffered}` keeps one visible task/timer/draft and shows
 Reconnecting to the model. The durable journal records retry counters without raw

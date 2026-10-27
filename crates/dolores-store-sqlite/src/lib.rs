@@ -12,6 +12,7 @@ mod comparison;
 mod composer_skills;
 mod desktop_preferences;
 mod experimental;
+mod export_evidence;
 mod feedback;
 mod generation_profiles;
 #[cfg(test)]
@@ -48,6 +49,8 @@ mod attention_tests;
 mod companionship;
 mod drafts;
 mod experience;
+#[cfg(test)]
+mod export_evidence_tests;
 mod history_evidence;
 mod history_search;
 #[cfg(test)]
