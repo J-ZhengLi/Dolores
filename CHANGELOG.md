@@ -7,6 +7,7 @@ published versions use SemVer and an ISO date.
 
 ### Changed
 
+- Files and Source Control use the selected Classic sidebar with compact rows, folders before files, filename-first changes and tighter history. Source Control replaces the project/path block with branch and change count, retaining the root in a tooltip and adding a compact Commit button.
 - The command and skill picker uses compact, padded rows with a clear keyboard selection. Skills can also be completed within a sentence while preserving surrounding text and their pinned reference.
 - Project and global skill files are ready to use in chat and the `/` picker without prior review. File updates apply to future messages, with optional viewing, direct enable/disable and one-step create/import. Existing snapshots and tool permissions are preserved.
 

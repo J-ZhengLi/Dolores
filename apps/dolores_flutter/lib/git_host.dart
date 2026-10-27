@@ -24,7 +24,7 @@ class GitWorkspace {
   final expandedCommits = <String>{};
   final commitFileErrors = <String, String>{};
   String? loadingCommit;
-  bool changesExpanded = true, historyExpanded = true;
+  bool changesExpanded = true, stagedExpanded = true, historyExpanded = true;
   Map<String, dynamic>? localState;
   Map<String, dynamic>? remoteState;
   bool sideBySide = false;

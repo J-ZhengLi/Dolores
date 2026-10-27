@@ -1,7 +1,9 @@
 import 'form_field_layout.dart';
+
 import 'package:flutter/material.dart';
 
 import 'git_host.dart';
+import 'workspace_sidebar.dart';
 
 typedef GitReview = Future<void> Function(Map<String, dynamic> operation);
 
@@ -218,10 +220,10 @@ class GitLocalControls extends StatelessWidget {
         if (w.status?['reverting'] == true)
           action('Abort revert', () => review({'kind': 'revertAbort'})),
       ],
-      builder: (context, controller, child) => IconButton(
+      builder: (context, controller, child) => WorkspaceSidebarButton(
         key: const Key('git-changes-menu'),
         tooltip: 'Git actions',
-        icon: const Icon(Icons.more_horiz, size: 20),
+        icon: Icons.more_horiz,
         onPressed: enabled
             ? () => controller.isOpen ? controller.close() : controller.open()
             : null,

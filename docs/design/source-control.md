@@ -1,17 +1,26 @@
 # Source Control contract — milestone 17
 
 The selected Home conversation supplies the project. Source Control discovers
-the enclosing Git worktree lazily, displays its canonical root and owns retained
+the enclosing Git worktree lazily, identifies its branch and owns retained
 views per repository. There is no project dropdown or automatic repository setup.
 Git is a discovered direct executable outside the project. Human Git actions do
 not grant model access. Home receipts link to repository views as separate evidence.
 
-Keep the repository name and canonical path visible above the branch. The name
-stays readable in a narrow panel; the path is selectable within two lines with
-the complete path in its hint. Show “Enclosing repository” when
-this root differs from the selected project folder. Equivalent Windows path
-spelling is the same root. This identity remains visible with retained status
-after a failed read and changes with the selected conversation; it is not a picker.
+Use the compact Classic sidebar: Source Control heading and repository actions,
+then branch and changed-file count. Keep the canonical root in the branch row's
+tooltip; omit the project name and path block above it. A named “Enclosing
+repository” indicator appears when this root differs from the selected project
+folder. Equivalent Windows path spelling is the same root. The tooltip follows
+the selected conversation and retained status after a failed read; it is not a picker.
+
+Place the message field and a compact Commit button above independent Staged
+Changes and Changes groups, with History below. The button identifies the staged
+count, or explicitly says Commit all when no files are staged, using the existing
+commit behavior. Keep drafts and failures visible. File rows target 26 px at normal
+text scale, growing for accessibility. Show the basename first, parent path when
+space permits, and complete/rename paths in the tooltip. Keep stage/unstage and
+overflow actions reachable. History uses compact subject/author rows and retains
+nested files, loading and retry controls.
 
 Status uses porcelain v1 NUL records, including rename pairs; filenames must be
 valid UTF-8 to be actionable. Diff bases are saved working tree/index, index/HEAD
@@ -73,7 +82,7 @@ expanded files still present on that page. An unavailable history read preserves
 the last readable list and the completed action's outcome; Refresh history retries
 only the read. Actions that leave HEAD unchanged retain the current history page.
 
-Place repository actions in the three-dot menu beside Changes: Commit, Pull,
+Place repository actions in the three-dot menu beside Source Control: Commit, Pull,
 Push, Fetch, and grouped Changes, Branch and Stash actions. Use familiar names
 at entry points; selecting an action runs it without a review dialog. Ctrl+Enter
 in the message field commits directly. File and commit overflow menus
@@ -84,7 +93,7 @@ This refines milestone 17; it does not add a full branch graph or new Git comman
 
 ## Quick staging — 2026-10-08
 
-Show + beside Working Changes and each working file, and − beside Staged Changes
+Show + beside Changes and each working file, and − beside Staged Changes
 and each staged file. These deliberate index-only actions apply immediately;
 their menu equivalents do the same. Disable them while busy or reviewing. Keep
 the native single-use revision token and dirty-editor guards, but do not generate

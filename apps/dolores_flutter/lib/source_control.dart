@@ -5,6 +5,7 @@ import 'git_host.dart';
 import 'git_diff_view.dart';
 import 'git_local_controls.dart';
 import 'review_findings.dart';
+import 'workspace_sidebar.dart';
 
 Future<void> executeGitAction(
   BuildContext context,
@@ -57,35 +58,84 @@ class _GitCommitBoxState extends State<GitCommitBox> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    child: CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
-          if (!widget.workspace.busy && widget.workspace.reviewOpen == null) {
-            executeGitAction(context, widget.git, widget.workspace, {
-              'kind': 'commit',
-              'message': controller.text,
-            });
-          }
+  Widget build(BuildContext context) {
+    final w = widget.workspace;
+    final entries = (w.status?['entries'] as List? ?? []).cast<Map>();
+    final staged = entries
+        .where((e) => e['index'] != ' ' && e['index'] != '?')
+        .length;
+    final count = staged > 0
+        ? staged
+        : entries.where((e) => e['worktree'] != ' ').length;
+    final enabled =
+        !w.busy &&
+        w.reviewOpen == null &&
+        controller.text.trim().isNotEmpty &&
+        count > 0;
+    void commit() {
+      if (enabled) {
+        executeGitAction(context, widget.git, w, {
+          'kind': 'commit',
+          'message': controller.text,
+        });
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
+            commit();
+          },
         },
-      },
-      child: TextField(
-        key: const Key('git-commit-message'),
-        controller: controller,
-        minLines: 1,
-        maxLines: 4,
-        maxLength: 8192,
-        decoration: const InputDecoration(
-          hintText: 'Message (Ctrl+Enter to commit)',
-          counterText: '',
-          isDense: true,
-          border: OutlineInputBorder(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('git-commit-message'),
+              controller: controller,
+              minLines: 1,
+              maxLines: 4,
+              maxLength: 8192,
+              decoration: const InputDecoration(
+                hintText: 'Message (Ctrl+Enter to commit)',
+                counterText: '',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                border: OutlineInputBorder(),
+              ),
+              style: const TextStyle(fontSize: 12),
+              onChanged: (v) =>
+                  setState(() => widget.workspace.commitDraft = v),
+            ),
+            const SizedBox(height: 6),
+            FilledButton.icon(
+              key: const Key('git-commit-button'),
+              onPressed: enabled ? commit : null,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 28),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                textStyle: Theme.of(context).textTheme.labelLarge
+                    ?.copyWith(fontSize: 12),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.check, size: 16),
+              label: Text(
+                staged > 0 ? 'Commit · $count' : 'Commit all · $count',
+              ),
+            ),
+          ],
         ),
-        onChanged: (v) => widget.workspace.commitDraft = v,
       ),
-    ),
-  );
+    );
+  }
 }
 
 class SourceControlPanel extends StatelessWidget {
@@ -97,93 +147,114 @@ class SourceControlPanel extends StatelessWidget {
     required this.openFolder,
   });
 
-  Widget fileRow(
-    BuildContext context,
-    GitWorkspace w,
-    Map entry,
-    bool staged,
-  ) => ListTile(
-    dense: true,
-    visualDensity: VisualDensity.compact,
-    contentPadding: const EdgeInsets.only(left: 20, right: 4),
-    minLeadingWidth: 16,
-    horizontalTitleGap: 8,
-    leading: const Icon(Icons.insert_drive_file_outlined, size: 16),
-    title: Tooltip(
-      message: entry['path'] as String,
-      child: Text(
-        entry['path'] as String,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-    ),
-    subtitle: entry['oldPath'] == null
-        ? null
-        : Text(
-            'From ${entry['oldPath']}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-    onTap: w.busy
-        ? null
-        : () => git.openDiff(
-            w,
-            entry['path'] as String,
-            staged ? 'staged' : 'working',
-          ),
-    trailing: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text((staged ? entry['index'] : entry['worktree']) as String),
-        IconButton(
-          key: ValueKey('git-${staged ? 'unstage' : 'stage'}-${entry['path']}'),
-          tooltip: staged ? 'Unstage changes' : 'Stage changes',
-          icon: Icon(staged ? Icons.remove : Icons.add, size: 18),
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          onPressed: w.busy || w.reviewOpen != null
-              ? null
-              : () => git.changeIndex(w, {
-                  'kind': staged ? 'unstage' : 'stage',
-                  'paths': [entry['path']],
-                }),
-        ),
-        PopupMenuButton<String>(
-          tooltip: 'File Git actions',
-          iconSize: 18,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          padding: EdgeInsets.zero,
-          enabled: !w.busy && w.reviewOpen == null,
-          onSelected: (kind) => executeGitAction(context, git, w, {
-            'kind': kind,
-            if (kind == 'discard')
-              'path': entry['path']
-            else
-              'paths': [entry['path']],
-            if (kind == 'stashCreate') 'message': 'Saved ${entry['path']}',
-          }),
-          itemBuilder: (_) => [
-            PopupMenuItem(
-              value: staged ? 'unstage' : 'stage',
-              child: Text(staged ? 'Unstage changes' : 'Stage changes'),
-            ),
-            if (!staged &&
-                entry['index'] != '?' &&
-                entry['conflict'] != true) ...[
-              const PopupMenuItem(
-                value: 'stashCreate',
-                child: Text('Stash file'),
+  Widget pathLabel(String path, {String? oldPath}) {
+    final parts = path.split('/');
+    final name = parts.removeLast();
+    return Expanded(
+      child: Tooltip(
+        message: oldPath == null ? path : '$path\nFrom $oldPath',
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            children: [
+              Flexible(
+                flex: 3,
+                child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
-              const PopupMenuItem(
-                value: 'discard',
-                child: Text('Discard changes'),
-              ),
+              if (parts.isNotEmpty && constraints.maxWidth >= 160) ...[
+                const SizedBox(width: 6),
+                Flexible(
+                  flex: 2,
+                  child: Text(
+                    parts.join('/'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
+
+  Widget fileRow(BuildContext context, GitWorkspace w, Map entry, bool staged) {
+    final path = entry['path'] as String;
+    return WorkspaceSidebarRow(
+      key: ValueKey('git-${staged ? 'staged' : 'working'}-$path'),
+      selected:
+          w.tabs[w.activeTab]?['path'] == path &&
+          w.tabs[w.activeTab]?['basis'] == (staged ? 'staged' : 'working'),
+      onTap: w.busy
+          ? null
+          : () => git.openDiff(w, path, staged ? 'staged' : 'working'),
+      child: Row(
+        children: [
+          const Icon(Icons.insert_drive_file_outlined, size: 16),
+          const SizedBox(width: 6),
+          pathLabel(path, oldPath: entry['oldPath'] as String?),
+          const SizedBox(width: 4),
+          Text(
+            (staged ? entry['index'] : entry['worktree']) as String,
+            style: const TextStyle(fontSize: 11),
+          ),
+          WorkspaceSidebarButton(
+            key: ValueKey('git-${staged ? 'unstage' : 'stage'}-$path'),
+            tooltip: staged ? 'Unstage changes' : 'Stage changes',
+            icon: staged ? Icons.remove : Icons.add,
+            onPressed: w.busy || w.reviewOpen != null
+                ? null
+                : () => git.changeIndex(w, {
+                    'kind': staged ? 'unstage' : 'stage',
+                    'paths': [path],
+                  }),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'File Git actions',
+            iconSize: 16,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(28, 26),
+              maximumSize: const Size(28, 26),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+            enabled: !w.busy && w.reviewOpen == null,
+            onSelected: (kind) => executeGitAction(context, git, w, {
+              'kind': kind,
+              if (kind == 'discard')
+                'path': entry['path']
+              else
+                'paths': [entry['path']],
+              if (kind == 'stashCreate') 'message': 'Saved ${entry['path']}',
+            }),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: staged ? 'unstage' : 'stage',
+                child: Text(staged ? 'Unstage changes' : 'Stage changes'),
+              ),
+              if (!staged &&
+                  entry['index'] != '?' &&
+                  entry['conflict'] != true) ...[
+                const PopupMenuItem(
+                  value: 'stashCreate',
+                  child: Text('Stash file'),
+                ),
+                const PopupMenuItem(
+                  value: 'discard',
+                  child: Text('Discard changes'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget commitRow(
     BuildContext context,
@@ -196,38 +267,62 @@ class SourceControlPanel extends StatelessWidget {
     return Column(
       key: ValueKey('git-history-$id'),
       children: [
-        ListTile(
+        WorkspaceSidebarRow(
           key: ValueKey('git-commit-$id'),
-          dense: true,
-          visualDensity: VisualDensity.compact,
-          contentPadding: const EdgeInsets.only(left: 4, right: 4),
-          leading: Icon(
-            expanded ? Icons.expand_more : Icons.chevron_right,
-            size: 20,
-          ),
-          title: Tooltip(
-            message: item['subject'] as String,
-            child: Text(
-              item['subject'] as String,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          subtitle: Text(
-            '${id.substring(0, 8)} · ${item['author']}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          minHeight: 44,
           onTap: w.busy ? null : () => git.toggleCommit(w, id),
-          trailing: PopupMenuButton<String>(
-            tooltip: 'Commit actions',
-            enabled: !w.busy && w.reviewOpen == null,
-            onSelected: (_) => executeGitAction(context, git, w, {
-              'kind': 'revert',
-              'commit': id,
-            }),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'revert', child: Text('Revert commit…')),
+          child: Row(
+            children: [
+              Icon(
+                expanded ? Icons.expand_more : Icons.chevron_right,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Tooltip(
+                        message: item['subject'] as String,
+                        child: Text(
+                          item['subject'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '${id.substring(0, id.length.clamp(0, 8))} · ${item['author']}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Commit actions',
+                icon: const Icon(Icons.more_vert, size: 16),
+                padding: EdgeInsets.zero,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(28, 26),
+                  maximumSize: const Size(28, 26),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                enabled: !w.busy && w.reviewOpen == null,
+                onSelected: (_) => executeGitAction(context, git, w, {
+                  'kind': 'revert',
+                  'commit': id,
+                }),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'revert', child: Text('Revert commit…')),
+                ],
+              ),
             ],
           ),
         ),
@@ -261,24 +356,55 @@ class SourceControlPanel extends StatelessWidget {
               child: Text('No file changes'),
             ),
           for (final path in files ?? [])
-            ListTile(
+            WorkspaceSidebarRow(
               key: ValueKey('git-file-$id:$path'),
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              contentPadding: const EdgeInsets.only(left: 36, right: 12),
-              leading: const Icon(Icons.insert_drive_file_outlined, size: 16),
-              title: Tooltip(
-                message: path as String,
-                child: Text(path, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
+              indent: 20,
               onTap: w.busy
                   ? null
                   : () => git.openDiff(w, path, 'commit', commit: id),
+              child: Row(
+                children: [
+                  const Icon(Icons.insert_drive_file_outlined, size: 16),
+                  const SizedBox(width: 6),
+                  pathLabel(path as String),
+                ],
+              ),
             ),
         ],
       ],
     );
   }
+
+  Widget section(
+    String title,
+    bool expanded,
+    VoidCallback toggle, {
+    Widget? trailing,
+    int? count,
+  }) => WorkspaceSidebarRow(
+    minHeight: 28,
+    onTap: toggle,
+    child: Row(
+      children: [
+        Icon(expanded ? Icons.expand_more : Icons.chevron_right, size: 16),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+        if (count != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text('$count', style: const TextStyle(fontSize: 11)),
+          ),
+        ?trailing,
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -287,55 +413,63 @@ class SourceControlPanel extends StatelessWidget {
       final w = git.selected;
       final status = w?.status;
       final repositoryRoot = status?['root'] as String? ?? w?.root;
-      final repositoryName = repositoryRoot
-          ?.replaceAll('\\', '/')
-          .split('/')
-          .where((part) => part.isNotEmpty)
-          .lastOrNull;
       final entries = (status?['entries'] as List? ?? []).cast<Map>();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'SOURCE CONTROL',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'SOURCE CONTROL',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (w != null) ...[
+                  WorkspaceSidebarButton(
+                    tooltip: 'Refresh',
+                    icon: Icons.refresh,
+                    onPressed: w.busy ? null : () => git.refresh(w),
+                  ),
+                  if (git.reviewAvailable)
+                    WorkspaceSidebarButton(
+                      tooltip: 'Review findings',
+                      icon: Icons.rate_review_outlined,
+                      onPressed: () => showReviewFindings(context, git, w),
+                    ),
+                  if (w.busy)
+                    WorkspaceSidebarButton(
+                      tooltip: 'Stop Git operation',
+                      icon: Icons.stop_circle_outlined,
+                      onPressed: () => git.stop(w),
+                    ),
+                  if (status != null)
+                    GitLocalControls(
+                      git: git,
+                      w: w,
+                      review: (op) => executeGitAction(context, git, w, op),
+                    ),
+                ],
+              ],
             ),
           ),
           if (w == null)
             TextButton(onPressed: openFolder, child: const Text('Open folder')),
-          if (w != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Tooltip(
-                message: repositoryRoot!,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          if (status != null)
+            Tooltip(
+              message: 'Repository: $repositoryRoot',
+              child: WorkspaceSidebarRow(
+                key: const Key('git-branch-summary'),
+                child: Row(
                   children: [
-                    Text(
-                      repositoryName ?? repositoryRoot,
-                      key: const Key('git-repository-name'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    SelectableText(
-                      repositoryRoot,
-                      key: const Key('git-repository-root'),
-                      maxLines: 2,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    if (status != null &&
-                        GitHost.rootKey(repositoryRoot) !=
-                            GitHost.rootKey(w.root))
-                      const Text(
-                        'Enclosing repository',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    const SizedBox(height: 4),
-                    if (status != null)
-                      Text(
+                    const Icon(Icons.account_tree_outlined, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
                         status['branch'] as String? ??
                             (status['head'] == null
                                 ? 'No commits yet'
@@ -344,6 +478,18 @@ class SourceControlPanel extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12),
                       ),
+                    ),
+                    if (GitHost.rootKey(repositoryRoot!) !=
+                        GitHost.rootKey(w!.root))
+                      const Tooltip(
+                        message: 'Enclosing repository',
+                        child: Icon(Icons.folder_copy_outlined, size: 14),
+                      ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${entries.length} changes',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ],
                 ),
               ),
@@ -366,184 +512,79 @@ class SourceControlPanel extends StatelessWidget {
           if (w != null)
             Expanded(
               child: ListView(
+                key: PageStorageKey('git-sidebar-${w.root}'),
+                padding: const EdgeInsets.only(bottom: 72),
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () {
-                            w.changesExpanded = !w.changesExpanded;
+                  GitCommitBox(key: ValueKey(w.root), git: git, workspace: w),
+                  for (final staged in [true, false]) ...[
+                    Builder(
+                      builder: (context) {
+                        final group = entries
+                            .where(
+                              (e) => staged
+                                  ? e['index'] != ' ' && e['index'] != '?'
+                                  : e['worktree'] != ' ',
+                            )
+                            .toList();
+                        return section(
+                          staged ? 'Staged Changes' : 'Changes',
+                          staged ? w.stagedExpanded : w.changesExpanded,
+                          () {
+                            if (staged) {
+                              w.stagedExpanded = !w.stagedExpanded;
+                            } else {
+                              w.changesExpanded = !w.changesExpanded;
+                            }
                             git.changed();
                           },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  w.changesExpanded
-                                      ? Icons.expand_more
-                                      : Icons.chevron_right,
-                                  size: 20,
-                                ),
-                                const Flexible(
-                                  child: Text(
-                                    'Changes',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  entries.length.toString(),
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
+                          count: group.length,
+                          trailing: WorkspaceSidebarButton(
+                            key: Key(
+                              staged ? 'git-unstage-all' : 'git-stage-all',
                             ),
+                            tooltip: staged
+                                ? 'Unstage all changes'
+                                : 'Stage all changes',
+                            icon: staged ? Icons.remove : Icons.add,
+                            onPressed:
+                                w.busy || w.reviewOpen != null || group.isEmpty
+                                ? null
+                                : () => git.changeIndex(w, {
+                                    'kind': staged ? 'unstageAll' : 'stageAll',
+                                  }),
                           ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Refresh',
-                        icon: const Icon(Icons.refresh, size: 18),
-                        onPressed: w.busy ? null : () => git.refresh(w),
-                      ),
-                      if (git.reviewAvailable)
-                        IconButton(
-                          tooltip: 'Review findings',
-                          icon: const Icon(
-                            Icons.rate_review_outlined,
-                            size: 18,
-                          ),
-                          onPressed: () => showReviewFindings(context, git, w),
-                        ),
-                      if (w.busy)
-                        IconButton(
-                          tooltip: 'Stop Git operation',
-                          icon: const Icon(
-                            Icons.stop_circle_outlined,
-                            size: 18,
-                          ),
-                          onPressed: () => git.stop(w),
-                        ),
-                      if (status != null)
-                        GitLocalControls(
-                          git: git,
-                          w: w,
-                          review: (op) => executeGitAction(context, git, w, op),
-                        ),
-                    ],
-                  ),
-                  if (w.changesExpanded) ...[
-                    GitCommitBox(key: ValueKey(w.root), git: git, workspace: w),
-                    for (final staged in [true, false]) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 4, 0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                staged ? 'Staged Changes' : 'Working Changes',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              key: Key(
-                                staged ? 'git-unstage-all' : 'git-stage-all',
-                              ),
-                              tooltip: staged
-                                  ? 'Unstage all changes'
-                                  : 'Stage all changes',
-                              icon: Icon(
-                                staged ? Icons.remove : Icons.add,
-                                size: 18,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                              onPressed:
-                                  w.busy ||
-                                      w.reviewOpen != null ||
-                                      !entries.any(
-                                        (e) => staged
-                                            ? e['index'] != ' ' &&
-                                                  e['index'] != '?'
-                                            : e['worktree'] != ' ',
-                                      )
-                                  ? null
-                                  : () => git.changeIndex(w, {
-                                      'kind': staged
-                                          ? 'unstageAll'
-                                          : 'stageAll',
-                                    }),
-                            ),
-                          ],
-                        ),
-                      ),
+                        );
+                      },
+                    ),
+                    if (staged ? w.stagedExpanded : w.changesExpanded)
                       for (final entry in entries.where(
                         (e) => staged
                             ? e['index'] != ' ' && e['index'] != '?'
                             : e['worktree'] != ' ',
                       ))
                         fileRow(context, w, entry, staged),
-                    ],
-                    if (entries.isEmpty && status != null)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text(
-                          'No changes',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
                   ],
-                  const Divider(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () {
-                            w.historyExpanded = !w.historyExpanded;
-                            git.changed();
-                            if (w.historyExpanded &&
-                                w.history.isEmpty &&
-                                !w.busy) {
-                              git.loadHistory(w);
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  w.historyExpanded
-                                      ? Icons.expand_more
-                                      : Icons.chevron_right,
-                                  size: 20,
-                                ),
-                                const Flexible(
-                                  child: Text(
-                                    'History',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Refresh history',
-                        icon: const Icon(Icons.refresh, size: 18),
-                        onPressed: w.busy ? null : () => git.loadHistory(w),
-                      ),
-                    ],
+                  if (entries.isEmpty && status != null)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text('No changes', style: TextStyle(fontSize: 12)),
+                    ),
+                  const Divider(height: 12),
+                  section(
+                    'History',
+                    w.historyExpanded,
+                    () {
+                      w.historyExpanded = !w.historyExpanded;
+                      git.changed();
+                      if (w.historyExpanded && w.history.isEmpty && !w.busy) {
+                        git.loadHistory(w);
+                      }
+                    },
+                    trailing: WorkspaceSidebarButton(
+                      tooltip: 'Refresh history',
+                      icon: Icons.refresh,
+                      onPressed: w.busy ? null : () => git.loadHistory(w),
+                    ),
                   ),
                   if (w.historyExpanded) ...[
                     if (w.history.isEmpty)

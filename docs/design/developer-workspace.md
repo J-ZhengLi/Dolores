@@ -51,8 +51,9 @@ and marketplace remain excluded.
 
 Selecting a conversation on **Home** sets the project context to that conversation's
 project: selecting an A conversation selects A. An unbound side conversation clears
-selection rather than borrowing a previous folder. Page headers may show a read-only
-name/root, but **no explicit project dropdown/picker** appears on Folders, Source
+selection rather than borrowing a previous folder. Files shows a compact project
+name with its full root in a tooltip; Source Control shows branch/count and keeps
+the repository root in a tooltip. **No explicit project dropdown/picker** appears on Folders, Source
 Control or Terminal. Open folder remains a deliberate empty-state action on Folders;
 it must enter the existing project-conversation flow, not create a second independent
 selection or silently rebind an existing/running conversation. Cancel retains the
@@ -81,6 +82,16 @@ Settings, Stop and native Close remain accessible. Native interaction checks are
 separate from screenshot inspection.
 
 ## File tabs and editing
+
+The selected Classic sidebar uses compact Explorer controls and 26-px tree rows
+at ordinary text scale, growing for larger text. Sort loaded siblings at each
+level with folders first, then case-insensitive names with a stable case tie-break.
+Later lazy pages join the same ordered sibling list; do not recursively load or
+change backend cursors for sorting. Chevron, file/folder icon and label share
+consistent indentation. The project root can collapse the tree, and Collapse
+folders closes nested groups without dropping cached pages or editor tabs.
+Long names elide with complete paths in tooltips. Keep recovery, paging and errors
+reachable. Source Control follows its [compact sidebar contract](source-control.md).
 
 Slim strips have close/dirty markers, breadcrumbs and overflow menus. Drag to
 reorder, move among file groups or edge-split; provide keyboard/menu equivalents

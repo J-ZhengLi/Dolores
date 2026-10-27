@@ -642,12 +642,24 @@ void main() {
       host.changed();
       await t.pump();
       expect(
-        t.widget<IconButton>(find.byKey(const Key('git-stage-all'))).onPressed,
+        t
+            .widget<IconButton>(
+              find.descendant(
+                of: find.byKey(const Key('git-stage-all')),
+                matching: find.byType(IconButton),
+              ),
+            )
+            .onPressed,
         isNull,
       );
       expect(
         t
-            .widget<IconButton>(find.byKey(const Key('git-stage-working.txt')))
+            .widget<IconButton>(
+              find.descendant(
+                of: find.byKey(const Key('git-stage-working.txt')),
+                matching: find.byType(IconButton),
+              ),
+            )
             .onPressed,
         isNull,
       );

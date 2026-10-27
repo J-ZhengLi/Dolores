@@ -9,7 +9,7 @@ import 'source_control_test.dart' show DiffBridge;
 void main() {
   for (final dark in [false, true]) {
     testWidgets(
-      'Source Control shows its enclosing root and follows selection ($dark)',
+      'Source Control keeps repository identity in its branch tooltip ($dark)',
       (tester) async {
         final git = GitHost(DiffBridge());
         final nested =
@@ -32,14 +32,21 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('C:/public-repository'), findsOneWidget);
-        expect(find.text('public-repository'), findsOneWidget);
-        expect(find.text('Enclosing repository'), findsOneWidget);
+        expect(find.text('C:/public-repository'), findsNothing);
+        expect(find.text('public-repository'), findsNothing);
+        expect(
+          find.byTooltip('Repository: C:/public-repository'),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('Enclosing repository'), findsOneWidget);
         expect(find.text('main'), findsOneWidget);
         nested.error = 'Git unavailable. Refresh.';
         git.changed();
         await tester.pumpAndSettle();
-        expect(find.text('C:/public-repository'), findsOneWidget);
+        expect(
+          find.byTooltip('Repository: C:/public-repository'),
+          findsOneWidget,
+        );
         expect(find.text('Git unavailable. Refresh.'), findsOneWidget);
 
         git.selected = GitWorkspace('D:/Other', 'other')
@@ -50,10 +57,10 @@ void main() {
           };
         git.changed();
         await tester.pumpAndSettle();
-        expect(find.text('d:\\Other\\'), findsOneWidget);
-        expect(find.text('Other'), findsOneWidget);
+        expect(find.byTooltip('Repository: d:\\Other\\'), findsOneWidget);
+        expect(find.text('Other'), findsNothing);
         expect(find.text('topic'), findsOneWidget);
-        expect(find.text('Enclosing repository'), findsNothing);
+        expect(find.byTooltip('Enclosing repository'), findsNothing);
         expect(find.text('C:/public-repository'), findsNothing);
         expect(find.text('public-repository'), findsNothing);
         const longRoot =
@@ -62,10 +69,10 @@ void main() {
           ..status = {'root': longRoot, 'branch': 'main', 'entries': <Map>[]};
         git.changed();
         await tester.pumpAndSettle();
-        expect(find.text('PublicProject'), findsOneWidget);
-        expect(find.text(longRoot), findsOneWidget);
-        expect(find.byTooltip(longRoot), findsOneWidget);
-        expect(find.text('Enclosing repository'), findsNothing);
+        expect(find.text('PublicProject'), findsNothing);
+        expect(find.text(longRoot), findsNothing);
+        expect(find.byTooltip('Repository: $longRoot'), findsOneWidget);
+        expect(find.byTooltip('Enclosing repository'), findsNothing);
         expect(find.text('Git unavailable. Refresh.'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
