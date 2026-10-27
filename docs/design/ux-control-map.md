@@ -24,7 +24,7 @@ technical controls are expandable. These are implemented paths, not prototype li
 | Run history / checkpoints | Activity → Earlier tasks → select task → evidence / Prepare resume draft |
 | Changes / restore | Changes → select file → diff → Review revert → explicit confirmation |
 | Workspace instructions | Chat details → Project instructions |
-| Fork conversation | Chat actions → Branch chat |
+| Fork conversation | Completed reply → More message actions → Branch in new chat |
 | Markdown / JSON / attachment exports | Chat actions → Export → select format |
 | Unused-attachment cleanup | Settings → Advanced → Diagnostics & storage → Attachment storage |
 | Compare instructions / capabilities / source | Settings → Advanced → Diagnostics & storage → named destination |

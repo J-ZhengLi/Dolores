@@ -7,12 +7,15 @@ published versions use SemVer and an ISO date.
 
 ### Changed
 
+- Branch in new chat is available in each completed reply's footer menu, including earlier history, replacing the separate turn picker. The original draft stays with its chat.
 - Automatic long tasks continue through durable internal context/evidence segments without repeatedly requiring Continue. Earlier progress remains inspectable in paged task history; explicit numeric budgets, Stop, questions and real failure recovery remain authoritative.
 - Files and Source Control use the selected Classic sidebar with compact rows, folders before files, filename-first changes and tighter history. Source Control replaces the project/path block with branch and change count, retaining the root in a tooltip and adding a compact Commit button.
 - The command and skill picker uses compact, padded rows with a clear keyboard selection. Skills can also be completed within a sentence while preserving surrounding text and their pinned reference.
 - Project and global skill files are ready to use in chat and the `/` picker without prior review. File updates apply to future messages, with optional viewing, direct enable/disable and one-step create/import. Existing snapshots and tool permissions are preserved.
 
 ### Fixed
+
+- Conversation branches copy saved history one message at a time in an atomic SQLite transaction, removing the 1-MiB and 100-turn cutoffs without loading the whole history. Text, timestamps, attachments and historical tool metadata remain intact; failed copies leave no partial branch.
 
 - Complete in-run context summaries can use prose, Markdown or JSON without a format-only pause. Original instructions and full tool evidence remain preserved, with no replay or extra model retry.
 - Long tool tasks can compact more than twice, and tool requests use the model's context allowance instead of a second 128-KiB transport cap. Private reasoning continuation checkpoints use memory pressure rather than a sixteen-call ceiling; completed receipts remain saved.

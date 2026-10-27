@@ -335,7 +335,7 @@ current app; commit or clear them before final Close.
 
 ## Settings
 
-Open **Settings** at the bottom of the left rail. The six sections are **General**, **Models**, **Personalization**, **Memory**, **Tools** and **Advanced**. Search settings to find a specific control. Chat actions contains Branch chat, Export and Chat details; the header icons open Changes and Activity.
+Open **Settings** at the bottom of the left rail. The six sections are **General**, **Models**, **Personalization**, **Memory**, **Tools** and **Advanced**. Search settings to find a specific control. Chat actions contains Export and Chat details; the header icons open Changes and Activity. Branching is available directly beneath completed replies.
 
 **General** offers System, Light and Dark. System follows the device; selecting a theme saves it locally and changes the whole app immediately. A failed save retains the previous theme and offers retry.
 
@@ -668,7 +668,7 @@ Drafts in saved chats are kept locally after a short typing pause. Failed sends 
 
 ## Forking and compacting a chat
 
-Use Chat actions → Branch chat to continue from a completed turn. The new chat shares the same files and starts with fresh permissions. In Context (the composer ring), enable Automatically compact this chat to permit one bounded summary attempt when older turns would otherwise be omitted. The draft survives failure; review the summary or increase the configured context window when recovery asks you to. See [managed threads](design/managed-threads.md) for coverage and limits.
+Navigate to the completed reply you want to continue from. Hover over it or use keyboard focus, open **More message actions (⋯)** beneath the reply, and choose **Branch in new chat**. Load earlier messages to branch from an older reply; there is no separate list of turns to identify. The new chat includes history through that reply, shares the same files and starts with fresh permissions. Your unsent draft remains in the original chat. Automatic context compaction is always enabled; use Context (the composer ring) to inspect or correct its summary. A failed summary preserves the draft and saved progress. See [managed threads](design/managed-threads.md) for coverage and limits.
 
 ## Project knowledge
 

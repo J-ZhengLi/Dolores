@@ -1670,18 +1670,54 @@ class ChatController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> forkAt(int through) async {
-    if (busy || changing || session == null) return;
+  bool forking = false;
+  bool get canFork =>
+      !busy &&
+      !changing &&
+      !loading &&
+      !skillSaving &&
+      !forking &&
+      session != null;
+  Future<void> forkAt(int through, {String? source}) async {
+    if (!canFork) return;
+    final owner = session!;
+    if (source != null && source != owner) {
+      error = 'The source chat changed. Open the reply in its original chat and branch again.';
+      _notify();
+      return;
+    }
+    forking = true;
+    changing = true;
+    error = null;
+    _notify();
+    String? created;
     try {
-      final result = await bridge.call({
-        'command': 'forkSession',
-        'session': session,
-        'through': through,
-      }) as Map;
-      await refresh();
-      await select(result['session']['id'] as String);
+      final Map result;
+      try {
+        await checkpointDraft();
+        if (session != owner) {
+          throw StateError('The source chat changed. Your draft remains.');
+        }
+        result = await bridge.call({
+          'command': 'forkSession',
+          'session': owner,
+          'through': through,
+        }) as Map;
+      } finally {
+        changing = false;
+      }
+      created = result['session']['id'] as String;
+      await refreshConversationList();
+      if (session != owner) {
+        throw StateError('The source view changed.');
+      }
+      await navigateConversation(created);
     } catch (failure) {
-      error = failure.toString();
+      error = created == null
+          ? failure.toString()
+          : 'Branch saved ($created), but could not be opened: $failure Open it from the conversation list; your original draft remains.';
+    } finally {
+      forking = false;
       _notify();
     }
   }

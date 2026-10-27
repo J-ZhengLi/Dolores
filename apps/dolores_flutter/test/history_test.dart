@@ -278,7 +278,7 @@ void main() {
       expect(chat.messages.first['id'], 1);
       await tester.tap(find.byKey(const Key('export-chat')));
       await tester.pumpAndSettle();
-      expect(find.text('Branch chat'), findsOneWidget);
+      expect(find.text('Branch chat'), findsNothing);
       expect(find.text('Chat details'), findsOneWidget);
       await tester.tap(find.text('Export…'));
       await tester.pumpAndSettle();

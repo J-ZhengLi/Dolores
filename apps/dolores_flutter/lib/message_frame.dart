@@ -13,6 +13,8 @@ class MessageFrame extends StatefulWidget {
   final VoidCallback? onRemember;
   final VoidCallback? onDiscuss, onBringBack;
   final VoidCallback? onEditBranch;
+  final VoidCallback? onBranch;
+  final bool branchEnabled;
 
   const MessageFrame({
     super.key,
@@ -25,6 +27,8 @@ class MessageFrame extends StatefulWidget {
     this.onDiscuss,
     this.onBringBack,
     this.onEditBranch,
+    this.onBranch,
+    this.branchEnabled = true,
   });
 
   @override
@@ -34,6 +38,7 @@ class MessageFrame extends StatefulWidget {
 class _MessageFrameState extends State<MessageFrame> {
   bool hovered = false;
   bool focused = false;
+  bool menuOpen = false;
 
   String? get timestamp {
     final milliseconds = widget.savedAt;
@@ -95,7 +100,7 @@ class _MessageFrameState extends State<MessageFrame> {
                       SizedBox(
                         height: 32,
                         child: Visibility(
-                          visible: hovered || focused,
+                          visible: hovered || focused || menuOpen,
                           maintainState: true,
                           maintainAnimation: true,
                           maintainSize: true,
@@ -173,6 +178,39 @@ class _MessageFrameState extends State<MessageFrame> {
                                     Icons.copy_outlined,
                                     color: p.muted,
                                   ),
+                                ),
+                              if (widget.onBranch != null)
+                                PopupMenuButton<String>(
+                                  tooltip: 'More message actions',
+                                  iconSize: 18,
+                                  padding: const EdgeInsets.all(4),
+                                  style: IconButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    minimumSize: const Size.square(32),
+                                  ),
+                                  enabled: widget.branchEnabled,
+                                  onOpened: () =>
+                                      setState(() => menuOpen = true),
+                                  onCanceled: () =>
+                                      setState(() => menuOpen = false),
+                                  onSelected: (_) {
+                                    setState(() => menuOpen = false);
+                                    widget.onBranch?.call();
+                                  },
+                                  icon: Icon(Icons.more_horiz, color: p.muted),
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(
+                                      value: 'branch',
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.fork_right, size: 18),
+                                          SizedBox(width: 10),
+                                          Text('Branch in new chat'),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                             ],
                           ),

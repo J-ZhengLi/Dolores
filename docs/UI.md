@@ -152,6 +152,8 @@ headings. Review each addition for general applicability even when checks pass.
   Continue cards, synthetic user turns or completion notifications.
 - Keep text selectable, code horizontally scrollable and Copy faithful to the
   complete source. Offer named keyboard/menu alternatives to dragging.
+  Branching belongs in each completed reply's footer actions and uses that exact
+  turn, including earlier loaded history. Avoid a separate truncated turn picker.
 
 ## Design review
 

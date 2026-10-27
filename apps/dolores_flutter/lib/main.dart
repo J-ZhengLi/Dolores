@@ -37,7 +37,6 @@ import 'worktrees.dart';
 import 'instructions.dart';
 import 'chat_sidebar.dart';
 import 'agent_timeline.dart';
-import 'thread_fork.dart';
 import 'side_conversations.dart';
 import 'prompt_branches.dart';
 import 'attachments.dart';
@@ -517,6 +516,7 @@ class _ChatPageState extends State<ChatPage> {
     List<Map<String, dynamic>> skills = const [],
   }) {
     final user = role == 'user';
+    final branchSource = chat.session;
     final callUsage = metadata?['agent']?['usageByCall'] as List?;
     final reasoningTokens =
         metadata?['usage']?['reasoningTokens'] ??
@@ -539,6 +539,10 @@ class _ChatPageState extends State<ChatPage> {
       text: text,
       streaming: streaming,
       savedAt: savedAt,
+      onBranch: !user && !streaming && messageId != null && branchSource != null
+          ? () => chat.forkAt(messageId, source: branchSource)
+          : null,
+      branchEnabled: chat.canFork,
       onEditBranch:
           user &&
               !streaming &&
@@ -1437,9 +1441,7 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: 'Chat actions',
                       enabled: !chat.changing && !chat.loading,
                       onSelected: (value) {
-                        if (value == 'fork') {
-                          showThreadFork(context, chat);
-                        } else if (value == 'worktrees') {
+                        if (value == 'worktrees') {
                           showWorktrees(
                             context,
                             chat,
@@ -1459,11 +1461,6 @@ class _ChatPageState extends State<ChatPage> {
                             enabled: !chat.busy,
                             child: const Text('Worktrees…'),
                           ),
-                        PopupMenuItem(
-                          value: 'fork',
-                          enabled: !chat.busy,
-                          child: const Text('Branch chat'),
-                        ),
                         PopupMenuItem(
                           value: 'export',
                           enabled: !chat.busy,
