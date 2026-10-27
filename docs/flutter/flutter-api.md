@@ -92,16 +92,34 @@ qualify model-dependent premature stopping, optimal thresholds or live reliabili
 
 `bootstrap.commandPicker` advertises `/` discovery. `composerCommands {session?}`
 returns fixed host command descriptors (`id/title/description/available/reason`),
-effective enabled reviewed skill entries (`selection/description/text`) and saved
-`selected` references. This read does not scan disk or consume Settings reviews.
+effective available skill entries (`selection/description/text`) and saved
+`selected` references. It scans bounded configured source collections without
+creating activation records or consuming optional Settings inspection tokens.
 Commands and skills remain separate types even when names collide. Stop and
 Resume queue use the existing host operations; Goal opens its EH03 controls.
 Plan opens EH04 review controls.
 
+The composer also opens skill-only discovery for `/name` within prose, including
+when the caret precedes existing trailing text. Inline completion retains a
+literal `/name` in the draft and saves the exact reference through
+`saveComposerSkills`; the text alone does not create a pinned selection. Fixed
+commands and `@` snapshot discovery remain line-start operations. Selection does
+not submit the message. Code, paths, IME composition and newer typing retain
+normal editing behavior.
+
 `saveComposerSkills {session,selections}` persists at most three distinct
-`{scope,name,revision,version}` references. New references require exact effective,
-enabled reviewed snapshots; stale chips can always be removed. Selections persist
-until removed and are included in context preview and normal request preparation.
+`{scope,name,revision,version,file?}` references (plus `packageId` for packages).
+New file references require the host's exact effective source identity;
+saved references retain their existing revision checks. Stale chips can always
+be removed. Selections belong to the composer draft and are included in context
+preview and normal request preparation. A successful native start/enqueue owns
+its immutable snapshot before the client clears the submitted selections. The
+pending message displays submitted skill names; saved user messages display the
+skills recorded in their paired response's context metadata. A failed/stopped
+ordinary send restores its references with the prompt when there is no newer
+draft/selection. A failed restoration remains visible and must persist
+successfully before another send; it cannot silently omit the skill. Newer
+typing/selections and separate queued/goal/plan/scheduled runs remain independent.
 Scheduled occurrences retain their own pinned skill. SQLite migration 40 adds
 per-chat selections without rewriting version 39 input receipts.
 
@@ -109,10 +127,16 @@ Enqueue snapshots the selected references transactionally in `selectedSkills`.
 Changing composer chips or editing queued text does not rewrite those snapshots.
 Queued start and steering resolve them again before delivery, refusing changed,
 disabled or overridden identities with draft/queue retained. Cancel and requeue
-explicitly to choose a new version. Steering adds reviewed skill instructions
+explicitly to choose a new snapshot. Steering adds selected skill instructions
 only at the same safe boundary as its user input, with existing context limits.
 Normal request context sources and instruction receipts retain scope/version
 provenance. Failed saves preserve the previous selection and draft.
+
+`saveSkillText {session,scope,name,text}` validates and saves imported/authored
+instructions in one action. `setSkillEnabled {session,scope,name,enabled}` changes
+availability directly; neither requires a UI review token. Source files are ready
+by default. Existing review/export/restore commands remain compatible optional
+inspection and recovery operations. See [skill source rules](../design/project-skills.md).
 
 ## Live instruction control (EH01)
 
@@ -295,7 +319,7 @@ Requests use a camelCase `command` discriminator. [`Command`](../../crates/dolor
 | Instructions/changes | `reviewInstructions`, `enableInstructions`, `disableInstructions`, `cancelInstructionReview`, `changesPage`, `changeDetails`, `previewRevert`, `applyRevert`, `cancelRevert` | Exact one-use previews with scope/snapshot binding. |
 | Memory | `memories`, `setAutomaticMemory`, `saveMemory`, `deleteMemory`, `reviewMemorySources`, `suggestMemories`, `saveMemorySuggestion`, `discardMemoryReview` | Revisioned preferences, quoted sources, scoped atomic updates. |
 | Summary | `reviewSummary`, `generateSummary`, `saveSummary`, `correctSummary`, `deleteSummary`, `discardSummaryReview` | Exact contiguous sources and explicit Save. |
-| Skills | `projectSkills`, `reviewSkill`, `activateSkill`, `exportSkill`, `disableSkill`, `forgetSkill`, `cancelSkillReview`, `reviewSkillExamples`, `generateSkillDraft`, `evaluateSkillDraft`, `promoteSkillDraft`, `discardSkillDraft` | Project/global snapshots, frozen evaluation and separate promotion. |
+| Skills | `projectSkills`, `saveSkillText`, `setSkillEnabled`, `reviewSkill`, `activateSkill`, `exportSkill`, `disableSkill`, `forgetSkill`, `cancelSkillReview`, `reviewSkillExamples`, `generateSkillDraft`, `evaluateSkillDraft`, `promoteSkillDraft`, `discardSkillDraft` | Direct project/global source availability, one-step save and enablement; retained snapshots, evaluation and separate generated-draft promotion. |
 | MCP | `mcpSettings`, `inspectMcp`, `enableMcp`, `disableMcp`, `forgetMcp`, `discardMcpReview` | Folder/connection identity, credentials, reviewed metadata and on-demand execution. |
 | Browser | `browserSettings`, `browserCapture` | Local optional-runtime discovery and bounded explicit capture preview; no automatic browser launch or action replay. |
 | Local evaluation | `saveTaskFeedback`, `comparisonSources`, `comparisonsPage`, `comparison`, `deleteComparison`, `startComparison` | Local feedback CAS; exact frozen comparison requests/results and bounded storage. |

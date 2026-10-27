@@ -13,8 +13,9 @@ class CreateBridge implements ChatBridge {
   @override
   Future<dynamic> call(Map<String, dynamic> command) async {
     commands.add(command);
-    if (command['command'] == 'reviewSkillText') {
+    if (command['command'] == 'saveSkillText') {
       if (invalid) throw 'Invalid skill document';
+      if (stale) throw 'Skill could not be saved. Try again.';
       return {
         'token': 'reviewed',
         'document': {'text': command['text']},
@@ -58,41 +59,37 @@ Future<void> open(WidgetTester t, CreateBridge b) async {
 }
 
 void main() {
-  testWidgets('global creation needs exact review before explicit activation', (
-    t,
-  ) async {
-    final b = CreateBridge();
-    await open(t, b);
-    await t.tap(find.text('Review'));
-    await t.pumpAndSettle();
-    expect(b.commands.where((c) => c['command'] == 'activateSkill'), isEmpty);
-    expect(b.commands.first['session'], '');
-    expect(find.text('Activate skill'), findsOneWidget);
-    await t.tap(find.text('Activate skill'));
-    await t.pumpAndSettle();
-    expect(
-      b.commands.where((c) => c['command'] == 'activateSkill').single['token'],
-      'reviewed',
-    );
-    expect(find.byType(SkillCreateDialog), findsNothing);
-    expect(t.takeException(), isNull);
-  });
-  testWidgets('malformed and stale reviews preserve editable instructions', (
+  testWidgets(
+    'global creation saves in one action without review or activation',
+    (t) async {
+      final b = CreateBridge();
+      await open(t, b);
+      await t.tap(find.text('Save skill'));
+      await t.pumpAndSettle();
+      expect(b.commands.where((c) => c['command'] == 'activateSkill'), isEmpty);
+      expect(b.commands.first['session'], '');
+      expect(
+        b.commands.where((c) => c['command'] == 'saveSkillText').single['name'],
+        'review',
+      );
+      expect(find.byType(SkillCreateDialog), findsNothing);
+      expect(t.takeException(), isNull);
+    },
+  );
+  testWidgets('malformed and failed saves preserve editable instructions', (
     t,
   ) async {
     final b = CreateBridge()..invalid = true;
     await open(t, b);
-    await t.tap(find.text('Review'));
+    await t.tap(find.text('Save skill'));
     await t.pumpAndSettle();
     expect(find.text('Invalid skill document'), findsOneWidget);
     expect(find.text('Activate skill'), findsNothing);
     b.invalid = false;
-    await t.tap(find.text('Review'));
-    await t.pumpAndSettle();
     b.stale = true;
-    await t.tap(find.text('Activate skill'));
+    await t.tap(find.text('Save skill'));
     await t.pumpAndSettle();
-    expect(find.text('Skill changed. Review again.'), findsOneWidget);
+    expect(find.text('Skill could not be saved. Try again.'), findsOneWidget);
     expect(
       t
           .widget<TextField>(find.byKey(const Key('create-skill-text')))

@@ -70,6 +70,7 @@ fn compaction_is_automatic_once_charged_and_failure_preserves_summary_history_an
             store.clone(),
             provider.clone(),
             TurnRequest {
+                available_skills: None,
                 hooks: None,
                 skill_resources: None,
                 command_sessions: None,

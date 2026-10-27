@@ -53,7 +53,10 @@ pub(super) fn save(
     let old = read(&tx, s)?;
     // Removing stale selections must remain possible, one chip at a time.
     if !selections.iter().all(|r| old.contains(r)) {
-        dolores_core::resolve_skill_selections(&saved, selections)?;
+        let retained: Vec<_> = selections.iter().filter(|s| !s.file).cloned().collect();
+        // File references are validated against the configured filesystem by the
+        // host before save/admission. This layer never reads ambient directories.
+        dolores_core::resolve_skill_selections(&saved, &retained)?;
     }
     tx.execute("INSERT INTO composer_skills VALUES(?1,?2) ON CONFLICT(session) DO UPDATE SET data=excluded.data",params![s,serde_json::to_string(selections).map_err(storage_error)?]).map_err(storage_error)?;
     tx.commit().map_err(storage_error)

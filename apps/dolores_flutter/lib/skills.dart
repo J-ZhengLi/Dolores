@@ -103,6 +103,11 @@ class _SkillsInspectorState extends State<SkillsInspector> {
   }
 
   Future<void> _list() => _act(_loadList);
+  Future<void> _toggle(String name, bool enabled) => _act(() async {
+    await _call('setSkillEnabled', {'name': name, 'enabled': enabled});
+    notice = enabled ? 'Skill enabled.' : 'Skill disabled.';
+    await _loadList();
+  });
   Future<void> _create(bool importing) => _act(() async {
     final saved = await showDialog<bool>(
       context: context,
@@ -115,7 +120,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
       ),
     );
     if (!mounted) return;
-    if (saved == true) notice = 'Skill activated for future messages.';
+    if (saved == true) notice = 'Skill saved and ready to use.';
     await _loadList();
   });
   Future<void> _draft() => _act(() async {
@@ -283,7 +288,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     const SizedBox(height: 12),
                   ],
                   Text(
-                    'Review instructions before activation. Tools keep their existing access rules.',
+                    'Skills are ready to use in chat. Tools keep their existing access rules.',
                   ),
                   const SizedBox(height: 8),
                   ExpansionTile(
@@ -291,9 +296,9 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     title: const Text('Limits and resources'),
                     children: [
                       HelpLabel(
-                        help: 'Active skills use saved versions. File changes wait for a new review. Project skills override active global skills with the same name. Up to 3 active skills and 8 KiB per scope; 5 recent versions per skill. Installed packages offer verified resource reads, including global packages. Other references and script execution require separately approved tools.',
+                        help: 'Project skills override global skills with the same name. Files are loaded for future messages without review. Disabled skills stay off. Up to 3 selected skills and 8 KiB per scope fit in a request; 5 recent saved versions are retained. Scripts and tools keep their existing access rules.',
                         child: Text(
-                          'Skills use reviewed, saved versions. Review file changes before activating them.',
+                          'File updates apply to future messages. Saved versions remain available for recovery.',
                           style: TextStyle(color: p.muted, fontSize: 12),
                         ),
                       ),
@@ -323,7 +328,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     ),
                     if (review!['reviewVersion'] != null)
                       Text(
-                        'Reviewing saved version ${review!['reviewVersion']}. Activation records a new version; the source file stays unchanged.',
+                        'Saved version ${review!['reviewVersion']}. Restore it without changing the source file.',
                         style: TextStyle(color: p.muted, fontSize: 12),
                       ),
                     if (review!['reviewVersion'] != null) ...[
@@ -365,9 +370,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     ),
                     const SizedBox(height: 8),
                     if ((review!['versions'] as List).isNotEmpty) ...[
-                      const Text(
-                        'Saved versions · select to review before rollback',
-                      ),
+                      const Text('Saved versions'),
                       Wrap(
                         spacing: 8,
                         runSpacing: 4,
@@ -422,7 +425,9 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                               ),
                               Text(
                                 item['revision'] == null
-                                    ? 'Available · not reviewed'
+                                    ? (item['enabled'] == true
+                                          ? 'Ready to use'
+                                          : 'Unavailable')
                                     : '${item['enabled'] == true ? 'Enabled' : 'Disabled'} · version ${item['version']}',
                               ),
                               if (item['overridden'] == true &&
@@ -440,6 +445,8 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                                 const Text(
                                   'Drafted and tested · saved locally',
                                 ),
+                              if (item['problem'] != null)
+                                Text(item['problem'] as String),
                               Wrap(
                                 spacing: 8,
                                 children: [
@@ -449,8 +456,24 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                                         busy || item['sourceAvailable'] == false
                                         ? null
                                         : () => _select(item['name'] as String),
-                                    child: const Text('Review file'),
+                                    child: const Text('View file'),
                                   ),
+                                  if (item['enabled'] == true ||
+                                      item['revision'] != null)
+                                    TextButton(
+                                      key: Key('toggle-skill-${item['name']}'),
+                                      onPressed: busy
+                                          ? null
+                                          : () => _toggle(
+                                              item['name'] as String,
+                                              item['enabled'] != true,
+                                            ),
+                                      child: Text(
+                                        item['enabled'] == true
+                                            ? 'Disable'
+                                            : 'Enable',
+                                      ),
+                                    ),
                                   if (item['revision'] != null)
                                     TextButton(
                                       key: Key('saved-skill-${item['name']}'),
@@ -548,20 +571,17 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                           : () => _mutate(true),
                       child: const Text('Forget saved versions'),
                     ),
-                    FilledButton(
-                      key: const Key('activate-skill'),
-                      onPressed:
-                          busy ||
-                              review!['token'] == null ||
-                              review!['alreadyActive'] == true
-                          ? null
-                          : _activate,
-                      child: Text(
-                        review!['reviewVersion'] == null
-                            ? 'Activate skill'
-                            : 'Activate version',
+                    if (review!['reviewVersion'] != null)
+                      FilledButton(
+                        key: const Key('activate-skill'),
+                        onPressed:
+                            busy ||
+                                review!['token'] == null ||
+                                review!['alreadyActive'] == true
+                            ? null
+                            : _activate,
+                        child: Text('Restore version'),
                       ),
-                    ),
                   ],
                 ],
               ),

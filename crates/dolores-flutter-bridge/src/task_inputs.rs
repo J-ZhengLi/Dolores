@@ -3,6 +3,7 @@ use super::*;
 use dolores_core::harness_task::{InputMode, InputState, TaskInput};
 
 pub(super) struct SteeringApproval {
+    pub global_skills_directory: Option<PathBuf>,
     pub resources: Option<Arc<crate::skill_packages::resources::Reader>>,
     pub inner: Arc<dyn dolores_core::ToolApproval>,
     pub store: Arc<dyn SessionStore>,
@@ -46,7 +47,11 @@ impl dolores_core::ToolApproval for SteeringApproval {
         }
         for input in self.pending()? {
             let skills = dolores_core::resolve_skill_selections(
-                &crate::skills::for_session(self.store.as_ref(), Some(&self.session))?,
+                &crate::skills::for_session_with_global(
+                    self.store.as_ref(),
+                    Some(&self.session),
+                    self.global_skills_directory.as_deref(),
+                )?,
                 &input.selected_skills,
             )?;
             if let Some(resources) = &self.resources {
@@ -313,6 +318,7 @@ mod tests {
                 arrival,
             });
             let approval = SteeringApproval {
+                global_skills_directory: None,
                 resources: None,
                 claimed: Mutex::new(vec![]),
                 inner: Arc::new(Approve {

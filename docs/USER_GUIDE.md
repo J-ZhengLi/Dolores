@@ -24,11 +24,16 @@ script is missing. These scripts run with your account permissions and may leave
 effects after Stop. Planning, scheduled runs and children do not run these hooks.
 See [hook limits and output format](design/lifecycle-hooks.md) before writing one.
 
-Type `/` at the start of a plain line to filter commands and enabled, reviewed
-skills. Use Up/Down and Enter or Tab to choose; Escape dismisses the picker and
-keeps the text. Paths and fenced code keep normal editing, and IME composition
-does not select or submit. `/stop` stops this chat's response; `/resume-queue`
-resumes its inspected, paused queue. `/goal` opens Goal and progress; `/plan`
+Type `/` at the start of a plain line to filter commands and available skills,
+or within a sentence to reference a skill, for example `Please use /commit`.
+Choosing a skill within a sentence completes its `/name` and keeps surrounding
+text; its chip shows the pinned selection. Use Up/Down and Enter or Tab to choose.
+Send or Queue/Steer attaches those skills to the submitted prompt and clears the
+chips for the next draft. Their names appear with the message. If sending fails,
+the prompt and selected skills return for retry without replacing newer work.
+Escape dismisses the picker and keeps the text. Paths and code keep normal
+editing, and IME composition does not select or submit. `/stop` stops this chat's
+response; `/resume-queue` resumes its inspected, paused queue. `/goal` opens Goal and progress; `/plan`
 opens Plan and decisions.
 
 Select text in a saved message and choose **Ask about this**, or use that
@@ -624,7 +629,7 @@ useful memory was extracted. Manual corrections protect your changes.
 
 **Instructions** reviews a project's root `AGENTS.md`. Enable explicitly; changed/missing instructions need review or Disable before sending. References stay literal rather than loading other files. Instructions never authorize tools.
 
-Place skills in `.agents/skills/<name>/SKILL.md` within a project, or `~/.agents/skills/<name>/SKILL.md` for all chats. In **Skills**, choose Project/Global, review and activate. Project skills override active global skills with the same name. File changes require review; saved versions support Disable, reviewed rollback and Forget. **Export SKILL.md** copies one retained version to a new file; companion resources are not copied.
+Place skills in `.agents/skills/<name>/SKILL.md` within a project, or `~/.agents/skills/<name>/SKILL.md` for all chats. Valid files are ready to use immediately: choose one with `/` or mention its name in chat. Source updates apply to future messages without review. In **Skills**, optionally view a file or disable/enable it; project skills override matching global skills. Create/import saves in one step. Saved versions retain restore and export controls. **Export SKILL.md** copies one retained version to a new file; companion resources are not copied.
 
 **Draft from chat** selects completed exchanges, generates an editable workflow, and compares responses on 1–3 literal tests. Review before **Activate tested skill**; it requires all candidate tests to pass and a strict gain. Draft-only output/deadline overrides leave chat settings unchanged. Truncated/invalid drafts stay unactivated, with selections available for retry.
 

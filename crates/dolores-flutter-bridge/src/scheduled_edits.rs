@@ -17,6 +17,7 @@ struct Plan {
     key: String,
 }
 pub(super) struct ManageTool {
+    pub(super) global_skills_directory: Option<PathBuf>,
     store: Arc<dyn SessionStore>,
     session: String,
     input: String,
@@ -24,8 +25,13 @@ pub(super) struct ManageTool {
     completed: Mutex<BTreeMap<String, String>>,
 }
 impl ManageTool {
+    pub(super) fn with_skills_directory(mut self, directory: Option<PathBuf>) -> Self {
+        self.global_skills_directory = directory;
+        self
+    }
     pub fn new(store: Arc<dyn SessionStore>, session: String, input: String) -> Self {
         Self {
+            global_skills_directory: None,
             store,
             session,
             input,
@@ -99,7 +105,11 @@ impl ToolPlugin for ManageTool {
                 if !s.contains(&name.to_lowercase()) {
                     return Err("Name the new skill in your request.".into());
                 }
-                let skills = skills::for_session(self.store.as_ref(), Some(&task.source_session))?;
+                let skills = skills::for_session_with_global(
+                    self.store.as_ref(),
+                    Some(&task.source_session),
+                    self.global_skills_directory.as_deref(),
+                )?;
                 task.skill = Some(pin_skill(
                     dolores_core::effective_skills(&skills)
                         .into_iter()

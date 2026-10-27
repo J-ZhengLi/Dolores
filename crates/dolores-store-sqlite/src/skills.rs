@@ -1,7 +1,7 @@
 use super::{now, storage_error, SqliteStore};
 use dolores_core::{
-    valid_skill_name, ProjectSkill, SkillDocument, SkillScope, SkillVersion, MAX_ACTIVE_SKILLS,
-    MAX_SAVED_SKILLS, MAX_SKILL_BYTES, MAX_SKILL_VERSIONS,
+    valid_skill_name, ProjectSkill, SkillDocument, SkillScope, SkillVersion, MAX_SAVED_SKILLS,
+    MAX_SKILL_VERSIONS,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -180,7 +180,8 @@ impl SqliteStore {
         }
         if previous.is_some_and(|s| {
             s.enabled && &s.current().document == document && s.current().package == package
-        }) {
+        }) && rollback.is_none()
+        {
             return Err("This exact skill version is already active.".into());
         }
         if previous.is_none() && skills.len() >= MAX_SAVED_SKILLS {
@@ -188,20 +189,8 @@ impl SqliteStore {
                 "Skills allow 12 saved entries per scope. Forget an unused entry first.".into(),
             );
         }
-        let others: Vec<_> = skills
-            .iter()
-            .filter(|s| s.enabled && s.name != document.name)
-            .collect();
-        if others.len() >= MAX_ACTIVE_SKILLS
-            || others
-                .iter()
-                .map(|s| s.current().document.text.len())
-                .sum::<usize>()
-                + document.text.len()
-                > MAX_SKILL_BYTES
-        {
-            return Err("Skills allow three active entries and 8 KiB combined per scope. Disable or shorten a skill first.".into());
-        }
+        // Availability is a catalog preference. Count/byte allowances apply to
+        // selected instructions in each request, not to saving another skill.
         let mut versions = previous.map(|s| s.versions.clone()).unwrap_or_default();
         let version = versions
             .last()
@@ -535,7 +524,7 @@ mod tests {
         assert!(store.project_skills(root).unwrap().is_empty());
     }
     #[test]
-    fn active_count_byte_and_saved_limits_refuse_without_partial_changes() {
+    fn availability_does_not_consume_request_limits_but_saved_capacity_stays_bounded() {
         let temp = tempfile::tempdir().unwrap();
         let store = SqliteStore::open(&temp.path().join("state.db")).unwrap();
         let root = temp.path().to_str().unwrap();
@@ -544,14 +533,19 @@ mod tests {
                 .activate_project_skill(root, &doc(name, "short"), None, None)
                 .unwrap();
         }
-        assert!(store
-            .activate_project_skill(root, &doc("d", "short"), None, None)
-            .is_err());
-        store.disable_project_skill(root, "c", 1).unwrap();
-        assert!(store
+        store
             .activate_project_skill(root, &doc("d", &"x".repeat(8192)), None, None)
-            .is_err());
-        for name in ["d", "e", "f", "g", "h", "i", "j", "k", "l"] {
+            .unwrap();
+        assert_eq!(
+            store
+                .project_skills(root)
+                .unwrap()
+                .iter()
+                .filter(|s| s.enabled)
+                .count(),
+            4
+        );
+        for name in ["e", "f", "g", "h", "i", "j", "k", "l"] {
             store
                 .activate_project_skill(root, &doc(name, "short"), None, None)
                 .unwrap();

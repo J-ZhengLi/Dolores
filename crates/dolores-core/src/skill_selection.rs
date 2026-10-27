@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SkillSelection {
+    /// Live file identity is checked by the host against its configured collection.
+    /// Storage retains the reference without requiring a saved activation record.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub file: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub package_id: Option<String>,
     pub scope: SkillScope,
@@ -15,6 +19,9 @@ pub struct SkillSelection {
 impl SkillSelection {
     pub fn from_skill(skill: &ProjectSkill) -> Self {
         Self {
+            file: skill.current().reviewed_at == 0
+                && skill.current().package.is_none()
+                && skill.current().evaluation.is_none(),
             package_id: skill.current().package.as_ref().map(|p| p.id.clone()),
             scope: skill.scope,
             name: skill.name.clone(),
@@ -29,6 +36,7 @@ pub fn validate_skill_selections(selections: &[SkillSelection]) -> Result<(), St
             !valid_skill_name(&s.name)
                 || s.revision == 0
                 || s.version == 0
+                || (s.file && s.package_id.is_some())
                 || s.package_id
                     .as_ref()
                     .is_some_and(|id| !crate::skill_packages::valid_digest(id))
@@ -37,7 +45,7 @@ pub fn validate_skill_selections(selections: &[SkillSelection]) -> Result<(), St
                     .any(|p| p.scope == s.scope && p.name == s.name)
         })
     {
-        return Err("Choose up to three distinct reviewed skills with valid versions.".into());
+        return Err("Choose up to three distinct available skills with valid snapshots.".into());
     }
     Ok(())
 }

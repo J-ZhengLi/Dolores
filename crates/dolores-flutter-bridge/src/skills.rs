@@ -28,9 +28,95 @@ pub(super) fn for_session(
         .map(|s| store.workspace(s))
         .transpose()?
         .and_then(|w| w.root);
-    let mut skills = root.map_or(Ok(vec![]), |root| store.project_skills(&root))?;
+    let mut skills = root.map_or(Ok(vec![]), |r| store.project_skills(&r))?;
     skills.extend(store.global_skills()?);
     Ok(skills)
+}
+pub(super) fn for_session_with_global(
+    store: &dyn SessionStore,
+    session: Option<&str>,
+    global: Option<&Path>,
+) -> Result<Vec<ProjectSkill>, String> {
+    let root = session
+        .map(|s| store.workspace(s))
+        .transpose()?
+        .and_then(|w| w.root);
+    let mut skills = root
+        .as_ref()
+        .map_or(Ok(vec![]), |root| store.project_skills(root))?;
+    if let Some(root) = &root {
+        load_files(&mut skills, root, SkillScope::Project);
+    }
+    let mut globals = store.global_skills()?;
+    if let Some(root) = global.and_then(Path::to_str) {
+        load_files(&mut globals, root, SkillScope::Global);
+    }
+    skills.extend(globals);
+    Ok(skills)
+}
+fn source_catalog(root: &str, scope: SkillScope) -> Result<dolores_tools_fs::SkillCatalog, String> {
+    match scope {
+        SkillScope::Project => dolores_tools_fs::project_skill_catalog(Path::new(root)),
+        SkillScope::Global => dolores_tools_fs::global_skill_catalog(Path::new(root)),
+    }
+}
+fn load_files(skills: &mut Vec<ProjectSkill>, root: &str, scope: SkillScope) {
+    let Ok(catalog) = source_catalog(root, scope) else {
+        return;
+    };
+    for name in catalog.sources {
+        let index = skills.iter().position(|s| s.name == name);
+        // Explicit opt-out, installed packages, generated skills and rollback
+        // snapshots retain their existing ownership. Ordinary source files are live.
+        if index.is_some_and(|i| {
+            let s = &skills[i];
+            !s.enabled
+                || s.current().package.is_some()
+                || s.current().evaluation.is_some()
+                || s.current().rollback_from.is_some()
+        }) {
+            continue;
+        }
+        let Ok(document) = read_document(root, &name, scope) else {
+            continue;
+        };
+        if index.is_some_and(|i| skills[i].current().document == document) {
+            continue;
+        }
+        use sha2::{Digest, Sha256};
+        let mut hash = Sha256::new();
+        // Bind composer references to exact source text and canonical collection.
+        // No registry write or human review is necessary for discovering a file.
+        hash.update(
+            std::fs::canonicalize(root)
+                .unwrap_or_else(|_| PathBuf::from(root))
+                .to_string_lossy()
+                .as_bytes(),
+        );
+        hash.update([0]);
+        hash.update(document.text.as_bytes());
+        let digest = hash.finalize();
+        let value = ProjectSkill {
+            scope,
+            name,
+            enabled: true,
+            revision: u32::from_be_bytes(digest[..4].try_into().unwrap()).max(1),
+            versions: vec![dolores_core::SkillVersion {
+                version: u32::from_be_bytes(digest[4..8].try_into().unwrap()).max(1),
+                reviewed_at: 0,
+                rollback_from: None,
+                evaluation: None,
+                package: None,
+                document,
+            }],
+        };
+        if let Some(index) = index {
+            skills[index] = value;
+        } else {
+            skills.push(value);
+        }
+    }
+    skills.sort_by(|a, b| a.name.cmp(&b.name));
 }
 fn read_document(root: &str, name: &str, scope: SkillScope) -> Result<SkillDocument, String> {
     match scope {
@@ -39,6 +125,76 @@ fn read_document(root: &str, name: &str, scope: SkillScope) -> Result<SkillDocum
     }
 }
 impl Engine {
+    pub(super) fn available_skills(
+        &self,
+        session: Option<&str>,
+    ) -> Result<Vec<ProjectSkill>, String> {
+        for_session_with_global(
+            self.store.as_ref(),
+            session,
+            self.global_skills_directory.as_deref(),
+        )
+    }
+    pub(super) fn set_skill_enabled(
+        &self,
+        session: &str,
+        name: &str,
+        scope: SkillScope,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        let root = self.skill_root(session, scope)?;
+        let saved = self
+            .saved_skills(&root, scope)?
+            .into_iter()
+            .find(|s| s.name == name);
+        if !enabled {
+            let saved = match saved {
+                Some(saved) => saved,
+                None => {
+                    let document = read_document(&root, name, scope)?;
+                    match scope {
+                        SkillScope::Project => self
+                            .store
+                            .activate_project_skill(&root, &document, None, None)?,
+                        SkillScope::Global => {
+                            self.store.activate_global_skill(&document, None, None)?
+                        }
+                    }
+                }
+            };
+            return self.mutate_scoped_skill(session, name, saved.revision, false, scope);
+        }
+        if let Some(saved) = saved.as_ref().filter(|s| {
+            s.current().package.is_some()
+                || s.current().evaluation.is_some()
+                || s.current().rollback_from.is_some()
+        }) {
+            let token =
+                self.review_scoped_skill(session, name, Some(saved.current().version), scope)?;
+            return self.activate_skill(
+                session,
+                token["token"]
+                    .as_str()
+                    .ok_or("Skill could not be enabled.")?,
+            );
+        }
+        let document = read_document(&root, name, scope).or_else(|error| {
+            saved
+                .as_ref()
+                .map(|s| s.current().document.clone())
+                .ok_or(error)
+        })?;
+        let revision = saved.as_ref().map(|s| s.revision);
+        let value = match scope {
+            SkillScope::Project => self
+                .store
+                .activate_project_skill(&root, &document, revision, None)?,
+            SkillScope::Global => self
+                .store
+                .activate_global_skill(&document, revision, None)?,
+        };
+        Ok(json!(value))
+    }
     pub(super) fn review_skill_text(
         &self,
         session: &str,
@@ -105,19 +261,15 @@ impl Engine {
             .take();
         let root = self.skill_root(session, scope)?;
         let saved = self.saved_skills(&root, scope)?;
-        let catalog = match scope {
-            SkillScope::Project => dolores_tools_fs::project_skill_catalog(Path::new(&root)),
-            SkillScope::Global => dolores_tools_fs::global_skill_catalog(Path::new(&root)),
-        };
+        let catalog = source_catalog(&root, scope);
+        let mut available = saved.clone();
+        load_files(&mut available, &root, scope);
         let project_names: BTreeSet<_> = if scope == SkillScope::Global {
-            for_session(
-                self.store.as_ref(),
-                (!session.is_empty()).then_some(session),
-            )?
-            .into_iter()
-            .filter(|s| s.scope == SkillScope::Project && s.enabled)
-            .map(|s| s.name)
-            .collect()
+            self.available_skills((!session.is_empty()).then_some(session))?
+                .into_iter()
+                .filter(|s| s.scope == SkillScope::Project && s.enabled)
+                .map(|s| s.name)
+                .collect()
         } else {
             BTreeSet::new()
         };
@@ -127,7 +279,10 @@ impl Engine {
         }
         let items:Vec<_> = names.into_iter().map(|name| {
             let record = saved.iter().find(|s| s.name == name);
-            json!({"name":name,"scope":scope,"generated":record.is_some_and(|s| s.current().evaluation.is_some()),"overridden":project_names.contains(&name),"enabled":record.is_some_and(|s| s.enabled),"revision":record.map(|s| s.revision),"version":record.map(|s| s.current().version),"description":record.map(|s| &s.current().document.description),"sourceAvailable":catalog.as_ref().is_ok_and(|c| c.sources.contains(&name))})
+            let current = available.iter().find(|s|s.name==name);
+            let source_available = catalog.as_ref().is_ok_and(|c|c.sources.contains(&name));
+            let problem = if source_available { read_document(&root,&name,scope).err() } else { None };
+            json!({"name":name,"scope":scope,"generated":record.is_some_and(|s| s.current().evaluation.is_some()),"overridden":project_names.contains(&name),"enabled":current.is_some_and(|s| s.enabled),"revision":record.map(|s| s.revision),"version":record.map(|s| s.current().version),"description":current.map(|s| &s.current().document.description),"sourceAvailable":source_available,"problem":problem})
         }).collect();
         Ok(
             json!({"items":items,"scope":scope,"directory":root,"partial":catalog.as_ref().is_ok_and(|c| c.partial),"problem":catalog.err()}),
@@ -200,7 +355,17 @@ impl Engine {
                 .package
                 .clone()
         });
-        let response = json!({"scope":scope,"token":token,"document":document,"evaluation":evaluation,"generated":generated,"package":package,"enabled":saved.as_ref().is_some_and(|s| s.enabled),"revision":saved.as_ref().map(|s| s.revision),"activeVersion":saved.as_ref().map(|s| s.current().version),"versions":versions,"reviewVersion":version,"sourceMatches":current.as_ref().ok()==Some(&document),"alreadyActive":saved.as_ref().is_some_and(|s| s.enabled && s.current().document==document && s.current().package==package),"problem":if generated {None} else {current.err()}});
+        let already_active = self
+            .available_skills((!session.is_empty()).then_some(session))?
+            .iter()
+            .any(|s| {
+                s.enabled
+                    && s.scope == scope
+                    && s.name == name
+                    && s.current().document == document
+                    && s.current().package == package
+            });
+        let response = json!({"scope":scope,"token":token,"document":document,"evaluation":evaluation,"generated":generated,"package":package,"enabled":saved.as_ref().is_some_and(|s| s.enabled),"revision":saved.as_ref().map(|s| s.revision),"activeVersion":saved.as_ref().map(|s| s.current().version),"versions":versions,"reviewVersion":version,"sourceMatches":current.as_ref().ok()==Some(&document),"alreadyActive":already_active,"problem":if generated {None} else {current.err()}});
         *self
             .skill_review
             .lock()
@@ -608,7 +773,7 @@ mod tests {
             .unwrap();
     }
     #[test]
-    fn global_review_is_explicit_available_in_side_chats_and_scoped() {
+    fn global_files_are_ready_and_optional_saved_version_operations_stay_scoped() {
         let temp = tempfile::tempdir().unwrap();
         let root = crate::workspace::canonical_folder(temp.path()).unwrap();
         let store = Arc::new(SqliteStore::open(&temp.path().join("state.db")).unwrap());
@@ -635,7 +800,7 @@ mod tests {
         std::fs::write(&file, text).unwrap();
         assert_eq!(
             engine.scoped_skills("side", SkillScope::Global).unwrap()["items"][0]["enabled"],
-            false
+            true
         );
         assert!(for_session(store.as_ref(), Some("side"))
             .unwrap()
@@ -715,7 +880,7 @@ mod tests {
         assert!(store.global_skills().unwrap().is_empty());
     }
     #[test]
-    fn reviews_bind_source_session_expiry_saved_state_and_never_auto_activate() {
+    fn optional_version_saves_bind_source_session_expiry_without_blocking_file_use() {
         let temp = tempfile::tempdir().unwrap();
         let root = crate::workspace::canonical_folder(temp.path()).unwrap();
         let store = Arc::new(SqliteStore::open(&temp.path().join("state.db")).unwrap());
@@ -746,7 +911,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             engine.project_skills("first").unwrap()["items"][0]["enabled"],
-            false
+            true
         );
         assert!(for_session(store.as_ref(), Some("first"))
             .unwrap()

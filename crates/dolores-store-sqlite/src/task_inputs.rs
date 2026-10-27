@@ -188,7 +188,11 @@ pub(super) fn edit_in_transaction(
                         let selections = super::composer_skills::read(tx, s)?;
                         dolores_core::resolve_skill_selections(
                             &super::composer_skills::available(tx, s)?,
-                            &selections,
+                            &selections
+                                .iter()
+                                .filter(|s| !s.file)
+                                .cloned()
+                                .collect::<Vec<_>>(),
                         )?;
                         selections
                     },

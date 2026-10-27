@@ -1,6 +1,6 @@
 import 'form_field_layout.dart';
+
 import 'dart:convert';
-import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +29,6 @@ class _SkillCreateState extends State<SkillCreateDialog> {
       body = TextEditingController();
   bool pending = false;
   String? error;
-  Map<String, dynamic>? review;
   Future<void> close() async {
     if (pending) return;
     if (name.text.isNotEmpty ||
@@ -39,7 +38,7 @@ class _SkillCreateState extends State<SkillCreateDialog> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Discard skill draft?'),
-          content: const Text('Your skill has not been activated.'),
+          content: const Text('Your skill has not been saved.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -59,14 +58,6 @@ class _SkillCreateState extends State<SkillCreateDialog> {
 
   @override
   void dispose() {
-    final token = review?['token'];
-    if (token != null) {
-      unawaited(
-        widget.bridge
-            .call({'command': 'cancelSkillReview', 'token': token})
-            .catchError((_) => null),
-      );
-    }
     name.dispose();
     description.dispose();
     body.dispose();
@@ -102,7 +93,7 @@ class _SkillCreateState extends State<SkillCreateDialog> {
     }
   }
 
-  Future<void> inspect() async {
+  Future<void> save() async {
     setState(() {
       pending = true;
       error = null;
@@ -111,40 +102,16 @@ class _SkillCreateState extends State<SkillCreateDialog> {
       final text = widget.importing
           ? body.text
           : '---\nname: ${jsonEncode(name.text.trim())}\ndescription: ${jsonEncode(description.text.trim())}\n---\n${body.text}';
-      final value = await widget.bridge.call({
-        'command': 'reviewSkillText',
+      await widget.bridge.call({
+        'command': 'saveSkillText',
         'session': widget.session,
         'scope': widget.scope,
         'name': name.text.trim(),
         'text': text,
-      }) as Map;
-      if (mounted) setState(() => review = value.cast<String, dynamic>());
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
-    } finally {
-      if (mounted) setState(() => pending = false);
-    }
-  }
-
-  Future<void> activateSkill() async {
-    setState(() {
-      pending = true;
-      error = null;
-    });
-    try {
-      await widget.bridge.call({
-        'command': 'activateSkill',
-        'session': widget.session,
-        'token': review!['token'],
       });
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = '$e';
-          review = null;
-        });
-      }
+      if (mounted) setState(() => error = '$e');
     } finally {
       if (mounted) setState(() => pending = false);
     }
@@ -159,13 +126,7 @@ class _SkillCreateState extends State<SkillCreateDialog> {
         if (!didPop) close();
       },
       child: AlertDialog(
-        title: Text(
-          review != null
-              ? 'Review skill'
-              : widget.importing
-              ? 'Import skill'
-              : 'Create skill',
-        ),
+        title: Text(widget.importing ? 'Import skill' : 'Create skill'),
         content: SizedBox(
           width: 560,
           child: SingleChildScrollView(
@@ -174,7 +135,7 @@ class _SkillCreateState extends State<SkillCreateDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (error != null) Text(error!),
-                if (review == null) ...[
+                ...[
                   if (widget.importing)
                     TextButton.icon(
                       onPressed: pending ? null : readFile,
@@ -187,7 +148,9 @@ class _SkillCreateState extends State<SkillCreateDialog> {
                       key: const Key('create-skill-name'),
                       controller: name,
                       enabled: !pending,
-                      decoration: const InputDecoration(hintText: 'code-review'),
+                      decoration: const InputDecoration(
+                        hintText: 'code-review',
+                      ),
                     ),
                   ),
                   if (!widget.importing)
@@ -212,12 +175,6 @@ class _SkillCreateState extends State<SkillCreateDialog> {
                       decoration: InputDecoration(),
                     ),
                   ),
-                ] else ...[
-                  Text(
-                    'Use ${widget.scope == 'global' ? 'in all projects' : 'in this project'}. Activation shares these instructions with your model. Tools keep their existing access rules.',
-                  ),
-                  const SizedBox(height: 12),
-                  SelectableText(review!['document']['text'] as String),
                 ],
               ],
             ),
@@ -228,24 +185,15 @@ class _SkillCreateState extends State<SkillCreateDialog> {
             onPressed: pending ? null : close,
             child: const Text('Cancel'),
           ),
-          if (review != null)
-            TextButton(
-              onPressed: pending ? null : () => setState(() => review = null),
-              child: const Text('Edit'),
-            ),
           FilledButton(
             key: const Key('create-skill-review'),
-            onPressed: pending
-                ? null
-                : review == null
-                ? inspect
-                : activateSkill,
+            onPressed: pending ? null : save,
             child: Text(
               pending
-                  ? 'Working…'
-                  : review == null
-                  ? 'Review'
-                  : 'Activate skill',
+                  ? 'Saving…'
+                  : widget.importing
+                  ? 'Import skill'
+                  : 'Save skill',
             ),
           ),
         ],

@@ -111,6 +111,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    available_skills: Option<Vec<dolores_core::ProjectSkill>>,
     hooks: Option<Arc<lifecycle_hooks::Runtime>>,
     skill_resources: Option<Arc<skill_packages::resources::Reader>>,
     command_sessions: Option<Arc<command_sessions::Live>>,
@@ -710,6 +711,22 @@ enum Command {
         session: String,
         token: String,
     },
+    SetSkillEnabled {
+        #[serde(default)]
+        session: String,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
+        name: String,
+        enabled: bool,
+    },
+    SaveSkillText {
+        #[serde(default)]
+        session: String,
+        #[serde(default)]
+        scope: dolores_core::SkillScope,
+        name: String,
+        text: String,
+    },
     ExportSkill {
         session: String,
         token: String,
@@ -1166,11 +1183,23 @@ impl Engine {
                 return Ok(json!(self.store.edit_goal(&session,&edit,limits)?));
             },
             Command::ComposerCommands { session } => return self.composer_commands(session.as_deref(), session.as_ref().is_some_and(|s| active.has_session(s))),
-            Command::SaveComposerSkills { session, selections } => { self.store.save_composer_skills(&session, &selections)?; return Ok(json!(selections)); },
+            Command::SaveComposerSkills { session, selections } => {
+                let old = self.store.composer_skills(&session)?;
+                if !selections.iter().all(|s|old.contains(s)) {
+                    dolores_core::resolve_skill_selections(&self.available_skills(Some(&session))?,&selections)?;
+                }
+                self.store.save_composer_skills(&session, &selections)?;
+                return Ok(json!(selections));
+            },
             Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
             Command::SideConversation{session,request}=>return self.side_conversation_call(&session,request,&active),
             Command::ReviewFindings {session,request}=>return source_control::findings::local(self.store.as_ref(),&session,request),
             Command::EditTaskInputs { session, edit } => {
+                if let dolores_core::harness_task::InputEdit::Enqueue{id,..} = &edit {
+                    if !self.store.task_inputs(&session)?.entries.iter().any(|v|v.id==*id) {
+                        dolores_core::resolve_skill_selections(&self.available_skills(Some(&session))?,&self.store.composer_skills(&session)?)?;
+                    }
+                }
                 if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}) {
                     if let Some(id)=active.client_id(&session) {
                         if self.store.scheduled_for_run(&session,id)?.is_some() || self.store.runs(&session)?.first().is_some_and(|run|run.tools.iter().any(|name|matches!(name.as_str(),"desktop_control"|"inspect_desktop_capture"))) {
@@ -1709,6 +1738,26 @@ impl Engine {
                 scope,
             } => self.review_scoped_skill(&session, &name, version, scope),
             Command::ActivateSkill { session, token } => self.activate_skill(&session, &token),
+            Command::SetSkillEnabled {
+                session,
+                scope,
+                name,
+                enabled,
+            } => self.set_skill_enabled(&session, &name, scope, enabled),
+            Command::SaveSkillText {
+                session,
+                scope,
+                name,
+                text,
+            } => {
+                let inspected = self.review_skill_text(&session, scope, &name, text)?;
+                self.activate_skill(
+                    &session,
+                    inspected["token"]
+                        .as_str()
+                        .ok_or("Skill could not be saved.")?,
+                )
+            }
             Command::ExportSkill {
                 session,
                 token,
@@ -1836,7 +1885,7 @@ impl Engine {
                 let guidance =
                     instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
                 let memories = memory::recall_for_session(self.store.as_ref(), session.as_deref())?;
-                let skills = skills::for_session(self.store.as_ref(), session.as_deref())?;
+                let skills = self.available_skills(session.as_deref())?;
                 let tools = match session.as_ref() {
                     Some(id) => self.store.workspace(id)?.root.is_some(),
                     None => tools,
@@ -1951,14 +2000,16 @@ impl Engine {
                             id.clone(),
                             input.clone(),
                             effective.clone(),
-                        )?,
+                        )?
+                        .with_skills_directory(self.global_skills_directory.clone()),
                     ));
                     specs.push(dolores_core::ToolPlugin::spec(
                         &scheduled_edits::ManageTool::new(
                             self.store.clone(),
                             id.clone(),
                             input.clone(),
-                        ),
+                        )
+                        .with_skills_directory(self.global_skills_directory.clone()),
                     ));
                 }
                 let planning_state = session
@@ -2333,7 +2384,7 @@ impl Engine {
                 };
                 if !selected_skills.is_empty() {
                     dolores_core::resolve_skill_selections(
-                        &skills::for_session(self.store.as_ref(), session.as_deref())?,
+                        &self.available_skills(session.as_deref())?,
                         &selected_skills,
                     )?;
                 }
@@ -2623,19 +2674,25 @@ impl Engine {
                     tools.push(computer);
                 }
                 if scheduling_available {
-                    tools.push(Arc::new(scheduling::ScheduleTool::new(
-                        self.store.clone(),
-                        session.clone().unwrap(),
-                        input.clone(),
-                        effective.clone(),
-                    )?));
+                    tools.push(Arc::new(
+                        scheduling::ScheduleTool::new(
+                            self.store.clone(),
+                            session.clone().unwrap(),
+                            input.clone(),
+                            effective.clone(),
+                        )?
+                        .with_skills_directory(self.global_skills_directory.clone()),
+                    ));
                 }
                 if scheduling_available {
-                    tools.push(Arc::new(scheduled_edits::ManageTool::new(
-                        self.store.clone(),
-                        session.clone().unwrap(),
-                        input.clone(),
-                    )));
+                    tools.push(Arc::new(
+                        scheduled_edits::ManageTool::new(
+                            self.store.clone(),
+                            session.clone().unwrap(),
+                            input.clone(),
+                        )
+                        .with_skills_directory(self.global_skills_directory.clone()),
+                    ));
                 }
                 let compaction_provider = if desktop_capture.is_none()
                     && self.store.auto_compact(session.as_deref().unwrap())?
@@ -2688,7 +2745,7 @@ impl Engine {
                 let package_candidates = if let Some(o) = &scheduled {
                     o.snapshot.skill.clone().into_iter().collect()
                 } else {
-                    skills::for_session(self.store.as_ref(), session.as_deref())?
+                    self.available_skills(session.as_deref())?
                 };
                 let skill_resources = self
                     .workspace_directory
@@ -2862,6 +2919,7 @@ impl Engine {
                 let approval: Arc<dyn dolores_core::ToolApproval> =
                     if scheduled.is_none() && desktop_capture.is_none() {
                         Arc::new(task_inputs::SteeringApproval {
+                            global_skills_directory: self.global_skills_directory.clone(),
                             resources: skill_resources.clone(),
                             claimed: Mutex::new(vec![]),
                             inner: approval,
@@ -2988,6 +3046,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            available_skills: Some(package_candidates.clone()),
                             hooks,
                             skill_resources,
                             command_sessions:command_owner.clone(),
@@ -3107,6 +3166,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        available_skills,
         hooks,
         skill_resources,
         command_sessions,
@@ -3171,7 +3231,10 @@ async fn execute(
             {
                 o.snapshot.skill.into_iter().collect()
             } else {
-                skills::for_session(reader.as_ref(), Some(&session))?
+                match available_skills.clone() {
+                    Some(skills) => skills,
+                    None => skills::for_session(reader.as_ref(), Some(&session))?,
+                }
             };
             Ok((
                 session,
@@ -3448,6 +3511,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                available_skills: Some(skills),
                 hooks,
                 skill_resources,
                 command_sessions,
@@ -4130,6 +4194,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    available_skills: None,
                     hooks: None,
                     skill_resources: None,
                     command_sessions: None,
@@ -4525,6 +4590,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            available_skills: None,
             hooks: None,
             skill_resources: None,
             command_sessions: None,

@@ -34,7 +34,7 @@ pub fn prepare_selected_skill_context(
         .map_or("", |m| m.content.as_str())
         .to_lowercase();
     let active = crate::effective_skills(skills);
-    let selected: Vec<_> = active
+    let mut candidates: Vec<_> = active
         .iter()
         .filter(|s| {
             explicit
@@ -57,8 +57,35 @@ pub fn prepare_selected_skill_context(
         })
         .map(|s| (*s).clone())
         .collect();
+    // A named skill must win over incidental description keywords when only a
+    // bounded subset can fit. Picker selections retain the first priority below.
+    candidates.sort_by_key(|s| {
+        !input
+            .split(|c: char| !c.is_alphanumeric() && c != '-')
+            .any(|word| word == s.name)
+    });
+    let mut selected = explicit;
+    for skill in candidates {
+        if selected
+            .iter()
+            .any(|s| s.scope == skill.scope && s.name == skill.name)
+        {
+            continue;
+        }
+        let scoped: Vec<_> = selected.iter().filter(|s| s.scope == skill.scope).collect();
+        if scoped.len() < crate::MAX_ACTIVE_SKILLS
+            && scoped
+                .iter()
+                .map(|s| s.current().document.text.len())
+                .sum::<usize>()
+                + skill.current().document.text.len()
+                <= crate::MAX_SKILL_BYTES
+        {
+            selected.push(skill);
+        }
+    }
     if !active.is_empty() {
-        messages[0].content.push_str("\nActivated skill catalogue (name/description keyword relevance, not semantic search). Full instructions are included only for matching skills. Mention a skill name to select it explicitly:\n");
+        messages[0].content.push_str("\nAvailable skill catalogue (name/description keyword relevance, not semantic search). Full instructions are included for matching skills within the per-request limits. Mention a skill name or select it with / to use it explicitly; no prior review is needed:\n");
         for skill in active {
             skill.validate()?;
             messages[0].content.push_str(&format!(
@@ -75,6 +102,43 @@ pub fn prepare_selected_skill_context(
 mod tests {
     use super::*;
     use crate::{SkillDocument, SkillScope, SkillVersion};
+    #[test]
+    fn many_available_matches_keep_requests_bounded_and_explicit_selection_first() {
+        let skills: Vec<_> = (0..8)
+            .map(|i| ProjectSkill {
+                scope: SkillScope::Global,
+                name: format!("format-{i}"),
+                revision: 1,
+                enabled: true,
+                versions: vec![SkillVersion {
+                    package: None,
+                    version: 1,
+                    reviewed_at: 0,
+                    rollback_from: None,
+                    evaluation: None,
+                    document: SkillDocument {
+                        name: format!("format-{i}"),
+                        description: "Format output".into(),
+                        text: format!("EXACT_INSTRUCTIONS_{i}"),
+                    },
+                }],
+            })
+            .collect();
+        let context = crate::preview_context(vec![], "Format output").unwrap();
+        let explicit = crate::SkillSelection::from_skill(&skills[7]);
+        let (messages, sources) =
+            prepare_selected_skill_context(context, &skills, &[explicit]).unwrap();
+        assert_eq!(sources.len(), 3);
+        assert_eq!(sources[0].name, "format-7");
+        assert!(messages[0].content.contains("format-6: Format output"));
+        assert!(!messages[0].content.contains("EXACT_INSTRUCTIONS_6"));
+        let (_, named) = prepare_relevant_skill_context(
+            crate::preview_context(vec![], "Use format-7").unwrap(),
+            &skills,
+        )
+        .unwrap();
+        assert_eq!(named[0].name, "format-7");
+    }
     #[test]
     fn generated_review_description_selects_the_singular_request() {
         let skill = ProjectSkill {

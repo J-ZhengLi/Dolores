@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/chat.dart';
@@ -6,11 +8,13 @@ import 'package:dolores_flutter/skills.dart';
 import 'package:dolores_flutter/inspector.dart';
 import 'package:dolores_flutter/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class SkillBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
-  bool enabled = false, saved = false, missing = false, conflict = false;
+  bool enabled = true, saved = false, missing = false, conflict = false;
   int revision = 1, version = 1;
   Completer<void>? pending;
   Completer<void>? exporting;
@@ -82,6 +86,13 @@ class SkillBridge implements ChatBridge {
             {'version': version},
           ],
         };
+      case 'setSkillEnabled':
+        if (conflict) {
+          throw Exception('Could not save this setting. Try again.');
+        }
+        enabled = command['enabled'] == true;
+        saved = true;
+        return null;
       case 'disableSkill':
         enabled = false;
         revision++;
@@ -138,11 +149,14 @@ Future<void> open(
           builder: (context) => TextButton(
             onPressed: () => showDialog<void>(
               context: context,
-              builder: (_) => SkillsInspector(
-                bridge: bridge,
-                session: 'chat',
-                hasProject: hasProject,
-                chooseExportPath: chooseExportPath,
+              builder: (_) => RepaintBoundary(
+                key: const Key('skills-capture'),
+                child: SkillsInspector(
+                  bridge: bridge,
+                  session: 'chat',
+                  hasProject: hasProject,
+                  chooseExportPath: chooseExportPath,
+                ),
               ),
             ),
             child: const Text('Open'),
@@ -158,6 +172,7 @@ Future<void> open(
 Future<void> press(WidgetTester tester, String key) async {
   final target = find.byKey(Key(key));
   if (key.startsWith('review-skill') ||
+      key.startsWith('toggle-skill') ||
       key.startsWith('saved-skill') ||
       key.startsWith('skill-version')) {
     await tester.scrollUntilVisible(
@@ -173,11 +188,28 @@ Future<void> press(WidgetTester tester, String key) async {
 }
 
 void main() {
+  setUpAll(() async {
+    for (final font in {
+      'Segoe UI':
+          '${Platform.environment['WINDIR'] ?? 'C:/Windows'}/Fonts/segoeui.ttf',
+      'MaterialIcons': '../../output/toolchains/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    }.entries) {
+      final file = File(font.value);
+      if (await file.exists()) {
+        final loader = FontLoader(font.key)
+          ..addFont(
+            Future.value(ByteData.sublistView(await file.readAsBytes())),
+          );
+        await loader.load();
+      }
+    }
+  });
   for (final dark in [false, true]) {
     testWidgets(
       'export selected retained version with no activation in compact ${dark ? 'dark' : 'light'} layout',
       (tester) async {
         final bridge = SkillBridge()
+          ..enabled = false
           ..saved = true
           ..version = 2
           ..missing = true;
@@ -222,7 +254,9 @@ void main() {
   testWidgets(
     'export absent for unretained file and cancelling destination publishes nothing',
     (tester) async {
-      final bridge = SkillBridge()..saved = true;
+      final bridge = SkillBridge()
+        ..enabled = false
+        ..saved = true;
       await open(tester, bridge, true, chooseExportPath: (_, _) async => null);
       await press(tester, 'review-skill-review');
       expect(find.byKey(const Key('export-skill')), findsNothing);
@@ -241,6 +275,7 @@ void main() {
     (tester) async {
       final bridge = ScopedSkillBridge();
       bridge.global
+        ..enabled = false
         ..saved = true
         ..exportConflict = true
         ..exporting = Completer<void>();
@@ -331,140 +366,66 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('global and project tabs keep activation and disable scoped', (
-    tester,
-  ) async {
-    final bridge = ScopedSkillBridge();
-    await open(tester, bridge, true);
-    await tester.tap(find.text('All projects'));
-    await tester.pumpAndSettle();
-    await press(tester, 'review-skill-review');
-    await press(tester, 'activate-skill');
-    expect(bridge.global.enabled, isTrue);
-    expect(bridge.project.enabled, isFalse);
-    await tester.tap(find.text('This project'));
-    await tester.pumpAndSettle();
-    await press(tester, 'review-skill-review');
-    await press(tester, 'activate-skill');
-    expect(bridge.project.enabled, isTrue);
-    await press(tester, 'disable-skill');
-    expect(bridge.project.enabled, isFalse);
-    expect(bridge.global.enabled, isTrue);
-    expect(
-      bridge.commands
-          .where((c) => c['command'] == 'disableSkill')
-          .single['scope'],
-      'project',
-    );
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets('side chats open global skills with project selection disabled', (
-    tester,
-  ) async {
-    final bridge = ScopedSkillBridge();
-    await open(tester, bridge, false, hasProject: false);
-    final selector = tester.widget<SegmentedButton<String>>(
-      find.byType(SegmentedButton<String>),
-    );
-    expect(selector.selected, {'global'});
-    expect(selector.segments.first.enabled, isFalse);
-    await press(tester, 'review-skill-review');
-    await press(tester, 'activate-skill');
-    expect(bridge.global.enabled, isTrue);
-    expect(bridge.commands.every((c) => c['scope'] == 'global'), isTrue);
-    expect(tester.takeException(), isNull);
-  });
   for (final dark in [false, true]) {
     testWidgets(
-      'compact literal review, explicit activation and missing-source rollback ${dark ? 'dark' : 'light'}',
+      'files are ready without review, details optional, toggle scoped $dark',
       (tester) async {
-        final bridge = SkillBridge();
+        final bridge = ScopedSkillBridge();
         await open(tester, bridge, dark);
+        expect(find.text('Ready to use'), findsOneWidget);
+        expect(find.text('Review file'), findsNothing);
+        await tester.runAsync(() async {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const Key('skills-capture')),
+          );
+          final image = await boundary.toImage(pixelRatio: 1);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final directory = Directory('../../output/direct-skills');
+          await directory.create(recursive: true);
+          await File('${directory.path}/skills-${dark ? 'dark' : 'light'}.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+        expect(
+          bridge.commands.where((c) => c['command'] == 'reviewSkill'),
+          isEmpty,
+        );
+        await press(tester, 'toggle-skill-review');
+        expect(bridge.project.enabled, isFalse);
+        expect(bridge.global.enabled, isTrue);
+        await tester.tap(find.text('All projects'));
+        await tester.pumpAndSettle();
+        expect(find.text('Ready to use'), findsOneWidget);
         await press(tester, 'review-skill-review');
-        expect(bridge.enabled, isFalse);
+        expect(find.byKey(const Key('activate-skill')), findsNothing);
         await tester.scrollUntilVisible(
           find.byKey(const Key('skill-source-text')),
           150,
           scrollable: find.byType(Scrollable).first,
         );
+        expect(find.byKey(const Key('skill-source-text')), findsOneWidget);
         expect(
-          tester
-              .widget<SelectableText>(
-                find.byKey(const Key('skill-source-text')),
-              )
-              .data,
-          contains('@../private.env'),
+          bridge.commands.where((c) => c['command'] == 'activateSkill'),
+          isEmpty,
         );
-        await press(tester, 'activate-skill');
-        expect(bridge.enabled, isTrue);
-        await press(tester, 'skills-back');
-        bridge.missing = true;
-        await press(tester, 'saved-skill-review');
-        await tester.scrollUntilVisible(
-          find.textContaining('file is unavailable'),
-          150,
-          scrollable: find.byType(Scrollable).first,
-        );
-        expect(find.textContaining('file is unavailable'), findsOneWidget);
-        await press(tester, 'disable-skill');
-        expect(bridge.enabled, isFalse);
-        await press(tester, 'saved-skill-review');
-        await press(tester, 'skill-version-1');
-        await press(tester, 'activate-skill');
-        expect(bridge.version, 2);
-        expect(bridge.enabled, isTrue);
-        await press(tester, 'forget-skill');
-        expect(bridge.saved, isFalse);
         expect(tester.takeException(), isNull);
       },
     );
   }
-  testWidgets(
-    'pending write excludes close and repeated activation; failed review cannot be replayed',
-    (tester) async {
-      final bridge = SkillBridge()
-        ..pending = Completer<void>()
-        ..conflict = true;
-      await open(tester, bridge, true);
-      await press(tester, 'review-skill-review');
-      await tester.tap(find.byKey(const Key('activate-skill')));
-      await tester.pump();
-      expect(
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'Close'))
-            .onPressed,
-        isNull,
-      );
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('activate-skill')))
-            .onPressed,
-        isNull,
-      );
-      bridge.pending!.complete();
-      await tester.pumpAndSettle();
-      expect(bridge.enabled, isFalse);
-      await tester.scrollUntilVisible(
-        find.textContaining('changed after review'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.textContaining('changed after review'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('activate-skill')))
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
-      expect(
-        bridge.commands.where((c) => c['command'] == 'activateSkill').length,
-        1,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('failed disable preserves ready skill and allows retry', (
+    tester,
+  ) async {
+    final bridge = SkillBridge()..conflict = true;
+    await open(tester, bridge, false);
+    await press(tester, 'toggle-skill-review');
+    expect(bridge.enabled, isTrue);
+    expect(find.textContaining('Could not save this setting'), findsOneWidget);
+    bridge.conflict = false;
+    await press(tester, 'toggle-skill-review');
+    expect(bridge.enabled, isFalse);
+    expect(find.text('Skill disabled.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('Close cancels a ready review without activation', (
     tester,
   ) async {
@@ -474,7 +435,7 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
     expect(bridge.commands.last['command'], 'cancelSkillReview');
-    expect(bridge.enabled, isFalse);
+    expect(bridge.enabled, isTrue);
   });
   testWidgets('context shows exact active snapshot and version', (
     tester,

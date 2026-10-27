@@ -279,6 +279,7 @@ mod tests {
         s.save_composer_skills(
             "task",
             &[dolores_core::SkillSelection {
+                file: false,
                 package_id: Some(p.package.id.clone()),
                 scope: SkillScope::Global,
                 name: "review".into(),

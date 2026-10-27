@@ -1,28 +1,67 @@
-# Reviewed project and global skills — bricks 5.1 / 5.1.1
+# Project and global skills
 
-Dolores reviews standard [Agent Skills](https://agentskills.io/specification) files. Project skills live at a saved working folder's `.agents/skills/<name>/SKILL.md`. Global skills live at `~/.agents/skills/<name>/SKILL.md` and apply to all project, temporary and side chats using the same application data directory. Side chats still have no working-folder tools. Discovery and activation are explicit; no watcher, implicit activation or model request runs in the inspector.
+Valid source skills are available directly, without an upfront review or
+activation step. Project collections live at the saved working folder's
+`.agents/skills/<name>/SKILL.md`; global collections live at
+`~/.agents/skills/<name>/SKILL.md`. `DOLORES_GLOBAL_SKILLS_DIR` can select a
+different global collection. Global skills also work in temporary and side chats.
+Discovery reads the configured collections at catalog/context preparation; it
+does not require opening Settings, write activation records or run a model.
 
-The host resolves the home directory through the platform directories library. An optional absolute `DOLORES_GLOBAL_SKILLS_DIR` selects another global collection directory, mainly for portable installations and isolated tests. It refers to the skills collection itself, not its parent. Only this collection boundary may be a symlink/junction: resolve its canonical target, open that target, and bind it to file review. Activation refuses a retargeted boundary even when text matches. Project directory components and individual skill directories/files retain direct-path checks. No ancestor or other application's skill-directory discovery occurs. Missing sources do not prevent reviewing saved versions.
+The `/` picker lists available skills at a plain line boundary or within prose.
+Inline completion inserts the skill's `/name` at the cursor without changing
+surrounding text, and pins the same inspectable selection used by the chip.
+Only line-start discovery includes host commands; inline discovery cannot invoke
+a same-named host action. Paths, code spans, fenced code and active IME
+composition do not open discovery. Failed saves preserve the draft and previous
+selection; typing during a save is never replaced by its completion.
 
-Review reads one UTF-8 regular file, at most 8 KiB, validates YAML `name`/`description`, and shows its complete literal text. Names match their direct directory and the specification's ASCII naming rules. Other metadata is accepted as data; `allowed-tools` cannot approve tools. References/scripts/assets remain literal and require the existing separately approved tools within the working folder. Global resources outside that folder are unavailable; global activation does not broaden filesystem access. Review never executes files.
+Picked skills follow the draft. Send and Queue/Steer first submit the pinned
+references, then clear them from the composer after acceptance. The pending user
+message lists its submitted skills, and saved messages list skills recorded in
+the request context. A failed or stopped send restores the prompt and references
+for retry, preserving any newer draft/selection. A restoration that cannot be
+saved stays visible and blocks resending without the skill until saving succeeds.
 
-Activate stores a reviewed snapshot in the selected scope. File changes require new review to take effect; they do not silently replace the active snapshot or prevent use of the reviewed version. Disable preserves versions. Roll back reviews a retained version and publishes a new version containing that exact text, without modifying files. Forget removes all local versions and future retrieval; it leaves source files and historical reply provenance intact.
+Ordinary relevance selection includes
+matching instructions without a prior Settings action. Settings shows ready,
+disabled or unavailable skills, optional **View file** and direct Enable/Disable
+controls. Create/import validates and saves a skill in one action. Source edits
+apply to future requests; each admitted run keeps the exact instructions it
+started with, including across compaction. Selected file references bind the
+canonical collection and content identity. Changed or deleted selections refuse
+substitution with a clear refresh/reselect action, preserving the draft. Queued
+and steering delivery rechecks the selected identity before use.
 
-An enabled project snapshot overrides an enabled global snapshot with the same name for that working folder. Disabling or forgetting the project entry reveals the active global entry. Disabled project entries do not shadow global entries. Both records retain independent versions and revisions, and both inspectors disclose scope. Only effective snapshots enter the next request; overridden global text is omitted from preview, token accounting and sent context.
+An enabled project skill overrides an enabled global skill of the same name.
+Explicit disabled records remain disabled; disabling a project entry reveals its
+global counterpart. Saved versions, generated skills, installed packages and
+rollback snapshots retain their existing identities and recovery controls.
+Restoring a saved version pins that snapshot instead of replacing source files.
+Forgetting saved versions leaves source files, which become available directly
+again. Missing or malformed live files are omitted from discovery with a problem
+shown in Settings; a retained valid snapshot remains usable for recovery.
 
-One five-minute, single-use review token binds session, scope, configured root, canonical global target, record revision and exact text. Activation consumes it, rechecks the source (or retained rollback version), then performs an atomic compare-and-swap. Failures preserve old state and require another review. Listing/scope switching replaces review; Close cancels it. All operations use the existing active-run exclusion.
+Source reading validates UTF-8, YAML name/description, direct regular paths and
+the existing 8 KiB per-file bound. Only the configured global collection boundary
+may be a symlink/junction; individual skills retain existing path checks.
+The bounded scan examines 128 entries and returns up to 32 eligible names per
+collection, with a partial-list notice. Availability does not consume the request
+instruction allowance: up to three matching skills / 8 KiB per scope enter one
+request, with explicit picker selections taking priority over automatic matches.
+Saving another skill no longer requires disabling an unrelated one first.
+Saved records retain the twelve-name and five-version bounds per scope.
 
-Bounds apply separately to each scope: inspect at most 128 directory entries, return up to 32 sorted eligible names with a partial notice; store at most 12 records including disabled, retain five latest versions/record; enable at most three skills with at most 8192 combined source bytes. At most six effective snapshots / 16 KiB may enter a request, subject to the existing total byte/token budget. Over-limit activation refuses rather than silently omitting skills. Revision advances on each mutation; version advances on activation/rollback; timestamps are Unix milliseconds.
-
-SQLite schema remains 14. The existing skills table stores project records under absolute folder keys and global records under an internal non-path namespace, disjoint from project roots. Project storage ports reject that namespace. Global JSON records include `scope: global`; legacy records and provenance default to Project without rewriting history. Optional global storage ports preserve compatibility with other plugins. No new dependencies, runtime processes or background workers are added by 5.1.1.
-
-Preview and send share the same snapshot selection. Exact effective text is mandatory system input alongside AGENTS.md, memory, summary, schemas and framing. A model window too small for mandatory input fails before transport. Context, started events, saved replies and exports retain scope/name/source/version/review-time/rollback provenance; local preview additionally exposes only current effective snapshots. Global provenance uses the logical `~/.agents/skills/...` location, even with a configured collection; the actual local path is shown only in the catalog, never automatically sent or exported. Host tool policy and direct user requests outrank skills.
-
-Reuse the system palette and InspectorFrame. Saved-chat headers offer Skills, or Chat actions below 480 pixels. A fixed Project / Global selector switches scope; side chats start with Global and disable Project. A scrolling list shows Available/Enabled/Disabled and global overrides. Review shows exact source, active/retained versions and explicit folder/all-chat behavior. Back/Refresh/Activate/Disable/Forget stay in a wrapping fixed footer. Pending writes lock dismissal, scope switching and duplicates; the controller locks chat changes while open. The composer stays unchanged.
-
-The existing local bridge commands `projectSkills`, `reviewSkill`, `disableSkill` and `forgetSkill` accept optional `scope: project | global`, defaulting to Project for older callers. The name of `projectSkills` is retained for compatibility. Activation uses the token's bound scope; cancellation uses its matching token. There is no new network endpoint or model tool.
-
-Acceptance covers frozen parsing/path/scope/approval/persistence/context cases, synthetic native provider wire/restart/export and compact light/dark rendering. This foundation does not claim task improvement, generated-skill quality, automatic selection or cross-platform OS input acceptance.
+Skill instructions never grant tools, execute scripts, install dependencies or
+expand access. Host permissions and direct user requests keep precedence.
+Metadata and referenced resources remain data subject to the existing tool path.
+Malformed documents and failed saves keep editable input and the previous usable
+record. Compatibility review/export/rollback bridge commands remain supported
+for older clients, but normal file use and create/import need no review token
+from the user interface. File selections are stored as additive `file: true`
+references; the host validates them against its configured collection rather
+than requiring a saved activation in SQLite. Legacy saved references retain
+their original JSON shape.
 
 ## Complete ZIP packages — EH09.1
 

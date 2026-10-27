@@ -476,6 +476,17 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  List<Map<String, dynamic>> _savedMessageSkills(int index) {
+    if (chat.messages[index]['role'] != 'user' ||
+        index + 1 >= chat.messages.length) {
+      return const [];
+    }
+    final reply = chat.messages[index + 1];
+    if (reply['role'] != 'assistant') return const [];
+    return ((reply['metadata']?['context']?['skills'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
+  }
+
   Widget message(
     Palette p,
     String role,
@@ -487,6 +498,7 @@ class _ChatPageState extends State<ChatPage> {
     int? savedAt,
     Map<String, dynamic>? feedback,
     List<Map<String, dynamic>> parts = const [],
+    List<Map<String, dynamic>> skills = const [],
   }) {
     final user = role == 'user';
     final callUsage = metadata?['agent']?['usageByCall'] as List?;
@@ -553,6 +565,15 @@ class _ChatPageState extends State<ChatPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (user && skills.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Skills: ${skills.map((s) => s['name']).join(', ')}',
+                key: const Key('message-skills'),
+                style: TextStyle(fontSize: 12, color: p.muted),
+              ),
+            ),
           if (streaming)
             Tooltip(
               message: chat.modelTimeoutSeconds > 0
@@ -1506,6 +1527,7 @@ class _ChatPageState extends State<ChatPage> {
                                           ?.cast<String, dynamic>(),
                                       parts: ((item['parts'] as List?) ?? [])
                                           .cast<Map<String, dynamic>>(),
+                                      skills: _savedMessageSkills(index),
                                       messageId: item['id'] as int?,
                                       savedAt: item['savedAt'] as int?,
                                       feedback: (item['feedback'] as Map?)
@@ -1520,6 +1542,7 @@ class _ChatPageState extends State<ChatPage> {
                                       'user',
                                       chat.pendingInput,
                                       parts: chat.pendingParts,
+                                      skills: chat.pendingSkills,
                                       key: const ValueKey('pending-user'),
                                     ),
                                     message(

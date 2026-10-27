@@ -5,6 +5,15 @@ published versions use SemVer and an ISO date.
 
 ## [Unreleased]
 
+### Changed
+
+- The command and skill picker uses compact, padded rows with a clear keyboard selection. Skills can also be completed within a sentence while preserving surrounding text and their pinned reference.
+- Project and global skill files are ready to use in chat and the `/` picker without prior review. File updates apply to future messages, with optional viewing, direct enable/disable and one-step create/import. Existing snapshots and tool permissions are preserved.
+
+### Fixed
+
+- Submitted skill references now move from the composer to the message instead of remaining selected for later prompts. Failed sends restore both prompt and skills while preserving newer drafts and selections.
+
 ## [0.1.0-alpha] - 2026-10-26
 
 First public alpha of Dolores. The earlier `0.0.1-alpha` entry was an

@@ -737,6 +737,10 @@ class ChatController extends ChangeNotifier {
   bool skillSaving = false;
   Map<String, dynamic> commandCatalogue = {};
   List<Map<String, dynamic>> selectedSkills = [];
+  List<Map<String, dynamic>> pendingSkills = [];
+  int _skillRevision = 0;
+  int? _consumedSkillRevision;
+  bool _restoreSkillsRequired = false;
   Future<void> refreshCommands() async {
     if (!commandPickerAvailable) return;
     // A new project chat needs its existing workspace identity before reading
@@ -753,20 +757,27 @@ class ChatController extends ChangeNotifier {
       }
     }
     final target = session;
+    final revision = _skillRevision;
     final result = (await bridge.call({
       'command': 'composerCommands',
       'session': target,
     }) as Map).cast<String, dynamic>();
     if (session == target) {
       commandCatalogue = result;
-      selectedSkills = ((result['selected'] as List?) ?? [])
-          .cast<Map<String, dynamic>>();
+      if (revision == _skillRevision && !_restoreSkillsRequired) {
+        selectedSkills = ((result['selected'] as List?) ?? [])
+            .cast<Map<String, dynamic>>();
+      }
       _notify();
     }
   }
 
   Future<bool> selectSkills(List<Map<String, dynamic>> selections) async {
     if (skillSaving || changing || loading) return false;
+    return _saveSkills(selections);
+  }
+
+  Future<bool> _saveSkills(List<Map<String, dynamic>> selections) async {
     skillSaving = true;
     _notify();
     try {
@@ -779,6 +790,8 @@ class ChatController extends ChangeNotifier {
       });
       if (session != target) return false;
       selectedSkills = List.of(selections);
+      _skillRevision++;
+      _restoreSkillsRequired = false;
       error = null;
       invalidateContext();
       return true;
@@ -786,6 +799,38 @@ class ChatController extends ChangeNotifier {
       error =
           'Could not save selected skills. Your draft remains. Refresh commands and try again. ($failure)';
       return false;
+    } finally {
+      skillSaving = false;
+      _notify();
+    }
+  }
+
+  Future<int?> _consumeSkills(
+    List<Map<String, dynamic>> submitted,
+    int revision,
+  ) async {
+    if (submitted.isEmpty || revision != _skillRevision || skillSaving) {
+      return null;
+    }
+    skillSaving = true;
+    _notify();
+    try {
+      await bridge.call({
+        'command': 'saveComposerSkills',
+        'session': session,
+        'selections': <Map<String, dynamic>>[],
+      });
+      selectedSkills = [];
+      _skillRevision++;
+      invalidateContextPreview();
+      return _skillRevision;
+    } catch (_) {
+      // The native start/enqueue already owns its snapshot. Never fail or repeat
+      // accepted work merely because clearing its composer selection failed.
+      _record(
+        'Skill references attached; composer selection could not be cleared.',
+      );
+      return null;
     } finally {
       skillSaving = false;
       _notify();
@@ -851,6 +896,8 @@ class ChatController extends ChangeNotifier {
       return;
     }
     final text = draft;
+    final skills = [for (final s in selectedSkills) Map<String, dynamic>.of(s)];
+    final skillRevision = _skillRevision;
     final submission = jsonEncode([
       session,
       steer,
@@ -888,6 +935,7 @@ class ChatController extends ChangeNotifier {
       }
       _inputSubmissionId = null;
       _inputSubmissionText = null;
+      await _consumeSkills(skills, skillRevision);
       _notify();
       await dispatchNextInput();
     }
@@ -1554,6 +1602,9 @@ class ChatController extends ChangeNotifier {
     planning = {};
     _goalStarted = false;
     selectedSkills = [];
+    pendingSkills = [];
+    _restoreSkillsRequired = false;
+    _skillRevision++;
     commandCatalogue = {};
     taskInputs = {};
     toolRecords.clear();
@@ -1597,6 +1648,9 @@ class ChatController extends ChangeNotifier {
     _goalStarted = false;
     taskInputs = {};
     selectedSkills = [];
+    pendingSkills = [];
+    _restoreSkillsRequired = false;
+    _skillRevision++;
     commandCatalogue = {};
     resumeRun = null;
     contextSummary = null;
@@ -1666,6 +1720,9 @@ class ChatController extends ChangeNotifier {
       await refreshGoal();
       await refreshPlanning();
       selectedSkills = [];
+      pendingSkills = [];
+      _restoreSkillsRequired = false;
+      _skillRevision++;
       commandCatalogue = {};
       await refreshCommands();
       taskInputs = {};
@@ -1876,6 +1933,7 @@ class ChatController extends ChangeNotifier {
       _notify();
       return;
     }
+    if (_restoreSkillsRequired && !await selectSkills(selectedSkills)) return;
     if (session == null && scheduledOccurrence == null) {
       changing = true;
       _notify();
@@ -1910,6 +1968,14 @@ class ChatController extends ChangeNotifier {
     pendingParts = desktopHandoff || queuedInstruction || goalRun || planRun
         ? []
         : [for (final part in attachments) Map.of(part)];
+    pendingSkills =
+        taskInput == null &&
+            scheduledOccurrence == null &&
+            observationModel == null
+        ? [for (final s in selectedSkills) Map.of(s)]
+        : [];
+    final skillRevision = _skillRevision;
+    _consumedSkillRevision = null;
     if (!queuedInstruction && !goalRun && !planRun) draft = '';
     partial = '';
     error = null;
@@ -1959,6 +2025,10 @@ class ChatController extends ChangeNotifier {
           'occurrence': scheduledOccurrence,
         },
       });
+      _consumedSkillRevision = await _consumeSkills(
+        pendingSkills,
+        skillRevision,
+      );
       if (queuedInstruction && started is Map && started['input'] is String) {
         pendingInput = started['input'] as String;
       }
@@ -1973,7 +2043,7 @@ class ChatController extends ChangeNotifier {
       _schedule(id);
     } catch (failure) {
       if (!_disposed && id == _run) {
-        _failed(failure.toString());
+        await _failed(failure.toString());
         _notify();
       }
     }
@@ -2162,7 +2232,7 @@ class ChatController extends ChangeNotifier {
             userQuestion = null;
             changing = true;
             if (event['error'] != null) {
-              _failed(
+              await _failed(
                 event['error'] as String,
                 advice: (event['recovery'] as Map?)?.cast<String, dynamic>(),
               );
@@ -2188,6 +2258,8 @@ class ChatController extends ChangeNotifier {
               resumeRun = null;
               stopping = false;
               pendingInput = '';
+              pendingSkills = [];
+              _consumedSkillRevision = null;
               if (_desktopDraft != null) {
                 draft = _desktopDraft!;
                 _desktopDraft = null;
@@ -2226,13 +2298,13 @@ class ChatController extends ChangeNotifier {
     } catch (failure) {
       changing = false;
       if (!_disposed && id == _run) {
-        _failed(failure.toString());
+        await _failed(failure.toString());
         _notify();
       }
     }
   }
 
-  void _failed(String failure, {Map<String, dynamic>? advice}) {
+  Future<void> _failed(String failure, {Map<String, dynamic>? advice}) async {
     if (session != null) _locallyPausedInputs.add(session!);
     if (_scheduledRun &&
         (advice?['kind'] == 'stopped' ||
@@ -2270,13 +2342,33 @@ class ChatController extends ChangeNotifier {
     _clock.stop();
     error = failure;
     // Editing during a running response must survive Stop or provider failure.
+    final restoreSkills =
+        !skillSaving &&
+        draft.isEmpty &&
+        pendingSkills.isNotEmpty &&
+        selectedSkills.isEmpty &&
+        _consumedSkillRevision == _skillRevision;
     draft = draft.isNotEmpty
         ? draft
         : (_desktopDraft ?? (_continuing || _queuedRun ? '' : pendingInput));
+    if (restoreSkills) {
+      final restored = [
+        for (final s in pendingSkills) Map<String, dynamic>.of(s),
+      ];
+      if (!await _saveSkills(restored)) {
+        final restoreError = error;
+        selectedSkills = restored;
+        _restoreSkillsRequired = true;
+        failure = '$failure\n$restoreError';
+      }
+      error = failure;
+    }
     _desktopDraft = null;
     _continuing = false;
     pendingInput = '';
     pendingParts = [];
+    pendingSkills = [];
+    _consumedSkillRevision = null;
     partial = '';
     busy = false;
     stopping = false;
