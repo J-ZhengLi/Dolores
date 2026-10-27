@@ -754,14 +754,21 @@ class _ToolRecordsState extends State<ToolRecords> {
           Card(
             elevation: 0,
             color: widget.compact ? Colors.transparent : p.surface,
-            margin: EdgeInsets.only(top: widget.compact ? 0 : 6),
+            margin: EdgeInsets.symmetric(vertical: widget.compact ? 4 : 3),
+            shape: widget.compact
+                ? RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  )
+                : null,
             child: ExpansionTile(
               key: PageStorageKey(
                 'tool-record-${record['callId']}-${record['name']}-${record['target']}',
               ),
               dense: widget.compact,
-              tilePadding: widget.compact ? EdgeInsets.zero : null,
-              minTileHeight: widget.compact ? 36 : null,
+              tilePadding: widget.compact
+                  ? const EdgeInsets.symmetric(horizontal: 12)
+                  : null,
+              minTileHeight: widget.compact ? 40 : null,
               shape: widget.compact ? const Border() : null,
               collapsedShape: widget.compact ? const Border() : null,
               leading: Icon(
@@ -778,18 +785,10 @@ class _ToolRecordsState extends State<ToolRecords> {
                       child: Row(
                         children: [
                           Flexible(
-                            child: Text(
-                              '${toolLabel(record['name'])} ·',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
                             child: Tooltip(
                               message: scheduledTaskTitle(record),
                               child: Text(
-                                scheduledTaskTitle(record),
+                                '${toolLabel(record['name'])} · ${scheduledTaskTitle(record)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -820,6 +819,8 @@ class _ToolRecordsState extends State<ToolRecords> {
                         '${toolLabel(record['name'])} · ${toolStatus(record)}',
                     }, style: TextStyle(fontSize: 11, color: p.muted)),
               childrenPadding: const EdgeInsets.all(12),
+              expandedAlignment: Alignment.centerLeft,
+              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if ([
                       'inspect_desktop_capture',

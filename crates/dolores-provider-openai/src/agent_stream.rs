@@ -1,6 +1,6 @@
 use crate::{reported_usage, usage_option_rejected, OpenAiProvider, SseDecoder};
 use dolores_core::{
-    validate_call, AgentMessage, AgentTurn, TokenUsage, ToolCall, ToolSpec, MAX_CONTEXT_BYTES,
+    validate_call, AgentMessage, AgentTurn, TokenUsage, ToolCall, ToolSpec,
     MAX_FILE_ARGUMENT_BYTES, MAX_OUTPUT_BYTES, MAX_TOOL_CALLS,
 };
 use futures_util::StreamExt;
@@ -286,24 +286,7 @@ impl OpenAiProvider {
             started: std::time::Instant::now(),
             data: Default::default(),
         };
-        let mut wire_limit = MAX_CONTEXT_BYTES
-            + if messages
-                .iter()
-                .any(|m| m.parts.iter().any(|p| p.is_image()))
-            {
-                12 * 1024 * 1024
-            } else {
-                0
-            };
-        let messages = self.wire_agent_messages(messages)?;
-        wire_limit += super::agent::reasoning_wire_bytes(&messages);
-        if serde_json::to_vec(&messages)
-            .map_err(|_| "Could not prepare tool request.")?
-            .len()
-            > wire_limit
-        {
-            return Err("Tool context exceeds the 128 KiB limit.".into());
-        }
+        let messages = self.checked_wire_agent_messages(messages, tools)?;
         let specs: Vec<_> = tools.iter().map(|s| json!({"type":"function","function":{"name":s.name,"description":s.description,"parameters":s.parameters}})).collect();
         let mut body = json!({"model":self.model,"messages":messages,"tools":specs,"tool_choice":"auto","parallel_tool_calls":false,"stream":true,"max_tokens":self.settings.max_output_tokens,"stream_options":{"include_usage":true}});
         self.apply_generation_settings(&mut body);

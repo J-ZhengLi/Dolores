@@ -126,6 +126,13 @@ impl ConnectionManager {
     pub(super) fn automatic_memory_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
         self.bounded_review_provider(512, 10)
     }
+    pub(super) fn compaction_provider(&self) -> Result<Arc<dyn ModelProvider>, String> {
+        // Reasoning and the checkpoint share this allowance. Ordinary review
+        // limits can expire before a reasoning model produces any summary.
+        let window = self.context_window(&self.store.preferences()?)?;
+        let allowance = window.map_or(16384, |tokens| (tokens / 4).clamp(1, 16384));
+        self.bounded_review_provider(allowance, 180)
+    }
     pub(super) fn comparison_provider(
         &self,
         settings: RequestSettings,
@@ -721,6 +728,46 @@ mod tests {
             base_url: endpoint.into(),
             model: "fixture".into(),
         }
+    }
+    #[tokio::test]
+    async fn compaction_has_reasoning_room_without_changing_task_or_saved_profiles() {
+        let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+        let mut manager =
+            ConnectionManager::new(store.clone(), Arc::new(MemoryCredentials::default()));
+        let preferences = preferences("http://127.0.0.1:19421/v1");
+        manager
+            .configure(preferences.clone(), Some(String::new()), false)
+            .unwrap();
+        let task = manager
+            .provider
+            .as_ref()
+            .unwrap()
+            .request_settings()
+            .unwrap();
+        let compact = manager
+            .compaction_provider()
+            .unwrap()
+            .request_settings()
+            .unwrap();
+        assert_eq!(task.max_output_tokens, None);
+        assert_eq!(compact.max_output_tokens, Some(16384));
+        assert_eq!(compact.timeout_seconds, 180);
+        let explicit = RequestSettings {
+            max_output_tokens: Some(4096),
+            timeout_seconds: 60,
+            reasoning: dolores_core::ReasoningControl::OpenaiMedium,
+        };
+        manager
+            .update_model_request_settings(preferences, Some(explicit))
+            .unwrap();
+        assert_eq!(
+            manager.compaction_provider().unwrap().request_settings(),
+            Some(explicit)
+        );
+        assert_eq!(
+            manager.provider.as_ref().unwrap().request_settings(),
+            Some(explicit)
+        );
     }
     #[tokio::test]
     async fn removing_models_switches_active_and_keeps_credentials_history_and_restart() {

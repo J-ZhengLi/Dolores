@@ -1169,6 +1169,7 @@ class ChatController extends ChangeNotifier {
   // Lifecycle only: no duplicate prompts, token chunks, credentials or HTTP payloads.
   final requestLogs = <RequestLog>[];
   final _clock = Stopwatch();
+  Duration get runElapsed => _clock.elapsed;
   String _requestModel = '';
   bool _firstDelta = false;
   bool _terminal = false;

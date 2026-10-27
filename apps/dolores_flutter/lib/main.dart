@@ -28,6 +28,7 @@ import 'usage_details.dart';
 import 'task_feedback.dart';
 import 'inspector.dart';
 import 'tool_activity.dart';
+import 'run_progress.dart';
 import 'user_question.dart';
 import 'subagents.dart';
 import 'workspace_picker.dart';
@@ -579,11 +580,9 @@ class _ChatPageState extends State<ChatPage> {
               message: chat.modelTimeoutSeconds > 0
                   ? 'Stall timeout: ${chat.modelTimeoutSeconds}s without new model data. Review has no timeout. Stop remains available.'
                   : '',
-              child: Text(
-                chat.workspaceRoot == null
-                    ? 'Writing…'
-                    : chat.modelActivityLabel,
-                style: TextStyle(fontSize: 12, color: p.muted),
+              child: RunElapsed(
+                elapsed: () => chat.runElapsed,
+                queued: chat.modelPhase == 'queued',
               ),
             ),
           if (!user && streaming && chat.modelThinking.isNotEmpty)
@@ -611,7 +610,6 @@ class _ChatPageState extends State<ChatPage> {
                   ? [for (final record in chat.toolRecords) record['modelStep']]
                   : metadata?['agent']?['toolSteps'] as List? ?? [],
               bridge: chat.bridge,
-              unsaved: streaming,
               streamingStep: streaming ? chat.modelStep : null,
               onRendered: _followReply,
             ),
@@ -646,6 +644,20 @@ class _ChatPageState extends State<ChatPage> {
                       bringBack: true,
                     )
                   : null,
+            ),
+          if (!user && streaming)
+            RunStatus(
+              phase: chat.stopping
+                  ? 'stopping'
+                  : chat.userQuestion != null
+                  ? 'question'
+                  : chat.toolApproval != null
+                  ? 'review'
+                  : chat.modelPhase == 'queued'
+                  ? 'queued'
+                  : chat.modelActive
+                  ? chat.modelPhase
+                  : 'working',
             ),
           if (!user && !streaming) ...[
             if (metadata?['paused'] is Map) ...[

@@ -8,7 +8,10 @@ Future<void> revealDock(WidgetTester tester) async {
   await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-  await tester.pumpAndSettle();
+  // A running chat animates continuously. Wait for the dock's own transition,
+  // rather than requiring the entire workspace to become idle.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> tapDockItem(WidgetTester tester, String key) async {

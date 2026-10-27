@@ -1,5 +1,5 @@
 use crate::{reported_usage, OpenAiProvider};
-use dolores_core::{validate_call, AgentMessage, AgentTurn, ToolCall, ToolSpec, MAX_CONTEXT_BYTES};
+use dolores_core::{validate_call, AgentMessage, AgentTurn, ToolCall, ToolSpec};
 use serde_json::{json, Value};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
@@ -9,15 +9,30 @@ use tokio_util::sync::CancellationToken;
 pub(crate) const MAX_REASONING_BYTES: usize = 1024 * 1024;
 pub(crate) const MAX_REASONING_CACHE_BYTES: usize = 2 * 1024 * 1024;
 
-pub(crate) fn reasoning_wire_bytes(messages: &[Value]) -> usize {
-    messages
-        .iter()
-        .filter_map(|m| m.get("reasoning_content"))
-        .map(|v| v.to_string().len() + 24)
-        .sum()
-}
-
 impl OpenAiProvider {
+    /// The orchestrator compacts its working set; transport serialization must
+    /// not impose a second, inconsistent 128-KiB context window. Use the same
+    /// model allowance in streaming and non-streaming entry points instead.
+    pub(crate) fn checked_wire_agent_messages(
+        &self,
+        messages: &[AgentMessage],
+        tools: &[ToolSpec],
+    ) -> Result<Vec<Value>, String> {
+        let allowance = dolores_core::input_token_allowance(
+            Some(
+                self.context_window
+                    .unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),
+            ),
+            self.settings,
+        )?;
+        if allowance.is_some_and(|limit| {
+            dolores_core::estimate_agent_tokens(messages, tools)
+                .map_or(true, |tokens| tokens > limit)
+        }) {
+            return Err(super::CONTEXT_LIMIT_ERROR.into());
+        }
+        self.wire_agent_messages(messages)
+    }
     fn reasoning_key(content: &str, calls: &[ToolCall]) -> Result<String, String> {
         serde_json::to_string(&(content, calls))
             .map_err(|_| "Could not bind reasoning continuation.".into())
@@ -37,11 +52,10 @@ impl OpenAiProvider {
         }
         if let Some(reasoning) = reasoning {
             let key = Self::reasoning_key(&turn.content, &turn.calls)?;
-            if cache.len() >= 16
-                || cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
-                    + key.len()
-                    + reasoning.len()
-                    > MAX_REASONING_CACHE_BYTES
+            if cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
+                + key.len()
+                + reasoning.len()
+                > MAX_REASONING_CACHE_BYTES
             {
                 return Err("Reasoning continuation exceeds its 2 MiB protocol allowance. Completed work remains; start a smaller task or reduce model reasoning.".into());
             }
@@ -104,24 +118,7 @@ impl OpenAiProvider {
         cancel: CancellationToken,
     ) -> Result<AgentTurn, String> {
         let request = async {
-            let mut wire_limit = MAX_CONTEXT_BYTES
-                + if messages
-                    .iter()
-                    .any(|m| m.parts.iter().any(|p| p.is_image()))
-                {
-                    12 * 1024 * 1024
-                } else {
-                    0
-                };
-            let messages = self.wire_agent_messages(messages)?;
-            wire_limit += reasoning_wire_bytes(&messages);
-            if serde_json::to_vec(&messages)
-                .map_err(|_| "Could not prepare tool request.")?
-                .len()
-                > wire_limit
-            {
-                return Err("Tool context exceeds the 128 KiB limit.".into());
-            }
+            let messages = self.checked_wire_agent_messages(messages, tools)?;
             let specs: Vec<_> = tools.iter().map(|s| json!({"type":"function","function":{"name":s.name,"description":s.description,"parameters":s.parameters}})).collect();
             let mut body = json!({"model":self.model,"messages":messages,"tools":specs,"tool_choice":"auto","parallel_tool_calls":false,"stream":false,"max_tokens":self.settings.max_output_tokens});
             self.apply_generation_settings(&mut body);

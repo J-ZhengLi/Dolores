@@ -13,18 +13,16 @@ impl ContextCheckpoint {
         if text.len() > 8192 {
             return Err("Context summary exceeded 8 KiB. Saved work remains; inspect and resume explicitly.".into());
         }
-        let c: Self = serde_json::from_str(text).map_err(|_| {
+        let mut c: Self = serde_json::from_str(text).map_err(|_| {
             "Context summary was malformed. Saved work remains; inspect and resume explicitly."
         })?;
-        if c.decisions.len() + c.progress.len() + c.remaining.len() > 32
-            || c.remaining.is_empty()
-            || c.decisions
-                .iter()
-                .chain(&c.progress)
-                .chain(&c.remaining)
-                .any(|s| s.trim().is_empty() || s.len() > 1024)
-        {
-            return Err("Context summary was incomplete or oversized. Saved work remains; inspect and resume explicitly.".into());
+        // The total JSON byte bound already limits context cost. Item counts and
+        // individual lengths are writing guidance, not reasons to stop a task.
+        for items in [&mut c.decisions, &mut c.progress, &mut c.remaining] {
+            items.retain(|s| !s.trim().is_empty());
+        }
+        if c.remaining.is_empty() {
+            c.remaining.push("Verify the original objective, current files and unresolved tool outcomes before deciding whether the task is complete.".into());
         }
         Ok(c)
     }
@@ -83,23 +81,7 @@ pub fn restored_context(
     if instructions.len() > 32768 {
         return Err("User instructions need more room than this recovery checkpoint. Saved instructions remain; inspect and resume with a scoped request.".into());
     }
-    let evidence: Vec<_> = receipts
-        .iter()
-        .map(|r| {
-            let mut v = serde_json::to_value(r).unwrap_or_default();
-            if let Some(text) = v["content"].as_str() {
-                let mut n = text.len().min(256);
-                while !text.is_char_boundary(n) {
-                    n -= 1;
-                }
-                let short = text[..n].to_owned();
-                let truncated = n < text.len();
-                v["content"] = serde_json::json!(short);
-                v["previewOnly"] = serde_json::json!(truncated);
-            }
-            v
-        })
-        .collect();
+    let evidence = crate::continuation::receipt_previews(receipts, 16 * 1024);
     let make = |role: &str, content: String| AgentMessage {
         role: role.into(),
         content,

@@ -142,8 +142,8 @@ void main() {
         expect(find.textContaining('A command failed'), findsOneWidget);
         expect(find.text('Earlier tool results'), findsOneWidget);
         expect(find.text('· Failed · exit 1'), findsOneWidget);
-        expect(find.text('sum.cjs'), findsOneWidget);
-        await tester.tap(find.text('node'));
+        expect(find.textContaining('· sum.cjs'), findsOneWidget);
+        await tester.tap(find.text('Command · node'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Assertion failed 世界'), findsOneWidget);
         await tester.enterText(

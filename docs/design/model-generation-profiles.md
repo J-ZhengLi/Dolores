@@ -23,6 +23,16 @@ provider or gateway; check that service's limits or explicitly choose another mo
 
 ## Persistence and consumers
 
+Automatic history compaction and in-run context checkpoints use a separate
+16,384-token / 180-second ceiling, reduced to one quarter of smaller context
+windows. Reasoning and visible summary text share that
+allowance; explicit lower per-model settings still apply. This replaces the
+former 1,024-token / 30-second review cap without changing normal task profiles.
+If an in-run summary fails or is invalid, the task saves a paused checkpoint
+with completed steps and tool receipts. It does not discard the run or repeat
+completed actions; the user can inspect the cause before continuing. Cancellation
+still stops immediately, and malformed summaries are never used as context.
+
 Explicit thinking off also removes one exact leading `</think>` envelope marker from response text when followed by content. Some compatible gateways emit this stray marker even with thinking disabled, breaking otherwise valid image-memory JSON. This applies consistently to plain streams, tool streams and non-streamed responses, including fragmented markers. Provider default, embedded markers, standalone or incomplete markers and tool arguments retain their exact text. Raw byte limits and reported usage remain unchanged; no retry or settings fallback is added.
 
 SQLite schema 17 adds model_request_settings without rewriting existing settings or transcripts. Default reasoning is omitted from serialized legacy settings and old metadata; unknown enum values are refused. Save is transactional and bound to the current endpoint/enabled model set. Disabling a model prunes its override in the same connection transaction. Other endpoint profiles stay isolated and can be reused if that endpoint is configured again. A profile change does not write or rotate credentials. Providers rebuild only after a successful save.

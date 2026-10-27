@@ -86,12 +86,13 @@ ThemeData doloresTheme(bool dark) {
     ),
     dividerColor: p.border,
     listTileTheme: const ListTileThemeData(
-      contentPadding: EdgeInsets.zero,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16),
       minVerticalPadding: 12,
     ),
     expansionTileTheme: const ExpansionTileThemeData(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: EdgeInsets.only(top: 8, bottom: 16),
+      tilePadding: EdgeInsets.symmetric(horizontal: 16),
+      childrenPadding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+      expandedAlignment: Alignment.centerLeft,
       shape: Border(),
       collapsedShape: Border(),
     ),

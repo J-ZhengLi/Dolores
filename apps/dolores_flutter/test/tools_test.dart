@@ -8,6 +8,7 @@ import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dolores_flutter/run_progress.dart';
 
 class ToolBridge implements ChatBridge {
   bool streamText = false;
@@ -275,8 +276,8 @@ void _editTests() {
         final record = chat.messages.last['metadata']['agent']['tools'].single;
         expect(record['status'], 'edited');
         expect(record['diff'], ToolBridge.editDiff);
-        await tester.ensureVisible(find.text('readme.txt'));
-        await tester.tap(find.text('readme.txt'));
+        await tester.ensureVisible(find.text('File edit · readme.txt'));
+        await tester.tap(find.text('File edit · readme.txt'));
         await tester.pumpAndSettle();
         expect(
           find.text('Applied one file change · 15 → 36 bytes'),
@@ -348,7 +349,9 @@ void main() {
         'timeoutSeconds': 180,
       });
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Thinking · 7s'), findsOneWidget);
+      expect(find.byKey(const Key('run-elapsed')), findsOneWidget);
+      expect(find.byKey(const Key('run-status')), findsOneWidget);
+      expect(chat.modelPhase, 'reasoning');
       expect(chat.partial, isEmpty);
       expect(chat.toolApproval, isNull);
       bridge.queue.addAll([
@@ -374,7 +377,11 @@ void main() {
         },
       ]);
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Preparing tool call · 181s'), findsOneWidget);
+      expect(
+        tester.widget<RunStatus>(find.byType(RunStatus)).phase,
+        'toolArguments',
+      );
+      expect(chat.modelElapsedSeconds, 181);
       expect(find.text('Preparing an HTML file.'), findsOneWidget);
       await tester.tap(find.text('Thinking'));
       await tester.pump(const Duration(milliseconds: 250));
@@ -388,12 +395,16 @@ void main() {
         'timeoutSeconds': 180,
       });
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Preparing tool call · 181s'), findsOneWidget);
+      expect(
+        tester.widget<RunStatus>(find.byType(RunStatus)).phase,
+        'toolArguments',
+      );
+      expect(chat.modelElapsedSeconds, 181);
       await chat.stop();
       await tester.pump(const Duration(milliseconds: 250));
       expect(chat.busy, isFalse);
       expect(chat.draft, 'Read readme');
-      expect(find.text('Thinking · 7s'), findsNothing);
+      expect(find.byKey(const Key('run-status')), findsNothing);
       expect(
         bridge.commands.where((c) => c['command'] == 'approveTool'),
         isEmpty,
@@ -446,8 +457,8 @@ void main() {
         await tester.tap(find.text('Run once'));
         await tester.pump(const Duration(milliseconds: 250));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('.').last);
-        await tester.tap(find.text('.').last);
+        await tester.ensureVisible(find.text('Command · .').last);
+        await tester.tap(find.text('Command · .').last);
         await tester.pumpAndSettle();
         expect(
           find.textContaining('Exited 7 · Output shortened'),
@@ -507,7 +518,7 @@ void main() {
           chat.messages.last['metadata']['agent']['tools'].single['status'],
           'created',
         );
-        final cards = find.text('readme.txt');
+        final cards = find.text('File creation · readme.txt');
         await tester.ensureVisible(cards.last);
         await tester.tap(cards.last);
         await tester.pumpAndSettle();

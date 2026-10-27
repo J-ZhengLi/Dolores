@@ -307,6 +307,11 @@ pub trait ModelProvider: Send + Sync {
     fn context_window_tokens(&self) -> Option<u32> {
         None
     }
+    /// Provider-private protocol state can require a context checkpoint even
+    /// while public messages fit. Never expose reasoning contents to the host.
+    fn continuation_pressure_percent(&self) -> u64 {
+        0
+    }
     fn descriptor(&self) -> PluginDescriptor;
     async fn list_models(&self) -> Result<Vec<String>, String> {
         Err("This provider does not support model discovery. Add a model manually.".into())

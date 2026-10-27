@@ -657,7 +657,6 @@ pub async fn run_agent_with_shared_budget(
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
     let mut base_system = messages[0].content.clone();
-    let mut recovery_count = 0;
     let mut capacity_band = 0;
     let recovery_available =
         approval.context_recovery_available() && messages.iter().all(|m| m.parts.is_empty());
@@ -718,9 +717,12 @@ pub async fn run_agent_with_shared_budget(
             settings,
             recovery_available,
         )?;
-        if capacity.pressure_percent >= 80
+        let protocol_pressure = provider.continuation_pressure_percent();
+        if protocol_pressure >= 80 && (!recovery_available || number == budget.model_limit()) {
+            return Ok(checkpoint_reply(summary, "Provider continuation checkpoint saved. Completed work remains; Continue starts with fresh protocol context and never replays completed actions."));
+        }
+        if capacity.pressure_percent.max(protocol_pressure) >= 80
             && recovery_available
-            && recovery_count < 2
             && number < budget.model_limit()
         {
             if !shared.reserve_model(child) {
@@ -729,14 +731,24 @@ pub async fn run_agent_with_shared_budget(
                 }
                 return Ok(checkpoint_reply(summary,"Task budget reached before context recovery. Saved effects remain; inspect progress before continuation."));
             }
-            if let Some(checkpoint) = approval.compact_context(&messages, cancel.clone()).await? {
+            let checkpoint = match approval.compact_context(&messages, cancel.clone()).await {
+                Ok(checkpoint) => checkpoint,
+                Err(error) => {
+                    if cancel.is_cancelled() {
+                        return Err("Response stopped.".into());
+                    }
+                    summary.model_calls += 1;
+                    let detail: String = error.chars().take(512).collect();
+                    return Ok(checkpoint_reply(summary, &format!("Automatic context compaction could not finish: {detail}\n\nCompleted work and tool receipts are saved. Review the checkpoint and model response settings before continuing. No completed action will be replayed automatically.")));
+                }
+            };
+            if let Some(checkpoint) = checkpoint {
                 messages = crate::context_recovery::restored_context(
                     &messages,
                     &checkpoint,
                     &summary.tools,
                     &base_system,
                 )?;
-                recovery_count += 1;
                 capacity_band = 0;
                 // Recovery is a model attempt even though it produces no task answer.
                 summary.model_calls += 1;
@@ -879,7 +891,7 @@ pub async fn run_agent_with_shared_budget(
                     )
                     .await?;
                 }
-                summary.model_calls = number;
+                summary.model_calls += 1;
                 summary.usage_by_call.push(None);
                 if !streamed.is_empty() {
                     summary.steps.push(ModelText {
@@ -927,7 +939,7 @@ pub async fn run_agent_with_shared_budget(
         if turn.content != streamed {
             return Err("Model stream text did not match the completed response.".into());
         }
-        summary.model_calls = number;
+        summary.model_calls += 1;
         summary.usage_by_call.push(turn.usage.clone());
         emit(
             &events,

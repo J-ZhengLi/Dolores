@@ -9,6 +9,7 @@ import 'package:dolores_flutter/chat.dart';
 import 'package:dolores_flutter/workspace_shell.dart';
 import 'package:dolores_flutter/settings.dart';
 import 'package:dolores_flutter/skills.dart';
+import 'package:dolores_flutter/main.dart' show ChatPage;
 
 import 'app_host_test.dart' show HostBridge;
 
@@ -82,6 +83,31 @@ class ExperimentalBridge extends HostBridge {
 }
 
 void main() {
+  testWidgets(
+    'starting a task keeps the workspace stationary and shows inline progress',
+    (t) async {
+      t.view.physicalSize = const Size(1200, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      final chat = ChatController(HostBridge())..loading = false;
+      final host = AppHost(chat);
+      addTearDown(host.dispose);
+      Widget view() => MaterialApp(home: WorkspaceShell(host: host));
+      await t.pumpWidget(view());
+      await t.pumpAndSettle();
+      final top = t.getTopLeft(find.byType(ChatPage)).dy;
+      chat.busy = true;
+      chat.pendingInput = 'Inspect this project';
+      await t.pumpWidget(view());
+      await t.pump(const Duration(milliseconds: 300));
+      expect(t.getTopLeft(find.byType(ChatPage)).dy, top);
+      expect(find.byKey(const Key('run-elapsed')), findsOneWidget);
+      expect(find.byKey(const Key('run-status')), findsOneWidget);
+      expect(find.textContaining('· Running'), findsNothing);
+      await t.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('dock has one Settings entry and skills remain reachable there', (
     t,
   ) async {
@@ -213,7 +239,7 @@ void main() {
       expect(chat.busy, isTrue);
       expect(chat.draft, 'Keep this draft');
       await tapDockItem(t, 'page-home');
-      await t.pumpAndSettle();
+      await t.pump(const Duration(milliseconds: 500));
       bridge.unavailable = true;
       await tapDockItem(t, 'page-scheduled');
       await t.pumpAndSettle();
@@ -221,7 +247,7 @@ void main() {
       expect(host.scheduled.error, contains('Task storage unavailable'));
       bridge.unavailable = false;
       await tapDockItem(t, 'page-home');
-      await t.pumpAndSettle();
+      await t.pump(const Duration(milliseconds: 500));
       await tapDockItem(t, 'page-scheduled');
       await t.pumpAndSettle();
       expect(host.scheduled.error, isNull);

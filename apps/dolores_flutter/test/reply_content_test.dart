@@ -460,7 +460,8 @@ print('hello'); // a deliberately very long line that should scroll horizontally
         ..pendingInput = 'A long answer'
         ..partial = 'start\n\n${'paragraph\n\n' * 40}';
       await tester.pumpWidget(DoloresApp(chat: chat));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
       final scroll = tester
           .widget<ListView>(find.byType(ListView).last)
           .controller!;
@@ -477,6 +478,8 @@ print('hello'); // a deliberately very long line that should scroll horizontally
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80));
       await tester.pump();
+      expect(scroll.offset, 0);
+      await tester.pump(const Duration(seconds: 2));
       expect(scroll.offset, 0);
       await tester.pumpWidget(const SizedBox());
       chat.dispose();

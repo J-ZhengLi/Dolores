@@ -12,6 +12,11 @@ published versions use SemVer and an ISO date.
 
 ### Fixed
 
+- Long tool tasks can compact more than twice, and tool requests use the model's context allowance instead of a second 128-KiB transport cap. Private reasoning continuation checkpoints use memory pressure rather than a sixteen-call ceiling; completed receipts remain saved.
+- Long checkpoints can continue using bounded evidence previews while keeping complete results saved. Valid summaries no longer fail on per-item or item-count targets; empty remaining-work lists require verification instead of stopping the task.
+- Running tasks show elapsed time and a gently animated, varying status inside the response. A title-bar menu replaces the layout-shifting Running strip, with explicit queue, review and Stop states and a still reduced-motion variant.
+- Automatic compaction has room for reasoning and summary output instead of using the small review allowance. Failed in-run summaries save a paused checkpoint with completed work and tool receipts instead of aborting the task.
+- Tool history has inset, spaced inline rows without stacked card borders. Shared list and disclosure defaults also keep labels, controls and expanded evidence clear of panel edges.
 - Command tools can launch installed CLIs by PATH name or executable path, including project-local tools. The fixed program-name restriction is removed from both one-shot commands and command sessions; existing access modes and process controls still apply.
 - Unfinished provider streams now report elapsed time and the last activity, with provider-specific recovery instead of a generic tool-response error. Drafts, selected skills and completed earlier work remain available.
 - Foreground tasks report status inline without creating notification toasts or inbox entries. Other conversations and tasks running while Dolores is unfocused still notify; skipped foreground events are not replayed later.

@@ -113,6 +113,9 @@ Future<ChatController> mount(
     ..commandPickerAvailable = true
     ..session = 'audit'
     ..busy = busy;
+  // Picker tests need settled rows while a task is active; progress animation
+  // has its own coverage in run_progress_test.dart.
+  chat.reducedMotion.value = true;
   await tester.pumpWidget(
     RepaintBoundary(
       key: boundary,

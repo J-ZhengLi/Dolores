@@ -37,6 +37,10 @@ headings. Review each addition for general applicability even when checks pass.
   tools. Keep the main workspace stable while these surfaces open.
 - Align headings, labels, controls and action rows to shared edges. Use a 4 px
   spacing scale, consistent row heights and optical centering for icon/text pairs.
+  List and disclosure rows use 16 px horizontal insets by default, including
+  expanded evidence. Use zero inset only inside an already padded, aligned group.
+  Inline tool history uses quiet rows with 12 px insets and 8 px between rows;
+  reserve bordered cards for separate evidence groups.
   Keep title-bar branding compact and show it once per main layout.
   Put icon-only search and the Notifications bell before Settings in that title bar.
   Search opens with a single input; results appear as the user types.
@@ -138,6 +142,11 @@ headings. Review each addition for general applicability even when checks pass.
   motion. Keep field validation at the decision point.
 - Make pending work visible, prevent duplicate actions and keep Stop reachable.
   Viewing evidence or refreshing status leaves external actions unchanged.
+- Keep running status inside the response: elapsed task time above progress and
+  a softly animated status below its latest activity. Vary wording within the
+  actual phase; review, questions, queued work and Stop use explicit stable labels.
+  Timer updates must not rebuild or scroll the chat. Reduced motion keeps the
+  label still. Starting work must not add a header row or shift the workspace.
 - Keep text selectable, code horizontally scrollable and Copy faithful to the
   complete source. Offer named keyboard/menu alternatives to dragging.
 

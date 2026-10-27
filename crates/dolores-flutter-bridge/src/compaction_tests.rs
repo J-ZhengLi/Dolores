@@ -1,5 +1,266 @@
 use super::*;
 use dolores_core::{Message, PluginDescriptor};
+#[test]
+fn in_run_summary_failure_saves_completed_tool_work_instead_of_a_send_error() {
+    use dolores_core::{
+        AgentMessage, AgentTurn, ToolApproval, ToolCall, ToolPlugin, ToolRequest, ToolSpec,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    struct Worker(AtomicUsize);
+    #[async_trait::async_trait]
+    impl ModelProvider for Worker {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "fixture",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            _: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            unreachable!()
+        }
+        async fn tool_turn(
+            &self,
+            _: &[AgentMessage],
+            _: &[ToolSpec],
+            _: CancellationToken,
+        ) -> Result<AgentTurn, String> {
+            let n = self.0.fetch_add(1, Ordering::SeqCst);
+            assert!(n < 12, "The fixture must reach context compaction");
+            Ok(AgentTurn {
+                content: format!("Inspection segment {n}"),
+                calls: vec![ToolCall {
+                    id: format!("read-{n}"),
+                    name: "read_text_file".into(),
+                    arguments: "{\"path\":\"evidence.txt\"}".into(),
+                }],
+                usage: None,
+                output_limit: false,
+            })
+        }
+    }
+    struct SummaryLimit;
+    #[async_trait::async_trait]
+    impl ModelProvider for SummaryLimit {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "summary-fixture",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            _: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            Err(dolores_provider_openai::OUTPUT_LIMIT_ERROR.into())
+        }
+    }
+    struct Evidence(AtomicUsize);
+    #[async_trait::async_trait]
+    impl ToolPlugin for Evidence {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "read_text_file".into(),
+                description: "Read public fixture evidence".into(),
+                parameters: json!({"type":"object"}),
+            }
+        }
+        fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
+            Ok(ToolRequest {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                target: "evidence.txt".into(),
+                query: None,
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok("public evidence ".repeat(1000))
+        }
+    }
+    struct Allow;
+    #[async_trait::async_trait]
+    impl ToolApproval for Allow {
+        async fn authorize(&self, _: &ToolRequest, _: CancellationToken) -> Result<bool, String> {
+            Ok(true)
+        }
+    }
+    let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+    store.create("chat").unwrap();
+    let run = dolores_core::RunSnapshot {
+        id: "11111111-1111-4111-8111-111111111111".into(),
+        thread: "chat".into(),
+        model: "fixture".into(),
+        input: "Inspect evidence".into(),
+        settings: Default::default(),
+        state: dolores_core::RunState::Prepared,
+        sequence: 0,
+        created_at: 0,
+        build: "fixture".into(),
+        tools: vec![],
+        extensions: vec![],
+        effective_settings: None,
+        parent_run: None,
+        segments: 1,
+    };
+    store.begin_run(&run).unwrap();
+    let log = run_journal::RunLog::new(store.clone(), run.id.clone());
+    let evidence = Arc::new(Evidence(AtomicUsize::new(0)));
+    let approval = Arc::new(goals::RecoveryApproval {
+        inner: Arc::new(Allow),
+        provider: Some(Arc::new(SummaryLimit)),
+        log: log.clone(),
+    });
+    let runtime = Runtime::new().unwrap();
+    let (output, _events) = mpsc::channel(256);
+    let result = runtime.block_on(execute(
+        store.clone(),
+        Arc::new(Worker(AtomicUsize::new(0))),
+        TurnRequest {
+            available_skills: None,
+            hooks: None,
+            skill_resources: None,
+            command_sessions: None,
+            plan_execution: false,
+            planning: Default::default(),
+            goal: None,
+            selected_skills: vec![],
+            delegation: None,
+            log: Some(log),
+            compaction_provider: None,
+            compacted: false,
+            resume_run: None,
+            permissions: Default::default(),
+            task: Default::default(),
+            interaction: Default::default(),
+            continuation: None,
+            id: 1,
+            session: Some("chat".into()),
+            input: "Inspect evidence".into(),
+            model: "fixture".into(),
+            settings: None,
+            tools: vec![evidence.clone()],
+            approval: Some(approval),
+        },
+        CancellationToken::new(),
+        &output,
+    ));
+    assert!(
+        result.is_ok(),
+        "{}",
+        result.as_ref().err().cloned().unwrap_or_default()
+    );
+    let messages = store.messages_page("chat", None, false, 2).unwrap().items;
+    let metadata = messages.last().unwrap().metadata.as_ref().unwrap();
+    assert_eq!(
+        metadata.paused.as_ref().unwrap().reason,
+        dolores_core::PauseReason::Checkpoint
+    );
+    let count = evidence.0.load(Ordering::SeqCst);
+    assert!(count > 0);
+    assert_eq!(metadata.agent.as_ref().unwrap().tools.len(), count);
+    assert_eq!(metadata.paused.as_ref().unwrap().receipts.len(), count);
+    assert!(store
+        .run_events("chat", &run.id)
+        .unwrap()
+        .iter()
+        .any(|e| e.kind == "contextRecoveryFailed"));
+    struct Finish;
+    #[async_trait::async_trait]
+    impl ModelProvider for Finish {
+        fn descriptor(&self) -> PluginDescriptor {
+            PluginDescriptor {
+                id: "continue-fixture",
+                kind: "provider",
+                api_version: 1,
+            }
+        }
+        async fn stream(
+            &self,
+            _: Vec<Message>,
+            _: mpsc::Sender<String>,
+            _: CancellationToken,
+        ) -> Result<(), String> {
+            unreachable!()
+        }
+        async fn tool_turn(
+            &self,
+            messages: &[AgentMessage],
+            _: &[ToolSpec],
+            _: CancellationToken,
+        ) -> Result<AgentTurn, String> {
+            assert!(messages.iter().any(|m| m.content.contains("previews")));
+            assert!(!messages
+                .iter()
+                .any(|m| m.content.contains(&"public evidence ".repeat(1000))));
+            Ok(AgentTurn {
+                content: "Continued from retained evidence without repeating reads.".into(),
+                calls: vec![],
+                usage: None,
+                output_limit: false,
+            })
+        }
+    }
+    let continued = runtime.block_on(execute(
+        store.clone(),
+        Arc::new(Finish),
+        TurnRequest {
+            available_skills: None,
+            hooks: None,
+            skill_resources: None,
+            command_sessions: None,
+            plan_execution: false,
+            planning: Default::default(),
+            goal: None,
+            selected_skills: vec![],
+            delegation: None,
+            log: None,
+            compaction_provider: None,
+            compacted: false,
+            resume_run: None,
+            permissions: Default::default(),
+            task: Default::default(),
+            interaction: Default::default(),
+            continuation: Some(messages.last().unwrap().id),
+            id: 2,
+            session: Some("chat".into()),
+            input: continuation::INPUT.into(),
+            model: "fixture".into(),
+            settings: None,
+            tools: vec![evidence.clone()],
+            approval: Some(Arc::new(Allow)),
+        },
+        CancellationToken::new(),
+        &output,
+    ));
+    assert!(
+        continued.is_ok(),
+        "{}",
+        continued.as_ref().err().cloned().unwrap_or_default()
+    );
+    assert_eq!(
+        evidence.0.load(Ordering::SeqCst),
+        count,
+        "Continue must not replay completed reads"
+    );
+    let saved = store.messages_page("chat", None, false, 50).unwrap().items;
+    let original = saved
+        .iter()
+        .find(|m| m.id == messages.last().unwrap().id)
+        .unwrap();
+    assert_eq!(original.metadata.as_ref().unwrap().paused, metadata.paused);
+}
 struct Summarizer {
     calls: std::sync::atomic::AtomicU32,
     invalid: bool,

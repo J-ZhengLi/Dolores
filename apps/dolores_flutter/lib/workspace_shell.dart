@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 
 import 'app_host.dart';
+import 'chat.dart';
 import 'source_control.dart';
 import 'git_host.dart';
 
@@ -492,6 +493,28 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                         Expanded(
                           child: WindowTitle(onTogglePanel: host.togglePanel),
                         ),
+                        if (host.tasks.isNotEmpty)
+                          PopupMenuButton<ChatController>(
+                            key: const Key('running-tasks-menu'),
+                            tooltip: 'Running tasks',
+                            icon: const Icon(Icons.work_outline, size: 17),
+                            onSelected: (task) {
+                              if (task.session != null) {
+                                host.select(task.session!);
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              for (final task in host.tasks)
+                                PopupMenuItem(
+                                  value: task,
+                                  child: Text(
+                                    '${task.workspaceLabel} · ${task.modelPhase == 'queued' ? 'Queued' : 'Running'}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
                         if (host.visible.historySearchAvailable)
                           HistorySearchButton(chat: host.visible),
                         if (host.visible.attentionAvailable)
@@ -501,27 +524,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                           onPressed: settings,
                           icon: const Icon(Icons.settings_outlined, size: 17),
                         ),
-                      ],
-                    ),
-                  ),
-                if (host.tasks.isNotEmpty)
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        for (final task in host.tasks)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: TextButton(
-                              onPressed: () => task.session == null
-                                  ? null
-                                  : host.select(task.session!),
-                              child: Text(
-                                '${task.workspaceLabel} · ${task.modelPhase == 'queued' ? 'Queued' : 'Running'}',
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),

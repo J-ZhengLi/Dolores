@@ -347,18 +347,10 @@ class _SessionSummaryInspectorState extends State<SessionSummaryInspector> {
                               style: const TextStyle(fontSize: 13),
                             ),
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  16,
-                                ),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: SelectableText(
-                                    message['content'] as String,
-                                  ),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: SelectableText(
+                                  message['content'] as String,
                                 ),
                               ),
                             ],

@@ -102,6 +102,18 @@ void main() {
             lessThan(t.getTopLeft(prose.at(4)).dy),
           );
           expect(t.getSize(rows.first).height, lessThanOrEqualTo(48));
+          final leading = find.descendant(
+            of: rows.first,
+            matching: find.byIcon(Icons.desktop_windows_outlined),
+          );
+          expect(
+            t.getRect(leading).left - t.getRect(rows.first).left,
+            greaterThanOrEqualTo(12),
+          );
+          expect(
+            t.getRect(rows.at(2)).top - t.getRect(rows.at(1)).bottom,
+            greaterThanOrEqualTo(8),
+          );
           await capture(
             t,
             key,

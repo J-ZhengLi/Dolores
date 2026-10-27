@@ -90,7 +90,54 @@ fn tool_images_follow_all_tool_ids_and_remain_untrusted_with_no_vision_fallback(
 }
 
 #[tokio::test]
-async fn text_only_tool_requests_keep_the_original_byte_limit_before_http() {
+async fn valid_long_tool_context_reaches_http_in_both_request_modes() {
+    let json = r#"{"choices":[{"message":{"content":"done"},"finish_reason":"stop"}]}"#;
+    let frame = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"done\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+    let (base_url, server) = crate::tests::sequence_server(vec![
+        format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{json}", json.len()),
+        format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{frame}", frame.len()),
+    ]).await;
+    let provider = OpenAiProvider::new(
+        &ConnectionPreferences {
+            base_url,
+            model: "fixture".into(),
+        },
+        String::new(),
+    )
+    .unwrap()
+    .with_context_window(Some(128 * 1024));
+    let messages = vec![dolores_core::AgentMessage {
+        role: "user".into(),
+        content: "Public evidence. ".repeat(10000),
+        parts: vec![],
+        calls: vec![],
+        call_id: None,
+    }];
+    assert!(
+        dolores_core::estimate_agent_tokens(&messages, &[]).unwrap()
+            < dolores_core::input_token_allowance(Some(128 * 1024), RequestSettings::default())
+                .unwrap()
+                .unwrap()
+    );
+    let result = provider
+        .tool_turn(&messages, &[], CancellationToken::new())
+        .await;
+    assert!(
+        result.is_ok(),
+        "Valid context was rejected locally: {:?}",
+        result.err()
+    );
+    let (tx, _rx) = mpsc::channel(8);
+    provider
+        .stream_tool_turn(&messages, &[], tx, CancellationToken::new())
+        .await
+        .unwrap();
+    let requests = server.await.unwrap();
+    assert_eq!(requests.matches("POST ").count(), 2);
+}
+
+#[tokio::test]
+async fn oversized_tool_requests_respect_the_configured_model_before_http() {
     let provider = OpenAiProvider::new(
         &ConnectionPreferences {
             base_url: "http://127.0.0.1:1/v1".into(),
@@ -98,7 +145,8 @@ async fn text_only_tool_requests_keep_the_original_byte_limit_before_http() {
         },
         String::new(),
     )
-    .unwrap();
+    .unwrap()
+    .with_context_window(Some(8192));
     let messages = vec![dolores_core::AgentMessage {
         parts: vec![],
         role: "user".into(),
@@ -111,14 +159,14 @@ async fn text_only_tool_requests_keep_the_original_byte_limit_before_http() {
         .await
         .err()
         .unwrap();
-    assert!(error.contains("128 KiB"));
+    assert_eq!(error, CONTEXT_LIMIT_ERROR);
     let (tx, _rx) = mpsc::channel(1);
     let error = provider
         .stream_tool_turn(&messages, &[], tx, CancellationToken::new())
         .await
         .err()
         .unwrap();
-    assert!(error.contains("128 KiB"));
+    assert_eq!(error, CONTEXT_LIMIT_ERROR);
 }
 
 #[test]

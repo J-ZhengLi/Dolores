@@ -2701,7 +2701,7 @@ impl Engine {
                         self.connection
                             .lock()
                             .map_err(|_| "Connection unavailable.")?
-                            .bounded_review_provider(1024, 30)?,
+                            .compaction_provider()?,
                     )
                 } else {
                     None
@@ -2939,7 +2939,7 @@ impl Engine {
                         self.connection
                             .lock()
                             .map_err(|_| "Connection unavailable.")?
-                            .bounded_review_provider(1024, 30)?,
+                            .compaction_provider()?,
                     )
                 } else {
                     None

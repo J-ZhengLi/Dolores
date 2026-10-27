@@ -493,6 +493,15 @@ impl ModelProvider for OpenAiProvider {
     fn context_window_tokens(&self) -> Option<u32> {
         self.context_window
     }
+    fn continuation_pressure_percent(&self) -> u64 {
+        let Ok(cache) = self.reasoning.lock() else {
+            return 100;
+        };
+        let bytes = cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>();
+        // Leave room for one maximum-size reasoning response before the next
+        // safe boundary. The private 2-MiB allocation guard remains separate.
+        bytes as u64 * 100 / (agent::MAX_REASONING_CACHE_BYTES as u64 / 3)
+    }
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;
         Ok(std::sync::Arc::new(Self {

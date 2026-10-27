@@ -1,6 +1,50 @@
 use super::*;
 use dolores_core::{ConnectionPreferences, ModelProvider, RequestSettings};
 
+#[test]
+fn reasoning_continuation_uses_memory_pressure_instead_of_a_sixteen_call_ceiling() {
+    let provider = provider("http://127.0.0.1:1/v1".into());
+    for n in 0..20 {
+        provider
+            .remember_reasoning(
+                &AgentTurn {
+                    content: String::new(),
+                    calls: vec![ToolCall {
+                        id: format!("step-{n}"),
+                        name: "read_text_file".into(),
+                        arguments: "{}".into(),
+                    }],
+                    usage: None,
+                    output_limit: false,
+                },
+                Some("Reasoning fixture".into()),
+            )
+            .unwrap();
+    }
+    assert_eq!(provider.reasoning.lock().unwrap().len(), 20);
+    assert!(provider.continuation_pressure_percent() < 80);
+    provider
+        .remember_reasoning(
+            &AgentTurn {
+                content: String::new(),
+                calls: vec![ToolCall {
+                    id: "large".into(),
+                    name: "read_text_file".into(),
+                    arguments: "{}".into(),
+                }],
+                usage: None,
+                output_limit: false,
+            },
+            Some("x".repeat(600_000)),
+        )
+        .unwrap();
+    assert!(provider.continuation_pressure_percent() >= 80);
+    // A compacted public context has no previous protocol calls and releases
+    // old private reasoning before the next task request.
+    provider.wire_agent_messages(&[]).unwrap();
+    assert_eq!(provider.continuation_pressure_percent(), 0);
+}
+
 #[tokio::test]
 async fn long_reasoning_is_preserved_for_followup_without_entering_public_text() {
     let reasoning = "thinking ".repeat(22000);
