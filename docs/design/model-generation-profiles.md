@@ -12,6 +12,15 @@ DeepSeek explicit thinking on is unavailable until complete reasoning replay is 
 
 Named generation-parameter rejection gets a sanitized actionable error and a Request settings action. Controls are not silently removed or retried. The narrow existing stream_options compatibility retry remains for an isolated usage-field rejection; a response naming generation settings takes precedence and receives no retry. Malformed unfinished tool calls never reach approval and have explicit guidance to inspect completed changes and narrow the task or select another model. Completed effects remain; a failed turn restores the draft without storing a partial turn. This is manual recovery, not automatic JSON repair.
 
+An upstream stream ending without a valid finish reason is a provider-stream
+failure, including when it ends during reasoning before any tool call. The error
+reports elapsed time and the last activity, without exposing response contents.
+An inconsistent finish reason receives separate compatibility guidance. Neither
+case establishes that a skill is missing, and no tool from that unfinished
+response runs. Draft/skill recovery and completed earlier effects remain intact.
+A longer local inactivity timeout cannot restore a stream already ended by the
+provider or gateway; check that service's limits or explicitly choose another model.
+
 ## Persistence and consumers
 
 Explicit thinking off also removes one exact leading `</think>` envelope marker from response text when followed by content. Some compatible gateways emit this stray marker even with thinking disabled, breaking otherwise valid image-memory JSON. This applies consistently to plain streams, tool streams and non-streamed responses, including fragmented markers. Provider default, embedded markers, standalone or incomplete markers and tool arguments retain their exact text. Raw byte limits and reported usage remain unchanged; no retry or settings fallback is added.

@@ -12,6 +12,8 @@ published versions use SemVer and an ISO date.
 
 ### Fixed
 
+- Command tools can launch installed CLIs by PATH name or executable path, including project-local tools. The fixed program-name restriction is removed from both one-shot commands and command sessions; existing access modes and process controls still apply.
+- Unfinished provider streams now report elapsed time and the last activity, with provider-specific recovery instead of a generic tool-response error. Drafts, selected skills and completed earlier work remain available.
 - Foreground tasks report status inline without creating notification toasts or inbox entries. Other conversations and tasks running while Dolores is unfocused still notify; skipped foreground events are not replayed later.
 - Submitted skill references now move from the composer to the message instead of remaining selected for later prompts. Failed sends restore both prompt and skills while preserving newer drafts and selections.
 

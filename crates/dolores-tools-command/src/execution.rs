@@ -87,7 +87,7 @@ impl RunCommand {
     pub(super) fn launch(
         &self,
         mode: &Isolation,
-        program: &str,
+        executable: &Path,
         readonly: &[PathBuf],
     ) -> Result<Launch, String> {
         if *mode == Isolation::Native {
@@ -99,7 +99,10 @@ impl RunCommand {
         #[cfg(windows)]
         {
             let host = self.isolation.as_ref().ok_or("OS isolation is unavailable for this launch. Nothing was started; no native fallback was used.")?;
-            if program != "node" {
+            if !executable
+                .file_stem()
+                .is_some_and(|name| name.eq_ignore_ascii_case("node"))
+            {
                 return Err("Isolated execution currently supports direct Node commands. This runtime is unsupported; nothing was started and no native fallback was used.".into());
             }
             if host.pending_cleanup()? != 0 {
@@ -113,7 +116,7 @@ impl RunCommand {
         }
         #[cfg(not(windows))]
         {
-            let _ = program;
+            let _ = executable;
             Err("OS isolation is unavailable on this platform. Nothing was started; no native fallback was used.".into())
         }
     }

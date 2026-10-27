@@ -1151,9 +1151,8 @@ pub async fn run_agent_with_shared_budget(
                         "External tool arguments must be a JSON object within 4 KiB. Review the MCP connection if its launch files have changed.".into()
                     } else if call.name == "run_command" {
                         match error.as_str() {
-                            "Invalid command arguments." => "run_command requires program and args (array of strings), within 32 KiB JSON and 32 arguments. Use an advertised program ID, not a shell command or path. For larger scripts, create a script file and run that file.".into(),
-                            "Command arguments exceed the supported shape or size. Use an advertised program ID and at most 32 literal arguments, 8 KiB per argument and 16 KiB total, with no NUL characters. For larger validation scripts, create a script file and run that file." => error.clone(),
-                            _ => "Command program is unavailable. Use an installed direct development executable outside the working folder; no shell or batch fallback is available.".into(),
+                            "Invalid command arguments." => "run_command requires an executable name or path as program and literal args (array of strings), within 32 KiB JSON and 32 arguments. Shells and interpreters must be selected explicitly as program. For larger scripts, create a script file and run that file.".into(),
+                            _ => error,
                         }
                     } else if call.name == "edit_text_file" {
                         match error.as_str() {

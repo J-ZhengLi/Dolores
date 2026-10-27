@@ -12,6 +12,11 @@ pub struct Recovery {
 // guidance; never parse a remote body, echo it, or infer an automatic retry.
 pub fn advice(error: &str) -> Recovery {
     let (kind, retryable, guidance) = match error {
+        error if error == "Connection ended before the tool response finished." || error.starts_with("Model provider ended an unfinished response") || error.starts_with("Model provider returned inconsistent stream completion") => (
+            "providerStream",
+            true,
+            "The provider did not finish its response. Your draft, selected skills and completed work remain. Check the provider's streaming/time limits or select another model before retrying explicitly. Increasing Dolores' inactivity timeout cannot repair a stream the provider has already ended. Nothing is retried automatically.",
+        ),
         error if error.starts_with("Provider stream sent 2 MiB without new response data") => (
             "stalledStream",
             false,
@@ -63,6 +68,23 @@ pub fn advice(error: &str) -> Recovery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unfinished_provider_stream_has_specific_recovery_without_blaming_skills() {
+        for message in [
+            "Connection ended before the tool response finished.",
+            "Model provider ended an unfinished response after 31s (last activity: reasoning).",
+            "Model provider returned inconsistent stream completion.",
+        ] {
+            let recovery = advice(message);
+            assert_eq!(recovery.kind, "providerStream");
+            assert!(recovery.guidance.contains("provider"));
+            assert!(recovery.guidance.contains("selected skills"));
+            assert!(recovery
+                .guidance
+                .contains("Nothing is retried automatically"));
+            assert!(!recovery.guidance.contains("Disable folder tools"));
+        }
+    }
     #[test]
     fn tool_service_outages_do_not_claim_unsupported_computer_use() {
         for status in [408, 500, 502, 503, 504] {

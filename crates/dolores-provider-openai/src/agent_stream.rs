@@ -170,7 +170,17 @@ impl Assembly {
         self.content.push_str(&text);
         Ok(text)
     }
-    fn complete(self) -> Result<AgentTurn, String> {
+    fn unfinished_error(&self, elapsed: Duration) -> String {
+        use dolores_core::ModelActivity;
+        let phase = match self.activity() {
+            ModelActivity::Waiting => "waiting for data",
+            ModelActivity::Reasoning => "reasoning",
+            ModelActivity::Responding => "response text",
+            ModelActivity::ToolArguments => "tool arguments",
+        };
+        format!("Model provider ended an unfinished response after {}s (last activity: {phase}). No tool from this response was executed. Check the provider's streaming limits or choose another model, then retry explicitly.", elapsed.as_secs().max(1))
+    }
+    fn complete(self, elapsed: Duration) -> Result<AgentTurn, String> {
         if self.finish.as_deref() == Some("length") {
             // Never publish incomplete/pending tool calls as executable work.
             return Ok(AgentTurn {
@@ -185,8 +195,11 @@ impl Assembly {
         } else {
             "tool_calls"
         };
+        if self.finish.is_none() {
+            return Err(self.unfinished_error(elapsed));
+        }
         if self.finish.as_deref() != Some(expected) {
-            return Err("Connection ended before the tool response finished.".into());
+            return Err("Model provider returned inconsistent stream completion. No tool from this response was executed. Check the provider's tool-stream compatibility or choose another model before retrying.".into());
         }
         let mut calls = Vec::new();
         for (expected_index, (index, part)) in self.calls.into_iter().enumerate() {
@@ -423,8 +436,11 @@ impl OpenAiProvider {
                 return Err("Provider stream sent 2 MiB without new response data. Stop and check the provider or try again explicitly. No incomplete tool call was executed.".into());
             }
             if done {
+                if assembly.finish.is_none() {
+                    return Err(assembly.unfinished_error(measurements.started.elapsed()));
+                }
                 let reasoning = assembly.reasoning.take();
-                let turn = assembly.complete()?;
+                let turn = assembly.complete(measurements.started.elapsed())?;
                 if !turn.output_limit {
                     measurements.data.incomplete_call = Some(false);
                 }
@@ -435,11 +451,11 @@ impl OpenAiProvider {
             // Keep deadline and Stop responsive even with continuously ready metadata.
             tokio::task::yield_now().await;
         }
-        if !decoder.buffer.is_empty() {
-            return Err("Connection ended before the tool response finished.".into());
+        if !decoder.buffer.is_empty() || assembly.finish.is_none() {
+            return Err(assembly.unfinished_error(measurements.started.elapsed()));
         }
         let reasoning = assembly.reasoning.take();
-        let turn = assembly.complete()?;
+        let turn = assembly.complete(measurements.started.elapsed())?;
         if !turn.output_limit {
             measurements.data.incomplete_call = Some(false);
         }

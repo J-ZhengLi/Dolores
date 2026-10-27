@@ -1068,10 +1068,10 @@ struct Scripted {
 }
 
 #[tokio::test]
-async fn oversized_command_receipt_preserves_script_file_recovery_without_approval() {
-    struct OversizedCommand;
+async fn command_rejections_preserve_actionable_recovery_without_approval() {
+    struct RejectedCommand(&'static str);
     #[async_trait]
-    impl ToolPlugin for OversizedCommand {
+    impl ToolPlugin for RejectedCommand {
         fn spec(&self) -> ToolSpec {
             ToolSpec {
                 name: "run_command".into(),
@@ -1080,43 +1080,52 @@ async fn oversized_command_receipt_preserves_script_file_recovery_without_approv
             }
         }
         fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
-            Err("Command arguments exceed the supported shape or size. Use an advertised program ID and at most 32 literal arguments, 8 KiB per argument and 16 KiB total, with no NUL characters. For larger validation scripts, create a script file and run that file.".into())
+            Err(self.0.into())
         }
         async fn invoke(&self, _: &ToolRequest, _: CancellationToken) -> Result<String, String> {
             panic!("A refused command must never execute")
         }
     }
-    let provider = Scripted {
-        calls: Mutex::new(vec![ToolCall {
-            id: "long-command".into(),
-            name: "run_command".into(),
-            arguments: "{}".into(),
-        }]),
-        loop_forever: false,
-    };
-    let approval = Approval {
-        allow: true,
-        count: AtomicUsize::new(0),
-    };
-    let (events, _receiver) = mpsc::channel(32);
-    let reply = run_small_agent(
-        &provider,
-        context(),
-        &[Arc::new(OversizedCommand)],
-        &approval,
-        events,
-        CancellationToken::new(),
-    )
-    .await
-    .unwrap();
-    assert_eq!(reply.summary.tools[0].status, "blocked");
-    assert!(reply.summary.tools[0]
-        .content
-        .contains("create a script file"));
-    assert!(!reply.summary.tools[0]
-        .content
-        .contains("program is unavailable"));
-    assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    for error in [
+        "Command arguments exceed the supported shape or size. Provide an executable name or path up to 8 KiB with no control characters, and at most 32 literal arguments, 8 KiB per argument and 16 KiB total, with no NUL characters. For larger validation scripts, create a script file and run that file.",
+        "Program was not found. Use an executable on PATH or provide an absolute or working-folder-relative executable path.",
+        "OS isolation is unavailable for this launch. Nothing was started; no native fallback was used.",
+        "Invalid command arguments.",
+    ] {
+        let provider = Scripted {
+            calls: Mutex::new(vec![ToolCall {
+                id: "long-command".into(),
+                name: "run_command".into(),
+                arguments: "{}".into(),
+            }]),
+            loop_forever: false,
+        };
+        let approval = Approval {
+            allow: true,
+            count: AtomicUsize::new(0),
+        };
+        let (events, _receiver) = mpsc::channel(32);
+        let reply = run_small_agent(
+            &provider,
+            context(),
+            &[Arc::new(RejectedCommand(error))],
+            &approval,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(reply.summary.tools[0].status, "blocked");
+        let content = &reply.summary.tools[0].content;
+        if error == "Invalid command arguments." {
+            assert!(content.contains("executable name or path"), "{content}");
+        } else {
+            assert_eq!(content, error);
+        }
+        assert!(!content.contains("advertised program ID"));
+        assert!(!content.contains("outside the working folder"));
+        assert_eq!(approval.count.load(Ordering::SeqCst), 0);
+    }
 }
 #[tokio::test]
 async fn configured_limits_allow_a_fifth_operation_and_stop_the_next_without_effect() {

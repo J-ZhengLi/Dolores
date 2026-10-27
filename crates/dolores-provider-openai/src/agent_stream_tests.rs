@@ -513,7 +513,7 @@ fn large_fragmented_file_json_survives_but_other_tools_and_overflow_remain_bound
                 json!("tool_calls"),
             ))
             .unwrap();
-        let result = assembly.complete();
+        let result = assembly.complete(Duration::ZERO);
         if matches!(name, "create_text_file" | "edit_text_file" | "run_command") {
             assert_eq!(result.unwrap().calls[0].arguments, arguments);
         } else {
@@ -529,7 +529,7 @@ fn large_fragmented_file_json_survives_but_other_tools_and_overflow_remain_bound
             json!("tool_calls"),
         ))
         .unwrap();
-    assert!(assembly.complete().is_err());
+    assert!(assembly.complete(Duration::ZERO).is_err());
 }
 
 #[tokio::test]
@@ -589,7 +589,7 @@ fn fragmented_unicode_and_interleaved_calls_assemble_by_index() {
             );
         }
     }
-    let turn = assembly.complete().unwrap();
+    let turn = assembly.complete(Duration::ZERO).unwrap();
     assert_eq!(turn.content, text);
     assert_eq!(turn.calls[0].id, "one");
     assert_eq!(turn.calls[1].arguments, r#"{"query":"世界","path":"."}"#);
@@ -646,11 +646,11 @@ fn incomplete_malformed_and_over_budget_calls_never_complete() {
             .into_iter()
             .try_for_each(|v| assembly.push(v).map(|_| ()));
         let error = result
-            .and_then(|_| assembly.complete().map(|_| ()))
+            .and_then(|_| assembly.complete(Duration::ZERO).map(|_| ()))
             .unwrap_err();
         assert!(!error.contains("fixture-private-body"));
     }
-    assert!(Assembly::default().complete().is_err());
+    assert!(Assembly::default().complete(Duration::ZERO).is_err());
 }
 
 #[tokio::test]
@@ -740,23 +740,34 @@ async fn http_stream_preserves_usage_and_the_real_tool_message_contract() {
 
 #[tokio::test]
 async fn incomplete_stream_and_done_without_finish_do_not_return_calls() {
-    for done in [false, true] {
-        let response = wire(
-            &[delta(
-                json!({"content":"partial","tool_calls":[call(0,"one","read_text_file","{\"path\":")]}),
-                Value::Null,
-            )],
-            done,
-        );
-        let (base_url, server) = crate::tests::sequence_server(vec![response]).await;
-        let (sender, _receiver) = mpsc::channel(8);
-        let error = provider(base_url)
-            .stream_tool_turn(&[], &[], sender, CancellationToken::new())
-            .await
-            .err()
-            .unwrap();
-        assert!(error.contains("before the tool response finished"));
-        server.await.unwrap();
+    for (partial, phase) in [
+        (
+            json!({"reasoning_content":"Plan the next step"}),
+            "reasoning",
+        ),
+        (json!({"content":"partial"}), "response text"),
+        (
+            json!({"content":"partial","tool_calls":[call(0,"one","read_text_file","{\"path\":")]}),
+            "tool arguments",
+        ),
+    ] {
+        for done in [false, true] {
+            let response = wire(&[delta(partial.clone(), Value::Null)], done);
+            let (base_url, server) = crate::tests::sequence_server(vec![response]).await;
+            let (sender, _receiver) = mpsc::channel(8);
+            let error = provider(base_url)
+                .stream_tool_turn(&[], &[], sender, CancellationToken::new())
+                .await
+                .err()
+                .unwrap();
+            assert!(
+                error.starts_with("Model provider ended an unfinished response"),
+                "{error}"
+            );
+            assert!(error.contains(phase), "{error}");
+            assert!(error.contains("No tool from this response was executed"));
+            server.await.unwrap();
+        }
     }
 }
 

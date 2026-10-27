@@ -60,6 +60,66 @@ fn call(script: &str) -> ToolCall {
         arguments: json!({"program":"node","args":["-e",script]}).to_string(),
     }
 }
+#[tokio::test]
+async fn arbitrary_executable_paths_run_with_literal_arguments() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("project 世界 with spaces");
+    std::fs::create_dir(&root).unwrap();
+    let node = resolve(&root, "node").unwrap();
+    let name = format!("fixture tool 世界{}", std::env::consts::EXE_SUFFIX);
+    let binary = root.join(&name);
+    std::fs::copy(node, &binary).unwrap();
+    let tool = RunCommand::new(&root).unwrap();
+    for (i, program) in [binary.to_string_lossy().into_owned(), format!("./{name}")]
+        .into_iter()
+        .enumerate()
+    {
+        let literal = "a b; & $(unchanged) 世界";
+        let request = tool.prepare(&ToolCall {
+            id: format!("arbitrary-{i}"),
+            name: "run_command".into(),
+            arguments: json!({"program":program,"args":["-e","process.stdout.write(process.argv[1])",literal]}).to_string(),
+        }).unwrap();
+        assert_eq!(
+            PathBuf::from(&request.command.as_ref().unwrap().executable),
+            binary.canonicalize().unwrap()
+        );
+        let result: serde_json::Value = serde_json::from_str(
+            &tool
+                .invoke(&request, CancellationToken::new())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(result["exitCode"], 0);
+        assert_eq!(result["stdout"], literal);
+    }
+    let stale = tool
+        .prepare(&ToolCall {
+            id: "stale-executable".into(),
+            name: "run_command".into(),
+            arguments: json!({"program":binary,"args":[]}).to_string(),
+        })
+        .unwrap();
+    std::fs::write(&binary, "changed executable fixture").unwrap();
+    assert!(tool
+        .invoke(&stale, CancellationToken::new())
+        .await
+        .unwrap_err()
+        .contains("Executable changed"));
+}
+#[test]
+fn command_schemas_accept_installed_program_names_without_an_enum() {
+    assert!(valid(&CommandSpec {
+        program: "gitee".into(),
+        args: vec!["--version".into()]
+    }));
+    for spec in [command_spec(), crate::sessions::session_spec()] {
+        assert!(spec.parameters["properties"]["program"]
+            .get("enum")
+            .is_none());
+    }
+}
 async fn invoke(tool: &RunCommand, script: &str) -> serde_json::Value {
     let request = tool.prepare(&call(script)).unwrap();
     serde_json::from_str(
@@ -203,7 +263,8 @@ async fn invalid_unknown_tampered_and_cancelled_requests_never_execute() {
     let dir = tempfile::tempdir().unwrap();
     let tool = RunCommand::new(dir.path()).unwrap();
     for arguments in [
-        json!({"program":"cmd","args":["/c","echo unsafe"]}),
+        json!({"program":"","args":[]}),
+        json!({"program":"node\0","args":[]}),
         json!({"program":"./node","args":[]}),
         json!({"program":"node","args":[],"approved":true}),
         json!({"program":"node","args":["\0"]}),
@@ -297,13 +358,34 @@ async fn stop_and_dropped_invocation_kill_child_and_grandchild_without_late_writ
     }
 }
 #[test]
-fn path_resolution_refuses_project_shadow_and_relative_entries() {
+fn path_resolution_accepts_program_names_and_relative_path_entries() {
     let dir = tempfile::tempdir().unwrap();
-    let file = resolve(&dir.path().canonicalize().unwrap(), "node").unwrap();
-    assert!(!file.starts_with(dir.path()));
+    let root = dir.path().canonicalize().unwrap();
+    let node = resolve(&root, "node").unwrap();
+    let bin = root.join("tools 世界");
+    std::fs::create_dir(&bin).unwrap();
+    let name = format!("fixture-cli{}", std::env::consts::EXE_SUFFIX);
+    let file = bin.join(&name);
+    std::fs::copy(node, &file).unwrap();
+    for search in [std::ffi::OsString::from("tools 世界"), bin.into_os_string()] {
+        assert_eq!(
+            resolve_from_path(&root, "fixture-cli", &search).unwrap(),
+            file.canonicalize().unwrap()
+        );
+        assert_eq!(
+            resolve_from_path(&root, &name, &search).unwrap(),
+            file.canonicalize().unwrap()
+        );
+        #[cfg(windows)]
+        assert_eq!(
+            resolve_from_path(&root, &name.to_uppercase(), &search).unwrap(),
+            file.canonicalize().unwrap()
+        );
+    }
     assert!(
-        resolve(file.parent().unwrap(), "node").is_err()
-            || resolve(file.parent().unwrap(), "node").unwrap() != file
+        resolve_from_path(&root, "missing-fixture", std::ffi::OsStr::new("tools 世界"))
+            .unwrap_err()
+            .contains("PATH")
     );
 }
 
