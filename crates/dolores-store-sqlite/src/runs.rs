@@ -71,14 +71,18 @@ impl SqliteStore {
         {
             return Err("Run state transition is invalid.".into());
         }
-        // A terminal marker has a reserved slot, so exhaustion remains inspectable.
-        if expected >= MAX_RUN_EVENTS && !state.as_ref().is_some_and(RunState::terminal) {
-            return Err(
-                "Run evidence allowance exhausted. Inspect existing progress before continuing."
-                    .into(),
-            );
+        let (ordinal, through): (u32,u32) = tx.query_row(
+            "SELECT COALESCE(MAX(ordinal),0),COALESCE(MAX(through_sequence),0) FROM run_segments WHERE run_id=?1", [id], |r| Ok((r.get(0)?,r.get(1)?))).map_err(storage_error)?;
+        if expected.saturating_sub(through) >= MAX_RUN_EVENTS {
+            // Same owner, same sequence space; the event and journal boundary
+            // commit together. Old evidence is never deleted to make room.
+            tx.execute("INSERT INTO run_segments(run_id,ordinal,through_sequence,checkpoint) VALUES(?1,?2,?3,?4)",
+                params![id,ordinal+1,expected,r#"{"journalOnly":true,"note":"Storage boundary; no execution authority or restart permission."}"#]).map_err(storage_error)?;
         }
-        run.sequence += 1;
+        run.sequence = run
+            .sequence
+            .checked_add(1)
+            .ok_or("Task sequence exhausted.")?;
         if let Some(state) = state {
             run.state = state;
         }
@@ -130,13 +134,19 @@ impl SqliteStore {
             return Err("Run belongs to another chat or is unavailable.".into());
         }
         let mut stmt = conn
-            .prepare("SELECT data FROM run_events WHERE run_id=?1 ORDER BY sequence LIMIT ?2")
+            .prepare("SELECT data FROM (SELECT sequence,data FROM run_events WHERE run_id=?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence")
             .map_err(storage_error)?;
         let rows = stmt
             .query_map(params![id, MAX_RUN_EVENTS + 1], |r| r.get::<_, String>(0))
             .map_err(storage_error)?;
-        rows.map(|r| serde_json::from_str(&r.map_err(storage_error)?).map_err(storage_error))
-            .collect()
+        let mut result: Vec<RunEvent> = rows
+            .map(|r| serde_json::from_str(&r.map_err(storage_error)?).map_err(storage_error))
+            .collect::<Result<_, _>>()?;
+        if let Some(first) = result.first().filter(|e| e.sequence > 1) {
+            result.insert(0,RunEvent { sequence:0,kind:"earlierEvidence".into(),state:first.state.clone(),
+                data:serde_json::json!({"before":first.sequence,"note":"Earlier events remain saved. Use paged task evidence to inspect them."}) });
+        }
+        Ok(result)
     }
     pub(crate) fn mark_interrupted(&self) -> Result<(), String> {
         let mut conn = self.lock()?;
@@ -295,19 +305,19 @@ mod tests {
                 .append_run_event(&run.id, n, None, "evidence", &serde_json::json!({}))
                 .unwrap();
         }
-        assert!(store
-            .append_run_event(
-                &run.id,
-                MAX_RUN_EVENTS,
-                None,
-                "overflow",
-                &serde_json::json!({})
-            )
-            .is_err());
         store
             .append_run_event(
                 &run.id,
                 MAX_RUN_EVENTS,
+                None,
+                "nextWindow",
+                &serde_json::json!({}),
+            )
+            .unwrap();
+        store
+            .append_run_event(
+                &run.id,
+                MAX_RUN_EVENTS + 1,
                 Some(RunState::Failed),
                 "finished",
                 &serde_json::json!({"message":"Inspect saved evidence before retrying"}),
@@ -315,7 +325,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             store.run_events("chat", &run.id).unwrap().len(),
-            (MAX_RUN_EVENTS + 1) as usize
+            (MAX_RUN_EVENTS + 2) as usize
         );
         store.delete("chat").unwrap();
         assert!(store.run_events("chat", &run.id).is_err());

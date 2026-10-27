@@ -231,6 +231,7 @@ mod tests {
             request_settings: None,
             paused: None,
             agent: Some(dolores_core::AgentSummary {
+                archive: None,
                 model_calls: 2,
                 usage_by_call: vec![],
                 tool_steps: vec![],

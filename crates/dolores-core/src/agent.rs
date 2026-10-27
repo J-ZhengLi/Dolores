@@ -319,6 +319,8 @@ pub struct ToolRecord {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentSummary {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive: Option<TaskArchive>,
     pub model_calls: usize,
     pub usage_by_call: Vec<Option<TokenUsage>>,
     pub tools: Vec<ToolRecord>,
@@ -331,6 +333,14 @@ pub struct AgentSummary {
     /// Bounded provider-supplied thinking previews, never executable instructions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub thinking: Vec<ModelText>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskArchive {
+    pub run_id: String,
+    pub through_segment: u32,
+    pub tool_count: usize,
+    pub model_calls: usize,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModelText {
@@ -373,6 +383,15 @@ pub enum PauseReason {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentEvent {
+    TaskMaintenance {
+        active: bool,
+    },
+    TaskSegment {
+        archive: TaskArchive,
+        retained: Vec<ToolRecord>,
+        #[serde(rename = "toolSteps")]
+        tool_steps: Vec<usize>,
+    },
     ModelTelemetry {
         number: usize,
         measurements: StreamMeasurements,
@@ -454,6 +473,17 @@ pub trait ToolPlugin: Send + Sync {
 }
 #[async_trait]
 pub trait ToolApproval: Send + Sync {
+    fn task_segments_available(&self) -> bool {
+        false
+    }
+    async fn save_task_segment(
+        &self,
+        _: &AgentSummary,
+        _: &[AgentMessage],
+        _: CancellationToken,
+    ) -> Result<(String, u32), String> {
+        Err("Durable task segments are unavailable.".into())
+    }
     fn context_recovery_available(&self) -> bool {
         false
     }
@@ -629,6 +659,32 @@ pub async fn run_agent_with_shared_budget(
         provider.context_window_tokens(),
         provider.request_settings().unwrap_or_default(),
     )?;
+    let rolling = approval.task_segments_available() && !child;
+    if rolling {
+        shared.enable_automatic();
+    }
+    let model_limit = if rolling && budget.model_calls.is_none() {
+        usize::MAX
+    } else {
+        budget.model_limit()
+    };
+    let tool_limit = if rolling && budget.tool_calls.is_none() {
+        usize::MAX
+    } else {
+        budget.tool_limit()
+    };
+    let mut instructions: Vec<AgentMessage> = context
+        .iter()
+        .filter(|m| m.role == crate::Role::User)
+        .map(|m| AgentMessage {
+            role: "user".into(),
+            content: m.content.clone(),
+            parts: m.parts.clone(),
+            calls: vec![],
+            call_id: None,
+        })
+        .collect();
+    let mut window_start = 0;
     let mut messages: Vec<_> = context
         .into_iter()
         .map(|m| AgentMessage {
@@ -644,6 +700,7 @@ pub async fn run_agent_with_shared_budget(
         })
         .collect();
     let mut summary = AgentSummary {
+        archive: None,
         model_calls: 0,
         usage_by_call: vec![],
         tools: vec![],
@@ -658,8 +715,7 @@ pub async fn run_agent_with_shared_budget(
     let mut denied = HashSet::new();
     let mut base_system = messages[0].content.clone();
     let mut capacity_band = 0;
-    let recovery_available =
-        approval.context_recovery_available() && messages.iter().all(|m| m.parts.is_empty());
+    let recovery_available = approval.context_recovery_available();
     // Snapshot adapters declare their immutable evidence before generation.
     // Refuse a known image overrun locally instead of paying for a tool request
     // whose result can never fit. Actual results are counted again below.
@@ -681,35 +737,8 @@ pub async fn run_agent_with_shared_budget(
     {
         return Err("Selected screenshot exceeds this model's context allowance. Choose a larger-context image model or compact/start a fresh chat; your screenshot and draft remain. Nothing was sent.".into());
     }
-    for number in 1..=budget.model_limit() {
-        for input in approval.take_steering()? {
-            if !input.skills.is_empty() {
-                let (prepared, _) = crate::prepare_skill_context(
-                    vec![
-                        Message {
-                            role: crate::Role::System,
-                            content: String::new(),
-                            parts: vec![],
-                        },
-                        Message {
-                            role: crate::Role::User,
-                            content: input.text.clone(),
-                            parts: vec![],
-                        },
-                    ],
-                    &input.skills,
-                )?;
-                base_system.push_str(&prepared[0].content);
-            }
-            messages.push(AgentMessage {
-                role: "user".into(),
-                content: input.text,
-                parts: vec![],
-                calls: vec![],
-                call_id: None,
-            });
-        }
-        approval.acknowledge_steering()?;
+    for number in 1..=model_limit {
+        collect_steering(approval, &mut messages, &mut instructions, &mut base_system)?;
         let capacity = crate::context_recovery::context_capacity(
             &messages,
             &specs,
@@ -718,12 +747,15 @@ pub async fn run_agent_with_shared_budget(
             recovery_available,
         )?;
         let protocol_pressure = provider.continuation_pressure_percent();
-        if protocol_pressure >= 80 && (!recovery_available || number == budget.model_limit()) {
+        if protocol_pressure >= 80 && (!recovery_available || number == model_limit) {
             return Ok(checkpoint_reply(summary, "Provider continuation checkpoint saved. Completed work remains; Continue starts with fresh protocol context and never replays completed actions."));
         }
-        if capacity.pressure_percent.max(protocol_pressure) >= 80
+        if (capacity.pressure_percent.max(protocol_pressure) >= 80
+            || (rolling
+                && (summary.tools.len() >= 32
+                    || summary.model_calls.saturating_sub(window_start) >= 24)))
             && recovery_available
-            && number < budget.model_limit()
+            && number < model_limit
         {
             if !shared.reserve_model(child) {
                 if let Some(error) = shared.error() {
@@ -731,6 +763,12 @@ pub async fn run_agent_with_shared_budget(
                 }
                 return Ok(checkpoint_reply(summary,"Task budget reached before context recovery. Saved effects remain; inspect progress before continuation."));
             }
+            emit(
+                &events,
+                AgentEvent::TaskMaintenance { active: true },
+                &cancel,
+            )
+            .await?;
             let checkpoint = match approval.compact_context(&messages, cancel.clone()).await {
                 Ok(checkpoint) => checkpoint,
                 Err(error) => {
@@ -743,17 +781,57 @@ pub async fn run_agent_with_shared_budget(
                 }
             };
             if let Some(checkpoint) = checkpoint {
-                messages = crate::context_recovery::restored_context(
-                    &messages,
+                messages = match crate::context_recovery::restored_context(
+                    &instructions,
                     &checkpoint,
                     &summary.tools,
                     &base_system,
-                )?;
+                ) {
+                    Ok(context) => context,
+                    Err(error) => return Ok(checkpoint_reply(summary,&format!("Task context needs inspection: {error} Completed receipts remain; no next request was dispatched."))),
+                };
                 capacity_band = 0;
                 // Recovery is a model attempt even though it produces no task answer.
                 summary.model_calls += 1;
+                if rolling {
+                    match crate::task_segments::save(
+                        approval,
+                        &mut summary,
+                        &messages,
+                        cancel.clone(),
+                    )
+                    .await
+                    {
+                        Ok(archive) => {
+                            emit(
+                                &events,
+                                AgentEvent::TaskSegment {
+                                    archive,
+                                    retained: summary.tools.clone(),
+                                    tool_steps: summary.tool_steps.clone(),
+                                },
+                                &cancel,
+                            )
+                            .await?;
+                        }
+                        Err(error) => {
+                            if cancel.is_cancelled() {
+                                return Err("Response stopped.".into());
+                            }
+                            return Ok(checkpoint_reply(summary,&format!("Task maintenance could not be saved: {error} Completed work remains; no next request was dispatched.")));
+                        }
+                    }
+                    window_start = summary.model_calls;
+                }
             }
+            emit(
+                &events,
+                AgentEvent::TaskMaintenance { active: false },
+                &cancel,
+            )
+            .await?;
         }
+        collect_steering(approval, &mut messages, &mut instructions, &mut base_system)?;
         if !shared.reserve_model(child) {
             if let Some(error) = shared.error() {
                 return Err(error);
@@ -817,6 +895,9 @@ pub async fn run_agent_with_shared_budget(
         let mut phase = ModelActivity::Waiting;
         let mut pulse = tokio::time::interval(std::time::Duration::from_secs(1));
         pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        if rolling {
+            output_bytes = 0;
+        }
         let mut streamed = String::new();
         let diagnostics = StreamDiagnostics::default();
         let turn = {
@@ -960,7 +1041,7 @@ pub async fn run_agent_with_shared_budget(
                 .max_output_tokens
                 .is_none()
                 && output_recoveries == 0
-                && number < budget.model_limit()
+                && number < model_limit
                 && !turn.content.trim().is_empty()
                 && crate::unresolved_commands(&summary.tools).is_empty()
                 && subagent_pause(&summary.tools).is_none()
@@ -1000,7 +1081,7 @@ pub async fn run_agent_with_shared_budget(
             return Err("Response exceeds the 128 KiB limit.".into());
         }
         if approval.steering_pending()? {
-            if number == budget.model_limit() {
+            if number == model_limit {
                 return Ok(checkpoint_reply(summary,"New steering is saved but this run reached its model-call allowance. Inspect progress and Resume the queue explicitly. Pending operations were not run."));
             }
             // The generation is settled. Supersede its undispatched requests,
@@ -1028,15 +1109,15 @@ pub async fn run_agent_with_shared_budget(
                 summary,
             });
         }
-        if number == budget.model_limit()
-            || summary.tools.len() + turn.calls.len() > budget.tool_limit()
+        if number == model_limit
+            || summary.tools.len() + turn.calls.len() > tool_limit
             || !shared.reserve_tools(turn.calls.len())
         {
             if let Some(error) = shared.error() {
                 return Err(error);
             }
-            let reason = if (number == budget.model_limit() && budget.model_calls.is_some())
-                || (summary.tools.len() + turn.calls.len() > budget.tool_limit()
+            let reason = if (number == model_limit && budget.model_calls.is_some())
+                || (summary.tools.len() + turn.calls.len() > tool_limit
                     && budget.tool_calls.is_some())
                 || (budget.model_calls.is_some() && budget.tool_calls.is_some())
             {
@@ -1458,6 +1539,50 @@ pub async fn run_agent_with_shared_budget(
         }
     }
     Err("Agent reached its model-call limit.".into())
+}
+
+fn collect_steering(
+    approval: &dyn ToolApproval,
+    messages: &mut Vec<AgentMessage>,
+    instructions: &mut Vec<AgentMessage>,
+    base_system: &mut String,
+) -> Result<(), String> {
+    for input in approval.take_steering()? {
+        if !input.skills.is_empty() {
+            let (prepared, _) = crate::prepare_skill_context(
+                vec![
+                    Message {
+                        role: crate::Role::System,
+                        content: String::new(),
+                        parts: vec![],
+                    },
+                    Message {
+                        role: crate::Role::User,
+                        content: input.text.clone(),
+                        parts: vec![],
+                    },
+                ],
+                &input.skills,
+            )?;
+            base_system.push_str(&prepared[0].content);
+        }
+        instructions.push(AgentMessage {
+            role: "user".into(),
+            content: input.text.clone(),
+            parts: vec![],
+            calls: vec![],
+            call_id: None,
+        });
+        messages.push(AgentMessage {
+            role: "user".into(),
+            content: input.text,
+            parts: vec![],
+            calls: vec![],
+            call_id: None,
+        });
+    }
+    approval.acknowledge_steering()?;
+    Ok(())
 }
 
 fn checkpoint_reply(summary: AgentSummary, answer: &str) -> AgentReply {

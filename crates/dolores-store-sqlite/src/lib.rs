@@ -36,7 +36,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const SCHEMA_VERSION: i64 = 51;
+pub const SCHEMA_VERSION: i64 = 52;
 pub struct SqliteStore {
     connection: Mutex<Connection>,
 }
@@ -59,6 +59,9 @@ mod message_timestamp_tests;
 mod mods;
 mod prompt_branches;
 mod review_findings;
+#[cfg(test)]
+mod run_segment_tests;
+mod run_segments;
 mod runs;
 mod settings;
 mod task_inputs;
@@ -311,6 +314,11 @@ impl SqliteStore {
             connection
                 .execute_batch(include_str!("notification_schema.sql"))
                 .map_err(storage_error)?;
+        }
+        if version < 52 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS run_segments(run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,ordinal INTEGER NOT NULL,through_sequence INTEGER NOT NULL,checkpoint TEXT NOT NULL CHECK(length(CAST(checkpoint AS BLOB))<=131072),PRIMARY KEY(run_id,ordinal));
+                PRAGMA user_version=52; COMMIT;").map_err(storage_error)?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -1000,6 +1008,23 @@ impl SessionStore for SqliteStore {
     }
     fn run_events(&self, thread: &str, id: &str) -> Result<Vec<dolores_core::RunEvent>, String> {
         self.read_run_events(thread, id)
+    }
+    fn run_events_page(
+        &self,
+        thread: &str,
+        id: &str,
+        after: u32,
+    ) -> Result<dolores_core::RunEventPage, String> {
+        self.read_run_events_page(thread, id, after)
+    }
+    fn seal_run_segment(
+        &self,
+        id: &str,
+        expected: u32,
+        records: &[serde_json::Value],
+        checkpoint: &serde_json::Value,
+    ) -> Result<(u32, dolores_core::RunSegment), String> {
+        self.write_run_segment(id, expected, records, checkpoint)
     }
     fn interrupt_runs(&self) -> Result<(), String> {
         self.mark_interrupted()

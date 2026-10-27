@@ -62,7 +62,7 @@ class _RunStatusState extends State<RunStatus>
     'review': 'Waiting for your review',
     'question': 'Waiting for your answer',
     'stopping': 'Stopping…',
-    'compacting': 'Compacting context',
+    'compacting': 'Updating context',
   };
   static const phrases = {
     'reasoning': [

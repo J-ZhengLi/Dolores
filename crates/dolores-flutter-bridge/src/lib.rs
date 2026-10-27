@@ -6,6 +6,8 @@ mod approval;
 mod attachments;
 mod attention;
 mod automatic_memory;
+#[cfg(test)]
+mod automatic_task_tests;
 mod browser;
 mod changes;
 #[cfg(test)]
@@ -567,6 +569,13 @@ enum Command {
         session: String,
         #[serde(rename = "runId")]
         run_id: String,
+    },
+    RunEventsPage {
+        session: String,
+        #[serde(rename = "runId")]
+        run_id: String,
+        #[serde(default)]
+        after: u32,
     },
     HarnessInventory {
         session: Option<String>,
@@ -1279,6 +1288,7 @@ impl Engine {
             Command::ScopedSettings {session} => return self.settings_view(session.as_deref()),
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
             Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
+            Command::RunEventsPage { session, run_id, after } => return Ok(json!(self.store.run_events_page(&session,&run_id,after)?)),
             Command::Workspace {session} => return Ok(json!(self.store.workspace(&session)?)),
             Command::SessionsPage {cursor,newer} => return self.session_page(cursor,newer),
             Command::MessagesPage {session,cursor,newer} => return Ok(json!(self.store.messages_page(&session,cursor,newer,80)?)),
@@ -1850,7 +1860,7 @@ impl Engine {
                     .map_err(|_| "Connection unavailable.")?;
                 let page = self.session_page(None, false)?;
                 Ok(
-                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"sideConversations":true,"promptBranches":true,"historySearch":true,"attention":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
+                    json!({"nativeStartup":self.native_startup.is_some(),"appearance":self.store.appearance()?,"reduceMotion":self.store.experimental_preferences().map(|p|p.reduce_motion).unwrap_or(true),"durableDrafts":true,"taskSegments":true,"sideConversations":true,"promptBranches":true,"historySearch":true,"attention":true,"instructionQueue":true,"commandPicker":true,"commandSessions":cfg!(windows),"worktrees":cfg!(windows),"goals":true,"planning":true,"attachments":true,"imageModels":self.store.image_models(&self.store.preferences()?.base_url)?,"sessions":page["items"],"sessionPage":page,"projects":self.store.projects()?,"preferences":self.store.preferences()?,"requestSettings":self.store.effective_request_settings(&self.store.preferences()?)?,"defaultRequestSettings":self.store.request_settings()?,"modelRequestSettings":self.store.model_request_settings(&self.store.preferences()?.base_url)?,"enabledModels":connection.model_choices()?,"modelContexts":connection.model_contexts()?,"configured":connection.provider.is_some(),"rememberConnection":connection.remembered,"hasSavedKey":connection.has_key,"connectionWarning":connection.warning,"plugins":[self.store.descriptor(), connection.descriptor()]}),
                 )
             }
             Command::OpenSession {

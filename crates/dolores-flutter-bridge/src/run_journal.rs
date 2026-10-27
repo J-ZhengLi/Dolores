@@ -178,6 +178,25 @@ impl RunLog {
         })
         .await
     }
+    pub async fn seal(
+        self: &Arc<Self>,
+        records: Vec<Value>,
+        checkpoint: Value,
+    ) -> Result<dolores_core::RunSegment, String> {
+        let this = self.clone();
+        blocking(move || {
+            let mut sequence = this
+                .sequence
+                .lock()
+                .map_err(|_| "Run evidence is unavailable.")?;
+            let (next, segment) =
+                this.store
+                    .seal_run_segment(&this.id, *sequence, &records, &checkpoint)?;
+            *sequence = next;
+            Ok(segment)
+        })
+        .await
+    }
 }
 pub(super) struct LoggedTool {
     pub inner: Arc<dyn ToolPlugin>,

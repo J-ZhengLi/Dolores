@@ -365,6 +365,9 @@ pub mod review_findings;
 pub mod scheduling;
 pub mod side_conversations;
 pub mod skill_packages;
+#[cfg(test)]
+mod task_segment_tests;
+mod task_segments;
 pub trait SessionStore: Send + Sync {
     fn lifecycle_hooks(&self, _: &str) -> Result<lifecycle_hooks::Configuration, String> {
         Ok(Default::default())
@@ -890,6 +893,34 @@ pub trait SessionStore: Send + Sync {
     }
     fn run_events(&self, _: &str, _: &str) -> Result<Vec<RunEvent>, String> {
         Err("Run evidence is unavailable in this store.".into())
+    }
+    fn run_events_page(
+        &self,
+        session: &str,
+        id: &str,
+        after: u32,
+    ) -> Result<runs::RunEventPage, String> {
+        let items: Vec<_> = self
+            .run_events(session, id)?
+            .into_iter()
+            .filter(|e| e.sequence > after)
+            .take(128)
+            .collect();
+        let total = items.last().map_or(after, |e| e.sequence);
+        Ok(runs::RunEventPage {
+            items,
+            next: None,
+            total,
+        })
+    }
+    fn seal_run_segment(
+        &self,
+        _: &str,
+        _: u32,
+        _: &[serde_json::Value],
+        _: &serde_json::Value,
+    ) -> Result<(u32, runs::RunSegment), String> {
+        Err("Durable task segments are unavailable in this store.".into())
     }
     fn interrupt_runs(&self) -> Result<(), String> {
         Ok(())

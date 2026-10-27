@@ -7,12 +7,14 @@ published versions use SemVer and an ISO date.
 
 ### Changed
 
+- Automatic long tasks continue through durable internal context/evidence segments without repeatedly requiring Continue. Earlier progress remains inspectable in paged task history; explicit numeric budgets, Stop, questions and real failure recovery remain authoritative.
 - Files and Source Control use the selected Classic sidebar with compact rows, folders before files, filename-first changes and tighter history. Source Control replaces the project/path block with branch and change count, retaining the root in a tooltip and adding a compact Commit button.
 - The command and skill picker uses compact, padded rows with a clear keyboard selection. Skills can also be completed within a sentence while preserving surrounding text and their pinned reference.
 - Project and global skill files are ready to use in chat and the `/` picker without prior review. File updates apply to future messages, with optional viewing, direct enable/disable and one-step create/import. Existing snapshots and tool permissions are preserved.
 
 ### Fixed
 
+- Complete in-run context summaries can use prose, Markdown or JSON without a format-only pause. Original instructions and full tool evidence remain preserved, with no replay or extra model retry.
 - Long tool tasks can compact more than twice, and tool requests use the model's context allowance instead of a second 128-KiB transport cap. Private reasoning continuation checkpoints use memory pressure rather than a sixteen-call ceiling; completed receipts remain saved.
 - Long checkpoints can continue using bounded evidence previews while keeping complete results saved. Valid summaries no longer fail on per-item or item-count targets; empty remaining-work lists require verification instead of stopping the task.
 - Running tasks show elapsed time and a gently animated, varying status inside the response. A title-bar menu replaces the layout-shifting Running strip, with explicit queue, review and Stop states and a still reduced-motion variant.

@@ -14,6 +14,43 @@ fn store() -> SqliteStore {
     s.create("chat").unwrap();
     s
 }
+#[test]
+fn automatic_goal_counters_cross_old_windows_but_explicit_caps_remain_cumulative() {
+    for numeric in [false, true] {
+        let s = store();
+        let budget = if numeric {
+            TaskBudget {
+                model_calls: Some(70),
+                tool_calls: Some(150),
+                ..Default::default()
+            }
+        } else {
+            TaskBudget::default()
+        };
+        let g = s.edit_goal("chat", &set(), budget).unwrap();
+        let id = "11111111-1111-4111-8111-111111111111";
+        run(&s, id);
+        s.claim_goal("chat", &g.id, g.revision, id).unwrap();
+        for _ in 0..70 {
+            assert!(s.charge_goal("chat", &g.id, id, GoalCharge::Model).unwrap());
+        }
+        assert_eq!(
+            s.charge_goal("chat", &g.id, id, GoalCharge::Model).unwrap(),
+            !numeric
+        );
+        if !numeric {
+            for _ in 0..160 {
+                assert!(s
+                    .charge_goal("chat", &g.id, id, GoalCharge::Tools(1))
+                    .unwrap());
+            }
+            let saved = s.goal("chat").unwrap().unwrap();
+            assert_eq!(saved.used.model_calls, 71);
+            assert_eq!(saved.used.tool_calls, 160);
+            assert_eq!(saved.used.segments, 1);
+        }
+    }
+}
 fn run(s: &SqliteStore, id: &str) {
     s.begin_run(&serde_json::from_value(serde_json::json!({"id":id,"thread":"chat","model":"fixture","settings":RequestSettings::default(),"input":"Public goal","state":"prepared","sequence":0,"createdAt":1,"build":"fixture","tools":["create_text_file"]})).unwrap()).unwrap();
 }

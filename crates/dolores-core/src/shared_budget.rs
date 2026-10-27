@@ -4,6 +4,7 @@ use std::sync::Mutex;
 
 /// Reservations count attempts, including blocked/failed work. Never refunded.
 pub struct SharedTaskBudget {
+    automatic: std::sync::atomic::AtomicBool,
     limit: TaskBudget,
     used: Mutex<SharedTaskUsage>,
     ledger: Option<std::sync::Arc<dyn BudgetLedger>>,
@@ -21,6 +22,7 @@ pub struct SharedTaskUsage {
 impl SharedTaskBudget {
     pub fn new(limit: TaskBudget) -> Self {
         Self {
+            automatic: std::sync::atomic::AtomicBool::new(false),
             limit,
             used: Mutex::new(SharedTaskUsage::default()),
             ledger: None,
@@ -29,6 +31,10 @@ impl SharedTaskBudget {
     }
     pub fn usage(&self) -> SharedTaskUsage {
         *self.used.lock().unwrap_or_else(|e| e.into_inner())
+    }
+    pub fn enable_automatic(&self) {
+        self.automatic
+            .store(true, std::sync::atomic::Ordering::SeqCst);
     }
     pub fn with_ledger(limit: TaskBudget, ledger: std::sync::Arc<dyn BudgetLedger>) -> Self {
         Self {
@@ -56,7 +62,14 @@ impl SharedTaskBudget {
     }
     pub fn reserve_model(&self, child: bool) -> bool {
         let mut used = self.used.lock().unwrap_or_else(|e| e.into_inner());
-        let limit = self.limit.model_limit().saturating_sub(usize::from(child));
+        let limit = if self.automatic.load(std::sync::atomic::Ordering::SeqCst)
+            && self.limit.model_calls.is_none()
+        {
+            usize::MAX
+        } else {
+            self.limit.model_limit()
+        }
+        .saturating_sub(usize::from(child));
         if used.model_calls >= limit || !self.charge(1, 0) {
             return false;
         }
@@ -65,8 +78,14 @@ impl SharedTaskBudget {
     }
     pub fn reserve_tools(&self, count: usize) -> bool {
         let mut used = self.used.lock().unwrap_or_else(|e| e.into_inner());
-        if count > self.limit.tool_limit().saturating_sub(used.tool_calls) || !self.charge(0, count)
+        let limit = if self.automatic.load(std::sync::atomic::Ordering::SeqCst)
+            && self.limit.tool_calls.is_none()
         {
+            usize::MAX
+        } else {
+            self.limit.tool_limit()
+        };
+        if count > limit.saturating_sub(used.tool_calls) || !self.charge(0, count) {
             return false;
         }
         used.tool_calls += count;

@@ -63,6 +63,7 @@ pub(super) fn fixture() -> (tempfile::TempDir, Arc<SqliteStore>, String) {
         context,
         request_settings: None,
         agent: Some(AgentSummary {
+            archive: None,
             model_calls: 2,
             usage_by_call: vec![None, None],
             tools: vec![

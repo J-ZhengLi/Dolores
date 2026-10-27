@@ -301,6 +301,17 @@ pub(crate) struct HookedApproval {
 }
 #[async_trait]
 impl ToolApproval for HookedApproval {
+    fn task_segments_available(&self) -> bool {
+        self.inner.task_segments_available()
+    }
+    async fn save_task_segment(
+        &self,
+        s: &dolores_core::AgentSummary,
+        m: &[dolores_core::AgentMessage],
+        c: CancellationToken,
+    ) -> Result<(String, u32), String> {
+        self.inner.save_task_segment(s, m, c).await
+    }
     fn is_waiting(&self) -> bool {
         self.inner.is_waiting()
     }

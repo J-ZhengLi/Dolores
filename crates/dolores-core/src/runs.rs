@@ -64,6 +64,21 @@ pub struct RunEvent {
 pub const MAX_RUN_EVENTS: u32 = 2048;
 pub const MAX_RUN_EVENT_BYTES: usize = 128 * 1024;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunEventPage {
+    pub items: Vec<RunEvent>,
+    pub next: Option<u32>,
+    pub total: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunSegment {
+    pub ordinal: u32,
+    pub through_sequence: u32,
+    pub checkpoint: serde_json::Value,
+}
+
 fn first_segment() -> u32 {
     1
 }

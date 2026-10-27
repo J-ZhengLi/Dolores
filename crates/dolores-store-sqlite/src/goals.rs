@@ -93,7 +93,7 @@ impl SqliteStore {
                             evidence: vec![],
                         })
                         .collect(),
-                    limits: limits.bounded(),
+                    limits,
                     used: GoalUsage::default(),
                     runs: vec![],
                     current_run: None,
@@ -114,8 +114,8 @@ impl SqliteStore {
                         if matches!(g.state, GoalState::Completed | GoalState::Cleared) {
                             return Err("Create a new goal to start more work.".into());
                         }
-                        if g.used.model_calls >= g.limits.model_limit()
-                            || g.used.tool_calls >= g.limits.tool_limit()
+                        if g.used.model_calls >= g.limits.model_calls.unwrap_or(usize::MAX)
+                            || g.used.tool_calls >= g.limits.tool_calls.unwrap_or(usize::MAX)
                             || g.used.segments >= g.limits.segments
                             || g.limits
                                 .elapsed_seconds
@@ -175,8 +175,8 @@ impl SqliteStore {
             return Err("Inspect and resume/cancel saved instructions before starting the goal. User input takes priority.".into());
         }
         if g.used.segments >= g.limits.segments
-            || g.used.model_calls >= g.limits.model_limit()
-            || g.used.tool_calls >= g.limits.tool_limit()
+            || g.used.model_calls >= g.limits.model_calls.unwrap_or(usize::MAX)
+            || g.used.tool_calls >= g.limits.tool_calls.unwrap_or(usize::MAX)
         {
             return Err(
                 "Goal budget exhausted. Inspect progress and save a new scoped goal explicitly."
@@ -208,7 +208,7 @@ impl SqliteStore {
         }
         let allowed = match charge {
             GoalCharge::Model => {
-                if g.used.model_calls >= g.limits.model_limit() {
+                if g.used.model_calls >= g.limits.model_calls.unwrap_or(usize::MAX) {
                     false
                 } else {
                     g.used.model_calls += 1;
@@ -216,7 +216,12 @@ impl SqliteStore {
                 }
             }
             GoalCharge::Tools(n) => {
-                if n > g.limits.tool_limit().saturating_sub(g.used.tool_calls) {
+                if n > g
+                    .limits
+                    .tool_calls
+                    .unwrap_or(usize::MAX)
+                    .saturating_sub(g.used.tool_calls)
+                {
                     false
                 } else {
                     g.used.tool_calls += n;
@@ -362,8 +367,8 @@ impl SqliteStore {
                     g.state = GoalState::Blocked;
                     g.note="Two segments made no work/verification progress. Inspect the cause before Resume.".into();
                 } else if g.used.segments >= g.limits.segments
-                    || g.used.model_calls >= g.limits.model_limit()
-                    || g.used.tool_calls >= g.limits.tool_limit()
+                    || g.used.model_calls >= g.limits.model_calls.unwrap_or(usize::MAX)
+                    || g.used.tool_calls >= g.limits.tool_calls.unwrap_or(usize::MAX)
                 {
                     g.state = GoalState::BudgetLimited;
                     g.note="Cumulative goal allowance reached. Progress is retained; save a new scoped goal explicitly.".into();

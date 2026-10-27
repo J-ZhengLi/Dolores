@@ -29,6 +29,9 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
   String? selected, error;
   Map<String, dynamic>? checkpoint;
   bool pending = false;
+  int pageAfter = 0;
+  int? nextPage;
+  final previousPages = <int>[];
   @override
   void initState() {
     super.initState();
@@ -51,6 +54,9 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
           runs = result as List;
           events = [];
           selected = null;
+          pageAfter = 0;
+          nextPage = null;
+          previousPages.clear();
         });
         if (widget.initialRun != null) await select(widget.initialRun!);
       }
@@ -69,21 +75,27 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
     }
   }
 
-  Future<void> select(String id) async {
+  Future<void> select(String id, {int after = 0, bool paging = false}) async {
     setState(() {
       pending = true;
-      checkpoint = null;
+      if (!paging) checkpoint = null;
       error = null;
       selected = id;
-      events = [];
+      if (!paging) {
+        events = [];
+        previousPages.clear();
+      }
     });
     try {
       final result = await widget.chat.bridge.call({
-        'command': 'runEvents',
+        'command': widget.chat.taskSegmentsAvailable
+            ? 'runEventsPage'
+            : 'runEvents',
         'session': session,
         'runId': id,
+        if (widget.chat.taskSegmentsAvailable) 'after': after,
       });
-      final saved = widget.chat.durableDrafts
+      final saved = widget.chat.durableDrafts && !paging
           ? await widget.chat.bridge.call({
               'command': 'runCheckpoint',
               'session': session,
@@ -92,8 +104,16 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
           : null;
       if (mounted) {
         setState(() {
-          checkpoint = saved?.cast<String, dynamic>();
-          events = result as List;
+          if (!paging) checkpoint = saved?.cast<String, dynamic>();
+          if (widget.chat.taskSegmentsAvailable) {
+            final page = result as Map;
+            events = page['items'] as List;
+            nextPage = page['next'] as int?;
+          } else {
+            events = result as List;
+            nextPage = null;
+          }
+          pageAfter = after;
         });
       }
     } catch (failure) {
@@ -206,6 +226,45 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                       ),
                       children: [SelectableText('${event['data']}')],
                     ),
+                  ),
+                if (widget.chat.taskSegmentsAvailable && selected != null)
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 16,
+                    children: [
+                      TextButton(
+                        onPressed: pending || previousPages.isEmpty
+                            ? null
+                            : () async {
+                                final previous = previousPages.last;
+                                await select(
+                                  selected!,
+                                  after: previous,
+                                  paging: true,
+                                );
+                                if (mounted && error == null) {
+                                  setState(() => previousPages.removeLast());
+                                }
+                              },
+                        child: const Text('Previous evidence'),
+                      ),
+                      TextButton(
+                        onPressed: pending || nextPage == null
+                            ? null
+                            : () async {
+                                final previous = pageAfter;
+                                await select(
+                                  selected!,
+                                  after: nextPage!,
+                                  paging: true,
+                                );
+                                if (mounted && error == null) {
+                                  setState(() => previousPages.add(previous));
+                                }
+                              },
+                        child: const Text('Next evidence'),
+                      ),
+                    ],
                   ),
                 if (pending) const LinearProgressIndicator(),
               ],

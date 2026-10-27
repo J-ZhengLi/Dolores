@@ -414,6 +414,7 @@ mod tests {
             context: ContextSummary::from_messages(&context, Some(0)),
             request_settings: None,
             agent: Some(AgentSummary {
+                archive: None,
                 model_calls: 1,
                 usage_by_call: vec![],
                 tools: vec![

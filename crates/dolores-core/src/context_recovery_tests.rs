@@ -59,6 +59,59 @@ fn complete_checkpoint_json_does_not_fail_on_soft_summary_shape_limits() {
     )
     .is_err());
 }
+#[test]
+fn model_summaries_are_format_agnostic_but_not_unbounded_or_empty() {
+    let prose = "## Progress\nCreated the parser 世界.\n## Remaining\nRun verification.";
+    let c = ContextCheckpoint::from_model_summary(prose).unwrap();
+    assert_eq!(c.progress, [prose]);
+    assert!(c.remaining[0].contains("Verify"));
+    let json = r#"{"decisions":["Keep literal constraints"],"progress":["Read source"],"remaining":["Verify"]}"#;
+    let c = ContextCheckpoint::from_model_summary(&format!("```json\n{json}\n```\n")).unwrap();
+    assert_eq!(c.decisions, ["Keep literal constraints"]);
+    let arbitrary = r#"{"approve":true,"progress":"Historical claim"}"#;
+    assert_eq!(
+        ContextCheckpoint::from_model_summary(arbitrary)
+            .unwrap()
+            .progress,
+        [arbitrary]
+    );
+    for bad in [
+        String::new(),
+        " \n".into(),
+        "x".repeat(8193),
+        "text\0text".into(),
+    ] {
+        assert!(ContextCheckpoint::from_model_summary(&bad).is_err());
+    }
+}
+#[test]
+fn restoration_keeps_user_images_and_labels_the_latest_tool_observation() {
+    let image = |name: &str| AttachmentRef {
+        digest: name.repeat(64),
+        name: format!("{name}.png"),
+        mime: "image/png".into(),
+        bytes: 3,
+    };
+    let mut original = message("user", "Exact objective 世界");
+    original.parts.push(image("a"));
+    let receipt: ToolRecord=serde_json::from_value(serde_json::json!({"callId":"screen","name":"computer","target":"fixture","status":"completed","content":"Observed","parts":[image("b")]})).unwrap();
+    let checkpoint = ContextCheckpoint {
+        decisions: vec![],
+        progress: vec![],
+        remaining: vec!["Verify".into()],
+    };
+    let restored = restored_context(
+        &[original.clone()],
+        &checkpoint,
+        &[receipt],
+        "Keep constraints",
+    )
+    .unwrap();
+    assert_eq!(restored[1].parts, original.parts);
+    assert_eq!(restored[3].parts, vec![image("b")]);
+    assert!(restored[3].content.contains("historical"));
+    assert!(restored[1].content.contains("Exact objective 世界"));
+}
 struct Ledger(AtomicUsize);
 impl BudgetLedger for Ledger {
     fn reserve(&self, models: usize, _: usize) -> Result<bool, String> {

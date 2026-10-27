@@ -27,10 +27,11 @@ deadlines before allowing an explicit longer-lived session policy. These propose
 ceilings fit existing capture/admission bounds; EH05 measures them before enabling
 new paths. A session deadline is not a goal or tool-budget reset.
 
-Existing automatic run ceilings are 64 model calls, 128 tools and four segments;
+Automatic root tasks now roll durable internal execution windows. Explicit numeric
+budgets and the four default manual continuation segments remain separate;
 saved explicit limits remain authoritative. Goal accounting must accumulate across
-segments and children. The current ceilings are not evidence that every model can
-finish a real task within them.
+segments and children. These controls do not establish a model's ability to finish
+an arbitrary task.
 
 ## Logical records and migration ownership
 

@@ -157,6 +157,13 @@ class UsagePanel extends StatelessWidget {
           ),
         ),
         if (calls.isEmpty) const Text('Usage unavailable'),
+        if (agent?['archive'] is Map)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Per-call details below cover recent work. Earlier progress and usage remain in task history.',
+            ),
+          ),
         for (final (index, usage) in calls.indexed)
           Container(
             margin: const EdgeInsets.only(top: 8),
@@ -171,7 +178,7 @@ class UsagePanel extends StatelessWidget {
               children: [
                 if (agent != null) ...[
                   Text(
-                    'Call ${index + 1}',
+                    '${agent['archive'] is Map ? 'Recent call' : 'Call'} ${index + 1}',
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                   const SizedBox(height: 8),

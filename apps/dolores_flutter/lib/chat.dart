@@ -532,6 +532,8 @@ class ChatController extends ChangeNotifier {
   final modelTexts = <Map<String, dynamic>>[];
   final modelThinking = <Map<String, dynamic>>[];
   bool modelActive = false;
+  bool taskMaintenance = false;
+  Map<String, dynamic>? taskArchive;
   bool decidingTool = false;
   int modelStep = 0;
   String modelPhase = 'waiting';
@@ -606,6 +608,7 @@ class ChatController extends ChangeNotifier {
       pendingInput = '',
       partial = '';
   bool durableDrafts = false;
+  bool taskSegmentsAvailable = false;
   bool instructionQueueAvailable = false;
   bool commandPickerAvailable = false;
   bool commandSessionsAvailable = false;
@@ -1350,6 +1353,7 @@ class ChatController extends ChangeNotifier {
     appearance = state['appearance'] as String? ?? 'system';
     reducedMotion.value = state['reduceMotion'] == true;
     durableDrafts = state['durableDrafts'] == true;
+    taskSegmentsAvailable = state['taskSegments'] == true;
     instructionQueueAvailable = state['instructionQueue'] == true;
     commandPickerAvailable = state['commandPicker'] == true;
     commandSessionsAvailable = state['commandSessions'] == true;
@@ -1987,6 +1991,8 @@ class ChatController extends ChangeNotifier {
     toolApproval = null;
     userQuestion = null;
     modelStep = 0;
+    taskMaintenance = false;
+    taskArchive = null;
     modelThinking.clear();
     modelActive = false;
     modelPhase = 'waiting';
@@ -2144,6 +2150,24 @@ class ChatController extends ChangeNotifier {
             modelElapsedSeconds = 0;
             modelTimeoutSeconds = 0;
             _record('Model call $modelStep');
+          case 'taskMaintenance':
+            taskMaintenance = event['active'] == true;
+            if (taskMaintenance) _record('Updating context');
+          case 'taskSegment':
+            taskArchive = (event['archive'] as Map).cast<String, dynamic>();
+            modelTexts.clear();
+            modelThinking.clear();
+            toolRecords.clear();
+            final retained = (event['retained'] as List?) ?? const [];
+            final steps = (event['toolSteps'] as List?) ?? const [];
+            for (var i = 0; i < retained.length; i++) {
+              toolRecords.add({
+                ...(retained[i] as Map).cast<String, dynamic>(),
+                'modelStep': i < steps.length ? steps[i] : 0,
+              });
+            }
+            partial = '';
+            _record('Earlier progress saved in task history');
           case 'modelActivity':
             if (event['number'] == modelStep && !stopping) {
               modelPhase = event['phase'] as String;
@@ -2223,6 +2247,7 @@ class ChatController extends ChangeNotifier {
               );
             }
           case 'done':
+            taskMaintenance = false;
             for (final child in subagents) {
               if (['queued', 'running'].contains(child['status'])) {
                 child['status'] = 'interrupted';
