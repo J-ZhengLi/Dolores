@@ -109,10 +109,14 @@ pub enum Request {
     SeenAll,
     Poll {
         cursor: Option<i64>,
+        #[serde(rename = "foregroundSession")]
+        foreground_session: Option<String>,
     },
     Preferences,
     SavePreferences {
         preferences: Preferences,
+        #[serde(rename = "foregroundSession")]
+        foreground_session: Option<String>,
     },
     Inspect {
         id: String,

@@ -69,6 +69,9 @@ scrollable details, swipe upward or use Dismiss to hide them. Expired and dismis
 notices remain in the bell. Opening details marks read; Mark all read and Clear
 read manage notification history without deleting task results or decisions.
 The latest 100 app updates and 256 task updates are retained.
+Task toasts and inbox entries are created for background work only. The focused
+chat shows its status inline; another chat or an unfocused/minimized Dolores
+window can still alert you. Foreground events do not reappear after you leave.
 
 **Open task** navigates to the current conversation or retained run evidence. It
 never approves a review, answers a question or repeats an operation. A native click

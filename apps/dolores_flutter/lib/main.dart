@@ -58,7 +58,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final desktopFrame = await initializeDesktopFrame();
   final chat = ChatController(NativeBridge());
-  final host = AppHost(chat);
+  final host = AppHost(chat, binding: WidgetsBinding.instance);
   if (desktopFrame) host.destroyWindow = windowManager.destroy;
   runApp(DoloresApp(chat: chat, host: host, desktopFrame: desktopFrame));
   unawaited(chat.initialize());

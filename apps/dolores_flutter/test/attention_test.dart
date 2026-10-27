@@ -10,6 +10,9 @@ import 'app_host_test.dart' show HostBridge;
 import 'frost_design_test.dart' show capture, viewport;
 import 'support/render_fonts.dart';
 
+import 'package:dolores_flutter/app_host.dart';
+import 'package:dolores_flutter/chat.dart';
+
 class AttentionBridge extends HostBridge {
   final attentionCalls = <Map<String, dynamic>>[];
   bool failFinish = false, failSave = false, live = true, failPoll = false;
@@ -42,13 +45,16 @@ class AttentionBridge extends HostBridge {
     switch (r['action']) {
       case 'poll':
         if (failPoll) throw StateError('Attention unavailable');
+        final eligible = notices
+            .where((n) => n['session'] != r['foregroundSession'])
+            .toList();
         return {
           'preferences': {...prefs},
-          'items': notices.map((n) => {...n}).toList(),
+          'items': eligible.map((n) => {...n}).toList(),
           'nextCursor': null,
           'moreSources': false,
           'omitted': 0,
-          'pendingDelivery': notices
+          'pendingDelivery': eligible
               .where((n) => n['delivery'] == 'pending' && n['seen'] != true)
               .map((n) => {...n})
               .toList(),
@@ -112,6 +118,91 @@ class NoticeWindow implements AttentionWindow {
 
 void main() {
   setUpAll(loadReviewFonts);
+  testWidgets(
+    'foreground tasks have no toast, history entry or native delivery; background tasks still notify',
+    (t) async {
+      final b = AttentionBridge();
+      b.notices.single['createdAt'] =
+          DateTime.now().millisecondsSinceEpoch + 1000;
+      final w = NoticeWindow();
+      String? active = 'task';
+      final h = AttentionHost(
+        b,
+        window: w,
+        activeSession: () => active,
+        onOpen: (_) async => true,
+      );
+      await h.refresh();
+      expect(h.items, isEmpty);
+      expect(h.toast, isNull);
+      expect(w.shown, isEmpty);
+      expect(
+        b.attentionCalls.lastWhere(
+          (c) => c['request']?['action'] == 'poll',
+        )['request']['foregroundSession'],
+        'task',
+      );
+      b.notices.single['id'] = '33333333-3333-4333-8333-333333333333';
+      b.notices.single['kind'] = 'completed';
+      active = 'another-task';
+      await h.refresh();
+      expect(h.items, hasLength(1));
+      expect(h.toast, isNotNull);
+      expect(w.shown, hasLength(1));
+      h.dispose();
+    },
+  );
+  testWidgets(
+    'app focus and tray visibility determine the foreground conversation',
+    (t) async {
+      final b = AttentionBridge();
+      final chat = ChatController(b)
+        ..loading = false
+        ..session = 'task';
+      final host = AppHost(
+        chat,
+        attentionWindow: NoticeWindow(),
+        binding: t.binding,
+      );
+      host.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      expect(host.attention.foregroundSession, 'task');
+      host.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      expect(host.attention.foregroundSession, isNull);
+      host.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      host.background.hidden = true;
+      expect(host.attention.foregroundSession, isNull);
+      host.background.hidden = false;
+      expect(host.attention.foregroundSession, 'task');
+      host.dispose();
+      await t.pump(const Duration(seconds: 2));
+    },
+  );
+  testWidgets(
+    'switching to a task during native availability suppresses late delivery',
+    (t) async {
+      final b = AttentionBridge();
+      b.notices.single['createdAt'] =
+          DateTime.now().millisecondsSinceEpoch + 1000;
+      final w = NoticeWindow()..availability = Completer<bool>();
+      String? active;
+      final h = AttentionHost(
+        b,
+        window: w,
+        activeSession: () => active,
+        onOpen: (_) async => true,
+      );
+      final refreshing = h.refresh();
+      await t.pump();
+      active = 'task';
+      w.availability!.complete(true);
+      await refreshing;
+      expect(w.shown, isEmpty);
+      expect(h.toast, isNull);
+      expect(h.unread, 0);
+      expect(b.notices.single['seen'], isTrue);
+      h.dispose();
+    },
+  );
   testWidgets('disposing during native availability stops claims and timers', (
     t,
   ) async {

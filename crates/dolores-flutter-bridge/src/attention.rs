@@ -88,7 +88,11 @@ mod tests {
             })
             .unwrap();
         let call = |request| engine.call(Command::Attention { request });
-        let page = call(Request::Poll { cursor: None }).unwrap();
+        let page = call(Request::Poll {
+            cursor: None,
+            foreground_session: None,
+        })
+        .unwrap();
         let id = page["items"][0]["id"].as_str().unwrap().to_owned();
         let current = call(Request::Resolve { id: id.clone() }).unwrap();
         assert_eq!(current["liveDecision"], true);

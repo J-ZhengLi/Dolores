@@ -81,7 +81,7 @@ void main() {
         final s = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
         s.listen((r) async {
           bodies.add(jsonDecode(await utf8.decoder.bind(r).join()) as Map);
-          final first = bodies.length == 1;
+          final first = bodies.length == 2;
           final delta = first
               ? {
                   'tool_calls': [
@@ -108,8 +108,9 @@ void main() {
                   ],
                 }
               : {
-                  'content':
-                      'Saved completed result after the explicit user answer.',
+                  'content': bodies.length == 1
+                      ? 'Foreground task completed inline.'
+                      : 'Saved completed result after the explicit user answer.',
                 };
           r.response.headers.contentType = ContentType(
             'text',
@@ -166,6 +167,18 @@ void main() {
       viewport(t, const Size(1100, 900));
       await t.pumpWidget(DoloresApp(chat: c, host: host));
       await t.pumpAndSettle();
+      c.draft = 'Complete this foreground task inline';
+      await t.runAsync(c.send);
+      await wait(() => !c.busy && c.messages.length == 2);
+      await t.runAsync(host.attention.refresh);
+      expect(window.shown, isEmpty);
+      expect(host.attention.toast, isNull);
+      expect(host.attention.items.where((n) => n['session'] == task), isEmpty);
+      stage('foreground-completed-without-notice');
+      await t.runAsync(() => host!.newConversation(kind: 'side'));
+      await t.pumpAndSettle();
+      final other = host.visible;
+      other.draft = 'Keep other unsent draft 世界';
       c.draft = 'Ask one public question, then finish';
       await t.runAsync(c.send);
       await wait(
@@ -179,29 +192,27 @@ void main() {
           .first;
       final slot = c.userQuestion!['callId'];
       stage('question-notified');
-      await t.runAsync(() => host!.newConversation(kind: 'side'));
-      await t.pumpAndSettle();
-      final other = host.visible;
-      other.draft = 'Keep other unsent draft 世界';
       await t.runAsync(() => window.opened!(notice));
       await t.pumpAndSettle();
       expect(host.visible, c);
       expect(c.userQuestion!['callId'], slot);
       expect(c.busy, true);
       expect(other.draft, 'Keep other unsent draft 世界');
-      expect(bodies, hasLength(1));
+      expect(bodies, hasLength(2));
       stage('live-click-preserved-question');
       c.setQuestionAnswer(0, 'Brief');
+      host.didChangeAppLifecycleState(AppLifecycleState.inactive);
       await t.runAsync(c.answerQuestion);
       await wait(
         () =>
             !c.busy &&
-            c.messages.length == 2 &&
+            c.messages.length == 4 &&
             window.shown.any((n) => n.endsWith(':completed')),
       );
-      expect(bodies, hasLength(2));
+      expect(bodies, hasLength(3));
       expect(c.error, isNull);
       stage('answered-and-completed');
+      host.didChangeAppLifecycleState(AppLifecycleState.resumed);
       // Native callbacks are represented by the injected window seam here. The
       // Windows runner callback/privacy boundary has a separate native fixture.
       var openedDone = false;
@@ -218,7 +229,7 @@ void main() {
         findsOneWidget,
       );
       expect(c.userQuestion, isNull);
-      expect(bodies, hasLength(2));
+      expect(bodies, hasLength(3));
       await t.tap(find.text('Open conversation').last);
       await t.pumpAndSettle();
       stage('stale-evidence-closed');
@@ -236,6 +247,8 @@ void main() {
         jsonEncode({
           'scope': 'Normal Rust bridge and rendered UI; injected native notification delivery seam. Windows callback code qualified separately; no real model or physical click claim',
           'providerRequests': bodies.length,
+          'foregroundCompletionWithoutNotice': true,
+          'backgroundQuestionAndUnfocusedCompletionNotify': true,
           'liveQuestionOpenedWithoutAnswer': true,
           'staleNoticeOpensEvidence': true,
           'otherDraftRetained': true,

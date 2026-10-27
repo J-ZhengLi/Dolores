@@ -12,6 +12,7 @@ published versions use SemVer and an ISO date.
 
 ### Fixed
 
+- Foreground tasks report status inline without creating notification toasts or inbox entries. Other conversations and tasks running while Dolores is unfocused still notify; skipped foreground events are not replayed later.
 - Submitted skill references now move from the composer to the message instead of remaining selected for later prompts. Failed sends restore both prompt and skills while preserving newer drafts and selections.
 
 ## [0.1.0-alpha] - 2026-10-26

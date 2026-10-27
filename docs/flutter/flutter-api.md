@@ -462,6 +462,11 @@ severity}`, `seenAll` and `clearRead`. Post persists a nonsecret app notice (tit
 160 bytes, details 4 KiB; info/success/warning/error), coalescing the same source
 within five seconds. It never delivers a Windows notification or creates a task.
 Poll includes total `unread`; details/severity are optional on legacy task notices.
+`poll` and `savePreferences` accept optional `foregroundSession`. The focused
+desktop conversation supplies its ID; unfocused/minimized/tray views supply null.
+Collection advances that conversation's event cursors without inserting task
+notices, preventing later backfill. Other conversations retain ordinary task
+delivery and history. The client also rechecks focus before native handoff.
 Existing claim, finish, resolve and stale-decision rules remain intact.
 
 `closePreferences` returns `{revision,behavior}`; `saveClosePreferences {preferences}`

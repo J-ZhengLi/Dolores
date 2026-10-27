@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'attention_host.dart';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'chat.dart';
 import 'file_host.dart';
@@ -16,13 +16,15 @@ import 'background_host.dart';
 import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
-class AppHost extends ChangeNotifier {
+class AppHost extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> Function(Map<String, dynamic>)? presentAttention;
   final AttentionWindow? attentionWindow;
   final AvailabilityWindow? availabilityWindow;
-  late final attention = AttentionHost(
+  late final AttentionHost attention = AttentionHost(
     initial.bridge,
     window: attentionWindow,
+    activeSession: () =>
+        _foreground && !background.hidden ? visible.session : null,
     onOpen: (target) async {
       if (presentAttention == null) return false;
       return presentAttention!(target);
@@ -30,6 +32,22 @@ class AppHost extends ChangeNotifier {
   );
   final _scheduledOwners = <ChatController>{};
   bool quitting = false;
+  final WidgetsBinding? binding;
+  bool _foreground = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_foreground &&
+        state != AppLifecycleState.resumed &&
+        initial.attentionAvailable) {
+      unawaited(attention.refresh());
+    }
+    _foreground = state == AppLifecycleState.resumed;
+    if (initial.attentionAvailable) {
+      attention.updateForeground();
+      attention.observe('focus:$state:${visible.session}');
+    }
+  }
+
   Future<void> Function()? destroyWindow;
   Future<void> requestQuit() async {
     quitting = true;
@@ -222,7 +240,16 @@ class AppHost extends ChangeNotifier {
   }
 
   static const maxOwners = 8;
-  AppHost(this.initial, {this.attentionWindow, this.availabilityWindow}) {
+  AppHost(
+    this.initial, {
+    this.attentionWindow,
+    this.availabilityWindow,
+    this.binding,
+  }) {
+    binding?.addObserver(this);
+    _foreground =
+        binding?.lifecycleState == null ||
+        binding?.lifecycleState == AppLifecycleState.resumed;
     git.afterReviewSubmission = (session) async {
       final owner = owners.where((c) => c.session == session).firstOrNull;
       if (owner != null) {
@@ -450,7 +477,12 @@ class AppHost extends ChangeNotifier {
         await next.refreshSideConversation();
         await next.refreshPromptBranch();
       }
+      if (initial.attentionAvailable) unawaited(attention.refresh());
       visible = next;
+      attention.updateForeground();
+      if (initial.attentionAvailable) {
+        attention.observe('view:${visible.session}');
+      }
       final note = companion.unread;
       if (note?['session'] == id) {
         await companion.feedback(note!['id'] as String, 'seen');
@@ -512,7 +544,12 @@ class AppHost extends ChangeNotifier {
         }
       }
       await next.refreshConversationList();
+      if (initial.attentionAvailable) unawaited(attention.refresh());
       visible = next;
+      attention.updateForeground();
+      if (initial.attentionAvailable) {
+        attention.observe('view:${visible.session}');
+      }
     } catch (e) {
       error = '$e';
     } finally {
@@ -525,6 +562,7 @@ class AppHost extends ChangeNotifier {
 
   @override
   void dispose() {
+    binding?.removeObserver(this);
     attention.dispose();
     scheduled.dispose();
     background.dispose();

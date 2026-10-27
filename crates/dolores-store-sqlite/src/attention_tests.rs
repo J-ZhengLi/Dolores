@@ -8,7 +8,10 @@ fn s() -> SqliteStore {
     s
 }
 fn begin(s: &SqliteStore, id: &str) {
-    s.begin_run(&serde_json::from_value(json!({"id":id,"thread":"task","model":"fixture","settings":RequestSettings::default(),"input":"Private prompt never in notification","state":"prepared","sequence":0,"createdAt":1,"build":"fixture","tools":[]})).unwrap()).unwrap();
+    begin_for(s, id, "task");
+}
+fn begin_for(s: &SqliteStore, id: &str, session: &str) {
+    s.begin_run(&serde_json::from_value(json!({"id":id,"thread":session,"model":"fixture","settings":RequestSettings::default(),"input":"Private prompt never in notification","state":"prepared","sequence":0,"createdAt":1,"build":"fixture","tools":[]})).unwrap()).unwrap();
     s.append_run_event(
         id,
         0,
@@ -19,17 +22,83 @@ fn begin(s: &SqliteStore, id: &str) {
     .unwrap();
 }
 fn poll(s: &SqliteStore) -> Value {
-    s.attention(&Request::Poll { cursor: None }).unwrap()
+    s.attention(&Request::Poll {
+        cursor: None,
+        foreground_session: None,
+    })
+    .unwrap()
 }
 fn enable(s: &SqliteStore) {
     let p: Preferences =
         serde_json::from_value(s.attention(&Request::Preferences).unwrap()).unwrap();
     s.attention(&Request::SavePreferences {
+        foreground_session: None,
         preferences: Preferences { enabled: true, ..p },
     })
     .unwrap();
 }
 const RUN: &str = "11111111-1111-4111-8111-111111111111";
+#[test]
+fn foreground_filter_preserves_background_conversation_notifications() {
+    let store = s();
+    store.create("other").unwrap();
+    enable(&store);
+    let other = "22222222-2222-4222-8222-222222222222";
+    begin(&store, RUN);
+    begin_for(&store, other, "other");
+    for id in [RUN, other] {
+        store
+            .append_run_event(
+                id,
+                1,
+                Some(dolores_core::RunState::Completed),
+                "finished",
+                &json!({}),
+            )
+            .unwrap();
+    }
+    let page = store
+        .attention(&Request::Poll {
+            cursor: None,
+            foreground_session: Some("task".into()),
+        })
+        .unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(page["items"][0]["session"], "other");
+    assert_eq!(page["pendingDelivery"].as_array().unwrap().len(), 1);
+    assert_eq!(page["unread"], 1);
+    assert_eq!(poll(&store)["items"].as_array().unwrap().len(), 1);
+}
+#[test]
+fn foreground_task_events_never_create_notices_or_reappear_in_background() {
+    for (kind, state) in [
+        ("finished", dolores_core::RunState::Completed),
+        ("finished", dolores_core::RunState::Failed),
+        (
+            "approvalRequested",
+            dolores_core::RunState::WaitingForApproval,
+        ),
+        ("questionAsked", dolores_core::RunState::WaitingForApproval),
+    ] {
+        let store = s();
+        enable(&store);
+        begin(&store, RUN);
+        store
+            .append_run_event(RUN, 1, Some(state.clone()), kind, &json!({}))
+            .unwrap();
+        let request: Request = serde_json::from_value(json!({
+            "action": "poll", "foregroundSession": "task"
+        }))
+        .unwrap();
+        let page = store.attention(&request).unwrap();
+        assert!(page["items"].as_array().unwrap().is_empty());
+        assert!(page["pendingDelivery"].as_array().unwrap().is_empty());
+        assert_eq!(page["unread"], 0);
+        assert!(poll(&store)["items"].as_array().unwrap().is_empty());
+        assert_eq!(store.saved_draft("task").unwrap(), "Keep private draft");
+        assert_eq!(store.runs("task").unwrap()[0].state, state);
+    }
+}
 #[test]
 fn version_50_notice_migration_preserves_identity_policy_cursor_and_delivery_claim() {
     let d = tempfile::tempdir().unwrap();
@@ -190,6 +259,7 @@ fn stale_preferences_and_disabled_kind_suppress_pending_without_losing_in_app_no
     let id = p["items"][0]["id"].as_str().unwrap().to_owned();
     let prefs: Preferences = serde_json::from_value(p["preferences"].clone()).unwrap();
     s.attention(&Request::SavePreferences {
+        foreground_session: None,
         preferences: Preferences {
             approval: false,
             ..prefs.clone()
@@ -197,7 +267,10 @@ fn stale_preferences_and_disabled_kind_suppress_pending_without_losing_in_app_no
     })
     .unwrap();
     assert!(s
-        .attention(&Request::SavePreferences { preferences: prefs })
+        .attention(&Request::SavePreferences {
+            foreground_session: None,
+            preferences: prefs
+        })
         .unwrap_err()
         .contains("changed"));
     assert!(s.attention(&Request::Claim { id }).unwrap().is_null());
@@ -356,7 +429,12 @@ fn failed_attention_save_rolls_back_cursor_without_failing_completed_run() {
     )
     .unwrap();
     s.lock().unwrap().execute_batch("CREATE TRIGGER fail_attention BEFORE INSERT ON attention_notices BEGIN SELECT RAISE(ABORT,'fixture unavailable'); END").unwrap();
-    assert!(s.attention(&Request::Poll { cursor: None }).is_err());
+    assert!(s
+        .attention(&Request::Poll {
+            cursor: None,
+            foreground_session: None
+        })
+        .is_err());
     assert_eq!(
         s.runs("task").unwrap()[0].state,
         dolores_core::RunState::Completed
@@ -418,7 +496,12 @@ fn bounded_retention_paging_and_deleted_chat_avoid_replay() {
     let mut count = 50;
     let mut cursor = first["nextCursor"].as_i64();
     while cursor.is_some() {
-        let p = s.attention(&Request::Poll { cursor }).unwrap();
+        let p = s
+            .attention(&Request::Poll {
+                cursor,
+                foreground_session: None,
+            })
+            .unwrap();
         count += p["items"].as_array().unwrap().len();
         cursor = p["nextCursor"].as_i64();
     }

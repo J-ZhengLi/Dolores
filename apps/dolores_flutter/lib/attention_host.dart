@@ -53,6 +53,8 @@ String attentionLabel(String kind) => switch (kind) {
 
 class AttentionHost extends ChangeNotifier {
   final ChatBridge bridge;
+  final String? Function()? activeSession;
+  String? get foregroundSession => activeSession?.call();
   final AttentionWindow window;
   final Future<bool> Function(Map<String, dynamic>) onOpen;
   bool pending = false, closed = false, supported = false;
@@ -94,6 +96,19 @@ class AttentionHost extends ChangeNotifier {
   }
 
   Map<String, dynamic>? toast;
+  void updateForeground() {
+    final active = foregroundSession;
+    if (closed || active == null) return;
+    bool matches(Map<String, dynamic> notice) =>
+        notice['kind'] != 'app' && notice['session'] == active;
+    queue.removeWhere(matches);
+    if (toast != null && matches(toast!)) {
+      toast = queue.isEmpty ? null : queue.removeAt(0);
+      detailsOpen = false;
+      notifyListeners();
+    }
+  }
+
   bool detailsOpen = false;
   bool quiet = false;
   void setQuiet(bool value) {
@@ -108,6 +123,9 @@ class AttentionHost extends ChangeNotifier {
 
   void enqueue(Map<String, dynamic> notice) {
     if (closed || quiet) return;
+    if (notice['kind'] != 'app' && notice['session'] == foregroundSession) {
+      return;
+    }
     final identity = '${notice['id']}:${notice['createdAt']}';
     if (!presented.add(identity)) return;
     while (presented.length > 512) {
@@ -206,8 +224,12 @@ class AttentionHost extends ChangeNotifier {
     }
   }
 
-  AttentionHost(this.bridge, {AttentionWindow? window, required this.onOpen})
-    : window = window ?? NativeAttentionWindow() {
+  AttentionHost(
+    this.bridge, {
+    AttentionWindow? window,
+    this.activeSession,
+    required this.onOpen,
+  }) : window = window ?? NativeAttentionWindow() {
     this.window.listen(open);
   }
   Future<dynamic> call(Map<String, dynamic> request) =>
@@ -226,8 +248,11 @@ class AttentionHost extends ChangeNotifier {
     if (closed || pending) return;
     pending = true;
     try {
-      final page =
-          await call({'action': 'poll', 'cursor': next ? cursor : null}) as Map;
+      final page = await call({
+        'action': 'poll',
+        'cursor': next ? cursor : null,
+        'foregroundSession': foregroundSession,
+      }) as Map;
       if (closed) return;
       preferences = Map<String, dynamic>.from(page['preferences'] as Map);
       items = (page['items'] as List)
@@ -248,6 +273,7 @@ class AttentionHost extends ChangeNotifier {
         supported = false;
       }
       if (closed) return;
+      updateForeground();
       if (preferences['enabled'] == true) {
         // Bounded delivery per refresh. Further pending entries remain visible;
         // immutable claims prevent duplicate notifications after lost replies.
@@ -258,6 +284,12 @@ class AttentionHost extends ChangeNotifier {
                 .take(2)) {
           final id = notice['id'] as String;
           if (closed) break;
+          // Focus may have moved while polling or checking native availability.
+          // Keep an already retained background notice, but suppress late toasts.
+          if (notice['session'] == foregroundSession) {
+            await seen(id);
+            continue;
+          }
           final claim = await call({'action': 'claim', 'id': id});
           if (claim == null) continue;
           var delivery = 'failed';
@@ -318,7 +350,11 @@ class AttentionHost extends ChangeNotifier {
     var saved = false;
     try {
       preferences = Map<String, dynamic>.from(
-        await call({'action': 'savePreferences', 'preferences': value}) as Map,
+        await call({
+          'action': 'savePreferences',
+          'preferences': value,
+          'foregroundSession': foregroundSession,
+        }) as Map,
       );
       error = null;
       saved = true;

@@ -7,6 +7,14 @@ title bar, above dialogs, and never reserves layout height or steals typing focu
 
 ## Toast and inbox
 
+Task alerts are for background work: another conversation, or work running while
+the app is unfocused, minimized or in the tray. The focused conversation reports
+completion, failures, reviews and questions inline, without creating a toast or
+inbox entry. Collection advances its event cursor even for skipped foreground
+events, so leaving the task does not replay them later. Ordinary app feedback
+retains its existing behavior. A focus change during pending native handoff
+suppresses the late alert; existing background history remains navigable.
+
 A compact toast uses a fixed 320 x 56 logical-pixel surface, constrained for small
 viewports and enlarged text. Entry expands a dot horizontally, then vertically.
 Click expands width, then height into bounded scrollable details (up to 420 x 280).

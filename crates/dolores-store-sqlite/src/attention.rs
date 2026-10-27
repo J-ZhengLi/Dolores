@@ -61,7 +61,7 @@ fn label<T: serde::Serialize>(v: T) -> Result<String, String> {
 }
 /// Scan saved events independently: a broken notification subsystem must never
 /// fail a turn save, overwrite a result or consume approval authority.
-fn collect(c: &Connection) -> Result<bool, String> {
+fn collect(c: &Connection, foreground_session: Option<&str>) -> Result<bool, String> {
     let preferences = prefs(c)?;
     let mut st=c.prepare("SELECT r.id,r.thread,COALESCE(a.sequence,0) FROM runs r LEFT JOIN attention_sources a ON a.run=r.id WHERE json_extract(r.data,'$.sequence')>COALESCE(a.sequence,0) ORDER BY r.rowid LIMIT 16").map_err(storage_error)?;
     let owners = st
@@ -91,6 +91,11 @@ fn collect(c: &Connection) -> Result<bool, String> {
         let mut sequence = *from;
         for (seq, event, state) in rows {
             sequence = seq;
+            // A foreground event is already visible in its task. Advance the
+            // cursor without retaining a notice that could surface after blur.
+            if foreground_session == Some(session.as_str()) {
+                continue;
+            }
             if let Some(kind) = Kind::from_event(&event, &state) {
                 let delivery = if preferences.permits(kind) {
                     "pending"
@@ -166,10 +171,13 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
             Value::Null
         }
         Request::Preferences => json!(prefs(&tx)?),
-        Request::SavePreferences { preferences } => {
+        Request::SavePreferences {
+            preferences,
+            foreground_session,
+        } => {
             // Advance cursors under the old policy before changing opt-in.
             // New opt-in never retroactively delivers old suppressed notices.
-            if collect(&tx)? {
+            if collect(&tx, foreground_session.as_deref())? {
                 return Err("Attention is catching up. Refresh it before changing notification preferences; the current choice remains.".into());
             }
             let old = prefs(&tx)?;
@@ -191,11 +199,14 @@ pub(super) fn call(store: &SqliteStore, request: &Request) -> Result<Value, Stri
             }
             json!(value)
         }
-        Request::Poll { cursor } => {
+        Request::Poll {
+            cursor,
+            foreground_session,
+        } => {
             if cursor.is_some_and(|v| v <= 0) {
                 return Err("Attention page is invalid. Refresh from the beginning.".into());
             }
-            let more_sources = collect(&tx)?;
+            let more_sources = collect(&tx, foreground_session.as_deref())?;
             let mut st=tx.prepare("SELECT id,session,run,sequence,kind,created_at,seen,delivery,rowid,title,details,severity FROM attention_notices WHERE (?1 IS NULL OR rowid<?1) ORDER BY rowid DESC LIMIT 51").map_err(storage_error)?;
             let mut rows = st
                 .query_map([cursor], |r| Ok((row(r)?, r.get::<_, i64>(8)?)))
