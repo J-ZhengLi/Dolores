@@ -63,6 +63,7 @@ class _RunStatusState extends State<RunStatus>
     'question': 'Waiting for your answer',
     'stopping': 'Stopping…',
     'compacting': 'Updating context',
+    'retrying': 'Reconnecting to the model',
   };
   static const phrases = {
     'reasoning': [

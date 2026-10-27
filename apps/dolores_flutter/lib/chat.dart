@@ -2189,6 +2189,15 @@ class ChatController extends ChangeNotifier {
           case 'taskMaintenance':
             taskMaintenance = event['active'] == true;
             if (taskMaintenance) _record('Updating context');
+          case 'modelRetry':
+            modelActive = true;
+            modelPhase = 'retrying';
+            if (partial.isNotEmpty) {
+              partial += '\n\n[This model attempt was interrupted before tool dispatch. Its proposed actions were not executed.]';
+            }
+            _record(
+              'Retrying model response · attempt ${event['attempt']} of 2${event['buffered'] == true ? ' · requesting a complete response' : ''} · completed actions will not be replayed',
+            );
           case 'taskSegment':
             taskArchive = (event['archive'] as Map).cast<String, dynamic>();
             modelTexts.clear();

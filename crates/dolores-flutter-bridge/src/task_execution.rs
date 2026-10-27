@@ -94,6 +94,11 @@ impl Progress {
                     *last = usage.clone();
                 }
             }
+            AgentEvent::ModelRetry { number, .. } => {
+                if let Some(step) = self.0.steps.iter_mut().find(|s| s.number == *number) {
+                    step.text.push_str("\n\n[This model attempt was interrupted before tool dispatch. Its proposed actions were not executed.]");
+                }
+            }
             AgentEvent::TaskSegment {
                 archive,
                 retained,

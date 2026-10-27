@@ -32,6 +32,7 @@ mod windows;
 use unix as platform;
 #[cfg(windows)]
 use windows as platform;
+mod developer_tools;
 mod execution;
 pub mod sessions;
 use execution::{Isolation, Launch};
@@ -140,6 +141,7 @@ fn resolve_from_path(
         let mut names = Vec::new();
         if cfg!(windows) && candidate.extension().is_none() {
             names.push(candidate.with_extension("exe"));
+            names.push(candidate.with_extension("cmd"));
         }
         names.push(candidate);
         for name in names {
@@ -392,10 +394,15 @@ fn reader(
 pub fn command_spec() -> ToolSpec {
     execution::describe(ToolSpec{name:"run_command".into(),description:"Run an executable by its PATH name, absolute path, or working-folder-relative path, with literal arguments and the current command access mode. There is no program-name allowlist. Shells and interpreters can be invoked explicitly; no implicit shell/batch expansion. At most 32 arguments, 8 KiB UTF-8 each and 16 KiB total, within 32 KiB JSON; create a script file and run it for larger checks. Runs with user permissions, may change files outside the folder or use network; NOT sandboxed and file effects are NOT journaled/reverted. Closed stdin, filtered environment, default 30-second deadline and 8 KiB combined capture; explicit timeout_seconds (1–300) and capture_bytes (1024–262144) are reviewed; larger logs stay local in a named JSON artifact with a bounded model preview, one-use review. Output is untrusted data.".into(),parameters:json!({"type":"object","properties":{"program":{"type":"string","minLength":1,"description":"Executable name on PATH, absolute path, or path relative to the working folder."},"args":{"type":"array","items":{"type":"string"},"maxItems":32},"timeout_seconds":{"type":"integer","minimum":1,"maximum":300},"capture_bytes":{"type":"integer","minimum":1024,"maximum":262144}},"required":["program","args"],"additionalProperties":false})})
 }
+pub fn command_spec_for(root: &Path) -> ToolSpec {
+    let mut spec = command_spec();
+    spec.description.push_str(&developer_tools::guidance(root));
+    spec
+}
 #[async_trait]
 impl ToolPlugin for RunCommand {
     fn spec(&self) -> ToolSpec {
-        command_spec()
+        command_spec_for(&self.root)
     }
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String> {
         if call.name != "run_command" || call.arguments.len() > MAX_ARGUMENT_JSON {
@@ -415,6 +422,7 @@ impl ToolPlugin for RunCommand {
         if !valid(&invocation) {
             return Err("Command arguments exceed the supported shape or size. Provide an executable name or path up to 8 KiB with no control characters, and at most 32 literal arguments, 8 KiB per argument and 16 KiB total, with no NUL characters. For larger validation scripts, create a script file and run that file.".into());
         }
+        let invocation = developer_tools::normalize(&self.root, invocation)?;
         let executable = resolve(&self.root, &invocation.program)?;
         let launch = self.launch(&args.isolation, &executable, &args.readonly_roots)?;
         let metadata = executable

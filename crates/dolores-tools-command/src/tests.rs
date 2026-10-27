@@ -1,4 +1,78 @@
 use super::*;
+
+#[cfg(windows)]
+#[test]
+fn node_cli_launcher_is_resolved_before_review_without_shell_expansion() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir(root.path().join("bin")).unwrap();
+    std::fs::create_dir(root.path().join("lib")).unwrap();
+    std::fs::write(root.path().join("node.exe"), "fixture executable identity").unwrap();
+    std::fs::write(root.path().join("lib/tool.js"), "public script").unwrap();
+    let shim = root.path().join("bin/tool.cmd");
+    std::fs::write(
+        &shim,
+        "@\"%~dp0..\\node.exe\" --liftoff-only \"%~dp0..\\lib\\tool.js\" %*\n",
+    )
+    .unwrap();
+    let tool = RunCommand::new(root.path()).unwrap();
+    let request = tool
+        .prepare(&ToolCall {
+            id: "node-cli".into(),
+            name: "run_command".into(),
+            arguments: json!({"program":shim,"args":["a & b","%SECRET%","世界"]}).to_string(),
+        })
+        .unwrap();
+    let command = request.command.unwrap();
+    assert!(
+        command.executable.ends_with("node.exe"),
+        "Review must show the native runtime, not an unlaunchable .cmd file"
+    );
+    assert!(command.invocation.args[1].ends_with("tool.js"));
+    assert!(
+        !command.invocation.args[1].starts_with(r"\\?\"),
+        "Node rejects verbatim script paths during entrypoint resolution"
+    );
+    assert_eq!(&command.invocation.args[2..], ["a & b", "%SECRET%", "世界"]);
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn node_cli_launcher_executes_a_unicode_script_with_literal_arguments() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("project 世界 with spaces");
+    std::fs::create_dir(&root).unwrap();
+    let runtime = resolve(&root, "node").unwrap();
+    std::fs::copy(runtime, root.join("node.exe")).unwrap();
+    std::fs::write(
+        root.join("cli.js"),
+        "process.stdout.write(JSON.stringify(process.argv.slice(2)))",
+    )
+    .unwrap();
+    let shim = root.join("tool.cmd");
+    std::fs::write(&shim, "@\"%~dp0node.exe\" \"%~dp0cli.js\" %*\n").unwrap();
+    let tool = RunCommand::new(&root).unwrap();
+    let literal = ["a & b", "%SECRET%", "quote\"value", "世界"];
+    let request = tool
+        .prepare(&ToolCall {
+            id: "native-launcher".into(),
+            name: "run_command".into(),
+            arguments: json!({"program":shim,"args":literal}).to_string(),
+        })
+        .unwrap();
+    let receipt: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(receipt["exitCode"], 0, "{receipt}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(receipt["stdout"].as_str().unwrap()).unwrap(),
+        json!(literal)
+    );
+    assert_eq!(receipt["cleanupComplete"], true);
+}
 #[cfg(windows)]
 #[tokio::test]
 async fn isolated_one_shot_binds_grants_and_recovers_after_stale_review() {

@@ -208,16 +208,23 @@ impl dolores_core::ToolApproval for RecoveryApproval {
         }
         let text = serde_json::to_string(summary).map_err(|_| "Could not prepare task segment.")?;
         let mut records = vec![];
-        let mut offset = 0;
-        while offset < text.len() {
-            let mut end = (offset + 16 * 1024).min(text.len());
-            while !text.is_char_boundary(end) {
-                end -= 1;
+        let context = serde_json::to_string(context)
+            .map_err(|_| "Could not prepare task context evidence.")?;
+        for (encoding, source) in [
+            ("agentSummaryJsonFragment", text.as_str()),
+            ("agentContextJsonFragment", context.as_str()),
+        ] {
+            let mut offset = 0;
+            while offset < source.len() {
+                let mut end = (offset + 16 * 1024).min(source.len());
+                while !source.is_char_boundary(end) {
+                    end -= 1;
+                }
+                records.push(json!({"encoding":encoding,"offset":offset,"totalBytes":source.len(),"text":&source[offset..end]}));
+                offset = end;
             }
-            records.push(json!({"encoding":"agentSummaryJsonFragment","offset":offset,"totalBytes":text.len(),"text":&text[offset..end]}));
-            offset = end;
         }
-        let segment=self.log.seal(records,json!({"kind":"execution","context":context,"modelCalls":summary.model_calls,"priorArchive":summary.archive,"note":"Historical context only; restart requires explicit recovery. No pending call may be replayed."})).await?;
+        let segment=self.log.seal(records,json!({"kind":"execution","context":{"encoding":"agentContextJsonFragment","totalBytes":context.len()},"modelCalls":summary.model_calls,"priorArchive":summary.archive,"note":"Historical context fragments only; restart requires explicit recovery. No pending call may be replayed."})).await?;
         Ok((self.log.id.clone(), segment.ordinal))
     }
     fn is_waiting(&self) -> bool {

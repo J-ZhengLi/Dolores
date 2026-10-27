@@ -15,6 +15,8 @@ pub use comparison::*;
 pub use feedback::*;
 mod agent;
 mod agent_watchdog;
+#[cfg(test)]
+mod model_retry_tests;
 pub use agent::{CommandIsolationPreview, ModelActivity, StreamDiagnostics, StreamMeasurements};
 mod web;
 pub use web::*;
@@ -204,6 +206,16 @@ pub trait AttachmentResolver: Send + Sync {
 }
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Opt-in for failures of a generation request, before host tool dispatch.
+    /// Never classify tool/plugin errors here; unknown adapters do not retry.
+    fn model_retry_delay(&self, _error: &str) -> Option<std::time::Duration> {
+        None
+    }
+    /// Opt-in transport recovery for a failed stream before tool dispatch.
+    /// The complete-response method must preserve model, tools and settings.
+    fn buffered_tool_retry(&self, _error: &str) -> bool {
+        false
+    }
     /// Providers returning true enforce decoded-progress inactivity during chat streams.
     /// Legacy adapters retain the host's fallback bound until they implement this contract.
     fn manages_stream_inactivity(&self) -> bool {

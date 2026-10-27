@@ -1,7 +1,7 @@
 use crate::{reported_usage, usage_option_rejected, OpenAiProvider, SseDecoder};
 use dolores_core::{
     validate_call, AgentMessage, AgentTurn, TokenUsage, ToolCall, ToolSpec,
-    MAX_FILE_ARGUMENT_BYTES, MAX_OUTPUT_BYTES, MAX_TOOL_CALLS,
+    MAX_FILE_ARGUMENT_BYTES, MAX_OUTPUT_BYTES,
 };
 use futures_util::StreamExt;
 use serde_json::{json, Value};
@@ -39,7 +39,8 @@ struct Assembly {
     raw_content_bytes: usize,
     reasoning: Option<String>,
     content: String,
-    calls: BTreeMap<usize, PartialCall>,
+    calls: BTreeMap<u64, PartialCall>,
+    tool_bytes: usize,
     finish: Option<String>,
     usage: Option<TokenUsage>,
 }
@@ -52,6 +53,24 @@ fn append(target: &mut String, value: &Value, limit: usize) -> Result<(), String
         return Err("Streamed tool field exceeds its byte limit.".into());
     }
     target.push_str(text);
+    Ok(())
+}
+fn bind_identity(target: &mut String, value: &Value) -> Result<(), String> {
+    if value.is_null() {
+        return Ok(());
+    }
+    let text = value.as_str().ok_or(INVALID)?;
+    if text.is_empty() {
+        return Ok(());
+    }
+    if text.len() > 128 {
+        return Err("Streamed tool field exceeds its byte limit.".into());
+    }
+    if target.is_empty() {
+        *target = text.to_owned();
+    } else if target != text {
+        return Err("Model changed a streamed tool call identity.".into());
+    }
     Ok(())
 }
 impl Assembly {
@@ -127,34 +146,34 @@ impl Assembly {
         let mut text = self.prefix.push(text);
         if let Some(calls) = delta.get("tool_calls").filter(|v| !v.is_null()) {
             let calls = calls.as_array().ok_or(INVALID)?;
-            if calls.len() > MAX_TOOL_CALLS {
-                return Err("Model returned too many tool calls.".into());
-            }
             for part in calls {
                 let index = part["index"].as_u64().ok_or(INVALID)?;
-                if index >= MAX_TOOL_CALLS as u64 {
-                    return Err("Model returned an invalid tool index.".into());
+                // Index is a provider label, not an allocation size or task
+                // allowance. Account actual fields and slot overhead instead.
+                if !self.calls.contains_key(&index) {
+                    self.tool_bytes += 64;
                 }
-                let call = self.calls.entry(index as usize).or_default();
+                let call = self.calls.entry(index).or_default();
+                let before = call.id.len() + call.name.len() + call.arguments.len();
                 if !part["type"].is_null() {
                     if part["type"] != "function" {
                         return Err("Model requested an unsupported tool type.".into());
                     }
                     call.function = true;
                 }
-                append(&mut call.id, &part["id"], 128)?;
+                bind_identity(&mut call.id, &part["id"])?;
                 if let Some(function) = part.get("function").filter(|v| !v.is_null()) {
                     let function = function.as_object().ok_or(INVALID)?;
-                    append(
-                        &mut call.name,
-                        function.get("name").unwrap_or(&Value::Null),
-                        128,
-                    )?;
+                    bind_identity(&mut call.name, function.get("name").unwrap_or(&Value::Null))?;
                     append(
                         &mut call.arguments,
                         function.get("arguments").unwrap_or(&Value::Null),
                         MAX_FILE_ARGUMENT_BYTES,
                     )?;
+                }
+                self.tool_bytes += call.id.len() + call.name.len() + call.arguments.len() - before;
+                if self.tool_bytes > MAX_OUTPUT_BYTES {
+                    return Err("Streamed tool fields exceed the response byte allowance.".into());
                 }
             }
         }
@@ -202,8 +221,8 @@ impl Assembly {
             return Err("Model provider returned inconsistent stream completion. No tool from this response was executed. Check the provider's tool-stream compatibility or choose another model before retrying.".into());
         }
         let mut calls = Vec::new();
-        for (expected_index, (index, part)) in self.calls.into_iter().enumerate() {
-            if index != expected_index || !part.function {
+        for part in self.calls.into_values() {
+            if !part.function {
                 return Err(INVALID.into());
             }
             let call = ToolCall {

@@ -1,5 +1,18 @@
 # Flutter/Rust bridge contract
 
+## Model generation retry
+
+Agent events add `modelRetry {number,attempt,delayMs,buffered}` for cancelable, bounded
+generation-only recovery. It keeps the run ID, task timer, original input and
+current draft. The next `modelStep` starts a fresh response; the prior partial
+response stays labeled interrupted and is never an executable call. Retry
+counters persist in run evidence; failed attempts have unknown usage. Every new
+attempt charges existing shared/goal budgets. See the [streaming contract](../design/streaming-agent.md#generation-only-automatic-retry).
+
+`buffered: true` identifies a retry using the same model/tool configuration with
+a complete-response transport. It may remain active for this run. The request log
+discloses the transport change; Stop/drafts and the task clock remain unchanged.
+
 ## Motion preference
 
 `bootstrap.reduceMotion` is the local reduced-motion choice. The persisted

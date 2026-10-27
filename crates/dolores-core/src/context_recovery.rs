@@ -67,7 +67,10 @@ pub fn context_capacity(
     recovery: bool,
 ) -> Result<ContextCapacity, String> {
     let estimated_tokens = crate::estimate_agent_tokens(messages, tools)?;
-    let input_allowance = crate::input_token_allowance(window, settings)?;
+    let input_allowance = crate::input_token_allowance(
+        Some(window.unwrap_or(crate::DEFAULT_CONTEXT_WINDOW_TOKENS)),
+        settings,
+    )?;
     let public_bytes = serde_json::to_vec(messages)
         .map_err(|_| "Could not count context.")?
         .len();
@@ -75,14 +78,15 @@ pub fn context_capacity(
         estimated_tokens,
         input_allowance,
         public_bytes,
-        byte_limit: crate::MAX_CONTEXT_BYTES,
-        pressure_percent: ((public_bytes as u64 * 100) / crate::MAX_CONTEXT_BYTES as u64)
-            .max(input_allowance.map_or(0, |n| estimated_tokens.saturating_mul(100) / n)),
+        // Diagnostic byte equivalent of the shared estimator, not another
+        // context window. Storage/preview bounds must not force model summaries.
+        byte_limit: input_allowance.unwrap_or(0).saturating_mul(4) as usize,
+        pressure_percent: input_allowance.map_or(0, |n| estimated_tokens.saturating_mul(100) / n),
         recovery_available: recovery,
     })
 }
 pub fn capacity_notice(c: &ContextCapacity) -> String {
-    format!("\nContext capacity status (host estimate, not provider-reported usage): about {}% of the tighter public-byte/model-input allowance is occupied. Public context {} / {} bytes; estimated input {} tokens, allowance {:?} after output reserve. {} Context capacity, this response's output allowance and cumulative task limits are separate. Preserve decisions and verification evidence; use bounded reads. Do not skip validation, rush unfinished work or declare completion because context is low.",c.pressure_percent.min(100),c.public_bytes,c.byte_limit,c.estimated_tokens,c.input_allowance,if c.recovery_available{"Safe-boundary compaction is available and can continue the task; it does not reset task budgets."}else{"At a context checkpoint, saved work remains for explicit recovery."})
+    format!("\nContext capacity status (host estimate, not provider-reported usage): about {}% of the model-input allowance is occupied. Public context {} bytes; estimated input {} tokens, allowance {:?} after output reserve. {} Context capacity, this response's output allowance and cumulative task limits are separate. Preserve decisions and verification evidence; use bounded reads. Do not skip validation, rush unfinished work or declare completion because context is low.",c.pressure_percent.min(100),c.public_bytes,c.estimated_tokens,c.input_allowance,if c.recovery_available{"Safe-boundary compaction is available and can continue the task; it does not reset task budgets."}else{"At a context checkpoint, saved work remains for explicit recovery."})
 }
 pub fn restored_context(
     messages: &[AgentMessage],

@@ -1971,7 +1971,18 @@ impl Engine {
                     specs.push(skill_packages::resources::spec());
                 }
                 if tools {
-                    specs.push(dolores_tools_command::command_spec());
+                    let root = session
+                        .as_deref()
+                        .map(|id| self.store.workspace(id))
+                        .transpose()?
+                        .and_then(|w| w.root);
+                    specs.push(
+                        root.as_deref()
+                            .map(|p| {
+                                dolores_tools_command::command_spec_for(std::path::Path::new(p))
+                            })
+                            .unwrap_or_else(dolores_tools_command::command_spec),
+                    );
                     if cfg!(windows) {
                         specs.push(dolores_tools_command::sessions::session_spec());
                     }
@@ -3671,6 +3682,9 @@ async fn execute(
                     _ = cancel.cancelled() => return Err(stopped()),
                     result = &mut request => break result,
                     Some(event) = receiver.recv() => {
+                        if let (Some(log), dolores_core::AgentEvent::ModelRetry {number,attempt,delay_ms,buffered}) = (&log, &event) {
+                            log.record(None,"modelRetry",json!({"number":number,"attempt":attempt,"delayMs":delay_ms,"buffered":buffered,"scope":"generation only; no tool replay"})).await?;
+                        }
                         if let (Some(log), dolores_core::AgentEvent::ModelTelemetry { number, measurements }) = (&log, &event) {
                             log.record(None, "modelTelemetry", json!({"number":number,"measurements":measurements})).await?;
                         }
@@ -3682,6 +3696,18 @@ async fn execute(
                 }
             };
             while let Some(event) = receiver.recv().await {
+                if let (
+                    Some(log),
+                    dolores_core::AgentEvent::ModelRetry {
+                        number,
+                        attempt,
+                        delay_ms,
+                        buffered,
+                    },
+                ) = (&log, &event)
+                {
+                    log.record(None,"modelRetry",json!({"number":number,"attempt":attempt,"delayMs":delay_ms,"buffered":buffered,"scope":"generation only; no tool replay"})).await?;
+                }
                 if let (
                     Some(log),
                     dolores_core::AgentEvent::ModelTelemetry {

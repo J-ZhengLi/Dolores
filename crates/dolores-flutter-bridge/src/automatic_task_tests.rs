@@ -8,9 +8,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 struct LongTask {
     calls: AtomicUsize,
     finish: usize,
+    window: u32,
 }
 #[async_trait::async_trait]
 impl ModelProvider for LongTask {
+    fn context_window_tokens(&self) -> Option<u32> {
+        Some(self.window)
+    }
     fn descriptor(&self) -> PluginDescriptor {
         PluginDescriptor {
             id: "fixture",
@@ -36,7 +40,7 @@ impl ModelProvider for LongTask {
         assert!(m
             .iter()
             .any(|m| m.content.contains("Original objective 世界")));
-        assert!(serde_json::to_vec(m).unwrap().len() < dolores_core::MAX_CONTEXT_BYTES);
+        assert!(dolores_core::estimate_agent_tokens(m, &[]).unwrap() < self.window as u64);
         Ok(AgentTurn {
             content: if n >= self.finish {
                 "Verified task finished".into()
@@ -140,6 +144,15 @@ fn complete_model_summary_format_does_not_pause_a_running_task() {
 }
 
 fn run_long_task(count: usize, text: &'static str) {
+    run_task_in_window(count, text, 40000, true);
+}
+
+#[test]
+fn evidence_pagination_does_not_summarize_a_roomy_model_window() {
+    run_task_in_window(80, "Unused summary fixture", 500000, false);
+}
+
+fn run_task_in_window(count: usize, text: &'static str, window: u32, compacts: bool) {
     let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
     store.create("chat").unwrap();
     store.save_draft("chat", "Keep my unrelated draft").unwrap();
@@ -198,6 +211,7 @@ fn run_long_task(count: usize, text: &'static str) {
             Arc::new(LongTask {
                 calls: AtomicUsize::new(0),
                 finish: count,
+                window,
             }),
             TurnRequest {
                 available_skills: None,
@@ -242,8 +256,13 @@ fn run_long_task(count: usize, text: &'static str) {
         messages.last().unwrap().content
     );
     assert_eq!(tool.effects.load(Ordering::SeqCst), count);
-    assert!(summary.calls.load(Ordering::SeqCst) > 2);
-    assert!(maintenance > 4);
+    if compacts {
+        assert!(summary.calls.load(Ordering::SeqCst) > 2);
+        assert!(maintenance > 4);
+    } else {
+        assert_eq!(summary.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(maintenance, 0);
+    }
     let agent = metadata.agent.as_ref().unwrap();
     assert_eq!(
         agent.archive.as_ref().unwrap().tool_count + agent.tools.len(),

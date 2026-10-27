@@ -150,6 +150,8 @@ headings. Review each addition for general applicability even when checks pass.
   Context maintenance keeps the same task and timer, with Updating context inline.
   Earlier progress opens read-only paged evidence; internal segments must not add
   Continue cards, synthetic user turns or completion notifications.
+  Recoverable model waits show Reconnecting to the model inside the same task;
+  keep Stop reachable and mark earlier interrupted response text as evidence.
 - Keep text selectable, code horizontally scrollable and Copy faithful to the
   complete source. Offer named keyboard/menu alternatives to dragging.
   Branching belongs in each completed reply's footer actions and uses that exact

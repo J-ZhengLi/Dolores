@@ -14,6 +14,7 @@ mod agent_stream;
 mod attachment_tests;
 #[cfg(test)]
 mod generation_tests;
+mod model_retry;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 mod content_prefix;
@@ -381,6 +382,12 @@ impl SseDecoder {
 
 #[async_trait]
 impl ModelProvider for OpenAiProvider {
+    fn model_retry_delay(&self, error: &str) -> Option<std::time::Duration> {
+        model_retry::delay(error)
+    }
+    fn buffered_tool_retry(&self, error: &str) -> bool {
+        model_retry::stream_interrupted(error)
+    }
     fn manages_stream_inactivity(&self) -> bool {
         true
     }
@@ -494,13 +501,18 @@ impl ModelProvider for OpenAiProvider {
         self.context_window
     }
     fn continuation_pressure_percent(&self) -> u64 {
-        let Ok(cache) = self.reasoning.lock() else {
-            return 100;
-        };
-        let bytes = cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>();
-        // Leave room for one maximum-size reasoning response before the next
-        // safe boundary. The private 2-MiB allocation guard remains separate.
-        bytes as u64 * 100 / (agent::MAX_REASONING_CACHE_BYTES as u64 / 3)
+        let allowance = dolores_core::input_token_allowance(
+            Some(
+                self.context_window
+                    .unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),
+            ),
+            self.settings,
+        )
+        .ok()
+        .flatten()
+        .unwrap_or(1)
+        .max(1);
+        self.continuation_tokens().saturating_mul(100) / allowance
     }
     fn with_model(&self, model: &str) -> Result<std::sync::Arc<dyn ModelProvider>, String> {
         validate_model(model)?;

@@ -15,6 +15,14 @@ published versions use SemVer and an ISO date.
 
 ### Fixed
 
+- Recover eligible interrupted tool streams through the complete-response transport after a cancelable wait, keeping the same model/settings and completed tool receipts instead of repeating the broken SSE route.
+
+- Detect installed CodeGraph/RTK for working-chat guidance and resolve supported Windows Node CLI launchers before command review, preserving literal arguments without shell expansion.
+
+- Base in-run compaction on the selected model's input allowance, including retained reasoning; archive local evidence without unnecessary summaries and retry recoverable summary disconnects within the existing task budget.
+
+- Tool streams assemble sparse or large index labels without a four-call parser cap; actual response bytes and distinct call identities bound assembly. Working agent tasks retry recoverable generation failures up to twice with visible, cancelable backoff and cumulative budget charging, without replaying completed tools.
+
 - Conversation branches copy saved history one message at a time in an atomic SQLite transaction, removing the 1-MiB and 100-turn cutoffs without loading the whole history. Text, timestamps, attachments and historical tool metadata remain intact; failed copies leave no partial branch.
 
 - Complete in-run context summaries can use prose, Markdown or JSON without a format-only pause. Original instructions and full tool evidence remain preserved, with no replay or extra model retry.

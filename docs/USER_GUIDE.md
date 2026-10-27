@@ -233,16 +233,14 @@ does not reset cumulative counters. At an exhausted allowance, inspect progress,
 clear the prior goal and explicitly save a smaller new one. Prior goals and run
 receipts remain in conversation exports; working files are retained.
 
-Goal runs and chats with automatic compaction enabled can recover context at
-settled model/tool boundaries. Near capacity, the agent receives a host estimate
-that distinguishes context room, response output and cumulative task limits.
-The estimate includes the public byte ceiling and output reserve. Recovery keeps
-original user instructions, goals and receipt previews; full evidence remains in
-Run history. Two mid-run recovery attempts are allowed per segment, charged to
-the same model budget. Malformed, oversized or unusable summaries stop for
-inspection without replaying tools. Images require explicit recovery with their
-retained attachments. The reminders do not establish model reliability or remove
-the need to verify results.
+Working chats recover context at settled model/tool boundaries near the selected
+model's input allowance, including provider reasoning and output headroom.
+Saving older tool evidence does not require context compaction. The Context
+inspector estimates the next human message; an active run also accumulates tool
+results and private protocol reasoning. Recovery preserves original instructions
+and full receipts. Temporary summary disconnects can retry twice within the same
+task and budget; Stop remains available. Persistent failure or an unusable summary
+saves progress for inspection without replaying completed tools.
 
 ## Scheduled tasks and companionship
 
@@ -269,6 +267,13 @@ offers Open, Not now, Dismiss, Fewer messages and Turn off. Notes stay quiet dur
 work or while the window is hidden; they do not send messages or run tasks for you.
 
 ## Terminal and language tools
+
+Working chats automatically detect installed RTK and CodeGraph on PATH. Dolores
+guides the agent toward RTK for compact command output and CodeGraph for code
+exploration when the project already has a `.codegraph` index. No separate setup
+in Dolores is required; normal task access still applies. Supported Windows npm
+and Node launchers work directly. Detection does not install tools or create an
+index. See [installed developer tools](design/developer-tool-integrations.md).
 
 Terminal opens a real local shell directly. Its initial folder is the selected
 Home conversation's project, or your home folder without a project. Plus uses the
@@ -410,6 +415,8 @@ Use the access selector beside the composer, or **Settings → Tools → Chat ac
 File restrictions, budgets and Stop remain active. Commands can use literal paths to access other folders with your account's permissions, so cross-project work can proceed through the selected access mode or a command review. Choose **Review** during work to revoke automatic access and stop that chat's run. Started effects can remain; inspect progress before resuming. Existing custom policies stay intact until you choose a replacement mode. Other chats keep their own settings.
 
 ## Task limits and continuing work
+
+During working-agent tasks, temporary model connection/stream failures, rate limiting and selected server errors retry up to twice. **Reconnecting to the model** keeps the same task and Stop button. Completed actions are not replayed; incomplete calls are discarded, and each model attempt consumes your configured allowance. Repeated failure saves progress for explicit recovery. Authentication/configuration errors and tool execution failures need inspection rather than automatic retry.
 
 Tasks use **Automatic** model/tool cycles by default, so ordinary work can proceed past four operations without Continue. Open **Settings → Advanced → Task limits** for optional custom limits for this chat, its project or your user defaults. Leave call fields blank for Automatic; existing saved numbers still apply. Task time is separate from response inactivity and model context. Blank task time adds no overall deadline; an explicit task clock excludes waiting for your review. Routine context and evidence maintenance now stays inside the running task, showing Updating context without requiring Continue. Earlier progress opens paged, complete task evidence. A failed save/summary or an explicit limit still pauses with saved progress. Repeated tool failures pause with their receipts so Dolores can change approach instead of repeating the same failed operation.
 

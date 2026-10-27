@@ -189,7 +189,7 @@ impl Drop for Attributes {
 fn wide(value: &OsStr) -> Vec<u16> {
     value.encode_wide().chain(Some(0)).collect()
 }
-fn child_directory(root: &Path) -> OsString {
+pub(super) fn child_path(root: &Path) -> OsString {
     let units: Vec<_> = root.as_os_str().encode_wide().collect();
     match root.components().next() {
         Some(Component::Prefix(prefix)) => match prefix.kind() {
@@ -295,7 +295,7 @@ fn spawn_stdio_inner(
     // Canonical folder capabilities use verbatim paths. Keep that identity for
     // checks, but give development runtimes a conventional process cwd: Node's
     // relative entrypoint resolution misreads a verbatim drive as "C:".
-    let cwd = child_directory(root);
+    let cwd = child_path(root);
     let directory = wide(&cwd);
     let command = std::iter::once(executable.to_string_lossy().into_owned())
         .chain(args.iter().cloned())
@@ -420,7 +420,7 @@ mod tests {
             (r"C:\ordinary folder", r"C:\ordinary folder"),
             (r"\\?\Volume{fixture}\folder", r"\\?\Volume{fixture}\folder"),
         ] {
-            assert_eq!(child_directory(Path::new(input)), OsStr::new(output));
+            assert_eq!(child_path(Path::new(input)), OsStr::new(output));
         }
     }
 }

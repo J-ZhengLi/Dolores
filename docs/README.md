@@ -34,6 +34,7 @@ qualification report only when a task depends on that evidence.
 | Recovery, permissions or ownership | [Recovery](design/long-task-recovery.md), [Permissions](design/task-permissions.md), [Ownership](design/run-ownership.md) |
 | Harness architecture changes | [Target architecture](design/evolving-harness-architecture.md), [Behavior](design/dolores-behavior.md), [Self-repair](design/harness-self-repair.md) |
 | Reviewed project lifecycle scripts | [Lifecycle hooks](design/lifecycle-hooks.md) |
+| Installed developer CLIs | [CodeGraph, RTK and launchers](design/developer-tool-integrations.md) |
 
 Other specifications remain under `design/`, qualification records under
 `qualification/`, and dated investigations under `research/`; locate them by name

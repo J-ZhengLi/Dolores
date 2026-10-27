@@ -6,9 +6,10 @@ The lightweight counter follows Codex's UTF-8 byte heuristic, rounded upward at 
 
 The ring and inspector compare tokens with the configured raw context window. Preparation leaves 5% headroom, then reserves the configured maximum output tokens. Both preview and sending retain the newest complete turns that fit this estimated input allowance. The draft, system instructions and tool definitions are never silently cut; if they alone exceed the allowance, preparation fails before a request. Each subsequent agent call checks its expanded context and stops locally when it exceeds the allowance, preserving call/result pairs and existing tool effects. These are heuristic checks, not a guarantee against every provider's context limit.
 
-The input, tool-result and output byte guards remain memory/resource limits. The
-agent's 128-KiB public working-set target triggers compaction; it is not a second
-provider context window. Streaming and non-streaming tool requests use the same
+The input, tool-result and output byte guards remain memory/resource limits.
+In-run compaction uses the configured model input allowance, including retained
+provider reasoning; a fixed 128-KiB public threshold does not trigger it. Local
+evidence segments roll independently without a model summary or context loss. Streaming and non-streaming tool requests use the same
 configured model input allowance, including tool definitions and image estimates,
 rather than rejecting serialized messages at 128 KiB. Successful metadata snapshots
 the capacity, output reservation, headroom and component estimates; legacy metadata
@@ -53,10 +54,10 @@ automatic permission, schema migration or new background service.
 Automatic context compaction can repeat throughout a task; there is no two-summary
 ceiling. Each summary still reserves a model attempt from the existing shared task
 budget. Compaction does not reset usage, re-run effects, change permissions or
-override explicit task limits. Provider-private reasoning continuation is bounded
-by bytes rather than a sixteen-entry counter. Its pressure can trigger the same
-safe-boundary compaction before the private allocation guard is reached, without
-exposing reasoning text. If recovery is unavailable, save a resumable checkpoint
+override explicit task limits. Provider-private reasoning and public messages share the selected input token
+allowance. The cache allocation bound follows that allowance with one response
+of headroom, rather than a fixed 2-MiB ceiling; removed calls release cached
+reasoning before the next request. This never exposes private reasoning text. If recovery is unavailable, save a resumable checkpoint
 before the next request. Stop, genuine provider failures and no-progress detection
 remain separate from context maintenance.
 
@@ -69,9 +70,9 @@ reconstructed or executed from truncated text. Large partial replies also become
 marked previews. Original task constraints and full saved receipts stay intact;
 conversation display, Run history and exports retain the complete evidence.
 
-Checkpoint summaries still require valid JSON with the known string-array
-fields and an 8-KiB input bound. Item-count and individual-string targets are
-writing guidance, not independent failure gates. Blank entries are ignored.
-An empty remaining list becomes a host reminder to verify the original objective
-and unresolved outcomes; it never establishes task completion. Malformed JSON,
-unknown fields and actual oversized input remain explicit recovery cases.
+Checkpoint summaries accept complete prose, Markdown or legacy JSON as untrusted
+evidence. Empty, interrupted or oversized output remains a failure; JSON shape
+alone is not a failure. Recoverable summary-generation failures can retry twice
+with cancelable backoff; every attempt reserves the shared/persistent budget.
+Completed tool actions are never replayed by recovery. Persistent failure saves
+an inspectable checkpoint. See [generation recovery](long-task-recovery.md#generation-recovery).

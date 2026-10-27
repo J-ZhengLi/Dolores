@@ -4,12 +4,33 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
-// Reasoning belongs to the provider protocol, not the 128-KiB public context.
-// Account it separately so provider-default generation can finish longer thoughts.
+// Reasoning belongs to the provider protocol and spends the model's input
+// allowance together with the public messages.
 pub(crate) const MAX_REASONING_BYTES: usize = 1024 * 1024;
-pub(crate) const MAX_REASONING_CACHE_BYTES: usize = 2 * 1024 * 1024;
 
 impl OpenAiProvider {
+    pub(crate) fn continuation_tokens(&self) -> u64 {
+        self.reasoning.lock().map_or(u64::MAX, |cache| {
+            cache
+                .values()
+                .map(|text| dolores_core::estimate_text_tokens(text))
+                .sum()
+        })
+    }
+    fn reasoning_cache_byte_allowance(&self) -> usize {
+        dolores_core::input_token_allowance(
+            Some(
+                self.context_window
+                    .unwrap_or(dolores_core::DEFAULT_CONTEXT_WINDOW_TOKENS),
+            ),
+            self.settings,
+        )
+        .ok()
+        .flatten()
+        .unwrap_or(0)
+        .saturating_mul(4) as usize
+            + MAX_REASONING_BYTES
+    }
     /// The orchestrator compacts its working set; transport serialization must
     /// not impose a second, inconsistent 128-KiB context window. Use the same
     /// model allowance in streaming and non-streaming entry points instead.
@@ -18,6 +39,17 @@ impl OpenAiProvider {
         messages: &[AgentMessage],
         tools: &[ToolSpec],
     ) -> Result<Vec<Value>, String> {
+        // Compaction removed old calls; release their protocol-only reasoning
+        // before checking the new request, rather than charging stale cache.
+        let keys: std::collections::HashSet<_> = messages
+            .iter()
+            .filter(|m| !m.calls.is_empty())
+            .map(|m| Self::reasoning_key(&m.content, &m.calls))
+            .collect::<Result<_, _>>()?;
+        self.reasoning
+            .lock()
+            .map_err(|_| "Reasoning continuation is unavailable.")?
+            .retain(|key, _| keys.contains(key));
         let allowance = dolores_core::input_token_allowance(
             Some(
                 self.context_window
@@ -27,6 +59,7 @@ impl OpenAiProvider {
         )?;
         if allowance.is_some_and(|limit| {
             dolores_core::estimate_agent_tokens(messages, tools)
+                .map(|n| n.saturating_add(self.continuation_tokens()))
                 .map_or(true, |tokens| tokens > limit)
         }) {
             return Err(super::CONTEXT_LIMIT_ERROR.into());
@@ -55,9 +88,9 @@ impl OpenAiProvider {
             if cache.iter().map(|(k, v)| k.len() + v.len()).sum::<usize>()
                 + key.len()
                 + reasoning.len()
-                > MAX_REASONING_CACHE_BYTES
+                > self.reasoning_cache_byte_allowance()
             {
-                return Err("Reasoning continuation exceeds its 2 MiB protocol allowance. Completed work remains; start a smaller task or reduce model reasoning.".into());
+                return Err("Reasoning continuation exceeds this model's input allocation allowance. Completed work remains; inspect the context settings before continuing.".into());
             }
             cache.insert(key, reasoning);
         }
@@ -186,9 +219,6 @@ impl OpenAiProvider {
                     let list = value
                         .as_array()
                         .ok_or("Model returned invalid tool calls.")?;
-                    if list.len() > 4 {
-                        return Err("Model returned too many tool calls.".into());
-                    }
                     for call in list {
                         if call["type"] != "function" {
                             return Err("Model requested an unsupported tool type.".into());
@@ -205,6 +235,16 @@ impl OpenAiProvider {
                             arguments: text(&call["function"]["arguments"])?,
                         };
                         validate_call(&call)?;
+                        if !serde_json::from_str::<Value>(&call.arguments)
+                            .is_ok_and(|v| v.is_object())
+                        {
+                            return Err(
+                                "Model returned incomplete or invalid tool arguments.".into()
+                            );
+                        }
+                        if calls.iter().any(|prior: &ToolCall| prior.id == call.id) {
+                            return Err("Model reused a tool call ID.".into());
+                        }
                         calls.push(call);
                     }
                 }
@@ -243,6 +283,25 @@ impl OpenAiProvider {
 mod tests {
     use super::*;
     use dolores_core::{ConnectionPreferences, ModelProvider};
+    #[tokio::test]
+    async fn nonstreamed_batches_above_four_keep_full_calls() {
+        let calls:Vec<_>=(0..6).map(|n|json!({"id":format!("call-{n}"),"type":"function","function":{"name":"read_text_file","arguments":"{}"}})).collect();
+        let (base_url,server)=crate::tests::sequence_server(vec![response(json!({"choices":[{"message":{"content":"Read files","tool_calls":calls},"finish_reason":"tool_calls"}]}))]).await;
+        let p = OpenAiProvider::new(
+            &ConnectionPreferences {
+                base_url,
+                model: "fixture".into(),
+            },
+            String::new(),
+        )
+        .unwrap();
+        let turn = p
+            .tool_turn(&[], &[], CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(turn.calls.len(), 6);
+        server.await.unwrap();
+    }
     fn response(body: Value) -> String {
         let body = body.to_string();
         format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len())

@@ -1,6 +1,23 @@
 # Long-task recovery — brick 6.4
 
-The selected Flutter shell saves progress when the provider explicitly reports its output limit, the agent reaches its model/tool step limit, a tool-enabled model stream stalls, or an explicit active-task clock expires. The response is labeled paused rather than complete. It retains text, usage, public model steps, bounded provider thinking previews and completed tool receipts; unfinished calls are discarded. A model that uses its output allowance only for reasoning gets an honest placeholder instead of invented visible work. Stop, broken transport, invalid calls and malformed streams remain failures. File effects may survive these failures independently in Changes.
+The selected Flutter shell saves progress when the provider explicitly reports its output limit, the agent reaches its model/tool step limit, a tool-enabled model stream stalls, or an explicit active-task clock expires. The response is labeled paused rather than complete. It retains text, usage, public model steps, bounded provider thinking previews and completed tool receipts; unfinished calls are discarded. A model that uses its output allowance only for reasoning gets an honest placeholder instead of invented visible work. Stop, permanent/ambiguous protocol errors and tool execution failures retain explicit recovery. Adapter-classified transient generation failures can retry before tool dispatch; exhaustion saves a paused checkpoint. File effects may survive these failures independently in Changes.
+
+## Generation recovery
+
+Working agent requests and internal context-summary requests can retry a recoverable provider response twice with cancelable backoff, without repeating completed tools. Every attempt uses the same task and cumulative budgets. Partial text stays labeled as interrupted; incomplete calls are discarded. Authentication/configuration errors, allocation guards and tool execution failures do not auto-retry. See [streaming and retry contract](streaming-agent.md#generation-only-automatic-retry).
+
+For eligible tool-stream interruptions, recovery waits and requests a complete
+non-streaming response with the same model/tools/settings, retaining that transport
+for the current run. This can bypass a broken SSE route; it does not lengthen a
+provider/gateway deadline. Failure of both routes still saves a checkpoint after
+three generation attempts. No completed tool is dispatched by transport recovery.
+
+Compaction begins near 80% of the model input allowance after output headroom,
+counting public context and retained provider reasoning. A fixed public-byte
+threshold, tool count or model-call count does not force a summary. Evidence
+pagination remains local: sealing older receipts/text preserves the active model
+context and spends no model request. Actual context pressure still compacts at a
+settled boundary, preserving instructions and archived full receipts.
 
 ## Continue
 

@@ -39,6 +39,12 @@ fn reasoning_continuation_uses_memory_pressure_instead_of_a_sixteen_call_ceiling
         )
         .unwrap();
     assert!(provider.continuation_pressure_percent() >= 80);
+    let mut large_window = provider.clone();
+    large_window.context_window = Some(500000);
+    assert!(
+        large_window.continuation_pressure_percent() < 40,
+        "The same private reasoning must use the selected window, not a fixed cache threshold"
+    );
     // A compacted public context has no previous protocol calls and releases
     // old private reasoning before the next task request.
     provider.wire_agent_messages(&[]).unwrap();
@@ -652,11 +658,11 @@ fn incomplete_malformed_and_over_budget_calls_never_complete() {
             json!("tool_calls"),
         )],
         vec![delta(
-            json!({"tool_calls":[call(4,"one","read_text_file","{}")] }),
+            json!({"tool_calls":[{"index":-1,"id":"one","type":"function","function":{"name":"read_text_file","arguments":"{}"}}] }),
             json!("tool_calls"),
         )],
         vec![delta(
-            json!({"tool_calls":[call(1,"one","read_text_file","{}")] }),
+            json!({"tool_calls":[{"index":"1","id":"one","type":"function","function":{"name":"read_text_file","arguments":"{}"}}] }),
             json!("tool_calls"),
         )],
         vec![delta(
@@ -695,6 +701,207 @@ fn incomplete_malformed_and_over_budget_calls_never_complete() {
         assert!(!error.contains("fixture-private-body"));
     }
     assert!(Assembly::default().complete(Duration::ZERO).is_err());
+}
+
+#[test]
+fn sparse_large_indexes_and_batches_above_four_assemble_by_label() {
+    let mut assembly = Assembly::default();
+    for index in [4, 100, 900, 1200, 1_000_000] {
+        assembly.push(delta(json!({"tool_calls":[call(index,&format!("call-{index}"),"read_text_file","{\"path\":")]}),Value::Null)).unwrap();
+    }
+    for index in [1_000_000, 1200, 900, 100, 4] {
+        assembly
+            .push(delta(
+                json!({"tool_calls":[{"index":index,"function":{"arguments":"\"public.txt\"}"}}]}),
+                Value::Null,
+            ))
+            .unwrap();
+    }
+    assembly
+        .push(delta(json!({}), json!("tool_calls")))
+        .unwrap();
+    let turn = assembly.complete(Duration::ZERO).unwrap();
+    assert_eq!(turn.calls.len(), 5);
+    assert_eq!(turn.calls[0].id, "call-4");
+    assert!(turn
+        .calls
+        .iter()
+        .all(|c| c.arguments == "{\"path\":\"public.txt\"}"));
+}
+
+#[test]
+fn repeated_identity_is_stable_but_conflicting_calls_never_merge() {
+    for changed in [false, true] {
+        let mut a = Assembly::default();
+        a.push(delta(
+            json!({"tool_calls":[call(900,"one","read_text_file","{\"path\":")]}),
+            Value::Null,
+        ))
+        .unwrap();
+        let result=a.push(delta(json!({"tool_calls":[call(900,if changed{"other"}else{"one"},"read_text_file","\"public.txt\"}")]}),json!("tool_calls")));
+        if changed {
+            assert!(result.unwrap_err().contains("identity"));
+        } else {
+            result.unwrap();
+            let call = a.complete(Duration::ZERO).unwrap().calls.remove(0);
+            assert_eq!(call.id, "one");
+            assert_eq!(call.name, "read_text_file");
+        }
+    }
+}
+
+#[test]
+fn slot_allocation_is_bounded_by_bytes_not_the_index_value() {
+    let mut a = Assembly::default();
+    a.push(delta(
+        json!({"tool_calls":[{"index":u64::MAX}]}),
+        Value::Null,
+    ))
+    .unwrap();
+    assert_eq!(a.calls.len(), 1);
+    let mut stopped = false;
+    for index in 0..10000 {
+        if a.push(delta(json!({"tool_calls":[{"index":index}]}), Value::Null))
+            .is_err()
+        {
+            stopped = true;
+            break;
+        }
+    }
+    assert!(stopped);
+    assert!(a.calls.len() < 3000);
+}
+
+#[tokio::test]
+async fn real_http_retry_keeps_completed_calls_and_discards_incomplete_attempts() {
+    use dolores_core::{AgentEvent, Message, Role, ToolApproval, ToolPlugin, ToolRequest};
+    use std::sync::{Arc, Mutex};
+    struct Effect(Mutex<Vec<String>>);
+    #[async_trait::async_trait]
+    impl ToolPlugin for Effect {
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: "read_text_file".into(),
+                description: "Public fixture".into(),
+                parameters: json!({}),
+            }
+        }
+        fn prepare(&self, c: &ToolCall) -> Result<ToolRequest, String> {
+            Ok(ToolRequest {
+                call_id: c.id.clone(),
+                name: c.name.clone(),
+                target: "public.txt".into(),
+                query: None,
+                diff: None,
+                command: None,
+                mcp: None,
+            })
+        }
+        async fn invoke(&self, r: &ToolRequest, _: CancellationToken) -> Result<String, String> {
+            self.0.lock().unwrap().push(r.call_id.clone());
+            Ok(format!("Saved receipt {}", r.call_id))
+        }
+    }
+    struct Allow;
+    #[async_trait::async_trait]
+    impl ToolApproval for Allow {
+        async fn authorize(&self, _: &ToolRequest, _: CancellationToken) -> Result<bool, String> {
+            Ok(true)
+        }
+    }
+    let first = wire(
+        &[delta(
+            json!({"content":"First effect","tool_calls":[call(42,"completed","read_text_file","{}")] }),
+            json!("tool_calls"),
+        )],
+        true,
+    );
+    let interrupted = wire(
+        &[delta(
+            json!({"content":"Unfinished proposal","tool_calls":[call(100,"must-not-run","read_text_file","{\"path\":")] }),
+            Value::Null,
+        )],
+        true,
+    );
+    let next: Vec<_> = (0..5)
+        .map(|i| call(100 + i * 10, &format!("next-{i}"), "read_text_file", "{}"))
+        .collect();
+    // A gateway can truncate SSE while its complete-response route works.
+    // Recovery must change transport, preserving the same tools and model.
+    let buffered = |value: Value| {
+        let body = value.to_string();
+        format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+    };
+    let complete = buffered(
+        json!({"choices":[{"message":{"content":"Next effects","tool_calls":next},"finish_reason":"tool_calls"}]}),
+    );
+    let finish = buffered(
+        json!({"choices":[{"message":{"content":"Verified complete"},"finish_reason":"stop"}]}),
+    );
+    let (url, server) =
+        crate::tests::sequence_server(vec![first, interrupted, complete, finish]).await;
+    let p = provider(url);
+    let effect = Arc::new(Effect(Mutex::new(vec![])));
+    let (tx, mut rx) = mpsc::channel(256);
+    let result = dolores_core::run_agent(
+        &p,
+        vec![
+            Message {
+                role: Role::System,
+                content: "Host instructions".into(),
+                parts: vec![],
+            },
+            Message {
+                role: Role::User,
+                content: "Original task".into(),
+                parts: vec![],
+            },
+        ],
+        &[effect.clone() as Arc<dyn ToolPlugin>],
+        &Allow,
+        tx,
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.answer, "Verified complete");
+    assert_eq!(result.summary.model_calls, 4);
+    assert_eq!(
+        effect.0.lock().unwrap().as_slice(),
+        [
+            "completed",
+            "next-0",
+            "next-1",
+            "next-2",
+            "next-3",
+            "next-4"
+        ]
+    );
+    assert_eq!(result.summary.tools.len(), 6);
+    let mut retries = 0;
+    while let Ok(e) = rx.try_recv() {
+        if matches!(e, AgentEvent::ModelRetry { .. }) {
+            retries += 1;
+        }
+    }
+    assert_eq!(retries, 1);
+    let requests = server.await.unwrap();
+    let bodies: Vec<Value> = requests
+        .split("\nREQUEST\n")
+        .map(|r| serde_json::from_str(r.split("\r\n\r\n").nth(1).unwrap()).unwrap())
+        .collect();
+    assert_eq!(
+        &bodies[1]["messages"].as_array().unwrap()[1..],
+        &bodies[2]["messages"].as_array().unwrap()[1..],
+        "Only the failed model request is retried"
+    );
+    assert!(!bodies[2]["messages"].to_string().contains("must-not-run"));
+    assert_eq!(bodies[0]["stream"], true);
+    assert_eq!(bodies[1]["stream"], true);
+    assert_eq!(bodies[2]["stream"], false);
+    assert_eq!(bodies[3]["stream"], false);
+    assert_eq!(bodies[1]["model"], bodies[2]["model"]);
+    assert_eq!(bodies[1]["tools"], bodies[2]["tools"]);
 }
 
 #[tokio::test]

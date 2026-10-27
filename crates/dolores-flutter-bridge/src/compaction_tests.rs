@@ -9,6 +9,9 @@ fn in_run_summary_failure_saves_completed_tool_work_instead_of_a_send_error() {
     struct Worker(AtomicUsize);
     #[async_trait::async_trait]
     impl ModelProvider for Worker {
+        fn context_window_tokens(&self) -> Option<u32> {
+            Some(40000)
+        }
         fn descriptor(&self) -> PluginDescriptor {
             PluginDescriptor {
                 id: "fixture",

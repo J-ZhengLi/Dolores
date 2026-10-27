@@ -93,12 +93,7 @@ impl ToolApproval for Host {
         _: &[AgentMessage],
         _: CancellationToken,
     ) -> Result<Option<context_recovery::ContextCheckpoint>, String> {
-        self.pending.store(true, Ordering::SeqCst);
-        Ok(Some(context_recovery::ContextCheckpoint {
-            decisions: vec![],
-            progress: vec!["Work retained".into()],
-            remaining: vec!["Finish".into()],
-        }))
+        panic!("Evidence pagination must not compact a mostly empty model context")
     }
     fn take_steering(&self) -> Result<Vec<SteeringInput>, String> {
         Ok(if self.pending.swap(false, Ordering::SeqCst) {
@@ -116,6 +111,7 @@ impl ToolApproval for Host {
         _: &[AgentMessage],
         c: CancellationToken,
     ) -> Result<(String, u32), String> {
+        self.pending.store(true, Ordering::SeqCst);
         let n = self.saves.fetch_add(1, Ordering::SeqCst) + 1;
         if self.stop {
             c.cancel();
