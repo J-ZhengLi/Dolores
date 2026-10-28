@@ -43,12 +43,17 @@ again. Missing or malformed live files are omitted from discovery with a problem
 shown in Settings; a retained valid snapshot remains usable for recovery.
 
 Source reading validates UTF-8, YAML name/description, direct regular paths and
-the existing 8 KiB per-file bound. Only the configured global collection boundary
+the 1 MiB file/snapshot allocation. This is independent of model capacity and
+generated-draft output. Only the configured global collection boundary
 may be a symlink/junction; individual skills retain existing path checks.
 The bounded scan examines 128 entries and returns up to 32 eligible names per
 collection, with a partial-list notice. Availability does not consume the request
-instruction allowance: up to three matching skills / 8 KiB per scope enter one
-request, with explicit picker selections taking priority over automatic matches.
+instruction allowance: up to three matching skills per scope enter one request,
+with explicit picker selections taking priority over automatic matches. Exact
+selected text uses the configured model input allowance; it is never silently
+truncated or dropped by a separate 8-KiB aggregate ceiling. File-size, NUL and
+UTF-8 errors are reported separately. Viewing or discovering a skill sends no
+model request; unrelated instructions stay out of the request.
 Saving another skill no longer requires disabling an unrelated one first.
 Saved records retain the twelve-name and five-version bounds per scope.
 
@@ -77,7 +82,7 @@ The ZIP has SKILL.md at its root and may contain scripts, references, binary
 assets and empty directories. Optional `dolores-package.json` accepts schema 1,
 version, origin and a dependencies list of name/requirement objects. Origin and
 requirements are publisher claims. ZIP input is limited to 4 MiB, expanded files
-to 2 MiB, each resource to 512 KiB, SKILL.md and manifest to 8 KiB each, and the
+to 2 MiB, each resource to 512 KiB, SKILL.md to 1 MiB, manifest to 8 KiB, and the
 archive to 64 files/128 entries. Paths use portable relative forward slashes,
 up to 240 UTF-8 bytes and twelve components; escaping paths, links and aliases
 are refused. Each scope retains five installed versions per name and twelve

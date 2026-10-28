@@ -352,7 +352,7 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                     ),
                     const SizedBox(height: 8),
                     const HelpLabel(
-                      help: 'Starts with your model settings. Changes apply to this draft only. A larger allowance may use more tokens; it does not increase the 8 KiB skill limit.',
+                      help: 'Starts with your model settings. Changes apply to this draft only. A larger allowance may use more tokens; generated drafts stay within 8 KiB. Source files and imports have a separate 1 MiB allocation.',
                       child: Text(
                         'These model settings apply to this draft only.',
                       ),
@@ -422,7 +422,7 @@ class _SkillDraftInspectorState extends State<SkillDraftInspector> {
                     ),
                     const SizedBox(height: 12),
                     _field(
-                      'Markdown instructions · 8 KiB total skill limit',
+                      'Markdown instructions · 8 KiB generated-draft limit',
                       instructions,
                       'draft-skill-instructions',
                       lines: 5,

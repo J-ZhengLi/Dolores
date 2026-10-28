@@ -79,9 +79,9 @@ pub fn prepare(mut messages: Vec<Message>, state: &PlanningState) -> Result<Vec<
     if serde_json::to_vec(&messages)
         .map_err(|_| "Could not prepare context.")?
         .len()
-        > crate::MAX_CONTEXT_BYTES
+        > crate::MAX_CONTEXT_ALLOCATION_BYTES
     {
-        return Err("Selected context exceeds 128 KiB. Remove references or narrow the draft; nothing was sent.".into());
+        return Err("Selected context exceeds the local allocation guard. Remove references or narrow the draft; nothing was sent.".into());
     }
     Ok(messages)
 }

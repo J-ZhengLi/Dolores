@@ -388,6 +388,9 @@ impl ModelProvider for OpenAiProvider {
     fn buffered_tool_retry(&self, error: &str) -> bool {
         model_retry::stream_interrupted(error)
     }
+    fn context_overflow(&self, error: &str) -> bool {
+        error == CONTEXT_LIMIT_ERROR
+    }
     fn manages_stream_inactivity(&self) -> bool {
         true
     }

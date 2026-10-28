@@ -50,7 +50,8 @@ class _RunElapsedState extends State<RunElapsed> {
 
 class RunStatus extends StatefulWidget {
   final String phase;
-  const RunStatus({super.key, required this.phase});
+  final String? detail;
+  const RunStatus({super.key, required this.phase, this.detail});
   @override
   State<RunStatus> createState() => _RunStatusState();
 }
@@ -64,6 +65,7 @@ class _RunStatusState extends State<RunStatus>
     'stopping': 'Stopping…',
     'compacting': 'Updating context',
     'retrying': 'Reconnecting to the model',
+    'waitingComplete': 'Waiting for a complete response',
   };
   static const phrases = {
     'reasoning': [
@@ -166,8 +168,8 @@ class _RunStatusState extends State<RunStatus>
     child: FadeTransition(
       opacity: pulse,
       child: Text(
-        label,
-        maxLines: 1,
+        widget.detail == null ? label : '$label\n${widget.detail}',
+        maxLines: widget.detail == null ? 1 : 3,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Palette(Theme.of(context).brightness == Brightness.dark).muted,

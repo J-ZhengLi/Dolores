@@ -29,7 +29,6 @@ import 'task_feedback.dart';
 import 'inspector.dart';
 import 'tool_activity.dart';
 import 'run_progress.dart';
-import 'run_history.dart';
 import 'user_question.dart';
 import 'subagents.dart';
 import 'workspace_picker.dart';
@@ -37,6 +36,7 @@ import 'worktrees.dart';
 import 'instructions.dart';
 import 'chat_sidebar.dart';
 import 'agent_timeline.dart';
+import 'task_transcript.dart';
 import 'side_conversations.dart';
 import 'prompt_branches.dart';
 import 'attachments.dart';
@@ -230,7 +230,6 @@ class _ChatPageState extends State<ChatPage> {
   ChatController get chat => widget.chat;
   bool following = true;
   bool _positioning = false;
-  Object? seenTaskArchive;
   double sidebarWidth = UiTokens.sidebarWidth;
   int seenRevision = -1;
   @override
@@ -255,19 +254,6 @@ class _ChatPageState extends State<ChatPage> {
 
   void _changed() {
     if (!mounted) return;
-    final archived = seenTaskArchive != chat.taskArchive;
-    seenTaskArchive = chat.taskArchive;
-    if (archived && !following && scroll.hasClients) {
-      final offset = scroll.offset;
-      _positioning = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && scroll.hasClients) {
-          _jumpTo(offset.clamp(0, scroll.position.maxScrollExtent));
-          following = false;
-        }
-        _positioning = false;
-      });
-    }
     if (input.text != chat.draft) {
       input.clearHistory();
       input.value = TextEditingValue(
@@ -604,31 +590,6 @@ class _ChatPageState extends State<ChatPage> {
                 queued: chat.modelPhase == 'queued',
               ),
             ),
-          if (!user && streaming && chat.modelThinking.isNotEmpty)
-            _thinking(chat.modelThinking),
-          if (!user &&
-              (streaming ? chat.taskArchive : metadata?['agent']?['archive'])
-                  is Map)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                key: const Key('task-archived-progress'),
-                icon: const Icon(Icons.history, size: 16),
-                label: const Text('Earlier progress'),
-                onPressed: () => showRunHistory(
-                  context,
-                  chat,
-                  run:
-                      ((streaming
-                                  ? chat.taskArchive
-                                  : metadata?['agent']?['archive'])
-                              as Map)['runId']
-                          as String,
-                ),
-              ),
-            ),
-          if (!user && !streaming && metadata?['agent']?['thinking'] is List)
-            _thinking(metadata!['agent']['thinking'] as List),
           if (!user && !streaming && inheritedTools.isNotEmpty) ...[
             Text(
               'Earlier tool results',
@@ -637,19 +598,35 @@ class _ChatPageState extends State<ChatPage> {
             AgentTimeline(records: inheritedTools, bridge: chat.bridge),
           ],
           if (!user)
-            AgentTimeline(
-              steps: streaming
-                  ? [
-                      ...chat.modelTexts,
-                      if (text.isNotEmpty)
-                        {'number': chat.modelStep, 'text': text},
-                    ]
-                  : metadata?['agent']?['steps'] as List? ?? [],
-              records: streaming ? chat.toolRecords : savedTools,
-              toolSteps: streaming
-                  ? [for (final record in chat.toolRecords) record['modelStep']]
-                  : metadata?['agent']?['toolSteps'] as List? ?? [],
+            TaskTranscript(
+              key: ValueKey(
+                'transcript-${chat.session}-$messageId-${streaming ? "live" : "saved"}',
+              ),
+              session: chat.session,
+              archive: streaming
+                  ? null
+                  : metadata?['agent']?['archive'] as Map?,
+              current: {
+                'steps': streaming
+                    ? [
+                        ...chat.modelTexts,
+                        if (text.isNotEmpty)
+                          {'number': chat.modelStep, 'text': text},
+                      ]
+                    : metadata?['agent']?['steps'] as List? ?? [],
+                'tools': streaming ? chat.toolRecords : savedTools,
+                'toolSteps': streaming
+                    ? [
+                        for (final record in chat.toolRecords)
+                          record['modelStep'],
+                      ]
+                    : metadata?['agent']?['toolSteps'] as List? ?? [],
+                'thinking': streaming
+                    ? chat.modelThinking
+                    : metadata?['agent']?['thinking'] as List? ?? [],
+              },
               bridge: chat.bridge,
+              thinking: _thinking,
               streamingStep: streaming ? chat.modelStep : null,
               onRendered: _followReply,
             ),
@@ -687,6 +664,13 @@ class _ChatPageState extends State<ChatPage> {
             ),
           if (!user && streaming)
             RunStatus(
+              detail:
+                  chat.modelPhase == 'waitingComplete' &&
+                      chat.modelActive &&
+                      !chat.stopping &&
+                      !chat.taskMaintenance
+                  ? 'No incremental output · ${chat.modelElapsedSeconds}s elapsed · ${chat.modelTimeoutSeconds}s limit'
+                  : null,
               phase: chat.stopping
                   ? 'stopping'
                   : chat.userQuestion != null

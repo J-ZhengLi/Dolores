@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const MAX_OUTPUT: usize = 262144;
+pub const MAX_SESSION_SECONDS: u64 = 6 * 60 * 60;
 pub const OUTPUT_PAGE: usize = 8192;
 pub const RECEIPT_BYTES: usize = 8192;
 pub const LIST_PAGE: usize = 16;
@@ -31,6 +32,12 @@ pub struct SessionReceipt {
     pub capture_bytes: usize,
     pub output_bytes: usize,
     pub truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_log: Option<String>,
+    #[serde(default)]
+    pub output_retained: bool,
+    #[serde(default)]
+    pub log_error: bool,
     pub output_error: bool,
     pub lossy_utf8: bool,
     pub cleanup_complete: bool,
@@ -60,7 +67,7 @@ impl SessionReceipt {
             || !identifier(&self.task, 128)
             || !identifier(&self.run, 128)
             || !identifier(&self.start_call, 128)
-            || !identifier(&self.program, 64)
+            || !identifier(&self.program, 4096)
             || !identifier(&self.execution, 128)
             || ![
                 "starting",
@@ -76,13 +83,19 @@ impl SessionReceipt {
                 "failed",
             ]
             .contains(&self.state.as_str())
-            || !(1..=300).contains(&self.timeout_seconds)
+            || !(1..=MAX_SESSION_SECONDS).contains(&self.timeout_seconds)
             || !(1024..=MAX_OUTPUT).contains(&self.capture_bytes)
             || self.output_bytes > self.capture_bytes
             || self.input_bytes > 65536
             || !valid_input
             || self.live() && self.cleanup_complete
             || self.message.as_ref().is_some_and(|m| m.len() > 1024)
+            || self.local_log.as_ref().is_some_and(|p| {
+                p.len() > 4096
+                    || p.is_empty()
+                    || p.chars().any(char::is_control)
+                    || (!std::path::Path::new(p).is_absolute() && p.contains(['/', '\\']))
+            })
         {
             return Err("Invalid command-session evidence. Prior saved work remains.".into());
         }

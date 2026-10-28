@@ -113,12 +113,20 @@ async fn larger_creation_keeps_complete_review_cancel_journal_and_file_diff_limi
         content.as_bytes()
     );
     assert_eq!(journal.entries.lock().unwrap()[0], (None, Some(content)));
-    for text in [
-        "x".repeat(MAX_TOOL_BYTES + 1),
-        "\n".repeat(MAX_TOOL_BYTES / 2),
-    ] {
-        assert!(tools[4].prepare(&call("too-large.js", &text)).is_err());
-        assert!(!dir.path().join("too-large.js").exists());
+    for (index, text) in ["x".repeat(32768), "\n".repeat(MAX_TOOL_BYTES / 2)]
+        .into_iter()
+        .enumerate()
+    {
+        let path = format!("larger-{index}.js");
+        let request = tools[4].prepare(&call(&path, &text)).unwrap();
+        tools[4]
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(path)).unwrap(),
+            text
+        );
     }
 }
 #[tokio::test]

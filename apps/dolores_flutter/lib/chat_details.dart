@@ -23,7 +23,7 @@ Future<void> showChatDetails(
     barrierDismissible: false,
     builder: (_) => ChatDetails(chat: chat, initial: initial),
   );
-  chat.invalidateContext();
+  if (!chat.busy) chat.invalidateContext();
 }
 
 class ChatDetails extends StatefulWidget {
@@ -248,9 +248,30 @@ class _ContextHomeState extends State<ContextHome> {
   @override
   void initState() {
     super.initState();
+    widget.chat.addListener(activeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) load();
     });
+  }
+
+  void activeChanged() {
+    if (!mounted || !widget.chat.busy || widget.chat.contextSummary == null) {
+      return;
+    }
+    setState(() {
+      report = {
+        ...widget.chat.contextSummary!,
+        'basis': widget.chat.contextBasis ?? 'Active request',
+        'activeRun': true,
+      };
+      error = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.chat.removeListener(activeChanged);
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -278,7 +299,7 @@ class _ContextHomeState extends State<ContextHome> {
   @override
   Widget build(BuildContext context) {
     final tokens = report?['tokens'] as Map?;
-    final used = tokens?['inputTokens'] as int?,
+    final used = (report?['reportedTokens'] ?? tokens?['inputTokens']) as int?,
         limit = tokens?['contextWindowTokens'] as int?;
     return Column(
       children: [
@@ -321,8 +342,10 @@ class _ContextHomeState extends State<ContextHome> {
                 ),
               const SizedBox(height: 6),
               if (MediaQuery.sizeOf(context).height >= 560)
-                const Text(
-                  'Estimated for your next message. Full history stays saved.',
+                Text(
+                  report?['activeRun'] == true
+                      ? '${report?['basis'] ?? "Active request"}. Full history stays saved.'
+                      : 'Estimated for your next message. Full history stays saved.',
                 ),
               if (error != null)
                 ConstrainedBox(

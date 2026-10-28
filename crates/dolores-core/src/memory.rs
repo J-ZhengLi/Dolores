@@ -1,4 +1,4 @@
-use crate::{Message, Role, MAX_CONTEXT_BYTES};
+use crate::{Message, Role, MAX_CONTEXT_ALLOCATION_BYTES as MAX_CONTEXT_BYTES};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_PREFERENCES_PER_SCOPE: usize = 12;
@@ -481,6 +481,13 @@ mod tests {
             .map(|n| preference(&format!("entry-{n}"), MemoryScope::All, n))
             .collect();
         let (after, _) = prepare_memory_context(before.clone(), prefs).unwrap();
+        assert_eq!(
+            after.len(),
+            before.len(),
+            "Model capacity selects history after memory is counted"
+        );
+        let (after, _) =
+            crate::prepare_token_context(after, &[], Some(32768), Default::default()).unwrap();
         assert!(after.len() < before.len());
         assert_eq!(after[after.len() - 3].role, Role::User);
         assert!(after[after.len() - 2].content.starts_with("79:"));

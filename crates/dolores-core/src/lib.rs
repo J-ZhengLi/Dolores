@@ -223,6 +223,11 @@ pub trait ModelProvider: Send + Sync {
     fn buffered_tool_retry(&self, _error: &str) -> bool {
         false
     }
+    /// Opt-in for provider-confirmed context rejection before tool dispatch.
+    /// Recovery must replace the working context with a smaller request.
+    fn context_overflow(&self, _error: &str) -> bool {
+        false
+    }
     /// Providers returning true enforce decoded-progress inactivity during chat streams.
     /// Legacy adapters retain the host's fallback bound until they implement this contract.
     fn manages_stream_inactivity(&self) -> bool {
@@ -373,6 +378,8 @@ pub use repair_evaluation::{NativeTestRun, RepairEvaluation};
 pub mod attention;
 pub mod command_sessions;
 pub mod companionship;
+#[cfg(test)]
+mod context_overflow_tests;
 pub mod context_recovery;
 #[cfg(test)]
 mod context_recovery_tests;
@@ -913,6 +920,19 @@ pub trait SessionStore: Send + Sync {
     fn run_events(&self, _: &str, _: &str) -> Result<Vec<RunEvent>, String> {
         Err("Run evidence is unavailable in this store.".into())
     }
+    fn run_progress(&self, _: &str, _: &str, _: u32) -> Result<serde_json::Value, String> {
+        Err("Readable archived progress is unavailable in this store.".into())
+    }
+    fn read_task_history(
+        &self,
+        _: &str,
+        _: &str,
+        _: Option<&str>,
+        _: u32,
+        _: usize,
+    ) -> Result<serde_json::Value, String> {
+        Err("Archived tool receipts are unavailable in this store.".into())
+    }
     fn run_events_page(
         &self,
         session: &str,
@@ -1142,6 +1162,13 @@ pub trait SessionStore: Send + Sync {
     fn summary_context_history(&self, session: &str) -> Result<SummaryHistory, String> {
         let (messages, count) = self.context_history(session)?;
         Ok((messages, count, None))
+    }
+    fn summary_context_history_bytes(
+        &self,
+        session: &str,
+        _bytes: usize,
+    ) -> Result<SummaryHistory, String> {
+        self.summary_context_history(session)
     }
     fn memory_source_messages(&self, _: &str) -> Result<HistoryPage<MemoryMessage>, String> {
         Err("This storage plugin does not support memory sources.".into())
@@ -1383,6 +1410,34 @@ pub fn prepare_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
 
 /// Same context selection as sending, but an empty draft can be inspected.
 pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message>, String> {
+    select_context(history, input, MAX_CONTEXT_BYTES, HISTORY_LIMIT / 2)
+}
+pub const MAX_CONTEXT_ALLOCATION_BYTES: usize = 32 * 1024 * 1024;
+pub fn model_context_bytes(
+    window: Option<u32>,
+    settings: RequestSettings,
+) -> Result<usize, String> {
+    Ok((input_token_allowance(
+        Some(window.unwrap_or(DEFAULT_CONTEXT_WINDOW_TOKENS)),
+        settings,
+    )?
+    .unwrap_or(32768) as usize)
+        .saturating_mul(4)
+        .min(MAX_CONTEXT_ALLOCATION_BYTES))
+}
+pub fn preview_context_with_allowance(
+    history: Vec<Message>,
+    input: &str,
+    allowance: usize,
+) -> Result<Vec<Message>, String> {
+    select_context(history, input, allowance, usize::MAX)
+}
+fn select_context(
+    history: Vec<Message>,
+    input: &str,
+    allowance: usize,
+    max_turns: usize,
+) -> Result<Vec<Message>, String> {
     if input.len() > MAX_INPUT_BYTES {
         return Err("Message exceeds the 16 KiB limit.".into());
     }
@@ -1390,16 +1445,12 @@ pub fn preview_context(history: Vec<Message>, input: &str) -> Result<Vec<Message
         return Err("Stored conversation has an incomplete turn.".into());
     }
     let system = Message { parts: vec![], role: Role::System, content: "You are Dolores, a thoughtful, precise assistant. Be candid about uncertainty. Use only the tools and saved context supplied for this request; do not claim access or memories that were not supplied.".into() };
-    let mut budget = MAX_CONTEXT_BYTES - input.len() - system.content.len();
+    let mut budget = allowance
+        .min(MAX_CONTEXT_ALLOCATION_BYTES)
+        .saturating_sub(input.len() + system.content.len());
     // Keep newest complete turns. Never start context with an orphaned assistant reply.
     let mut pairs = Vec::new();
-    for pair in history
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .rev()
-        .take(HISTORY_LIMIT / 2)
-    {
+    for pair in history.as_chunks::<2>().0.iter().rev().take(max_turns) {
         if pair[0].role != Role::User || pair[1].role != Role::Assistant {
             return Err("Stored conversation has an invalid turn.".into());
         }

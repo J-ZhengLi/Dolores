@@ -67,7 +67,7 @@ impl Discover {
         if path == "." {
             return Ok(".".into());
         }
-        if !eligible(path) {
+        if !valid_path(path) {
             return Err("Folder path is not allowed.".into());
         }
         let target = self.read.resolve(path)?;
@@ -330,7 +330,7 @@ fn entries(
         } else {
             format!("{path}/{name}")
         };
-        if !eligible(&target) {
+        if !valid_path(&target) || !eligible(name) {
             *skipped += 1;
             continue;
         }

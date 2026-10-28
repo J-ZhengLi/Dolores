@@ -4,6 +4,13 @@ The selected Flutter shell saves progress when the provider explicitly reports i
 
 ## Generation recovery
 
+A provider-confirmed context rejection uses one reduced-context retry before
+pausing: preserve completed effects, charge the rejected attempt, compact under
+the existing shared budget, and require fewer estimated request tokens before
+dispatch. Another rejection, unavailable/failed recovery or no reduction saves
+an inspectable checkpoint. Local estimates do not override the provider's
+capacity. Authentication and generic request failures never enter this path.
+
 Working agent requests and internal context-summary requests can retry a recoverable provider response twice with cancelable backoff, without repeating completed tools. Every attempt uses the same task and cumulative budgets. Partial text stays labeled as interrupted; incomplete calls are discarded. Authentication/configuration errors, allocation guards and tool execution failures do not auto-retry. See [streaming and retry contract](streaming-agent.md#generation-only-automatic-retry).
 
 For eligible tool-stream interruptions, recovery waits and requests a complete

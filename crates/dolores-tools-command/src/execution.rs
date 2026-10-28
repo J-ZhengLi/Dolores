@@ -2,6 +2,7 @@ use super::*;
 use serde::Serialize;
 
 pub(super) fn describe(mut spec: ToolSpec) -> ToolSpec {
+    spec.parameters["properties"]["inherit_env"] = json!({"type":"array","items":{"type":"string"},"uniqueItems":true,"description":"Names of variables to inherit from the Dolores process (for example NAS_ROOT_PASSWORD or SSH_AUTH_SOCK); never supply their values. Default child environments filter credentials, so their absence in a child does not prove they are absent in Dolores. Missing requested variables fail before launch. Do not print credentials."});
     spec.parameters["properties"]["isolation"] =
         json!({"type":"string","enum":["native","isolated"]});
     spec.parameters["properties"]["readonly_roots"] =
@@ -67,13 +68,18 @@ impl Launch {
                 &plan.executable,
                 &plan.invocation.args,
                 root,
-                &environment(),
+                &plan.environment,
             ),
             #[cfg(windows)]
             Self::Isolated { host, review } => {
                 let lease = host.prepare_reviewed(&plan.executable, review, cancel)?;
                 plan.validate(root, cancel)?;
-                isolation::spawn_cancellable(lease, &plan.invocation.args, &environment(), cancel)
+                isolation::spawn_cancellable(
+                    lease,
+                    &plan.invocation.args,
+                    &plan.environment,
+                    cancel,
+                )
             }
         }
     }

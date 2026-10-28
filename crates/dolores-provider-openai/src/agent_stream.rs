@@ -192,7 +192,7 @@ impl Assembly {
     fn unfinished_error(&self, elapsed: Duration) -> String {
         use dolores_core::ModelActivity;
         let phase = match self.activity() {
-            ModelActivity::Waiting => "waiting for data",
+            ModelActivity::Waiting | ModelActivity::WaitingComplete => "waiting for data",
             ModelActivity::Reasoning => "reasoning",
             ModelActivity::Responding => "response text",
             ModelActivity::ToolArguments => "tool arguments",

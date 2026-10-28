@@ -1,4 +1,5 @@
 import 'form_field_layout.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -363,8 +364,14 @@ class _CommandSessionsInspectorState extends State<CommandSessionsInspector> {
                           'Deadline ${receipt!['timeoutSeconds']} s · output ${receipt!['outputBytes']} / ${receipt!['captureBytes']} bytes · input ${receipt!['inputBytes']} / 65536 bytes',
                         ),
                         if (receipt!['truncated'] == true)
+                          Text(
+                            receipt!['localLog'] is String
+                                ? 'Inline output shortened. Complete output file: ${receipt!['localLog']}'
+                                : 'Output capture is partial. Inspect the exit status and retained output before a new command.',
+                          ),
+                        if (receipt!['logError'] == true)
                           const Text(
-                            'Output limit reached. Retained output is partial; inspect it before starting a new command.',
+                            'Some output could not be saved. Inspect retained files and process status.',
                           ),
                         if (receipt!['outputError'] == true ||
                             receipt!['lossyUtf8'] == true)

@@ -111,9 +111,13 @@ class ContextIndicator extends StatelessWidget {
     final label = value == null
         ? 'Inspect next message context · ${used is int ? '${formatTokens(used)} tokens · context window not set' : 'usage not inspected'}'
         : 'Inspect next message context · $basis: ${(value * 100).toStringAsFixed(1)}% of model context window · ${reported is int ? 'Provider reported' : 'Estimated'} ${formatTokens(used)} tokens';
+    final tooltip = label.replaceFirst(
+      'Inspect next message context',
+      'Inspect context usage',
+    );
     return IconButton(
       key: const Key('context-preview'),
-      tooltip: label,
+      tooltip: tooltip,
       onPressed: onPressed,
       icon: SizedBox(
         width: 18,
@@ -127,7 +131,7 @@ class ContextIndicator extends StatelessWidget {
               strokeWidth: 2.5,
               backgroundColor: p.border,
               color: p.accent,
-              semanticsLabel: label,
+              semanticsLabel: tooltip,
             ),
             if (value == null)
               Text('?', style: TextStyle(fontSize: 9, color: p.muted)),
@@ -297,8 +301,7 @@ class ContextInspector extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           HelpLabel(
-            help:
-                'Latest uncovered complete turns that fit, at most ${report['maxTurns'] ?? 40}. Older turns stay saved; summary coverage is counted separately from turns left out. Token counts are approximate; your provider may count differently.',
+            help: 'Latest uncovered complete turns that fit this model’s input allowance. Older turns stay saved; summary coverage is separate from omitted turns. Token counts are approximate; your provider may count differently.',
             child: Text(
               limit == null
                   ? 'Set a context window in Models'

@@ -11,6 +11,30 @@ import 'frost_design_test.dart' show capture, viewport;
 import 'support/render_fonts.dart';
 
 void main() {
+  testWidgets(
+    'complete response wait shows elapsed time and explicit deadline',
+    (t) async {
+      Widget view(int elapsed) => MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: RunStatus(
+            phase: 'waitingComplete',
+            detail: 'No incremental output · ${elapsed}s elapsed · 180s limit',
+          ),
+        ),
+      );
+      await t.pumpWidget(view(1));
+      expect(
+        find.textContaining('Waiting for a complete response'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('1s elapsed'), findsOneWidget);
+      await t.pumpWidget(view(2));
+      expect(find.textContaining('2s elapsed'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      expect(t.takeException(), isNull);
+    },
+  );
   testWidgets('elapsed task time ticks locally and queue wording is explicit', (
     t,
   ) async {

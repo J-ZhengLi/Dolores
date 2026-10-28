@@ -221,8 +221,11 @@ fn read_skill(root: &Path, name: &str, global: bool) -> Result<SkillDocument, St
     file.take((MAX_SKILL_BYTES + 1) as u64)
         .read_to_end(&mut bytes)
         .map_err(|_| "SKILL.md could not be read.")?;
-    if bytes.len() > MAX_SKILL_BYTES || bytes.contains(&0) {
-        return Err("SKILL.md must be UTF-8 text within 8 KiB, without NUL.".into());
+    if bytes.len() > MAX_SKILL_BYTES {
+        return Err("SKILL.md exceeds the 1 MiB file allocation. Move supporting material into referenced files.".into());
+    }
+    if bytes.contains(&0) {
+        return Err("SKILL.md contains NUL bytes. Choose plain UTF-8 text.".into());
     }
     let text = String::from_utf8(bytes).map_err(|_| "SKILL.md is not UTF-8 text.")?;
     let document = parse_skill_document(name, text)?;
@@ -244,6 +247,54 @@ fn read_skill(root: &Path, name: &str, global: bool) -> Result<SkillDocument, St
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn valid_long_skill_is_loaded_exactly_from_project_and_global_collections() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join(".agents/skills/ssh-connect");
+        std::fs::create_dir_all(&folder).unwrap();
+        let text = format!(
+            "---\nname: ssh-connect\ndescription: Connect to a host\n---\n{}",
+            "Preserve Unicode 世界 and connection checks.\n".repeat(1200)
+        );
+        assert!(text.len() > 8192);
+        std::fs::write(folder.join("SKILL.md"), &text).unwrap();
+        assert_eq!(
+            read_project_skill(root.path(), "ssh-connect").unwrap().text,
+            text
+        );
+        assert_eq!(
+            read_global_skill(&root.path().join(".agents/skills"), "ssh-connect")
+                .unwrap()
+                .text,
+            text
+        );
+    }
+    #[test]
+    fn skill_allocation_and_encoding_errors_are_distinct_and_never_truncate() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join(".agents/skills/review");
+        std::fs::create_dir_all(&folder).unwrap();
+        let file = folder.join("SKILL.md");
+        let prefix = "---\nname: review\ndescription: Review changes\n---\n";
+        let exact = format!("{prefix}{}", "x".repeat(MAX_SKILL_BYTES - prefix.len()));
+        std::fs::write(&file, &exact).unwrap();
+        assert_eq!(
+            read_project_skill(root.path(), "review").unwrap().text,
+            exact
+        );
+        std::fs::write(&file, format!("{exact}x")).unwrap();
+        assert!(read_project_skill(root.path(), "review")
+            .unwrap_err()
+            .contains("1 MiB"));
+        std::fs::write(&file, b"\xff").unwrap();
+        assert!(read_project_skill(root.path(), "review")
+            .unwrap_err()
+            .contains("not UTF-8"));
+        std::fs::write(&file, b"public\0body").unwrap();
+        assert!(read_project_skill(root.path(), "review")
+            .unwrap_err()
+            .contains("NUL"));
+    }
     #[test]
     fn standard_yaml_exact_text_bounds_and_root_only_discovery() {
         let temp = tempfile::tempdir().unwrap();

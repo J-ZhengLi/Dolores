@@ -107,9 +107,7 @@ fn adapted_matches_stay_exact_unique_bounded_and_refuse_mixed_ending_inference()
         .contains("lone-CR"));
     let before = format!("x\r\n{}", "z".repeat(MAX_TOOL_BYTES - 3));
     std::fs::write(&file, &before).unwrap();
-    assert!(tool(root.path())
-        .prepare(&call("note", "x", "x\n"))
-        .is_err());
+    assert!(tool(root.path()).prepare(&call("note", "x", "x\n")).is_ok());
     assert_eq!(std::fs::read(&file).unwrap(), before.as_bytes());
 }
 
@@ -246,7 +244,7 @@ fn rejects_ambiguous_overlapping_invalid_binary_secret_and_oversized_edits() {
         format!("a{}", "x".repeat(MAX_TOOL_BYTES - 1)),
     )
     .unwrap();
-    assert!(edit.prepare(&call("growing", "a", "longer")).is_err());
+    assert!(edit.prepare(&call("growing", "a", "longer")).is_ok());
     std::fs::write(root.path().join("readonly"), "a").unwrap();
     let original_permissions = std::fs::metadata(root.path().join("readonly"))
         .unwrap()

@@ -76,13 +76,74 @@ The repair belongs in the task supervisor, with durable internal segments.
 3. **Cumulative controls and UI projection.** Share explicit counters and active
    clocks across parent/children and every internal segment. Keep manual recovery
    for real pauses and crashes; internal rollovers do not consume manual segments.
-   Stream a bounded active timeline, with older complete work available on demand.
+   Keep the conversation transcript independent of the bounded model working set.
    Preserve timer, scroll, composer draft and task identity. Disclose usage and
    maintenance in Run details without generating completion notifications.
-   Implemented with an inline maintenance phase, an Earlier progress entry,
-   bounded host/controller active state and read-only Previous/Next evidence
-   pages. Paging failures retain the readable page. Usage details identify their
+   Implemented with an inline maintenance phase and chronological conversation
+   output. The controller retains delivered live output; reopened responses load
+   stored execution windows locally into the same transcript, deduplicating
+   carried tool receipts. Consecutive tools share one collapsed row between
+   public outputs, even across silent model calls or storage windows. Failed
+   local reads retain loaded output and offer a retry without dispatching work.
+   Separate read-only Previous/Next evidence pages remain in Activity for diagnostics.
+   Usage details identify their
    recent-work projection, with older exact values in archived summary fragments.
+
+## Multi-hour coding reliability
+
+Sustained coding work must not fail merely because full historic tool output
+accumulates in memory or is repeatedly copied into checkpoint snapshots. After
+a durable segment is sealed, its full receipts remain in Run history while old
+successful working results become bounded previews. Apply this only after a
+successful save; failed saves preserve inspectable state and prevent dispatch.
+Retain recent results, unresolved failures, exact user constraints and tool
+call/result identities through repeated maintenance.
+
+Evidence archiving is independent of model summarization. Execution segments
+(normally 24 model attempts or 32 tool receipts, possibly earlier output
+pressure) remain a storage detail. They never replace visible conversation
+output with an “Earlier progress” button. Reopened conversations reconstruct
+original model output and tool records inline; raw diagnostic events remain
+optional. A failed recovery-metadata lookup cannot hide readable history.
+Reading this local data makes no model request. The agent can load the deferred
+`read_task_history` tool, list saved call references and fetch original receipts
+in bounded byte pages. Ordinary context does not resend every archived body.
+
+Tool output above the inline envelope is saved as complete UTF-8 fragments before
+a retrieval-linked preview is returned. A large returned result is not itself a
+reason to abort an executed operation or erase its evidence. Command output
+capture similarly bounds inline memory; excess output goes to Dolores-managed log
+files outside the working folder while the command continues. Exit/cleanup, output loss, and shortened
+previews are distinct facts. Failed disk writes remain explicit.
+
+Long builds use run-owned command sessions with an explicitly reviewed lifetime
+of up to six hours (21,600 seconds); the saved 30-second default and short
+one-shot command limits remain unchanged. Session reads can wait up to 30 seconds
+for useful output with prompt cancellation, instead of requiring paid model
+polling every second. Stop and run completion still clean up owned processes;
+long lifetimes do not detach a command from its owning task.
+
+A provider context rejection can occur below the local heuristic threshold.
+Recovery must preserve effects, compact before retrying, and verify a smaller
+request; repeating the rejected envelope or widening authority is not recovery.
+Explicit budgets remain cumulative. Failed recovery leaves a saved checkpoint.
+Restart remains explicit, without replaying uncertain writes.
+
+Automatic model-context compaction remains always enabled for normal saved chats,
+including legacy opt-out records; no UI switch or successful disable command is
+offered. A failed complete-response transport recovery returns the remaining
+retry to streaming, instead of repeating a silent stalled route. A successful
+complete-response route stays selected for that run to avoid repeatedly paying
+for a known-broken stream. Its wait phase shows elapsed time and the request
+deadline. Saved attempt records include mode, elapsed time and a host-authored
+outcome category without private response bodies.
+
+The [upstream source review](../research/2026-10-28-long-task-harness-research.md)
+informs these changes. Qualification separates accelerated long-history/fault
+fixtures, native integration, wall-clock soak duration and real-model feature
+delivery; none alone establishes that arbitrary multi-hour tasks cannot fail.
+See the [stability audit](../research/2026-10-28-long-task-stability-audit.md)
+for observed failures, removed limits and qualification boundaries.
 
 ## Required regression journeys
 

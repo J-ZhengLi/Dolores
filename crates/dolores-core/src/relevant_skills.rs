@@ -73,14 +73,7 @@ pub fn prepare_selected_skill_context(
             continue;
         }
         let scoped: Vec<_> = selected.iter().filter(|s| s.scope == skill.scope).collect();
-        if scoped.len() < crate::MAX_ACTIVE_SKILLS
-            && scoped
-                .iter()
-                .map(|s| s.current().document.text.len())
-                .sum::<usize>()
-                + skill.current().document.text.len()
-                <= crate::MAX_SKILL_BYTES
-        {
+        if scoped.len() < crate::MAX_ACTIVE_SKILLS {
             selected.push(skill);
         }
     }
@@ -102,6 +95,63 @@ pub fn prepare_selected_skill_context(
 mod tests {
     use super::*;
     use crate::{SkillDocument, SkillScope, SkillVersion};
+    #[test]
+    fn long_selected_and_named_skills_use_model_capacity_without_eight_kib_cutoff() {
+        let text = "Exact source instructions 世界\n".repeat(1500);
+        let skill = ProjectSkill {
+            scope: SkillScope::Project,
+            name: "ssh-connect".into(),
+            revision: 1,
+            enabled: true,
+            versions: vec![SkillVersion {
+                package: None,
+                evaluation: None,
+                version: 1,
+                reviewed_at: 0,
+                rollback_from: None,
+                document: SkillDocument {
+                    name: "ssh-connect".into(),
+                    description: "Connect to hosts".into(),
+                    text: text.clone(),
+                },
+            }],
+        };
+        for explicit in [false, true] {
+            let selections = if explicit {
+                vec![crate::SkillSelection::from_skill(&skill)]
+            } else {
+                vec![]
+            };
+            let (prepared, sources) = prepare_selected_skill_context(
+                crate::preview_context(vec![], "Use ssh-connect").unwrap(),
+                std::slice::from_ref(&skill),
+                &selections,
+            )
+            .unwrap();
+            assert_eq!(sources.len(), 1);
+            assert_eq!(sources[0].text_bytes, text.len());
+            assert!(prepared[0]
+                .content
+                .contains(&serde_json::to_string(&text).unwrap()));
+            assert!(crate::prepare_token_context(
+                prepared.clone(),
+                &[],
+                Some(131072),
+                Default::default()
+            )
+            .is_ok());
+            assert!(crate::prepare_token_context(
+                prepared,
+                &[],
+                Some(4096),
+                crate::RequestSettings {
+                    max_output_tokens: Some(256),
+                    ..Default::default()
+                }
+            )
+            .is_err());
+        }
+    }
     #[test]
     fn many_available_matches_keep_requests_bounded_and_explicit_selection_first() {
         let skills: Vec<_> = (0..8)

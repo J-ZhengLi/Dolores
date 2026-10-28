@@ -12,20 +12,23 @@ two primaries and four waiting runs, serializing equal workspace scopes. These
 are host runs, not pending instructions. Existing durable run/checkpoint evidence,
 settings, history, manual continuation and optional scheduling remain authoritative.
 
-The core input limit is 16 KiB UTF-8 and context limit is 128 KiB. EH01 starts
+The core input limit is 16 KiB UTF-8. Normal context preparation now follows the
+configured model input allowance, with a separate 32-MiB allocation guard; see
+[token context](token-context.md). EH01 starts
 with eight pending instructions per conversation: at most 128 KiB of text, matching
-one existing context envelope. Reference payloads retain their existing separate
+the original context envelope. Reference payloads retain their existing separate
 limits. Reject an over-limit enqueue without clearing its draft; never silently
 evict pending work. This new queue bound is a conservative storage ceiling, not
-an inference about model capacity. Do not raise existing run or context defaults.
+an inference about model capacity.
 
 The command baseline retains 30 seconds and 8 KiB capture by default; explicit
 reviewed requests allow 1–300 seconds and 1–256 KiB capture. Human PTY output is
 bounded at 1 MiB. EH05 initially limits agent sessions to two per active task and
-four per host, at most 256 KiB retained output per session, reusing reviewed command
-deadlines before allowing an explicit longer-lived session policy. These proposed
-ceilings fit existing capture/admission bounds; EH05 measures them before enabling
-new paths. A session deadline is not a goal or tool-budget reset.
+four per host, at most 256 KiB inline output per session with complete excess output
+spooled to Dolores-managed files outside the working folder, reusing reviewed command
+deadlines by default. Explicit supervised session lifetimes now allow up to six
+hours, with output waits up to 30 seconds; one-shot limits and default capture
+remain unchanged. A session deadline is not a goal or tool-budget reset.
 
 Automatic root tasks now roll durable internal execution windows. Explicit numeric
 budgets and the four default manual continuation segments remain separate;

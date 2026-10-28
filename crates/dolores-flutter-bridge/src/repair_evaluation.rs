@@ -341,13 +341,27 @@ fn output_text(root: &Path, value: &Value) -> Result<String, String> {
         let name = value["localLog"]
             .as_str()
             .ok_or("Native test log unavailable; verification incomplete.")?;
-        if !name.starts_with("dolores-command-log-")
-            || !name.ends_with(".txt")
-            || name.contains(['/', '\\', ':'])
-        {
+        let path = Path::new(name);
+        let filename = path.file_name().and_then(|p| p.to_str()).unwrap_or("");
+        if !filename.starts_with("dolores-command-log-") || !filename.ends_with(".txt") {
             return Err("Invalid native log identity; verification incomplete.".into());
         }
-        let path = root.join(name);
+        let path = if path.is_absolute() {
+            let owned = dolores_tools_command::RunCommand::default_log_directory()
+                .canonicalize()
+                .map_err(|_| "Native log storage unavailable.")?;
+            if path.parent() != Some(owned.as_path()) {
+                return Err(
+                    "Native log is outside its owned storage; verification incomplete.".into(),
+                );
+            }
+            path.to_owned()
+        } else {
+            if name.contains(['/', '\\', ':']) {
+                return Err("Invalid native log identity; verification incomplete.".into());
+            }
+            root.join(name)
+        };
         let meta = fs::symlink_metadata(&path).map_err(|_| "Native test log unavailable.")?;
         if is_alias(&meta) || !meta.is_file() || meta.len() > CAPTURE as u64 + 2048 {
             return Err(

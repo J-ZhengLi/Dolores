@@ -14,7 +14,7 @@ mod discovery;
 mod edit;
 mod instructions;
 mod scoped_instructions;
-pub use scoped_instructions::read_scoped_workspace_instructions;
+pub use scoped_instructions::{read_path_instructions, read_scoped_workspace_instructions};
 mod ranged;
 #[cfg(test)]
 mod ranged_tests;
@@ -119,8 +119,8 @@ impl ReadTextFile {
 pub fn read_spec() -> ToolSpec {
     ToolSpec {
             name:"read_text_file".into(),
-            description:"Read a UTF-8 text file under the user's chosen folder. Use a relative path with forward slashes. Each read requires user approval. Whole reads up to 16 KiB; files up to 1 MiB use start_line and line_count (1–120), returning a snapshot digest for expected_snapshot edits. No binary, secret or VCS files.".into(),
-            parameters:json!({"type":"object","properties":{"path":{"type":"string","description":"Relative file path"},"start_line":{"type":"integer","minimum":1},"line_count":{"type":"integer","minimum":1,"maximum":120}},"required":["path"],"additionalProperties":false}),
+            description:"Read UTF-8 source under the chosen folder using a relative forward-slash path. Large files stream to a bounded page automatically. Use start_line/line_count (1–120), or start_byte/max_bytes (1–65536) with nextByte to continue long lines without modifying them. Returns a full-file digest for expected_snapshot edits; editing snapshots are limited separately. No binary, secret or VCS files.".into(),
+            parameters:json!({"type":"object","properties":{"path":{"type":"string","description":"Relative file path"},"start_line":{"type":"integer","minimum":1},"line_count":{"type":"integer","minimum":1,"maximum":120},"start_byte":{"type":"integer","minimum":0},"max_bytes":{"type":"integer","minimum":1,"maximum":65536}},"required":["path"],"additionalProperties":false}),
         }
 }
 #[async_trait]
@@ -137,10 +137,21 @@ impl ToolPlugin for ReadTextFile {
             start_line: Option<usize>,
             #[serde(default)]
             line_count: Option<usize>,
+            #[serde(default)]
+            start_byte: Option<usize>,
+            #[serde(default)]
+            max_bytes: Option<usize>,
         }
         let args: Arguments =
             serde_json::from_str(&call.arguments).map_err(|_| "Invalid file arguments.")?;
-        let range = ranged::range(args.start_line, args.line_count)?;
+        let range = if args.start_byte.is_some() || args.max_bytes.is_some() {
+            if args.start_line.is_some() || args.line_count.is_some() {
+                return Err("Choose line ranges or byte ranges, not both.".into());
+            }
+            Some(ranged::byte_range(args.start_byte, args.max_bytes)?)
+        } else {
+            ranged::range(args.start_line, args.line_count)?
+        };
         let target = self.resolve(&args.path)?;
         if !self
             .directory
@@ -201,6 +212,11 @@ impl ToolPlugin for ReadTextFile {
                 .is_file()
             {
                 return Err("Only regular text files can be read.".to_string());
+            }
+            if file.metadata().map_err(|_| "File unavailable.")?.len()
+                > dolores_core::MAX_FILE_SNAPSHOT_BYTES as u64
+            {
+                return ranged::stream_page(file, range.as_deref(), &read_cancel);
             }
             let mut bytes = Vec::new();
             file.take((dolores_core::MAX_FILE_SNAPSHOT_BYTES + 1) as u64)
@@ -272,7 +288,7 @@ mod tests {
         ] {
             assert!(tool.prepare(&call(path)).is_err(), "{path}");
         }
-        for path in ["binary", "large"] {
+        for path in ["binary"] {
             assert!(tool
                 .invoke(
                     &tool.prepare(&call(path)).unwrap(),
@@ -281,6 +297,17 @@ mod tests {
                 .await
                 .is_err());
         }
+        let large = tool
+            .invoke(
+                &tool.prepare(&call("large")).unwrap(),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&large).unwrap()["hasMore"],
+            true
+        );
         let mut bad = call("readme.txt");
         bad.arguments = r#"{"path":"readme.txt","approved":true}"#.into();
         assert!(tool.prepare(&bad).is_err());

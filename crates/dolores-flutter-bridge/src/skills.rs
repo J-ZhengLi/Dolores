@@ -538,6 +538,63 @@ mod tests {
     use dolores_store_sqlite::SqliteStore;
     use std::sync::Arc;
     #[test]
+    fn long_source_is_ready_viewable_selectable_and_saved_without_size_coupling() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Arc::new(SqliteStore::open(&temp.path().join("state.db")).unwrap());
+        let root = temp.path().to_str().unwrap().to_owned();
+        store
+            .create_workspace_session(
+                "project",
+                &SessionWorkspace {
+                    kind: WorkspaceKind::Project,
+                    root: Some(root.clone()),
+                },
+            )
+            .unwrap();
+        let path = temp.path().join(".agents/skills/ssh-connect");
+        std::fs::create_dir_all(&path).unwrap();
+        let text = format!(
+            "---\nname: ssh-connect\ndescription: Connect to hosts\n---\n{}",
+            "Read connection checks 世界\n".repeat(600)
+        );
+        std::fs::write(path.join("SKILL.md"), &text).unwrap();
+        let engine = Engine::new(
+            store.clone(),
+            Arc::new(crate::connection::testing::MemoryCredentials::default()),
+        )
+        .unwrap();
+        let listed = engine
+            .scoped_skills("project", SkillScope::Project)
+            .unwrap();
+        assert_eq!(listed["items"][0]["enabled"], true);
+        assert!(listed["items"][0]["problem"].is_null());
+        let viewed = engine
+            .review_scoped_skill("project", "ssh-connect", None, SkillScope::Project)
+            .unwrap();
+        assert_eq!(viewed["document"]["text"], text);
+        let available = engine.available_skills(Some("project")).unwrap();
+        let (_, sources) = dolores_core::prepare_relevant_skill_context(
+            dolores_core::preview_context(vec![], "Use ssh-connect").unwrap(),
+            &available,
+        )
+        .unwrap();
+        assert_eq!(sources[0].text_bytes, text.len());
+        engine
+            .set_skill_enabled("project", "ssh-connect", SkillScope::Project, false)
+            .unwrap();
+        engine
+            .set_skill_enabled("project", "ssh-connect", SkillScope::Project, true)
+            .unwrap();
+        let reopened = SqliteStore::open(&temp.path().join("state.db")).unwrap();
+        assert_eq!(
+            reopened.project_skills(&root).unwrap()[0]
+                .current()
+                .document
+                .text,
+            text
+        );
+    }
+    #[test]
     fn imported_global_skill_without_chat_requires_review_and_refuses_stale_activation() {
         let temp = tempfile::tempdir().unwrap();
         let store = Arc::new(SqliteStore::open(&temp.path().join("state.db")).unwrap());

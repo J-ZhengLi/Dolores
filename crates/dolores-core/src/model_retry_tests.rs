@@ -7,6 +7,132 @@ use std::sync::{
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+struct Transport {
+    modes: std::sync::Mutex<Vec<bool>>,
+    fail_buffered: bool,
+}
+impl Transport {
+    fn reply(&self, buffered: bool) -> Result<AgentTurn, String> {
+        let mut modes = self.modes.lock().unwrap();
+        let n = modes.len();
+        modes.push(buffered);
+        if n == 1 {
+            return Err("Interrupted fixture stream".into());
+        }
+        if buffered && self.fail_buffered {
+            return Err("Buffered fixture timeout".into());
+        }
+        Ok(AgentTurn {
+            content: "Public result".into(),
+            calls: if n == 0 || n == 2 {
+                vec![ToolCall {
+                    id: format!("effect-{n}"),
+                    name: "fixture_action".into(),
+                    arguments: "{}".into(),
+                }]
+            } else {
+                vec![]
+            },
+            usage: None,
+            output_limit: false,
+        })
+    }
+}
+#[async_trait]
+impl ModelProvider for Transport {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "fixture",
+            kind: "provider",
+            api_version: 1,
+        }
+    }
+    fn buffered_tool_retry(&self, e: &str) -> bool {
+        e == "Interrupted fixture stream"
+    }
+    fn model_retry_delay(&self, e: &str) -> Option<std::time::Duration> {
+        ["Interrupted fixture stream", "Buffered fixture timeout"]
+            .contains(&e)
+            .then_some(std::time::Duration::from_millis(1))
+    }
+    async fn stream(
+        &self,
+        _: Vec<Message>,
+        _: mpsc::Sender<String>,
+        _: CancellationToken,
+    ) -> Result<(), String> {
+        unreachable!()
+    }
+    async fn stream_tool_turn(
+        &self,
+        _: &[AgentMessage],
+        _: &[ToolSpec],
+        output: mpsc::Sender<String>,
+        _: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        let turn = self.reply(false)?;
+        output
+            .send(turn.content.clone())
+            .await
+            .map_err(|_| "closed")?;
+        Ok(turn)
+    }
+    async fn tool_turn(
+        &self,
+        _: &[AgentMessage],
+        _: &[ToolSpec],
+        _: CancellationToken,
+    ) -> Result<AgentTurn, String> {
+        self.reply(true)
+    }
+}
+#[tokio::test]
+async fn complete_response_recovery_is_visible_and_returns_to_streaming_after_failure() {
+    for fail_buffered in [true, false] {
+        let p = Transport {
+            modes: Default::default(),
+            fail_buffered,
+        };
+        let effect = Arc::new(Effect(AtomicUsize::new(0)));
+        let (events, mut rx) = mpsc::channel(256);
+        let reply = run_agent(
+            &p,
+            context(),
+            &[effect.clone() as Arc<dyn ToolPlugin>],
+            &Allow,
+            events,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            *p.modes.lock().unwrap(),
+            vec![false, false, true, !fail_buffered]
+        );
+        assert!(reply.pause.is_none());
+        assert_eq!(
+            effect.0.load(Ordering::SeqCst),
+            if fail_buffered { 1 } else { 2 }
+        );
+        let mut complete_wait = false;
+        while let Ok(event) = rx.try_recv() {
+            if matches!(
+                event,
+                AgentEvent::ModelActivity {
+                    phase: ModelActivity::WaitingComplete,
+                    ..
+                }
+            ) {
+                complete_wait = true;
+            }
+        }
+        assert!(
+            complete_wait,
+            "Complete-response silence must have an explicit public phase"
+        );
+    }
+}
+
 struct Worker {
     calls: AtomicUsize,
     failures: usize,

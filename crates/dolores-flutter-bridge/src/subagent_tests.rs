@@ -52,7 +52,7 @@ async fn followups_keep_identity_frozen_context_and_cumulative_allowance() {
     assert!(offset > 0);
     assert!(pages.contains("Read left.txt") && pages.contains("世界"));
     assert!(pages.starts_with("System:\n") && pages.contains("User:\n"));
-    for expected in [3, 4] {
+    for expected in 3..=32 {
         let request = tool
             .prepare(&supervise(
                 id,
@@ -83,9 +83,9 @@ async fn followups_keep_identity_frozen_context_and_cumulative_allowance() {
         )
         .await
         .unwrap_err()
-        .contains("two follow-ups"));
-    assert_eq!(shared.usage().model_calls, 6);
-    assert_eq!(provider.calls.load(Ordering::SeqCst), 6);
+        .contains("cumulative allowance"));
+    assert_eq!(shared.usage().model_calls, 34);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 34);
     assert_eq!(
         std::fs::read_to_string(dir.path().join("left.txt")).unwrap(),
         "actual left evidence"
@@ -96,7 +96,7 @@ async fn followups_keep_identity_frozen_context_and_cumulative_allowance() {
             .iter()
             .filter(|e| e.kind == "subagentFollowUp")
             .count(),
-        2
+        30
     );
     assert!(
         events
@@ -354,7 +354,13 @@ async fn encoded_reports_are_shortened_without_losing_status_or_evidence() {
         .iter()
         .any(|e| e.kind == "subagentEvidence"));
     assert!(
-        store.run_events("chat", &log.id).unwrap().len() < 24,
+        store
+            .run_events("chat", &log.id)
+            .unwrap()
+            .iter()
+            .filter(|e| e.kind == "subagentEvidence")
+            .count()
+            < 24,
         "Thousands of SSE text deltas must not consume the durable event allowance"
     );
 }
@@ -390,7 +396,7 @@ fn runtime(
             effective_settings: None,
         })
         .unwrap();
-    let (output, receiver) = mpsc::channel(64);
+    let (output, receiver) = mpsc::channel(4096);
     let context = vec![
         Message {
             role: Role::System,

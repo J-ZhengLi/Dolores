@@ -195,7 +195,7 @@ pub(super) struct RecoveryApproval {
 #[async_trait::async_trait]
 impl dolores_core::ToolApproval for RecoveryApproval {
     fn task_segments_available(&self) -> bool {
-        self.provider.is_some()
+        true
     }
     async fn save_task_segment(
         &self,

@@ -548,6 +548,7 @@ class ChatController extends ChangeNotifier {
       : '${switch (modelPhase) {
           'reasoning' => 'Thinking',
           'toolArguments' => 'Preparing tool call',
+          'waitingComplete' => 'Waiting for a complete response',
           'responding' => 'Responding',
           _ => 'Waiting for model',
         }} · ${modelElapsedSeconds}s';
@@ -1291,7 +1292,16 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>?> previewContext() async {
-    if (busy || changing || loading) return null;
+    if (busy) {
+      return contextSummary == null
+          ? null
+          : {
+              ...contextSummary!,
+              'basis': contextBasis ?? 'Active request',
+              'activeRun': true,
+            };
+    }
+    if (changing || loading) return null;
     changing = true;
     _notify();
     try {
@@ -2200,19 +2210,20 @@ class ChatController extends ChangeNotifier {
             );
           case 'taskSegment':
             taskArchive = (event['archive'] as Map).cast<String, dynamic>();
-            modelTexts.clear();
-            modelThinking.clear();
-            toolRecords.clear();
             final retained = (event['retained'] as List?) ?? const [];
             final steps = (event['toolSteps'] as List?) ?? const [];
             for (var i = 0; i < retained.length; i++) {
+              if (toolRecords.any(
+                (r) => r['callId'] == retained[i]['callId'],
+              )) {
+                continue;
+              }
               toolRecords.add({
                 ...(retained[i] as Map).cast<String, dynamic>(),
                 'modelStep': i < steps.length ? steps[i] : 0,
               });
             }
-            partial = '';
-            _record('Earlier progress saved in task history');
+            _record('Progress saved');
           case 'modelActivity':
             if (event['number'] == modelStep && !stopping) {
               modelPhase = event['phase'] as String;
@@ -2243,7 +2254,23 @@ class ChatController extends ChangeNotifier {
               }
             }
           case 'modelFinished':
-            if (event['number'] == modelStep) modelActive = false;
+            if (event['number'] == modelStep) {
+              modelActive = false;
+              final total = event['usage']?['totalTokens'];
+              if (total is int && contextSummary != null) {
+                contextSummary = {...contextSummary!, 'reportedTokens': total};
+                contextBasis = 'Last model call · provider reported';
+              }
+            }
+          case 'modelContext':
+            if (event['number'] == modelStep && event['tokens'] is Map) {
+              contextSummary = {
+                ...contextSummary ?? {},
+                'tokens': Map<String, dynamic>.from(event['tokens'] as Map),
+                'model': _requestModel,
+              }..remove('reportedTokens');
+              contextBasis = 'Current model request · estimated';
+            }
           case 'toolApproval':
             if (!stopping) {
               toolApproval = (event['request'] as Map).cast<String, dynamic>();

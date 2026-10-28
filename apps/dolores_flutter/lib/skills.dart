@@ -296,7 +296,7 @@ class _SkillsInspectorState extends State<SkillsInspector> {
                     title: const Text('Limits and resources'),
                     children: [
                       HelpLabel(
-                        help: 'Project skills override global skills with the same name. Files are loaded for future messages without review. Disabled skills stay off. Up to 3 selected skills and 8 KiB per scope fit in a request; 5 recent saved versions are retained. Scripts and tools keep their existing access rules.',
+                        help: 'Project skills override global skills with the same name. Files are loaded for future messages without review. Disabled skills stay off. Source files allow up to 1 MiB each; up to 3 selected skills per scope use the configured model context allowance. Five recent saved versions are retained. Scripts and tools keep their existing access rules.',
                         child: Text(
                           'File updates apply to future messages. Saved versions remain available for recovery.',
                           style: TextStyle(color: p.muted, fontSize: 12),

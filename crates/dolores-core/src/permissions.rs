@@ -51,7 +51,7 @@ impl PermissionPolicy {
                         && grant.mcp_connection.is_none()
                         && grant.mcp_revision.is_none()
                 }
-                "inspect_harness" => {
+                "inspect_harness" | "read_task_history" | "read_scoped_instructions" => {
                     grant.path_prefix.is_none()
                         && grant.command.is_none()
                         && grant.mcp_connection.is_none()
@@ -152,10 +152,13 @@ impl PermissionPolicy {
                     && match request.name.as_str() {
                         "run_command" => request.command.as_ref().is_some_and(|c| {
                             Some(&c.invocation) == grant.command.as_ref()
+                                && c.inherit_env.is_empty()
                                 && c.timeout_seconds <= 30
                                 && c.capture_bytes <= 8192
                         }),
-                        "inspect_harness" => true,
+                        "inspect_harness" | "read_task_history" | "read_scoped_instructions" => {
+                            true
+                        }
                         name if name.starts_with("mcp_tool_") => {
                             request.mcp.as_ref().is_some_and(|m| {
                                 Some(&m.connection_id) == grant.mcp_connection.as_ref()
@@ -200,6 +203,7 @@ mod tests {
             executable: "node.exe".into(),
             timeout_seconds: 30,
             capture_bytes: 8192,
+            inherit_env: vec![],
             isolation: Some(crate::CommandIsolationPreview {
                 workspace: "C:\\project".into(),
                 readonly_roots: vec![],
@@ -329,8 +333,17 @@ mod tests {
             isolation: None,
             timeout_seconds: 30,
             capture_bytes: 8192,
+            inherit_env: vec![],
         });
         assert!(policy.automatic(&r, 0));
+        r.command.as_mut().unwrap().inherit_env = vec!["NAS_ROOT_PASSWORD".into()];
+        assert!(!policy.automatic(&r, 0));
+        assert!(PermissionPolicy {
+            mode: PermissionMode::FullAccess,
+            ..Default::default()
+        }
+        .automatic(&r, 0));
+        r.command.as_mut().unwrap().inherit_env.clear();
         r.command
             .as_mut()
             .unwrap()

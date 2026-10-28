@@ -67,6 +67,7 @@ mod run_segment_tests;
 mod run_segments;
 mod runs;
 mod settings;
+mod task_history;
 mod task_inputs;
 mod threads;
 mod web;
@@ -1012,6 +1013,24 @@ impl SessionStore for SqliteStore {
     fn run_events(&self, thread: &str, id: &str) -> Result<Vec<dolores_core::RunEvent>, String> {
         self.read_run_events(thread, id)
     }
+    fn run_progress(
+        &self,
+        session: &str,
+        id: &str,
+        ordinal: u32,
+    ) -> Result<serde_json::Value, String> {
+        task_history::progress(self, session, id, ordinal)
+    }
+    fn read_task_history(
+        &self,
+        session: &str,
+        id: &str,
+        call: Option<&str>,
+        after: u32,
+        offset: usize,
+    ) -> Result<serde_json::Value, String> {
+        task_history::receipts(self, session, id, call, after, offset)
+    }
     fn run_events_page(
         &self,
         thread: &str,
@@ -1281,6 +1300,13 @@ impl SessionStore for SqliteStore {
         session: &str,
     ) -> Result<dolores_core::SummaryHistory, String> {
         self.summary_history(session)
+    }
+    fn summary_context_history_bytes(
+        &self,
+        session: &str,
+        bytes: usize,
+    ) -> Result<dolores_core::SummaryHistory, String> {
+        self.summary_history_bytes(session, bytes)
     }
     fn memory_source_messages(
         &self,

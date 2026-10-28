@@ -84,6 +84,13 @@ does not read vault credentials or include unsent composer drafts.
 
 Primary run records also retain the input, effective settings and bounded literal tool intent/results locally, separately from chat turns. They are not automatically shared as context or learning input; deleting the chat removes its run records. Scoped settings contain no credentials and their inspector omits private project roots.
 
+Complete command-output and preview logs are separate, unencrypted files under
+the profile's `command-logs/<run-id>/` directory, with absolute paths in receipts.
+They do not add harness files to the working repository. These files are retained
+independently of chat rows; deleting a chat does not erase them. Native helpers
+without a profile use Dolores-owned temporary storage. Command-created project
+artifacts remain separate from these host logs.
+
 Deleting a preference does not erase earlier reply provenance/exports. Deleting a chat preserves working files and independent change records. Commands/MCP servers run with user permissions and can access data outside the folder. See [user controls](USER_GUIDE.md).
 
 ## When contributing or publishing

@@ -1,4 +1,4 @@
-use crate::{Message, Role, MAX_CONTEXT_BYTES};
+use crate::{Message, Role, MAX_CONTEXT_ALLOCATION_BYTES as MAX_CONTEXT_BYTES};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_SUMMARY_BYTES: usize = 8192;

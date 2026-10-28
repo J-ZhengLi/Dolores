@@ -19,6 +19,10 @@ struct Receipt {
     lossy_utf8: bool,
     #[serde(default)]
     output_error: bool,
+    #[serde(default)]
+    output_retained: bool,
+    #[serde(default)]
+    log_error: bool,
 }
 
 impl CommandOutcome {
@@ -45,7 +49,11 @@ impl CommandOutcome {
         }
         match receipt.exit_code {
             Some(code) if code != 0 => Self::Failed,
-            Some(0) if !receipt.truncated && !receipt.lossy_utf8 && !receipt.output_error => {
+            Some(0)
+                if ((!receipt.truncated && !receipt.lossy_utf8) || receipt.output_retained)
+                    && !receipt.output_error
+                    && !receipt.log_error =>
+            {
                 Self::Succeeded
             }
             _ => Self::Incomplete,

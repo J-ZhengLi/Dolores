@@ -152,6 +152,11 @@ fn evidence_pagination_does_not_summarize_a_roomy_model_window() {
     run_task_in_window(80, "Unused summary fixture", 500000, false);
 }
 
+#[test]
+fn sustained_roomy_window_task_does_not_grow_checkpoint_snapshots_without_bound() {
+    run_task_in_window(800, "Unused summary fixture", 2000000, false);
+}
+
 fn run_task_in_window(count: usize, text: &'static str, window: u32, compacts: bool) {
     let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
     store.create("chat").unwrap();
@@ -183,7 +188,11 @@ fn run_task_in_window(count: usize, text: &'static str, window: u32, compacts: b
     });
     let approval = Arc::new(goals::RecoveryApproval {
         inner: Arc::new(Allow),
-        provider: Some(summary.clone()),
+        provider: if compacts {
+            Some(summary.clone())
+        } else {
+            None
+        },
         log: log.clone(),
     });
     let logged = Arc::new(run_journal::LoggedTool {

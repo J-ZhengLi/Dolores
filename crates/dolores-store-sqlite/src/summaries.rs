@@ -178,6 +178,25 @@ impl SqliteStore {
         &self,
         session: &str,
     ) -> Result<dolores_core::SummaryHistory, String> {
+        self.summary_history_limit(session, usize::MAX, HISTORY_LIMIT)
+    }
+    pub(super) fn summary_history_bytes(
+        &self,
+        session: &str,
+        bytes: usize,
+    ) -> Result<dolores_core::SummaryHistory, String> {
+        self.summary_history_limit(
+            session,
+            bytes.min(dolores_core::MAX_CONTEXT_ALLOCATION_BYTES),
+            usize::MAX,
+        )
+    }
+    fn summary_history_limit(
+        &self,
+        session: &str,
+        bytes: usize,
+        max_count: usize,
+    ) -> Result<dolores_core::SummaryHistory, String> {
         let mut conn = self.lock()?;
         let tx = conn.transaction().map_err(storage_error)?;
         let summary = read(&tx, session)?;
@@ -192,27 +211,44 @@ impl SqliteStore {
         if !count.is_multiple_of(2) {
             return Err(STALE.into());
         }
-        let mut query=tx.prepare("SELECT id,role,content,(SELECT json_extract(data,'$.agent.tools') FROM turn_metadata WHERE message_id=history.id) FROM (SELECT id,role,content FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id DESC LIMIT ?3) AS history ORDER BY id").map_err(storage_error)?;
+        let mut query=tx.prepare("SELECT id,role,content,(SELECT json_extract(data,'$.agent.tools') FROM turn_metadata WHERE message_id=history.id) FROM (SELECT id,role,content FROM messages WHERE session_id=?1 AND id>?2 ORDER BY id DESC LIMIT ?3) AS history ORDER BY id DESC").map_err(storage_error)?;
         let rows = query
-            .query_map(params![session, through, HISTORY_LIMIT], |r| {
-                let role: String = r.get(1)?;
-                Ok((
-                    Message {
-                        parts: super::attachments::parts(&tx, r.get(0)?)
-                            .map_err(|_| rusqlite::Error::InvalidQuery)?,
-                        role: match role.as_str() {
-                            "user" => Role::User,
-                            "assistant" => Role::Assistant,
-                            _ => return Err(rusqlite::Error::InvalidQuery),
+            .query_map(
+                params![session, through, max_count.min(i64::MAX as usize) as i64],
+                |r| {
+                    let role: String = r.get(1)?;
+                    Ok((
+                        Message {
+                            parts: super::attachments::parts(&tx, r.get(0)?)
+                                .map_err(|_| rusqlite::Error::InvalidQuery)?,
+                            role: match role.as_str() {
+                                "user" => Role::User,
+                                "assistant" => Role::Assistant,
+                                _ => return Err(rusqlite::Error::InvalidQuery),
+                            },
+                            content: r.get(2)?,
                         },
-                        content: r.get(2)?,
-                    },
-                    r.get::<_, Option<String>>(3)?,
-                ))
-            })
-            .map_err(super::history_evidence::read_error)?
-            .collect::<Result<Vec<_>, _>>()
+                        r.get::<_, Option<String>>(3)?,
+                    ))
+                },
+            )
             .map_err(super::history_evidence::read_error)?;
+        let mut retained = vec![];
+        let mut pair = vec![];
+        let mut used = 0usize;
+        for row in rows {
+            pair.push(row.map_err(super::history_evidence::read_error)?);
+            if pair.len() == 2 {
+                let pair_bytes = pair.iter().map(|(m, _)| m.content.len()).sum::<usize>();
+                if used.saturating_add(pair_bytes) > bytes {
+                    break;
+                }
+                used += pair_bytes;
+                retained.append(&mut pair);
+            }
+        }
+        retained.reverse();
+        let rows = retained;
         let (mut messages, evidence): (Vec<_>, Vec<_>) = rows.into_iter().unzip();
         super::history_evidence::append(&mut messages, evidence)?;
         Ok((messages, Some(count / 2), summary))
@@ -223,6 +259,37 @@ impl SqliteStore {
 mod tests {
     use super::*;
     use dolores_core::SessionStore;
+    #[test]
+    fn configured_context_keeps_more_than_forty_turns_without_a_fixed_128k_cutoff() {
+        let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        store.create("large").unwrap();
+        for n in 0..100 {
+            store
+                .commit_turn(
+                    "large",
+                    &format!("User {n} {}", "x".repeat(1500)),
+                    &format!("Assistant {n} {}", "y".repeat(1500)),
+                )
+                .unwrap();
+        }
+        let bytes = dolores_core::model_context_bytes(Some(500000), Default::default()).unwrap();
+        let (history, _, _) = store.summary_context_history_bytes("large", bytes).unwrap();
+        assert_eq!(history.len(), 200);
+        let exact =
+            dolores_core::preview_context_with_allowance(history.clone(), "next", 128 * 1024)
+                .unwrap();
+        assert!(exact.len() > 82, "A model allowance equal to the legacy byte constant must not reactivate its forty-turn cutoff");
+        let context = dolores_core::preview_context_with_allowance(history, "next", bytes).unwrap();
+        let context = dolores_core::prepare_agent_context(context).unwrap();
+        let (context, tokens) =
+            dolores_core::prepare_token_context(context, &[], Some(500000), Default::default())
+                .unwrap();
+        assert_eq!(context.len(), 202);
+        assert!(tokens.input_tokens > 32768);
+        let (small, _, _) = store.summary_context_history_bytes("large", 10000).unwrap();
+        assert!(small.len() < 80 && small.len().is_multiple_of(2));
+        assert!(small.last().unwrap().content.starts_with("Assistant 99"));
+    }
     fn command_metadata(content: &str) -> dolores_core::TurnMetadata {
         dolores_core::TurnMetadata {
             model: "fixture".into(),

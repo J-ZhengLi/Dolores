@@ -18,6 +18,53 @@ Map<String, dynamic> receipt(int n, {bool failed = false}) => {
 };
 
 void main() {
+  testWidgets(
+    'silent model calls share one tool group until new public output',
+    (t) async {
+      Widget view({bool next = false}) => MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AgentTimeline(
+              steps: [
+                {'number': 1, 'text': 'Inspecting the project.'},
+                {'number': 2, 'text': ''},
+                {'number': 3, 'text': '   '},
+                if (next)
+                  {'number': 4, 'text': 'Now validating the implementation.'},
+              ],
+              records: [
+                receipt(1),
+                receipt(2),
+                receipt(3),
+                if (next) receipt(4),
+              ],
+              toolSteps: [1, 2, 3, if (next) 4],
+            ),
+          ),
+        ),
+      );
+      await t.pumpWidget(view());
+      expect(find.byType(ToolExecutionGroup), findsOneWidget);
+      expect(find.text('3 tool executions'), findsOneWidget);
+      expect(find.byType(ReplyContent), findsOneWidget);
+      expect(find.byType(ExpansionTile), findsOneWidget);
+      await t.tap(find.byType(ExpansionTile));
+      await t.pumpAndSettle();
+      expect(find.byType(ExpansionTile), findsNWidgets(4));
+      await t.pumpWidget(view(next: true));
+      await t.pumpAndSettle();
+      expect(find.byType(ToolExecutionGroup), findsNWidgets(2));
+      expect(find.byType(ReplyContent), findsNWidgets(2));
+      expect(find.byType(ExpansionTile), findsNWidgets(5));
+      expect(
+        t.getTopLeft(find.byKey(const ValueKey('timeline-tools-call-1'))).dy,
+        lessThan(
+          t.getTopLeft(find.text('Now validating the implementation.')).dy,
+        ),
+      );
+      expect(t.takeException(), isNull);
+    },
+  );
   for (final dark in [false, true]) {
     for (final width in [420.0, 1000.0]) {
       testWidgets(
@@ -84,7 +131,7 @@ void main() {
           final prose = find.byType(ReplyContent);
           final rows = find.byType(ExpansionTile);
           expect(prose, findsNWidgets(5));
-          expect(rows, findsNWidgets(5));
+          expect(rows, findsNWidgets(4));
           expect(
             t.getTopLeft(prose.at(0)).dy,
             lessThan(t.getTopLeft(rows.at(0)).dy),
@@ -94,17 +141,17 @@ void main() {
             lessThan(t.getTopLeft(prose.at(1)).dy),
           );
           expect(
-            t.getTopLeft(rows.at(2)).dy,
+            t.getTopLeft(rows.at(1)).dy,
             lessThan(t.getTopLeft(prose.at(2)).dy),
           );
           expect(
-            t.getTopLeft(rows.at(4)).dy,
+            t.getTopLeft(rows.at(3)).dy,
             lessThan(t.getTopLeft(prose.at(4)).dy),
           );
           expect(t.getSize(rows.first).height, lessThanOrEqualTo(48));
           final leading = find.descendant(
             of: rows.first,
-            matching: find.byIcon(Icons.desktop_windows_outlined),
+            matching: find.byIcon(Icons.terminal_outlined),
           );
           expect(
             t.getRect(leading).left - t.getRect(rows.first).left,
@@ -119,8 +166,16 @@ void main() {
             key,
             'timeline-${dark ? 'dark' : 'light'}-${width.toInt()}',
           );
-          await t.ensureVisible(rows.at(2));
-          await t.tap(rows.at(2));
+          await t.ensureVisible(rows.at(1));
+          await t.tap(rows.at(1));
+          await t.pumpAndSettle();
+          final failed = find.byKey(
+            const PageStorageKey(
+              'tool-record-call-3-computer-Dolores capture 3',
+            ),
+          );
+          await t.ensureVisible(failed);
+          await t.tap(failed);
           await t.pumpAndSettle();
           expect(
             find.text(
@@ -158,7 +213,11 @@ void main() {
         );
         expect(find.text('Earlier activity'), findsOneWidget);
         expect(find.text('Progress · Not saved'), findsOneWidget);
-        expect(find.byType(ExpansionTile), findsNWidgets(2));
+        expect(find.byType(ToolExecutionGroup), findsOneWidget);
+        await t.tap(find.byType(ExpansionTile));
+        await t.pumpAndSettle();
+        expect(find.byType(ExpansionTile), findsNWidgets(3));
+        await t.pumpWidget(const SizedBox());
         expect(t.takeException(), isNull);
       }
     },

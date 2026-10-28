@@ -225,6 +225,48 @@ fn quote(value: &str) -> String {
     result.push('"');
     result
 }
+fn command_line(executable: &Path, args: &[String]) -> String {
+    let executable = child_path(executable);
+    let mut command = quote(&executable.to_string_lossy());
+    let cmd = Path::new(&executable)
+        .file_name()
+        .is_some_and(|n| n.eq_ignore_ascii_case("cmd.exe"));
+    if cmd {
+        if let Some(index) = args
+            .iter()
+            .position(|a| a.eq_ignore_ascii_case("/c") || a.eq_ignore_ascii_case("/k"))
+        {
+            for arg in &args[..=index] {
+                command.push(' ');
+                command.push_str(arg);
+            }
+            // CMD parses its remaining command string itself, not with CRT
+            // backslash escaping. Preserve the explicitly supplied script.
+            let tail = &args[index + 1..];
+            let script = if tail.len() == 1 {
+                tail[0].clone()
+            } else {
+                tail.iter()
+                    .map(|s| {
+                        if s.is_empty() || s.chars().any(char::is_whitespace) {
+                            format!("\"{s}\"")
+                        } else {
+                            s.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            };
+            command.push_str(&format!(" \"{script}\""));
+            return command;
+        }
+    }
+    for arg in args {
+        command.push(' ');
+        command.push_str(&quote(arg));
+    }
+    command
+}
 fn pipe() -> Result<(Handle, Handle), String> {
     let mut read = null_mut();
     let mut write = null_mut();
@@ -291,17 +333,15 @@ fn spawn_stdio_inner(
     {
         return Err("Command process control is unavailable.".into());
     }
-    let executable_wide = wide(executable.as_os_str());
+    // Keep canonical identity for review/stale checks, but use conventional
+    // process image spelling: .NET Framework fails initialization for \\?\ images.
+    let executable_wide = wide(&child_path(executable));
     // Canonical folder capabilities use verbatim paths. Keep that identity for
     // checks, but give development runtimes a conventional process cwd: Node's
     // relative entrypoint resolution misreads a verbatim drive as "C:".
     let cwd = child_path(root);
     let directory = wide(&cwd);
-    let command = std::iter::once(executable.to_string_lossy().into_owned())
-        .chain(args.iter().cloned())
-        .map(|s| quote(&s))
-        .collect::<Vec<_>>()
-        .join(" ");
+    let command = command_line(executable, args);
     let mut command = wide(OsStr::new(&command));
     let mut environment = Vec::new();
     for (key, value) in env {

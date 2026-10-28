@@ -1,6 +1,66 @@
 use super::*;
 use serde_json::Value;
 
+#[tokio::test]
+async fn long_session_deadline_is_reviewed_and_waiting_remains_cancelable() {
+    let dir = tempfile::tempdir().unwrap();
+    let commands = tool(dir.path());
+    let request = commands.prepare(&call(json!({"operation":"start","program":"node","args":["-e","setInterval(()=>{},1000)"],"timeout_seconds":7200}))).unwrap();
+    assert_eq!(request.command.as_ref().unwrap().timeout_seconds, 7200);
+    let started: Value = serde_json::from_str(
+        &commands
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let id = started["session"]["id"].as_str().unwrap();
+    let read = commands
+        .prepare(&call(
+            json!({"operation":"read","session":id,"wait_ms":30000}),
+        ))
+        .unwrap();
+    let cancel = CancellationToken::new();
+    let stop = cancel.clone();
+    let cancellation = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        stop.cancel();
+    });
+    let before = Instant::now();
+    assert!(commands
+        .invoke(&read, cancel)
+        .await
+        .unwrap_err()
+        .contains("stopped"));
+    cancellation.await.unwrap();
+    assert!(before.elapsed() < Duration::from_secs(2));
+    assert!(
+        commands.receipts().unwrap()[0].live(),
+        "Canceling an output read must not restart or kill the running command"
+    );
+    commands.finish().unwrap();
+    assert!(commands.receipts().unwrap()[0].cleanup_complete);
+}
+
+#[test]
+fn longer_session_limits_do_not_expand_one_shot_limits_or_accept_unbounded_waits() {
+    let dir = tempfile::tempdir().unwrap();
+    let commands = tool(dir.path());
+    assert!(commands
+        .prepare(&call(
+            json!({"operation":"start","program":"node","args":[],"timeout_seconds":21601})
+        ))
+        .is_err());
+    let one_shot = RunCommand::new(dir.path()).unwrap();
+    assert!(one_shot
+        .prepare(&ToolCall {
+            id: "one-shot".into(),
+            name: "run_command".into(),
+            arguments: json!({"program":"node","args":[],"timeout_seconds":7200}).to_string()
+        })
+        .is_err());
+}
+
 #[cfg(windows)]
 #[tokio::test]
 async fn isolated_session_builds_local_modules_and_preserves_review_boundaries() {
@@ -230,11 +290,24 @@ async fn unicode_input_is_reviewed_once_and_stale_input_never_replays() {
 async fn flood_and_deadline_preserve_output_and_allow_explicit_new_session() {
     let dir = tempfile::tempdir().unwrap();
     let tool = tool(dir.path());
-    let output = op(&tool,json!({"operation":"start","program":"node","args":["-e","process.stdout.write(Buffer.alloc(65536,65));setInterval(()=>{},10000)"],"capture_bytes":1024})).await.unwrap();
+    let output = op(&tool,json!({"operation":"start","program":"node","args":["-e","process.stdout.write(Buffer.alloc(524288,65),()=>setTimeout(()=>require('fs').writeFileSync('verbose-finished','yes'),100))"],"capture_bytes":1024})).await.unwrap();
     let id = output["session"]["id"].as_str().unwrap();
     let receipt = until(&tool, id, |r| !r.live()).await;
-    assert_eq!(receipt.state, "outputLimit");
+    assert_eq!(receipt.state, "completed");
+    assert_eq!(receipt.exit_code, Some(0));
     assert!(receipt.truncated);
+    assert!(receipt.output_retained);
+    assert!(std::path::Path::new(receipt.local_log.as_ref().unwrap()).is_absolute());
+    assert_eq!(
+        std::fs::read_dir(dir.path()).unwrap().count(),
+        1,
+        "Only the command's requested artifact belongs in the workspace"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join(receipt.local_log.as_ref().unwrap())).unwrap(),
+        vec![65u8; 524288]
+    );
+    assert!(dir.path().join("verbose-finished").is_file());
     assert!(receipt.cleanup_complete);
     let page = op(&tool, json!({"operation":"read","session":id}))
         .await

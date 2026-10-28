@@ -25,12 +25,21 @@ pub(super) fn effective_instructions(
     let Some(root) = root else {
         return Ok(None);
     };
-    let Some(saved) = store.workspace_instructions(&root)? else {
+    let Some(mut saved) = store.workspace_instructions(&root)? else {
         return Ok(None);
     };
-    let current = dolores_tools_fs::read_scoped_workspace_instructions(Path::new(&root));
-    if current.as_ref().ok() != Some(&saved.text) {
-        return Err("Workspace instructions need review: AGENTS.md changed, is missing or cannot be loaded. Open Instructions to review it again or disable instructions before sending.".into());
+    let current = dolores_tools_fs::read_scoped_workspace_instructions(Path::new(&root))
+        .map_err(|error|format!("Workspace instructions cannot be loaded: {error} Open Instructions to inspect the source."))?;
+    if current != saved.text {
+        let legacy=format!("Scope: ./ (root AGENTS.md; applies throughout chosen working folder)\n{current}\n\nScope: ");
+        if saved.text.starts_with(&legacy) {
+            saved.text = current;
+            saved.provenance.text_bytes = saved.text.len();
+            saved.provenance.revision = uuid::Uuid::new_v4().to_string();
+            store.save_workspace_instructions(&root, Some(&saved))?;
+        } else {
+            return Err("Workspace instructions need review: AGENTS.md changed, is missing or cannot be loaded. Open Instructions to review it again or disable instructions before sending.".into());
+        }
     }
     Ok(Some(saved))
 }

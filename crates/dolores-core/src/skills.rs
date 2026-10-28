@@ -1,7 +1,8 @@
-use crate::{Message, Role, MAX_CONTEXT_BYTES};
+use crate::{Message, Role, MAX_CONTEXT_ALLOCATION_BYTES as MAX_CONTEXT_BYTES};
 use serde::{Deserialize, Serialize};
 
-pub const MAX_SKILL_BYTES: usize = 8192;
+// File/snapshot allocation, independent of the selected model's input budget.
+pub const MAX_SKILL_BYTES: usize = 1024 * 1024;
 pub const MAX_ACTIVE_SKILLS: usize = 3;
 pub const MAX_SAVED_SKILLS: usize = 12;
 pub const MAX_SKILL_VERSIONS: usize = 5;
@@ -40,16 +41,18 @@ pub struct SkillDocument {
 }
 impl SkillDocument {
     pub fn validate(&self) -> Result<(), String> {
+        if self.text.len() > MAX_SKILL_BYTES {
+            return Err("SKILL.md exceeds the 1 MiB file allocation. Move supporting material into referenced files.".into());
+        }
         if !valid_skill_name(&self.name)
             || self.description.trim().is_empty()
             || self.description.chars().count() > 1024
             || self.description.contains('\0')
             || self.text.trim().is_empty()
-            || self.text.len() > MAX_SKILL_BYTES
             || self.text.contains('\0')
         {
             return Err(
-                "Skills need valid names, descriptions and UTF-8 text within 8 KiB. Review Skills."
+                "Skills need valid names, descriptions and nonempty UTF-8 text without NUL. Review Skills."
                     .into(),
             );
         }
@@ -164,13 +167,7 @@ pub fn prepare_skill_context(
             .iter()
             .filter(|s| s.enabled && s.scope == scope)
             .collect();
-        if active.len() > MAX_ACTIVE_SKILLS
-            || active
-                .iter()
-                .map(|s| s.current().document.text.len())
-                .sum::<usize>()
-                > MAX_SKILL_BYTES
-        {
+        if active.len() > MAX_ACTIVE_SKILLS {
             return Err("Skills exceed the active limit for their scope. Disable a skill in Skills before sending.".into());
         }
     }

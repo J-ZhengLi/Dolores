@@ -73,7 +73,7 @@ pub(crate) fn project(messages: &[AgentMessage], protected: &HashSet<String>) ->
             .get(m.content.as_str())
             .filter(|&&other| other != id)
             .copied();
-        result[index].content=serde_json::json!({"historicalPreview":true,"sourceCallId":id,"originalBytes":m.content.len(),"duplicateOf":duplicate,"preview":if duplicate.is_some(){"[Same content as the referenced later receipt]"}else{&preview},"note":"Shortened historical evidence, not current file state. Full receipt retained in Run history. Reread targeted source if omitted detail is needed; do not reconstruct or execute a shortened command."}).to_string();
+        result[index].content=serde_json::json!({"historicalPreview":true,"sourceCallId":id,"originalBytes":m.content.len(),"duplicateOf":duplicate,"preview":if duplicate.is_some(){"[Same content as the referenced later receipt]"}else{&preview},"note":"Historical preview, not current state. Use read_task_history with this sourceCallId as callId for the original receipt when available, or reread current source. Never execute a shortened command."}).to_string();
     }
     result
 }

@@ -12,6 +12,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/render_fonts.dart';
+import 'frost_design_test.dart' show capture, viewport;
 
 class CommandsBridge implements ChatBridge {
   final calls = <Map<String, dynamic>>[];
@@ -152,6 +153,63 @@ Future<ChatController> open(
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    for (final width in [420.0, 1000.0]) {
+      testWidgets('Named command environment review dark=$dark width=$width', (
+        tester,
+      ) async {
+        viewport(tester, Size(width, 800));
+        await tester.runAsync(loadReviewFonts);
+        final chat = ChatController(CommandsBridge())
+          ..workspaceRoot = r'C:\public\work'
+          ..toolApproval = {
+            'name': 'run_command',
+            'callId': 'ssh-env',
+            'target': 'python',
+            'command': {
+              'executable': r'C:\runtime\python.exe',
+              'invocation': {
+                'args': [
+                  'ssh_connect.py',
+                  '--password-env',
+                  'NAS_ROOT_PASSWORD',
+                ],
+              },
+              'inherit_env': ['NAS_ROOT_PASSWORD'],
+            },
+          };
+        addTearDown(chat.dispose);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: doloresTheme(dark),
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: key,
+                child: ColoredBox(
+                  color: Palette(dark).bg,
+                  child: ToolApprovalCard(chat: chat),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Environment variables to share with this command'),
+          findsOneWidget,
+        );
+        expect(find.text('NAS_ROOT_PASSWORD'), findsOneWidget);
+        expect(
+          tester.getRect(find.byKey(const Key('allow-tool'))).bottom,
+          lessThanOrEqualTo(800),
+        );
+        expect(tester.takeException(), isNull);
+        await capture(tester, key, 'ssh-environment-$dark-${width.toInt()}');
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  }
   testWidgets(
     'Cleanup failure preserves drafts and output, and only explicit retry recovers',
     (tester) async {

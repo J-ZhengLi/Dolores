@@ -24,6 +24,7 @@ impl ToolProposalHook for ValidateProposal {
                             | "desktop_control"
                             | "computer"
                             | "inspect_harness"
+                            | "read_task_history"
                             | "harness_repair"
                             | "test_harness_repair"
                             | "build_harness_repair"
@@ -37,7 +38,7 @@ impl ToolProposalHook for ValidateProposal {
             || request
                 .diff
                 .as_ref()
-                .is_some_and(|d| d.len() > dolores_core::MAX_TOOL_BYTES)
+                .is_some_and(|d| d.len() > dolores_core::MAX_FILE_REVIEW_BYTES)
         {
             return Err("Invalid tool proposal.".into());
         }
@@ -107,7 +108,14 @@ impl Engine {
             true,
             true,
             vec!["local-history".into()],
-            vec![],
+            vec!["read_task_history".into()],
+        )?;
+        add(
+            "instructions/scoped",
+            true,
+            working,
+            vec!["applicable-project-guidance".into()],
+            vec!["read_scoped_instructions".into()],
         )?;
         add(
             "scheduling",

@@ -86,6 +86,14 @@ older-result previews, evidence segmentation and standalone export accounting
 through the normal native bridge. Its provider usage is synthetic, not a live
 model cost or quality benchmark.
 
+For sustained coding and command supervision, run
+`python scripts/test-long-task-soak.py --directory <fresh absolute output/ path>`.
+The isolated native fixture creates and verifies files, forces a provider context
+rejection, preserves the original constraint and draft, and supervises a real
+child process. Add `--seconds 7200` to exercise a two-hour wall-clock lifetime;
+the default short run does not establish that gate. This uses a scripted local
+provider and does not qualify live-model feature delivery.
+
 ## Windows portable preview
 
 After a normal build, collect matching dependency notices and package into fresh

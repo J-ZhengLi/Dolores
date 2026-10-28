@@ -113,6 +113,12 @@ class SkillBridge implements ChatBridge {
   }
 }
 
+class LongSkillBridge extends SkillBridge {
+  @override
+  String get text =>
+      '---\nname: review\ndescription: Review code\n---\n${'Connection checks 世界\n' * 1200}FULL_SOURCE_END';
+}
+
 class ScopedSkillBridge implements ChatBridge {
   final project = SkillBridge(), global = SkillBridge();
   final commands = <Map<String, dynamic>>[];
@@ -188,6 +194,31 @@ Future<void> press(WidgetTester tester, String key) async {
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'View file retains complete long skill in compact settings $dark',
+      (tester) async {
+        final bridge = LongSkillBridge();
+        await open(tester, bridge, dark);
+        await press(tester, 'review-skill-review');
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('skill-source-text')),
+          150,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(
+          tester
+              .widget<SelectableText>(
+                find.byKey(const Key('skill-source-text')),
+              )
+              .data,
+          bridge.text,
+        );
+        expect(bridge.commands.where((c) => c['command'] == 'start'), isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   setUpAll(() async {
     for (final font in {
       'Segoe UI':

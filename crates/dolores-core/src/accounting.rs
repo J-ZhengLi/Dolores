@@ -1,4 +1,6 @@
-use crate::{Message, HISTORY_LIMIT, MAX_CONTEXT_BYTES};
+#[cfg(test)]
+use crate::MAX_CONTEXT_BYTES;
+use crate::{Message, HISTORY_LIMIT};
 use serde::{Deserialize, Serialize};
 
 /// Only counters actually reported by the provider; None never means zero.
@@ -43,7 +45,7 @@ impl ContextSummary {
             saved_turns,
             omitted_turns: saved_turns.map(|n| n.saturating_sub(included_turns as u64)),
             text_bytes: messages.iter().map(|m| m.content.len()).sum(),
-            max_text_bytes: MAX_CONTEXT_BYTES,
+            max_text_bytes: crate::MAX_CONTEXT_ALLOCATION_BYTES,
             max_turns: HISTORY_LIMIT / 2,
             tokens: None,
             instructions: None,

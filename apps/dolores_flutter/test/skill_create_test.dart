@@ -2,6 +2,10 @@ import 'package:dolores_flutter/bridge.dart';
 import 'package:dolores_flutter/skill_create.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:file_selector/file_selector.dart';
+
+import 'dart:convert';
+import 'dart:typed_data';
 
 class CreateBridge implements ChatBridge {
   final commands = <Map<String, dynamic>>[];
@@ -59,6 +63,28 @@ Future<void> open(WidgetTester t, CreateBridge b) async {
 }
 
 void main() {
+  test('long UTF-8 imports remain exact and allocation/encoding failures are distinct', () async {
+    final text =
+        '---\nname: ssh-connect\ndescription: Connect to hosts\n---\n${'Connection checks 世界\n' * 1200}';
+    expect(
+      await readSkillImport(
+        XFile.fromData(Uint8List.fromList(utf8.encode(text))),
+      ),
+      text,
+    );
+    await expectLater(
+      readSkillImport(XFile.fromData(Uint8List(maxSkillFileBytes + 1))),
+      throwsA(contains('1 MiB')),
+    );
+    await expectLater(
+      readSkillImport(XFile.fromData(Uint8List.fromList([255]))),
+      throwsA(contains('UTF-8')),
+    );
+    await expectLater(
+      readSkillImport(XFile.fromData(Uint8List.fromList([0]))),
+      throwsA(contains('NUL')),
+    );
+  });
   testWidgets(
     'global creation saves in one action without review or activation',
     (t) async {

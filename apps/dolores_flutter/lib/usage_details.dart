@@ -161,7 +161,7 @@ class UsagePanel extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Per-call details below cover recent work. Earlier progress and usage remain in task history.',
+              'Per-call details below cover recent work. Full usage history remains in Activity.',
             ),
           ),
         for (final (index, usage) in calls.indexed)

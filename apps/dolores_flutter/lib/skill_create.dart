@@ -8,6 +8,24 @@ import 'package:flutter/material.dart';
 import 'bridge.dart';
 import 'settings_frame.dart';
 
+const maxSkillFileBytes = 1024 * 1024;
+
+Future<String> readSkillImport(XFile file) async {
+  if (await file.length() > maxSkillFileBytes) {
+    throw 'SKILL.md exceeds the 1 MiB file allocation.';
+  }
+  final bytes = await file.readAsBytes();
+  if (bytes.length > maxSkillFileBytes) {
+    throw 'SKILL.md exceeds the 1 MiB file allocation.';
+  }
+  if (bytes.contains(0)) throw 'SKILL.md contains NUL bytes.';
+  try {
+    return utf8.decode(bytes);
+  } on FormatException {
+    throw 'SKILL.md is not UTF-8 text.';
+  }
+}
+
 class SkillCreateDialog extends StatefulWidget {
   final ChatBridge bridge;
   final String session, scope;
@@ -72,9 +90,7 @@ class _SkillCreateState extends State<SkillCreateDialog> {
     );
     if (file == null || !mounted) return;
     try {
-      final bytes = await file.readAsBytes();
-      if (bytes.length > 8192) throw 'Choose a SKILL.md within 8 KiB.';
-      final text = utf8.decode(bytes);
+      final text = await readSkillImport(file);
       body.text = text;
       // A suggestion only: the host parses and checks exact YAML metadata.
       final match = RegExp(
@@ -83,12 +99,9 @@ class _SkillCreateState extends State<SkillCreateDialog> {
       ).firstMatch(text);
       if (match != null) name.text = match.group(1)!;
       setState(() => error = null);
-    } catch (_) {
+    } catch (failure) {
       if (mounted) {
-        setState(
-          () => error =
-              'Cannot import this file. Choose UTF-8 SKILL.md within 8 KiB.',
-        );
+        setState(() => error = 'Cannot import this file: $failure');
       }
     }
   }

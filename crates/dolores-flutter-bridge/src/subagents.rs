@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 pub fn spec() -> ToolSpec {
     ToolSpec {
         name: "delegate_tasks".into(),
-        description: "Run one batch of 1–2 scoped children, SHARING parent model/tool/time limits. Each child has a goal, relative scope, readOnly and optional enabled model (default parent). Writable scopes cannot overlap. Alternatively use childId and action=inspect, followUp (with message), or interrupt. Follow-ups retain identity, context checkpoints, frozen model/scope/permissions and a cumulative 4 model/4 file-operation cap; at most two follow-ups. No commands/MCP/recursion. Parent waits during child work and must independently verify reports using actual file evidence and Changes. Stop cancels all children; completed writes remain. One parent reporting call stays reserved.".into(),
+        description: "Run one batch of 1–2 scoped children sharing parent model/tool/time limits. Each has goal, relative scope, readOnly and optional enabled model. Writable scopes cannot overlap. Or use childId and action=inspect/followUp/interrupt; only followUp takes message. Identity, context, model, scope and permissions remain frozen. Each child has up to 32 model/64 file operations cumulatively, also bounded by parent allowance; follow-ups never reset usage. No commands, MCP or recursion. Parent verifies actual effects and keeps one reporting call. Stop cancels children; completed writes remain.".into(),
         parameters: json!({"type":"object","properties":{"tasks":{"type":"array","minItems":1,"maxItems":2,"items":{"type":"object","properties":{"goal":{"type":"string","maxLength":512},"scope":{"type":"string","description":"Direct relative file/folder; '.' for root","maxLength":128},"readOnly":{"type":"boolean"},"model":{"type":"string","maxLength":128}},"required":["goal","scope","readOnly"],"additionalProperties":false}},"childId":{"type":"string","maxLength":64},"action":{"type":"string","enum":["inspect","followUp","interrupt"]},"message":{"type":"string","maxLength":512},"offset":{"type":"integer","minimum":0}},"oneOf":[{"required":["tasks"]},{"required":["childId","action"]}],"additionalProperties":false}),
     }
 }
@@ -355,7 +355,7 @@ impl DelegateTasks {
             .filter(|p| {
                 matches!(
                     p.spec().name.as_str(),
-                    "read_text_file" | "list_folder" | "search_text"
+                    "read_text_file" | "list_folder" | "search_text" | "read_scoped_instructions"
                 ) || (!task.read_only
                     && matches!(
                         p.spec().name.as_str(),
@@ -396,8 +396,8 @@ impl DelegateTasks {
             }));
         }
         let budget = TaskBudget {
-            model_calls: Some(rt.budget.model_limit().min(4)),
-            tool_calls: Some(rt.budget.tool_limit().min(4)),
+            model_calls: Some(rt.budget.model_limit().min(32)),
+            tool_calls: Some(rt.budget.tool_limit().min(64)),
             ..rt.budget
         };
         let mut system =
@@ -729,12 +729,11 @@ impl ToolPlugin for DelegateTasks {
             {
                 return Err("Wait for the child to settle before following up.".into());
             }
-            if child.followups.load(std::sync::atomic::Ordering::SeqCst) >= 2 {
-                return Err("This child has used its two follow-ups. Inspect saved progress; nothing was replayed.".into());
-            }
             let used = child.budget.usage();
-            if used.model_calls >= 4 || used.tool_calls >= 4 {
-                return Err("Child cumulative allowance is exhausted (4 model calls / 4 file operations). Inspect saved work; a follow-up cannot reset it.".into());
+            if used.model_calls >= rt.budget.model_limit().min(32)
+                || used.tool_calls >= rt.budget.tool_limit().min(64)
+            {
+                return Err("Child cumulative allowance is exhausted. Inspect saved work; a follow-up cannot reset shared parent or child usage.".into());
             }
             // A checkpoint is data, never replayable tool calls. Original scope,
             // provider and live parent grant checks remain unchanged.
@@ -806,11 +805,11 @@ impl ToolPlugin for DelegateTasks {
                     .ok_or("Child model unavailable.")?
                     .clone()
             };
-            // reserve_model(child=true) retains one local slot, giving exactly
-            // four cumulative attempts; the ledger separately reserves the parent report.
+            // The ledger reserves the parent report. Local scope is useful for
+            // real implementation and remains cumulative across follow-ups.
             let local = TaskBudget {
-                model_calls: Some(5),
-                tool_calls: Some(4),
+                model_calls: Some(rt.budget.model_limit().min(32) + 1),
+                tool_calls: Some(rt.budget.tool_limit().min(64)),
                 ..rt.budget
             };
             self.controls

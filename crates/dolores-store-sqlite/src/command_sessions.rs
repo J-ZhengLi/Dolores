@@ -260,6 +260,9 @@ mod tests {
                 capture_bytes: 16384,
                 output_bytes: 0,
                 truncated: false,
+                local_log: None,
+                output_retained: false,
+                log_error: false,
                 output_error: false,
                 lossy_utf8: false,
                 cleanup_complete: false,
@@ -271,6 +274,24 @@ mod tests {
                 message: None,
             },
         }
+    }
+    #[test]
+    fn multi_hour_unicode_executable_receipt_survives_restart_without_reattachment() {
+        let store = SqliteStore::open(Path::new(":memory:")).unwrap();
+        setup(&store);
+        let mut r = record("long-command");
+        r.receipt.program = format!("C:/fixture/中文/{}/python.exe", "public-folder/".repeat(8));
+        r.receipt.timeout_seconds = 7200;
+        store.save_command_session(&r).unwrap();
+        let saved = store.command_sessions("chat", Some(RUN), None).unwrap();
+        assert_eq!(saved.items[0], r.receipt);
+        store.recover_command_sessions().unwrap();
+        let recovered = store.command_sessions("chat", Some(RUN), None).unwrap();
+        assert_eq!(recovered.items[0].state, "lost");
+        assert_eq!(recovered.items[0].timeout_seconds, 7200);
+        assert!(!recovered.items[0].live());
+        r.receipt.timeout_seconds = dolores_core::command_sessions::MAX_SESSION_SECONDS + 1;
+        assert!(store.save_command_session(&r).is_err());
     }
     #[test]
     fn export_keeps_raw_command_output_and_ownership_even_without_a_completed_reply() {

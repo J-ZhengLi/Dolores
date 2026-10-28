@@ -3,7 +3,7 @@ use super::{
     ReadTextFile,
 };
 use cap_std::fs::{Dir, Permissions};
-use dolores_core::{ChangeJournal, MAX_TOOL_BYTES};
+use dolores_core::{ChangeJournal, MAX_FILE_ARGUMENT_BYTES, MAX_FILE_REVIEW_BYTES};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -21,7 +21,7 @@ pub struct RemoveCreatedPlan {
 }
 impl RemoveCreatedPlan {
     pub fn preview(root: &std::path::Path, target: &str, expected: &str) -> Result<Self, String> {
-        if expected.len() > MAX_TOOL_BYTES || expected.contains('\0') {
+        if expected.len() > MAX_FILE_ARGUMENT_BYTES || expected.contains('\0') {
             return Err("Invalid removal snapshot.".into());
         }
         let read = ReadTextFile::new(root)?;
@@ -32,8 +32,8 @@ impl RemoveCreatedPlan {
             return Err("File changed after creation. Removal was not prepared.".into());
         }
         let diff = super::file_change_diff(Some(expected), None);
-        if diff.len() > MAX_TOOL_BYTES {
-            return Err("Removal diff exceeds the 16 KiB limit.".into());
+        if diff.len() > MAX_FILE_REVIEW_BYTES {
+            return Err("Removal diff exceeds its review allocation.".into());
         }
         Ok(Self {
             read,

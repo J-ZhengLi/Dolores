@@ -12,8 +12,10 @@ class SegmentBridge extends InterruptedBridge {
   SegmentBridge() : super(true);
   int id = 0;
   bool failPage = false;
+  int cancelCalls = 0;
   @override
   Future<dynamic> call(Map<String, dynamic> c) async {
+    if (c['command'] == 'cancel') cancelCalls++;
     if (c['command'] == 'runs') {
       return [
         {
@@ -91,6 +93,109 @@ class SegmentBridge extends InterruptedBridge {
 
 void main() {
   testWidgets(
+    'active context follows each request and provider usage without starting work',
+    (t) async {
+      final bridge = SegmentBridge();
+      final chat = ChatController(bridge)
+        ..loading = false
+        ..configured = true
+        ..session = 'audit'
+        ..draft = 'Original task';
+      await chat.send();
+      await t.pump(const Duration(milliseconds: 100));
+      bridge.queue.add({
+        'id': bridge.id,
+        'type': 'modelContext',
+        'number': 1,
+        'tokens': {'inputTokens': 16479, 'contextWindowTokens': 500000},
+      });
+      await t.pump(const Duration(milliseconds: 100));
+      expect(chat.contextSummary!['tokens']['inputTokens'], 16479);
+      expect((await chat.previewContext())!['activeRun'], true);
+      bridge.queue.add({
+        'id': bridge.id,
+        'type': 'modelFinished',
+        'number': 1,
+        'usage': {'totalTokens': 18000},
+      });
+      await t.pump(const Duration(milliseconds: 100));
+      expect(chat.contextSummary!['reportedTokens'], 18000);
+      bridge.queue.addAll([
+        {'id': bridge.id, 'type': 'modelStep', 'number': 2},
+        {
+          'id': bridge.id,
+          'type': 'modelContext',
+          'number': 2,
+          'tokens': {'inputTokens': 24000, 'contextWindowTokens': 500000},
+        },
+      ]);
+      await t.pump(const Duration(milliseconds: 100));
+      expect(chat.contextSummary!['tokens']['inputTokens'], 24000);
+      expect(chat.contextSummary!.containsKey('reportedTokens'), false);
+      expect(bridge.starts, 1);
+      expect(bridge.commands.where((c) => c['command'] == 'context'), isEmpty);
+      await chat.stop();
+      chat.dispose();
+    },
+  );
+  testWidgets(
+    'silent complete-response retry updates and finishes without Stop',
+    (t) async {
+      final bridge = SegmentBridge();
+      final chat = ChatController(bridge)
+        ..loading = false
+        ..configured = true
+        ..session = 'audit'
+        ..draft = 'Original task';
+      await t.pumpWidget(DoloresApp(chat: chat));
+      await chat.send();
+      await t.pump(const Duration(milliseconds: 100));
+      bridge.queue.addAll([
+        {'type': 'modelRetry', 'id': bridge.id, 'attempt': 1, 'buffered': true},
+        {'type': 'modelStep', 'id': bridge.id, 'number': 2},
+        {
+          'type': 'modelActivity',
+          'id': bridge.id,
+          'number': 2,
+          'phase': 'waitingComplete',
+          'elapsedSeconds': 1,
+          'timeoutSeconds': 180,
+        },
+      ]);
+      await t.pump(const Duration(milliseconds: 100));
+      await t.pump();
+      expect(chat.busy, true);
+      expect(
+        find.textContaining('No incremental output · 1s elapsed'),
+        findsOneWidget,
+      );
+      chat.draft = 'Preserve a newer draft';
+      bridge.queue.add({
+        'type': 'modelActivity',
+        'id': bridge.id,
+        'number': 2,
+        'phase': 'waitingComplete',
+        'elapsedSeconds': 2,
+        'timeoutSeconds': 180,
+      });
+      await t.pump(const Duration(milliseconds: 100));
+      await t.pump();
+      expect(
+        find.textContaining('No incremental output · 2s elapsed'),
+        findsOneWidget,
+      );
+      bridge.queue.add({'type': 'done', 'id': bridge.id});
+      await t.pump(const Duration(milliseconds: 200));
+      await t.pump();
+      expect(chat.busy, false);
+      expect(chat.draft, 'Preserve a newer draft');
+      expect(bridge.cancelCalls, 0);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      chat.dispose();
+    },
+  );
+  testWidgets(
     'maintenance does not re-enable following after the reader scrolls up',
     (t) async {
       final c = ChatController(SegmentBridge())
@@ -104,7 +209,6 @@ void main() {
       final scroll = t.widget<ListView>(find.byType(ListView).last).controller!;
       scroll.jumpTo(0);
       c.taskArchive = {'runId': 'fixture-run', 'throughSegment': 1};
-      c.partial = '';
       c.notifyListeners();
       await t.pump();
       await t.pump(const Duration(milliseconds: 100));
@@ -143,8 +247,9 @@ void main() {
     ];
     b.queue.last['toolSteps'] = [39];
     await t.pump(const Duration(milliseconds: 100));
-    expect(c.toolRecords.single['callId'], 'uncertain');
-    expect(c.toolRecords.single['modelStep'], 39);
+    expect(c.toolRecords.first['callId'], 'one');
+    expect(c.toolRecords.last['callId'], 'uncertain');
+    expect(c.toolRecords.last['modelStep'], 39);
     await c.stop();
     c.dispose();
   });
@@ -183,13 +288,14 @@ void main() {
           expect(c.busy, true);
           expect(c.draft, 'Keep this newer draft 世界');
           expect(b.starts, 1);
-          expect(c.toolRecords, isEmpty);
-          expect(c.modelTexts, isEmpty);
+          expect(c.toolRecords.single['callId'], 'one');
+          expect(c.partial, 'Earlier completed work.');
           expect(c.modelThinking, isEmpty);
           expect(c.runElapsed, greaterThanOrEqualTo(elapsed));
           expect(find.text('Updating context'), findsOneWidget);
+          expect(find.byKey(const Key('task-archived-progress')), findsNothing);
           expect(
-            find.byKey(const Key('task-archived-progress')),
+            find.textContaining('Earlier completed work.'),
             findsOneWidget,
           );
           expect(find.byTooltip('Stop response'), findsOneWidget);
@@ -199,16 +305,6 @@ void main() {
             key,
             'automatic-maintenance-${dark ? 'dark' : 'light'}-${width.toInt()}',
           );
-          await t.tap(find.byKey(const Key('task-archived-progress')));
-          await t.pump(const Duration(milliseconds: 300));
-          await t.pump();
-          expect(c.taskSegmentsAvailable, true);
-          expect(find.byType(RunHistoryInspector), findsOneWidget);
-          expect(find.text('1. taskCheckpoint · running'), findsOneWidget);
-          expect(c.busy, true);
-          expect(b.starts, 1);
-          Navigator.of(t.element(find.byType(RunHistoryInspector))).pop();
-          await t.pump(const Duration(milliseconds: 300));
           await c.stop();
           await t.pump(const Duration(milliseconds: 100));
           await t.pump();

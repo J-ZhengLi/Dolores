@@ -336,7 +336,8 @@ fn all_excerpt_sources_preserve_exact_text_and_context_exhaustion_refuses_before
     state.references[0].text = "x".repeat(16000);
     let mut context = preview_context(vec![], "Preserved original input").unwrap();
     context[0].content.push_str(&"s".repeat(120000));
-    assert!(prepare(context, &state).err().unwrap().contains("128 KiB"));
+    let prepared = prepare(context, &state).unwrap();
+    assert!(dolores_core::prepare_token_context(prepared,&[],Some(32768),Default::default()).is_err(),"Configured model capacity, not a fixed public-text ceiling, must reject oversized fixed instructions");
     assert_eq!(state.references[0].text.len(), 16000);
     assert!(store.runs(&s).unwrap().is_empty());
 }

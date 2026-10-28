@@ -4,7 +4,9 @@ use super::{
 };
 use async_trait::async_trait;
 use cap_std::fs::{Dir, OpenOptions};
-use dolores_core::{ChangeJournal, ToolCall, ToolPlugin, ToolRequest, ToolSpec, MAX_TOOL_BYTES};
+use dolores_core::{
+    ChangeJournal, ToolCall, ToolPlugin, ToolRequest, ToolSpec, MAX_FILE_REVIEW_BYTES,
+};
 use serde::Deserialize;
 use serde_json::json;
 use std::{
@@ -132,7 +134,7 @@ impl CreateTextFile {
     }
 }
 pub fn create_spec() -> ToolSpec {
-    ToolSpec{name:"create_text_file".into(),description:"Create one small UTF-8 text file at a direct relative path under an existing working-folder directory. Requires review of the complete addition and one user approval. Never overwrites existing files, directories or aliases. No directory creation, secret/VCS paths or shell. JSON arguments up to 64 KiB; UTF-8 file and complete diff each up to 16 KiB. Split larger implementations into smaller files. Empty files are allowed. Applied creation remains if the later reply fails.".into(),parameters:json!({"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false})}
+    ToolSpec{name:"create_text_file".into(),description:"Create one UTF-8 file at a direct relative path in an existing working-folder directory. Never overwrites a file, directory or alias. Review shows the complete addition. JSON arguments up to 64 KiB; review diff up to 256 KiB. Empty files allowed. No directory creation or secret/VCS paths. Applied creation remains if a later reply fails.".into(),parameters:json!({"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false})}
 }
 #[async_trait]
 impl ToolPlugin for CreateTextFile {
@@ -147,14 +149,15 @@ impl ToolPlugin for CreateTextFile {
         }
         let args: Arguments =
             serde_json::from_str(&call.arguments).map_err(|_| "Invalid creation arguments.")?;
-        if args.content.len() > MAX_TOOL_BYTES || args.content.contains('\0') {
+        if args.content.len() > dolores_core::MAX_FILE_ARGUMENT_BYTES || args.content.contains('\0')
+        {
             return Err("New file exceeds the UTF-8 text limit or contains NUL.".into());
         }
         let (parent, filename) = direct_parent(&self.read, &args.path)?;
         absent(&parent, &filename)?;
         let diff = super::file_change_diff(None, Some(&args.content));
-        if diff.len() > MAX_TOOL_BYTES {
-            return Err("New file diff exceeds the 16 KiB limit.".into());
+        if diff.len() > MAX_FILE_REVIEW_BYTES {
+            return Err("New file diff exceeds its review allocation.".into());
         }
         let request = ToolRequest {
             call_id: call.id.clone(),

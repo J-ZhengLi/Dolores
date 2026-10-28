@@ -80,8 +80,6 @@ async fn discovery_excludes_secret_generated_binary_and_unsafe_scopes() {
         "/absolute",
         ".env",
         ".git",
-        "node_modules",
-        "target",
         "a/../b",
         "C:/outside",
     ] {
@@ -114,6 +112,25 @@ async fn discovery_excludes_secret_generated_binary_and_unsafe_scopes() {
             json!({"path":".","query":"NEEDLE","approved":true})
         ))
         .is_err());
+}
+#[tokio::test]
+async fn explicitly_selected_generated_named_source_folder_is_searchable() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(root.path().join("src/build")).unwrap();
+    std::fs::write(
+        root.path().join("src/build/source.ts"),
+        "literal explicit source needle",
+    )
+    .unwrap();
+    let tools = folder_tools(root.path()).unwrap();
+    let default = execute(tools[2].as_ref(), json!({"path":".","query":"needle"})).await;
+    assert_eq!(default["matches"].as_array().unwrap().len(), 0);
+    let scoped = execute(
+        tools[2].as_ref(),
+        json!({"path":"src/build","query":"needle"}),
+    )
+    .await;
+    assert_eq!(scoped["matches"][0]["path"], "src/build/source.ts");
 }
 #[tokio::test]
 async fn listing_search_and_long_results_respect_scan_and_output_budgets() {

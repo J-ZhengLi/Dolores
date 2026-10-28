@@ -1,10 +1,13 @@
 import 'help_tip.dart';
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'chat.dart';
 import 'inspector.dart';
 import 'command_sessions.dart';
+import 'agent_timeline.dart';
 
 Future<void> showRunHistory(
   BuildContext context,
@@ -28,6 +31,8 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
   List<dynamic> runs = [], events = [];
   String? selected, error;
   Map<String, dynamic>? checkpoint;
+  Map<String, dynamic>? progress;
+  String? progressError, checkpointError;
   bool pending = false;
   int pageAfter = 0;
   int? nextPage;
@@ -42,6 +47,9 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
     setState(() {
       pending = true;
       checkpoint = null;
+      progress = null;
+      progressError = null;
+      checkpointError = null;
       error = null;
     });
     try {
@@ -79,6 +87,11 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
     setState(() {
       pending = true;
       if (!paging) checkpoint = null;
+      if (!paging) {
+        progress = null;
+        progressError = null;
+        checkpointError = null;
+      }
       error = null;
       selected = id;
       if (!paging) {
@@ -95,16 +108,8 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
         'runId': id,
         if (widget.chat.taskSegmentsAvailable) 'after': after,
       });
-      final saved = widget.chat.durableDrafts && !paging
-          ? await widget.chat.bridge.call({
-              'command': 'runCheckpoint',
-              'session': session,
-              'runId': id,
-            }) as Map
-          : null;
       if (mounted) {
         setState(() {
-          if (!paging) checkpoint = saved?.cast<String, dynamic>();
           if (widget.chat.taskSegmentsAvailable) {
             final page = result as Map;
             events = page['items'] as List;
@@ -116,6 +121,26 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
           pageAfter = after;
         });
       }
+      // Optional recovery metadata must never hide a readable evidence page.
+      if (!paging && widget.chat.durableDrafts) {
+        try {
+          final saved = await widget.chat.bridge.call({
+            'command': 'runCheckpoint',
+            'session': session,
+            'runId': id,
+          }) as Map;
+          if (mounted) {
+            setState(() => checkpoint = saved.cast<String, dynamic>());
+          }
+        } catch (failure) {
+          if (mounted) {
+            setState(
+              () => checkpointError = 'Recovery details unavailable: $failure',
+            );
+          }
+        }
+      }
+      if (!paging && widget.chat.taskSegmentsAvailable) await loadProgress(1);
     } catch (failure) {
       if (mounted) {
         setState(() {
@@ -127,6 +152,30 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
         setState(() {
           pending = false;
         });
+      }
+    }
+  }
+
+  Future<void> loadProgress(int ordinal) async {
+    try {
+      final saved = await widget.chat.bridge.call({
+        'command': 'runProgress',
+        'session': session,
+        'runId': selected,
+        'ordinal': ordinal,
+      }) as Map;
+      if (mounted) {
+        setState(() {
+          progress = saved.cast<String, dynamic>();
+          progressError = null;
+        });
+      }
+    } catch (failure) {
+      if (mounted) {
+        setState(
+          () => progressError =
+              'Readable progress unavailable: $failure. Raw evidence remains below.',
+        );
       }
     }
   }
@@ -164,6 +213,79 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     onTap: pending ? null : () => select(run['id'] as String),
                   ),
                 if (selected != null) const Divider(),
+                if (progressError != null) SelectableText(progressError!),
+                if (checkpointError != null) SelectableText(checkpointError!),
+                if (progress?['summary'] is Map) ...[
+                  Text(
+                    'Progress page ${progress!['ordinal']} of ${progress!['total']}',
+                  ),
+                  const Text(
+                    'Saved outputs and tool results. Opening history makes no model request.',
+                  ),
+                  AgentTimeline(
+                    steps: progress!['summary']['steps'] as List? ?? [],
+                    records: progress!['summary']['tools'] as List? ?? [],
+                    toolSteps: progress!['summary']['toolSteps'] as List? ?? [],
+                    bridge: widget.chat.bridge,
+                  ),
+                  for (final record
+                      in progress!['summary']['tools'] as List? ?? [])
+                    if (_hasFullOutput(record))
+                      TextButton.icon(
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (_) => _ArchivedReceipt(
+                            chat: widget.chat,
+                            session: session!,
+                            run: selected!,
+                            call: record['callId'] as String,
+                          ),
+                        ),
+                        icon: const Icon(Icons.article_outlined, size: 16),
+                        label: Text(
+                          'Full output · ${record['target']}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  if (progress!['summary']['thinking'] is List)
+                    for (final thought in progress!['summary']['thinking'])
+                      ExpansionTile(
+                        title: Text('Thinking · call ${thought['number']}'),
+                        children: [SelectableText('${thought['text']}')],
+                      ),
+                  Wrap(
+                    spacing: 16,
+                    children: [
+                      TextButton(
+                        onPressed: pending || progress!['ordinal'] <= 1
+                            ? null
+                            : () async {
+                                setState(() => pending = true);
+                                await loadProgress(
+                                  (progress!['ordinal'] as int) - 1,
+                                );
+                                if (mounted) setState(() => pending = false);
+                              },
+                        child: const Text('Previous progress'),
+                      ),
+                      TextButton(
+                        onPressed:
+                            pending ||
+                                progress!['ordinal'] >= progress!['total']
+                            ? null
+                            : () async {
+                                setState(() => pending = true);
+                                await loadProgress(
+                                  (progress!['ordinal'] as int) + 1,
+                                );
+                                if (mounted) setState(() => pending = false);
+                              },
+                        child: const Text('Next progress'),
+                      ),
+                    ],
+                  ),
+                ],
                 if (selected != null && widget.initialRun != null)
                   SelectableText('Selected run: $selected'),
                 if (selected != null && widget.chat.commandSessionsAvailable)
@@ -217,16 +339,38 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
                     child: const Text('Prepare resume draft'),
                   ),
                 ],
-                for (final event in events)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: ExpansionTile(
-                      title: Text(
-                        '${event['sequence']}. ${event['kind']} · ${event['state']}',
+                ExpansionTile(
+                  title: const Text('Technical events'),
+                  initiallyExpanded: progress?['summary'] is! Map,
+                  children: [
+                    for (final event in events)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: ExpansionTile(
+                          title: Text(
+                            '${event['sequence']}. ${event['kind']} · ${event['state']}',
+                          ),
+                          children: [
+                            if (event['kind'] == 'toolResult' &&
+                                event['data']['callId'] is String)
+                              AgentTimeline(
+                                records: [
+                                  {
+                                    ...event['data'] as Map,
+                                    'status': event['data']['returned'] == false
+                                        ? 'failed'
+                                        : 'read',
+                                  },
+                                ],
+                                bridge: widget.chat.bridge,
+                              )
+                            else
+                              SelectableText('${event['data']}'),
+                          ],
+                        ),
                       ),
-                      children: [SelectableText('${event['data']}')],
-                    ),
-                  ),
+                  ],
+                ),
                 if (widget.chat.taskSegmentsAvailable && selected != null)
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
@@ -277,6 +421,111 @@ class _RunHistoryInspectorState extends State<RunHistoryInspector> {
             onPressed: pending ? null : refresh,
             child: const Text('Refresh'),
           ),
+        ),
+      ],
+    ),
+  );
+}
+
+bool _hasFullOutput(dynamic record) {
+  try {
+    return jsonDecode('${record['content']}')['previewTruncated'] == true &&
+        jsonDecode('${record['content']}')['sourceCallId'] is String;
+  } catch (_) {
+    return false;
+  }
+}
+
+class _ArchivedReceipt extends StatefulWidget {
+  final ChatController chat;
+  final String session, run, call;
+  const _ArchivedReceipt({
+    required this.chat,
+    required this.session,
+    required this.run,
+    required this.call,
+  });
+  @override
+  State<_ArchivedReceipt> createState() => _ArchivedReceiptState();
+}
+
+class _ArchivedReceiptState extends State<_ArchivedReceipt> {
+  Map? page;
+  String? error;
+  bool pending = false;
+  final previous = <int>[];
+  @override
+  void initState() {
+    super.initState();
+    load(0);
+  }
+
+  Future<void> load(int offset, {bool back = false}) async {
+    setState(() => pending = true);
+    try {
+      final saved = await widget.chat.bridge.call({
+        'command': 'readTaskHistory',
+        'session': widget.session,
+        'runId': widget.run,
+        'callId': widget.call,
+        'offset': offset,
+      }) as Map;
+      if (mounted) {
+        setState(() {
+          if (back) {
+            previous.removeLast();
+          } else if (page != null) {
+            previous.add(page!['offset'] as int);
+          }
+          page = saved;
+          error = null;
+        });
+      }
+    } catch (failure) {
+      if (mounted) setState(() => error = '$failure');
+    } finally {
+      if (mounted) setState(() => pending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => InspectorFrame(
+    title: 'Saved output',
+    subtitle: 'Original receipt · no action is rerun',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (error != null) SelectableText(error!),
+        if (pending) const LinearProgressIndicator(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText('${page?['content'] ?? ''}'),
+          ),
+        ),
+        Wrap(
+          spacing: 16,
+          children: [
+            TextButton(
+              onPressed: pending || previous.isEmpty
+                  ? null
+                  : () => load(previous.last, back: true),
+              child: const Text('Previous output'),
+            ),
+            TextButton(
+              onPressed: pending || page?['hasMore'] != true
+                  ? null
+                  : () => load(page!['nextOffset'] as int),
+              child: const Text('Next output'),
+            ),
+            if (error != null)
+              TextButton(
+                onPressed: pending
+                    ? null
+                    : () => load(page?['offset'] as int? ?? 0),
+                child: const Text('Retry output'),
+              ),
+          ],
         ),
       ],
     ),

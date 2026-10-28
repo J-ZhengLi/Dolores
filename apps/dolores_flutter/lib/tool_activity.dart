@@ -219,8 +219,9 @@ String toolResultText(dynamic record) {
           '${result['lossyUtf8'] == true ? '\nSome bytes could not be displayed as UTF-8.' : ''}'
           '${result['outputError'] == true ? '\nSome output could not be read.' : ''}'
           '${result['previewTruncated'] == true ? '\nPreview shortened; capture status is shown above.' : ''}'
-          '${result['localLog'] is String ? '\nLocal log in working folder: ${result['localLog']}\nOpen it locally or request a ranged read.' : ''}'
-          '${result['logError'] == true ? '\nLocal log could not be saved. Inspect files and rerun with a smaller capture.' : ''}'
+          '${result['localLog'] is String ? '\nSaved command log: ${result['localLog']}\nOpen it locally or inspect selected lines using its literal path.' : ''}'
+          '${result['outputLogs'] is Map && (result['outputLogs'] as Map).values.any((v) => v is String) ? '\nComplete output files: ${(result['outputLogs'] as Map).entries.where((e) => e.value is String).map((e) => '${e.key}: ${e.value}').join(', ')}' : ''}'
+          '${result['logError'] == true ? '\nSome output could not be saved. Inspect files and the exit status before considering a new command.' : ''}'
           '\n\nStandard output:\n${result['stdout'] ?? ''}\n\nStandard error:\n${result['stderr'] ?? ''}';
     }
     if (record['name'] == 'create_text_file' && result['applied'] == true) {
@@ -312,9 +313,10 @@ String toolStatus(dynamic record) {
       return 'Verification incomplete';
     }
     if (result['exitCode'] != 0) return 'Failed · exit ${result['exitCode']}';
-    if (result['truncated'] != false ||
-        result['lossyUtf8'] == true ||
-        result['outputError'] == true) {
+    if ((result['outputRetained'] != true &&
+            (result['truncated'] != false || result['lossyUtf8'] == true)) ||
+        result['outputError'] == true ||
+        result['logError'] == true) {
       return 'Verification incomplete';
     }
     return 'Exited 0';
@@ -587,6 +589,21 @@ class ToolApprovalCard extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
+                    if (((request['command']['inherit_env'] as List?) ?? [])
+                        .isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Environment variables to share with this command',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      SelectableText(
+                        (request['command']['inherit_env'] as List).join(', '),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     const Text(
                       'Arguments (each line is one literal value)',

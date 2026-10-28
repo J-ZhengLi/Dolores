@@ -1,5 +1,205 @@
 use super::*;
 
+#[test]
+fn named_environment_reaches_commands_and_sessions_without_recording_values() {
+    let result = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "tests::named_environment_fixture_child",
+            "--nocapture",
+        ])
+        .env("DOLORES_TEST_ENV_CHILD", "1")
+        .env(
+            "DOLORES_TEST_INHERITED_SECRET",
+            "public fixture credential 世界",
+        )
+        .env_remove("DOLORES_TEST_MISSING_ENV")
+        .env("9DOLORES.TEST.环境", "public alias")
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[tokio::test]
+async fn named_environment_fixture_child() {
+    if std::env::var("DOLORES_TEST_ENV_CHILD").as_deref() != Ok("1") {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let marker = "DOLORES_TEST_INHERITED_SECRET";
+    let script = "process.stdout.write(process.env.DOLORES_TEST_INHERITED_SECRET ? 'AVAILABLE' : 'FILTERED')";
+    let request = tool.prepare(&call(script)).unwrap();
+    let result = tool
+        .invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&result).unwrap()["stdout"],
+        "FILTERED"
+    );
+    let script = format!(
+        "{script}; if (process.env['9DOLORES.TEST.环境'] !== 'public alias') process.exitCode = 7"
+    );
+    let payload =
+        json!({"program":"node","args":["-e",script],"inherit_env":[marker,"9DOLORES.TEST.环境"]});
+    let request = tool
+        .prepare(&ToolCall {
+            id: "inherited".into(),
+            name: "run_command".into(),
+            arguments: payload.to_string(),
+        })
+        .unwrap();
+    let preview = serde_json::to_string(&request).unwrap();
+    assert!(preview.contains(marker));
+    assert!(!preview.contains("public fixture credential 世界"));
+    let result = tool
+        .invoke(&request, CancellationToken::new())
+        .await
+        .unwrap();
+    let result: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(result["stdout"], "AVAILABLE");
+    assert_eq!(result["exitCode"], 0);
+    for names in [
+        json!(["DOLORES_TEST_MISSING_ENV"]),
+        json!(["bad=name"]),
+        json!([marker, marker]),
+    ] {
+        assert!(tool
+            .prepare(&ToolCall {
+                id: "invalid-env".into(),
+                name: "run_command".into(),
+                arguments: json!({"program":"node","args":[],"inherit_env":names}).to_string()
+            })
+            .is_err());
+    }
+    let tool = sessions::CommandSessions::new(
+        dir.path(),
+        "env-task".into(),
+        "env-run".into(),
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let mut start = payload;
+    start["operation"] = json!("start");
+    let request = tool
+        .prepare(&ToolCall {
+            id: "start-env".into(),
+            name: "command_session".into(),
+            arguments: start.to_string(),
+        })
+        .unwrap();
+    assert!(!serde_json::to_string(&request)
+        .unwrap()
+        .contains("public fixture credential 世界"));
+    let result: serde_json::Value = serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let id = result["session"]["id"].as_str().unwrap();
+    let mut output = result["output"].as_str().unwrap().to_owned();
+    let mut result = result.clone();
+    for _ in 0..10 {
+        if result["session"]["exitCode"].is_number() {
+            break;
+        }
+        let request = tool.prepare(&ToolCall {id:"read-env".into(),name:"command_session".into(),arguments:json!({"operation":"read","session":id,"offset":result["nextOffset"],"wait_ms":1000}).to_string()}).unwrap();
+        result = serde_json::from_str(
+            &tool
+                .invoke(&request, CancellationToken::new())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        output.push_str(result["output"].as_str().unwrap());
+    }
+    assert_eq!(result["session"]["exitCode"], 0, "{result}");
+    assert_eq!(output, "AVAILABLE");
+    tool.finish().unwrap();
+}
+
+#[cfg(windows)]
+async fn native_command(program: &str, args: Vec<String>) -> serde_json::Value {
+    let dir = tempfile::tempdir().unwrap();
+    let tool = RunCommand::new(dir.path()).unwrap();
+    let request = tool
+        .prepare(&ToolCall {
+            id: "windows-repro".into(),
+            name: "run_command".into(),
+            arguments: json!({"program":program,"args":args}).to_string(),
+        })
+        .unwrap();
+    serde_json::from_str(
+        &tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap(),
+    )
+    .unwrap()
+}
+#[cfg(windows)]
+#[tokio::test]
+async fn cmd_preserves_explicit_script_quotes_with_or_without_s_switch() {
+    for prefix in [vec!["/c"], vec!["/d", "/s", "/c"], vec!["/D", "/S", "/C"]] {
+        let mut args: Vec<String> = prefix.into_iter().map(String::from).collect();
+        args.push("echo \"public quoted value\" & echo PUBLIC_DONE".into());
+        let output = native_command("cmd", args).await;
+        assert_eq!(output["exitCode"], 0, "{output}");
+        assert!(
+            output["stdout"]
+                .as_str()
+                .unwrap()
+                .contains("\"public quoted value\""),
+            "{output}"
+        );
+        assert!(
+            output["stdout"].as_str().unwrap().contains("PUBLIC_DONE"),
+            "{output}"
+        );
+    }
+}
+#[cfg(windows)]
+#[tokio::test]
+async fn powershell_starts_with_native_runtime_environment() {
+    let output = native_command(
+        "powershell",
+        vec![
+            "-NoProfile".into(),
+            "-NonInteractive".into(),
+            "-Command".into(),
+            "[Console]::Write('PUBLIC_POWERSHELL_OK')".into(),
+        ],
+    )
+    .await;
+    assert_eq!(output["exitCode"], 0, "{output}");
+    assert_eq!(output["stdout"], "PUBLIC_POWERSHELL_OK");
+}
+#[cfg(windows)]
+#[tokio::test]
+async fn filtered_environment_keeps_local_username_for_python_ssh_runtime() {
+    let output = native_command(
+        "python",
+        vec![
+            "-c".into(),
+            "import getpass; assert getpass.getuser(); print('PUBLIC_USERNAME_AVAILABLE')".into(),
+        ],
+    )
+    .await;
+    assert_eq!(output["exitCode"], 0, "{output}");
+    assert!(output["stdout"]
+        .as_str()
+        .unwrap()
+        .contains("PUBLIC_USERNAME_AVAILABLE"));
+}
+
 #[cfg(windows)]
 #[test]
 fn node_cli_launcher_is_resolved_before_review_without_shell_expansion() {
@@ -377,7 +577,7 @@ async fn invalid_unknown_tampered_and_cancelled_requests_never_execute() {
     assert!(!dir.path().join("bad").exists());
 }
 #[tokio::test]
-async fn timeout_and_output_budget_stop_processes_and_keep_json_bounded() {
+async fn timeout_stops_processes_but_verbose_output_spills_without_killing_work() {
     let dir = tempfile::tempdir().unwrap();
     let mut tool = RunCommand::new(dir.path()).unwrap();
     tool.deadline = Duration::from_millis(150);
@@ -393,11 +593,30 @@ async fn timeout_and_output_budget_stop_processes_and_keep_json_bounded() {
     let tool = RunCommand::new(dir.path()).unwrap();
     let value = invoke(
         &tool,
-        "process.stdout.write(Buffer.alloc(65536,0));setTimeout(()=>{},10000)",
+        "process.stdout.write(Buffer.alloc(524288,65),()=>setTimeout(()=>require('fs').writeFileSync('verbose-finished','yes'),100))",
     )
     .await;
-    assert_eq!(value["reason"], "outputLimit");
+    assert_eq!(value["reason"], "completed");
+    assert_eq!(value["exitCode"], 0);
     assert_eq!(value["truncated"], true);
+    assert_eq!(value["outputRetained"], true);
+    let output_path = Path::new(value["outputLogs"]["stdout"].as_str().unwrap());
+    assert!(output_path.is_absolute());
+    assert!(!output_path.starts_with(dir.path().canonicalize().unwrap()));
+    assert_eq!(
+        std::fs::read_dir(dir.path()).unwrap().count(),
+        1,
+        "Only the command's requested artifact belongs in the workspace"
+    );
+    assert_eq!(
+        std::fs::read(
+            dir.path()
+                .join(value["outputLogs"]["stdout"].as_str().unwrap())
+        )
+        .unwrap(),
+        vec![65u8; 524288]
+    );
+    assert!(dir.path().join("verbose-finished").is_file());
     assert!(value.to_string().len() <= MAX_TOOL_BYTES);
     let tool = RunCommand::new(dir.path()).unwrap();
     let value = invoke(&tool, "process.stdout.write(Buffer.from([255,254]))").await;
@@ -550,6 +769,12 @@ async fn explicit_capture_saves_large_log_and_fresh_deadline_recovers() {
     assert_eq!(value["exitCode"], 0);
     assert_eq!(value["truncated"], false);
     assert_eq!(value["previewTruncated"], true);
+    assert!(Path::new(value["localLog"].as_str().unwrap()).is_absolute());
+    assert_eq!(
+        std::fs::read_dir(dir.path()).unwrap().count(),
+        0,
+        "Harness logs must not appear in the workspace"
+    );
     let saved =
         std::fs::read_to_string(dir.path().join(value["localLog"].as_str().unwrap())).unwrap();
     assert_eq!(saved.lines().filter(|s| *s == "世界").count(), 5000);
@@ -572,4 +797,31 @@ async fn explicit_capture_saves_large_log_and_fresh_deadline_recovers() {
     .unwrap();
     assert_eq!(value["stdout"], "done");
     assert_eq!(value["exitCode"], 0);
+}
+
+#[tokio::test]
+async fn unavailable_log_storage_never_falls_back_to_the_workspace_or_kills_work() {
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = dir.path().join("project");
+    std::fs::create_dir(&workspace).unwrap();
+    let blocked = dir.path().join("blocked-log-storage");
+    std::fs::write(&blocked, "Preserve this file").unwrap();
+    let tool = RunCommand::new(&workspace)
+        .unwrap()
+        .with_log_directory(blocked.clone())
+        .unwrap();
+    let value = invoke(&tool,"process.stdout.write(Buffer.alloc(524288,65),()=>require('fs').writeFileSync('finished','yes'))").await;
+    assert_eq!(value["exitCode"], 0);
+    assert_eq!(value["logError"], true);
+    assert_eq!(value["outputRetained"], false);
+    assert!(value["outputLogs"]["stdout"].is_null());
+    assert_eq!(
+        std::fs::read_to_string(blocked).unwrap(),
+        "Preserve this file"
+    );
+    assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 1);
+    assert_eq!(
+        std::fs::read_to_string(workspace.join("finished")).unwrap(),
+        "yes"
+    );
 }

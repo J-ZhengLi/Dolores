@@ -229,20 +229,159 @@ impl ToolPlugin for LoggedTool {
         if let Some(policy) = &self.policy {
             policy.recheck()?;
         }
-        let result = self.inner.invoke(request, cancel).await;
+        let mut result = self.inner.invoke(request, cancel).await;
+        let original = result.as_ref().map_or_else(|s| s.as_str(), |s| s.as_str());
+        let original_bytes = original.len();
+        let fragmented = original_bytes > dolores_core::MAX_TOOL_BYTES;
+        if fragmented {
+            let mut offset = 0;
+            while offset < original.len() {
+                let mut end = (offset + 16 * 1024).min(original.len());
+                while !original.is_char_boundary(end) {
+                    end -= 1;
+                }
+                self.log.record(None,"toolResultFragment",json!({"callId":request.call_id,"offset":offset,"totalBytes":original.len(),"text":&original[offset..end]})).await.map_err(|_|"An operation returned but its complete output could not be saved. Inspect effects before retrying.")?;
+                offset = end;
+            }
+            let mut preview = serde_json::from_str::<Value>(original)
+                .ok()
+                .filter(Value::is_object)
+                .unwrap_or_else(|| json!({"preview":text_prefix(original,2048)}));
+            for field in ["text", "stdout", "stderr", "output"] {
+                if let Some(text) = preview[field].as_str().filter(|s| s.len() > 2048) {
+                    preview[field] = json!(text_prefix(text, 2048));
+                }
+            }
+            preview["sourceCallId"] = json!(request.call_id);
+            preview["originalBytes"] = json!(original_bytes);
+            preview["previewTruncated"] = json!(true);
+            preview["historyNote"]=json!("Complete output is saved. Use read_task_history with this sourceCallId as callId and nextOffset; do not rerun actions to recover omitted output.");
+            let mut encoded = preview.to_string();
+            if encoded.len() > dolores_core::MAX_TOOL_BYTES {
+                encoded=json!({"sourceCallId":request.call_id,"originalBytes":original_bytes,"previewTruncated":true,"preview":text_prefix(original,2048),"historyNote":"Complete output is saved; retrieve it with read_task_history by callId."}).to_string();
+            }
+            result = if result.is_ok() {
+                Ok(encoded)
+            } else {
+                Err(encoded)
+            };
+        }
         let content = match &result {
             Ok(text) | Err(text) if text.len() <= dolores_core::MAX_TOOL_BYTES => {
                 Some(text.as_str())
             }
             _ => None,
         };
-        self.log.record(None,"toolResult",json!({"callId":request.call_id,"name":request.name,"target":request.target,"returned":result.is_ok(),"content":content,"parts":if result.is_ok(){self.inner.image_results()}else{vec![]},"oversized":content.is_none(),"note":"Returned errors do not establish that external effects were undone. Inspect Changes or command receipts."})).await.map_err(|_|"An operation returned but its run evidence could not be saved. Inspect Changes and external effects before retrying.")?;
+        self.log.record(None,"toolResult",json!({"callId":request.call_id,"name":request.name,"target":request.target,"returned":result.is_ok(),"content":content,"originalBytes":original_bytes,"fragmented":fragmented,"parts":if result.is_ok(){self.inner.image_results()}else{vec![]},"oversized":false,"note":"Returned errors do not establish that external effects were undone. Inspect Changes or command receipts."})).await.map_err(|_|"An operation returned but its run evidence could not be saved. Inspect Changes and external effects before retrying.")?;
         result
     }
+}
+fn text_prefix(text: &str, limit: usize) -> &str {
+    let mut end = text.len().min(limit);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn oversized_tool_output_is_saved_once_and_exactly_retrievable_without_reexecution() {
+        use dolores_core::ToolCall;
+        struct Large;
+        #[async_trait]
+        impl ToolPlugin for Large {
+            fn spec(&self) -> ToolSpec {
+                ToolSpec {
+                    name: "read_text_file".into(),
+                    description: "Public fixture".into(),
+                    parameters: json!({}),
+                }
+            }
+            fn prepare(&self, _: &ToolCall) -> Result<ToolRequest, String> {
+                unreachable!()
+            }
+            async fn invoke(
+                &self,
+                _: &ToolRequest,
+                _: CancellationToken,
+            ) -> Result<String, String> {
+                Ok("Public 世界 \\\"\n".repeat(12000))
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evidence.db");
+        let store = Arc::new(dolores_store_sqlite::SqliteStore::open(&path).unwrap());
+        store.create("chat").unwrap();
+        let id = "11111111-1111-4111-8111-111111111111";
+        let snapshot = dolores_core::RunSnapshot {
+            parent_run: None,
+            segments: 1,
+            id: id.into(),
+            thread: "chat".into(),
+            model: "fixture".into(),
+            settings: Default::default(),
+            input: "Public fixture".into(),
+            state: RunState::Prepared,
+            sequence: 0,
+            created_at: 0,
+            build: "fixture".into(),
+            tools: vec![],
+            extensions: vec![],
+            effective_settings: None,
+        };
+        store.begin_run(&snapshot).unwrap();
+        let log = RunLog::new(store.clone(), id.into());
+        log.record(Some(RunState::Running), "started", json!({}))
+            .await
+            .unwrap();
+        let tool = LoggedTool {
+            inner: Arc::new(Large),
+            log,
+            policy: None,
+        };
+        let request = ToolRequest {
+            call_id: "large-read".into(),
+            name: "read_text_file".into(),
+            target: "public.txt".into(),
+            query: None,
+            diff: None,
+            command: None,
+            mcp: None,
+        };
+        let preview = tool
+            .invoke(&request, CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(preview.len() <= dolores_core::MAX_TOOL_BYTES);
+        assert_eq!(
+            serde_json::from_str::<Value>(&preview).unwrap()["previewTruncated"],
+            true
+        );
+        let reopened = dolores_store_sqlite::SqliteStore::open(&path).unwrap();
+        let mut content = String::new();
+        let mut offset = 0;
+        loop {
+            let page = reopened
+                .read_task_history("chat", id, Some("large-read"), 0, offset)
+                .unwrap();
+            content.push_str(page["content"].as_str().unwrap());
+            let next = page["nextOffset"].as_u64().unwrap() as usize;
+            assert!(next > offset);
+            offset = next;
+            if page["hasMore"] == false {
+                break;
+            }
+        }
+        assert_eq!(content, "Public 世界 \\\"\n".repeat(12000));
+        let events = reopened.run_events("chat", id).unwrap();
+        assert_eq!(events.iter().filter(|e| e.kind == "toolIntent").count(), 1);
+        assert_eq!(events.iter().filter(|e| e.kind == "toolResult").count(), 1);
+        assert!(reopened
+            .read_task_history("another", id, Some("large-read"), 0, 0)
+            .is_err());
+    }
     #[test]
     fn data_lock_refuses_a_second_owner_and_recovers_after_release() {
         let dir = tempfile::tempdir().unwrap();

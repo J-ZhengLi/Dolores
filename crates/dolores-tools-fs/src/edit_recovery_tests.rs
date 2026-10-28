@@ -34,7 +34,9 @@ impl ModelProvider for RecoveringModel {
             next.id = format!("recover-{count}");
             if count == 1 {
                 assert!(messages
-                    .last()
+                    .iter()
+                    .rev()
+                    .find(|m| m.role == "tool")
                     .unwrap()
                     .content
                     .starts_with("Exact old_text was not found."));

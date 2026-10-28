@@ -369,6 +369,7 @@ impl Engine {
             tools.push(crate::questions::spec());
         }
         if working {
+            tools.push(crate::task_history::spec());
             tools.push(dolores_tools_command::command_spec());
             if cfg!(windows) {
                 tools.push(dolores_tools_command::sessions::session_spec());

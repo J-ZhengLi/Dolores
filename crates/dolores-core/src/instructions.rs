@@ -1,4 +1,4 @@
-use crate::{Message, Role, MAX_CONTEXT_BYTES};
+use crate::{Message, Role, MAX_CONTEXT_ALLOCATION_BYTES as MAX_CONTEXT_BYTES};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_INSTRUCTION_BYTES: usize = 8 * 1024;
@@ -93,6 +93,13 @@ mod tests {
             crate::prepare_agent_context(crate::preview_context(history, "draft").unwrap())
                 .unwrap();
         let prepared = prepare_instruction_context(before.clone(), Some(&value)).unwrap();
+        assert_eq!(
+            prepared.len(),
+            before.len(),
+            "Byte preparation must leave selection to model capacity"
+        );
+        let (prepared, _) =
+            crate::prepare_token_context(prepared, &[], Some(32768), Default::default()).unwrap();
         assert!(prepared.len() < before.len());
         assert!(prepared.iter().map(|m| m.content.len()).sum::<usize>() <= MAX_CONTEXT_BYTES);
         assert_eq!(prepared[prepared.len() - 3].role, Role::User);

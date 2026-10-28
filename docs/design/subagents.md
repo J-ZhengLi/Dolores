@@ -9,10 +9,14 @@ the parent waits for the batch before resuming its own tools.
 
 Children default to the parent's configured model and share its request settings, prepared system
 instructions, original user request and task allowance. They do not receive the
-full conversation or attachments. At most four model calls and four file tool
-operations per child cumulatively across follow-ups, further restricted by the shared parent totals. One model
+full conversation or attachments. Each child can use up to 32 model calls and 64 file
+operations cumulatively across follow-ups, further restricted by explicit shared parent totals. One model
 call stays reserved for the parent report. Delegation itself spends a tool
 operation. Defaults remain unchanged: small allowances may pause a batch.
+
+Follow-ups have no separate two-message cutoff. They retain cumulative usage,
+frozen scope/model/permissions and cannot replenish either allowance. Applicable
+nested instruction reads are available within the assigned file scope.
 
 Scoped project file tools and frozen selected package reads are available to children. Their grants are the parent's
 current grants intersected with child scope and read-only restrictions. In Review
@@ -54,8 +58,8 @@ operations still recheck the live parent grant, expiry and revision.
 After a batch returns, the parent can call `delegate_tasks` with `childId` and
 `action: inspect`, `followUp` or `interrupt`. Only `followUp` accepts `message`
 (1–512 UTF-8 bytes); only `inspect` accepts a context byte `offset`. A follow-up
-waits for that child's new report before parent tools resume. At most two
-follow-ups retain the child identity and cumulative four-model/four-file cap;
+waits for that child's new report before parent tools resume. Follow-ups
+retain the child identity and cumulative 32-model/64-file cap;
 attempts, including failed/interrupted calls, are never refunded. Parent totals
 and its reporting reserve also remain enforced. There is no automatic replay or
 child lifetime beyond the parent run.

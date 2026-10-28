@@ -1,8 +1,11 @@
 use crate::{
     credential_like, Message, ProjectSkill, Role, SkillDocument, SkillScope, SkillSource,
-    TokenUsage, MAX_SKILL_BYTES,
+    TokenUsage,
 };
 use serde::{Deserialize, Serialize};
+
+// Generated drafts stay concise; this is not the source-file/import allocation.
+const MAX_GENERATED_SKILL_BYTES: usize = 8192;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +45,9 @@ pub fn skill_document(
             instructions
         ),
     };
+    if document.text.len() > MAX_GENERATED_SKILL_BYTES {
+        return Err("Generated skill draft exceeds 8 KiB. Shorten the reusable workflow.".into());
+    }
     document.validate()?;
     if instructions.trim().is_empty() || credential_like(&document.text) {
         return Err("Skill instructions must be nonempty and free of credentials.".into());
@@ -106,7 +112,7 @@ pub fn skill_draft_prompt(examples: &[SkillExample]) -> Result<Vec<Message>, Str
     ])
 }
 pub fn parse_skill_draft(text: &str, examples: &[SkillExample]) -> Result<SkillDraft, String> {
-    if text.len() > MAX_SKILL_BYTES {
+    if text.len() > MAX_GENERATED_SKILL_BYTES {
         return Err("Skill draft exceeds 8 KiB. Nothing was saved.".into());
     }
     serde_json::from_str::<serde::de::IgnoredAny>(text.trim())

@@ -95,6 +95,52 @@ pub fn estimate_agent_tokens(messages: &[AgentMessage], tools: &[ToolSpec]) -> R
     Ok(tokens)
 }
 
+/// Display snapshot of the exact projected request; never truncates or calls a provider.
+pub fn agent_token_context(
+    messages: &[AgentMessage],
+    tools: &[ToolSpec],
+    window: Option<u32>,
+    settings: RequestSettings,
+) -> Result<TokenContext, String> {
+    let input_tokens = estimate_agent_tokens(messages, tools)?;
+    let draft = messages.iter().rposition(|m| m.role == "user");
+    let mut system_tokens = 0;
+    let mut draft_tokens = 0;
+    let mut history_tokens = 0;
+    let mut image_tokens = 0;
+    for (i, m) in messages.iter().enumerate() {
+        let count = estimate_text_tokens(&m.content);
+        if m.role == "system" {
+            system_tokens += count;
+        } else if Some(i) == draft {
+            draft_tokens += count;
+        } else {
+            history_tokens += count;
+        }
+        image_tokens += image_allowance(&m.parts);
+    }
+    let tool_tokens = tool_tokens(tools)?;
+    Ok(TokenContext {
+        estimator: "utf8-div4-v1".into(),
+        input_tokens,
+        system_tokens,
+        draft_tokens,
+        history_tokens,
+        image_tokens,
+        tool_tokens,
+        framing_tokens: input_tokens
+            - system_tokens
+            - draft_tokens
+            - history_tokens
+            - image_tokens
+            - tool_tokens,
+        context_window_tokens: window,
+        max_input_tokens: input_token_allowance(window, settings)?,
+        reserved_output_tokens: window.map_or(0, |w| output_reserve(w, settings)),
+        headroom_tokens: window.map_or(0, |w| u64::from(w) - u64::from(w) * 95 / 100),
+    })
+}
+
 /// Shared by preview and send after byte preparation and optional tool guidance.
 pub fn prepare_token_context(
     mut messages: Vec<Message>,
@@ -154,6 +200,65 @@ pub fn prepare_token_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn active_agent_snapshot_counts_exact_protocol_and_components_without_changing_context() {
+        let messages = vec![
+            AgentMessage {
+                role: "system".into(),
+                content: "System 世界".into(),
+                parts: vec![],
+                calls: vec![],
+                call_id: None,
+            },
+            AgentMessage {
+                role: "user".into(),
+                content: "Task".into(),
+                parts: vec![],
+                calls: vec![],
+                call_id: None,
+            },
+            AgentMessage {
+                role: "assistant".into(),
+                content: "Inspecting".into(),
+                parts: vec![],
+                calls: vec![crate::ToolCall {
+                    id: "call".into(),
+                    name: "read".into(),
+                    arguments: "{}".into(),
+                }],
+                call_id: None,
+            },
+            AgentMessage {
+                role: "tool".into(),
+                content: "Evidence".into(),
+                parts: vec![],
+                calls: vec![],
+                call_id: Some("call".into()),
+            },
+        ];
+        let tools = vec![ToolSpec {
+            name: "read".into(),
+            description: "Read".into(),
+            parameters: serde_json::json!({}),
+        }];
+        let count =
+            agent_token_context(&messages, &tools, Some(500000), Default::default()).unwrap();
+        assert_eq!(
+            count.input_tokens,
+            estimate_agent_tokens(&messages, &tools).unwrap()
+        );
+        assert_eq!(
+            count.input_tokens,
+            count.system_tokens
+                + count.draft_tokens
+                + count.history_tokens
+                + count.image_tokens
+                + count.tool_tokens
+                + count.framing_tokens
+        );
+        assert_eq!(count.context_window_tokens, Some(500000));
+        assert_eq!(messages.last().unwrap().content, "Evidence");
+    }
     #[test]
     fn estimates_unicode_rounding_schema_and_protocol_without_inventing_usage() {
         assert_eq!(estimate_text_tokens(""), 0);

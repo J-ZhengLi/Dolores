@@ -418,7 +418,7 @@ File restrictions, budgets and Stop remain active. Commands can use literal path
 
 During working-agent tasks, temporary model connection/stream failures, rate limiting and selected server errors retry up to twice. **Reconnecting to the model** keeps the same task and Stop button. Completed actions are not replayed; incomplete calls are discarded, and each model attempt consumes your configured allowance. Repeated failure saves progress for explicit recovery. Authentication/configuration errors and tool execution failures need inspection rather than automatic retry.
 
-Tasks use **Automatic** model/tool cycles by default, so ordinary work can proceed past four operations without Continue. Open **Settings → Advanced → Task limits** for optional custom limits for this chat, its project or your user defaults. Leave call fields blank for Automatic; existing saved numbers still apply. Task time is separate from response inactivity and model context. Blank task time adds no overall deadline; an explicit task clock excludes waiting for your review. Routine context and evidence maintenance now stays inside the running task, showing Updating context without requiring Continue. Earlier progress opens paged, complete task evidence. A failed save/summary or an explicit limit still pauses with saved progress. Repeated tool failures pause with their receipts so Dolores can change approach instead of repeating the same failed operation.
+Tasks use **Automatic** model/tool cycles by default, so ordinary work can proceed past four operations without Continue. Open **Settings → Advanced → Task limits** for optional custom limits for this chat, its project or your user defaults. Leave call fields blank for Automatic; existing saved numbers still apply. Task time is separate from response inactivity and model context. Blank task time adds no overall deadline; an explicit task clock excludes waiting for your review. Routine context and evidence maintenance stays inside the running task, showing Updating context without requiring Continue or hiding earlier conversation output. A failed save/summary or an explicit limit still pauses with saved progress. Repeated tool failures pause with their receipts so Dolores can change approach instead of repeating the same failed operation.
 
 When provider-default output ends after useful public progress, Dolores continues once within the current task allowance. Incomplete tool calls are discarded and any new operation receives fresh review. Explicit output caps, reasoning-only exhaustion and repeated truncation pause instead of looping. Dolores preserves saved progress at output/step limits. **Continue** uses a fresh bounded segment and fresh tool decisions. A task allows four segments by default; after that, review its progress and explicitly adjust Task limits before continuing. Applied files remain after a later failure. A saved reply or successful command alone does not establish that the whole task is finished.
 
@@ -435,7 +435,7 @@ model on the same connection when creating a child; review that choice in the
 batch preview. That model and its request settings remain frozen until the parent
 ends. Children share prepared instructions, original request,
 current permissions and total task allowance. They do not receive the full chat
-or attachments. Each has at most four model calls/four file operations including follow-ups; children
+or attachments. Each has up to 32 model calls/64 file operations across follow-ups, within the shared parent allowance; children
 cannot run commands, use external tools or spawn more children. The parent can
 run a separately approved verification command after they return. Small explicit
 Task limits may leave too little for a batch and parent verification; narrow the
@@ -451,13 +451,13 @@ While the parent runs, expand a child to **Inspect child context** or **Interrup
 child**. Context pages show prepared instructions and report checkpoints; detailed
 tool evidence remains in Earlier tasks. Interrupting one child leaves its sibling,
 parent and completed files available. To clarify a settled report, ask the parent
-to follow up with that child by its ID. Up to two follow-ups keep the same scope,
-model, permissions and remaining four-call/four-file allowance. Exhausted limits
+to follow up with that child by its ID. Follow-ups keep the same scope,
+model, permissions and remaining cumulative allowance. Exhausted limits
 or an ended parent require reviewing saved progress; they cannot be reset by a
 follow-up. After the parent ends, saved context pages remain in Earlier tasks.
 
 Selected package references can also be read by a child through the frozen
-package reader; these reads count toward its four-file-operation allowance.
+package reader; these reads count toward its file-operation allowance.
 Parent steering can add a selected package for the parent, but it cannot widen
 an existing child's resources. Reviewed project hooks apply to child file and
 resource actions under the parent's shared hook allowance.
@@ -573,11 +573,11 @@ Changes apply to future runs. While a run is active, run-related changes wait un
 
 Enter sends ordinary text; Shift+Enter inserts a newline. Headings and fenced code render as editable blocks. Enter inside code inserts a newline; Ctrl/Command+Enter sends. Down Arrow from the final visual code line moves to the next block or creates a paragraph below. Ctrl/Command+A selects the whole draft. Replies have message/code Copy actions.
 
-Working models can request folder listing, literal search, text reads and file changes. Review the exact target, query, content or diff and choose the displayed **Allow/Apply/Create once** or **Deny** action. To work on a file elsewhere, open its containing folder as a project. Searches are bounded and can report partial coverage. Ranged reads return a source digest; snapshot-bound existing-file edits support files up to 1 MiB. Reviewed diffs and ordinary read results remain bounded to 16 KiB; a replacement must match uniquely.
+Working models can request folder listing, literal search, text reads and file changes. Review the exact target, query, content or diff and choose the displayed **Allow/Apply/Create once** or **Deny** action. To work on a file elsewhere, open its containing folder as a project. Searches are bounded and can report partial coverage. Ranged reads return a source digest and continuation cursor; snapshot-bound existing-file edits support files up to 1 MiB. Complete reviewed diffs allow 256 KiB independently of small result previews; a replacement must match uniquely.
 
 **Changes** retains file before/after snapshots independently of the final reply. Select a record, **Review revert**, inspect the reverse diff, then **Revert once**; a recorded creation offers **Remove once**. Changed files require another review. **Needs check** indicates an uncertain receipt to inspect. Applied files can remain after Stop or a later model failure. Command and MCP effects are outside this journal.
 
-Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a proposal can explicitly request up to 300 seconds / 256 KiB. Large captured logs stay inspectable in the working folder, while model-facing previews remain bounded. Native commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable servers under **Settings → Connections**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
+Commands show the executable, literal arguments and folder before **Run once**. Defaults are 30 seconds / 8 KiB capture; a one-shot proposal can explicitly request up to 300 seconds / 256 KiB. Supervised command sessions can explicitly request up to six hours and wait up to 30 seconds for output between model calls. They remain owned by the run: Stop or run completion cleans up their processes. Large captured logs stay inspectable in Dolores-managed storage outside the working folder, while model-facing previews remain bounded. Native commands and MCP servers run with your account permissions and may access files outside the project or use the network. Enable servers under **Settings → Connections**: inspect, select tools and explicitly enable. Up to four saved servers share two active external tool slots. Optional keys use the OS vault. Review mode asks for every invocation; selected automatic grants/full chat access use the task-permission boundary described above.
 
 For a remote endpoint on Windows, choose **Browser sign-in (OAuth)** and **Sign in**.
 Complete the login in your default browser, return to review the tools, then
@@ -655,6 +655,8 @@ Use **Older/Newer/Latest** to browse saved chats/messages. Export the complete s
 
 **Activity → Earlier tasks** shows the latest 20 primary runs, their saved settings/origins and ordered local execution evidence. Interrupted operations can have uncertain effects: inspect **Changes** and any external effects before retrying. Dolores never replays them automatically. This durable history is separate from Trajectory's recent live Log; older chats have no invented run records.
 
+Assistant output stays in the conversation in chronological order, including after context maintenance or reopening. Consecutive tool executions appear as one expandable row until the next assistant output; expand it to inspect individual results. Model-context compaction runs separately and does not collapse the visible conversation. Reading saved transcript data is local and makes no model request. Original saved receipts also remain available to the agent through the deferred history reader when needed.
+
 ## Data and portable previews
 
 Windows portable previews require the [Microsoft Visual C++ x64 runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). Extract all files together and open `dolores_flutter.exe`; moving the EXE alone breaks the app. The ZIP does not include a model or install system dependencies. A checksum detects corruption; an unsigned local preview is not an authenticated public release.
@@ -665,7 +667,7 @@ Back up the data directory while Dolores is closed; copying the database alone d
 
 ## Larger files and command output
 
-Dolores can request line ranges from UTF-8 files up to 1 MiB and use the returned snapshot for a reviewed exact edit. A changed file requires a fresh read and preview. Command cards show requested time/capture limits; defaults remain 30 seconds and 8 KiB. Larger output names a local log in your working folder. Open that file locally or ask for selected lines. A shortened preview is distinct from an incomplete capture; stopped commands may leave file changes.
+Dolores pages UTF-8 files by line or byte, including files above 1 MiB and long single lines. Reviewed exact edits retain a separate 1 MiB snapshot allowance. A changed file requires a fresh read and preview. Command cards show requested time/capture limits; defaults remain 30 seconds and 8 KiB. Filling inline capture does not stop the command: complete excess output is saved to a log in Dolores-managed storage outside the working folder. Open that file locally or ask for selected lines. A shortened preview is distinct from an incomplete capture; stopped commands may leave file changes.
 
 ## Recovering an interrupted task
 

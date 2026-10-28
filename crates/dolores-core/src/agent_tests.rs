@@ -1410,7 +1410,7 @@ async fn packaged_catalog_accepts_twenty_four_tools_and_refuses_excess_or_duplic
             unreachable!()
         }
     }
-    for count in [21, 24, 25] {
+    for count in [24, 32, MAX_REGISTERED_TOOLS, MAX_REGISTERED_TOOLS + 1] {
         let provider = Scripted {
             calls: Mutex::new(vec![]),
             loop_forever: false,
@@ -1432,7 +1432,7 @@ async fn packaged_catalog_accepts_twenty_four_tools_and_refuses_excess_or_duplic
             CancellationToken::new(),
         )
         .await;
-        if count <= 24 {
+        if count <= MAX_REGISTERED_TOOLS {
             assert_eq!(result.unwrap().answer, "Final answer");
         } else {
             assert_eq!(result.err().unwrap(), "Tool registration is invalid.");
@@ -1515,6 +1515,7 @@ impl ToolPlugin for CommandMock {
             command: Some(CommandPreview {
                 invocation,
                 executable: "/runtime/node".into(),
+                inherit_env: vec![],
                 isolation: None,
                 timeout_seconds: 30,
                 capture_bytes: 8192,
@@ -1957,6 +1958,9 @@ async fn model_text_is_visible_before_completion_without_preparing_or_approving_
         receiver.recv().await.unwrap(),
         AgentEvent::ModelStep { number: 1 }
     ));
+    assert!(
+        matches!(receiver.recv().await.unwrap(), AgentEvent::ModelContext {number:1,tokens} if tokens.input_tokens>0)
+    );
     assert!(
         matches!(receiver.recv().await.unwrap(), AgentEvent::ModelText {number:1,text} if text == "Let me read 世界.")
     );

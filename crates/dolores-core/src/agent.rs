@@ -1,4 +1,7 @@
-use crate::{Message, ModelProvider, TokenUsage, MAX_CONTEXT_BYTES, MAX_OUTPUT_BYTES};
+use crate::{
+    Message, ModelProvider, TokenUsage, MAX_CONTEXT_ALLOCATION_BYTES as MAX_CONTEXT_BYTES,
+    MAX_OUTPUT_BYTES,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -12,10 +15,11 @@ mod tests;
 pub const MAX_MODEL_CALLS: usize = 4;
 pub const MAX_TOOL_CALLS: usize = 4;
 pub const MAX_TOOL_BYTES: usize = 16 * 1024;
-// Twenty-one Windows host tools, one optional browser and two reviewed MCP slots.
-// Registration capacity is separate from per-turn calls and task execution budgets.
-pub const MAX_REGISTERED_TOOLS: usize = 21 + 1 + 2;
+// Allocation guard, independent of today's built-in inventory. Only selected
+// schemas are sent; the actual model allowance governs request capacity.
+pub const MAX_REGISTERED_TOOLS: usize = 128;
 pub const MAX_FILE_ARGUMENT_BYTES: usize = 64 * 1024;
+pub const MAX_FILE_REVIEW_BYTES: usize = 256 * 1024;
 pub fn tool_argument_limit(name: &str) -> usize {
     match name {
         "create_text_file" | "edit_text_file" => MAX_FILE_ARGUMENT_BYTES,
@@ -196,6 +200,8 @@ pub struct CommandPreview {
     pub capture_bytes: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub isolation: Option<CommandIsolationPreview>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub inherit_env: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct CommandIsolationPreview {
@@ -301,8 +307,19 @@ pub enum AgentEvent {
         number: usize,
         measurements: StreamMeasurements,
     },
+    ModelAttemptFinished {
+        number: usize,
+        buffered: bool,
+        #[serde(rename = "elapsedMs")]
+        elapsed_ms: u64,
+        outcome: String,
+    },
     ModelStep {
         number: usize,
+    },
+    ModelContext {
+        number: usize,
+        tokens: crate::TokenContext,
     },
     ModelRetry {
         number: usize,
@@ -341,6 +358,7 @@ pub enum AgentEvent {
 #[serde(rename_all = "camelCase")]
 pub enum ModelActivity {
     Waiting,
+    WaitingComplete,
     Reasoning,
     ToolArguments,
     Responding,
@@ -634,12 +652,15 @@ pub async fn run_agent_with_shared_budget(
     let mut output_bytes = 0;
     let mut output_recoveries = 0;
     let mut model_retries = 0;
+    let mut forced_compaction = None;
+    let mut overflow_retry_used = false;
     // Keep a selected fallback for this run only; do not mutate saved settings.
     let mut buffered_responses = false;
     let mut failures = crate::agent_watchdog::FailureWatchdog::default();
     let mut ids = HashSet::new();
     let mut denied = HashSet::new();
     let mut protected_evidence = HashSet::new();
+    let mut scoped_guidance = std::collections::BTreeMap::<String, String>::new();
     let mut base_system = messages[0].content.clone();
     let mut capacity_band = 0;
     let recovery_available = approval.context_recovery_available();
@@ -693,16 +714,14 @@ pub async fn run_agent_with_shared_budget(
             recovery_available,
         )?;
         let protocol_pressure = provider.continuation_pressure_percent();
+        let rejected_tokens = forced_compaction.take();
+        let needs_compaction = rejected_tokens.is_some()
+            || capacity.pressure_percent.saturating_add(protocol_pressure) >= 80;
         let mut compacted = false;
-        if capacity.pressure_percent.saturating_add(protocol_pressure) >= 80
-            && (!recovery_available || number == model_limit)
-        {
+        if needs_compaction && (!recovery_available || number == model_limit) {
             return Ok(checkpoint_reply(summary, "Model context checkpoint saved. Compact the conversation before continuing. Completed work remains; recovery never replays completed actions."));
         }
-        if capacity.pressure_percent.saturating_add(protocol_pressure) >= 80
-            && recovery_available
-            && number < model_limit
-        {
+        if needs_compaction && recovery_available && number < model_limit {
             emit(
                 &events,
                 AgentEvent::TaskMaintenance { active: true },
@@ -779,6 +798,11 @@ pub async fn run_agent_with_shared_budget(
                 .await
             {
                 Ok(archive) => {
+                    // Complete receipts were just durably sealed. Release old
+                    // payloads from the working set as well as the next request;
+                    // otherwise a roomy context window eventually overflows the
+                    // checkpoint byte/fragment guard and copies history quadratically.
+                    messages = crate::agent_projection::project(&messages, &protected_evidence);
                     emit(
                         &events,
                         AgentEvent::TaskSegment {
@@ -841,7 +865,16 @@ pub async fn run_agent_with_shared_budget(
                 call_id: None,
             });
         }
-        let tokens = crate::estimate_agent_tokens(&request_messages, &specs)?;
+        let token_context = crate::agent_token_context(
+            &request_messages,
+            &specs,
+            provider.context_window_tokens(),
+            settings,
+        )?;
+        let tokens = token_context.input_tokens;
+        if rejected_tokens.is_some_and(|previous| tokens >= previous) {
+            return Ok(checkpoint_reply(summary,"The provider rejected this context, and compaction could not produce a smaller request. Progress is saved; inspect the model context setting and task checkpoint before continuing. The rejected request was not repeated."));
+        }
         if crate::input_token_allowance(
             provider.context_window_tokens(),
             provider.request_settings().unwrap_or_default(),
@@ -854,6 +887,15 @@ pub async fn run_agent_with_shared_budget(
             ));
         }
         emit(&events, AgentEvent::ModelStep { number }, &cancel).await?;
+        emit(
+            &events,
+            AgentEvent::ModelContext {
+                number,
+                tokens: token_context,
+            },
+            &cancel,
+        )
+        .await?;
         let (text, mut receiver) = mpsc::channel(32);
         let (activity, mut activity_receiver) = mpsc::channel(8);
         let (thinking, mut thinking_receiver) = mpsc::channel(8);
@@ -861,7 +903,24 @@ pub async fn run_agent_with_shared_budget(
         let allowance = std::time::Duration::from_secs(settings.timeout_seconds.into());
         let idle = tokio::time::sleep(allowance);
         tokio::pin!(idle);
-        let mut phase = ModelActivity::Waiting;
+        let mut phase = if buffered_responses {
+            ModelActivity::WaitingComplete
+        } else {
+            ModelActivity::Waiting
+        };
+        if buffered_responses {
+            emit(
+                &events,
+                AgentEvent::ModelActivity {
+                    number,
+                    phase,
+                    elapsed_seconds: 0,
+                    timeout_seconds: settings.timeout_seconds,
+                },
+                &cancel,
+            )
+            .await?;
+        }
         let mut pulse = tokio::time::interval(std::time::Duration::from_secs(1));
         pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         if rolling {
@@ -925,6 +984,30 @@ pub async fn run_agent_with_shared_budget(
                 }
             }
         };
+        let outcome = match &turn {
+            Ok(_) => "completed",
+            Err(error) if provider.context_overflow(error) => "contextRejected",
+            Err(error) if error.contains("timed out") || error.contains("stalled") => "timeout",
+            Err(error)
+                if error.contains("unfinished")
+                    || error.contains("interrupted")
+                    || error.contains("before the response finished") =>
+            {
+                "incomplete"
+            }
+            Err(_) => "failed",
+        };
+        emit(
+            &events,
+            AgentEvent::ModelAttemptFinished {
+                number,
+                buffered: buffered_responses,
+                elapsed_ms: started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                outcome: outcome.into(),
+            },
+            &cancel,
+        )
+        .await?;
         let measured = diagnostics.lock().ok().and_then(|d| d.clone());
         if let Some(measurements) = measured {
             emit(
@@ -944,7 +1027,29 @@ pub async fn run_agent_with_shared_budget(
         let turn = match turn {
             Ok(turn) => {
                 model_retries = 0;
+                overflow_retry_used = false;
                 turn
+            }
+            Err(error) if provider.context_overflow(&error) => {
+                // This request never dispatched tools. Preserve completed effects
+                // and count the rejected attempt, even without provider usage.
+                summary.model_calls += 1;
+                summary.usage_by_call.push(None);
+                emit(
+                    &events,
+                    AgentEvent::ModelFinished {
+                        number,
+                        usage: None,
+                    },
+                    &cancel,
+                )
+                .await?;
+                if overflow_retry_used || !recovery_available || number == model_limit {
+                    return Ok(checkpoint_reply(summary,"The provider rejected the model context. Progress and completed effects are saved. A reduced-context retry was unavailable or also rejected; inspect the model context setting before continuing. No completed tool was replayed; failed-attempt usage is unreported."));
+                }
+                overflow_retry_used = true;
+                forced_compaction = Some(tokens);
+                continue;
             }
             Err(error) if provider.model_retry_delay(&error).is_some() => {
                 if cancel.is_cancelled() {
@@ -994,7 +1099,11 @@ pub async fn run_agent_with_shared_budget(
                     });
                 }
                 model_retries += 1;
-                buffered_responses |= provider.buffered_tool_retry(&error);
+                // A stalled complete response does not establish that this
+                // provider supports buffered recovery. Try streaming on the
+                // remaining retry. A successful buffered route remains selected
+                // to avoid repeatedly paying for known-broken stream attempts.
+                buffered_responses = !buffered_responses && provider.buffered_tool_retry(&error);
                 let delay = provider
                     .model_retry_delay(&error)
                     .unwrap()
@@ -1323,7 +1432,7 @@ pub async fn run_agent_with_shared_budget(
                         "Invalid or unavailable path".into()
                     },
                     "blocked",
-                    if matches!(
+                    if error.starts_with("Applicable guidance needs loading.") || matches!(
                         error.as_str(),
                         "Extension policy hook failed. No operation was dispatched; inspect its registration."
                             | "Extension changed a prepared tool plan. Prepare and review a fresh proposal."
@@ -1421,7 +1530,7 @@ pub async fn run_agent_with_shared_budget(
                         })
                         || request.diff.as_ref().is_some_and(|diff| {
                             !matches!(request.name.as_str(), "edit_text_file" | "create_text_file" | "harness_repair" | "test_harness_repair" | "build_harness_repair")
-                                || diff.len() > MAX_TOOL_BYTES
+                                || diff.len() > MAX_FILE_REVIEW_BYTES
                         })
                         || (matches!(request.name.as_str(), "edit_text_file" | "create_text_file")
                             && request.diff.as_ref().is_none_or(String::is_empty))
@@ -1529,10 +1638,10 @@ pub async fn run_agent_with_shared_budget(
                                         _ => "MCP tool could not complete. Review the server, tool list and limits before trying again; external effects may remain.".into(),
                                     }
                                 } else if request.name == "delegate_tasks" {
-                                    format!("{error} Inspect child context, Run history and Changes before continuing; completed file changes remain. One batch and at most two follow-ups per child are allowed per parent run; allowances never reset.")
+                                    format!("{error} Inspect child context, Run history and Changes before continuing; completed file changes remain. One batch per parent run; shared parent and cumulative child allowances never reset on follow-up.")
                                 } else if request.name == "request_user_input" {
                                     "Question could not complete. Ask a fresh question if clarification is still needed; saved progress remains.".into()
-                                } else if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control" | "computer" | "read_skill_resource") {
+                                } else if matches!(request.name.as_str(), "harness_repair" | "test_harness_repair" | "build_harness_repair" | "desktop_control" | "computer" | "read_skill_resource" | "read_task_history" | "read_scoped_instructions") || error.starts_with("Applicable guidance needs loading.") {
                                     error
                                 } else if request.name == "inspect_desktop_capture" {
                                     "Selected screenshot is missing or changed. Open Settings → Computer use, capture again and explicitly share it. Nothing was retried.".into()
@@ -1646,6 +1755,40 @@ pub async fn run_agent_with_shared_budget(
             }
             if no_progress {
                 return Ok(no_progress_reply(summary));
+            }
+            if call.name == "read_scoped_instructions" && status == "completed" {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(obsolete) = value["obsoleteScopes"].as_array() {
+                        for scope in obsolete.iter().filter_map(|s| s.as_str()) {
+                            scoped_guidance.remove(scope);
+                        }
+                    }
+                    if let (Some(scope), Some(text), Some(start)) = (
+                        value["scope"].as_str(),
+                        value["text"].as_str(),
+                        value["startByte"].as_u64(),
+                    ) {
+                        let entry = scoped_guidance.entry(scope.into()).or_default();
+                        if start == 0 {
+                            entry.clear();
+                        }
+                        if entry.len() == start as usize {
+                            entry.push_str(text);
+                        }
+                    }
+                    const MARKER:&str="\n\nApplicable nested project guidance (host-loaded; scope only, no tool authority):\n";
+                    if let Some((prefix, _)) = base_system.split_once(MARKER) {
+                        base_system = prefix.into();
+                    }
+                    if !scoped_guidance.is_empty() {
+                        base_system.push_str(MARKER);
+                        base_system.push_str(
+                            &serde_json::to_string(&scoped_guidance)
+                                .map_err(|_| "Could not retain applicable project guidance.")?,
+                        );
+                    }
+                    messages[0].content = base_system.clone();
+                }
             }
             messages.push(AgentMessage {
                 parts,

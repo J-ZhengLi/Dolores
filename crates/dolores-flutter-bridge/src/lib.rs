@@ -65,6 +65,9 @@ mod run_admission;
 mod run_journal;
 mod scheduled_edits;
 mod scheduling;
+mod scoped_guidance;
+#[cfg(test)]
+use dolores_core::preview_context;
 mod settings;
 mod side_conversations;
 mod skill_drafts;
@@ -74,6 +77,7 @@ mod source_control;
 mod subagents;
 mod summaries;
 mod task_execution;
+mod task_history;
 mod task_inputs;
 mod terminal;
 #[cfg(test)]
@@ -91,8 +95,8 @@ use approval::{ApprovalSlot, RunApproval};
 mod questions;
 use connection::ConnectionManager;
 use dolores_core::{
-    prepare_context, preview_context, stream_chat_reply, ConnectionPreferences, ContextSummary,
-    CredentialStore, ModelProvider, RequestSettings, SessionStore, TurnMetadata,
+    prepare_context, stream_chat_reply, ConnectionPreferences, ContextSummary, CredentialStore,
+    ModelProvider, RequestSettings, SessionStore, TurnMetadata,
 };
 use dolores_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -576,6 +580,21 @@ enum Command {
         run_id: String,
         #[serde(default)]
         after: u32,
+    },
+    RunProgress {
+        session: String,
+        #[serde(rename = "runId")]
+        run_id: String,
+        ordinal: u32,
+    },
+    ReadTaskHistory {
+        session: String,
+        #[serde(rename = "runId")]
+        run_id: String,
+        #[serde(rename = "callId")]
+        call_id: String,
+        #[serde(default)]
+        offset: usize,
     },
     HarnessInventory {
         session: Option<String>,
@@ -1289,6 +1308,8 @@ impl Engine {
             Command::Runs { session } => return Ok(json!(self.store.runs(&session)?)),
             Command::RunEvents { session, run_id } => return Ok(json!(self.store.run_events(&session,&run_id)?)),
             Command::RunEventsPage { session, run_id, after } => return Ok(json!(self.store.run_events_page(&session,&run_id,after)?)),
+            Command::RunProgress {session,run_id,ordinal} => return self.store.run_progress(&session,&run_id,ordinal),
+            Command::ReadTaskHistory {session,run_id,call_id,offset} => return self.store.read_task_history(&session,&run_id,Some(&call_id),0,offset),
             Command::Workspace {session} => return Ok(json!(self.store.workspace(&session)?)),
             Command::SessionsPage {cursor,newer} => return self.session_page(cursor,newer),
             Command::MessagesPage {session,cursor,newer} => return Ok(json!(self.store.messages_page(&session,cursor,newer,80)?)),
@@ -1913,12 +1934,25 @@ impl Engine {
                     vec![]
                 };
                 let (history, count, session_summary) = match session {
-                    Some(ref session) => self.store.summary_context_history(session)?,
+                    Some(ref session) => self.store.summary_context_history_bytes(
+                        session,
+                        dolores_core::model_context_bytes(
+                            Some(effective.context_window_tokens),
+                            effective.request,
+                        )?,
+                    )?,
                     None => (vec![], Some(0), None),
                 };
                 let human_tools = session.is_some();
                 let mut messages = dolores_core::prepare_behavior_context(
-                    preview_context(history, &input)?,
+                    dolores_core::preview_context_with_allowance(
+                        history,
+                        &input,
+                        dolores_core::model_context_bytes(
+                            Some(effective.context_window_tokens),
+                            effective.request,
+                        )?,
+                    )?,
                     effective.interaction,
                 )?;
                 if human_tools {
@@ -1971,6 +2005,10 @@ impl Engine {
                     specs.push(skill_packages::resources::spec());
                 }
                 if tools {
+                    specs.push(task_history::spec());
+                    if guidance.is_some() {
+                        specs.push(scoped_guidance::spec());
+                    }
                     let root = session
                         .as_deref()
                         .map(|id| self.store.workspace(id))
@@ -2561,7 +2599,37 @@ impl Engine {
                             reverts: None,
                         });
                         let mut plugins = dolores_tools_fs::journaled_folder_tools(&root, journal)?;
-                        let commands = dolores_tools_command::RunCommand::new(&root)?;
+                        if self
+                            .store
+                            .workspace_instructions(
+                                root.to_str().ok_or("Working folder needs Unicode.")?,
+                            )?
+                            .is_some()
+                        {
+                            let guidance = scoped_guidance::Guidance::new(root.clone());
+                            for plugin in &mut plugins {
+                                if matches!(
+                                    plugin.spec().name.as_str(),
+                                    "edit_text_file" | "create_text_file"
+                                ) {
+                                    *plugin = Arc::new(scoped_guidance::Guided {
+                                        inner: plugin.clone(),
+                                        guidance: guidance.clone(),
+                                    });
+                                }
+                            }
+                            plugins.push(Arc::new(scoped_guidance::Reader(guidance)));
+                        }
+                        let log_directory = self
+                            .workspace_directory
+                            .as_ref()
+                            .and_then(|p| p.parent())
+                            .map(|p| p.join("command-logs").join(&run_id))
+                            .unwrap_or_else(
+                                dolores_tools_command::RunCommand::default_log_directory,
+                            );
+                        let commands = dolores_tools_command::RunCommand::new(&root)?
+                            .with_log_directory(log_directory.clone())?;
                         #[cfg(windows)]
                         let commands = if let Some(host) = &self.isolation_host {
                             commands.with_isolation(host.clone())
@@ -2577,6 +2645,7 @@ impl Engine {
                                 run_id.clone(),
                                 cancel.clone(),
                             )?
+                            .with_log_directory(log_directory)?
                             .with_evidence(command_sessions::evidence(self.store.clone()));
                             #[cfg(windows)]
                             let commands = if let Some(host) = &self.isolation_host {
@@ -2657,6 +2726,11 @@ impl Engine {
                     None
                 };
                 if let Some(delegation) = &delegation {
+                    tools.push(Arc::new(task_history::ReadHistory {
+                        store: self.store.clone(),
+                        session: session.clone().unwrap(),
+                        run: run_id.clone(),
+                    }));
                     tools.push(delegation.clone());
                     tools.push(Arc::new(introspection::InspectHarness(
                         self.harness_inventory(session.as_deref())?,
@@ -3241,13 +3315,18 @@ async fn execute(
         .await?;
     }
     let reader = store.clone();
+    let context_bytes = dolores_core::model_context_bytes(
+        provider.context_window_tokens(),
+        provider.request_settings().unwrap_or_default(),
+    )?;
     let (session, history, count, guidance, memories, session_summary, skills) =
         blocking(move || {
             let session = match session {
                 Some(id) => id,
                 None => reader.create(&uuid::Uuid::new_v4().to_string())?.id,
             };
-            let (history, count, session_summary) = reader.summary_context_history(&session)?;
+            let (history, count, session_summary) =
+                reader.summary_context_history_bytes(&session, context_bytes)?;
             let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
             let memories = memory::recall_for_session(reader.as_ref(), Some(&session))?;
             let skills = if let Some(o) = scheduling::for_run(reader.as_ref(), Some(&session), id)?
@@ -3285,8 +3364,10 @@ async fn execute(
                 .await?;
         }
     }
-    let mut context =
-        dolores_core::prepare_behavior_context(prepare_context(history, &input)?, interaction)?;
+    let mut context = dolores_core::prepare_behavior_context(
+        dolores_core::preview_context_with_allowance(history, &input, context_bytes)?,
+        interaction,
+    )?;
     if scheduling_metadata {
         scheduling::prepare_human_context(&mut context);
     }
@@ -3685,6 +3766,9 @@ async fn execute(
                     _ = cancel.cancelled() => return Err(stopped()),
                     result = &mut request => break result,
                     Some(event) = receiver.recv() => {
+                        if let (Some(log), dolores_core::AgentEvent::ModelAttemptFinished {..}) = (&log, &event) {
+                            log.record(None,"modelAttemptFinished",serde_json::to_value(&event).map_err(|_|"Attempt evidence unavailable.")?).await?;
+                        }
                         if let (Some(log), dolores_core::AgentEvent::ModelRetry {number,attempt,delay_ms,buffered}) = (&log, &event) {
                             log.record(None,"modelRetry",json!({"number":number,"attempt":attempt,"delayMs":delay_ms,"buffered":buffered,"scope":"generation only; no tool replay"})).await?;
                         }
@@ -3699,6 +3783,17 @@ async fn execute(
                 }
             };
             while let Some(event) = receiver.recv().await {
+                if let (Some(log), dolores_core::AgentEvent::ModelAttemptFinished { .. }) =
+                    (&log, &event)
+                {
+                    log.record(
+                        None,
+                        "modelAttemptFinished",
+                        serde_json::to_value(&event)
+                            .map_err(|_| "Attempt evidence unavailable.")?,
+                    )
+                    .await?;
+                }
                 if let (
                     Some(log),
                     dolores_core::AgentEvent::ModelRetry {
@@ -4000,6 +4095,11 @@ fn reply(input: &[u8]) -> Value {
         .and_then(|command| {
             if input.len() > 128 * 1024
                 && !matches!(&command, Command::Editor { .. })
+                && !(input.len() <= 6 * dolores_core::MAX_SKILL_BYTES + 4096
+                    && matches!(
+                        &command,
+                        Command::SaveSkillText { .. } | Command::ReviewSkillText { .. }
+                    ))
                 && !(input.len() <= 5 * 1024 * 1024
                     && matches!(&command, Command::LanguageEdits { .. }))
             {
@@ -4455,12 +4555,12 @@ mod tests {
                 tools: false,
             })
             .unwrap();
-        assert_eq!(context["includedTurns"], 40);
+        assert_eq!(context["includedTurns"], 61);
         assert_eq!(context["savedTurns"], 61);
-        assert_eq!(context["omittedTurns"], 21);
+        assert_eq!(context["omittedTurns"], 0);
         let prepared = context["messages"].as_array().unwrap();
-        assert_eq!(prepared.len(), 82);
-        assert_eq!(prepared[1]["content"], "u21");
+        assert_eq!(prepared.len(), 124);
+        assert_eq!(prepared[1]["content"], "u0");
         assert_eq!(prepared.last().unwrap()["content"], "你好");
         assert_eq!(prepared[0]["role"], "system");
         assert_eq!(

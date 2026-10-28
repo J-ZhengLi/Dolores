@@ -266,7 +266,7 @@ impl EditTextFile {
 pub fn edit_spec() -> ToolSpec {
     ToolSpec {
             name:"edit_text_file".into(),
-            description:"Replace one exact, unique old_text occurrence with new_text in an existing writable UTF-8 file under the working folder. LF/CRLF proposal line breaks use the file's uniform newline style; all other text and whitespace must match exactly. Mixed/lone-CR files require byte-exact text or a unique single-line edit. Relative direct paths only, files up to 1 MiB; files above 16 KiB require expected_snapshot from a ranged read. The diff must fit 16 KiB. The user must review the local diff and approve once before writing. No creation, deletion, shell, aliases or VCS/credential files. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
+            description:"Replace one exact unique old_text occurrence with new_text in an existing writable UTF-8 file. LF/CRLF proposals follow uniform file newline style; other bytes must match. Mixed/lone-CR files require byte-exact text or a unique single-line edit. Relative direct paths only, snapshots up to 1 MiB; above 16 KiB include expected_snapshot from a read. Complete review diff up to 256 KiB. No creation, deletion, aliases or secret/VCS paths. Changed files require a fresh preview. Applied edits remain if a later reply fails.".into(),
             parameters:json!({"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string","minLength":1},"new_text":{"type":"string"},"expected_snapshot":{"type":"string"}},"required":["path","old_text","new_text"],"additionalProperties":false}),
         }
 }
@@ -310,11 +310,11 @@ impl ToolPlugin for EditTextFile {
         }
         let after = text::replace(&before, &args.old_text, &args.new_text)?;
         if after.len() > dolores_core::MAX_FILE_SNAPSHOT_BYTES {
-            return Err("Edited file exceeds the 16 KiB limit.".into());
+            return Err("Edited file exceeds the 1 MiB snapshot allowance.".into());
         }
         let preview = change_diff(&before, &after);
-        if preview.len() > MAX_TOOL_BYTES {
-            return Err("Edit diff exceeds the 16 KiB limit. Use a smaller edit.".into());
+        if preview.len() > dolores_core::MAX_FILE_REVIEW_BYTES {
+            return Err("Edit diff exceeds its review allocation. Use a localized edit.".into());
         }
         let request = ToolRequest {
             call_id: call.id.clone(),
@@ -410,8 +410,8 @@ impl RevertPlan {
             return Err("File changed after this edit. Revert was not prepared.".into());
         }
         let preview = change_diff(&before, restored);
-        if preview.len() > MAX_TOOL_BYTES {
-            return Err("Revert diff exceeds the 16 KiB limit.".into());
+        if preview.len() > dolores_core::MAX_FILE_REVIEW_BYTES {
+            return Err("Revert diff exceeds its review allocation.".into());
         }
         Ok(Self {
             read,

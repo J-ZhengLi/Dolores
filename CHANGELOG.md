@@ -7,15 +7,23 @@ published versions use SemVer and an ISO date.
 
 ### Changed
 
+- Conversations keep assistant output visible through context maintenance and reopening. Consecutive tool executions collapse into one expandable row until the next assistant output, replacing the Earlier progress shortcut.
 - Working chats use compact built-in instructions and load/unload optional tool schemas on demand. Older successful tool evidence is sent as labeled previews while complete receipts remain saved locally.
 - Branch in new chat is available in each completed reply's footer menu, including earlier history, replacing the separate turn picker. The original draft stays with its chat.
-- Automatic long tasks continue through durable internal context/evidence segments without repeatedly requiring Continue. Earlier progress remains inspectable in paged task history; explicit numeric budgets, Stop, questions and real failure recovery remain authoritative.
+- Automatic long tasks continue through durable internal context/evidence segments without repeatedly requiring Continue. Complete execution evidence remains inspectable in Activity; explicit numeric budgets, Stop, questions and real failure recovery remain authoritative.
 - Files and Source Control use the selected Classic sidebar with compact rows, folders before files, filename-first changes and tighter history. Source Control replaces the project/path block with branch and change count, retaining the root in a tooltip and adding a compact Commit button.
 - The command and skill picker uses compact, padded rows with a clear keyboard selection. Skills can also be completed within a sentence while preserving surrounding text and their pinned reference.
 - Project and global skill files are ready to use in chat and the `/` picker without prior review. File updates apply to future messages, with optional viewing, direct enable/disable and one-step create/import. Existing snapshots and tool permissions are preserved.
 
 ### Fixed
 
+- Command tools can inherit explicitly named environment variables, allowing SSH helpers to use a password or agent supplied before launch. Values stay out of tool arguments and approval records; missing variables report the actual Dolores process state.
+- Context usage stays inspectable during active runs and updates for each model request. Windows commands preserve CMD script quoting and launch PowerShell with a compatible executable path; local account identity remains available to Python's SSH fallback.
+- Command-output and preview logs use Dolores-managed storage outside the working folder, with absolute paths in receipts. Verbose commands no longer add harness log files to code repositories.
+- Valid skill files above 8 KiB can be viewed, imported, saved and selected. File allocation is separate from the model context allowance, and encoding errors no longer masquerade as size errors.
+- Long coding tasks release durably saved historical bodies, recover a smaller context after provider rejection, and expose silent complete-response retries with elapsed time. Saved task history provides readable outputs and retrievable original receipts. Verbose commands spill logs instead of being killed by capture size; large/long-line reads page automatically, file creation and review no longer share a 16-KiB cap, and applicable guidance/history/child allowances support larger projects.
+
+- Sustained tasks release durably archived historical result bodies from the working context, avoiding oversized checkpoint snapshots. Reviewed command sessions can run up to six hours and wait up to 30 seconds for new output, with existing Stop and ownership cleanup.
 - Conversation exports include archived run evidence and cumulative known usage, keeping unreported attempts explicit instead of dropping earlier segments from token totals.
 - Repository search finds text in larger source files and deeper folders, and explains partial coverage instead of silently treating skipped files as fully searched.
 - Recover eligible interrupted tool streams through the complete-response transport after a cancelable wait, keeping the same model/settings and completed tool receipts instead of repeating the broken SSE route.
