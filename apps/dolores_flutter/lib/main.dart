@@ -1138,55 +1138,6 @@ class _ChatPageState extends State<ChatPage> {
                 },
                 trailing: const SizedBox.shrink(),
               ),
-              if (chat.acceptsLiveInputs && chat.busy)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      TextButton(
-                        key: const Key('queue-instruction'),
-                        onPressed:
-                            chat.inputSaving ||
-                                chat.skillSaving ||
-                                chat.stopping ||
-                                chat.draft.trim().isEmpty ||
-                                !input.value.composing.isCollapsed
-                            ? null
-                            : () => chat.queueDraft(),
-                        child: Text(
-                          'Queue',
-                          style: TextStyle(
-                            fontFamily: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.fontFamily,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        key: const Key('steer-instruction'),
-                        onPressed:
-                            chat.inputSaving ||
-                                chat.skillSaving ||
-                                chat.stopping ||
-                                chat.draft.trim().isEmpty ||
-                                !input.value.composing.isCollapsed
-                            ? null
-                            : () => chat.queueDraft(steer: true),
-                        child: Text(
-                          'Steer now',
-                          style: TextStyle(
-                            fontFamily: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.fontFamily,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               Row(
                 key: const Key('composer-actions'),
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -1308,13 +1259,33 @@ class _ChatPageState extends State<ChatPage> {
                           },
                   ),
                   const SizedBox(width: 4),
+                  if (chat.queueOnSend)
+                    IconButton(
+                      key: const Key('stop-response'),
+                      tooltip: 'Stop response',
+                      onPressed: chat.stopping ? null : chat.stop,
+                      icon: const Icon(Icons.stop_rounded, size: 18),
+                    ),
                   SizedBox(
                     width: 36,
                     height: 36,
                     child: IconButton.filled(
                       key: const Key('send'),
-                      tooltip: chat.busy ? 'Stop response' : 'Send message',
-                      onPressed: chat.busy
+                      tooltip: chat.queueOnSend
+                          ? 'Queue message'
+                          : chat.busy
+                          ? 'Stop response'
+                          : 'Send message',
+                      onPressed: chat.queueOnSend
+                          ? (chat.inputSaving ||
+                                    chat.skillSaving ||
+                                    chat.stopping ||
+                                    chat.changing ||
+                                    chat.loading ||
+                                    !input.value.composing.isCollapsed
+                                ? null
+                                : chat.queueDraft)
+                          : chat.busy
                           ? (chat.stopping ? null : chat.stop)
                           : (chat.loading ||
                                     chat.skillSaving ||
@@ -1335,7 +1306,7 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                       iconSize: 18,
                       icon: Icon(
-                        chat.busy
+                        chat.busy && !chat.queueOnSend
                             ? Icons.stop_rounded
                             : Icons.arrow_upward_rounded,
                       ),

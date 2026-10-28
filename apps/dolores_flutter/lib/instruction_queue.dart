@@ -5,6 +5,23 @@ import 'chat.dart';
 class InstructionQueue extends StatelessWidget {
   const InstructionQueue({super.key, required this.chat});
   final ChatController chat;
+  String label(Map<String, dynamic> entry) {
+    if (entry['state'] == 'pending') {
+      if (entry['mode'] == 'steer' &&
+          entry['run'] != null &&
+          entry['run'] == chat.taskInputs['activeRun']) {
+        return 'Steering · waiting for current operation';
+      }
+      return chat.inputsPaused ? 'Paused' : 'Queued';
+    }
+    return switch (entry['state']) {
+      'applied' => 'Delivered to the agent',
+      'delivering' => 'Delivering…',
+      'uncertain' => 'Delivery uncertain',
+      'failed' => 'Delivery failed',
+      _ => 'Cancelled',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +56,7 @@ class InstructionQueue extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Instructions · ${pending.length} pending',
+                  'Queued messages · ${pending.length}',
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
@@ -66,8 +83,10 @@ class InstructionQueue extends StatelessWidget {
             ],
           ),
           if (chat.inputsPaused)
-            const Text(
-              'Paused. Inspect retained instructions before resuming.',
+            Text(
+              chat.busy
+                  ? 'Follow-up queue paused. You can still steer this task.'
+                  : 'Queue paused. Review messages before resuming.',
             ),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 160),
@@ -83,100 +102,111 @@ class InstructionQueue extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    subtitle: Text(
-                      '${entry['mode'] == 'steer' ? 'Steer' : 'Queue'} · ${entry['state']}${entry['state'] == 'applied' ? ' to request; inspect run for outcome' : ''}',
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      tooltip: 'Instruction actions',
-                      enabled: !chat.inputSaving,
-                      onSelected: (action) async {
-                        if (action == 'inspect') {
-                          await showDialog<void>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('Instruction receipt'),
-                              content: SingleChildScrollView(
-                                child: SelectableText(
-                                  '${entry['text']}\n\nState: ${entry['state']}\nRun: ${entry['run'] ?? 'Not delivered'}\nSkills: ${(entry['selectedSkills'] as List? ?? []).map((s) => "${s['name']} · ${s['scope']} v${s['version']} (revision ${s['revision']})").join(', ')}',
+                    subtitle: Text(label(entry)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (chat.canSteerInput(entry))
+                          TextButton(
+                            key: Key('steer-message-${entry['id']}'),
+                            onPressed: () => chat.steerInput(entry),
+                            child: const Text('Steer'),
+                          ),
+                        PopupMenuButton<String>(
+                          tooltip: 'Instruction actions',
+                          enabled: !chat.inputSaving,
+                          onSelected: (action) async {
+                            if (action == 'inspect') {
+                              await showDialog<void>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Instruction receipt'),
+                                  content: SingleChildScrollView(
+                                    child: SelectableText(
+                                      '${entry['text']}\n\nState: ${entry['state']}\nRun: ${entry['run'] ?? 'Not delivered'}\nSkills: ${(entry['selectedSkills'] as List? ?? []).map((s) => "${s['name']} · ${s['scope']} v${s['version']} (revision ${s['revision']})").join(', ')}',
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else if (action == 'edit') {
+                              await showDialog<void>(
+                                context: context,
+                                builder: (_) =>
+                                    _EditInstruction(chat: chat, entry: entry),
+                              );
+                            } else if (action == 'cancel') {
+                              await chat.changeInput({
+                                'action': 'cancel',
+                                'id': entry['id'],
+                                'revision': entry['revision'],
+                              });
+                            } else if (action == 'acknowledge') {
+                              await chat.changeInput({
+                                'action': 'acknowledge',
+                                'id': entry['id'],
+                                'revision': entry['revision'],
+                              });
+                            } else {
+                              final ids = pending
+                                  .map((v) => v['id'] as String)
+                                  .toList();
+                              final index = ids.indexOf(entry['id'] as String);
+                              final target = action == 'up'
+                                  ? index - 1
+                                  : index + 1;
+                              if (index >= 0 &&
+                                  target >= 0 &&
+                                  target < ids.length) {
+                                final swap = ids[target];
+                                ids[target] = ids[index];
+                                ids[index] = swap;
+                                await chat.changeInput({
+                                  'action': 'reorder',
+                                  'revision': chat.taskInputs['revision'],
+                                  'ids': ids,
+                                });
+                              }
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'inspect',
+                              child: Text('Inspect'),
+                            ),
+                            if (entry['state'] == 'uncertain' &&
+                                entry['inspected'] != true)
+                              const PopupMenuItem(
+                                value: 'acknowledge',
+                                child: Text(
+                                  'Acknowledge uncertainty; do not retry',
                                 ),
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else if (action == 'edit') {
-                          await showDialog<void>(
-                            context: context,
-                            builder: (_) =>
-                                _EditInstruction(chat: chat, entry: entry),
-                          );
-                        } else if (action == 'cancel') {
-                          await chat.changeInput({
-                            'action': 'cancel',
-                            'id': entry['id'],
-                            'revision': entry['revision'],
-                          });
-                        } else if (action == 'acknowledge') {
-                          await chat.changeInput({
-                            'action': 'acknowledge',
-                            'id': entry['id'],
-                            'revision': entry['revision'],
-                          });
-                        } else {
-                          final ids = pending
-                              .map((v) => v['id'] as String)
-                              .toList();
-                          final index = ids.indexOf(entry['id'] as String);
-                          final target = action == 'up' ? index - 1 : index + 1;
-                          if (index >= 0 &&
-                              target >= 0 &&
-                              target < ids.length) {
-                            final swap = ids[target];
-                            ids[target] = ids[index];
-                            ids[index] = swap;
-                            await chat.changeInput({
-                              'action': 'reorder',
-                              'revision': chat.taskInputs['revision'],
-                              'ids': ids,
-                            });
-                          }
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'inspect',
-                          child: Text('Inspect'),
+                            if (entry['state'] == 'pending') ...[
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edit'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'up',
+                                child: Text('Move up'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'down',
+                                child: Text('Move down'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'cancel',
+                                child: Text('Cancel instruction'),
+                              ),
+                            ],
+                          ],
                         ),
-                        if (entry['state'] == 'uncertain' &&
-                            entry['inspected'] != true)
-                          const PopupMenuItem(
-                            value: 'acknowledge',
-                            child: Text(
-                              'Acknowledge uncertainty; do not retry',
-                            ),
-                          ),
-                        if (entry['state'] == 'pending') ...[
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'up',
-                            child: Text('Move up'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'down',
-                            child: Text('Move down'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'cancel',
-                            child: Text('Cancel instruction'),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -196,7 +226,7 @@ class InstructionQueue extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: ExpansionTile(
-        title: const Text('Instruction receipts'),
+        title: const Text('Message receipts'),
         children: [panel],
       ),
     );

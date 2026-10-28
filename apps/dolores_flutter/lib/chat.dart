@@ -843,6 +843,7 @@ class ChatController extends ChangeNotifier {
 
   bool get acceptsLiveInputs =>
       instructionQueueAvailable && !_scheduledRun && !_observationRun;
+  bool get queueOnSend => busy && acceptsLiveInputs && draft.trim().isNotEmpty;
   bool inputSaving = false;
   Map<String, dynamic> taskInputs = {};
   final Set<String> _locallyPausedInputs = {};
@@ -852,6 +853,25 @@ class ChatController extends ChangeNotifier {
       taskInputs['suspended'] == true ||
       taskInputs['recoveryRequired'] == true ||
       _locallyPausedInputs.contains(session);
+
+  bool canSteerInput(Map<String, dynamic> entry) =>
+      busy &&
+      acceptsLiveInputs &&
+      !stopping &&
+      !inputSaving &&
+      entry['state'] == 'pending' &&
+      !(entry['mode'] == 'steer' &&
+          entry['run'] != null &&
+          entry['run'] == taskInputs['activeRun']);
+
+  Future<void> steerInput(Map<String, dynamic> entry) async {
+    if (!canSteerInput(entry)) return;
+    await changeInput({
+      'action': 'steer',
+      'id': entry['id'],
+      'revision': entry['revision'],
+    });
+  }
 
   Future<void> refreshInputs() async {
     if (!instructionQueueAvailable || session == null) return;

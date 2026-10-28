@@ -1219,7 +1219,7 @@ impl Engine {
                 self.store.save_composer_skills(&session, &selections)?;
                 return Ok(json!(selections));
             },
-            Command::TaskInputs { session } => return Ok(json!(self.store.task_inputs(&session)?)),
+            Command::TaskInputs { session } => return task_inputs::view(self.store.as_ref(), &session, &active),
             Command::SideConversation{session,request}=>return self.side_conversation_call(&session,request,&active),
             Command::ReviewFindings {session,request}=>return source_control::findings::local(self.store.as_ref(),&session,request),
             Command::EditTaskInputs { session, edit } => {
@@ -1228,7 +1228,7 @@ impl Engine {
                         dolores_core::resolve_skill_selections(&self.available_skills(Some(&session))?,&self.store.composer_skills(&session)?)?;
                     }
                 }
-                if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}) {
+                if matches!(edit,dolores_core::harness_task::InputEdit::Enqueue{..}|dolores_core::harness_task::InputEdit::Steer{..}) {
                     if let Some(id)=active.client_id(&session) {
                         if self.store.scheduled_for_run(&session,id)?.is_some() || self.store.runs(&session)?.first().is_some_and(|run|run.tools.iter().any(|name|matches!(name.as_str(),"desktop_control"|"inspect_desktop_capture"))) {
                             return Err("Queue and steering are available for ordinary chat tasks. Finish this scheduled or computer-use run first; your draft remains.".into());
@@ -1236,7 +1236,7 @@ impl Engine {
                     }
                 }
                 if matches!(edit,dolores_core::harness_task::InputEdit::Resume{..}) && active.has_session(&session) {return Err("Wait for the stopped run to finish before resuming.".into());}
-                return Ok(json!(self.store.edit_task_inputs(&session,&edit)?));
+                return task_inputs::edit(self.store.as_ref(), &session, edit, &active);
             },
             Command::ClosePreferences=>return Ok(json!(self.store.close_preferences()?)),
             Command::SaveClosePreferences {preferences}=>return Ok(json!(self.store.save_close_preferences(&preferences)?)),
@@ -3102,6 +3102,7 @@ impl Engine {
                     },
                     scope,
                 )?;
+                active.bind_input_run(id, run_id.clone());
                 let memory_maintenance = self.memory_maintenance.clone();
                 if let Some(child) = &delegation {
                     self.child_runs

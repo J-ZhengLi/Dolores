@@ -17,6 +17,7 @@ published versions use SemVer and an ISO date.
 
 ### Fixed
 
+- Steering reaches an active task even when older follow-ups remain paused. Send queues messages while a task runs; use Steer on a queued message instead of separate Queue/Steer buttons in the composer. Stop and newer drafts remain available.
 - Command tools can inherit explicitly named environment variables, allowing SSH helpers to use a password or agent supplied before launch. Values stay out of tool arguments and approval records; missing variables report the actual Dolores process state.
 - Context usage stays inspectable during active runs and updates for each model request. Windows commands preserve CMD script quoting and launch PowerShell with a compatible executable path; local account identity remains available to Python's SSH fallback.
 - Command-output and preview logs use Dolores-managed storage outside the working folder, with absolute paths in receipts. Verbose commands no longer add harness log files to code repositories.

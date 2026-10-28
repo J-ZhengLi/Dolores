@@ -16,9 +16,21 @@ pub(super) struct RunCoordinator {
     runs: BTreeMap<u64, Run>,
     closed: bool,
     primary: BTreeMap<u64, String>,
+    input_runs: BTreeMap<u64, String>,
     admission: Arc<crate::run_admission::Admission>,
 }
 impl RunCoordinator {
+    pub fn bind_input_run(&mut self, id: u64, run: String) {
+        self.input_runs.insert(id, run);
+    }
+    pub fn steering_run(&self, session: &str) -> Option<&str> {
+        let id = self.client_id(session)?;
+        let run = self.get(id)?;
+        if run.cancel.is_cancelled() || run.events.is_closed() {
+            return None;
+        }
+        self.input_runs.get(&id).map(String::as_str)
+    }
     pub fn has_session(&self, session: &str) -> bool {
         self.runs
             .values()
@@ -111,11 +123,13 @@ impl RunCoordinator {
     }
     pub fn take(&mut self) -> Option<Run> {
         let (id, run) = self.runs.pop_first()?;
+        self.input_runs.remove(&id);
         self.primary.remove(&id);
         self.admission.remove(id);
         Some(run)
     }
     pub fn remove(&mut self, id: u64) {
+        self.input_runs.remove(&id);
         self.runs.remove(&id);
         self.primary.remove(&id);
         self.admission.remove(id);

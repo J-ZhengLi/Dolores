@@ -155,19 +155,23 @@ another version. Remove the stale chip, refresh the picker and reselect. For an
 already saved instruction, cancel it and submit again with the new selection.
 Failed saves keep the draft and prior chips; no skill is activated by the picker.
 
-While an ordinary chat task runs, keep typing in the composer. **Queue** saves a
-text follow-up for the next turn; **Steer now** guides the current task after its
-running model/tool operation settles. Steering can prevent later operations;
-completed changes remain. Enter uses Queue while busy and never silently steers.
+While an ordinary chat task runs, send a message normally to queue it for the
+next turn. Click **Steer** on that queued message to guide the current task after
+its running model/tool operation settles. Its status changes from waiting to
+delivered when the agent receives it. Steering can prevent later operations;
+completed changes remain. Send and Enter both queue while busy. Stop stays
+available beside Send while you are typing.
 Tool approvals and answers remain separate decisions.
 
-The **Instructions** list shows saved input and delivery receipts. Its menu offers
+The **Queued messages** list shows saved input and delivery receipts. Its menu offers
 Edit, Move up/down and Cancel while an entry is pending. Up to eight unresolved
 inputs are retained per chat. Applied means inserted into a request, not that the
 task succeeded; inspect the associated run's outcome. Stop, failure, a resource
 pause or reopening pauses automatic queue dispatch. Inspect retained work, then
 choose **Resume queue**. An uncertain receipt is never automatically retried;
 inspect its run before acknowledging uncertainty or submitting a new instruction.
+An explicit **Steer** still works on a manually started task while older
+follow-ups remain paused; it does not resume those follow-ups.
 JSON and Markdown conversation exports include all instruction receipts.
 
 Queued input currently supports text for ordinary foreground chat tasks. Send

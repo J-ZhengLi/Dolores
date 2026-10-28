@@ -206,6 +206,23 @@ pub(super) fn edit_in_transaction(
                 .map_err(storage_error)?;
             }
         }
+        InputEdit::Steer { id, revision, run } => {
+            let run = run
+                .as_ref()
+                .filter(|s| !s.is_empty())
+                .ok_or("There is no running task to steer. The queued message remains.")?;
+            let mut v = find(tx, s, id)?;
+            if !v.state.editable() {
+                return Err("Instruction is already being delivered. Inspect its receipt.".into());
+            }
+            if v.mode == InputMode::Steer && v.run.as_ref() == Some(run) {
+                return Ok(state);
+            }
+            v.revision = next_revision(v.revision, *revision)?;
+            v.mode = InputMode::Steer;
+            v.run = Some(run.clone());
+            save(tx, s, &v)?;
+        }
         InputEdit::Edit {
             id,
             revision,
@@ -263,10 +280,11 @@ pub(super) fn claim(
 ) -> Result<TaskInput, String> {
     let tx = c.transaction().map_err(storage_error)?;
     let state = read(&tx, s)?;
-    if state.suspended || state.recovery_required {
+    let mut v = find(&tx, s, id)?;
+    let explicit_steer = v.mode == InputMode::Steer && v.run.as_deref() == Some(run);
+    if (state.suspended || state.recovery_required) && !explicit_steer {
         return Err("Task is paused. Inspect pending inputs and Resume explicitly.".into());
     }
-    let mut v = find(&tx, s, id)?;
     v.revision = next_revision(v.revision, revision)?;
     v.state = v.state.transition(InputState::Delivering)?;
     v.run = Some(run.into());
@@ -294,6 +312,14 @@ pub(super) fn suspend(c: &mut Connection, s: &str) -> Result<(), String> {
     let tx = c.transaction().map_err(storage_error)?;
     let mut state = read(&tx, s)?;
     state.suspended = true;
+    for input in &state.entries {
+        if input.state == InputState::Pending && input.run.is_some() {
+            let mut input = input.clone();
+            input.run = None;
+            input.revision = next_revision(input.revision, input.revision)?;
+            save(&tx, s, &input)?;
+        }
+    }
     bump(&tx, s, &state)?;
     tx.commit().map_err(storage_error)
 }
@@ -323,6 +349,11 @@ pub(super) fn recover(c: &mut Connection) -> Result<(), String> {
                     v.state = v.state.after_restart();
                     v.revision = next_revision(v.revision, v.revision)?;
                     save(&tx, &s, &v)?;
+                } else if v.state == InputState::Pending && v.run.is_some() {
+                    let mut v = v.clone();
+                    v.run = None;
+                    v.revision = next_revision(v.revision, v.revision)?;
+                    save(&tx, &s, &v)?;
                 }
             }
             state.recovery_required = true;
@@ -343,6 +374,99 @@ mod tests {
             id: id.into(),
             text: format!("public instruction {id}"),
             mode: InputMode::Queue,
+        }
+    }
+    #[test]
+    fn explicit_steering_reaches_only_its_run_while_old_queue_stays_paused() {
+        let store = SqliteStore::open(std::path::Path::new(":memory:")).unwrap();
+        store.create("chat").unwrap();
+        store.edit_task_inputs("chat", &enqueue("old")).unwrap();
+        store
+            .edit_task_inputs(
+                "chat",
+                &InputEdit::Enqueue {
+                    id: "old-steer".into(),
+                    text: "Old correction".into(),
+                    mode: InputMode::Steer,
+                },
+            )
+            .unwrap();
+        store.suspend_task_inputs("chat").unwrap();
+        let state = store.edit_task_inputs("chat", &enqueue("new")).unwrap();
+        let before = state.entries[2].clone();
+        assert!(serde_json::from_str::<InputEdit>(
+            r#"{"action":"steer","id":"new","revision":1,"run":"fake-client-run"}"#
+        )
+        .is_err());
+        assert!(store
+            .edit_task_inputs(
+                "chat",
+                &InputEdit::Steer {
+                    id: "new".into(),
+                    revision: before.revision,
+                    run: None
+                }
+            )
+            .is_err());
+        assert!(store
+            .edit_task_inputs(
+                "chat",
+                &InputEdit::Steer {
+                    id: "new".into(),
+                    revision: 0,
+                    run: Some("current".into())
+                }
+            )
+            .is_err());
+        let promoted = store
+            .edit_task_inputs(
+                "chat",
+                &InputEdit::Steer {
+                    id: "new".into(),
+                    revision: before.revision,
+                    run: Some("current".into()),
+                },
+            )
+            .unwrap();
+        assert!(promoted.suspended);
+        assert_eq!(promoted.entries[2].text, before.text);
+        assert_eq!(promoted.entries[2].selected_skills, before.selected_skills);
+        assert_eq!(promoted.entries[2].planning, before.planning);
+        assert!(store.claim_task_input("chat", "old", 1, "current").is_err());
+        assert!(store
+            .claim_task_input("chat", "old-steer", 1, "current")
+            .is_err());
+        assert!(store.claim_task_input("chat", "new", 2, "other").is_err());
+        store.claim_task_input("chat", "new", 2, "current").unwrap();
+        store
+            .finish_task_input("chat", "new", InputState::Applied)
+            .unwrap();
+        assert!(store.task_inputs("chat").unwrap().suspended);
+        for restart in [false, true] {
+            let id = if restart { "restart" } else { "stop" };
+            store.edit_task_inputs("chat", &enqueue(id)).unwrap();
+            store
+                .edit_task_inputs(
+                    "chat",
+                    &InputEdit::Steer {
+                        id: id.into(),
+                        revision: 1,
+                        run: Some("current".into()),
+                    },
+                )
+                .unwrap();
+            if restart {
+                store.recover_task_inputs().unwrap();
+            } else {
+                store.suspend_task_inputs("chat").unwrap();
+            }
+            let state = store.task_inputs("chat").unwrap();
+            let item = state.entries.iter().find(|v| v.id == id).unwrap();
+            assert_eq!(item.state, InputState::Pending);
+            assert!(item.run.is_none());
+            assert!(store
+                .claim_task_input("chat", id, item.revision, "current")
+                .is_err());
         }
     }
     #[test]

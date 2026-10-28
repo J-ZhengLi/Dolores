@@ -197,6 +197,9 @@ void main() {
       await waitUntil(
         () => chat.selectedSkills.length == 1 && chat.draft.isEmpty,
       );
+      final selectedSkill = Map<String, dynamic>.from(
+        chat.selectedSkills.single,
+      );
       final preview = await tester.runAsync(chat.previewContext);
       expect(
         jsonEncode(preview!['messages']),
@@ -222,16 +225,23 @@ void main() {
         'PUBLIC-EFFECT\n世界\n',
       );
       Future<void> submit(String text, String key) async {
+        expect(
+          await tester.runAsync(() => chat.selectSkills([selectedSkill])),
+          isTrue,
+        );
         await tester.enterText(find.byKey(const Key('composer-field-0')), text);
         await tester.pump();
         await tester.ensureVisible(find.byKey(Key(key)));
         await tester.tap(find.byKey(Key(key)));
-        await waitUntil(() => !chat.inputSaving && chat.draft.isEmpty);
+        await waitUntil(
+          () => !chat.inputSaving && !chat.skillSaving && chat.draft.isEmpty,
+        );
         expect(chat.error, isNull);
+        expect(chat.selectedSkills, isEmpty);
       }
 
-      await submit('Follow-up first', 'queue-instruction');
-      await submit('Follow-up second', 'queue-instruction');
+      await submit('Follow-up first', 'send');
+      await submit('Follow-up second', 'send');
       final pending = chat.inputEntries
           .where((e) => e['state'] == 'pending')
           .toList();
@@ -254,9 +264,21 @@ void main() {
           'text': 'Follow-up first, edited',
         }),
       );
-      await submit(
-        'Keep original task; do not create superseded.txt',
-        'steer-instruction',
+      await submit('Keep original task; do not create superseded.txt', 'send');
+      final steering = chat.inputEntries.lastWhere(
+        (e) => e['state'] == 'pending',
+      );
+      await tester.ensureVisible(
+        find.byKey(Key('steer-message-${steering['id']}')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(Key('steer-message-${steering['id']}')));
+      await waitUntil(
+        () =>
+            !chat.inputSaving &&
+            chat.inputEntries.any(
+              (e) => e['id'] == steering['id'] && e['mode'] == 'steer',
+            ),
       );
       await tester.enterText(
         find.byKey(const Key('composer-field-0')),
@@ -318,7 +340,7 @@ void main() {
           'newerDraftUnsentAndRetained': true,
           'inputs': saved,
           'selectedSkillInPreviewNormalQueueAndSteer': true,
-          'selectedSkill': chat.selectedSkills.single,
+          'selectedSkill': selectedSkill,
         }),
       );
       expect(tester.takeException(), isNull);

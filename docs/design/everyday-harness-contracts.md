@@ -89,6 +89,12 @@ Stop → suspended/recovery/decision wait → safe-boundary steering → pending
 turn → eligible goal continuation. Approval/question responses use the existing
 decision channel and remain deliverable while the task queue waits.
 
+Suspension/recovery gates automatic queue dispatch. A user can still explicitly
+promote a pending message to steer a manually started, uncancelled run. The
+bridge binds that message to the live run; only that binding crosses the older
+queue pause. Retained follow-ups stay paused. Stop and restart clear pending
+bindings, and an uncertain receipt is never promoted or replayed.
+
 Evaluate and claim under the existing task owner; host admission remains the only
 way to start a primary. A pending instruction does not hold an admission slot.
 Equal-root chats still serialize, and each follow-up reacquires admission rather
@@ -115,7 +121,7 @@ goal without explicit intent.
 
 ## Bridge and UX contract
 
-EH01 operations: list, enqueue, edit, reorder, cancel and resume with conversation,
+EH01 operations: list, enqueue, steer, edit, reorder, cancel and resume with conversation,
 task revision/input revision and input UUID. Mutations return the saved record
 and current task revision. Poll includes task state, pending counts and receipt
 changes. Stale/failed saves return actionable errors without consuming the draft
@@ -124,8 +130,9 @@ owner's durable receipt. Bridge names and generated bindings are fixed during
 EH01 implementation; events are additive to existing run polling.
 
 Keep Home/navigation and native text editing. Busy composer stays editable;
-Queue and Steer now are deliberate actions, with Stop reachable. Enter uses the
-visible submit mode; it must not silently switch to Steer. During IME composition,
+Send and Enter queue messages while busy; Steer is an explicit action on a saved
+pending message, with Stop reachable. No Queue/Steer toolbar is added to the
+composer. Submission must not silently switch to Steer. During IME composition,
 Enter confirms composition and does not submit/select a command. Escape dismisses
 the picker first, preserving text/selection; it does not stop work. Arrow keys only
 navigate an open picker when composition is inactive. `/` opens at a command

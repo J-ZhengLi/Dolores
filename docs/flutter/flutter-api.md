@@ -154,12 +154,22 @@ inspection and recovery operations. See [skill source rules](../design/project-s
 ## Live instruction control (EH01)
 
 `bootstrap.instructionQueue` advertises durable text input. `taskInputs {session}`
-returns task revision, suspension/recovery flags, unresolved entries and the most
-recent 50 terminal receipts. `editTaskInputs {session,edit}` supports `enqueue
-{id,text,mode}`, `edit {id,revision,text}`, `cancel {id,revision}`, `reorder
+returns task revision, suspension/recovery flags, unresolved entries, `activeRun`
+(the current steering owner, or null), and the most recent 50 terminal receipts.
+`editTaskInputs {session,edit}` supports `enqueue
+{id,text,mode}`, `steer {id,revision}`, `edit {id,revision,text}`, `cancel {id,revision}`, `reorder
 {revision,ids}`, `resume {revision}` and uncertain-delivery `acknowledge
 {id,revision}`. Revisions are optimistic; failed writes preserve saved data and
 drafts. Identical enqueue IDs are idempotent within their conversation.
+
+The busy composer sends ordinary queued messages. Its per-message Steer action
+atomically changes a pending entry to steering and binds its `run` to the live
+owner selected by the bridge; clients cannot supply a run identity. The saved
+text, selected skills and references remain intact. This explicit action can
+cross an older queue pause only for that owner and message, without resuming
+other inputs. Missing/stopped owners and stale edits retain the saved message.
+Stop/restart clear pending run bindings; restart still requires inspection and
+resume for automatic delivery. Direct `enqueue` with `mode:steer` remains supported.
 
 `startTaskInput {session,id}` selects the oldest pending steer, otherwise queued
 input, then uses the normal primary-run admission path. `id` is the client run

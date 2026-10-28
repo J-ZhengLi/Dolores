@@ -45,6 +45,13 @@ pub enum InputEdit {
         text: String,
         mode: InputMode,
     },
+    Steer {
+        id: String,
+        revision: u32,
+        // The bridge binds this to its live owner, never to a client-supplied run.
+        #[serde(skip)]
+        run: Option<String>,
+    },
     Edit {
         id: String,
         revision: u32,

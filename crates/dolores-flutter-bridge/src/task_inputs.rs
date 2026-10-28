@@ -2,6 +2,65 @@
 use super::*;
 use dolores_core::harness_task::{InputMode, InputState, TaskInput};
 
+pub(super) fn view(
+    store: &dyn SessionStore,
+    session: &str,
+    active: &run_journal::RunCoordinator,
+) -> Result<Value, String> {
+    let mut value = json!(store.task_inputs(session)?);
+    value["activeRun"] = json!(active.steering_run(session));
+    Ok(value)
+}
+
+pub(super) fn edit(
+    store: &dyn SessionStore,
+    session: &str,
+    mut edit: dolores_core::harness_task::InputEdit,
+    active: &run_journal::RunCoordinator,
+) -> Result<Value, String> {
+    use dolores_core::harness_task::InputEdit;
+    if let InputEdit::Steer { run, .. } = &mut edit {
+        *run = Some(
+            active
+                .steering_run(session)
+                .ok_or("There is no running task to steer. The queued message remains.")?
+                .into(),
+        );
+    }
+    // Keep the old direct-steer entry point working without resuming old follow-ups.
+    let direct = if let InputEdit::Enqueue {
+        id,
+        mode: InputMode::Steer,
+        ..
+    } = &edit
+    {
+        Some(id.clone())
+    } else {
+        None
+    };
+    let state = store.edit_task_inputs(session, &edit)?;
+    if let (Some(id), Some(run)) = (direct, active.steering_run(session)) {
+        if state.suspended || state.recovery_required {
+            let input = state
+                .entries
+                .iter()
+                .find(|v| v.id == id)
+                .ok_or("Steering message is unavailable. Refresh its receipt.")?;
+            if input.state == InputState::Pending {
+                store.edit_task_inputs(
+                    session,
+                    &InputEdit::Steer {
+                        id,
+                        revision: input.revision,
+                        run: Some(run.into()),
+                    },
+                )?;
+            }
+        }
+    }
+    view(store, session, active)
+}
+
 pub(super) struct SteeringApproval {
     pub global_skills_directory: Option<PathBuf>,
     pub resources: Option<Arc<crate::skill_packages::resources::Reader>>,
@@ -16,13 +75,18 @@ pub(super) struct SteeringApproval {
 impl SteeringApproval {
     fn pending(&self) -> Result<Vec<TaskInput>, String> {
         let state = self.store.task_inputs(&self.session)?;
-        if self.cancel.is_cancelled() || state.suspended || state.recovery_required {
+        if self.cancel.is_cancelled() {
             return Ok(vec![]);
         }
         Ok(state
             .entries
             .into_iter()
-            .filter(|v| v.mode == InputMode::Steer && v.state == InputState::Pending)
+            .filter(|v| {
+                v.mode == InputMode::Steer
+                    && v.state == InputState::Pending
+                    && (!(state.suspended || state.recovery_required)
+                        || v.run.as_deref() == Some(self.run.as_str()))
+            })
             .collect())
     }
 }
@@ -124,6 +188,107 @@ mod tests {
         ToolRequest, ToolSpec,
     };
     use std::sync::atomic::{AtomicUsize, Ordering};
+    #[test]
+    fn explicit_steering_crosses_old_pause_without_resuming_retained_work() {
+        use dolores_core::harness_task::InputEdit;
+        for direct in [false, true] {
+            let store = Arc::new(SqliteStore::open(std::path::Path::new(":memory:")).unwrap());
+            store.create("chat").unwrap();
+            store
+                .edit_task_inputs(
+                    "chat",
+                    &InputEdit::Enqueue {
+                        id: "old".into(),
+                        text: "Old follow-up".into(),
+                        mode: InputMode::Queue,
+                    },
+                )
+                .unwrap();
+            store.suspend_task_inputs("chat").unwrap();
+            let cancel = CancellationToken::new();
+            let (_output, receiver) = mpsc::channel(2);
+            let mut active = run_journal::RunCoordinator::default();
+            active
+                .reserve(Run {
+                    thread: Some("chat".into()),
+                    id: 1,
+                    cancel: cancel.clone(),
+                    events: receiver,
+                    approvals: Arc::new(Mutex::new(None)),
+                })
+                .unwrap();
+            active.bind_input_run(1, "current".into());
+            edit(
+                store.as_ref(),
+                "chat",
+                InputEdit::Enqueue {
+                    id: "new".into(),
+                    text: "Use Podman as root".into(),
+                    mode: if direct {
+                        InputMode::Steer
+                    } else {
+                        InputMode::Queue
+                    },
+                },
+                &active,
+            )
+            .unwrap();
+            if !direct {
+                edit(
+                    store.as_ref(),
+                    "chat",
+                    InputEdit::Steer {
+                        id: "new".into(),
+                        revision: 1,
+                        run: None,
+                    },
+                    &active,
+                )
+                .unwrap();
+            }
+            assert_eq!(
+                view(store.as_ref(), "chat", &active).unwrap()["activeRun"],
+                "current"
+            );
+            let approval = SteeringApproval {
+                global_skills_directory: None,
+                resources: None,
+                inner: Arc::new(Approve {
+                    store: store.clone(),
+                    arrival: "none",
+                }),
+                store: store.clone(),
+                session: "chat".into(),
+                run: "current".into(),
+                cancel: cancel.clone(),
+                claimed: Mutex::new(vec![]),
+            };
+            assert!(approval.steering_pending().unwrap());
+            assert_eq!(
+                approval.take_steering().unwrap()[0].text,
+                "Use Podman as root"
+            );
+            approval.acknowledge_steering().unwrap();
+            let state = store.task_inputs("chat").unwrap();
+            assert!(state.suspended);
+            assert_eq!(state.entries[0].state, InputState::Pending);
+            assert_eq!(state.entries[1].state, InputState::Applied);
+            cancel.cancel();
+            assert!(view(store.as_ref(), "chat", &active).unwrap()["activeRun"].is_null());
+            assert!(edit(
+                store.as_ref(),
+                "chat",
+                InputEdit::Steer {
+                    id: "old".into(),
+                    revision: 1,
+                    run: None
+                },
+                &active
+            )
+            .is_err());
+            assert_eq!(store.task_inputs("chat").unwrap(), state);
+        }
+    }
     #[test]
     fn stop_cancels_execution_even_when_suspension_cannot_be_saved() {
         let dir = tempfile::tempdir().unwrap();
