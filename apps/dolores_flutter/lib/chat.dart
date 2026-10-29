@@ -34,6 +34,7 @@ class _ViewState {
 }
 
 class ChatController extends ChangeNotifier {
+  Future<void> Function()? onOpenCodexSetupTerminal;
   final appearanceChanges = ValueNotifier<String>('system');
   final reducedMotion = ValueNotifier<bool>(false);
   Future<void> saveReducedMotion(bool reduce) async {

@@ -262,6 +262,7 @@ class TerminalHost extends ChangeNotifier {
   Future<TerminalSession?> create(
     String? session, {
     bool home = false,
+    bool codexSetup = false,
     String? group,
   }) async {
     if (opening || disposed) return null;
@@ -271,7 +272,7 @@ class TerminalHost extends ChangeNotifier {
     notifyListeners();
     try {
       final value = await call({
-        'action': 'create',
+        'action': codexSetup ? 'codexSetup' : 'create',
         'session': session,
         'home': home,
       });

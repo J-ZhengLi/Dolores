@@ -54,6 +54,13 @@ class _ToolsHomeState extends State<ToolsHome> {
       padding: const EdgeInsets.all(16),
       children: [
         const Text('Use tools from a project or temporary chat.'),
+        ListTile(
+          leading: const Icon(Icons.integration_instructions_outlined),
+          title: const Text('Codex setup'),
+          subtitle: const Text('Reuse installed integrations'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => widget.open('codexSetup'),
+        ),
         for (final tool in [
           ('web', 'Web search', Icons.travel_explore),
           ('browser', 'Browser', Icons.language),

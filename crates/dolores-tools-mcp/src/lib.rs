@@ -19,6 +19,7 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
+pub mod configured;
 pub mod credentials;
 pub mod remote;
 use credentials::Credentials;
@@ -140,6 +141,7 @@ struct Session {
     credentials: Credentials,
     deadline: Instant,
     cancel: CancellationToken,
+    instructions: String,
 }
 impl Session {
     fn start(
@@ -150,12 +152,32 @@ impl Session {
         credentials: Credentials,
         reviewed: &Reviewed,
     ) -> Result<(Self, String, String, String), String> {
-        check(&cancel, deadline)?;
         credentials.validate_launch(launch)?;
         let mut environment = process::environment();
         environment.extend(credentials.0.iter().map(|(n, v)| (n.into(), v.into())));
+        Self::start_environment(
+            root,
+            launch,
+            cancel,
+            deadline,
+            credentials,
+            reviewed,
+            &environment,
+        )
+    }
+    fn start_environment(
+        root: &Path,
+        launch: &McpLaunch,
+        cancel: CancellationToken,
+        deadline: Instant,
+        credentials: Credentials,
+        reviewed: &Reviewed,
+        environment: &[(String, String)],
+    ) -> Result<(Self, String, String, String), String> {
+        check(&cancel, deadline)?;
+        launch.validate()?;
         let (process, mut input, output, error) =
-            reviewed.spawn(root, launch, &environment, &cancel)?;
+            reviewed.spawn(root, launch, environment, &cancel)?;
         let (sender, receiver) = mpsc::sync_channel::<WriteJob>(1);
         // The owner can kill the process while a non-reading server blocks stdin.
         let writer = thread::spawn(move || {
@@ -185,9 +207,16 @@ impl Session {
             credentials,
             deadline,
             cancel,
+            instructions: String::new(),
         };
         let result = session.request("initialize", json!({"protocolVersion":VERSIONS[0],"capabilities":{},"clientInfo":{"name":"Dolores","version":env!("CARGO_PKG_VERSION")}}))?;
         session.credentials.reject_metadata(&result)?;
+        if let Some(text) = result.get("instructions").and_then(Value::as_str) {
+            if text.len() > 64 * 1024 {
+                return Err("MCP server instructions exceed 64 KiB.".into());
+            }
+            session.instructions = text.into();
+        }
         let version = result["protocolVersion"]
             .as_str()
             .filter(|s| VERSIONS.contains(s))
@@ -315,10 +344,23 @@ impl Session {
         }
     }
     fn tools(&mut self) -> Result<Vec<McpTool>, String> {
+        self.catalog(false)
+    }
+    fn catalog(&mut self, configured: bool) -> Result<Vec<McpTool>, String> {
         let mut tools = vec![];
         let mut cursor = None;
         let mut cursors = BTreeSet::new();
-        for _ in 0..4 {
+        let mut pages = 0;
+        loop {
+            pages += 1;
+            if configured {
+                self.wire = 0;
+                self.stderr = 0;
+                self.notifications = 0;
+            }
+            if !configured && pages > 4 {
+                return Err("MCP catalog exceeds four pages. Use a smaller server catalog.".into());
+            }
             let page = self.request(
                 "tools/list",
                 cursor.as_ref().map_or(json!({}), |c| json!({"cursor":c})),
@@ -339,18 +381,39 @@ impl Session {
                     description: item["description"].as_str().unwrap_or("").into(),
                     input_schema: item["inputSchema"].clone(),
                 };
-                tool.validate()?;
+                if configured {
+                    // These schemas are discovered through a paged gateway, not
+                    // registered in the model's fixed inline tool catalog.
+                    if tool.name.is_empty()
+                        || tool.name.len() > 128
+                        || tool.name.chars().any(char::is_control)
+                        || tool.description.contains('\0')
+                        || !tool.input_schema.is_object()
+                        || tool.input_schema["type"] != "object"
+                    {
+                        return Err(
+                            "Configured MCP tool needs a valid name and object input schema."
+                                .into(),
+                        );
+                    }
+                } else {
+                    tool.validate()?;
+                }
                 if tools.iter().any(|old: &McpTool| old.name == tool.name) {
                     return Err("MCP tool names are duplicated.".into());
                 }
                 tools.push(tool);
-                if tools.len() > 32
-                    || serde_json::to_vec(&tools).map_or(true, |v| v.len() > 32 * 1024)
+                if (!configured && tools.len() > 32)
+                    || serde_json::to_vec(&tools).map_or(true, |v| {
+                        v.len() > if configured { 1024 * 1024 } else { 32 * 1024 }
+                    })
                 {
-                    return Err(
+                    return Err(if configured {
+                        "Configured MCP catalog exceeds its 1 MiB transport allocation."
+                    } else {
                         "MCP catalog exceeds 32 tools or 32 KiB. Use a smaller server catalog."
-                            .into(),
-                    );
+                    }
+                    .into());
                 }
             }
             match page.get("nextCursor") {
@@ -366,7 +429,6 @@ impl Session {
                 _ => return Err("MCP pagination cursor is invalid or repeated.".into()),
             }
         }
-        Err("MCP catalog exceeds four pages. Use a smaller server catalog.".into())
     }
     fn close(&mut self) -> Result<(), String> {
         self.input.take();

@@ -175,6 +175,7 @@ mod tests {
                 store.clone(),
                 Arc::new(DirectSkillProvider),
                 TurnRequest {
+                    compatibility: None,
                     available_skills: Some(available),
                     hooks: None,
                     skill_resources: None,

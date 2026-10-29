@@ -141,6 +141,7 @@ fn in_run_summary_failure_saves_completed_tool_work_instead_of_a_send_error() {
         store.clone(),
         Arc::new(Worker(AtomicUsize::new(0))),
         TurnRequest {
+            compatibility: None,
             available_skills: None,
             hooks: None,
             skill_resources: None,
@@ -229,6 +230,7 @@ fn in_run_summary_failure_saves_completed_tool_work_instead_of_a_send_error() {
         store.clone(),
         Arc::new(Finish),
         TurnRequest {
+            compatibility: None,
             available_skills: None,
             hooks: None,
             skill_resources: None,
@@ -344,6 +346,7 @@ fn compaction_is_automatic_once_charged_and_failure_preserves_summary_history_an
             store.clone(),
             provider.clone(),
             TurnRequest {
+                compatibility: None,
                 available_skills: None,
                 hooks: None,
                 skill_resources: None,

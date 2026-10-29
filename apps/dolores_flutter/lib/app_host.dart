@@ -17,6 +17,7 @@ import 'package:path/path.dart' as paths;
 
 /// One bridge/profile owner; visible conversation and running owners are separate.
 class AppHost extends ChangeNotifier with WidgetsBindingObserver {
+  VoidCallback? terminalNavigation;
   Future<bool> Function(Map<String, dynamic>)? presentAttention;
   final AttentionWindow? attentionWindow;
   final AvailabilityWindow? availabilityWindow;
@@ -307,6 +308,13 @@ class AppHost extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(background.refresh());
   }
   void _add(ChatController owner) {
+    owner.onOpenCodexSetupTerminal = () async {
+      final opened = await terminals.create(owner.session, codexSetup: true);
+      if (opened == null) {
+        throw StateError(terminals.error ?? 'Setup terminal could not open.');
+      }
+      terminalNavigation?.call();
+    };
     owner.notifications = attention;
     owner.backgroundHost = background;
     owner.onNavigateConversation = (id) async {

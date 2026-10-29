@@ -55,6 +55,14 @@ unsuccessful CI trial, never a published release; its changes are included here.
 
 ### Added
 
+- Open a human setup terminal scoped to the chosen Codex profile, and recover malformed compatibility settings without blocking chat history.
+
+- Support Codex command-hook stdin JSON, matchers, command rewrites, denial and model context, with explicit shell input and normal post-rewrite task approval.
+
+- Run configured Codex stdio MCP servers for a task, with paged tool discovery, retained large results and supervised shutdown.
+
+- Add an opt-in Codex setup source for profile/project configuration, instructions and live skills; remove package-specific developer-tool discovery.
+
 #### Windows desktop and installation
 
 - Windows x64 desktop app with local or hosted OpenAI-compatible models, light/dark themes, a floating navigation dock, project shortcuts and searchable Settings.

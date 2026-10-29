@@ -79,6 +79,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       unawaited(host.terminals.enter(host.visible.session));
     }
     host.addListener(changed);
+    host.terminalNavigation = () {
+      if (mounted) selectPage(WorkspacePage.terminal);
+    };
     host.presentAttention = (target) async {
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
       await host.visible.checkpointDraft();
@@ -158,6 +161,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     panelFocus.dispose();
     host.presentAttention = null;
     host.repositoryNavigation = null;
+    host.terminalNavigation = null;
     host.removeListener(changed);
     super.dispose();
   }

@@ -223,6 +223,7 @@ fn run_task_in_window(count: usize, text: &'static str, window: u32, compacts: b
                 window,
             }),
             TurnRequest {
+                compatibility: None,
                 available_skills: None,
                 hooks: None,
                 skill_resources: None,

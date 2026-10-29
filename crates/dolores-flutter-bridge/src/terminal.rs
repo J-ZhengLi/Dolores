@@ -27,6 +27,9 @@ const QUEUE_BYTES: usize = 1024 * 1024;
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 pub(crate) enum Request {
+    CodexSetup {
+        session: Option<String>,
+    },
     Create {
         session: Option<String>,
         #[serde(default)]
@@ -217,6 +220,14 @@ impl Registry {
         self.create_shell(cwd, shell(choice)?)
     }
     fn create_shell(&mut self, cwd: &Path, shell: PathBuf) -> Result<Value, String> {
+        self.create_shell_environment(cwd, shell, &[])
+    }
+    fn create_shell_environment(
+        &mut self,
+        cwd: &Path,
+        shell: PathBuf,
+        environment: &[(String, String)],
+    ) -> Result<Value, String> {
         if self.closed {
             return Err("Terminals are closing. Restart Dolores.".into());
         }
@@ -248,6 +259,9 @@ impl Registry {
             }
         }
         command.env("TERM", "xterm-256color");
+        for (key, value) in environment {
+            command.env(key, value);
+        }
         // Interactive Windows shells need extension lookup for commands such as
         // `node`; the separately reviewed command tool resolves executables itself.
         #[cfg(windows)]
@@ -448,6 +462,32 @@ impl Registry {
 }
 impl Engine {
     pub(crate) fn terminal_call(&self, request: Request) -> Result<Value, String> {
+        let (request, setup_environment) = match request {
+            Request::CodexSetup { session } => {
+                let profile = self
+                    .codex_compatibility
+                    .profile
+                    .lock()
+                    .map_err(|_| "Codex setup settings unavailable.")?
+                    .clone();
+                profile.validate()?;
+                let home = profile
+                    .home
+                    .ok_or("Choose and save a Codex profile folder in Settings first.")?;
+                std::fs::create_dir_all(&home).map_err(|_| {
+                    "Codex setup folder cannot be created. Choose a writable folder."
+                })?;
+                (
+                    Request::Create {
+                        session,
+                        home: false,
+                        shell: None,
+                    },
+                    vec![("CODEX_HOME".into(), home.to_string_lossy().into_owned())],
+                )
+            }
+            other => (other, vec![]),
+        };
         match &request {
             Request::Restore => {
                 let mut value = self.store.editor_state(recovery::KEY)?;
@@ -527,7 +567,15 @@ impl Engine {
                         "Wait for the repository operation before opening a terminal here.".into(),
                     );
                 }
-                let result = state.create(&cwd, shell.as_deref())?;
+                let result = if setup_environment.is_empty() {
+                    state.create(&cwd, shell.as_deref())?
+                } else {
+                    state.create_shell_environment(
+                        &cwd,
+                        self::shell(shell.as_deref())?,
+                        &setup_environment,
+                    )?
+                };
                 state
                     .sessions
                     .get_mut(result["id"].as_str().unwrap())
@@ -547,6 +595,47 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn codex_setup_terminal_scopes_environment_to_the_child_only() {
+        let root = tempfile::tempdir().unwrap();
+        let cwd = root.path().join("project 世界");
+        let home = root.path().join("owned profile 世界");
+        std::fs::create_dir_all(&cwd).unwrap();
+        std::fs::create_dir_all(&home).unwrap();
+        let parent = std::env::var_os("CODEX_HOME");
+        let mut registry = Registry::default();
+        let value = registry
+            .create_shell_environment(
+                &cwd,
+                shell(Some("cmd")).unwrap(),
+                &[("CODEX_HOME".into(), home.to_string_lossy().into_owned())],
+            )
+            .unwrap();
+        let id = value["id"].as_str().unwrap().to_owned();
+        registry.request(Request::Input{id:id.clone(),text:"node -e \"require('fs').writeFileSync('scoped.json',JSON.stringify({home:process.env.CODEX_HOME,cwd:process.cwd()}))\"\r\n".into()}).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !cwd.join("scoped.json").exists() && Instant::now() < deadline {
+            let v = registry.request(Request::Poll { id: id.clone() }).unwrap();
+            let chunk = STANDARD.decode(v["bytes"].as_str().unwrap()).unwrap();
+            if chunk.windows(4).any(|v| v == b"\x1b[6n") {
+                registry
+                    .request(Request::Input {
+                        id: id.clone(),
+                        text: "\x1b[1;1R".into(),
+                    })
+                    .unwrap();
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        registry.request(Request::Stop { id: id.clone() }).unwrap();
+        let result: Value =
+            serde_json::from_slice(&std::fs::read(cwd.join("scoped.json")).unwrap()).unwrap();
+        assert_eq!(result["home"], home.to_string_lossy().as_ref());
+        assert_eq!(std::env::var_os("CODEX_HOME"), parent);
+        registry.request(Request::Close { id }).unwrap();
+        assert!(!registry.live());
+    }
     #[cfg(windows)]
     #[test]
     fn shell_launch_paths_preserve_unc_unicode_and_ordinary_paths() {

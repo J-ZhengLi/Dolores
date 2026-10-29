@@ -2,14 +2,25 @@
 use super::*;
 
 pub(super) fn normalize(root: &Path, invocation: CommandSpec) -> Result<CommandSpec, String> {
+    normalize_on_path(
+        root,
+        invocation,
+        &std::env::var_os("PATH").unwrap_or_default(),
+    )
+}
+pub(super) fn normalize_on_path(
+    root: &Path,
+    invocation: CommandSpec,
+    search: &std::ffi::OsStr,
+) -> Result<CommandSpec, String> {
     #[cfg(windows)]
     {
-        let file = resolve(root, &invocation.program)?;
+        let file = resolve_from_path(root, &invocation.program, search)?;
         if file
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("cmd"))
         {
-            let mut launch = node_launcher(root, &file, &std::env::var_os("PATH").unwrap_or_default())
+            let mut launch = node_launcher(root, &file, search)
                 .ok_or("This wrapper is not a supported Node CLI launcher. Invoke its shell or interpreter explicitly; no command was run.")?;
             launch.args.extend(invocation.args);
             if !valid(&launch) {
@@ -19,7 +30,7 @@ pub(super) fn normalize(root: &Path, invocation: CommandSpec) -> Result<CommandS
         }
     }
     #[cfg(not(windows))]
-    let _ = root;
+    let _ = (root, search);
     Ok(invocation)
 }
 
@@ -110,38 +121,6 @@ fn node_launcher(root: &Path, shim: &Path, search: &std::ffi::OsStr) -> Option<C
     })
 }
 
-pub(super) fn guidance(root: &Path) -> String {
-    guidance_on_path(root, &std::env::var_os("PATH").unwrap_or_default())
-}
-fn guidance_on_path(root: &Path, search: &std::ffi::OsStr) -> String {
-    let mut hints = Vec::new();
-    if let Ok(rtk) = resolve_from_path(root, "rtk", search) {
-        hints.push(format!("RTK is installed at {}. Prefer run_command with this program and literal args such as [\"git\",\"status\"] or [\"cargo\",\"test\"] for compact human-readable output. Consult its --help for supported commands. Use [\"proxy\",<program>,<args>...] when exact/unfiltered output is needed or the command has no RTK filter. Do not compress JSON/protocol evidence that must be parsed exactly; honor explicit raw-output requests. Never retry a command with effects just because its wrapper reported an error.", json!(rtk)));
-    }
-    if root.join(".codegraph").is_dir() {
-        if let Ok(codegraph) = resolve_from_path(root, "codegraph", search) {
-            #[cfg(windows)]
-            let usable = !codegraph
-                .extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case("cmd"))
-                || node_launcher(root, &codegraph, search).is_some();
-            #[cfg(not(windows))]
-            let usable = true;
-            if usable {
-                hints.push(format!("CodeGraph is installed at {} and this project already has a .codegraph index. For code structure, symbols, callers and relevant source, use an advertised CodeGraph MCP tool when available, otherwise run_command with this program and args [\"explore\",<question or symbols>], before broad file reads/searches. It runs in the selected project. Supported Node launchers are resolved automatically. Follow stale-index warnings and fall back to normal file tools if unavailable. Do not install, initialize, re-index, upgrade or start a resident service without a user request.", json!(codegraph)));
-            }
-        }
-    }
-    if hints.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "\n\nInstalled developer tools (detected locally; normal task access applies):\n{}",
-            hints.join("\n")
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,31 +145,5 @@ mod tests {
             std::fs::write(&shim, source).unwrap();
             assert!(node_launcher(root.path(), &shim, &std::ffi::OsString::new()).is_none());
         }
-    }
-    #[test]
-    fn detection_requires_installed_tools_and_a_project_index_without_executing_them() {
-        let root = tempfile::tempdir().unwrap();
-        let bin = root.path().join("bin");
-        std::fs::create_dir(&bin).unwrap();
-        for name in ["rtk", "codegraph"] {
-            let path = bin.join(if cfg!(windows) {
-                format!("{name}.exe")
-            } else {
-                name.into()
-            });
-            std::fs::write(&path, "Not executed by detection").unwrap();
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
-            }
-        }
-        let search = std::env::join_paths([bin]).unwrap();
-        let text = guidance_on_path(root.path(), &search);
-        assert!(text.contains("RTK is installed"));
-        assert!(!text.contains("CodeGraph is installed"));
-        std::fs::create_dir(root.path().join(".codegraph")).unwrap();
-        assert!(guidance_on_path(root.path(), &search).contains("CodeGraph is installed"));
-        assert!(guidance_on_path(root.path(), &std::ffi::OsString::new()).is_empty());
     }
 }

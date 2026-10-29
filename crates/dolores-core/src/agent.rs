@@ -393,6 +393,18 @@ pub trait ToolPlugin: Send + Sync {
     fn spec(&self) -> ToolSpec;
     /// Validate and identify the resource before asking for permission.
     fn prepare(&self, call: &ToolCall) -> Result<ToolRequest, String>;
+    /// Optional cancelable preprocessing. The returned effective request still
+    /// passes all normal validation and approval before invocation.
+    async fn prepare_for_run(
+        &self,
+        call: &ToolCall,
+        cancel: CancellationToken,
+    ) -> Result<ToolRequest, String> {
+        if cancel.is_cancelled() {
+            return Err("Response stopped.".into());
+        }
+        self.prepare(call)
+    }
     /// Release a prepared one-use plan that the user declined; never execute it.
     fn discard(&self, _request: &ToolRequest) {}
     async fn invoke(
@@ -1396,7 +1408,8 @@ pub async fn run_agent_with_shared_budget(
                 if prepare_cancel.is_cancelled() {
                     return Err("Response stopped.".into());
                 }
-                prepare_plugin.prepare(&prepare_call)
+                tokio::runtime::Handle::current()
+                    .block_on(prepare_plugin.prepare_for_run(&prepare_call, prepare_cancel))
             });
             let prepared = tokio::select! { biased;
                 _ = cancel.cancelled() => return Err("Response stopped. Your message was not saved.".into()),
@@ -1432,7 +1445,10 @@ pub async fn run_agent_with_shared_budget(
                         "Invalid or unavailable path".into()
                     },
                     "blocked",
-                    if error.starts_with("Applicable guidance needs loading.") || matches!(
+                    if error.starts_with("Applicable guidance needs loading.")
+                        || error.starts_with("Codex hook blocked")
+                        || call.name == "codex_mcp"
+                        || matches!(
                         error.as_str(),
                         "Extension policy hook failed. No operation was dispatched; inspect its registration."
                             | "Extension changed a prepared tool plan. Prepare and review a fresh proposal."
@@ -1536,7 +1552,8 @@ pub async fn run_agent_with_shared_budget(
                             && request.diff.as_ref().is_none_or(String::is_empty))
                         || (request.name == "command_session" && session_operation.is_none())
                         || (request.name == "run_command" || session_operation.as_deref() == Some("start")) != request.command.is_some()
-                        || request.name.starts_with("mcp_tool_") != request.mcp.is_some()
+                        || (request.name.starts_with("mcp_tool_") && request.mcp.is_none())
+                        || (request.mcp.is_some() && !request.name.starts_with("mcp_tool_") && request.name != "codex_mcp")
                         || request.mcp.as_ref().is_some_and(|p| {
                             !crate::valid_mcp_id(&p.connection_id)
                                 || crate::validate_mcp_credential_names(&p.credential_names)

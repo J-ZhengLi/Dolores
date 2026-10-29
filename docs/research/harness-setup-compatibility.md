@@ -1,7 +1,9 @@
 # Compatibility with an existing harness setup target
 
-Researched 2026-10-27. Recommendation and implementation proposal; this is not
-delivered compatibility. No installer was run against a real agent profile.
+Researched 2026-10-27. The selected Codex subset is now implemented on the
+isolated compatibility branch; see the [owning contract](../design/codex-compatibility.md)
+for supported behavior and qualification boundaries. No installer was run against
+a real agent profile.
 
 ## Selected target: Codex (user decision, 2026-10-27)
 
@@ -67,7 +69,11 @@ Active batches, each committed separately:
 
 Acceptance targets setup files and public extension contracts, not full Codex CLI,
 marketplace, App Server, account/authentication, managed-policy or sandbox parity.
-Full implementation and live integration acceptance remain outstanding.
+The initial profile, stdio MCP, command-hook and setup-terminal batches are
+implemented with credential-free fixtures. HTTP/OAuth reuse, unsupported hook
+types and released-installer/live-model acceptance remain outside the delivered
+subset. These batches are integrated into the main checkout following completion
+of the concurrent runtime work.
 
 ## Recommendation
 

@@ -13,6 +13,7 @@ mod changes;
 #[cfg(test)]
 mod checkpoint_tests;
 mod checkpoints;
+mod codex_compat;
 mod command_catalog;
 mod command_sessions;
 #[cfg(test)]
@@ -117,6 +118,7 @@ struct Run {
     approvals: ApprovalSlot,
 }
 struct TurnRequest {
+    compatibility: Option<Arc<codex_compat::Snapshot>>,
     available_skills: Option<Vec<dolores_core::ProjectSkill>>,
     hooks: Option<Arc<lifecycle_hooks::Runtime>>,
     skill_resources: Option<Arc<skill_packages::resources::Reader>>,
@@ -143,6 +145,7 @@ struct TurnRequest {
     approval: Option<Arc<dyn dolores_core::ToolApproval>>,
 }
 struct Engine {
+    codex_compatibility: codex_compat::Settings,
     child_runs:
         Arc<Mutex<std::collections::BTreeMap<u64, std::sync::Weak<subagents::DelegateTasks>>>>,
     hook_review: Mutex<Option<lifecycle_hooks::Review>>,
@@ -189,6 +192,13 @@ static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
 #[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase")]
 enum Command {
+    CodexSettings {
+        session: Option<String>,
+    },
+    SaveCodexSettings {
+        session: Option<String>,
+        profile: codex_compat::Profile,
+    },
     ChildSupervision {
         session: String,
         id: u64,
@@ -1050,6 +1060,7 @@ impl Engine {
             let _ = connection.recover(); // Recovery warnings keep history available.
         }
         Ok(Self {
+            codex_compatibility: codex_compat::Settings::default(),
             browser_setup: Arc::new(Mutex::new(browser::Setup::default())),
             child_runs: Arc::new(Mutex::new(Default::default())),
             hook_review: Mutex::new(None),
@@ -1289,6 +1300,8 @@ impl Engine {
                 active.cancel_session(&session);
                 return Ok(view);
             },
+            Command::CodexSettings {session} => return self.codex_settings(session.as_deref()),
+            Command::SaveCodexSettings {session,profile} => return self.save_codex_settings(session.as_deref(),profile),
             Command::WebSettings => return self.web_settings(),
             Command::ProjectKnowledge {session} => return self.project_knowledge(&session),
             Command::TrialSources {session} => return self.trial_sources(&session),
@@ -1613,6 +1626,10 @@ impl Engine {
                 draft,
                 settings,
             } => self.start_comparison(&mut active, id, session, draft, settings),
+            Command::CodexSettings { session } => self.codex_settings(session.as_deref()),
+            Command::SaveCodexSettings { session, profile } => {
+                self.save_codex_settings(session.as_deref(), profile)
+            }
             Command::WebSettings => self.web_settings(),
             Command::LearningState { session } => self.learning_view(&session),
             Command::SetLearningPolicy {
@@ -1913,8 +1930,12 @@ impl Engine {
                 tools,
             } => {
                 let effective = self.effective_settings(session.as_deref())?;
-                let guidance =
-                    instructions::effective_instructions(self.store.as_ref(), session.as_deref())?;
+                let compatibility = self.codex_snapshot(session.as_deref())?;
+                let guidance = if compatibility.owns_project_guidance() {
+                    None
+                } else {
+                    instructions::effective_instructions(self.store.as_ref(), session.as_deref())?
+                };
                 let memories = memory::recall_for_session(self.store.as_ref(), session.as_deref())?;
                 let skills = self.available_skills(session.as_deref())?;
                 let tools = match session.as_ref() {
@@ -1966,8 +1987,9 @@ impl Engine {
                 } else {
                     messages
                 };
-                let messages =
+                let mut messages =
                     dolores_core::prepare_instruction_context(messages, guidance.as_ref())?;
+                compatibility.context(&mut messages);
                 let (messages, skill_sources) = dolores_core::prepare_selected_skill_context(
                     messages,
                     &skills,
@@ -2588,6 +2610,11 @@ impl Engine {
                 let scheduling_available = scheduled.is_none() && desktop_capture.is_none();
                 let run_id = uuid::Uuid::new_v4().to_string();
                 let cancel = CancellationToken::new();
+                let compatibility = if scheduled.is_none() && desktop_capture.is_none() {
+                    Some(Arc::new(self.codex_snapshot(session.as_deref())?))
+                } else {
+                    None
+                };
                 let mut supervised_commands = None;
                 let remote_cleanup = Arc::new(dolores_tools_mcp::remote::CleanupOwner::default());
                 let mut tools = workspace
@@ -3144,6 +3171,7 @@ impl Engine {
                         store.clone(),
                         provider,
                         TurnRequest {
+                            compatibility,
                             available_skills: Some(package_candidates.clone()),
                             hooks,
                             skill_resources,
@@ -3264,6 +3292,7 @@ async fn execute(
         .and_then(|root| store.mod_state(&root).ok())
         .and_then(|s| s.active_version().cloned());
     let TurnRequest {
+        compatibility,
         available_skills,
         hooks,
         skill_resources,
@@ -3291,6 +3320,39 @@ async fn execute(
     } = request;
     if planning.planning {
         tools.retain(|t| dolores_core::planning::inspection_tool(&t.spec().name));
+    }
+    if !planning.planning && !compacted {
+        if let Some(snapshot) = &compatibility {
+            let activation = codex_compat::activate_mcp(snapshot, cancel.clone()).await?;
+            tools.extend(activation.tools.into_iter().map(|inner| {
+                if let Some(log) = &log {
+                    Arc::new(run_journal::LoggedTool {
+                        inner,
+                        log: log.clone(),
+                        policy: None,
+                    }) as Arc<dyn dolores_core::ToolPlugin>
+                } else {
+                    inner
+                }
+            }));
+            let mut compatibility_guidance = activation.guidance;
+            for diagnostic in activation.diagnostics {
+                compatibility_guidance.push_str(&format!("\n{diagnostic}"));
+                if let Some(log) = &log {
+                    log.record(
+                        None,
+                        "compatibilityDiagnostic",
+                        json!({"message":diagnostic}),
+                    )
+                    .await?;
+                }
+                output.try_send(json!({"type":"hookReceipt","id":id,"receipt":{"hook":"Codex setup","status":"error","message":diagnostic}})).ok();
+            }
+            *snapshot
+                .runtime_guidance
+                .lock()
+                .map_err(|_| "Codex setup guidance unavailable.")? = compatibility_guidance;
+        }
     }
     if let Some(log) = &log {
         if planning.planning || planning.accepted.is_some() || !planning.references.is_empty() {
@@ -3320,6 +3382,9 @@ async fn execute(
         provider.context_window_tokens(),
         provider.request_settings().unwrap_or_default(),
     )?;
+    let codex_project = compatibility
+        .as_ref()
+        .is_some_and(|c| c.owns_project_guidance());
     let (session, history, count, guidance, memories, session_summary, skills) =
         blocking(move || {
             let session = match session {
@@ -3328,7 +3393,11 @@ async fn execute(
             };
             let (history, count, session_summary) =
                 reader.summary_context_history_bytes(&session, context_bytes)?;
-            let guidance = instructions::effective_instructions(reader.as_ref(), Some(&session))?;
+            let guidance = if codex_project {
+                None
+            } else {
+                instructions::effective_instructions(reader.as_ref(), Some(&session))?
+            };
             let memories = memory::recall_for_session(reader.as_ref(), Some(&session))?;
             let skills = if let Some(o) = scheduling::for_run(reader.as_ref(), Some(&session), id)?
             {
@@ -3350,6 +3419,78 @@ async fn execute(
             ))
         })
         .await?;
+    let codex_hooks = if !planning.planning {
+        compatibility
+            .as_ref()
+            .map(|snapshot| {
+                codex_compat::hooks::Runtime::new(
+                    snapshot,
+                    codex_compat::hooks::Identity {
+                        session: session.clone(),
+                        turn: log
+                            .as_ref()
+                            .map(|l| l.id.clone())
+                            .unwrap_or_else(|| id.to_string()),
+                        model: model.clone(),
+                        permission: if permissions.mode == dolores_core::PermissionMode::FullAccess
+                        {
+                            "bypassPermissions"
+                        } else {
+                            "default"
+                        }
+                        .into(),
+                    },
+                    log.clone(),
+                    output.clone(),
+                    id,
+                )
+            })
+            .transpose()?
+            .flatten()
+    } else {
+        None
+    };
+    if !compacted {
+        if let (Some(snapshot), Some(runtime)) = (&compatibility, &codex_hooks) {
+            let first = snapshot
+                .sessions
+                .lock()
+                .map_err(|_| "Codex session tracking unavailable.")?
+                .insert(session.clone());
+            let mut text = runtime.guidance();
+            if first {
+                let result = runtime
+                    .fire(
+                        "SessionStart",
+                        "startup",
+                        json!({"source":"startup"}),
+                        cancel.clone(),
+                    )
+                    .await?;
+                text.push_str(&result.context);
+                if let Some(reason) = result.blocked {
+                    return Err(format!("Codex hook blocked session start: {reason}"));
+                }
+            }
+            let result = runtime
+                .fire(
+                    "UserPromptSubmit",
+                    "",
+                    json!({"prompt":input}),
+                    cancel.clone(),
+                )
+                .await?;
+            text.push_str(&result.context);
+            if let Some(reason) = result.blocked {
+                return Err(format!("Codex hook blocked prompt submission: {reason}"));
+            }
+            snapshot
+                .runtime_guidance
+                .lock()
+                .map_err(|_| "Codex guidance unavailable.")?
+                .push_str(&text);
+        }
+    }
     let prior = continuation
         .map(|source_id| continuation::source(store.as_ref(), &session, source_id))
         .transpose()?;
@@ -3417,6 +3558,9 @@ async fn execute(
         context
     };
     let mut context = dolores_core::prepare_instruction_context(context, guidance.as_ref())?;
+    if let Some(snapshot) = &compatibility {
+        snapshot.context(&mut context);
+    }
     if let Some(b) = &goal {
         let g = store.goal(&b.session)?.ok_or("Saved goal unavailable.")?;
         context[0].content.push_str(&format!(
@@ -3617,6 +3761,7 @@ async fn execute(
             store,
             provider,
             TurnRequest {
+                compatibility,
                 available_skills: Some(skills),
                 hooks,
                 skill_resources,
@@ -3714,6 +3859,9 @@ async fn execute(
         } else {
             approval
         };
+        if let Some(runtime) = &codex_hooks {
+            tools = runtime.wrap(tools);
+        }
         if let (Some(delegation), Some(log)) = (&delegation, &log) {
             delegation.bind(subagents::RuntimeContext {
                 provider: provider.clone(),
@@ -3866,6 +4014,20 @@ async fn execute(
         }
         if let Some(owner) = &command_sessions {
             reply.summary.tools.extend(owner.finish().await?);
+        }
+        if reply.pause.is_none() {
+            if let Some(runtime) = &codex_hooks {
+                // Stop observes a completed model turn; it cannot undo effects.
+                // Requests to create another turn are diagnosed, not replayed.
+                runtime
+                    .fire(
+                        "Stop",
+                        "",
+                        json!({"stop_hook_active":false,"last_assistant_message":reply.answer}),
+                        cancel.clone(),
+                    )
+                    .await?;
+            }
         }
         let saved = reply.answer.clone();
         let mut receipts = prior
@@ -4058,6 +4220,7 @@ fn initialize() -> Result<Engine, String> {
     engine.data_lock = Some(data_lock);
     engine.restore_keep_awake();
     engine.workspace_directory = Some(directory.join("workspaces"));
+    engine.codex_compatibility = codex_compat::Settings::open(&directory)?;
     #[cfg(windows)]
     match dolores_tools_command::isolation::Host::open(&directory.join("isolation")) {
         Ok(host) => {
@@ -4334,6 +4497,7 @@ mod tests {
                 store.clone(),
                 provider.clone(),
                 TurnRequest {
+                    compatibility: None,
                     available_skills: None,
                     hooks: None,
                     skill_resources: None,
@@ -4730,6 +4894,7 @@ mod tests {
     }
     fn deadline_request(input: &str) -> TurnRequest {
         TurnRequest {
+            compatibility: None,
             available_skills: None,
             hooks: None,
             skill_resources: None,

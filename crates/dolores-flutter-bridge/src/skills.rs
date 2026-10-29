@@ -125,15 +125,37 @@ fn read_document(root: &str, name: &str, scope: SkillScope) -> Result<SkillDocum
     }
 }
 impl Engine {
+    fn skill_source_document(
+        &self,
+        session: &str,
+        root: &str,
+        name: &str,
+        scope: SkillScope,
+    ) -> Result<SkillDocument, String> {
+        read_document(root, name, scope).or_else(|error| {
+            let mut imported = vec![];
+            crate::codex_compat::add_skills(
+                &self.codex_snapshot((!session.is_empty()).then_some(session))?,
+                &mut imported,
+            );
+            imported
+                .into_iter()
+                .find(|s| s.name == name && s.scope == scope)
+                .map(|s| s.current().document.clone())
+                .ok_or(error)
+        })
+    }
     pub(super) fn available_skills(
         &self,
         session: Option<&str>,
     ) -> Result<Vec<ProjectSkill>, String> {
-        for_session_with_global(
+        let mut skills = for_session_with_global(
             self.store.as_ref(),
             session,
             self.global_skills_directory.as_deref(),
-        )
+        )?;
+        crate::codex_compat::add_skills(&self.codex_snapshot(session)?, &mut skills);
+        Ok(skills)
     }
     pub(super) fn set_skill_enabled(
         &self,
@@ -151,7 +173,7 @@ impl Engine {
             let saved = match saved {
                 Some(saved) => saved,
                 None => {
-                    let document = read_document(&root, name, scope)?;
+                    let document = self.skill_source_document(session, &root, name, scope)?;
                     match scope {
                         SkillScope::Project => self
                             .store
@@ -178,12 +200,14 @@ impl Engine {
                     .ok_or("Skill could not be enabled.")?,
             );
         }
-        let document = read_document(&root, name, scope).or_else(|error| {
-            saved
-                .as_ref()
-                .map(|s| s.current().document.clone())
-                .ok_or(error)
-        })?;
+        let document = self
+            .skill_source_document(session, &root, name, scope)
+            .or_else(|error| {
+                saved
+                    .as_ref()
+                    .map(|s| s.current().document.clone())
+                    .ok_or(error)
+            })?;
         let revision = saved.as_ref().map(|s| s.revision);
         let value = match scope {
             SkillScope::Project => self
@@ -262,8 +286,11 @@ impl Engine {
         let root = self.skill_root(session, scope)?;
         let saved = self.saved_skills(&root, scope)?;
         let catalog = source_catalog(&root, scope);
-        let mut available = saved.clone();
-        load_files(&mut available, &root, scope);
+        let available = self
+            .available_skills((!session.is_empty()).then_some(session))?
+            .into_iter()
+            .filter(|s| s.scope == scope)
+            .collect::<Vec<_>>();
         let project_names: BTreeSet<_> = if scope == SkillScope::Global {
             self.available_skills((!session.is_empty()).then_some(session))?
                 .into_iter()
@@ -274,14 +301,15 @@ impl Engine {
             BTreeSet::new()
         };
         let mut names: BTreeSet<_> = saved.iter().map(|s| s.name.clone()).collect();
+        names.extend(available.iter().map(|s| s.name.clone()));
         if let Ok(catalog) = &catalog {
             names.extend(catalog.names.iter().cloned());
         }
         let items:Vec<_> = names.into_iter().map(|name| {
             let record = saved.iter().find(|s| s.name == name);
             let current = available.iter().find(|s|s.name==name);
-            let source_available = catalog.as_ref().is_ok_and(|c|c.sources.contains(&name));
-            let problem = if source_available { read_document(&root,&name,scope).err() } else { None };
+            let source_available = current.is_some() || catalog.as_ref().is_ok_and(|c|c.sources.contains(&name));
+            let problem = if source_available { self.skill_source_document(session,&root,&name,scope).err() } else { None };
             json!({"name":name,"scope":scope,"generated":record.is_some_and(|s| s.current().evaluation.is_some()),"overridden":project_names.contains(&name),"enabled":current.is_some_and(|s| s.enabled),"revision":record.map(|s| s.revision),"version":record.map(|s| s.current().version),"description":current.map(|s| &s.current().document.description),"sourceAvailable":source_available,"problem":problem})
         }).collect();
         Ok(

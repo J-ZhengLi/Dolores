@@ -2,6 +2,7 @@ import 'general_notifications.dart';
 import 'app_dropdown.dart';
 import 'learning.dart';
 import 'tools_home.dart';
+import 'codex_compatibility.dart';
 
 import 'package:flutter/material.dart';
 
@@ -41,6 +42,7 @@ enum SettingsCategory {
   companionship,
   memory,
   toolHome,
+  codexSetup,
   web,
   browser,
   desktop,
@@ -142,6 +144,12 @@ class _SettingsWindowState extends State<SettingsWindow> {
     SettingsSection.advanced: ('Advanced', Icons.settings_outlined),
   };
   static const destinations = <(String, SettingsCategory, ModelsPage, String)>[
+    (
+      'Codex setup',
+      SettingsCategory.codexSetup,
+      ModelsPage.connection,
+      'compatibility profile MCP hooks instructions skills CODEX_HOME',
+    ),
     (
       'Advanced overview',
       SettingsCategory.advancedHome,
@@ -375,6 +383,7 @@ class _SettingsWindowState extends State<SettingsWindow> {
   Widget unavailable(String message) =>
       Padding(padding: const EdgeInsets.all(24), child: Text(message));
   Widget editor() => switch (selected) {
+    SettingsCategory.codexSetup => CodexCompatibility(chat: widget.chat),
     SettingsCategory.background => AppearanceSettings(chat: widget.chat),
     SettingsCategory.companionship => CompanionshipSettings(chat: widget.chat),
     SettingsCategory.experimental => ExperimentalSettings(chat: widget.chat),

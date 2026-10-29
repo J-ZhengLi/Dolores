@@ -26,6 +26,8 @@ dolores-tools-browser = { path = "../dolores-tools-browser" }
 directories = "6"
 serde.workspace = true
 serde_json.workspace = true
+toml_edit = { version = "0.25", features = ["serde"] }
+regex = "1"
 base64 = "0.22"
 sha2 = "0.10"
 miniz_oxide = "0.8"

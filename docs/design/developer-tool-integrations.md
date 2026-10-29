@@ -1,18 +1,9 @@
-# Installed developer tools
+# Developer CLI launchers
 
-Working chats discover optional CodeGraph and RTK launchers from the app's PATH
-when preparing the command catalogue. Preview and execution use the same
-project-specific specification. Detection reads paths and supported launcher
-files only; it does not run commands, install packages or change project settings.
-Restart Dolores after changing PATH. Other CLIs remain available through the
-ordinary command tool without a program-name allowlist.
-
-CodeGraph guidance appears when its launcher exists and the selected project
-already contains `.codegraph/`. The model is directed to prefer an advertised
-CodeGraph MCP tool, or `codegraph explore` through `run_command`, for relevant
-source and call paths before broad searches. Missing/stale indexes retain the
-ordinary file-tool fallback. Detection does not initialize, rebuild or upgrade an
-index, start a service, or import another agent's MCP configuration.
+All installed CLIs use the ordinary command tool without a program-name allowlist.
+Dolores no longer injects guidance by recognizing particular package names.
+Integration instructions and configuration come through the selected
+[Codex setup](codex-compatibility.md). Restart Dolores after changing PATH.
 
 For repository-wide literal searches, prefer the installed index or a reviewed
 `run_command` invocation of `git grep`/`rg`. The built-in `search_text` is a
@@ -21,12 +12,6 @@ budget, up to 32 levels, 256 entries, 64 files and 30 matches. It explains parti
 coverage and skipped files. Empty partial results never establish absence;
 narrow the scope or switch to repository search instead of repeating the same
 scan. Secret/generated/dependency exclusions and link checks still apply.
-
-RTK guidance directs supported human-readable checks through RTK and uses its
-`proxy` path for exact output or unsupported commands. Structured protocol/JSON
-evidence and explicit raw-output requests remain unfiltered. This is automatic
-model guidance, not a shell-command rewriting hook; model compliance is not
-guaranteed. Dolores does not import or execute Claude/Codex hooks.
 
 On Windows, the command tool recognizes stock npm Node launchers and simple
 `@"%~dp0...node.exe" ... "%~dp0...js" %*` forwarding launchers. It resolves the
